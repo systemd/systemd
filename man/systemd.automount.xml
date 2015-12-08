@@ -85,10 +85,24 @@
 
     <para>Automount units may be used to implement on-demand mounting
     as well as parallelized mounting of file systems.</para>
+  </refsect1>
 
-    <para>If an automount point is beneath another mount point in the
-    file system hierarchy, a dependency between both units is created
-    automatically.</para>
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>If an automount unit is beneath another mount unit in the
+    file system hierarchy, both a requirement and an ordering
+    dependency between both units are created automatically.</para>
+
+    <para>An implicit <varname>Before=</varname> dependency is created
+    between an automount unit and the mount unit it activates.</para>
+
+    <para>Automount units acquire automatic <varname>Before=</varname>
+    and <varname>Conflicts=</varname> on
+    <filename>umount.target</filename> in order to be stopped during
+    shutdown, unless <varname>DefaultDependencies=no</varname> is
+    set.</para>
+
   </refsect1>
 
   <refsect1>
@@ -137,7 +151,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>TimeoutIdleSec=</varname></term>
-        <listitem><para>Configures an idleness timeout. Once the mount has been
+        <listitem><para>Configures an idle timeout. Once the mount has been
         idle for the specified time, systemd will attempt to unmount. Takes a
         unit-less value in seconds, or a time span value such as "5min 20s".
         Pass 0 to disable the timeout logic. The timeout is disabled by

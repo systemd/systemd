@@ -21,13 +21,19 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "dropin.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fstab-util.h"
 #include "generator.h"
 #include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
-#include "fstab-util.h"
+#include "proc-cmdline.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"

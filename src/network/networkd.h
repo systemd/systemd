@@ -23,19 +23,19 @@
 
 #include <arpa/inet.h>
 
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
-#include "sd-bus.h"
-#include "udev.h"
 
 #include "hashmap.h"
 #include "list.h"
+#include "udev.h"
 
 typedef struct Manager Manager;
 
-#include "networkd-network.h"
 #include "networkd-address-pool.h"
 #include "networkd-link.h"
+#include "networkd-network.h"
 #include "networkd-util.h"
 
 struct Manager {
@@ -48,7 +48,10 @@ struct Manager {
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
 
-        bool enumerating;
+        bool enumerating:1;
+        bool dirty:1;
+
+        Set *dirty_links;
 
         char *state_file;
         LinkOperationalState operational_state;
@@ -79,9 +82,13 @@ bool manager_should_reload(Manager *m);
 
 int manager_rtnl_enumerate_links(Manager *m);
 int manager_rtnl_enumerate_addresses(Manager *m);
+int manager_rtnl_enumerate_routes(Manager *m);
+
+int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, void *userdata);
+int manager_rtnl_process_route(sd_netlink *nl, sd_netlink_message *message, void *userdata);
 
 int manager_send_changed(Manager *m, const char *property, ...) _sentinel_;
-int manager_save(Manager *m);
+void manager_dirty(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
 

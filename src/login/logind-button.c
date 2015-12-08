@@ -19,16 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <linux/input.h>
 
 #include "sd-messages.h"
-#include "util.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "logind-button.h"
+#include "string-util.h"
+#include "util.h"
 
 Button* button_new(Manager *m, const char *name) {
         Button *b;

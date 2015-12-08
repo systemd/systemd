@@ -21,8 +21,9 @@
 
 #include <sched.h>
 
-#include "manager.h"
 #include "macro.h"
+#include "manager.h"
+#include "test-helper.h"
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
@@ -35,8 +36,8 @@ int main(int argc, char *argv[]) {
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);
         r = manager_new(MANAGER_USER, true, &m);
-        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT, -ENOEXEC)) {
-                printf("Skipping test: manager_new: %s", strerror(-r));
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);

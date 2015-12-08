@@ -26,12 +26,20 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -311,8 +319,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open %s: %m", path);
-                return -errno;
+                return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
         for (;;) {

@@ -130,7 +130,7 @@
           for this target unit to all services (except for those with
           <varname>DefaultDependencies=no</varname>).</para>
 
-          <para>Usually this should pull-in all local mount points plus
+          <para>Usually, this should pull-in all local mount points plus
           <filename>/var</filename>, <filename>/tmp</filename> and
           <filename>/var/tmp</filename>, swap devices, sockets, timers,
           path units and other basic initialization necessary for general
@@ -152,7 +152,7 @@
         <term><filename>ctrl-alt-del.target</filename></term>
         <listitem>
           <para>systemd starts this target whenever Control+Alt+Del is
-          pressed on the console. Usually this should be aliased
+          pressed on the console. Usually, this should be aliased
           (symlinked) to <filename>reboot.target</filename>.</para>
         </listitem>
       </varlistentry>
@@ -182,7 +182,7 @@
       <varlistentry>
         <term><filename>default.target</filename></term>
         <listitem>
-          <para>The default unit systemd starts at bootup. Usually
+          <para>The default unit systemd starts at bootup. Usually,
           this should be aliased (symlinked) to
           <filename>multi-user.target</filename> or
           <filename>graphical.target</filename>.</para>
@@ -195,7 +195,7 @@
       <varlistentry>
         <term><filename>display-manager.service</filename></term>
         <listitem>
-          <para>The display manager service. Usually this should be
+          <para>The display manager service. Usually, this should be
           aliased (symlinked) to <filename>gdm.service</filename> or a
           similar display manager service.</para>
         </listitem>
@@ -225,7 +225,7 @@
           signal when running as user service daemon.</para>
 
           <para>Normally, this (indirectly) pulls in
-          <filename>shutdown.target</filename> which in turn should be
+          <filename>shutdown.target</filename>, which in turn should be
           conflicted by all units that want to be scheduled for
           shutdown when the service manager starts to exit.</para>
         </listitem>

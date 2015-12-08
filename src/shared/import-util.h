@@ -47,3 +47,5 @@ bool dkr_id_is_valid(const char *id);
 bool dkr_ref_is_valid(const char *ref);
 bool dkr_digest_is_valid(const char *digest);
 #define dkr_tag_is_valid(tag) filename_is_valid(tag)
+
+int import_assign_pool_quota_and_warn(const char *path);

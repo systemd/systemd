@@ -19,13 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
+#include "dbus-target.h"
+#include "log.h"
+#include "special.h"
+#include "string-util.h"
+#include "unit-name.h"
 #include "unit.h"
 #include "target.h"
-#include "log.h"
-#include "dbus-target.h"
-#include "special.h"
-#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD] = UNIT_INACTIVE,
@@ -52,9 +52,7 @@ static int target_add_default_dependencies(Target *t) {
 
         static const UnitDependency deps[] = {
                 UNIT_REQUIRES,
-                UNIT_REQUIRES_OVERRIDABLE,
                 UNIT_REQUISITE,
-                UNIT_REQUISITE_OVERRIDABLE,
                 UNIT_WANTS,
                 UNIT_BINDS_TO,
                 UNIT_PART_OF

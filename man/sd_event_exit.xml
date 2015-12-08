@@ -1,0 +1,163 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_event_exit" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_exit</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_exit</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_exit</refname>
+    <refname>sd_event_get_exit_code</refname>
+
+    <refpurpose>Ask the event loop to exit</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_exit</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>int <parameter>code</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_get_exit_code</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>int *<parameter>code</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_exit()</function> requests the event loop
+    specified in the <parameter>event</parameter> event loop object to
+    exit. The <parameter>code</parameter> parameter may be any integer
+    value and is returned as-is by
+    <citerefentry><refentrytitle>sd_event_loop</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    after the last event loop iteration. It may also be be queried
+    using <function>sd_event_get_exit_code()</function>, see
+    below. </para>
+
+    <para>When exiting is requested the event loop will stop listening
+    for and dispatching regular event sources. Instead it will proceed
+    with executing only event sources registered with
+    <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    in the order defined by their priority. After all exit event
+    sources have been dispatched the event loop is terminated.</para>
+
+    <para>If <function>sd_event_exit()</function> is invoked a second
+    time while the event loop is still processing exit event sources,
+    the exit code stored in the event loop object is updated, but
+    otherwise no further operation is executed.</para>
+
+    <para><function>sd_event_get_exit_code()</function> may be used to
+    query the exit code passed into
+    <function>sd_event_exit()</function> earlier.</para>
+
+    <para>While the full positive and negative integer ranges may be used
+    for the exit code, care should be taken not pick exit codes that
+    conflict with regular exit codes returned by
+    <function>sd_event_loop()</function>, if these exit codes shall be
+    distinguishable.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_event_exit()</function> and
+    <function>sd_event_get_exit_code()</function> return 0 or a positive
+    integer. On failure, they return a negative errno-style error
+    code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>The event loop object or error code pointer are invalid.</para></listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The event loop was created in a different process.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ESTALE</constant></term>
+
+        <listitem><para>The event loop has exited already and all exit handlers are already processed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENODATA</constant></term>
+
+        <listitem><para>The event loop has not been requested to exit yet.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

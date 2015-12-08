@@ -1,0 +1,8 @@
+[Unit]
+Description=Test for UMask
+
+[Service]
+ExecStart=/bin/sh -x -c 'touch /tmp/test-exec-umask; mode=$$(stat -c %%a /tmp/test-exec-umask); test "$$mode" = "600"'
+Type=oneshot
+UMask=0177
+PrivateTmp=yes

@@ -33,12 +33,18 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "util.h"
 
-#include "sd-daemon.h"
+#define SNDBUF_SIZE (8*1024*1024)
 
 static void unsetenv_all(bool unset_environment) {
 
@@ -52,8 +58,7 @@ static void unsetenv_all(bool unset_environment) {
 
 _public_ int sd_listen_fds(int unset_environment) {
         const char *e;
-        unsigned n;
-        int r, fd;
+        int n, r, fd;
         pid_t pid;
 
         e = getenv("LISTEN_PID");
@@ -78,17 +83,23 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        r = safe_atou(e, &n);
+        r = safe_atoi(e, &n);
         if (r < 0)
                 goto finish;
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) n; fd ++) {
+        assert_cc(SD_LISTEN_FDS_START < INT_MAX);
+        if (n <= 0 || n > INT_MAX - SD_LISTEN_FDS_START) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
                 r = fd_cloexec(fd, true);
                 if (r < 0)
                         goto finish;
         }
 
-        r = (int) n;
+        r = n;
 
 finish:
         unsetenv_all(unset_environment);
@@ -430,11 +441,18 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                 goto finish;
         }
 
+        if (strlen(e) > sizeof(sockaddr.un.sun_path)) {
+                r = -EINVAL;
+                goto finish;
+        }
+
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0) {
                 r = -errno;
                 goto finish;
         }
+
+        fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         iovec.iov_len = strlen(state);
 
@@ -454,7 +472,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                         (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
                         (have_pid ? CMSG_SPACE(sizeof(struct ucred)) : 0);
 
-                msghdr.msg_control = alloca(msghdr.msg_controllen);
+                msghdr.msg_control = alloca0(msghdr.msg_controllen);
 
                 cmsg = CMSG_FIRSTHDR(&msghdr);
                 if (n_fds > 0) {
@@ -573,7 +591,7 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
         r = safe_atou64(s, &u);
         if (r < 0)
                 goto finish;
-        if (u <= 0) {
+        if (u <= 0 || u >= USEC_INFINITY) {
                 r = -EINVAL;
                 goto finish;
         }

@@ -20,17 +20,25 @@
 ***/
 
 #include <sys/mount.h>
+#include <linux/magic.h>
 
-#include "util.h"
-#include "rm-rf.h"
-#include "strv.h"
-#include "path-util.h"
-#include "mkdir.h"
-#include "label.h"
-#include "set.h"
+#include "alloc-util.h"
 #include "cgroup-util.h"
-
+#include "escape.h"
+#include "fs-util.h"
+#include "label.h"
+#include "mkdir.h"
+#include "mount-util.h"
 #include "nspawn-mount.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "rm-rf.h"
+#include "set.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "user-util.h"
+#include "util.h"
 
 CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
         CustomMount *c, *ret;
@@ -218,8 +226,19 @@ static int tmpfs_patch_options(
 
 int mount_sysfs(const char *dest) {
         const char *full, *top, *x;
+        int r;
 
         top = prefix_roota(dest, "/sys");
+        r = path_check_fstype(top, SYSFS_MAGIC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine filesystem type of %s: %m", top);
+        /* /sys might already be mounted as sysfs by the outer child in the
+         * !netns case. In this case, it's all good. Don't touch it because we
+         * don't have the right to do so, see https://github.com/systemd/systemd/issues/1555.
+         */
+        if (r > 0)
+                return 0;
+
         full = prefix_roota(top, "/full");
 
         (void) mkdir(full, 0755);
@@ -264,6 +283,7 @@ int mount_sysfs(const char *dest) {
 
 int mount_all(const char *dest,
               bool use_userns, bool in_userns,
+              bool use_netns,
               uid_t uid_shift, uid_t uid_range,
               const char *selinux_apifs_context) {
 
@@ -274,21 +294,23 @@ int mount_all(const char *dest,
                 const char *options;
                 unsigned long flags;
                 bool fatal;
-                bool userns;
+                bool in_userns;
+                bool use_netns;
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",      "/proc",          "proc",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  true  },
-                { "/proc/sys", "/proc/sys",      NULL,     NULL,        MS_BIND,                                                   true,  true  },   /* Bind mount first */
-                { NULL,        "/proc/sys",      NULL,     NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, true,  true  },   /* Then, make it r/o */
-                { "tmpfs",     "/sys",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  false },
-                { "tmpfs",     "/dev",           "tmpfs",  "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  true,  false },
-                { "tmpfs",     "/dev/shm",       "tmpfs",  "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
-                { "tmpfs",     "/run",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false },
-                { "tmpfs",     "/tmp",           "tmpfs",  "mode=1777", MS_STRICTATIME,                                            true,  false },
+                { "proc",      "/proc",          "proc",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  true, false  },
+                { "/proc/sys", "/proc/sys",      NULL,     NULL,        MS_BIND,                                                   true,  true, false  },   /* Bind mount first */
+                { NULL,        "/proc/sys",      NULL,     NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, true,  true, false  },   /* Then, make it r/o */
+                { "tmpfs",     "/sys",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  false, true },
+                { "sysfs",     "/sys",           "sysfs",  NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    true,  false, false },
+                { "tmpfs",     "/dev",           "tmpfs",  "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  true,  false, false },
+                { "tmpfs",     "/dev/shm",       "tmpfs",  "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false, false },
+                { "tmpfs",     "/run",           "tmpfs",  "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false, false },
+                { "tmpfs",     "/tmp",           "tmpfs",  "mode=1777", MS_STRICTATIME,                                            true,  false, false },
 #ifdef HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL,     MS_BIND,                                                   false, false },  /* Bind mount first */
-                { NULL,              "/sys/fs/selinux", NULL, NULL,     MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, false, false },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL,     MS_BIND,                                                   false, false, false },  /* Bind mount first */
+                { NULL,              "/sys/fs/selinux", NULL, NULL,     MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, false, false, false },  /* Then, make it r/o */
 #endif
         };
 
@@ -299,7 +321,10 @@ int mount_all(const char *dest,
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
 
-                if (in_userns != mount_table[k].userns)
+                if (in_userns != mount_table[k].in_userns)
+                        continue;
+
+                if (!use_netns && mount_table[k].use_netns)
                         continue;
 
                 where = prefix_root(dest, mount_table[k].where);
@@ -416,8 +441,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to make parents of %s: %m", where);
         } else {
-                log_error_errno(errno, "Failed to stat %s: %m", where);
-                return -errno;
+                return log_error_errno(errno, "Failed to stat %s: %m", where);
         }
 
         /* Create the mount point. Any non-directory file can be

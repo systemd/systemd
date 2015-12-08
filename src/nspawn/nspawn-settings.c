@@ -19,12 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "conf-parser.h"
-#include "strv.h"
+#include "alloc-util.h"
 #include "cap-list.h"
-
+#include "conf-parser.h"
+#include "nspawn-network.h"
 #include "nspawn-settings.h"
+#include "process-util.h"
+#include "strv.h"
+#include "util.h"
 
 int settings_load(FILE *f, const char *path, Settings **ret) {
         _cleanup_(settings_freep) Settings *s = NULL;
@@ -76,6 +78,7 @@ Settings* settings_free(Settings *s) {
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
         strv_free(s->network_ipvlan);
+        strv_free(s->network_veth_extra);
         free(s->network_bridge);
         expose_port_free_all(s->expose_ports);
 
@@ -83,6 +86,27 @@ Settings* settings_free(Settings *s) {
         free(s);
 
         return NULL;
+}
+
+bool settings_private_network(Settings *s) {
+        assert(s);
+
+        return
+                s->private_network > 0 ||
+                s->network_veth > 0 ||
+                s->network_bridge ||
+                s->network_interfaces ||
+                s->network_macvlan ||
+                s->network_ipvlan ||
+                s->network_veth_extra;
+}
+
+bool settings_network_veth(Settings *s) {
+        assert(s);
+
+        return
+                s->network_veth > 0 ||
+                s->network_bridge;
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
@@ -248,15 +272,33 @@ int config_parse_tmpfs(
                 return 0;
         }
 
-        if (settings->network_bridge)
-                settings->network_veth = true;
+        return 0;
+}
 
-        if (settings->network_interfaces ||
-            settings->network_macvlan ||
-            settings->network_ipvlan ||
-            settings->network_bridge ||
-            settings->network_veth)
-                settings->private_network = true;
+int config_parse_veth_extra(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = veth_extra_parse(&settings->network_veth_extra, rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid extra virtual Ethernet link specification %s: %m", rvalue);
+                return 0;
+        }
 
         return 0;
 }

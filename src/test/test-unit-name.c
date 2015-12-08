@@ -21,21 +21,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pwd.h>
 
+#include "alloc-util.h"
+#include "hostname-util.h"
+#include "macro.h"
 #include "manager.h"
-#include "unit.h"
+#include "path-util.h"
+#include "specifier.h"
+#include "string-util.h"
+#include "test-helper.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "specifier.h"
+#include "unit.h"
+#include "user-util.h"
 #include "util.h"
-#include "macro.h"
-#include "path-util.h"
-#include "test-helper.h"
-#include "hostname-util.h"
 
 static void test_unit_name_is_valid(void) {
         assert_se(unit_name_is_valid("foo.service", UNIT_NAME_ANY));
@@ -191,15 +194,15 @@ static int test_unit_printf(void) {
         Unit *u, *u2;
         int r;
 
-        _cleanup_free_ char *mid, *bid, *host, *root_uid;
-        struct passwd *root;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
-        assert_se((host = gethostname_malloc()));
-
-        assert_se((root = getpwnam("root")));
-        assert_se(asprintf(&root_uid, "%d", (int) root->pw_uid) > 0);
+        assert_se(host = gethostname_malloc());
+        assert_se(user = getusername_malloc());
+        assert_se(asprintf(&uid, UID_FMT, getuid()));
+        assert_se(get_home_dir(&home) >= 0);
+        assert_se(get_shell(&shell) >= 0);
 
         r = manager_new(MANAGER_USER, true, &m);
         if (r == -EPERM || r == -EACCES || r == -EADDRINUSE) {
@@ -220,8 +223,6 @@ static int test_unit_printf(void) {
                         assert_se(streq(t, expected));                     \
         }
 
-        assert_se(setenv("USER", "root", 1) == 0);
-        assert_se(setenv("HOME", "/root", 1) == 0);
         assert_se(setenv("XDG_RUNTIME_DIR", "/run/user/1/", 1) == 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
@@ -240,9 +241,9 @@ static int test_unit_printf(void) {
         expect(u, "%p", "blah");
         expect(u, "%P", "blah");
         expect(u, "%i", "");
-        expect(u, "%u", root->pw_name);
-        expect(u, "%U", root_uid);
-        expect(u, "%h", root->pw_dir);
+        expect(u, "%u", user);
+        expect(u, "%U", uid);
+        expect(u, "%h", home);
         expect(u, "%m", mid);
         expect(u, "%b", bid);
         expect(u, "%H", host);
@@ -260,9 +261,9 @@ static int test_unit_printf(void) {
         expect(u2, "%P", "blah");
         expect(u2, "%i", "foo-foo");
         expect(u2, "%I", "foo/foo");
-        expect(u2, "%u", root->pw_name);
-        expect(u2, "%U", root_uid);
-        expect(u2, "%h", root->pw_dir);
+        expect(u2, "%u", user);
+        expect(u2, "%U", uid);
+        expect(u2, "%h", home);
         expect(u2, "%m", mid);
         expect(u2, "%b", bid);
         expect(u2, "%H", host);

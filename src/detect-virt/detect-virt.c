@@ -31,7 +31,8 @@ static bool arg_quiet = false;
 static enum {
         ANY_VIRTUALIZATION,
         ONLY_VM,
-        ONLY_CONTAINER
+        ONLY_CONTAINER,
+        ONLY_CHROOT,
 } arg_mode = ANY_VIRTUALIZATION;
 
 static void help(void) {
@@ -41,6 +42,7 @@ static void help(void) {
                "     --version          Show package version\n"
                "  -c --container        Only detect whether we are run in a container\n"
                "  -v --vm               Only detect whether we are run in a VM\n"
+               "  -r --chroot           Detect whether we are run in a chroot() environment\n"
                "  -q --quiet            Don't output anything, just set return value\n"
                , program_invocation_short_name);
 }
@@ -55,7 +57,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",      no_argument,       NULL, 'h'           },
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "container", no_argument,       NULL, 'c'           },
-                { "vm",        optional_argument, NULL, 'v'           },
+                { "vm",        no_argument,       NULL, 'v'           },
+                { "chroot",    no_argument,       NULL, 'r'           },
                 { "quiet",     no_argument,       NULL, 'q'           },
                 {}
         };
@@ -65,7 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqcv", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqcvr", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -86,6 +89,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'v':
                         arg_mode = ONLY_VM;
+                        break;
+
+                case 'r':
+                        arg_mode = ONLY_CHROOT;
                         break;
 
                 case '?':
@@ -136,6 +143,15 @@ int main(int argc, char *argv[]) {
                 }
 
                 break;
+
+        case ONLY_CHROOT:
+                r = running_in_chroot();
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check for chroot() environment: %m");
+                        return EXIT_FAILURE;
+                }
+
+                return r ? EXIT_SUCCESS : EXIT_FAILURE;
 
         case ANY_VIRTUALIZATION:
         default:

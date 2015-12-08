@@ -1,0 +1,264 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+# Korean translation
+
+# The catalog format is documented on
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# For an explanation why we do all this, see https://xkcd.com/1024/
+#
+# Translator :
+#     Seong-ho Cho <darkcircle.0426@gmail.com>, 2015.
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: 저널 시작
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+시스템 저널 프로세스를 시작했고 기록목적으로 저널 파일을 열었으며,
+프로세스 요청을 기다리고 있습니다.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: 저널 멈춤
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+시스템 저널 프로세스를 껐고 현재 활성화 중인 저널 파일을 모두
+닫았습니다.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: 서비스의 메시지를 거절함
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+일정 시간동안 서비스에서 너무 많은 메시지를 기록했습니다.
+서비스에서 오는 메시지를 거절했습니다.
+
+의문점이 있는 서비스로부터 오는 메시지만 거절했음을 참고하십시오
+다른 서비스의 메시지에는 영향을 주지 않습니다.
+
+메시지 거절 제어 제한 값은 /etc/systemd/journald.conf 의
+RateLimitInterval= 변수와 RateLimitBurst= 변수로 설정합니다.
+자세한 내용은 ournald.conf(5)를 살펴보십시오.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: 저널 메시지 놓침
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+저널 시스템에서 커널 메시지를 충분히 빠르게 처리할 수 없어 커널
+ 메시지를 잃었습니다.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: 프로세스 @COREDUMP_PID@번 코어 덤프(@COREDUMP_COMM@) 생성함
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+프로세스 @COREDUMP_PID@번 (@COREDUMP_COMM@)이 비정상적으로 끝나
+코어 덤프를 생성했습니다.
+
+보통 비정상 종료 관리 프로그램에서 프로그래밍 오류를 나타내며,
+제작자에게 버그로 보고해야합니다.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: @USER_ID@ 사용자의 새 @SESSION_ID@ 세션 만듦
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+@USER_ID@ 사용자의 새 @SESSION_ID@ 세션을 만들었습니다.
+
+이 세션의 관리 프로세스는 @LEADER@ 입니다.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: @SESSION_ID@ 세션 마침
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+@SESSION_ID@ 세션을 끝냈습니다.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: 새 @SEAT_ID@ 시트 사용할 수 있음
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+새 @SEAT_ID@ 시트를 설정했고 사용할 수 있습니다.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: @SEAT_ID@ 시트 제거함
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+@SEAT_ID@ 시트를 제거했으며 더이상 사용할 수 없습니다.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: 시간 바꿈
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+시스템 시계를 1970년 1월 1일 이후로 @REALTIME@ 마이크로초 지난 값으로
+설정했습니다.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: @TIMEZONE@ 시간대로 시간대 바꿈
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+시스템 시간대를 @TIMEZONE@ 시간대로 바꾸었습니다.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: 시스템 시동 마침
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+부팅 과정에 시작하려고 준비한 모든 시스템 서비스를 성공적으로
+ 시작했습니다. 머신이 서비스처럼 대기중이라는 의미는 아니며
+지동을 완전히 마칠 때까지 사용중일 수도 있는 점 참고하십시오.
+
+커널 시동에 @KERNEL_USEC@ 마이크로초가 걸립니다.
+
+초기 램 디스크 시동에 @INITRD_USEC@ 마이크로초가 걸립니다.
+
+사용자 영역 시동에 @USERSPACE_USEC@ 마이크로초가 걸립니다.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: @SLEEP@ 대기 상태 진입
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@SLEEP@ 대기 상태로 진입했습니다.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: @SLEEP@ 대기 상태 마침
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@SLEEP@ 대기 상태를 마쳤습니다.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: 컴퓨터 끄기 시작
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+컴퓨터 끄기 동작을 시작했습니다. 모든 시스템 동작을 멈추고
+모든 파일 시스템의 마운트를 해제합니다.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: @UNIT@ 유닛 시작
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 유닛을 시작했습니다.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: @UNIT@ 유닛 시동 마침
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 유닛 시동을 마쳤습니다.
+
+시동 결과는 @RESULT@ 입니다.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: @UNIT@ 유닛 끝내기 동작 시작
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 유닛 끝내기 동작을 시작했습니다.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: @UNIT@ 유닛 끝내기 동작 마침
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 유닛 끝내기 동작을 마쳤습니다.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: @UNIT@ 유닛 동작 실패
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 유닛 동작에 실패했습니다.
+
+결과는 @RESULT@ 입니다.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: @UNIT@ 유닛 설정 다시 읽기 시작
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 유닛의 설정 다시 읽기를 시작했습니다
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: @UNIT@ 유닛 설정 다시 읽기 완료
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@UNIT@ 유닛의 설정 다시 읽기 동작을 끝냈습니다.
+
+결과는 @RESULT@ 입니다.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: @EXECUTABLE@ 프로세스 시작할 수 없음
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@EXECUTABLE@ 프로세스를 시작할 수 없어 실행에 실패했습니다.
+
+이 프로세스에서 반환한 오류 번호는 @ERRNO@번 입니다.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: 하나 이상의 메시지를 syslog에 전달할 수 없음
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+journald 서비스와 동시에 실행중인 syslog 서비스에 하나 이상의 메시지를
+전달할 수 없습니다. 보통 순차적으로 오는 메시지의 속도를 syslog 구현체가
+따라가지 못함을 의미합니다.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: 마운트 지점 비어있지 않음
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@WHERE@ 디렉터리를 마운트 지점으로 지정했으며 (/etc/fstab 파일의
+ 두번째 필드 또는 systemd 유닛 파일의 Where= 필드) 비어있지 않습니다.
+마운트 과정에 방해가 되진 않지만 이전에 이 디렉터리에 존재하는 파일에
+ 접근할 수 없게 됩니다. 중복으로 마운트한 파일을 보려면, 근본 파일
+시스템의 다음 위치에 직접 마운트하십시오.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: 가상 머신 또는 컨테이너 시작
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@LEADER@ 프로세스 ID로 동작하는 @NAME@ 가상 머신을 시작했으며,
+이제부터 사용할 수 있습니다.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: 가상 머신 또는 컨테이너 마침
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@LEADER@ 프로세스 ID로 동작하는 @NAME@ 가상 머신을 껐습니다.

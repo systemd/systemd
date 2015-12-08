@@ -19,25 +19,35 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stddef.h>
+#include <unistd.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
-#include "sd-event.h"
 #include "sd-daemon.h"
-#include "socket-util.h"
-#include "selinux-util.h"
-#include "mkdir.h"
+#include "sd-event.h"
+
+#include "alloc-util.h"
+#include "dirent-util.h"
+#include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
+#include "journald-console.h"
+#include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
-#include "journald-kmsg.h"
-#include "journald-console.h"
 #include "journald-wall.h"
+#include "mkdir.h"
+#include "parse-util.h"
+#include "selinux-util.h"
+#include "socket-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
+#include "syslog-util.h"
 
 #define STDOUT_STREAMS_MAX 4096
 
@@ -69,6 +79,7 @@ struct StdoutStream {
         bool forward_to_console:1;
 
         bool fdstore:1;
+        bool in_notify_queue:1;
 
         char buffer[LINE_MAX+1];
         size_t length;
@@ -78,6 +89,7 @@ struct StdoutStream {
         char *state_file;
 
         LIST_FIELDS(StdoutStream, stdout_stream);
+        LIST_FIELDS(StdoutStream, stdout_stream_notify_queue);
 };
 
 void stdout_stream_free(StdoutStream *s) {
@@ -88,6 +100,9 @@ void stdout_stream_free(StdoutStream *s) {
                 assert(s->server->n_stdout_streams > 0);
                 s->server->n_stdout_streams --;
                 LIST_REMOVE(stdout_stream, s->server->stdout_streams, s);
+
+                if (s->in_notify_queue)
+                        LIST_REMOVE(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
         }
 
         if (s->event_source) {
@@ -111,7 +126,7 @@ static void stdout_stream_destroy(StdoutStream *s) {
                 return;
 
         if (s->state_file)
-                unlink(s->state_file);
+                (void) unlink(s->state_file);
 
         stdout_stream_free(s);
 }
@@ -190,11 +205,15 @@ static int stdout_stream_save(StdoutStream *s) {
                 goto fail;
         }
 
-        /* Store the connection fd in PID 1, so that we get it passed
-         * in again on next start */
-        if (!s->fdstore) {
-                sd_pid_notify_with_fds(0, false, "FDSTORE=1", &s->fd, 1);
-                s->fdstore = true;
+        if (!s->fdstore && !s->in_notify_queue) {
+                LIST_PREPEND(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
+                s->in_notify_queue = true;
+
+                if (s->server->notify_event_source) {
+                        r = sd_event_source_set_enabled(s->server->notify_event_source, SD_EVENT_ON);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to enable notify event source: %m");
+                }
         }
 
         return 0;
@@ -220,13 +239,13 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         assert(s);
         assert(p);
 
-        if (isempty(p))
-                return 0;
-
         priority = s->priority;
 
         if (s->level_prefix)
                 syslog_parse_priority(&p, &priority, false);
+
+        if (isempty(p))
+                return 0;
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
@@ -267,10 +286,12 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
 static int stdout_stream_line(StdoutStream *s, char *p) {
         int r;
+        char *orig;
 
         assert(s);
         assert(p);
 
+        orig = p;
         p = strstrip(p);
 
         switch (s->state) {
@@ -359,7 +380,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 return 0;
 
         case STDOUT_STREAM_RUNNING:
-                return stdout_stream_log(s, p);
+                return stdout_stream_log(s, orig);
         }
 
         assert_not_reached("Unknown stream state");
@@ -472,7 +493,7 @@ static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine peer credentials: %m");
 
-        if (mac_selinux_use()) {
+        if (mac_selinux_have()) {
                 r = getpeersec(fd, &stream->label);
                 if (r < 0 && r != -EOPNOTSUPP)
                         (void) log_warning_errno(r, "Failed to determine peer security context: %m");
@@ -519,8 +540,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                 if (errno == EAGAIN)
                         return 0;
 
-                log_error_errno(errno, "Failed to accept stdout connection: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to accept stdout connection: %m");
         }
 
         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
@@ -627,7 +647,7 @@ static int stdout_stream_restore(Server *s, const char *fname, int fd) {
         return 0;
 }
 
-static int server_restore_streams(Server *s, FDSet *fds) {
+int server_restore_streams(Server *s, FDSet *fds) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r;
@@ -681,7 +701,7 @@ fail:
         return log_error_errno(errno, "Failed to read streams directory: %m");
 }
 
-int server_open_stdout_socket(Server *s, FDSet *fds) {
+int server_open_stdout_socket(Server *s) {
         int r;
 
         assert(s);
@@ -717,8 +737,52 @@ int server_open_stdout_socket(Server *s, FDSet *fds) {
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
 
-        /* Try to restore streams, but don't bother if this fails */
-        (void) server_restore_streams(s, fds);
-
         return 0;
+}
+
+void stdout_stream_send_notify(StdoutStream *s) {
+        struct iovec iovec = {
+                .iov_base = (char*) "FDSTORE=1",
+                .iov_len = strlen("FDSTORE=1"),
+        };
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+        };
+        struct cmsghdr *cmsg;
+        ssize_t l;
+
+        assert(s);
+        assert(!s->fdstore);
+        assert(s->in_notify_queue);
+        assert(s->server);
+        assert(s->server->notify_fd >= 0);
+
+        /* Store the connection fd in PID 1, so that we get it passed
+         * in again on next start */
+
+        msghdr.msg_controllen = CMSG_SPACE(sizeof(int));
+        msghdr.msg_control = alloca0(msghdr.msg_controllen);
+
+        cmsg = CMSG_FIRSTHDR(&msghdr);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+
+        memcpy(CMSG_DATA(cmsg), &s->fd, sizeof(int));
+
+        l = sendmsg(s->server->notify_fd, &msghdr, MSG_DONTWAIT|MSG_NOSIGNAL);
+        if (l < 0) {
+                if (errno == EAGAIN)
+                        return;
+
+                log_error_errno(errno, "Failed to send stream file descriptor to service manager: %m");
+        } else {
+                log_debug("Successfully sent stream file descriptor to service manager.");
+                s->fdstore = 1;
+        }
+
+        LIST_REMOVE(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
+        s->in_notify_queue = false;
+
 }

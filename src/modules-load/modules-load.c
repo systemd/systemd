@@ -21,19 +21,24 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <libkmod.h>
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <libkmod.h>
 
 #include "conf-files.h"
+#include "def.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
+#include "proc-cmdline.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 
 static char **arg_proc_cmdline_modules = NULL;
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("modules-load");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {
@@ -146,8 +151,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                         if (feof(f))
                                 break;
 
-                        log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                 }
 
                 l = strstrip(line);

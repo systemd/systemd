@@ -20,8 +20,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
+#include <errno.h>
+#include <stddef.h>
+#include <syslog.h>
+
+#include "alloc-util.h"
 #include "cpu-set-util.h"
+#include "extract-word.h"
+#include "log.h"
+#include "macro.h"
+#include "parse-util.h"
+#include "string-util.h"
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         cpu_set_t *c;
@@ -69,14 +78,12 @@ int parse_cpu_set_and_warn(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                unsigned cpu;
+                unsigned cpu, cpu_lower, cpu_upper;
                 int r;
 
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
-                        return r;
-                }
+                r = extract_first_word(&rvalue, &word, WHITESPACE ",", EXTRACT_QUOTES);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
                 if (r == 0)
                         break;
 
@@ -86,13 +93,17 @@ int parse_cpu_set_and_warn(
                                 return log_oom();
                 }
 
-                r = safe_atou(word, &cpu);
-                if (r < 0 || cpu >= ncpus) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", rvalue);
-                        return -EINVAL;
-                }
+                r = parse_range(word, &cpu_lower, &cpu_upper);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word);
+                if (cpu_lower >= ncpus || cpu_upper >= ncpus)
+                        return log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU out of range '%s' ncpus is %u", word, ncpus);
 
-                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
+                if (cpu_lower > cpu_upper)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u", word, cpu_lower, cpu_upper);
+                else
+                        for (cpu = cpu_lower; cpu <= cpu_upper; cpu++)
+                                CPU_SET_S(cpu, CPU_ALLOC_SIZE(ncpus), c);
         }
 
         /* On success, sets *cpu_set and returns ncpus for the system. */

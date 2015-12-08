@@ -19,15 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <time.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <time.h>
 
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "fileio.h"
-#include "journald-server.h"
-#include "journald-console.h"
 #include "formats-util.h"
+#include "io-util.h"
+#include "journald-console.h"
+#include "journald-server.h"
+#include "parse-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "terminal-util.h"
 
 static bool prefix_timestamp(void) {
@@ -101,7 +106,7 @@ void server_forward_console(
 
         fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open %s for logging: %m", tty);
+                log_debug_errno(fd, "Failed to open %s for logging: %m", tty);
                 return;
         }
 

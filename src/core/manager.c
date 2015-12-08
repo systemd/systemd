@@ -40,6 +40,7 @@
 #include "sd-daemon.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bus-common-errors.h"
@@ -51,13 +52,20 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "locale-setup.h"
 #include "log.h"
 #include "macro.h"
+#include "manager.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -65,15 +73,20 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "special.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
+#include "umask-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "virt.h"
 #include "watchdog.h"
-#include "manager.h"
+
+#define NOTIFY_RCVBUF_SIZE (8*1024*1024)
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
@@ -473,7 +486,7 @@ static int manager_setup_signals(Manager *m) {
          * later than notify_fd processing, so that the notify
          * processing can still figure out to which process/service a
          * message belongs, before we reap the process. */
-        r = sd_event_source_set_priority(m->signal_event_source, -5);
+        r = sd_event_source_set_priority(m->signal_event_source, SD_EVENT_PRIORITY_NORMAL-5);
         if (r < 0)
                 return r;
 
@@ -564,6 +577,8 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
         m->running_as = running_as;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
+        m->default_tasks_accounting = true;
+        m->default_tasks_max = UINT64_C(512);
 
         /* Prepare log fields we can use for structured logging */
         m->unit_log_field = unit_log_fields[running_as];
@@ -678,6 +693,8 @@ static int manager_setup_notify(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
+                fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
+
                 if (m->running_as == MANAGER_SYSTEM)
                         m->notify_socket = strdup("/run/systemd/notify");
                 else {
@@ -719,7 +736,7 @@ static int manager_setup_notify(Manager *m) {
 
                 /* Process signals a bit earlier than SIGCHLD, so that we can
                  * still identify to which service an exit message belongs */
-                r = sd_event_source_set_priority(m->notify_event_source, -7);
+                r = sd_event_source_set_priority(m->notify_event_source, SD_EVENT_PRIORITY_NORMAL-7);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
 
@@ -978,8 +995,7 @@ Manager* manager_free(Manager *m) {
         return NULL;
 }
 
-int manager_enumerate(Manager *m) {
-        int r = 0;
+void manager_enumerate(Manager *m) {
         UnitType c;
 
         assert(m);
@@ -987,8 +1003,6 @@ int manager_enumerate(Manager *m) {
         /* Let's ask every type to load all units from disk/kernel
          * that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {
-                int q;
-
                 if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
                         continue;
@@ -997,13 +1011,10 @@ int manager_enumerate(Manager *m) {
                 if (!unit_vtable[c]->enumerate)
                         continue;
 
-                q = unit_vtable[c]->enumerate(m);
-                if (q < 0)
-                        r = q;
+                unit_vtable[c]->enumerate(m);
         }
 
         manager_dispatch_load_queue(m);
-        return r;
 }
 
 static void manager_coldplug(Manager *m) {
@@ -1085,10 +1096,9 @@ fail:
 }
 
 
-static int manager_distribute_fds(Manager *m, FDSet *fds) {
-        Unit *u;
+static void manager_distribute_fds(Manager *m, FDSet *fds) {
         Iterator i;
-        int r;
+        Unit *u;
 
         assert(m);
 
@@ -1097,14 +1107,11 @@ static int manager_distribute_fds(Manager *m, FDSet *fds) {
                 if (fdset_size(fds) <= 0)
                         break;
 
-                if (UNIT_VTABLE(u)->distribute_fds) {
-                        r = UNIT_VTABLE(u)->distribute_fds(u, fds);
-                        if (r < 0)
-                                return r;
-                }
-        }
+                if (!UNIT_VTABLE(u)->distribute_fds)
+                        continue;
 
-        return 0;
+                UNIT_VTABLE(u)->distribute_fds(u, fds);
+        }
 }
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
@@ -1137,7 +1144,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* First, enumerate what we can from all config files */
         dual_timestamp_get(&m->units_load_start_timestamp);
-        r = manager_enumerate(m);
+        manager_enumerate(m);
         dual_timestamp_get(&m->units_load_finish_timestamp);
 
         /* Second, deserialize if there is something to deserialize */
@@ -1148,11 +1155,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * useful to allow container managers to pass some file
          * descriptors to us pre-initialized. This enables
          * socket-based activation of entire containers. */
-        if (fdset_size(fds) > 0) {
-                q = manager_distribute_fds(m, fds);
-                if (q < 0 && r == 0)
-                        r = q;
-        }
+        manager_distribute_fds(m, fds);
 
         /* We might have deserialized the notify fd, but if we didn't
          * then let's create the bus now */
@@ -1182,7 +1185,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         return r;
 }
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret) {
         int r;
         Transaction *tr;
 
@@ -1205,7 +1208,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (!tr)
                 return -ENOMEM;
 
-        r = transaction_add_job_and_dependencies(tr, type, unit, NULL, true, override, false,
+        r = transaction_add_job_and_dependencies(tr, type, unit, NULL, true, false,
                                                  mode == JOB_IGNORE_DEPENDENCIES || mode == JOB_IGNORE_REQUIREMENTS,
                                                  mode == JOB_IGNORE_DEPENDENCIES, e);
         if (r < 0)
@@ -1237,7 +1240,7 @@ tr_abort:
         return r;
 }
 
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, sd_bus_error *e, Job **ret) {
         Unit *unit;
         int r;
 
@@ -1250,7 +1253,23 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         if (r < 0)
                 return r;
 
-        return manager_add_job(m, type, unit, mode, override, e, _ret);
+        return manager_add_job(m, type, unit, mode, e, ret);
+}
+
+int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Job **ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(m);
+        assert(type < _JOB_TYPE_MAX);
+        assert(name);
+        assert(mode < _JOB_MODE_MAX);
+
+        r = manager_add_job_by_name(m, type, name, mode, &error, ret);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to enqueue %s job for %s: %s", job_mode_to_string(mode), name, bus_error_message(&error, r));
+
+        return r;
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {
@@ -1477,7 +1496,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         return n;
 }
 
-static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *buf, size_t n, FDSet *fds) {
+static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const char *buf, size_t n, FDSet *fds) {
         _cleanup_strv_free_ char **tags = NULL;
 
         assert(m);
@@ -1498,9 +1517,33 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *
 }
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        _cleanup_fdset_free_ FDSet *fds = NULL;
         Manager *m = userdata;
+
+        char buf[NOTIFY_BUFFER_MAX+1];
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
+        } control = {};
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+
+        struct cmsghdr *cmsg;
+        struct ucred *ucred = NULL;
+        bool found = false;
+        Unit *u1, *u2, *u3;
+        int r, *fd_array = NULL;
+        unsigned n_fds = 0;
         ssize_t n;
-        int r;
 
         assert(m);
         assert(m->notify_fd == fd);
@@ -1510,106 +1553,80 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        for (;;) {
-                _cleanup_fdset_free_ FDSet *fds = NULL;
-                char buf[NOTIFY_BUFFER_MAX+1];
-                struct iovec iovec = {
-                        .iov_base = buf,
-                        .iov_len = sizeof(buf)-1,
-                };
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                                    CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
-                } control = {};
-                struct msghdr msghdr = {
-                        .msg_iov = &iovec,
-                        .msg_iovlen = 1,
-                        .msg_control = &control,
-                        .msg_controllen = sizeof(control),
-                };
-                struct cmsghdr *cmsg;
-                struct ucred *ucred = NULL;
-                bool found = false;
-                Unit *u1, *u2, *u3;
-                int *fd_array = NULL;
-                unsigned n_fds = 0;
+        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
 
-                n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (n < 0) {
-                        if (errno == EAGAIN || errno == EINTR)
-                                break;
-
-                        return -errno;
-                }
-
-                CMSG_FOREACH(cmsg, &msghdr) {
-                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-
-                                fd_array = (int*) CMSG_DATA(cmsg);
-                                n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-
-                        } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                   cmsg->cmsg_type == SCM_CREDENTIALS &&
-                                   cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-
-                                ucred = (struct ucred*) CMSG_DATA(cmsg);
-                        }
-                }
-
-                if (n_fds > 0) {
-                        assert(fd_array);
-
-                        r = fdset_new_array(&fds, fd_array, n_fds);
-                        if (r < 0) {
-                                close_many(fd_array, n_fds);
-                                return log_oom();
-                        }
-                }
-
-                if (!ucred || ucred->pid <= 0) {
-                        log_warning("Received notify message without valid credentials. Ignoring.");
-                        continue;
-                }
-
-                if ((size_t) n >= sizeof(buf)) {
-                        log_warning("Received notify message exceeded maximum size. Ignoring.");
-                        continue;
-                }
-
-                buf[n] = 0;
-
-                /* Notify every unit that might be interested, but try
-                 * to avoid notifying the same one multiple times. */
-                u1 = manager_get_unit_by_pid_cgroup(m, ucred->pid);
-                if (u1) {
-                        manager_invoke_notify_message(m, u1, ucred->pid, buf, n, fds);
-                        found = true;
-                }
-
-                u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(ucred->pid));
-                if (u2 && u2 != u1) {
-                        manager_invoke_notify_message(m, u2, ucred->pid, buf, n, fds);
-                        found = true;
-                }
-
-                u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(ucred->pid));
-                if (u3 && u3 != u2 && u3 != u1) {
-                        manager_invoke_notify_message(m, u3, ucred->pid, buf, n, fds);
-                        found = true;
-                }
-
-                if (!found)
-                        log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
-
-                if (fdset_size(fds) > 0)
-                        log_warning("Got auxiliary fds with notification message, closing all.");
+                return -errno;
         }
+
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+
+                        fd_array = (int*) CMSG_DATA(cmsg);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                           cmsg->cmsg_type == SCM_CREDENTIALS &&
+                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                }
+        }
+
+        if (n_fds > 0) {
+                assert(fd_array);
+
+                r = fdset_new_array(&fds, fd_array, n_fds);
+                if (r < 0) {
+                        close_many(fd_array, n_fds);
+                        return log_oom();
+                }
+        }
+
+        if (!ucred || ucred->pid <= 0) {
+                log_warning("Received notify message without valid credentials. Ignoring.");
+                return 0;
+        }
+
+        if ((size_t) n >= sizeof(buf)) {
+                log_warning("Received notify message exceeded maximum size. Ignoring.");
+                return 0;
+        }
+
+        buf[n] = 0;
+
+        /* Notify every unit that might be interested, but try
+         * to avoid notifying the same one multiple times. */
+        u1 = manager_get_unit_by_pid_cgroup(m, ucred->pid);
+        if (u1) {
+                manager_invoke_notify_message(m, u1, ucred->pid, buf, n, fds);
+                found = true;
+        }
+
+        u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(ucred->pid));
+        if (u2 && u2 != u1) {
+                manager_invoke_notify_message(m, u2, ucred->pid, buf, n, fds);
+                found = true;
+        }
+
+        u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(ucred->pid));
+        if (u3 && u3 != u2 && u3 != u1) {
+                manager_invoke_notify_message(m, u3, ucred->pid, buf, n, fds);
+                found = true;
+        }
+
+        if (!found)
+                log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
+
+        if (fdset_size(fds) > 0)
+                log_warning("Got auxiliary fds with notification message, closing all.");
 
         return 0;
 }
 
-static void invoke_sigchld_event(Manager *m, Unit *u, siginfo_t *si) {
+static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
         assert(m);
         assert(u);
         assert(si);
@@ -1683,12 +1700,12 @@ static int manager_dispatch_sigchld(Manager *m) {
 }
 
 static int manager_start_target(Manager *m, const char *name, JobMode mode) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         log_debug("Activating special unit %s", name);
 
-        r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL);
+        r = manager_add_job_by_name(m, JOB_START, name, mode, &error, NULL);
         if (r < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
 
@@ -1991,8 +2008,7 @@ int manager_loop(Manager *m) {
         m->exit_code = MANAGER_OK;
 
         /* Release the path cache */
-        set_free_free(m->unit_path_cache);
-        m->unit_path_cache = NULL;
+        m->unit_path_cache = set_free_free(m->unit_path_cache);
 
         manager_check_finished(m);
 
@@ -2012,7 +2028,6 @@ int manager_loop(Manager *m) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
-                        continue;
                 }
 
                 if (manager_dispatch_load_queue(m) > 0)
@@ -2102,6 +2117,9 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         const char *msg;
         int audit_fd, r;
 
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
         audit_fd = get_audit_fd();
         if (audit_fd < 0)
                 return;
@@ -2109,9 +2127,6 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         /* Don't generate audit events if the service was already
          * started and we're just deserializing */
         if (m->n_reloading > 0)
-                return;
-
-        if (m->running_as != MANAGER_SYSTEM)
                 return;
 
         if (u->type != UNIT_SERVICE)
@@ -2543,9 +2558,7 @@ int manager_reload(Manager *m) {
         manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */
-        q = manager_enumerate(m);
-        if (q < 0 && r >= 0)
-                r = q;
+        manager_enumerate(m);
 
         /* Second, deserialize our stored data */
         q = manager_deserialize(m, f, fds);
@@ -2762,8 +2775,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         return log_oom();
 
                 if (!mkdtemp(p)) {
-                        log_error_errno(errno, "Failed to create generator directory %s: %m",
-                                  p);
+                        log_error_errno(errno, "Failed to create generator directory %s: %m", p);
                         free(p);
                         return -errno;
                 }
@@ -2952,9 +2964,9 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
         m->show_status = mode;
 
         if (mode > 0)
-                touch("/run/systemd/show-status");
+                (void) touch("/run/systemd/show-status");
         else
-                unlink("/run/systemd/show-status");
+                (void) unlink("/run/systemd/show-status");
 }
 
 static bool manager_get_show_status(Manager *m, StatusType type) {
@@ -3011,30 +3023,6 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
         va_start(ap, format);
         status_vprintf(status, true, type == STATUS_TYPE_EPHEMERAL, format, ap);
         va_end(ap);
-}
-
-int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found) {
-        _cleanup_free_ char *p = NULL;
-        Unit *found;
-        int r;
-
-        assert(m);
-        assert(path);
-        assert(suffix);
-        assert(_found);
-
-        r = unit_name_from_path(path, suffix, &p);
-        if (r < 0)
-                return r;
-
-        found = manager_get_unit(m, p);
-        if (!found) {
-                *_found = NULL;
-                return 0;
-        }
-
-        *_found = found;
-        return 1;
 }
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {

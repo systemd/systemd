@@ -20,12 +20,16 @@
 ***/
 
 #include <fcntl.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "string-util.h"
+#include "util.h"
 
 int main(int argc, char** argv) {
         const char *p = argv[1] ?: "/tmp";

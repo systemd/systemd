@@ -13,7 +13,7 @@ check_result_qemu() {
     [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mount /dev/mapper/varcrypt $TESTDIR/root/var
-    [[ -f $TESTDIR/root/var/log/journal ]] && cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    cp -a $TESTDIR/root/var/log/journal $TESTDIR
     umount $TESTDIR/root/var
     umount $TESTDIR/root
     cryptsetup luksClose /dev/mapper/varcrypt
@@ -59,7 +59,7 @@ Description=Testsuite service
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do systemd-cat echo "testsuite service waiting for /var/log/journal" ; echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
+ExecStart=/bin/sh -x -c 'systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok'
 Type=oneshot
 EOF
 
@@ -76,7 +76,7 @@ EOF
         cat >>$initdir/etc/fstab <<EOF
 /dev/mapper/varcrypt    /var    ext3    defaults 0 1
 EOF
-    )
+    ) || return 1
     setup_nspawn_root
 
     ddebug "umount $TESTDIR/root/var"

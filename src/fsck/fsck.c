@@ -20,28 +20,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <stdbool.h>
 #include <errno.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <sys/file.h>
-#include <sys/stat.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
 
-#include "util.h"
+#include "alloc-util.h"
+#include "bus-common-errors.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "device-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
-#include "special.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "bus-common-errors.h"
-#include "device-util.h"
-#include "path-util.h"
 #include "socket-util.h"
+#include "special.h"
+#include "stdio-util.h"
+#include "util.h"
 
 /* exit codes as defined in fsck(8) */
 enum {
@@ -61,8 +67,8 @@ static bool arg_show_progress = false;
 static const char *arg_repair = "-a";
 
 static void start_target(const char *target, const char *mode) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(target);
@@ -270,7 +276,7 @@ static int fsck_progress_socket(void) {
 
 int main(int argc, char *argv[]) {
         _cleanup_close_pair_ int progress_pipe[2] = { -1, -1 };
-        _cleanup_device_unref_ sd_device *dev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *device, *type;
         bool root_directory;
         siginfo_t status;
@@ -366,12 +372,12 @@ int main(int argc, char *argv[]) {
         r = sd_device_get_property_value(dev, "ID_FS_TYPE", &type);
         if (r >= 0) {
                 r = fsck_exists(type);
-                if (r == -ENOENT) {
-                        log_info("fsck.%s doesn't exist, not checking file system on %s", type, device);
-                        r = 0;
+                if (r < 0)
+                        log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s, proceeding: %m", type, device);
+                else if (r == 0) {
+                        log_info("fsck.%s doesn't exist, not checking file system on %s.", type, device);
                         goto finish;
-                } else if (r < 0)
-                        log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s: %m", type, device);
+                }
         }
 
         if (arg_show_progress) {

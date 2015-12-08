@@ -30,7 +30,12 @@ typedef struct Link Link;
 typedef struct LinkAddress LinkAddress;
 
 #include "resolved-dns-rr.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-manager.h"
+
+#define LINK_SEARCH_DOMAINS_MAX 32
+#define LINK_DNS_SERVERS_MAX 32
 
 struct LinkAddress {
         Link *link;
@@ -56,6 +61,10 @@ struct Link {
 
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;
+        unsigned n_dns_servers;
+
+        LIST_HEAD(DnsSearchDomain, search_domains);
+        unsigned n_search_domains;
 
         Support llmnr_support;
 
@@ -76,7 +85,6 @@ LinkAddress* link_find_address(Link *l, int family, const union in_addr_union *i
 void link_add_rrs(Link *l, bool force_remove);
 
 DnsServer* link_set_dns_server(Link *l, DnsServer *s);
-DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr);
 DnsServer* link_get_dns_server(Link *l);
 void link_next_dns_server(Link *l);
 

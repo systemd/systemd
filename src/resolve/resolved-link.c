@@ -22,9 +22,13 @@
 #include <net/if.h>
 
 #include "sd-network.h"
-#include "strv.h"
+
+#include "alloc-util.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "resolved-link.h"
+#include "string-util.h"
+#include "strv.h"
 
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;
@@ -61,18 +65,14 @@ Link *link_free(Link *l) {
         if (!l)
                 return NULL;
 
+        dns_server_unlink_marked(l->dns_servers);
+        dns_search_domain_unlink_all(l->search_domains);
+
         while (l->addresses)
                 link_address_free(l->addresses);
 
         if (l->manager)
                 hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
-
-        while (l->dns_servers) {
-                DnsServer *s = l->dns_servers;
-
-                LIST_REMOVE(servers, l->dns_servers, s);
-                dns_server_unref(s);
-        }
 
         dns_scope_free(l->unicast_scope);
         dns_scope_free(l->llmnr_ipv4_scope);
@@ -154,7 +154,6 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 static int link_update_dns_servers(Link *l) {
         _cleanup_strv_free_ char **nameservers = NULL;
         char **nameserver;
-        DnsServer *s, *nx;
         int r;
 
         assert(l);
@@ -163,20 +162,20 @@ static int link_update_dns_servers(Link *l) {
         if (r < 0)
                 goto clear;
 
-        LIST_FOREACH(servers, s, l->dns_servers)
-                s->marked = true;
+        dns_server_mark_all(l->dns_servers);
 
         STRV_FOREACH(nameserver, nameservers) {
                 union in_addr_union a;
+                DnsServer *s;
                 int family;
 
                 r = in_addr_from_string_auto(*nameserver, &family, &a);
                 if (r < 0)
                         goto clear;
 
-                s = link_find_dns_server(l, family, &a);
+                s = dns_server_find(l->dns_servers, family, &a);
                 if (s)
-                        s->marked = false;
+                        dns_server_move_back_and_unmark(s);
                 else {
                         r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a);
                         if (r < 0)
@@ -184,22 +183,11 @@ static int link_update_dns_servers(Link *l) {
                 }
         }
 
-        LIST_FOREACH_SAFE(servers, s, nx, l->dns_servers)
-                if (s->marked) {
-                        LIST_REMOVE(servers, l->dns_servers, s);
-                        dns_server_unref(s);
-                }
-
+        dns_server_unlink_marked(l->dns_servers);
         return 0;
 
 clear:
-        while (l->dns_servers) {
-                s = l->dns_servers;
-
-                LIST_REMOVE(servers, l->dns_servers, s);
-                dns_server_unref(s);
-        }
-
+        dns_server_unlink_all(l->dns_servers);
         return r;
 }
 
@@ -232,29 +220,56 @@ clear:
         return r;
 }
 
-static int link_update_domains(Link *l) {
+static int link_update_search_domains(Link *l) {
+        _cleanup_strv_free_ char **domains = NULL;
+        char **i;
         int r;
 
-        if (!l->unicast_scope)
-                return 0;
+        assert(l);
 
-        l->unicast_scope->domains = strv_free(l->unicast_scope->domains);
-
-        r = sd_network_link_get_domains(l->ifindex,
-                                        &l->unicast_scope->domains);
+        r = sd_network_link_get_domains(l->ifindex, &domains);
         if (r < 0)
-                return r;
+                goto clear;
 
+        dns_search_domain_mark_all(l->search_domains);
+
+        STRV_FOREACH(i, domains) {
+                DnsSearchDomain *d;
+
+                r = dns_search_domain_find(l->search_domains, *i, &d);
+                if (r < 0)
+                        goto clear;
+
+                if (r > 0)
+                        dns_search_domain_move_back_and_unmark(d);
+                else {
+                        r = dns_search_domain_new(l->manager, NULL, DNS_SEARCH_DOMAIN_LINK, l, *i);
+                        if (r < 0)
+                                goto clear;
+                }
+        }
+
+        dns_search_domain_unlink_marked(l->search_domains);
         return 0;
+
+clear:
+        dns_search_domain_unlink_all(l->search_domains);
+        return r;
 }
 
 int link_update_monitor(Link *l) {
+        int r;
+
         assert(l);
 
         link_update_dns_servers(l);
         link_update_llmnr_support(l);
         link_allocate_scopes(l);
-        link_update_domains(l);
+
+        r = link_update_search_domains(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+
         link_add_rrs(l, false);
 
         return 0;
@@ -299,17 +314,6 @@ LinkAddress *link_find_address(Link *l, int family, const union in_addr_union *i
         return NULL;
 }
 
-DnsServer* link_find_dns_server(Link *l, int family, const union in_addr_union *in_addr) {
-        DnsServer *s;
-
-        assert(l);
-
-        LIST_FOREACH(servers, s, l->dns_servers)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr))
-                        return s;
-        return NULL;
-}
-
 DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
         assert(l);
 
@@ -323,7 +327,8 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 log_info("Switching to DNS server %s for interface %s.", strna(ip), l->name);
         }
 
-        l->current_dns_server = s;
+        dns_server_unref(l->current_dns_server);
+        l->current_dns_server = dns_server_ref(s);
 
         if (l->unicast_scope)
                 dns_cache_flush(&l->unicast_scope->cache);
@@ -346,7 +351,9 @@ void link_next_dns_server(Link *l) {
         if (!l->current_dns_server)
                 return;
 
-        if (l->current_dns_server->servers_next) {
+        /* Change to the next one, but make sure to follow the linked
+         * list only if this server is actually still linked. */
+        if (l->current_dns_server->linked && l->current_dns_server->servers_next) {
                 link_set_dns_server(l, l->current_dns_server->servers_next);
                 return;
         }

@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for RuntimeDirectory
-
-[Service]
-ExecStart=/bin/sh -c 'exit $(test -d /tmp/test-exec_runtimedirectory)'
-Type=oneshot
-RuntimeDirectory=test-exec_runtimedirectory

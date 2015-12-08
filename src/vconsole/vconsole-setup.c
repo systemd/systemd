@@ -19,25 +19,30 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
 #include <limits.h>
-#include <sys/ioctl.h>
-#include <linux/tiocl.h>
 #include <linux/kd.h>
+#include <linux/tiocl.h>
 #include <linux/vt.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "log.h"
-#include "virt.h"
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
+#include "locale-util.h"
+#include "log.h"
 #include "process-util.h"
-#include "terminal-util.h"
 #include "signal-util.h"
+#include "string-util.h"
+#include "terminal-util.h"
+#include "util.h"
+#include "virt.h"
 
 static bool is_vconsole(int fd) {
         unsigned char data[1];
@@ -270,7 +275,7 @@ int main(int argc, char **argv) {
 
         fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s: %m", vc);
+                log_error_errno(fd, "Failed to open %s: %m", vc);
                 return EXIT_FAILURE;
         }
 

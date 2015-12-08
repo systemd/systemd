@@ -22,9 +22,9 @@
 
 #include <net/if.h>
 
-#include "networkd-netdev-bridge.h"
 #include "missing.h"
 #include "netlink-util.h"
+#include "networkd-netdev-bridge.h"
 
 /* callback for brige netdev's parameter set */
 static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
@@ -46,7 +46,7 @@ static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, vo
 }
 
 static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         Bridge *b;
         int r;
 
@@ -72,20 +72,21 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
+        /* convert to jiffes */
         if (b->forward_delay > 0) {
-                r = sd_netlink_message_append_u32(req, IFLA_BR_FORWARD_DELAY, b->forward_delay / USEC_PER_SEC);
+                r = sd_netlink_message_append_u32(req, IFLA_BR_FORWARD_DELAY, usec_to_jiffies(b->forward_delay));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_FORWARD_DELAY attribute: %m");
         }
 
         if (b->hello_time > 0) {
-                r = sd_netlink_message_append_u32(req, IFLA_BR_HELLO_TIME, b->hello_time / USEC_PER_SEC );
+                r = sd_netlink_message_append_u32(req, IFLA_BR_HELLO_TIME, usec_to_jiffies(b->hello_time));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_HELLO_TIME attribute: %m");
         }
 
         if (b->max_age > 0) {
-                r = sd_netlink_message_append_u32(req, IFLA_BR_MAX_AGE, b->max_age / USEC_PER_SEC);
+                r = sd_netlink_message_append_u32(req, IFLA_BR_MAX_AGE, usec_to_jiffies(b->max_age));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MAX_AGE attribute: %m");
         }

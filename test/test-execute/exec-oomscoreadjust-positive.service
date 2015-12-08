@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for OOMScoreAdjust
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(cat /proc/self/oom_score_adj); test "$$c" -eq 100'
+Type=oneshot
+OOMScoreAdjust=100

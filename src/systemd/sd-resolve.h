@@ -22,12 +22,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <inttypes.h>
 #include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
+#include "sd-event.h"
 
 #include "_sd-common.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -108,6 +110,9 @@ void *sd_resolve_query_get_userdata(sd_resolve_query *q);
 void *sd_resolve_query_set_userdata(sd_resolve_query *q, void *userdata);
 
 sd_resolve *sd_resolve_query_get_resolve(sd_resolve_query *q);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_resolve, sd_resolve_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_resolve_query, sd_resolve_query_unref);
 
 _SD_END_DECLARATIONS;
 

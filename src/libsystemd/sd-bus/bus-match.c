@@ -19,10 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "bus-internal.h"
-#include "bus-message.h"
 #include "bus-match.h"
+#include "bus-message.h"
 #include "bus-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "hexdecoct.h"
+#include "string-util.h"
 #include "strv.h"
 
 /* Example:
@@ -312,7 +317,7 @@ int bus_match_run(
 
                 /* Run the callback. And then invoke siblings. */
                 if (node->leaf.callback->callback) {
-                        _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+                        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
                         sd_bus_slot *slot;
 
                         slot = container_of(node->leaf.callback, sd_bus_slot, match_callback);

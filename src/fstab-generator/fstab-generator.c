@@ -19,22 +19,30 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <mntent.h>
 #include <errno.h>
+#include <mntent.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "log.h"
-#include "util.h"
-#include "unit-name.h"
-#include "path-util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "fstab-util.h"
-#include "mount-setup.h"
-#include "special.h"
-#include "mkdir.h"
 #include "generator.h"
+#include "log.h"
+#include "mkdir.h"
+#include "mount-setup.h"
+#include "mount-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
+#include "special.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "unit-name.h"
+#include "util.h"
 #include "virt.h"
 
 static const char *arg_dest = "/tmp";
@@ -240,6 +248,7 @@ static int add_mount(
         assert(what);
         assert(where);
         assert(opts);
+        assert(post);
         assert(source);
 
         if (streq_ptr(fstype, "autofs"))
@@ -289,7 +298,7 @@ static int add_mount(
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                 source);
 
-        if (post && !noauto && !nofail && !automount)
+        if (!noauto && !nofail && !automount)
                 fprintf(f, "Before=%s\n", post);
 
         if (!automount && opts) {
@@ -329,7 +338,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
-        if (!noauto && post) {
+        if (!noauto) {
                 lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
                 if (!lnk)
                         return log_oom();
@@ -360,10 +369,7 @@ static int add_mount(
                         "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                         source);
 
-                if (post)
-                        fprintf(f,
-                                "Before=%s\n",
-                                post);
+                fprintf(f, "Before=%s\n", post);
 
                 if (opts) {
                         r = write_requires_after(f, opts);

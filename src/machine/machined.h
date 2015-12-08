@@ -23,16 +23,17 @@
 
 #include <stdbool.h>
 
-#include "list.h"
-#include "hashmap.h"
-#include "sd-event.h"
 #include "sd-bus.h"
+#include "sd-event.h"
+
+#include "hashmap.h"
+#include "list.h"
 
 typedef struct Manager Manager;
 
-#include "machine.h"
-#include "machine-dbus.h"
 #include "image-dbus.h"
+#include "machine-dbus.h"
+#include "machine.h"
 
 struct Manager {
         sd_event *event;

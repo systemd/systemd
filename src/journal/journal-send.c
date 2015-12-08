@@ -19,20 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <errno.h>
-#include <stddef.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <printf.h>
+#include <stddef.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #define SD_JOURNAL_SUPPRESS_LOCATION
 
 #include "sd-journal.h"
-#include "util.h"
-#include "socket-util.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "io-util.h"
 #include "memfd-util.h"
+#include "socket-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
+#include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 
@@ -218,8 +225,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
 
-        w = alloca(sizeof(struct iovec) * n * 5 + 3);
-        l = alloca(sizeof(uint64_t) * n);
+        w = newa(struct iovec, n * 5 + 3);
+        l = newa(uint64_t, n);
 
         for (i = 0; i < n; i++) {
                 char *c, *nl;
@@ -330,7 +337,11 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                         return r;
         }
 
-        return send_one_fd(fd, buffer_fd, 0);
+        r = send_one_fd_sa(fd, buffer_fd, mh.msg_name, mh.msg_namelen, 0);
+        if (r == -ENOENT)
+                /* Fail silently if the journal is not available */
+                return 0;
+        return r;
 }
 
 static int fill_iovec_perror_and_send(const char *message, int skip, struct iovec iov[]) {

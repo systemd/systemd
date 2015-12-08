@@ -60,7 +60,7 @@
     <para><command>systemd-notify</command> may be called by daemon
     scripts to notify the init system about status changes. It can be
     used to send arbitrary information, encoded in an
-    environment-block-like list of strings. Most importantly it can be
+    environment-block-like list of strings. Most importantly, it can be
     used for start-up completion notification.</para>
 
     <para>This is mostly just a wrapper around
@@ -125,7 +125,7 @@
         message is sent. This option is hence unrelated to the other
         options. For details about the semantics of this option, see
         <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>. An
-        alternative way to check for this state is to call
+        alternate way to check for this state is to call
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         with the <command>is-system-running</command> command. It will
         return <literal>offline</literal> if the system was not booted

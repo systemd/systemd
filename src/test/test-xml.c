@@ -21,8 +21,10 @@
 
 #include <stdarg.h>
 
-#include "xml.h"
+#include "alloc-util.h"
+#include "string-util.h"
 #include "util.h"
+#include "xml.h"
 
 static void test_one(const char *data, ...) {
         void *state = NULL;

@@ -19,10 +19,11 @@
 
 #include <stdlib.h>
 
-#include "kdbus.h"
+#include "alloc-util.h"
+#include "bus-endpoint.h"
 #include "bus-kernel.h"
 #include "bus-policy.h"
-#include "bus-endpoint.h"
+#include "kdbus.h"
 
 int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep) {
 

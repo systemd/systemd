@@ -18,13 +18,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
 #include <arpa/inet.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "event-util.h"
+#include "sd-ipv4acd.h"
+#include "sd-ipv4ll.h"
+
+#include "alloc-util.h"
+#include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"
 #include "refcnt.h"
@@ -32,14 +36,11 @@
 #include "sparse-endian.h"
 #include "util.h"
 
-#include "sd-ipv4acd.h"
-#include "sd-ipv4ll.h"
-
 #define IPV4LL_NETWORK 0xA9FE0000L
 #define IPV4LL_NETMASK 0xFFFF0000L
 
 #define IPV4LL_DONT_DESTROY(ll) \
-        _cleanup_ipv4ll_unref_ _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
+        _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
 
 struct sd_ipv4ll {
         unsigned n_ref;
@@ -84,13 +85,10 @@ sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ipv4ll*, sd_ipv4ll_unref);
-#define _cleanup_ipv4ll_unref_ _cleanup_(sd_ipv4ll_unrefp)
-
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {
-        _cleanup_ipv4ll_unref_ sd_ipv4ll *ll = NULL;
+        _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -99,6 +97,8 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
         if (!ll)
                 return -ENOMEM;
 
+        ll->n_ref = 1;
+
         r = sd_ipv4acd_new(&ll->acd);
         if (r < 0)
                 return r;
@@ -106,8 +106,6 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
         r = sd_ipv4acd_set_callback(ll->acd, ipv4ll_on_acd, ll);
         if (r < 0)
                 return r;
-
-        ll->n_ref = 1;
 
         *ret = ll;
         ll = NULL;
@@ -141,15 +139,14 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
         assert_return(ll, -EINVAL);
 
         if (!ll->random_data) {
-                uint8_t seed[8];
+                uint64_t seed;
 
                 /* If no random data is set, generate some from the MAC */
-                siphash24(seed, &addr->ether_addr_octet,
-                          ETH_ALEN, HASH_KEY.bytes);
+                seed = siphash24(&addr->ether_addr_octet, ETH_ALEN, HASH_KEY.bytes);
 
                 assert_cc(sizeof(unsigned) <= 8);
 
-                r = sd_ipv4ll_set_address_seed(ll, *(unsigned*)seed);
+                r = sd_ipv4ll_set_address_seed(ll, (unsigned) htole64(seed));
                 if (r < 0)
                         return r;
         }
@@ -226,10 +223,43 @@ int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, unsigned seed) {
         return 0;
 }
 
-bool sd_ipv4ll_is_running(sd_ipv4ll *ll) {
+int sd_ipv4ll_is_running(sd_ipv4ll *ll) {
         assert_return(ll, false);
 
         return sd_ipv4acd_is_running(ll->acd);
+}
+
+static bool ipv4ll_address_is_valid(const struct in_addr *address) {
+        uint32_t addr;
+
+        assert(address);
+
+        if (!in_addr_is_link_local(AF_INET, (const union in_addr_union *) address))
+                return false;
+
+        addr = be32toh(address->s_addr);
+
+        if ((addr & 0x0000FF00) == 0x0000 ||
+            (addr & 0x0000FF00) == 0xFF00)
+                return false;
+
+        return true;
+}
+
+int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
+        int r;
+
+        assert_return(ll, -EINVAL);
+        assert_return(address, -EINVAL);
+        assert_return(ipv4ll_address_is_valid(address), -EINVAL);
+
+        r = sd_ipv4acd_set_address(ll->acd, address);
+        if (r < 0)
+                return r;
+
+        ll->address = address->s_addr;
+
+        return 0;
 }
 
 static int ipv4ll_pick_address(sd_ipv4ll *ll) {
@@ -247,17 +277,14 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
                         return r;
                 addr = htonl((random & 0x0000FFFF) | IPV4LL_NETWORK);
         } while (addr == ll->address ||
-                (ntohl(addr) & IPV4LL_NETMASK) != IPV4LL_NETWORK ||
                 (ntohl(addr) & 0x0000FF00) == 0x0000 ||
                 (ntohl(addr) & 0x0000FF00) == 0xFF00);
 
         in_addr.s_addr = addr;
 
-        r = sd_ipv4acd_set_address(ll->acd, &in_addr);
+        r = sd_ipv4ll_set_address(ll, &in_addr);
         if (r < 0)
                 return r;
-
-        ll->address = addr;
 
         return 0;
 }

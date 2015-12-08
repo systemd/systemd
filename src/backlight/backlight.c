@@ -19,12 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "mkdir.h"
-#include "fileio.h"
 #include "libudev.h"
-#include "udev-util.h"
+
+#include "alloc-util.h"
 #include "def.h"
+#include "escape.h"
+#include "fileio.h"
+#include "mkdir.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
+#include "string-util.h"
+#include "udev-util.h"
+#include "util.h"
 
 static struct udev_device *find_pci_or_platform_parent(struct udev_device *device) {
         struct udev_device *parent;
@@ -375,7 +381,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *value = NULL;
                 const char *clamp;
 
-                if (!shall_restore_state())
+                if (shall_restore_state() == 0)
                         return EXIT_SUCCESS;
 
                 if (!validate_device(udev, device))

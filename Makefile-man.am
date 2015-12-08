@@ -26,6 +26,7 @@ MANPAGES += \
 	man/os-release.5 \
 	man/sd-bus-errors.3 \
 	man/sd-daemon.3 \
+	man/sd-event.3 \
 	man/sd-id128.3 \
 	man/sd-journal.3 \
 	man/sd_booted.3 \
@@ -47,12 +48,23 @@ MANPAGES += \
 	man/sd_bus_request_name.3 \
 	man/sd_event_add_child.3 \
 	man/sd_event_add_defer.3 \
+	man/sd_event_add_io.3 \
 	man/sd_event_add_signal.3 \
 	man/sd_event_add_time.3 \
+	man/sd_event_exit.3 \
 	man/sd_event_get_fd.3 \
 	man/sd_event_new.3 \
+	man/sd_event_now.3 \
 	man/sd_event_run.3 \
-	man/sd_event_set_name.3 \
+	man/sd_event_set_watchdog.3 \
+	man/sd_event_source_get_event.3 \
+	man/sd_event_source_get_pending.3 \
+	man/sd_event_source_set_description.3 \
+	man/sd_event_source_set_enabled.3 \
+	man/sd_event_source_set_prepare.3 \
+	man/sd_event_source_set_priority.3 \
+	man/sd_event_source_set_userdata.3 \
+	man/sd_event_source_unref.3 \
 	man/sd_event_wait.3 \
 	man/sd_id128_get_machine.3 \
 	man/sd_id128_randomize.3 \
@@ -136,7 +148,6 @@ MANPAGES += \
 	man/systemd.scope.5 \
 	man/systemd.service.5 \
 	man/systemd.slice.5 \
-	man/systemd.snapshot.5 \
 	man/systemd.socket.5 \
 	man/systemd.special.7 \
 	man/systemd.swap.5 \
@@ -200,6 +211,19 @@ MANPAGES_ALIAS += \
 	man/SD_DEBUG.3 \
 	man/SD_EMERG.3 \
 	man/SD_ERR.3 \
+	man/SD_EVENT_ARMED.3 \
+	man/SD_EVENT_EXITING.3 \
+	man/SD_EVENT_FINISHED.3 \
+	man/SD_EVENT_INITIAL.3 \
+	man/SD_EVENT_OFF.3 \
+	man/SD_EVENT_ON.3 \
+	man/SD_EVENT_ONESHOT.3 \
+	man/SD_EVENT_PENDING.3 \
+	man/SD_EVENT_PREPARING.3 \
+	man/SD_EVENT_PRIORITY_IDLE.3 \
+	man/SD_EVENT_PRIORITY_IMPORTANT.3 \
+	man/SD_EVENT_PRIORITY_NORMAL.3 \
+	man/SD_EVENT_RUNNING.3 \
 	man/SD_ID128_CONST_STR.3 \
 	man/SD_ID128_FORMAT_STR.3 \
 	man/SD_ID128_FORMAT_VAL.3 \
@@ -261,6 +285,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_has_permitted_cap.3 \
 	man/sd_bus_creds_ref.3 \
 	man/sd_bus_creds_unref.3 \
+	man/sd_bus_creds_unrefp.3 \
 	man/sd_bus_default_system.3 \
 	man/sd_bus_default_user.3 \
 	man/sd_bus_error_copy.3 \
@@ -296,22 +321,45 @@ MANPAGES_ALIAS += \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
+	man/sd_bus_unrefp.3 \
+	man/sd_event.3 \
 	man/sd_event_add_exit.3 \
 	man/sd_event_add_post.3 \
+	man/sd_event_child_handler_t.3 \
 	man/sd_event_default.3 \
 	man/sd_event_dispatch.3 \
-	man/sd_event_get_name.3 \
+	man/sd_event_get_exit_code.3 \
+	man/sd_event_get_state.3 \
+	man/sd_event_get_tid.3 \
+	man/sd_event_get_watchdog.3 \
+	man/sd_event_handler_t.3 \
+	man/sd_event_io_handler_t.3 \
 	man/sd_event_loop.3 \
 	man/sd_event_prepare.3 \
 	man/sd_event_ref.3 \
+	man/sd_event_signal_handler_t.3 \
+	man/sd_event_source.3 \
 	man/sd_event_source_get_child_pid.3 \
+	man/sd_event_source_get_description.3 \
+	man/sd_event_source_get_enabled.3 \
+	man/sd_event_source_get_io_events.3 \
+	man/sd_event_source_get_io_fd.3 \
+	man/sd_event_source_get_io_revents.3 \
+	man/sd_event_source_get_priority.3 \
 	man/sd_event_source_get_signal.3 \
 	man/sd_event_source_get_time.3 \
 	man/sd_event_source_get_time_accuracy.3 \
 	man/sd_event_source_get_time_clock.3 \
+	man/sd_event_source_get_userdata.3 \
+	man/sd_event_source_ref.3 \
+	man/sd_event_source_set_io_events.3 \
+	man/sd_event_source_set_io_fd.3 \
 	man/sd_event_source_set_time.3 \
 	man/sd_event_source_set_time_accuracy.3 \
+	man/sd_event_source_unrefp.3 \
+	man/sd_event_time_handler_t.3 \
 	man/sd_event_unref.3 \
+	man/sd_event_unrefp.3 \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
@@ -374,6 +422,7 @@ MANPAGES_ALIAS += \
 	man/systemd-hybrid-sleep.service.8 \
 	man/systemd-initctl.8 \
 	man/systemd-initctl.socket.8 \
+	man/systemd-journald-audit.socket.8 \
 	man/systemd-journald-dev-log.socket.8 \
 	man/systemd-journald.8 \
 	man/systemd-journald.socket.8 \
@@ -489,6 +538,19 @@ man/SD_CRIT.3: man/sd-daemon.3
 man/SD_DEBUG.3: man/sd-daemon.3
 man/SD_EMERG.3: man/sd-daemon.3
 man/SD_ERR.3: man/sd-daemon.3
+man/SD_EVENT_ARMED.3: man/sd_event_wait.3
+man/SD_EVENT_EXITING.3: man/sd_event_wait.3
+man/SD_EVENT_FINISHED.3: man/sd_event_wait.3
+man/SD_EVENT_INITIAL.3: man/sd_event_wait.3
+man/SD_EVENT_OFF.3: man/sd_event_source_set_enabled.3
+man/SD_EVENT_ON.3: man/sd_event_source_set_enabled.3
+man/SD_EVENT_ONESHOT.3: man/sd_event_source_set_enabled.3
+man/SD_EVENT_PENDING.3: man/sd_event_wait.3
+man/SD_EVENT_PREPARING.3: man/sd_event_wait.3
+man/SD_EVENT_PRIORITY_IDLE.3: man/sd_event_source_set_priority.3
+man/SD_EVENT_PRIORITY_IMPORTANT.3: man/sd_event_source_set_priority.3
+man/SD_EVENT_PRIORITY_NORMAL.3: man/sd_event_source_set_priority.3
+man/SD_EVENT_RUNNING.3: man/sd_event_wait.3
 man/SD_ID128_CONST_STR.3: man/sd-id128.3
 man/SD_ID128_FORMAT_STR.3: man/sd-id128.3
 man/SD_ID128_FORMAT_VAL.3: man/sd-id128.3
@@ -550,6 +612,7 @@ man/sd_bus_creds_has_inheritable_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_has_permitted_cap.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_ref.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_creds_unref.3: man/sd_bus_creds_new_from_pid.3
+man/sd_bus_creds_unrefp.3: man/sd_bus_creds_new_from_pid.3
 man/sd_bus_default_system.3: man/sd_bus_default.3
 man/sd_bus_default_user.3: man/sd_bus_default.3
 man/sd_bus_error_copy.3: man/sd_bus_error.3
@@ -585,22 +648,45 @@ man/sd_bus_path_encode_many.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
+man/sd_bus_unrefp.3: man/sd_bus_new.3
+man/sd_event.3: man/sd_event_new.3
 man/sd_event_add_exit.3: man/sd_event_add_defer.3
 man/sd_event_add_post.3: man/sd_event_add_defer.3
+man/sd_event_child_handler_t.3: man/sd_event_add_child.3
 man/sd_event_default.3: man/sd_event_new.3
 man/sd_event_dispatch.3: man/sd_event_wait.3
-man/sd_event_get_name.3: man/sd_event_set_name.3
+man/sd_event_get_exit_code.3: man/sd_event_exit.3
+man/sd_event_get_state.3: man/sd_event_wait.3
+man/sd_event_get_tid.3: man/sd_event_new.3
+man/sd_event_get_watchdog.3: man/sd_event_set_watchdog.3
+man/sd_event_handler_t.3: man/sd_event_add_defer.3
+man/sd_event_io_handler_t.3: man/sd_event_add_io.3
 man/sd_event_loop.3: man/sd_event_run.3
 man/sd_event_prepare.3: man/sd_event_wait.3
 man/sd_event_ref.3: man/sd_event_new.3
+man/sd_event_signal_handler_t.3: man/sd_event_add_signal.3
+man/sd_event_source.3: man/sd_event_add_io.3
 man/sd_event_source_get_child_pid.3: man/sd_event_add_child.3
+man/sd_event_source_get_description.3: man/sd_event_source_set_description.3
+man/sd_event_source_get_enabled.3: man/sd_event_source_set_enabled.3
+man/sd_event_source_get_io_events.3: man/sd_event_add_io.3
+man/sd_event_source_get_io_fd.3: man/sd_event_add_io.3
+man/sd_event_source_get_io_revents.3: man/sd_event_add_io.3
+man/sd_event_source_get_priority.3: man/sd_event_source_set_priority.3
 man/sd_event_source_get_signal.3: man/sd_event_add_signal.3
 man/sd_event_source_get_time.3: man/sd_event_add_time.3
 man/sd_event_source_get_time_accuracy.3: man/sd_event_add_time.3
 man/sd_event_source_get_time_clock.3: man/sd_event_add_time.3
+man/sd_event_source_get_userdata.3: man/sd_event_source_set_userdata.3
+man/sd_event_source_ref.3: man/sd_event_source_unref.3
+man/sd_event_source_set_io_events.3: man/sd_event_add_io.3
+man/sd_event_source_set_io_fd.3: man/sd_event_add_io.3
 man/sd_event_source_set_time.3: man/sd_event_add_time.3
 man/sd_event_source_set_time_accuracy.3: man/sd_event_add_time.3
+man/sd_event_source_unrefp.3: man/sd_event_source_unref.3
+man/sd_event_time_handler_t.3: man/sd_event_add_time.3
 man/sd_event_unref.3: man/sd_event_new.3
+man/sd_event_unrefp.3: man/sd_event_new.3
 man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
 man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
@@ -663,6 +749,7 @@ man/systemd-hibernate.service.8: man/systemd-suspend.service.8
 man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
 man/systemd-initctl.8: man/systemd-initctl.service.8
 man/systemd-initctl.socket.8: man/systemd-initctl.service.8
+man/systemd-journald-audit.socket.8: man/systemd-journald.service.8
 man/systemd-journald-dev-log.socket.8: man/systemd-journald.service.8
 man/systemd-journald.8: man/systemd-journald.service.8
 man/systemd-journald.socket.8: man/systemd-journald.service.8
@@ -856,6 +943,45 @@ man/SD_EMERG.html: man/sd-daemon.html
 man/SD_ERR.html: man/sd-daemon.html
 	$(html-alias)
 
+man/SD_EVENT_ARMED.html: man/sd_event_wait.html
+	$(html-alias)
+
+man/SD_EVENT_EXITING.html: man/sd_event_wait.html
+	$(html-alias)
+
+man/SD_EVENT_FINISHED.html: man/sd_event_wait.html
+	$(html-alias)
+
+man/SD_EVENT_INITIAL.html: man/sd_event_wait.html
+	$(html-alias)
+
+man/SD_EVENT_OFF.html: man/sd_event_source_set_enabled.html
+	$(html-alias)
+
+man/SD_EVENT_ON.html: man/sd_event_source_set_enabled.html
+	$(html-alias)
+
+man/SD_EVENT_ONESHOT.html: man/sd_event_source_set_enabled.html
+	$(html-alias)
+
+man/SD_EVENT_PENDING.html: man/sd_event_wait.html
+	$(html-alias)
+
+man/SD_EVENT_PREPARING.html: man/sd_event_wait.html
+	$(html-alias)
+
+man/SD_EVENT_PRIORITY_IDLE.html: man/sd_event_source_set_priority.html
+	$(html-alias)
+
+man/SD_EVENT_PRIORITY_IMPORTANT.html: man/sd_event_source_set_priority.html
+	$(html-alias)
+
+man/SD_EVENT_PRIORITY_NORMAL.html: man/sd_event_source_set_priority.html
+	$(html-alias)
+
+man/SD_EVENT_RUNNING.html: man/sd_event_wait.html
+	$(html-alias)
+
 man/SD_ID128_CONST_STR.html: man/sd-id128.html
 	$(html-alias)
 
@@ -1039,6 +1165,9 @@ man/sd_bus_creds_ref.html: man/sd_bus_creds_new_from_pid.html
 man/sd_bus_creds_unref.html: man/sd_bus_creds_new_from_pid.html
 	$(html-alias)
 
+man/sd_bus_creds_unrefp.html: man/sd_bus_creds_new_from_pid.html
+	$(html-alias)
+
 man/sd_bus_default_system.html: man/sd_bus_default.html
 	$(html-alias)
 
@@ -1144,10 +1273,19 @@ man/sd_bus_release_name.html: man/sd_bus_request_name.html
 man/sd_bus_unref.html: man/sd_bus_new.html
 	$(html-alias)
 
+man/sd_bus_unrefp.html: man/sd_bus_new.html
+	$(html-alias)
+
+man/sd_event.html: man/sd_event_new.html
+	$(html-alias)
+
 man/sd_event_add_exit.html: man/sd_event_add_defer.html
 	$(html-alias)
 
 man/sd_event_add_post.html: man/sd_event_add_defer.html
+	$(html-alias)
+
+man/sd_event_child_handler_t.html: man/sd_event_add_child.html
 	$(html-alias)
 
 man/sd_event_default.html: man/sd_event_new.html
@@ -1156,7 +1294,22 @@ man/sd_event_default.html: man/sd_event_new.html
 man/sd_event_dispatch.html: man/sd_event_wait.html
 	$(html-alias)
 
-man/sd_event_get_name.html: man/sd_event_set_name.html
+man/sd_event_get_exit_code.html: man/sd_event_exit.html
+	$(html-alias)
+
+man/sd_event_get_state.html: man/sd_event_wait.html
+	$(html-alias)
+
+man/sd_event_get_tid.html: man/sd_event_new.html
+	$(html-alias)
+
+man/sd_event_get_watchdog.html: man/sd_event_set_watchdog.html
+	$(html-alias)
+
+man/sd_event_handler_t.html: man/sd_event_add_defer.html
+	$(html-alias)
+
+man/sd_event_io_handler_t.html: man/sd_event_add_io.html
 	$(html-alias)
 
 man/sd_event_loop.html: man/sd_event_run.html
@@ -1168,7 +1321,31 @@ man/sd_event_prepare.html: man/sd_event_wait.html
 man/sd_event_ref.html: man/sd_event_new.html
 	$(html-alias)
 
+man/sd_event_signal_handler_t.html: man/sd_event_add_signal.html
+	$(html-alias)
+
+man/sd_event_source.html: man/sd_event_add_io.html
+	$(html-alias)
+
 man/sd_event_source_get_child_pid.html: man/sd_event_add_child.html
+	$(html-alias)
+
+man/sd_event_source_get_description.html: man/sd_event_source_set_description.html
+	$(html-alias)
+
+man/sd_event_source_get_enabled.html: man/sd_event_source_set_enabled.html
+	$(html-alias)
+
+man/sd_event_source_get_io_events.html: man/sd_event_add_io.html
+	$(html-alias)
+
+man/sd_event_source_get_io_fd.html: man/sd_event_add_io.html
+	$(html-alias)
+
+man/sd_event_source_get_io_revents.html: man/sd_event_add_io.html
+	$(html-alias)
+
+man/sd_event_source_get_priority.html: man/sd_event_source_set_priority.html
 	$(html-alias)
 
 man/sd_event_source_get_signal.html: man/sd_event_add_signal.html
@@ -1183,13 +1360,34 @@ man/sd_event_source_get_time_accuracy.html: man/sd_event_add_time.html
 man/sd_event_source_get_time_clock.html: man/sd_event_add_time.html
 	$(html-alias)
 
+man/sd_event_source_get_userdata.html: man/sd_event_source_set_userdata.html
+	$(html-alias)
+
+man/sd_event_source_ref.html: man/sd_event_source_unref.html
+	$(html-alias)
+
+man/sd_event_source_set_io_events.html: man/sd_event_add_io.html
+	$(html-alias)
+
+man/sd_event_source_set_io_fd.html: man/sd_event_add_io.html
+	$(html-alias)
+
 man/sd_event_source_set_time.html: man/sd_event_add_time.html
 	$(html-alias)
 
 man/sd_event_source_set_time_accuracy.html: man/sd_event_add_time.html
 	$(html-alias)
 
+man/sd_event_source_unrefp.html: man/sd_event_source_unref.html
+	$(html-alias)
+
+man/sd_event_time_handler_t.html: man/sd_event_add_time.html
+	$(html-alias)
+
 man/sd_event_unref.html: man/sd_event_new.html
+	$(html-alias)
+
+man/sd_event_unrefp.html: man/sd_event_new.html
 	$(html-alias)
 
 man/sd_id128_equal.html: man/sd-id128.html
@@ -1376,6 +1574,9 @@ man/systemd-initctl.html: man/systemd-initctl.service.html
 	$(html-alias)
 
 man/systemd-initctl.socket.html: man/systemd-initctl.service.html
+	$(html-alias)
+
+man/systemd-journald-audit.socket.html: man/systemd-journald.service.html
 	$(html-alias)
 
 man/systemd-journald-dev-log.socket.html: man/systemd-journald.service.html
@@ -1957,6 +2158,7 @@ MANPAGES_ALIAS += \
 	man/sd_login_monitor_get_fd.3 \
 	man/sd_login_monitor_get_timeout.3 \
 	man/sd_login_monitor_unref.3 \
+	man/sd_login_monitor_unrefp.3 \
 	man/sd_peer_get_cgroup.3 \
 	man/sd_peer_get_machine_name.3 \
 	man/sd_peer_get_owner_uid.3 \
@@ -2003,6 +2205,7 @@ man/sd_login_monitor_get_events.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_timeout.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_unrefp.3: man/sd_login_monitor_new.3
 man/sd_peer_get_cgroup.3: man/sd_pid_get_session.3
 man/sd_peer_get_machine_name.3: man/sd_pid_get_session.3
 man/sd_peer_get_owner_uid.3: man/sd_pid_get_session.3
@@ -2065,6 +2268,9 @@ man/sd_login_monitor_get_timeout.html: man/sd_login_monitor_new.html
 	$(html-alias)
 
 man/sd_login_monitor_unref.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
+man/sd_login_monitor_unrefp.html: man/sd_login_monitor_new.html
 	$(html-alias)
 
 man/sd_peer_get_cgroup.html: man/sd_pid_get_session.html
@@ -2260,6 +2466,7 @@ EXTRA_DIST += \
 	man/runlevel.xml \
 	man/sd-bus-errors.xml \
 	man/sd-daemon.xml \
+	man/sd-event.xml \
 	man/sd-id128.xml \
 	man/sd-journal.xml \
 	man/sd-login.xml \
@@ -2282,12 +2489,23 @@ EXTRA_DIST += \
 	man/sd_bus_request_name.xml \
 	man/sd_event_add_child.xml \
 	man/sd_event_add_defer.xml \
+	man/sd_event_add_io.xml \
 	man/sd_event_add_signal.xml \
 	man/sd_event_add_time.xml \
+	man/sd_event_exit.xml \
 	man/sd_event_get_fd.xml \
 	man/sd_event_new.xml \
+	man/sd_event_now.xml \
 	man/sd_event_run.xml \
-	man/sd_event_set_name.xml \
+	man/sd_event_set_watchdog.xml \
+	man/sd_event_source_get_event.xml \
+	man/sd_event_source_get_pending.xml \
+	man/sd_event_source_set_description.xml \
+	man/sd_event_source_set_enabled.xml \
+	man/sd_event_source_set_prepare.xml \
+	man/sd_event_source_set_priority.xml \
+	man/sd_event_source_set_userdata.xml \
+	man/sd_event_source_unref.xml \
 	man/sd_event_wait.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \
@@ -2408,7 +2626,6 @@ EXTRA_DIST += \
 	man/systemd.scope.xml \
 	man/systemd.service.xml \
 	man/systemd.slice.xml \
-	man/systemd.snapshot.xml \
 	man/systemd.socket.xml \
 	man/systemd.special.xml \
 	man/systemd.swap.xml \

@@ -19,17 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/ioctl.h>
 #include <net/if.h>
+#include <sys/ioctl.h>
 #include <linux/ethtool.h>
 #include <linux/sockios.h>
 
+#include "conf-parser.h"
 #include "ethtool-util.h"
-
+#include "log.h"
+#include "string-table.h"
 #include "strxcpyx.h"
 #include "util.h"
-#include "log.h"
-#include "conf-parser.h"
 
 static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",

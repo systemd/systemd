@@ -21,24 +21,32 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/vt.h>
 #include <linux/kd.h>
+#include <linux/vt.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
-#include "util.h"
-#include "mkdir.h"
-#include "path-util.h"
-#include "fileio.h"
-#include "audit.h"
-#include "bus-util.h"
+
+#include "alloc-util.h"
+#include "audit-util.h"
 #include "bus-error.h"
-#include "logind-session.h"
+#include "bus-util.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "io-util.h"
+#include "logind-session.h"
+#include "mkdir.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "string-table.h"
 #include "terminal-util.h"
+#include "user-util.h"
+#include "util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 
@@ -504,25 +512,31 @@ static int session_start_scope(Session *s) {
 
         assert(s);
         assert(s->user);
-        assert(s->user->slice);
 
         if (!s->scope) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *description = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *scope, *job = NULL;
-
-                description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
-                if (!description)
-                        return log_oom();
+                const char *description;
 
                 scope = strjoin("session-", s->id, ".scope", NULL);
                 if (!scope)
                         return log_oom();
 
-                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-logind.service", "systemd-user-sessions.service", &error, &job);
+                description = strjoina("Session ", s->id, " of user ", s->user->name, NULL);
+
+                r = manager_start_scope(
+                                s->manager,
+                                scope,
+                                s->leader,
+                                s->user->slice,
+                                description,
+                                "systemd-logind.service",
+                                "systemd-user-sessions.service",
+                                (uint64_t) -1, /* disable TasksMax= for the scope, rely on the slice setting for it */
+                                &error,
+                                &job);
                 if (r < 0) {
-                        log_error("Failed to start session scope %s: %s %s",
-                                  scope, bus_error_message(&error, r), error.name);
+                        log_error_errno(r, "Failed to start session scope %s: %s", scope, bus_error_message(&error, r));
                         free(scope);
                         return r;
                 } else {
@@ -534,7 +548,7 @@ static int session_start_scope(Session *s) {
         }
 
         if (s->scope)
-                hashmap_put(s->manager->session_units, s->scope, s);
+                (void) hashmap_put(s->manager->session_units, s->scope, s);
 
         return 0;
 }
@@ -597,7 +611,7 @@ int session_start(Session *s) {
 }
 
 static int session_stop_scope(Session *s, bool force) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job = NULL;
         int r;
 
@@ -987,7 +1001,7 @@ static int session_open_vt(Session *s) {
         sprintf(path, "/dev/tty%u", s->vtnr);
         s->vtfd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (s->vtfd < 0)
-                return log_error_errno(errno, "cannot open VT %s of session %s: %m", path, s->id);
+                return log_error_errno(s->vtfd, "cannot open VT %s of session %s: %m", path, s->id);
 
         return s->vtfd;
 }
@@ -1049,9 +1063,13 @@ error:
 }
 
 void session_restore_vt(Session *s) {
+
+        static const struct vt_mode mode = {
+                .mode = VT_AUTO,
+        };
+
         _cleanup_free_ char *utf8 = NULL;
-        int vt, kb = K_XLATE;
-        struct vt_mode mode = { 0 };
+        int vt, kb, old_fd;
 
         /* We need to get a fresh handle to the virtual terminal,
          * since the old file-descriptor is potentially in a hung-up
@@ -1059,7 +1077,7 @@ void session_restore_vt(Session *s) {
          * little dance to avoid having the terminal be available
          * for reuse before we've cleaned it up.
          */
-        int old_fd = s->vtfd;
+        old_fd = s->vtfd;
         s->vtfd = -1;
 
         vt = session_open_vt(s);
@@ -1072,13 +1090,13 @@ void session_restore_vt(Session *s) {
 
         if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '1')
                 kb = K_UNICODE;
+        else
+                kb = K_XLATE;
 
         (void) ioctl(vt, KDSKBMODE, kb);
 
-        mode.mode = VT_AUTO;
         (void) ioctl(vt, VT_SETMODE, &mode);
-
-        fchown(vt, 0, -1);
+        (void) fchown(vt, 0, (gid_t) -1);
 
         s->vtfd = safe_close(s->vtfd);
 }

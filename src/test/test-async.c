@@ -20,8 +20,9 @@
 #include <unistd.h>
 
 #include "async.h"
-#include "util.h"
+#include "fileio.h"
 #include "macro.h"
+#include "util.h"
 
 static bool test_async = false;
 

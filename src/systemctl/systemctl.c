@@ -37,6 +37,7 @@
 #include "sd-daemon.h"
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
@@ -48,32 +49,42 @@
 #include "efivars.h"
 #include "env-util.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "initreq.h"
 #include "install.h"
+#include "io-util.h"
 #include "list.h"
+#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "special.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
+#include "virt.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -107,7 +118,7 @@ static UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static usec_t arg_when = 0;
 static enum action {
         _ACTION_INVALID,
@@ -283,6 +294,10 @@ static bool install_client_side(void) {
                 return true;
 
         if (arg_scope == UNIT_FILE_GLOBAL)
+                return true;
+
+        /* Unsupported environment variable, mostly for debugging purposes */
+        if (getenv_bool("SYSTEMCTL_INSTALL_CLIENT_SIDE") > 0)
                 return true;
 
         return false;
@@ -515,9 +530,9 @@ static int get_unit_list(
                 int c,
                 sd_bus_message **_reply) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         size_t size = c;
         int r;
         UnitInfo u;
@@ -622,7 +637,7 @@ static int get_unit_list_recursive(
                         return log_error_errno(r, "Failed to get machine names: %m");
 
                 STRV_FOREACH(i, machines) {
-                        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
+                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *container = NULL;
                         int k;
 
                         r = sd_bus_open_system_machine(&container, *i);
@@ -684,7 +699,7 @@ static int get_triggered_units(
                 const char* path,
                 char*** ret) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -710,8 +725,8 @@ static int get_listening(
                 const char* unit_path,
                 char*** listening) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *type, *path;
         int r, n = 0;
 
@@ -947,7 +962,7 @@ static int get_next_elapse(
                 const char *path,
                 dual_timestamp *next) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         dual_timestamp t;
         int r;
 
@@ -988,7 +1003,7 @@ static int get_last_trigger(
                 const char *path,
                 usec_t *last) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1320,7 +1335,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                            UNIT_FILE_MASKED,
                            UNIT_FILE_MASKED_RUNTIME,
                            UNIT_FILE_DISABLED,
-                           UNIT_FILE_INVALID)) {
+                           UNIT_FILE_BAD)) {
                         on  = ansi_highlight_red();
                         off = ansi_normal();
                 } else if (u->state == UNIT_FILE_ENABLED) {
@@ -1343,7 +1358,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 }
 
 static int list_unit_files(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         UnitFileList *unit;
         size_t size = 0;
@@ -1389,7 +1404,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 assert(c <= n_units);
                 hashmap_free(h);
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -1488,16 +1503,12 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
         static const char *dependencies[_DEPENDENCY_MAX] = {
                 [DEPENDENCY_FORWARD] = "Requires\0"
-                                       "RequiresOverridable\0"
                                        "Requisite\0"
-                                       "RequisiteOverridable\0"
                                        "Wants\0"
                                        "ConsistsOf\0"
                                        "BindsTo\0",
                 [DEPENDENCY_REVERSE] = "RequiredBy\0"
-                                       "RequiredByOverridable\0"
                                        "RequisiteOf\0"
-                                       "RequisiteOfOverridable\0"
                                        "WantedBy\0"
                                        "PartOf\0"
                                        "BoundBy\0",
@@ -1505,8 +1516,8 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                 [DEPENDENCY_BEFORE]  = "Before\0",
         };
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **ret = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
@@ -1731,7 +1742,7 @@ static int compare_machine_info(const void *a, const void *b) {
 }
 
 static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
-        _cleanup_bus_flush_close_unref_ sd_bus *container = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *container = NULL;
         int r;
 
         assert(mi);
@@ -1919,7 +1930,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 }
 
 static int get_default(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *_path = NULL;
         const char *path;
         int r;
@@ -1931,7 +1942,7 @@ static int get_default(int argc, char *argv[], void *userdata) {
                 path = _path;
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -1999,8 +2010,8 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 unit_file_changes_free(changes, n_changes);
                 r = 0;
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -2117,8 +2128,8 @@ static bool output_show_job(struct job_info *job, char **patterns) {
 }
 
 static int list_jobs(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *name, *type, *state, *job_path, *unit_path;
         _cleanup_free_ struct job_info *jobs = NULL;
         size_t size = 0;
@@ -2171,7 +2182,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         output_jobs_list(jobs, c, skipped);
-        return r;
+        return 0;
 }
 
 static int cancel_job(int argc, char *argv[], void *userdata) {
@@ -2189,7 +2200,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
                 return r;
 
         STRV_FOREACH(name, strv_skip(argv, 1)) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 uint32_t id;
                 int q;
 
@@ -2217,7 +2228,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
 }
 
 static int need_daemon_reload(sd_bus *bus, const char *unit) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
         int b, r;
 
@@ -2313,8 +2324,8 @@ static int unit_find_paths(
         assert(lp);
 
         if (!install_client_side() && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
                 char *unit_load_error_name, *unit_load_error_message;
 
@@ -2429,7 +2440,7 @@ static int unit_find_paths(
 }
 
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *n = NULL, *state = NULL;
         const char *path;
         int r;
@@ -2486,7 +2497,7 @@ static int check_triggering_units(
                 sd_bus *bus,
                 const char *name) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL, *n = NULL, *state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
@@ -2590,7 +2601,7 @@ static int start_unit_one(
                 sd_bus_error *error,
                 BusWaitForJobs *w) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
         int r;
 
@@ -2669,7 +2680,7 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         /* Query the manager only if any of the names are a glob, since
          * this is fairly expensive */
         if (!strv_isempty(globs)) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
@@ -2772,7 +2783,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int q;
 
                 q = start_unit_one(bus, method, *name, mode, &error, w);
@@ -2799,7 +2810,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
 
 static int logind_set_wall_message(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         _cleanup_free_ char *m = NULL;
         int r;
@@ -2835,7 +2846,7 @@ static int logind_set_wall_message(void) {
  * through PolicyKit */
 static int logind_reboot(enum action a) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method, *description;
         sd_bus *bus;
         int r;
@@ -2898,7 +2909,7 @@ static int logind_reboot(enum action a) {
 
 static int logind_check_inhibitors(enum action a) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
         uint32_t uid, pid;
@@ -3014,7 +3025,7 @@ static int logind_check_inhibitors(enum action a) {
 
 static int logind_prepare_firmware_setup(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -3060,7 +3071,7 @@ static int prepare_firmware_setup(void) {
 }
 
 static int set_exit_code(uint8_t code) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -3221,7 +3232,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(
                                 bus,
@@ -3349,6 +3360,7 @@ typedef struct UnitStatusInfo {
         usec_t inactive_enter_timestamp;
 
         bool need_daemon_reload;
+        bool transient;
 
         /* Service */
         pid_t main_pid;
@@ -3448,7 +3460,7 @@ static void print_status_info(
 
         path = i->source_path ? i->source_path : i->fragment_path;
 
-        if (i->load_error)
+        if (i->load_error != 0)
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset))
@@ -3464,6 +3476,9 @@ static void print_status_info(
                 printf("   Loaded: %s%s%s\n",
                        on, strna(i->load_state), off);
 
+        if (i->transient)
+                printf("Transient: yes\n");
+
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
                 bool last = false;
@@ -3475,7 +3490,8 @@ static void print_status_info(
 
                                 dir = mfree(dir);
 
-                                if (path_get_parent(*dropin, &dir) < 0) {
+                                dir = dirname_malloc(*dropin);
+                                if (!dir) {
                                         log_oom();
                                         return;
                                 }
@@ -3827,6 +3843,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->condition_result = b;
                 else if (streq(name, "AssertResult"))
                         i->assert_result = b;
+                else if (streq(name, "Transient"))
+                        i->transient = b;
 
                 break;
         }
@@ -4376,8 +4394,8 @@ static int show_one(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         UnitStatusInfo info = {
                 .memory_current = (uint64_t) -1,
                 .memory_limit = (uint64_t) -1,
@@ -4493,8 +4511,8 @@ static int get_unit_dbus_path_by_pid(
                 uint32_t pid,
                 char **unit) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         char *u;
         int r;
 
@@ -4529,7 +4547,7 @@ static int show_all(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         const UnitInfo *u;
         unsigned c;
@@ -4634,8 +4652,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        if (show_properties)
-                pager_open_if_enabled();
+        pager_open_if_enabled();
 
         if (show_status)
                 /* Increase max number of open files to 16K if we can, we
@@ -4829,8 +4846,8 @@ static int cat(int argc, char *argv[], void *userdata) {
 }
 
 static int set_property(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL;
         sd_bus *bus;
         char **i;
@@ -4889,104 +4906,8 @@ static int set_property(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int snapshot(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_free_ char *n = NULL, *id = NULL;
-        const char *path;
-        sd_bus *bus;
-        int r;
-
-        polkit_agent_open_if_enabled();
-
-        if (argc > 1) {
-                r = unit_name_mangle_with_suffix(argv[1], UNIT_NAME_NOGLOB, ".snapshot", &n);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate unit name: %m");
-        } else {
-                n = strdup("");
-                if (!n)
-                        return log_oom();
-        }
-
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "CreateSnapshot",
-                        &error,
-                        &reply,
-                        "sb", n, false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create snapshot: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Unit",
-                        "Id",
-                        &error,
-                        &id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get ID of snapshot: %s", bus_error_message(&error, r));
-
-        if (!arg_quiet)
-                puts(id);
-
-        return 0;
-}
-
-static int delete_snapshot(int argc, char *argv[], void *userdata) {
-        _cleanup_strv_free_ char **names = NULL;
-        sd_bus *bus;
-        char **name;
-        int r;
-
-        polkit_agent_open_if_enabled();
-
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
-
-        r = expand_names(bus, strv_skip(argv, 1), ".snapshot", &names);
-        if (r < 0)
-                return log_error_errno(r, "Failed to expand names: %m");
-
-        STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                int q;
-
-                q = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "RemoveSnapshot",
-                                &error,
-                                NULL,
-                                "s", *name);
-                if (q < 0) {
-                        log_error_errno(q, "Failed to remove snapshot %s: %s", *name, bus_error_message(&error, q));
-                        if (r == 0)
-                                r = q;
-                }
-        }
-
-        return r;
-}
-
 static int daemon_reload(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -5060,7 +4981,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(
                                 bus,
@@ -5082,8 +5003,8 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
 }
 
 static int show_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *text;
         sd_bus *bus;
         int r;
@@ -5123,7 +5044,7 @@ static int show_environment(int argc, char *argv[], void *userdata) {
 }
 
 static int switch_root(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cmdline_init = NULL;
         const char *root, *init;
         sd_bus *bus;
@@ -5190,8 +5111,8 @@ static int switch_root(int argc, char *argv[], void *userdata) {
 }
 
 static int set_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -5231,8 +5152,8 @@ static int set_environment(int argc, char *argv[], void *userdata) {
 }
 
 static int import_environment(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus;
         int r;
 
@@ -5303,6 +5224,9 @@ static int enable_sysv_units(const char *verb, char **args) {
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
 
         if (arg_scope != UNIT_FILE_SYSTEM)
+                return 0;
+
+        if (getenv_bool("SYSTEMCTL_SKIP_SYSV") > 0)
                 return 0;
 
         if (!STR_IN_SET(verb,
@@ -5514,18 +5438,18 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached("Unknown verb");
 
-                if (r < 0) {
-                        log_error_errno(r, "Operation failed: %m");
-                        goto finish;
-                }
+                if (r == -ESHUTDOWN)
+                        return log_error_errno(r, "Unit file is masked.");
+                if (r < 0)
+                        return log_error_errno(r, "Operation failed: %m");
 
                 if (!arg_quiet)
                         dump_unit_file_changes(changes, n_changes);
 
                 r = 0;
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int expect_carries_install_info = false;
                 bool send_force = true, send_preset_mode = false;
                 const char *method;
@@ -5634,7 +5558,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 new_args[0] = (char*) (streq(argv[0], "enable") ? "start" : "stop");
                 for (i = 0; i < n_changes; i++)
@@ -5680,7 +5604,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unsigned n_changes = 0;
 
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
-
+                if (r == -ESHUTDOWN)
+                        return log_error_errno(r, "Unit file is masked.");
                 if (r < 0)
                         return log_error_errno(r, "Can't add dependency: %m");
 
@@ -5690,8 +5615,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unit_file_changes_free(changes, n_changes);
 
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -5754,8 +5679,8 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                 r = 0;
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_if_enabled();
@@ -5817,8 +5742,8 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 
-                        state = unit_file_get_state(arg_scope, arg_root, *name);
-                        if (state < 0)
+                        r = unit_file_get_state(arg_scope, arg_root, *name, &state);
+                        if (r < 0)
                                 return log_error_errno(state, "Failed to get unit file state for %s: %m", *name);
 
                         if (IN_SET(state,
@@ -5833,7 +5758,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                 }
 
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -5841,7 +5766,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         return r;
 
                 STRV_FOREACH(name, names) {
-                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                         const char *s;
 
                         r = sd_bus_call_method(
@@ -6362,9 +6287,6 @@ static void systemctl_help(void) {
                "Job Commands:\n"
                "  list-jobs [PATTERN...]          List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
-               "Snapshot Commands:\n"
-               "  snapshot [NAME]                 Create a snapshot\n"
-               "  delete NAME...                  Remove one or more snapshots\n\n"
                "Environment Commands:\n"
                "  show-environment                Dump environment\n"
                "  set-environment NAME=VALUE...   Set one or more environment variables\n"
@@ -6507,11 +6429,6 @@ static void help_states(void) {
                 puts(slice_state_to_string(i));
 
         if (!arg_no_legend)
-                puts("\nAvailable snapshot unit substates:");
-        for (i = 0; i < _SNAPSHOT_STATE_MAX; i++)
-                puts(snapshot_state_to_string(i));
-
-        if (!arg_no_legend)
                 puts("\nAvailable socket unit substates:");
         for (i = 0; i < _SOCKET_STATE_MAX; i++)
                 puts(socket_state_to_string(i));
@@ -6612,7 +6529,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        const char *p;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -6632,15 +6550,21 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
-                        const char *word, *state;
-                        size_t size;
+                        if (isempty(optarg)) {
+                                log_error("--type requires arguments.");
+                                return -EINVAL;
+                        }
 
-                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                _cleanup_free_ char *type;
+                        p = optarg;
+                        for(;;) {
+                                _cleanup_free_ char *type = NULL;
 
-                                type = strndup(word, size);
-                                if (!type)
-                                        return -ENOMEM;
+                                r = extract_first_word(&p, &type, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse type: %s", optarg);
+
+                                if (r == 0)
+                                        break;
 
                                 if (streq(type, "help")) {
                                         help_types();
@@ -6681,18 +6605,21 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 if (!arg_properties)
                                         return log_oom();
                         } else {
-                                const char *word, *state;
-                                size_t size;
+                                p = optarg;
+                                for(;;) {
+                                        _cleanup_free_ char *prop = NULL;
 
-                                FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                        char *prop;
+                                        r = extract_first_word(&p, &prop, ",", 0);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse property: %s", optarg);
 
-                                        prop = strndup(word, size);
-                                        if (!prop)
+                                        if (r == 0)
+                                                break;
+
+                                        if (strv_push(&arg_properties, prop) < 0)
                                                 return log_oom();
 
-                                        if (strv_consume(&arg_properties, prop) < 0)
-                                                return log_oom();
+                                        prop = NULL;
                                 }
                         }
 
@@ -6769,7 +6696,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        arg_root = optarg;
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'l':
@@ -6856,15 +6785,21 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
-                        const char *word, *state;
-                        size_t size;
+                        if (isempty(optarg)) {
+                                log_error("--signal requires arguments.");
+                                return -EINVAL;
+                        }
 
-                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
+                        p = optarg;
+                        for(;;) {
                                 _cleanup_free_ char *s = NULL;
 
-                                s = strndup(word, size);
-                                if (!s)
-                                        return log_oom();
+                                r = extract_first_word(&p, &s, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse signal: %s", optarg);
+
+                                if (r == 0)
+                                        break;
 
                                 if (streq(s, "help")) {
                                         help_states();
@@ -7399,14 +7334,14 @@ static int talk_initctl(void) {
 static int systemctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list-units",            VERB_ANY, 1,        VERB_DEFAULT, list_units        },
-                { "list-unit-files",       VERB_ANY, 1,        0,            list_unit_files   },
-                { "list-sockets",          VERB_ANY, 1,        0,            list_sockets      },
-                { "list-timers",           VERB_ANY, 1,        0,            list_timers       },
-                { "list-jobs",             VERB_ANY, 1,        0,            list_jobs         },
-                { "list-machines",         VERB_ANY, 1,        0,            list_machines     },
+                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT, list_units        },
+                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,            list_unit_files   },
+                { "list-sockets",          VERB_ANY, VERB_ANY, 0,            list_sockets      },
+                { "list-timers",           VERB_ANY, VERB_ANY, 0,            list_timers       },
+                { "list-jobs",             VERB_ANY, VERB_ANY, 0,            list_jobs         },
+                { "list-machines",         VERB_ANY, VERB_ANY, 0,            list_machines     },
                 { "clear-jobs",            VERB_ANY, 1,        0,            daemon_reload     },
-                { "cancel",                2,        VERB_ANY, 0,            cancel_job        },
+                { "cancel",                VERB_ANY, VERB_ANY, 0,            cancel_job        },
                 { "start",                 2,        VERB_ANY, 0,            start_unit        },
                 { "stop",                  2,        VERB_ANY, 0,            start_unit        },
                 { "condstop",              2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with ALTLinux */
@@ -7427,8 +7362,6 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "cat",                   2,        VERB_ANY, 0,            cat               },
                 { "status",                VERB_ANY, VERB_ANY, 0,            show              },
                 { "help",                  VERB_ANY, VERB_ANY, 0,            show              },
-                { "snapshot",              VERB_ANY, 2,        0,            snapshot          },
-                { "delete",                2,        VERB_ANY, 0,            delete_snapshot   },
                 { "daemon-reload",         VERB_ANY, 1,        0,            daemon_reload     },
                 { "daemon-reexec",         VERB_ANY, 1,        0,            daemon_reload     },
                 { "show-environment",      VERB_ANY, 1,        0,            show_environment  },
@@ -7546,7 +7479,7 @@ static int halt_now(enum action a) {
 static int logind_schedule_shutdown(void) {
 
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
         sd_bus *bus;
@@ -7674,7 +7607,7 @@ static int runlevel_main(void) {
 
 static int logind_cancel_shutdown(void) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -7778,8 +7711,11 @@ finish:
         strv_free(arg_properties);
 
         strv_free(arg_wall);
+        free(arg_root);
 
         release_busses();
+
+        /* Note that we return r here, not EXIT_SUCCESS, so that we can implement the LSB-like return codes */
 
         return r < 0 ? EXIT_FAILURE : r;
 }

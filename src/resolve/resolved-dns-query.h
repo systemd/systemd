@@ -23,56 +23,89 @@
 
 
 #include "sd-bus.h"
+
 #include "set.h"
 
+typedef struct DnsQueryCandidate DnsQueryCandidate;
 typedef struct DnsQuery DnsQuery;
 
-#include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-question.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-search-domain.h"
+
+struct DnsQueryCandidate {
+        DnsQuery *query;
+        DnsScope *scope;
+
+        DnsSearchDomain *search_domain;
+
+        int error_code;
+        Set *transactions;
+
+        LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
+        LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
+};
 
 struct DnsQuery {
         Manager *manager;
-        DnsQuestion *question;
 
+        /* When resolving a service, we first create a TXT+SRV query,
+         * and then for the hostnames we discover auxiliary A+AAAA
+         * queries. This pointer always points from the auxiliary
+         * queries back to the TXT+SRV query. */
+        DnsQuery *auxiliary_for;
+        LIST_HEAD(DnsQuery, auxiliary_queries);
+        unsigned n_auxiliary_queries;
+        int auxiliary_result;
+
+        DnsQuestion *question;
         uint64_t flags;
         int ifindex;
 
         DnsTransactionState state;
         unsigned n_cname_redirects;
 
+        LIST_HEAD(DnsQueryCandidate, candidates);
         sd_event_source *timeout_event_source;
 
         /* Discovered data */
         DnsAnswer *answer;
-        int answer_family;
-        DnsProtocol answer_protocol;
         int answer_rcode;
+        DnsProtocol answer_protocol;
+        int answer_family;
+        DnsSearchDomain *answer_search_domain;
+        bool answer_authenticated;
 
         /* Bus client information */
         sd_bus_message *request;
         int request_family;
-        const char *request_hostname;
+        bool request_address_valid;
         union in_addr_union request_address;
+        unsigned block_all_complete;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);
         unsigned block_ready;
 
-        Set *transactions;
-
         sd_bus_track *bus_track;
 
         LIST_FIELDS(DnsQuery, queries);
+        LIST_FIELDS(DnsQuery, auxiliary_queries);
 };
+
+DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
+void dns_query_candidate_ready(DnsQueryCandidate *c);
 
 int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question, int family, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
 
+int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);
+
 int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
-int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname);
+int dns_query_process_cname(DnsQuery *q);
 
 int dns_query_bus_track(DnsQuery *q, sd_bus_message *m);
 

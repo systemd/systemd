@@ -19,24 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/epoll.h>
 #include <ctype.h>
+#include <errno.h>
+#include <stdio.h>
+#include <sys/epoll.h>
+#include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-bus.h"
+#include "sd-daemon.h"
 
-#include "util.h"
-#include "log.h"
-#include "list.h"
-#include "initreq.h"
-#include "special.h"
-#include "bus-util.h"
+#include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-util.h"
 #include "def.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "initreq.h"
+#include "list.h"
+#include "log.h"
+#include "special.h"
+#include "util.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
@@ -99,7 +101,7 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
 
 static void change_runlevel(Server *s, int runlevel) {
         const char *target;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *mode;
         bool isolate = false;
         int r;
@@ -210,8 +212,7 @@ static int fifo_process(Fifo *f) {
                 if (errno == EAGAIN)
                         return 0;
 
-                log_warning_errno(errno, "Failed to read from fifo: %m");
-                return -errno;
+                return log_warning_errno(errno, "Failed to read from fifo: %m");
         }
 
         f->bytes_read += l;

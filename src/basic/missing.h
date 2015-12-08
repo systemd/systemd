@@ -23,19 +23,20 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
-#include <sys/resource.h>
-#include <sys/syscall.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <errno.h>
-#include <linux/oom.h>
-#include <linux/input.h>
-#include <linux/if_link.h>
-#include <linux/loop.h>
+#include <fcntl.h>
 #include <linux/audit.h>
 #include <linux/capability.h>
+#include <linux/if_link.h>
+#include <linux/input.h>
+#include <linux/loop.h>
 #include <linux/neighbour.h>
+#include <linux/oom.h>
+#include <linux/rtnetlink.h>
+#include <stdlib.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -124,6 +125,10 @@
 
 #ifndef SOL_NETLINK
 #define SOL_NETLINK 270
+#endif
+
+#ifndef NETLINK_LIST_MEMBERSHIPS
+#define NETLINK_LIST_MEMBERSHIPS 9
 #endif
 
 #if !HAVE_DECL_PIVOT_ROOT
@@ -246,6 +251,10 @@ static inline int getrandom(void *buffer, size_t count, unsigned flags) {
 
 #ifndef BTRFS_SEARCH_ARGS_BUFSIZE
 #define BTRFS_SEARCH_ARGS_BUFSIZE (4096 - sizeof(struct btrfs_ioctl_search_key))
+#endif
+
+#ifndef BTRFS_QGROUP_LEVEL_SHIFT
+#define BTRFS_QGROUP_LEVEL_SHIFT 48
 #endif
 
 #ifndef HAVE_LINUX_BTRFS_H
@@ -484,6 +493,10 @@ struct btrfs_ioctl_quota_ctl_args {
 
 #ifndef BTRFS_QGROUP_LIMIT_KEY
 #define BTRFS_QGROUP_LIMIT_KEY 244
+#endif
+
+#ifndef BTRFS_QGROUP_RELATION_KEY
+#define BTRFS_QGROUP_RELATION_KEY 246
 #endif
 
 #ifndef BTRFS_ROOT_BACKREF_KEY
@@ -886,6 +899,10 @@ static inline int setns(int fd, int nstype) {
 #define __NDA_MAX 9
 
 #define NDA_MAX (__NDA_MAX - 1)
+#endif
+
+#ifndef RTA_PREF
+#define RTA_PREF 20
 #endif
 
 #ifndef IPV6_UNICAST_IF

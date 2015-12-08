@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for Personality=x86-64
-
-[Service]
-ExecStart=/bin/sh -c 'echo $(uname -m); exit $(test $(uname -m) = "x86_64")'
-Type=oneshot
-Personality=x86-64

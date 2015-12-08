@@ -19,14 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
+#include "alloc-util.h"
+#include "def.h"
+#include "extract-word.h"
+#include "string-util.h"
+#include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
-#include "timesyncd-conf.h"
 
 int manager_parse_server_string(Manager *m, ServerType type, const char *string) {
-        const char *word, *state;
-        size_t length;
         ServerName *first;
         int r;
 
@@ -35,17 +36,20 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
 
         first = type == SERVER_FALLBACK ? m->fallback_servers : m->system_servers;
 
-        FOREACH_WORD_QUOTED(word, length, string, state) {
-                char buffer[length+1];
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 bool found = false;
                 ServerName *n;
 
-                memcpy(buffer, word, length);
-                buffer[length] = 0;
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse timesyncd server syntax \"%s\": %m", string);
+                if (r == 0)
+                        break;
 
                 /* Filter out duplicates */
                 LIST_FOREACH(names, n, first)
-                        if (streq_ptr(n->string, buffer)) {
+                        if (streq_ptr(n->string, word)) {
                                 found = true;
                                 break;
                         }
@@ -53,7 +57,7 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
                 if (found)
                         continue;
 
-                r = server_name_new(m, NULL, type, buffer);
+                r = server_name_new(m, NULL, type, word);
                 if (r < 0)
                         return r;
         }
@@ -96,8 +100,8 @@ int config_parse_servers(
 int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse_many("/etc/systemd/timesyncd.conf",
-                                 CONF_DIRS_NULSTR("systemd/timesyncd.conf"),
+        return config_parse_many(PKGSYSCONFDIR "/timesyncd.conf",
+                                 CONF_PATHS_NULSTR("systemd/timesyncd.conf.d"),
                                  "Time\0",
                                  config_item_perf_lookup, timesyncd_gperf_lookup,
                                  false, m);

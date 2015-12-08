@@ -22,14 +22,13 @@
 
 #include <errno.h>
 
-#include "sd-event.h"
-#include "event-util.h"
-
 #include "sd-dhcp-server.h"
+#include "sd-event.h"
+
 #include "dhcp-server-internal.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
-        _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
 
@@ -37,7 +36,7 @@ static void test_pool(struct in_addr *address, unsigned size, int ret) {
 }
 
 static int test_basic(sd_event *event) {
-        _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address_lo = {
                 .s_addr = htonl(INADDR_LOOPBACK),
         };
@@ -86,7 +85,7 @@ static int test_basic(sd_event *event) {
 }
 
 static void test_message_handler(void) {
-        _cleanup_dhcp_server_unref_ sd_dhcp_server *server = NULL;
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct {
                 DHCPMessage message;
                 struct {
@@ -200,13 +199,11 @@ static void test_message_handler(void) {
 
 static uint64_t client_id_hash_helper(DHCPClientId *id, uint8_t key[HASH_KEY_SIZE]) {
         struct siphash state;
-        uint64_t hash;
 
         siphash24_init(&state, key);
         client_id_hash_func(id, &state);
-        siphash24_finalize((uint8_t*)&hash, &state);
 
-        return hash;
+        return htole64(siphash24_finalize(&state));
 }
 
 static void test_client_id_hash(void) {
@@ -246,7 +243,7 @@ static void test_client_id_hash(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e;
         int r;
 
         log_set_max_level(LOG_DEBUG);

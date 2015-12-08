@@ -19,16 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <fcntl.h>
 
-#include "util.h"
-#include "log.h"
-#include "rm-rf.h"
+#include "fd-util.h"
 #include "journal-file.h"
 #include "journal-verify.h"
+#include "log.h"
+#include "rm-rf.h"
 #include "terminal-util.h"
+#include "util.h"
 
 #define N_ENTRIES 6000
 #define RANDOM_RANGE 77

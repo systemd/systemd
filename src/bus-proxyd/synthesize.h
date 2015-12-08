@@ -22,6 +22,7 @@
 ***/
 
 #include "sd-bus.h"
+
 #include "proxy.h"
 
 int synthetic_driver_send(sd_bus *b, sd_bus_message *m);

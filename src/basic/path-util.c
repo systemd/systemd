@@ -19,21 +19,31 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <sys/statvfs.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "macro.h"
-#include "util.h"
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the
+ * POSIX version which is really broken. We prefer GNU basename(). */
+#include <libgen.h>
+#undef basename
+
+#include "alloc-util.h"
+#include "extract-word.h"
+#include "fs-util.h"
 #include "log.h"
-#include "strv.h"
-#include "path-util.h"
+#include "macro.h"
 #include "missing.h"
-#include "fileio.h"
+#include "path-util.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';
@@ -43,61 +53,25 @@ bool is_path(const char *p) {
         return !!strchr(p, '/');
 }
 
-int path_get_parent(const char *path, char **_r) {
-        const char *e, *a = NULL, *b = NULL, *p;
-        char *r;
-        bool slash = false;
-
-        assert(path);
-        assert(_r);
-
-        if (!*path)
-                return -EINVAL;
-
-        for (e = path; *e; e++) {
-
-                if (!slash && *e == '/') {
-                        a = b;
-                        b = e;
-                        slash = true;
-                } else if (slash && *e != '/')
-                        slash = false;
-        }
-
-        if (*(e-1) == '/')
-                p = a;
-        else
-                p = b;
-
-        if (!p)
-                return -EINVAL;
-
-        if (p == path)
-                r = strdup("/");
-        else
-                r = strndup(path, p-path);
-
-        if (!r)
-                return -ENOMEM;
-
-        *_r = r;
-        return 0;
-}
-
-char **path_split_and_make_absolute(const char *p) {
+int path_split_and_make_absolute(const char *p, char ***ret) {
         char **l;
+        int r;
+
         assert(p);
+        assert(ret);
 
         l = strv_split(p, ":");
         if (!l)
-                return NULL;
+                return -ENOMEM;
 
-        if (!path_strv_make_absolute_cwd(l)) {
+        r = path_strv_make_absolute_cwd(l);
+        if (r < 0) {
                 strv_free(l);
-                return NULL;
+                return r;
         }
 
-        return l;
+        *ret = l;
+        return r;
 }
 
 char *path_make_absolute(const char *p, const char *prefix) {
@@ -112,22 +86,31 @@ char *path_make_absolute(const char *p, const char *prefix) {
         return strjoin(prefix, "/", p, NULL);
 }
 
-char *path_make_absolute_cwd(const char *p) {
-        _cleanup_free_ char *cwd = NULL;
+int path_make_absolute_cwd(const char *p, char **ret) {
+        char *c;
 
         assert(p);
+        assert(ret);
 
         /* Similar to path_make_absolute(), but prefixes with the
          * current working directory. */
 
         if (path_is_absolute(p))
-                return strdup(p);
+                c = strdup(p);
+        else {
+                _cleanup_free_ char *cwd = NULL;
 
-        cwd = get_current_dir_name();
-        if (!cwd)
-                return NULL;
+                cwd = get_current_dir_name();
+                if (!cwd)
+                        return -errno;
 
-        return strjoin(cwd, "/", p, NULL);
+                c = strjoin(cwd, "/", p, NULL);
+        }
+        if (!c)
+                return -ENOMEM;
+
+        *ret = c;
+        return 0;
 }
 
 int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
@@ -215,8 +198,9 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
         return 0;
 }
 
-char **path_strv_make_absolute_cwd(char **l) {
+int path_strv_make_absolute_cwd(char **l) {
         char **s;
+        int r;
 
         /* Goes through every item in the string list and makes it
          * absolute. This works in place and won't rollback any
@@ -225,15 +209,15 @@ char **path_strv_make_absolute_cwd(char **l) {
         STRV_FOREACH(s, l) {
                 char *t;
 
-                t = path_make_absolute_cwd(*s);
-                if (!t)
-                        return NULL;
+                r = path_make_absolute_cwd(*s, &t);
+                if (r < 0)
+                        return r;
 
                 free(*s);
                 *s = t;
         }
 
-        return l;
+        return 0;
 }
 
 char **path_strv_resolve(char **l, const char *prefix) {
@@ -411,7 +395,7 @@ int path_compare(const char *a, const char *b) {
          * Which one is sorted before the other does not really matter.
          * Here a relative path is ordered before an absolute path. */
         d = (a[0] == '/') - (b[0] == '/');
-        if (d)
+        if (d != 0)
                 return d;
 
         for (;;) {
@@ -434,12 +418,12 @@ int path_compare(const char *a, const char *b) {
 
                 /* Alphabetical sort: "/foo/aaa" before "/foo/b" */
                 d = memcmp(a, b, MIN(j, k));
-                if (d)
+                if (d != 0)
                         return (d > 0) - (d < 0); /* sign of d */
 
                 /* Sort "/foo/a" before "/foo/aaa" */
                 d = (j > k) - (j < k);  /* sign of (j - k) */
-                if (d)
+                if (d != 0)
                         return d;
 
                 a += j;
@@ -471,294 +455,66 @@ char* path_join(const char *root, const char *path, const char *rest) {
                                NULL);
 }
 
-static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id) {
-        char path[strlen("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
-        _cleanup_close_ int subfd = -1;
-        char *p;
-        int r;
+int find_binary(const char *name, char **ret) {
+        int last_error, r;
+        const char *p;
 
-        if ((flags & AT_EMPTY_PATH) && isempty(filename))
-                xsprintf(path, "/proc/self/fdinfo/%i", fd);
-        else {
-                subfd = openat(fd, filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
-                if (subfd < 0)
-                        return -errno;
-
-                xsprintf(path, "/proc/self/fdinfo/%i", subfd);
-        }
-
-        r = read_full_file(path, &fdinfo, NULL);
-        if (r == -ENOENT) /* The fdinfo directory is a relatively new addition */
-                return -EOPNOTSUPP;
-        if (r < 0)
-                return -errno;
-
-        p = startswith(fdinfo, "mnt_id:");
-        if (!p) {
-                p = strstr(fdinfo, "\nmnt_id:");
-                if (!p) /* The mnt_id field is a relatively new addition */
-                        return -EOPNOTSUPP;
-
-                p += 8;
-        }
-
-        p += strspn(p, WHITESPACE);
-        p[strcspn(p, WHITESPACE)] = 0;
-
-        return safe_atoi(p, mnt_id);
-}
-
-int fd_is_mount_point(int fd, const char *filename, int flags) {
-        union file_handle_union h = FILE_HANDLE_INIT, h_parent = FILE_HANDLE_INIT;
-        int mount_id = -1, mount_id_parent = -1;
-        bool nosupp = false, check_st_dev = true;
-        struct stat a, b;
-        int r;
-
-        assert(fd >= 0);
-        assert(filename);
-
-        /* First we will try the name_to_handle_at() syscall, which
-         * tells us the mount id and an opaque file "handle". It is
-         * not supported everywhere though (kernel compile-time
-         * option, not all file systems are hooked up). If it works
-         * the mount id is usually good enough to tell us whether
-         * something is a mount point.
-         *
-         * If that didn't work we will try to read the mount id from
-         * /proc/self/fdinfo/<fd>. This is almost as good as
-         * name_to_handle_at(), however, does not return the
-         * opaque file handle. The opaque file handle is pretty useful
-         * to detect the root directory, which we should always
-         * consider a mount point. Hence we use this only as
-         * fallback. Exporting the mnt_id in fdinfo is a pretty recent
-         * kernel addition.
-         *
-         * As last fallback we do traditional fstat() based st_dev
-         * comparisons. This is how things were traditionally done,
-         * but unionfs breaks breaks this since it exposes file
-         * systems with a variety of st_dev reported. Also, btrfs
-         * subvolumes have different st_dev, even though they aren't
-         * real mounts of their own. */
-
-        r = name_to_handle_at(fd, filename, &h.handle, &mount_id, flags);
-        if (r < 0) {
-                if (errno == ENOSYS)
-                        /* This kernel does not support name_to_handle_at()
-                         * fall back to simpler logic. */
-                        goto fallback_fdinfo;
-                else if (errno == EOPNOTSUPP)
-                        /* This kernel or file system does not support
-                         * name_to_handle_at(), hence let's see if the
-                         * upper fs supports it (in which case it is a
-                         * mount point), otherwise fallback to the
-                         * traditional stat() logic */
-                        nosupp = true;
-                else
-                        return -errno;
-        }
-
-        r = name_to_handle_at(fd, "", &h_parent.handle, &mount_id_parent, AT_EMPTY_PATH);
-        if (r < 0) {
-                if (errno == EOPNOTSUPP) {
-                        if (nosupp)
-                                /* Neither parent nor child do name_to_handle_at()?
-                                   We have no choice but to fall back. */
-                                goto fallback_fdinfo;
-                        else
-                                /* The parent can't do name_to_handle_at() but the
-                                 * directory we are interested in can?
-                                 * If so, it must be a mount point. */
-                                return 1;
-                } else
-                        return -errno;
-        }
-
-        /* The parent can do name_to_handle_at() but the
-         * directory we are interested in can't? If so, it
-         * must be a mount point. */
-        if (nosupp)
-                return 1;
-
-        /* If the file handle for the directory we are
-         * interested in and its parent are identical, we
-         * assume this is the root directory, which is a mount
-         * point. */
-
-        if (h.handle.handle_bytes == h_parent.handle.handle_bytes &&
-            h.handle.handle_type == h_parent.handle.handle_type &&
-            memcmp(h.handle.f_handle, h_parent.handle.f_handle, h.handle.handle_bytes) == 0)
-                return 1;
-
-        return mount_id != mount_id_parent;
-
-fallback_fdinfo:
-        r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (r == -EOPNOTSUPP)
-                goto fallback_fstat;
-        if (r < 0)
-                return r;
-
-        r = fd_fdinfo_mnt_id(fd, "", AT_EMPTY_PATH, &mount_id_parent);
-        if (r < 0)
-                return r;
-
-        if (mount_id != mount_id_parent)
-                return 1;
-
-        /* Hmm, so, the mount ids are the same. This leaves one
-         * special case though for the root file system. For that,
-         * let's see if the parent directory has the same inode as we
-         * are interested in. Hence, let's also do fstat() checks now,
-         * too, but avoid the st_dev comparisons, since they aren't
-         * that useful on unionfs mounts. */
-        check_st_dev = false;
-
-fallback_fstat:
-        /* yay for fstatat() taking a different set of flags than the other
-         * _at() above */
-        if (flags & AT_SYMLINK_FOLLOW)
-                flags &= ~AT_SYMLINK_FOLLOW;
-        else
-                flags |= AT_SYMLINK_NOFOLLOW;
-        if (fstatat(fd, filename, &a, flags) < 0)
-                return -errno;
-
-        if (fstatat(fd, "", &b, AT_EMPTY_PATH) < 0)
-                return -errno;
-
-        /* A directory with same device and inode as its parent? Must
-         * be the root directory */
-        if (a.st_dev == b.st_dev &&
-            a.st_ino == b.st_ino)
-                return 1;
-
-        return check_st_dev && (a.st_dev != b.st_dev);
-}
-
-/* flags can be AT_SYMLINK_FOLLOW or 0 */
-int path_is_mount_point(const char *t, int flags) {
-        _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *canonical = NULL, *parent = NULL;
-        int r;
-
-        assert(t);
-
-        if (path_equal(t, "/"))
-                return 1;
-
-        /* we need to resolve symlinks manually, we can't just rely on
-         * fd_is_mount_point() to do that for us; if we have a structure like
-         * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
-         * look at needs to be /usr, not /. */
-        if (flags & AT_SYMLINK_FOLLOW) {
-                canonical = canonicalize_file_name(t);
-                if (!canonical)
-                        return -errno;
-
-                t = canonical;
-        }
-
-        r = path_get_parent(t, &parent);
-        if (r < 0)
-                return r;
-
-        fd = openat(AT_FDCWD, parent, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return -errno;
-
-        return fd_is_mount_point(fd, basename(t), flags);
-}
-
-int path_is_read_only_fs(const char *path) {
-        struct statvfs st;
-
-        assert(path);
-
-        if (statvfs(path, &st) < 0)
-                return -errno;
-
-        if (st.f_flag & ST_RDONLY)
-                return true;
-
-        /* On NFS, statvfs() might not reflect whether we can actually
-         * write to the remote share. Let's try again with
-         * access(W_OK) which is more reliable, at least sometimes. */
-        if (access(path, W_OK) < 0 && errno == EROFS)
-                return true;
-
-        return false;
-}
-
-int path_is_os_tree(const char *path) {
-        char *p;
-        int r;
-
-        /* We use /usr/lib/os-release as flag file if something is an OS */
-        p = strjoina(path, "/usr/lib/os-release");
-        r = access(p, F_OK);
-
-        if (r >= 0)
-                return 1;
-
-        /* Also check for the old location in /etc, just in case. */
-        p = strjoina(path, "/etc/os-release");
-        r = access(p, F_OK);
-
-        return r >= 0;
-}
-
-int find_binary(const char *name, bool local, char **filename) {
         assert(name);
 
         if (is_path(name)) {
-                if (local && access(name, X_OK) < 0)
+                if (access(name, X_OK) < 0)
                         return -errno;
 
-                if (filename) {
-                        char *p;
-
-                        p = path_make_absolute_cwd(name);
-                        if (!p)
-                                return -ENOMEM;
-
-                        *filename = p;
+                if (ret) {
+                        r = path_make_absolute_cwd(name, ret);
+                        if (r < 0)
+                                return r;
                 }
 
                 return 0;
-        } else {
-                const char *path;
-                const char *word, *state;
-                size_t l;
+        }
 
-                /**
-                 * Plain getenv, not secure_getenv, because we want
-                 * to actually allow the user to pick the binary.
-                 */
-                path = getenv("PATH");
-                if (!path)
-                        path = DEFAULT_PATH;
+        /**
+         * Plain getenv, not secure_getenv, because we want
+         * to actually allow the user to pick the binary.
+         */
+        p = getenv("PATH");
+        if (!p)
+                p = DEFAULT_PATH;
 
-                FOREACH_WORD_SEPARATOR(word, l, path, ":", state) {
-                        _cleanup_free_ char *p = NULL;
+        last_error = -ENOENT;
 
-                        if (asprintf(&p, "%.*s/%s", (int) l, word, name) < 0)
-                                return -ENOMEM;
+        for (;;) {
+                _cleanup_free_ char *j = NULL, *element = NULL;
 
-                        if (access(p, X_OK) < 0)
-                                continue;
+                r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
-                        if (filename) {
-                                *filename = path_kill_slashes(p);
-                                p = NULL;
+                if (!path_is_absolute(element))
+                        continue;
+
+                j = strjoin(element, "/", name, NULL);
+                if (!j)
+                        return -ENOMEM;
+
+                if (access(j, X_OK) >= 0) {
+                        /* Found it! */
+
+                        if (ret) {
+                                *ret = path_kill_slashes(j);
+                                j = NULL;
                         }
 
                         return 0;
                 }
 
-                return -ENOENT;
+                last_error = -errno;
         }
+
+        return last_error;
 }
 
 bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
@@ -796,14 +552,13 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
         return changed;
 }
 
-int fsck_exists(const char *fstype) {
+static int binary_is_good(const char *binary) {
         _cleanup_free_ char *p = NULL, *d = NULL;
-        const char *checker;
         int r;
 
-        checker = strjoina("fsck.", fstype);
-
-        r = find_binary(checker, true, &p);
+        r = find_binary(binary, &p);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
@@ -811,13 +566,39 @@ int fsck_exists(const char *fstype) {
          * fsck */
 
         r = readlink_malloc(p, &d);
-        if (r >= 0 &&
-            (path_equal(d, "/bin/true") ||
-             path_equal(d, "/usr/bin/true") ||
-             path_equal(d, "/dev/null")))
-                return -ENOENT;
+        if (r == -EINVAL) /* not a symlink */
+                return 1;
+        if (r < 0)
+                return r;
 
-        return 0;
+        return !path_equal(d, "true") &&
+               !path_equal(d, "/bin/true") &&
+               !path_equal(d, "/usr/bin/true") &&
+               !path_equal(d, "/dev/null");
+}
+
+int fsck_exists(const char *fstype) {
+        const char *checker;
+
+        assert(fstype);
+
+        if (streq(fstype, "auto"))
+                return -EINVAL;
+
+        checker = strjoina("fsck.", fstype);
+        return binary_is_good(checker);
+}
+
+int mkfs_exists(const char *fstype) {
+        const char *mkfs;
+
+        assert(fstype);
+
+        if (streq(fstype, "auto"))
+                return -EINVAL;
+
+        mkfs = strjoina("mkfs.", fstype);
+        return binary_is_good(mkfs);
 }
 
 char *prefix_root(const char *root, const char *path) {
@@ -852,4 +633,167 @@ char *prefix_root(const char *root, const char *path) {
 
         strcpy(p, path);
         return n;
+}
+
+int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {
+        char *p;
+        int r;
+
+        /*
+         * This function is intended to be used in command line
+         * parsers, to handle paths that are passed in. It makes the
+         * path absolute, and reduces it to NULL if omitted or
+         * root (the latter optionally).
+         *
+         * NOTE THAT THIS WILL FREE THE PREVIOUS ARGUMENT POINTER ON
+         * SUCCESS! Hence, do not pass in uninitialized pointers.
+         */
+
+        if (isempty(path)) {
+                *arg = mfree(*arg);
+                return 0;
+        }
+
+        r = path_make_absolute_cwd(path, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
+
+        path_kill_slashes(p);
+        if (suppress_root && path_equal(p, "/"))
+                p = mfree(p);
+
+        free(*arg);
+        *arg = p;
+        return 0;
+}
+
+char* dirname_malloc(const char *path) {
+        char *d, *dir, *dir2;
+
+        assert(path);
+
+        d = strdup(path);
+        if (!d)
+                return NULL;
+
+        dir = dirname(d);
+        assert(dir);
+
+        if (dir == d)
+                return d;
+
+        dir2 = strdup(dir);
+        free(d);
+
+        return dir2;
+}
+
+bool filename_is_valid(const char *p) {
+        const char *e;
+
+        if (isempty(p))
+                return false;
+
+        if (streq(p, "."))
+                return false;
+
+        if (streq(p, ".."))
+                return false;
+
+        e = strchrnul(p, '/');
+        if (*e != 0)
+                return false;
+
+        if (e - p > FILENAME_MAX)
+                return false;
+
+        return true;
+}
+
+bool path_is_safe(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (streq(p, "..") || startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
+                return false;
+
+        if (strlen(p)+1 > PATH_MAX)
+                return false;
+
+        /* The following two checks are not really dangerous, but hey, they still are confusing */
+        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
+                return false;
+
+        if (strstr(p, "//"))
+                return false;
+
+        return true;
+}
+
+char *file_in_same_dir(const char *path, const char *filename) {
+        char *e, *ret;
+        size_t k;
+
+        assert(path);
+        assert(filename);
+
+        /* This removes the last component of path and appends
+         * filename, unless the latter is absolute anyway or the
+         * former isn't */
+
+        if (path_is_absolute(filename))
+                return strdup(filename);
+
+        e = strrchr(path, '/');
+        if (!e)
+                return strdup(filename);
+
+        k = strlen(filename);
+        ret = new(char, (e + 1 - path) + k + 1);
+        if (!ret)
+                return NULL;
+
+        memcpy(mempcpy(ret, path, e + 1 - path), filename, k + 1);
+        return ret;
+}
+
+bool hidden_file_allow_backup(const char *filename) {
+        assert(filename);
+
+        return
+                filename[0] == '.' ||
+                streq(filename, "lost+found") ||
+                streq(filename, "aquota.user") ||
+                streq(filename, "aquota.group") ||
+                endswith(filename, ".rpmnew") ||
+                endswith(filename, ".rpmsave") ||
+                endswith(filename, ".rpmorig") ||
+                endswith(filename, ".dpkg-old") ||
+                endswith(filename, ".dpkg-new") ||
+                endswith(filename, ".dpkg-tmp") ||
+                endswith(filename, ".dpkg-dist") ||
+                endswith(filename, ".dpkg-bak") ||
+                endswith(filename, ".dpkg-backup") ||
+                endswith(filename, ".dpkg-remove") ||
+                endswith(filename, ".swp");
+}
+
+bool hidden_file(const char *filename) {
+        assert(filename);
+
+        if (endswith(filename, "~"))
+                return true;
+
+        return hidden_file_allow_backup(filename);
+}
+
+bool is_device_path(const char *path) {
+
+        /* Returns true on paths that refer to a device, either in
+         * sysfs or in /dev */
+
+        return
+                path_startswith(path, "/dev/") ||
+                path_startswith(path, "/sys/");
 }

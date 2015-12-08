@@ -19,14 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "fs-util.h"
 #include "macro.h"
-#include "strv.h"
-#include "util.h"
+#include "parse-util.h"
 #include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "user-util.h"
+#include "util.h"
 
 static void setup_test_dir(char *tmp_dir, const char *files, ...) {
         va_list ap;
@@ -36,7 +41,7 @@ static void setup_test_dir(char *tmp_dir, const char *files, ...) {
         va_start(ap, files);
         while (files != NULL) {
                 _cleanup_free_ char *path = strappend(tmp_dir, files);
-                assert_se(touch_file(path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0) == 0);
+                assert_se(touch_file(path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) == 0);
                 files = va_arg(ap, const char *);
         }
         va_end(ap);

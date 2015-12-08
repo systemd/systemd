@@ -22,11 +22,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <netinet/in.h>
 #include <net/ethernet.h>
+#include <netinet/in.h>
 
 #include "sd-event.h"
+
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 enum {
         SD_IPV4LL_EVENT_STOP            = 0,
@@ -43,12 +46,17 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address);
 int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_cb_t cb, void *userdata);
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr);
 int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index);
+int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address);
 int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, unsigned seed);
-bool sd_ipv4ll_is_running(sd_ipv4ll *ll);
+int sd_ipv4ll_is_running(sd_ipv4ll *ll);
 int sd_ipv4ll_start(sd_ipv4ll *ll);
 int sd_ipv4ll_stop(sd_ipv4ll *ll);
 sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll);
 sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll);
 int sd_ipv4ll_new (sd_ipv4ll **ret);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ipv4ll, sd_ipv4ll_unref);
+
+_SD_END_DECLARATIONS;
 
 #endif

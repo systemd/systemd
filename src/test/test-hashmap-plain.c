@@ -17,9 +17,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
+#include "hashmap.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "hashmap.h"
 
 void test_hashmap_funcs(void);
 

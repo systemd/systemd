@@ -19,10 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "path-util.h"
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
+#include <unistd.h>
+
 #include "btrfs-util.h"
+#include "fd-util.h"
+#include "log.h"
+#include "macro.h"
+#include "mount-util.h"
+#include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
+#include "string-util.h"
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
         _cleanup_closedir_ DIR *d = NULL;
@@ -120,7 +134,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
 
                                 /* This could be a subvolume, try to remove it */
 
-                                r = btrfs_subvol_remove_fd(fd, de->d_name, true);
+                                r = btrfs_subvol_remove_fd(fd, de->d_name, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                                 if (r < 0) {
                                         if (r != -ENOTTY && r != -EINVAL) {
                                                 if (ret == 0)
@@ -178,7 +192,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         if ((flags & (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) == (REMOVE_SUBVOLUME|REMOVE_ROOT|REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
-                r = btrfs_subvol_remove(path, true);
+                r = btrfs_subvol_remove(path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (r >= 0)
                         return r;
 

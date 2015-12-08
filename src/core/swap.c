@@ -20,22 +20,30 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
-#include <libudev.h>
+#include <unistd.h>
 
-#include "unit.h"
-#include "swap.h"
-#include "unit-name.h"
+#include "libudev.h"
+
+#include "alloc-util.h"
 #include "dbus-swap.h"
-#include "special.h"
+#include "escape.h"
 #include "exit-status.h"
-#include "path-util.h"
-#include "virt.h"
-#include "udev-util.h"
-#include "fstab-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "fstab-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "special.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "swap.h"
+#include "udev-util.h"
+#include "unit-name.h"
+#include "unit.h"
+#include "virt.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,
@@ -194,7 +202,7 @@ static int swap_add_device_links(Swap *s) {
                 return 0;
 
         if (is_device_path(s->what))
-                return unit_add_node_link(UNIT(s), s->what, UNIT(s)->manager->running_as == MANAGER_SYSTEM);
+                return unit_add_node_link(UNIT(s), s->what, UNIT(s)->manager->running_as == MANAGER_SYSTEM, UNIT_BINDS_TO);
         else
                 /* File based swap devices need to be ordered after
                  * systemd-remount-fs.service, since they might need a
@@ -203,13 +211,24 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
+        int r;
+
         assert(s);
+
+        if (!UNIT(s)->default_dependencies)
+                return 0;
 
         if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
         if (detect_container() > 0)
                 return 0;
+
+        /* swap units generated for the swap dev links are missing the
+         * ordering dep against the swap target. */
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SWAP_TARGET, NULL, true);
+        if (r < 0)
+                return r;
 
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
 }
@@ -323,11 +342,9 @@ static int swap_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (UNIT(s)->default_dependencies) {
-                        r = swap_add_default_dependencies(s);
-                        if (r < 0)
-                                return r;
-                }
+                r = swap_add_default_dependencies(s);
+                if (r < 0)
+                        return r;
         }
 
         return swap_verify(s);
@@ -520,16 +537,16 @@ static int swap_coldplug(Unit *u) {
         if (new_state == s->state)
                 return 0;
 
-        if (new_state == SWAP_ACTIVATING ||
-            new_state == SWAP_ACTIVATING_SIGTERM ||
-            new_state == SWAP_ACTIVATING_SIGKILL ||
-            new_state == SWAP_ACTIVATING_DONE ||
-            new_state == SWAP_DEACTIVATING ||
-            new_state == SWAP_DEACTIVATING_SIGTERM ||
-            new_state == SWAP_DEACTIVATING_SIGKILL) {
-
-                if (s->control_pid <= 0)
-                        return -EBADMSG;
+        if (s->control_pid > 0 &&
+            pid_is_unwaited(s->control_pid) &&
+            IN_SET(new_state,
+                   SWAP_ACTIVATING,
+                   SWAP_ACTIVATING_SIGTERM,
+                   SWAP_ACTIVATING_SIGKILL,
+                   SWAP_ACTIVATING_DONE,
+                   SWAP_DEACTIVATING,
+                   SWAP_DEACTIVATING_SIGTERM,
+                   SWAP_DEACTIVATING_SIGKILL)) {
 
                 r = unit_watch_pid(UNIT(s), s->control_pid);
                 if (r < 0)
@@ -1198,7 +1215,7 @@ static Unit *swap_following(Unit *u) {
                 if (other->from_fragment)
                         return UNIT(other);
 
-        /* Otherwise make everybody follow the unit that's named after
+        /* Otherwise, make everybody follow the unit that's named after
          * the swap device in the kernel */
 
         if (streq_ptr(s->what, s->devnode))
@@ -1260,26 +1277,36 @@ static void swap_shutdown(Manager *m) {
         m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
 
-static int swap_enumerate(Manager *m) {
+static void swap_enumerate(Manager *m) {
         int r;
 
         assert(m);
 
         if (!m->proc_swaps) {
                 m->proc_swaps = fopen("/proc/swaps", "re");
-                if (!m->proc_swaps)
-                        return errno == ENOENT ? 0 : -errno;
+                if (!m->proc_swaps) {
+                        if (errno == ENOENT)
+                                log_debug("Not swap enabled, skipping enumeration");
+                        else
+                                log_error_errno(errno, "Failed to open /proc/swaps: %m");
+
+                        return;
+                }
 
                 r = sd_event_add_io(m->event, &m->swap_event_source, fileno(m->proc_swaps), EPOLLPRI, swap_dispatch_io, m);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to watch /proc/swaps: %m");
                         goto fail;
+                }
 
                 /* Dispatch this before we dispatch SIGCHLD, so that
                  * we always get the events from /proc/swaps before
                  * the SIGCHLD of /sbin/swapon. */
                 r = sd_event_source_set_priority(m->swap_event_source, -10);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to change /proc/swaps priority: %m");
                         goto fail;
+                }
 
                 (void) sd_event_source_set_description(m->swap_event_source, "swap-proc");
         }
@@ -1288,11 +1315,10 @@ static int swap_enumerate(Manager *m) {
         if (r < 0)
                 goto fail;
 
-        return 0;
+        return;
 
 fail:
         swap_shutdown(m);
-        return r;
 }
 
 int swap_process_device_new(Manager *m, struct udev_device *dev) {

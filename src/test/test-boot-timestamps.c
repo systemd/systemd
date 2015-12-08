@@ -20,11 +20,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "log.h"
+#include "acpi-fpdt.h"
 #include "boot-timestamps.h"
 #include "efivars.h"
-#include "acpi-fpdt.h"
+#include "log.h"
+#include "util.h"
 
 static int test_acpi_fpdt(void) {
         usec_t loader_start;

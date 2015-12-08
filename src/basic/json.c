@@ -19,11 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
+#include <errno.h>
 #include <math.h>
-#include "macro.h"
-#include "utf8.h"
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+
+#include "alloc-util.h"
+#include "hexdecoct.h"
 #include "json.h"
+#include "macro.h"
+#include "string-util.h"
+#include "utf8.h"
 
 int json_variant_new(JsonVariant **ret, JsonVariantType type) {
         JsonVariant *v;

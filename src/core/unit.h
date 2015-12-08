@@ -30,11 +30,11 @@ typedef struct UnitVTable UnitVTable;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
-#include "list.h"
 #include "condition.h"
-#include "install.h"
-#include "unit-name.h"
 #include "failure-action.h"
+#include "install.h"
+#include "list.h"
+#include "unit-name.h"
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -203,9 +203,6 @@ struct Unit {
         /* Ignore this unit when isolating */
         bool ignore_on_isolate;
 
-        /* Ignore this unit when snapshotting */
-        bool ignore_on_snapshot;
-
         /* Did the last condition check succeed? */
         bool condition_result;
         bool assert_result;
@@ -245,17 +242,16 @@ typedef enum UnitSetPropertiesMode {
         UNIT_PERSISTENT = 2,
 } UnitSetPropertiesMode;
 
-#include "socket.h"
-#include "busname.h"
-#include "target.h"
-#include "snapshot.h"
-#include "device.h"
 #include "automount.h"
-#include "swap.h"
-#include "timer.h"
-#include "slice.h"
+#include "busname.h"
+#include "device.h"
 #include "path.h"
 #include "scope.h"
+#include "slice.h"
+#include "socket.h"
+#include "swap.h"
+#include "target.h"
+#include "timer.h"
 
 struct UnitVTable {
         /* How much memory does an object of this unit type need */
@@ -322,7 +318,7 @@ struct UnitVTable {
         int (*deserialize_item)(Unit *u, const char *key, const char *data, FDSet *fds);
 
         /* Try to match up fds with what we need for this unit */
-        int (*distribute_fds)(Unit *u, FDSet *fds);
+        void (*distribute_fds)(Unit *u, FDSet *fds);
 
         /* Boils down the more complex internal state of this unit to
          * a simpler one that the engine can understand */
@@ -342,9 +338,6 @@ struct UnitVTable {
         /* When the unit is not running and no job for it queued we
          * shall release its runtime resources */
         void (*release_resources)(Unit *u);
-
-        /* Return true when this unit is suitable for snapshotting */
-        bool (*check_snapshot)(Unit *u);
 
         /* Invoked on every child that died */
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
@@ -389,7 +382,7 @@ struct UnitVTable {
          * everything that is loaded here should still stay in
          * inactive state. It is the job of the coldplug() call above
          * to put the units into the initial state.  */
-        int (*enumerate)(Manager *m);
+        void (*enumerate)(Manager *m);
 
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
@@ -409,9 +402,6 @@ struct UnitVTable {
 
         /* Instances make no sense for this type */
         bool no_instances:1;
-
-        /* Exclude from automatic gc */
-        bool no_gc:1;
 
         /* True if transient units of this type are OK */
         bool can_transient:1;
@@ -443,7 +433,6 @@ DEFINE_CAST(SERVICE, Service);
 DEFINE_CAST(SOCKET, Socket);
 DEFINE_CAST(BUSNAME, BusName);
 DEFINE_CAST(TARGET, Target);
-DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(DEVICE, Device);
 DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
@@ -463,9 +452,6 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
 
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
-
-int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
-int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
@@ -520,7 +506,7 @@ void unit_unwatch_all_pids(Unit *u);
 
 void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2);
 
-int unit_install_bus_match(sd_bus *bus, Unit *u, const char *name);
+int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);
 void unit_unwatch_bus_name(Unit *u, const char *name);
 
@@ -542,7 +528,7 @@ int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *v
 int unit_serialize_item_fd(Unit *u, FILE *f, FDSet *fds, const char *key, int fd);
 void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_(4,5);
 
-int unit_add_node_link(Unit *u, const char *what, bool wants);
+int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency d);
 
 int unit_coldplug(Unit *u);
 
@@ -592,8 +578,6 @@ int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *n
 int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
 int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) _printf_(4,5);
 
-int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
-
 int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 
 int unit_make_transient(Unit *u);
@@ -601,6 +585,8 @@ int unit_make_transient(Unit *u);
 int unit_require_mounts_for(Unit *u, const char *path);
 
 bool unit_type_supported(UnitType t);
+
+bool unit_is_pristine(Unit *u);
 
 static inline bool unit_supported(Unit *u) {
         return unit_type_supported(u->type);

@@ -25,8 +25,16 @@
 #include "libudev.h"
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
+#include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
 
@@ -40,8 +48,8 @@ static const char* const rfkill_type_table[NUM_RFKILL_TYPES] = {
         [RFKILL_TYPE_WIMAX] = "wimax",
         [RFKILL_TYPE_WWAN] = "wwan",
         [RFKILL_TYPE_GPS] = "gps",
-        [RFKILL_TYPE_FM] "fm",
-        [RFKILL_TYPE_NFC] "nfc",
+        [RFKILL_TYPE_FM] = "fm",
+        [RFKILL_TYPE_NFC] = "nfc",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int);
@@ -204,7 +212,7 @@ static int load_state(
         assert(udev);
         assert(event);
 
-        if (!shall_restore_state())
+        if (shall_restore_state() == 0)
                 return 0;
 
         r = find_device(udev, event, &device);

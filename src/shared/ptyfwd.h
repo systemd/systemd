@@ -25,6 +25,8 @@
 
 #include "sd-event.h"
 
+#include "macro.h"
+
 typedef struct PTYForward PTYForward;
 
 typedef enum PTYForwardFlags {

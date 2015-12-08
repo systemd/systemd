@@ -17,18 +17,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "device-nodes.h"
 #include "libudev.h"
-#include "libudev-private.h"
-#include "utf8.h"
+
 #include "MurmurHash2.h"
+#include "device-nodes.h"
+#include "libudev-private.h"
+#include "syslog-util.h"
+#include "utf8.h"
 
 /**
  * SECTION:libudev-util
@@ -97,52 +99,6 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                 log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
         }
         udev_device_unref(dev);
-        return 0;
-}
-
-ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
-{
-        char path[UTIL_PATH_SIZE];
-        char target[UTIL_PATH_SIZE];
-        ssize_t len;
-        const char *pos;
-
-        strscpyl(path, sizeof(path), syspath, "/", slink, NULL);
-        len = readlink(path, target, sizeof(target));
-        if (len <= 0 || len == (ssize_t)sizeof(target))
-                return -1;
-        target[len] = '\0';
-        pos = strrchr(target, '/');
-        if (pos == NULL)
-                return -1;
-        pos = &pos[1];
-        return strscpy(value, size, pos);
-}
-
-int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
-{
-        char link_target[UTIL_PATH_SIZE];
-
-        ssize_t len;
-        int i;
-        int back;
-        char *base = NULL;
-
-        len = readlink(syspath, link_target, sizeof(link_target));
-        if (len <= 0 || len == (ssize_t)sizeof(link_target))
-                return -1;
-        link_target[len] = '\0';
-
-        for (back = 0; startswith(&link_target[back * 3], "../"); back++)
-                ;
-        for (i = 0; i <= back; i++) {
-                base = strrchr(syspath, '/');
-                if (base == NULL)
-                        return -EINVAL;
-                base[0] = '\0';
-        }
-
-        strscpyl(base, size - (base - syspath), "/", &link_target[back * 3], NULL);
         return 0;
 }
 

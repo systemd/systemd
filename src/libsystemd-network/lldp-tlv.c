@@ -20,11 +20,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
 #include <arpa/inet.h>
+#include <net/ethernet.h>
 
-#include "macro.h"
+#include "alloc-util.h"
 #include "lldp-tlv.h"
+#include "macro.h"
 
 int tlv_section_new(tlv_section **ret) {
         tlv_section *s;
@@ -277,7 +278,7 @@ int tlv_packet_parse_pdu(tlv_packet *m, uint16_t size) {
 
         p = m->pdu;
 
-        /* extract ethernet header */
+        /* extract Ethernet header */
         memcpy(&m->mac, p, ETH_ALEN);
         p += sizeof(struct ether_header);
 
@@ -386,12 +387,11 @@ static int lldp_tlv_packet_read_u16_tlv(tlv_packet *tlv, uint16_t type, uint16_t
 
         r = lldp_tlv_packet_enter_container(tlv, type);
         if (r < 0)
-                goto out;
+                return r;
 
         r = tlv_packet_read_u16(tlv, value);
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out:
         return r < 0 ? r : r2;
 }
 
@@ -428,18 +428,18 @@ int sd_lldp_packet_read_chassis_id(tlv_packet *tlv,
 
         r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_CHASSIS_ID);
         if (r < 0)
-                goto out2;
+                return r;
 
         r = tlv_packet_read_u8(tlv, &subtype);
         if (r < 0)
-                goto out1;
+                goto out;
 
         switch (subtype) {
         case LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS:
 
                 r = tlv_packet_read_bytes(tlv, data, length);
                 if (r < 0)
-                        goto out1;
+                        goto out;
 
                 break;
         default:
@@ -449,10 +449,9 @@ int sd_lldp_packet_read_chassis_id(tlv_packet *tlv,
 
         *type = subtype;
 
- out1:
+ out:
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out2:
         return r < 0 ? r : r2;
 }
 
@@ -468,11 +467,11 @@ int sd_lldp_packet_read_port_id(tlv_packet *tlv,
 
         r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_ID);
         if (r < 0)
-                goto out2;
+                return r;
 
         r = tlv_packet_read_u8(tlv, &subtype);
         if (r < 0)
-                goto out1;
+                goto out;
 
         switch (subtype) {
         case LLDP_PORT_SUBTYPE_PORT_COMPONENT:
@@ -482,7 +481,7 @@ int sd_lldp_packet_read_port_id(tlv_packet *tlv,
 
                 r = tlv_packet_read_string(tlv, &s, length);
                 if (r < 0)
-                        goto out1;
+                        goto out;
 
                 *data = (uint8_t *) s;
 
@@ -491,7 +490,7 @@ int sd_lldp_packet_read_port_id(tlv_packet *tlv,
 
                 r = tlv_packet_read_bytes(tlv, data, length);
                 if (r < 0)
-                        goto out1;
+                        goto out;
 
                 break;
         default:
@@ -501,10 +500,9 @@ int sd_lldp_packet_read_port_id(tlv_packet *tlv,
 
         *type = subtype;
 
- out1:
+ out:
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out2:
         return r < 0 ? r : r2;
 }
 
@@ -541,12 +539,11 @@ int sd_lldp_packet_read_port_vlan_id(tlv_packet *tlv, uint16_t *id) {
 
         r = lldp_tlv_packet_enter_container_oui(tlv, LLDP_OUI_802_1, LLDP_OUI_SUBTYPE_802_1_PORT_VLAN_ID);
         if (r < 0)
-                goto out;
+                return r;
 
         r = tlv_packet_read_u16(tlv, id);
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out:
         return r < 0 ? r : r2;
 }
 
@@ -557,7 +554,7 @@ int sd_lldp_packet_read_port_protocol_vlan_id(sd_lldp_packet *tlv, uint8_t *flag
 
         r = lldp_tlv_packet_enter_container_oui(tlv, LLDP_OUI_802_1, LLDP_OUI_SUBTYPE_802_1_PORT_PROTOCOL_VLAN_ID);
         if (r < 0)
-                goto out;
+                return r;
 
         r = tlv_packet_read_u8(tlv, flags);
         if (r >= 0)
@@ -565,7 +562,6 @@ int sd_lldp_packet_read_port_protocol_vlan_id(sd_lldp_packet *tlv, uint8_t *flag
 
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out:
         return r < 0 ? r : r2;
 }
 
@@ -577,7 +573,7 @@ int sd_lldp_packet_read_vlan_name(tlv_packet *tlv, uint16_t *vlan_id, char **nam
 
         r = lldp_tlv_packet_enter_container_oui(tlv, LLDP_OUI_802_1, LLDP_OUI_SUBTYPE_802_1_VLAN_NAME);
         if (r < 0)
-                goto out;
+                return r;
 
         r = tlv_packet_read_u16(tlv, vlan_id);
         if (r >= 0)
@@ -590,7 +586,6 @@ int sd_lldp_packet_read_vlan_name(tlv_packet *tlv, uint16_t *vlan_id, char **nam
 
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out:
         return r < 0 ? r : r2;
 }
 
@@ -601,12 +596,11 @@ int sd_lldp_packet_read_management_vid(tlv_packet *tlv, uint16_t *id) {
 
         r = lldp_tlv_packet_enter_container_oui(tlv, LLDP_OUI_802_1, LLDP_OUI_SUBTYPE_802_1_MANAGEMENT_VID);
         if (r < 0)
-                goto out;
+                return r;
 
         r = tlv_packet_read_u16(tlv, id);
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out:
         return r < 0 ? r : r2;
 }
 
@@ -617,7 +611,7 @@ int sd_lldp_packet_read_link_aggregation(sd_lldp_packet *tlv, uint8_t *status, u
 
         r = lldp_tlv_packet_enter_container_oui(tlv, LLDP_OUI_802_1, LLDP_OUI_SUBTYPE_802_1_LINK_AGGREGATION);
         if (r < 0)
-                goto out;
+                return r;
 
         r = tlv_packet_read_u8(tlv, status);
         if (r >= 0)
@@ -625,7 +619,6 @@ int sd_lldp_packet_read_link_aggregation(sd_lldp_packet *tlv, uint8_t *status, u
 
         r2 = lldp_tlv_packet_exit_container(tlv);
 
- out:
         return r < 0 ? r : r2;
 }
 

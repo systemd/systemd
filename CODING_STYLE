@@ -145,11 +145,15 @@
 - Think about the types you use. If a value cannot sensibly be
   negative, do not use "int", but use "unsigned".
 
-- Do not use types like "short". They *never* make sense. Use ints,
-  longs, long longs, all in unsigned+signed fashion, and the fixed
-  size types uint32_t and so on, as well as size_t, but nothing
-  else. Do not use kernel types like u32 and so on, leave that to the
-  kernel.
+- Use "char" only for actual characters. Use "uint8_t" or "int8_t"
+  when you actually mean a byte-sized signed or unsigned
+  integers. When referring to a generic byte, we generally prefer the
+  unsigned variant "uint8_t". Do not use types based on "short". They
+  *never* make sense. Use ints, longs, long longs, all in
+  unsigned+signed fashion, and the fixed size types
+  uint8_t/uint16_t/uint32_t/uint64_t/int8_t/int16_t/int32_t and so on,
+  as well as size_t, but nothing else. Do not use kernel types like
+  u32 and so on, leave that to the kernel.
 
 - Public API calls (i.e. functions exported by our shared libraries)
   must be marked "_public_" and need to be prefixed with "sd_". No
@@ -346,3 +350,29 @@
 - If you want to concatenate two or more strings, consider using
   strjoin() rather than asprintf(), as the latter is a lot
   slower. This matters particularly in inner loops.
+
+- Please avoid using global variables as much as you can. And if you
+  do use them make sure they are static at least, instead of
+  exported. Especially in library-like code it is important to avoid
+  global variables. Why are global variables bad? They usually hinder
+  generic reusability of code (since they break in threaded programs,
+  and usually would require locking there), and as the code using them
+  has side-effects make programs intransparent. That said, there are
+  many cases where they explicitly make a lot of sense, and are OK to
+  use. For example, the log level and target in log.c is stored in a
+  global variable, and that's OK and probably expected by most. Also
+  in many cases we cache data in global variables. If you add more
+  caches like this, please be careful however, and think about
+  threading. Only use static variables if you are sure that
+  thread-safety doesn't matter in your case. Alternatively consider
+  using TLS, which is pretty easy to use with gcc's "thread_local"
+  concept. It's also OK to store data that is inherently global in
+  global variables, for example data parsed from command lines, see
+  below.
+
+- If you parse a command line, and want to store the parsed parameters
+  in global variables, please consider prefixing their names with
+  "arg_". We have been following this naming rule in most of our
+  tools, and we should continue to do so, as it makes it easy to
+  identify command line parameter variables, and makes it clear why it
+  is OK that they are global variables.

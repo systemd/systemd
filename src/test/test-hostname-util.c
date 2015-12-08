@@ -21,9 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
+#include "alloc-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_hostname_is_valid(void) {
         assert_se(hostname_is_valid("foobar", false));

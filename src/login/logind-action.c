@@ -21,15 +21,18 @@
 
 #include <unistd.h>
 
-#include "conf-parser.h"
-#include "special.h"
-#include "sleep-config.h"
-#include "bus-util.h"
+#include "alloc-util.h"
 #include "bus-error.h"
-#include "logind-action.h"
+#include "bus-util.h"
+#include "conf-parser.h"
 #include "formats-util.h"
+#include "logind-action.h"
 #include "process-util.h"
+#include "sleep-config.h"
+#include "special.h"
+#include "string-table.h"
 #include "terminal-util.h"
+#include "user-util.h"
 
 int manager_handle_action(
                 Manager *m,
@@ -58,7 +61,7 @@ int manager_handle_action(
                 [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
         };
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         InhibitWhat inhibit_operation;
         Inhibitor *offending = NULL;
         bool supported;

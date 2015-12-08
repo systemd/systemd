@@ -20,10 +20,10 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
 #ifdef HAVE_ELFUTILS
 #  include <dwarf.h>
@@ -32,23 +32,34 @@
 
 #include "sd-journal.h"
 #include "sd-login.h"
-#include "log.h"
-#include "util.h"
-#include "fileio.h"
-#include "strv.h"
-#include "macro.h"
-#include "mkdir.h"
-#include "special.h"
+
+#include "acl-util.h"
+#include "alloc-util.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "copy.h"
-#include "stacktrace.h"
-#include "compress.h"
-#include "acl-util.h"
-#include "capability.h"
-#include "journald-native.h"
 #include "coredump-vacuum.h"
+#include "dirent-util.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "io-util.h"
+#include "journald-native.h"
+#include "log.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "parse-util.h"
 #include "process-util.h"
+#include "special.h"
+#include "stacktrace.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "user-util.h"
+#include "util.h"
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((uint64_t) (2LLU*1024LLU*1024LLU*1024LLU))
@@ -115,8 +126,8 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_many("/etc/systemd/coredump.conf",
-                                 CONF_DIRS_NULSTR("systemd/coredump.conf"),
+        return config_parse_many(PKGSYSCONFDIR "/coredump.conf",
+                                 CONF_PATHS_NULSTR("systemd/coredump.conf.d"),
                                  "Coredump\0",
                                  config_item_table_lookup, items,
                                  false, NULL);
@@ -128,6 +139,7 @@ static int fix_acl(int fd, uid_t uid) {
         _cleanup_(acl_freep) acl_t acl = NULL;
         acl_entry_t entry;
         acl_permset_t permset;
+        int r;
 
         assert(fd >= 0);
 
@@ -149,11 +161,12 @@ static int fix_acl(int fd, uid_t uid) {
         }
 
         if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0 ||
-            calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning_errno(errno, "Failed to patch ACL: %m");
-                return -errno;
-        }
+            acl_add_perm(permset, ACL_READ) < 0)
+                return log_warning_errno(errno, "Failed to patch ACL: %m");
+
+        r = calc_acl_mask_if_needed(&acl);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to patch ACL: %m");
 
         if (acl_set_fd(fd, acl) < 0)
                 return log_error_errno(errno, "Failed to apply ACL: %m");

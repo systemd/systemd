@@ -20,18 +20,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <stdio.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <resolv.h>
-#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
 
-#include "socket-util.h"
 #include "sd-resolve.h"
-#include "resolve-util.h"
+
+#include "alloc-util.h"
 #include "macro.h"
+#include "socket-util.h"
+#include "string-util.h"
 
 static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
         const struct addrinfo *i;
@@ -68,8 +70,8 @@ static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, c
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_resolve_query_unref_ sd_resolve_query *q1 = NULL, *q2 = NULL;
-        _cleanup_resolve_unref_ sd_resolve *resolve = NULL;
+        _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q1 = NULL, *q2 = NULL;
+        _cleanup_(sd_resolve_unrefp) sd_resolve *resolve = NULL;
         int r = 0;
 
         struct addrinfo hints = {

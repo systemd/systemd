@@ -19,21 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/stat.h>
-#include <stdbool.h>
 #include <errno.h>
-#include <string.h>
-#include <sys/mount.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "path-util.h"
-#include "mkdir.h"
-#include "rm-rf.h"
 #include "base-filesystem.h"
+#include "fd-util.h"
+#include "log.h"
 #include "missing.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "rm-rf.h"
+#include "string-util.h"
 #include "switch-root.h"
+#include "user-util.h"
+#include "util.h"
 
 int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,  unsigned long mountflags) {
 

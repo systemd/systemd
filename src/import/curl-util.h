@@ -21,11 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <curl/curl.h>
+#include <sys/types.h>
+
+#include "sd-event.h"
 
 #include "hashmap.h"
-#include "sd-event.h"
 
 typedef struct CurlGlue CurlGlue;
 

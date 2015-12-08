@@ -21,13 +21,15 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
+#include "dbus-slice.h"
 #include "log.h"
-#include "strv.h"
+#include "slice.h"
 #include "special.h"
+#include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
-#include "slice.h"
-#include "dbus-slice.h"
 
 static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
         [SLICE_DEAD] = UNIT_INACTIVE,
@@ -83,6 +85,9 @@ static int slice_add_default_dependencies(Slice *s) {
 
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         /* Make sure slices are unloaded on shutdown */
         r = unit_add_two_dependencies_by_name(
                         UNIT(s),
@@ -93,7 +98,6 @@ static int slice_add_default_dependencies(Slice *s) {
 
         return 0;
 }
-
 
 static int slice_verify(Slice *s) {
         _cleanup_free_ char *parent = NULL;
@@ -142,11 +146,9 @@ static int slice_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (u->default_dependencies) {
-                        r = slice_add_default_dependencies(s);
-                        if (r < 0)
-                                return r;
-                }
+                r = slice_add_default_dependencies(s);
+                if (r < 0)
+                        return r;
         }
 
         return slice_verify(s);
@@ -253,7 +255,7 @@ _pure_ static const char *slice_sub_state_to_string(Unit *u) {
         return slice_state_to_string(SLICE(u)->state);
 }
 
-static int slice_enumerate(Manager *m) {
+static void slice_enumerate(Manager *m) {
         Unit *u;
         int r;
 
@@ -262,13 +264,16 @@ static int slice_enumerate(Manager *m) {
         u = manager_get_unit(m, SPECIAL_ROOT_SLICE);
         if (!u) {
                 u = unit_new(m, sizeof(Slice));
-                if (!u)
-                        return log_oom();
+                if (!u)  {
+                        log_oom();
+                        return;
+                }
 
                 r = unit_add_name(u, SPECIAL_ROOT_SLICE);
                 if (r < 0) {
                         unit_free(u);
-                        return log_error_errno(r, "Failed to add -.slice name");
+                        log_error_errno(r, "Failed to add -.slice name");
+                        return;
                 }
         }
 
@@ -286,8 +291,6 @@ static int slice_enumerate(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
-
-        return 0;
 }
 
 const UnitVTable slice_vtable = {
@@ -302,6 +305,7 @@ const UnitVTable slice_vtable = {
 
         .no_alias = true,
         .no_instances = true,
+        .can_transient = true,
 
         .load = slice_load,
 

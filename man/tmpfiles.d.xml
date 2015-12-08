@@ -1,5 +1,4 @@
-<?xml version="1.0"?>
-<!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   This file is part of systemd.
@@ -103,8 +102,8 @@
     prefix and suffix of each other, then the prefix is always
     processed first, the suffix later. Lines that take globs are
     applied after those accepting no globs. If multiple operations
-    shall be applied on the same file (such as ACL, xattr, file
-    attribute adjustments) these are always done in the same fixed
+    shall be applied on the same file, (such as ACL, xattr, file
+    attribute adjustments), these are always done in the same fixed
     order. Otherwise, the files/directories are processed in the order
     they are listed.</para>
 
@@ -170,9 +169,81 @@
         <varlistentry>
           <term><varname>v</varname></term>
           <listitem><para>Create a subvolume if the path does not
-          exist yet and the file system supports this
-          (btrfs). Otherwise create a normal directory, in the same
-          way as <varname>d</varname>.</para></listitem>
+          exist yet, the file system supports subvolumes (btrfs), and
+          the system itself is installed into a subvolume
+          (specifically: the root directory <filename>/</filename> is
+          itself a subvolume). Otherwise, create a normal directory, in
+          the same way as <varname>d</varname>. A subvolume created
+          with this line type is not assigned to any higher-level
+          quota group. For that, use <varname>q</varname> or
+          <varname>Q</varname>, which allow creating simple quota
+          group hierarchies, see below.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>q</varname></term>
+          <listitem><para>Similar to <varname>v</varname>. However,
+          makes sure that the subvolume will be assigned to the same
+          higher-level quota groups as the subvolume it has been
+          created in. This ensures that higher-level limits and
+          accounting applied to the parent subvolume also include the
+          specified subvolume. On non-btrfs file systems, this line
+          type is identical to <varname>d</varname>. If the subvolume
+          already exists and is already assigned to one or more higher
+          level quota groups, no change to the quota hierarchy is
+          made. Also see <varname>Q</varname> below. See <citerefentry
+          project='die-net'><refentrytitle>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for details about the btrfs quota group
+          concept.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Q</varname></term>
+          <listitem><para>Similar to <varname>q</varname>. However,
+          instead of copying the higher-level quota group assignments
+          from the parent as-is, the lowest quota group of the parent
+          subvolume is determined that is not the leaf quota
+          group. Then, an "intermediary" quota group is inserted that
+          is one level below this level, and shares the same ID part
+          as the specified subvolume. If no higher-level quota group
+          exists for the parent subvolume, a new quota group at level
+          255 sharing the same ID as the specified subvolume is
+          inserted instead. This new intermediary quota group is then
+          assigned to the parent subvolume's higher-level quota
+          groups, and the specified subvolume's leaf quota group is
+          assigned to it.</para>
+
+          <para>Effectively, this has a similar effect as
+          <varname>q</varname>, however introduces a new higher-level
+          quota group for the specified subvolume that may be used to
+          enforce limits and accounting to the specified subvolume and
+          children subvolume created within it. Thus, by creating
+          subvolumes only via <varname>q</varname> and
+          <varname>Q</varname>, a concept of "subtree quotas" is
+          implemented. Each subvolume for which <varname>Q</varname>
+          is set will get a "subtree" quota group created, and all
+          child subvolumes created within it will be assigned to
+          it. Each subvolume for which <varname>q</varname> is set
+          will not get such a "subtree" quota group, but it is ensured
+          that they are added to the same "subtree" quota group as their
+          immediate parents.</para>
+
+          <para>It is recommended to use
+          <varname>Q</varname> for subvolumes that typically contain
+          further subvolumes, and where it is desirable to have
+          accounting and quota limits on all child subvolumes
+          together. Examples for <varname>Q</varname> are typically
+          <filename>/home</filename> or
+          <filename>/var/lib/machines</filename>. In contrast,
+          <varname>q</varname> should be used for subvolumes that
+          either usually do not include further subvolumes or where no
+          accounting and quota limits are needed that apply to all
+          child subvolumes together. Examples for <varname>q</varname>
+          are typically <filename>/var</filename> or
+          <filename>/var/tmp</filename>. As with <varname>Q</varname>,
+          <varname>q</varname> has no effect on the quota group
+          hierarchy if the subvolume exists and already has at least
+          one higher-level quota group assigned.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -318,15 +389,15 @@
           <varname>+</varname> (the default one) causes the
           attribute(s) to be added; <varname>-</varname> causes the
           attribute(s) to be removed; <varname>=</varname> causes the
-          attributes to set exactly as the following letters. The
+          attributes to be set exactly as the following letters. The
           letters <literal>aAcCdDeijsStTu</literal> select the new
           attributes for the files, see
-          <citerefentry><refentrytitle>chattr</refentrytitle>
+          <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
           <manvolnum>1</manvolnum></citerefentry> for further information.
           </para>
           <para>Passing only <varname>=</varname> as argument resets
           all the file attributes listed above. It has to be pointed
-          out that the <varname>=</varname> prefix, limits itself to
+          out that the <varname>=</varname> prefix limits itself to
           the attributes corresponding to the letters listed here. All
           other attributes will be left untouched. Does not follow
           symlinks.</para>
@@ -345,7 +416,7 @@
           <term><varname>a</varname></term>
           <term><varname>a+</varname></term>
           <listitem><para>Set POSIX ACLs (access control lists). If
-          suffixed with <varname>+</varname>, specified entries will
+          suffixed with <varname>+</varname>, the specified entries will
           be added to the existing set.
           <command>systemd-tmpfiles</command> will automatically add
           the required base entries for user and group based on the
@@ -468,7 +539,7 @@
       <para>The user and group to use for this file or directory. This
       may either be a numeric user/group ID or a user or group
       name. If omitted or when set to <literal>-</literal>, the
-      default 0 (root) is used. For <varname>z</varname>,
+      default 0 (root) is used. For <varname>z</varname> and
       <varname>Z</varname> lines, when omitted or when set to
       <literal>-</literal>, the file ownership will not be
       modified. These parameters are ignored for <varname>x</varname>,
@@ -483,16 +554,16 @@
       delete when cleaning. If a file or directory is older than the
       current time minus the age field, it is deleted. The field
       format is a series of integers each followed by one of the
-      following postfixes for the respective time units:
+      following suffixes for the respective time units:
       <constant>s</constant>,
       <constant>m</constant> or <constant>min</constant>,
       <constant>h</constant>,
       <constant>d</constant>,
       <constant>w</constant>,
-      <constant>ms</constant>,
+      <constant>ms</constant>, and
       <constant>us</constant>,
-      respectively meaning seconds, minutes, hours, days, weeks,
-      milliseconds, and microseconds. Full names of the time units can
+      meaning seconds, minutes, hours, days, weeks,
+      milliseconds, and microseconds, respectively. Full names of the time units can
       be used too.
       </para>
 
@@ -504,12 +575,12 @@
       <para>When the age is set to zero, the files are cleaned
       unconditionally.</para>
 
-      <para>The age field only applies to lines
-      starting with <varname>d</varname>,
-      <varname>D</varname>, and
-      <varname>x</varname>. If omitted or set to
-      <literal>-</literal>, no automatic clean-up is
-      done.</para>
+      <para>The age field only applies to lines starting with
+      <varname>d</varname>, <varname>D</varname>,
+      <varname>v</varname>, <varname>q</varname>,
+      <varname>Q</varname>, <varname>C</varname>, <varname>x</varname>
+      and <varname>X</varname>. If omitted or set to
+      <literal>-</literal>, no automatic clean-up is done.</para>
 
       <para>If the age field starts with a tilde character
       <literal>~</literal>, the clean-up is only applied to files and
@@ -521,19 +592,19 @@
       <title>Argument</title>
 
       <para>For <varname>L</varname> lines determines the destination
-      path of the symlink. For <varname>c</varname>,
-      <varname>b</varname> determines the major/minor of the device
+      path of the symlink. For <varname>c</varname> and
+      <varname>b</varname>, determines the major/minor of the device
       node, with major and minor formatted as integers, separated by
       <literal>:</literal>, e.g.  <literal>1:3</literal>. For
       <varname>f</varname>, <varname>F</varname>, and
-      <varname>w</varname> may be used to specify a short string that
+      <varname>w</varname>, the argument may be used to specify a short string that
       is written to the file, suffixed by a newline. For
       <varname>C</varname>, specifies the source file or
-      directory. For <varname>t</varname>, <varname>T</varname>
+      directory. For <varname>t</varname> and <varname>T</varname>,
       determines extended attributes to be set. For
-      <varname>a</varname>, <varname>A</varname> determines ACL
-      attributes to be set. For <varname>h</varname>,
-      <varname>H</varname> determines the file attributes to
+      <varname>a</varname> and <varname>A</varname>, determines ACL
+      attributes to be set. For <varname>h</varname> and
+      <varname>H</varname>, determines the file attributes to
       set. Ignored for all other lines.</para>
     </refsect2>
 
@@ -571,7 +642,9 @@ x /var/tmp/abrt/*</programlisting>
       <citerefentry project='man-pages'><refentrytitle>setfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>btrfs-subvolume</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

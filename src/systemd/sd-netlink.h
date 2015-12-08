@@ -23,12 +23,13 @@
 ***/
 
 #include <inttypes.h>
-#include <netinet/in.h>
 #include <netinet/ether.h>
+#include <netinet/in.h>
 #include <linux/rtnetlink.h>
 #include <linux/neighbour.h>
 
 #include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -136,7 +137,13 @@ int sd_rtnl_message_link_get_type(sd_netlink_message *m, unsigned *type);
 int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
 int sd_rtnl_message_route_set_src_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
 int sd_rtnl_message_route_set_scope(sd_netlink_message *m, unsigned char scope);
+int sd_rtnl_message_route_set_flags(sd_netlink_message *m, unsigned flags);
+int sd_rtnl_message_route_get_flags(sd_netlink_message *m, unsigned *flags);
 int sd_rtnl_message_route_get_family(sd_netlink_message *m, int *family);
+int sd_rtnl_message_route_get_protocol(sd_netlink_message *m, unsigned char *protocol);
+int sd_rtnl_message_route_get_scope(sd_netlink_message *m, unsigned char *scope);
+int sd_rtnl_message_route_get_tos(sd_netlink_message *m, unsigned char *tos);
+int sd_rtnl_message_route_get_table(sd_netlink_message *m, unsigned char *table);
 int sd_rtnl_message_route_get_dst_prefixlen(sd_netlink_message *m, unsigned char *dst_len);
 int sd_rtnl_message_route_get_src_prefixlen(sd_netlink_message *m, unsigned char *src_len);
 
@@ -146,6 +153,9 @@ int sd_rtnl_message_neigh_get_family(sd_netlink_message *m, int *family);
 int sd_rtnl_message_neigh_get_ifindex(sd_netlink_message *m, int *family);
 int sd_rtnl_message_neigh_get_state(sd_netlink_message *m, uint16_t *state);
 int sd_rtnl_message_neigh_get_flags(sd_netlink_message *m, uint8_t *flags);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink, sd_netlink_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_message, sd_netlink_message_unref);
 
 _SD_END_DECLARATIONS;
 

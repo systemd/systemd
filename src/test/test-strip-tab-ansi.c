@@ -21,8 +21,9 @@
 
 #include <stdio.h>
 
-#include "util.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         char *p;

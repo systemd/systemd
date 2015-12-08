@@ -22,15 +22,30 @@
 #pragma once
 
 
+#include <errno.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include "hashmap.h"
 #include "in-addr-util.h"
 
+/* Length of a single label, with all escaping removed, excluding any trailing dot or NUL byte */
 #define DNS_LABEL_MAX 63
-#define DNS_NAME_MAX 255
+
+/* Worst case length of a single label, with all escaping applied and room for a trailing NUL byte. */
+#define DNS_LABEL_ESCAPED_MAX (DNS_LABEL_MAX*4+1)
+
+/* Maximum length of a full hostname, consisting of a series of unescaped labels, and no trailing dot or NUL byte */
+#define DNS_HOSTNAME_MAX 253
+
+/* Maximum length of a full hostname, on the wire, including the final NUL byte */
+#define DNS_WIRE_FOMAT_HOSTNAME_MAX 255
 
 int dns_label_unescape(const char **name, char *dest, size_t sz);
 int dns_label_unescape_suffix(const char *name, const char **label_end, char *dest, size_t sz);
-int dns_label_escape(const char *p, size_t l, char **ret);
+int dns_label_escape(const char *p, size_t l, char *dest, size_t sz);
+int dns_label_escape_new(const char *p, size_t l, char **ret);
 
 int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
 int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
@@ -62,8 +77,18 @@ int dns_name_between(const char *a, const char *b, const char *c);
 int dns_name_equal(const char *x, const char *y);
 int dns_name_endswith(const char *name, const char *suffix);
 
+int dns_name_change_suffix(const char *name, const char *old_suffix, const char *new_suffix, char **ret);
+
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret);
 int dns_name_address(const char *p, int *family, union in_addr_union *a);
 
-int dns_name_root(const char *name);
-int dns_name_single_label(const char *name);
+bool dns_name_is_root(const char *name);
+bool dns_name_is_single_label(const char *name);
+
+int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, bool canonical);
+
+bool dns_srv_type_is_valid(const char *name);
+bool dns_service_name_is_valid(const char *name);
+
+int dns_service_join(const char *name, const char *type, const char *domain, char **ret);
+int dns_service_split(const char *joined, char **name, char **type, char **domain);

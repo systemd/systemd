@@ -17,26 +17,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/inotify.h>
+#include <sys/socket.h>
+#include <sys/sysmacros.h>
+#include <sys/time.h>
+#include <linux/kd.h>
+#include <linux/tiocl.h>
+#include <linux/vt.h>
+#include <poll.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <time.h>
-#include <assert.h>
-#include <poll.h>
-#include <linux/vt.h>
-#include <linux/tiocl.h>
-#include <linux/kd.h>
 
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "io-util.h"
+#include "log.h"
+#include "macro.h"
+#include "parse-util.h"
+#include "process-util.h"
+#include "socket-util.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "process-util.h"
 #include "util.h"
-#include "fileio.h"
-#include "path-util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
@@ -412,7 +428,7 @@ int acquire_terminal(
 
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
-                /* Sometimes it makes sense to ignore TIOCSCTTY
+                /* Sometimes, it makes sense to ignore TIOCSCTTY
                  * returning EPERM, i.e. when very likely we already
                  * are have this controlling terminal. */
                 if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)
@@ -618,84 +634,6 @@ int make_console_stdio(void) {
                 return log_error_errno(r, "Failed to duplicate terminal fd: %m");
 
         return 0;
-}
-
-int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) {
-        static const char status_indent[] = "         "; /* "[" STATUS "] " */
-        _cleanup_free_ char *s = NULL;
-        _cleanup_close_ int fd = -1;
-        struct iovec iovec[6] = {};
-        int n = 0;
-        static bool prev_ephemeral;
-
-        assert(format);
-
-        /* This is independent of logging, as status messages are
-         * optional and go exclusively to the console. */
-
-        if (vasprintf(&s, format, ap) < 0)
-                return log_oom();
-
-        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return fd;
-
-        if (ellipse) {
-                char *e;
-                size_t emax, sl;
-                int c;
-
-                c = fd_columns(fd);
-                if (c <= 0)
-                        c = 80;
-
-                sl = status ? sizeof(status_indent)-1 : 0;
-
-                emax = c - sl - 1;
-                if (emax < 3)
-                        emax = 3;
-
-                e = ellipsize(s, emax, 50);
-                if (e) {
-                        free(s);
-                        s = e;
-                }
-        }
-
-        if (prev_ephemeral)
-                IOVEC_SET_STRING(iovec[n++], "\r" ANSI_ERASE_TO_END_OF_LINE);
-        prev_ephemeral = ephemeral;
-
-        if (status) {
-                if (!isempty(status)) {
-                        IOVEC_SET_STRING(iovec[n++], "[");
-                        IOVEC_SET_STRING(iovec[n++], status);
-                        IOVEC_SET_STRING(iovec[n++], "] ");
-                } else
-                        IOVEC_SET_STRING(iovec[n++], status_indent);
-        }
-
-        IOVEC_SET_STRING(iovec[n++], s);
-        if (!ephemeral)
-                IOVEC_SET_STRING(iovec[n++], "\n");
-
-        if (writev(fd, iovec, n) < 0)
-                return -errno;
-
-        return 0;
-}
-
-int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) {
-        va_list ap;
-        int r;
-
-        assert(format);
-
-        va_start(ap, format);
-        r = status_vprintf(status, ellipse, ephemeral, format, ap);
-        va_end(ap);
-
-        return r;
 }
 
 bool tty_is_vc(const char *tty) {

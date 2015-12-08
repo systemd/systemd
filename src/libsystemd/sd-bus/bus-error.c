@@ -20,17 +20,19 @@
 ***/
 
 #include <errno.h>
-#include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <string.h>
 #include <stdio.h>
-
-#include "util.h"
-#include "errno-list.h"
+#include <stdlib.h>
+#include <string.h>
 
 #include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
+#include "errno-list.h"
+#include "string-util.h"
+#include "util.h"
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.Failed",                           EACCES),
@@ -565,7 +567,7 @@ _public_ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *for
 const char *bus_error_message(const sd_bus_error *e, int error) {
 
         if (e) {
-                /* Sometimes the D-Bus server is a little bit too verbose with
+                /* Sometimes, the D-Bus server is a little bit too verbose with
                  * its error messages, so let's override them here */
                 if (sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED))
                         return "Access denied";

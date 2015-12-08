@@ -19,27 +19,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/prctl.h>
 #include <curl/curl.h>
+#include <sys/prctl.h>
 
 #include "sd-daemon.h"
-#include "utf8.h"
-#include "strv.h"
-#include "copy.h"
+
+#include "alloc-util.h"
 #include "btrfs-util.h"
-#include "util.h"
+#include "copy.h"
+#include "curl-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "hostname-util.h"
+#include "import-common.h"
+#include "import-util.h"
 #include "macro.h"
 #include "mkdir.h"
-#include "rm-rf.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "hostname-util.h"
-#include "import-util.h"
-#include "import-common.h"
-#include "curl-util.h"
-#include "pull-job.h"
 #include "pull-common.h"
+#include "pull-job.h"
 #include "pull-tar.h"
+#include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "utf8.h"
+#include "util.h"
+#include "web-util.h"
 
 typedef enum TarProgress {
         TAR_DOWNLOADING,
@@ -247,9 +254,9 @@ static int tar_pull_make_local_copy(TarPull *i) {
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to copy settings files %s: %m", local_settings);
-
-                log_info("Create new settings file '%s.nspawn'", i->local);
+                        log_warning_errno(r, "Failed to copy settings files %s, ignoring: %m", local_settings);
+                else
+                        log_info("Created new settings file '%s.nspawn'", i->local);
         }
 
         return 0;
@@ -409,7 +416,9 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 if (mkdir(i->temp_path, 0755) < 0)
                         return log_error_errno(errno, "Failed to create directory %s: %m", i->temp_path);
         } else if (r < 0)
-                return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
+                return log_error_errno(r, "Failed to create subvolume %s: %m", i->temp_path);
+        else
+                (void) import_assign_pool_quota_and_warn(i->temp_path);
 
         j->disk_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)

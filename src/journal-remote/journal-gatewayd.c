@@ -19,26 +19,29 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <microhttpd.h>
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>
 #endif
+#include <microhttpd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "sd-journal.h"
-#include "sd-daemon.h"
 #include "sd-bus.h"
+#include "sd-daemon.h"
+#include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
+#include "parse-util.h"
 #include "sigbus.h"
 #include "util.h"
 
@@ -706,7 +709,7 @@ static int request_handler_file(
 }
 
 static int get_virtualization(char **v) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         char *b = NULL;
         int r;
 

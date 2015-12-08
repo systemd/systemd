@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -70,7 +70,7 @@
     name in <filename>/usr/lib</filename>. This can be used to
     override a system-supplied link file with a local file if needed.
     As a special case, an empty file (file size 0) or symlink with the
-    same name pointing to <filename>/dev/null</filename>, disable the
+    same name pointing to <filename>/dev/null</filename> disables the
     configuration file entirely (it is "masked").</para>
 
     <para>The link file contains a <literal>[Match]</literal> section,
@@ -217,8 +217,8 @@
                 generated which is guaranteed to be the same on every
                 boot for the given machine and the given device, but
                 which is otherwise random. This feature depends on ID_NET_NAME_*
-                properties existing for the link, on hardware where these
-                properties are not set the generation of a persistent MAC address
+                properties to exist for the link. On hardware where these
+                properties are not set, the generation of a persistent MAC address
                 will fail.</para>
               </listitem>
             </varlistentry>
@@ -228,7 +228,7 @@
                 <para>If the kernel is using a random MAC address,
                 nothing is done. Otherwise, a new address is randomly
                 generated each time the device appears, typically at
-                boot. Either way the random address will have the
+                boot. Either way, the random address will have the
                 <literal>unicast</literal> and
                 <literal>locally administered</literal> bits set.</para>
               </listitem>
@@ -387,9 +387,52 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
+
+    <example>
+      <title>/usr/lib/systemd/network/99-default.link</title>
+
+      <para>The link file <filename>99-default.link</filename> that is
+      shipped with systemd defines the default naming policy for
+      links.</para>
+
+      <programlisting>[Link]
+NamePolicy=kernel database onboard slot path
+MACAddressPolicy=persistent</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/10-dmz.link</title>
+
+      <para>This example assigns the fixed name
+      <literal>dmz0</literal> to the interface with the MAC address
+      00:a0:de:63:7a:e6:</para>
+
+      <programlisting>[Match]
+MACAddress=00:a0:de:63:7a:e6
+
+[Link]
+Name=dmz0</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/10-internet.link</title>
+
+      <para>This example assigns the fixed name
+      <literal>internet0</literal> to the interface with the device
+      path <literal>pci-0000:00:1a.0-*</literal>:</para>
+
+      <programlisting>[Match]
+Path=pci-0000:00:1a.0-*
+
+[Link]
+Name=internet0</programlisting>
+    </example>
+
     <example>
       <title>/etc/systemd/network/25-wireless.link</title>
+
+      <para>Here's an overly complex example that shows the use of a large number of [Match] and [Link] settings.</para>
 
       <programlisting>[Match]
 MACAddress=12:34:56:78:9a:bc

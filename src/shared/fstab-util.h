@@ -23,11 +23,12 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+
 #include "macro.h"
 
 bool fstab_is_mount_point(const char *mount);
-int fstab_filter_options(const char *opts, const char *names,
-                         const char **namefound, char **value, char **filtered);
+
+int fstab_filter_options(const char *opts, const char *names, const char **namefound, char **value, char **filtered);
 
 int fstab_extract_values(const char *opts, const char *name, char ***values);
 
@@ -49,3 +50,5 @@ static inline bool fstab_test_yes_no_option(const char *opts, const char *yes_no
 
         return opt == yes_no;
 }
+
+char *fstab_node_to_udev_node(const char *p);

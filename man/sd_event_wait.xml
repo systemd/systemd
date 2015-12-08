@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_event_wait">
+<refentry id="sd_event_wait" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_event_wait</title>
@@ -46,13 +46,31 @@
     <refname>sd_event_wait</refname>
     <refname>sd_event_prepare</refname>
     <refname>sd_event_dispatch</refname>
+    <refname>sd_event_get_state</refname>
+    <refname>SD_EVENT_INITIAL</refname>
+    <refname>SD_EVENT_PREPARING</refname>
+    <refname>SD_EVENT_ARMED</refname>
+    <refname>SD_EVENT_PENDING</refname>
+    <refname>SD_EVENT_RUNNING</refname>
+    <refname>SD_EVENT_EXITING</refname>
+    <refname>SD_EVENT_FINISHED</refname>
 
-    <refpurpose>Run parts of libsystemd event loop</refpurpose>
+    <refpurpose>Low-level event loop operations</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcsynopsisinfo><token>enum</token> {
+        <constant>SD_EVENT_INITIAL</constant>,
+        <constant>SD_EVENT_PREPARING</constant>,
+        <constant>SD_EVENT_ARMED</constant>,
+        <constant>SD_EVENT_PENDING</constant>,
+        <constant>SD_EVENT_RUNNING</constant>,
+        <constant>SD_EVENT_EXITING</constant>,
+        <constant>SD_EVENT_FINISHED</constant>,
+};</funcsynopsisinfo>
 
       <funcprototype>
         <funcdef>int <function>sd_event_prepare</function></funcdef>
@@ -62,11 +80,16 @@
       <funcprototype>
         <funcdef>int <function>sd_event_wait</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_dispatch</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_get_state</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
       </funcprototype>
 
@@ -76,60 +99,173 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Functions described here form parts of an event loop.</para>
+    <para>The low-level <function>sd_event_prepare()</function>,
+    <function>sd_event_wait()</function> and
+    <function>sd_event_dispatch()</function> functions may be used to
+    execute specific phases of an event loop. See
+    <citerefentry><refentrytitle>sd_event_run</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>sd_event_loop</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for higher-level functions that execute individual but complete
+    iterations of an event loop or run it continously.</para>
 
-    <para><function>sd_event_prepare</function> checks for pending
+    <para><function>sd_event_prepare()</function> checks for pending
     events and arms necessary timers. If any events are ready to be
-    processed, it returns a positive value, and the events should be
-    processed with <function>sd_event_dispatch</function>.
-    <function>sd_event_dispatch</function> runs a handler for one of
-    the events from the sources with the highest priority. On success,
-    <function>sd_event_dispatch</function> returns either 0, which
-    means that the loop is finished, or a positive value, which means
-    that the loop is again in the initial state and
-    <function>sd_event_prepare</function> should be called again.
-    </para>
+    processed ("pending"), it returns a positive, non-zero value, and the caller
+    should process these events with
+    <function>sd_event_dispatch()</function>.</para>
 
-    <para>In case <function>sd_event_prepare</function> returned 0,
-    <function>sd_event_wait</function> should be called to wait for
-    events or a timeout. If any events are ready to be processed, it
-    returns a positive value, and the events should be processed with
-    <function>sd_event_dispatch</function>. Otherwise, the loop is
-    back in the initial state and <function>sd_event_prepare</function>
-    should be called again.</para>
+    <para><function>sd_event_dispatch()</function> dispatches the
+    highest priority event source that has a pending event. On
+    success, <function>sd_event_dispatch()</function> returns either
+    zero, which indicates that no further event sources may be
+    dispatched and exiting of the event loop was requested via
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>;
+    or a positive non-zero value, which means that an event source was
+    dispatched and the loop returned to its initial state, and the
+    caller should initiate the next event loop iteration by invoking
+    <function>sd_event_prepare()</function> again.</para>
+
+    <para>In case <function>sd_event_prepare()</function> returned
+    zero, <function>sd_event_wait()</function> should be called to
+    wait for further events or a timeout. If any events are ready to
+    be processed, it returns a positive, non-zero value, and the
+    events should be dispatched with
+    <function>sd_event_dispatch()</function>. Otherwise, the event
+    loop returned to its initial state and the next event loop
+    iteration should be initiated by invoking
+    <function>sd_event_prepare()</function> again.</para>
+
+    <para><function>sd_event_get_state()</function> may be used to
+    determine the state the event loop is currently in. It returns one
+    of the states described below.</para>
+
+    <para>All four functions take, as the first argument, the event
+    loop object <parameter>event</parameter> that has been created
+    with <function>sd_event_new()</function>. The timeout for
+    <function>sd_event_wait()</function> is specified in
+    <parameter>usec</parameter> in milliseconds.  <constant>(uint64_t)
+    -1</constant> may be used to specify an infinite timeout.</para>
+</refsect1>
+
+  <refsect1>
+    <title>State Machine</title>
+
+    <para>The event loop knows the following states, that may be
+    queried with <function>sd_event_get_state()</function>.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>SD_EVENT_INITIAL</constant></term>
+
+        <listitem><para>The initial state the event loop is in,
+        before each event loop iteration. Use
+        <function>sd_event_prepare()</function> to transition the
+        event loop into the <constant>SD_EVENT_ARMED</constant> or
+        <constant>SD_EVENT_PENDING</constant> states.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_EVENT_PREPARING</constant></term>
+
+        <listitem><para>An event source is currently being prepared,
+        i.e. the preparation handler is currently being excuted, as
+        set with
+        <citerefentry><refentrytitle>sd_event_set_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+        state is only seen in the event source preparation handler
+        that is invoked from the
+        <function>sd_event_prepare()</function> call and is
+        immediately followed by <constant>SD_EVENT_ARMED</constant> or
+        <constant>SD_EVENT_PENDING</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_EVENT_ARMED</constant></term>
+
+        <listitem><para><function>sd_event_prepare()</function> has
+        been called and no event sources were ready to be
+        dispatched. Use <function>sd_event_wait()</function> to wait
+        for new events, and transition into
+        <constant>SD_EVENT_PENDING</constant> or back into
+        <constant>SD_EVENT_INITIAL</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_EVENT_PENDING</constant></term>
+
+        <listitem><para><function>sd_event_prepare()</function> or
+        <function>sd_event_wait()</function> have been called and
+        there were event sources with events pending. Use
+        <function>sd_event_dispatch()</function> to dispatch the
+        highest priority event source and transition back to
+        <constant>SD_EVENT_INITIAL</constant>, or
+        <constant>SD_EVENT_FINISHED</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_EVENT_RUNNING</constant></term>
+
+        <listitem><para>A regular event source is currently being
+        dispatched. This state is only seen in the event source
+        handler that is invoked from the
+        <function>sd_event_dispatch()</function> call, and is
+        immediately followed by <constant>SD_EVENT_INITIAL</constant>
+        or <constant>SD_EVENT_FINISHED</constant> as soon the event
+        source handler returns. Note that during dispatching of exit
+        event sources the <constant>SD_EVENT_EXITING</constant> state
+        is seen instead.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_EVENT_EXITING</constant></term>
+
+        <listitem><para>Similar to
+        <constant>SD_EVENT_RUNNING</constant> but is the state in
+        effect while dispatching exit event sources. It is followed by
+        <constant>SD_EVENT_INITIAL</constant> or
+        <constant>SD_EVENT_FINISHED</constant> as soon as the event
+        handler returns.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_EVENT_FINISHED</constant></term>
+
+        <listitem><para>The event loop has exited. All exit event
+        sources have run. If the event loop is in this state it serves
+        no purpose anymore, and should be freed.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <para>A simplified flow chart of the states and the calls to
+    transition between them is shown below. Note that
+    <constant>SD_EVENT_PREPARING</constant>,
+    <constant>SD_EVENT_RUNNING</constant> and
+    <constant>SD_EVENT_EXITING</constant> are not shown here.</para>
 
     <programlisting>
-             ┌──────────┐
-             │ initial  ├──←←←←←←←←←←←←←←←←←←←─┐
-             └───┬──────┘                      ↑
-                 │                             ↑
-           sd_event_prepare   ┌─────────┐      ↑
-                 ├ 0 →→→→→→→──┤  armed  │      ↑
-                 1            └───┬─────┘      ↑
-                 ↓                │            ↑
-                 ↓           sd_event_wait     ↑
-                 ├───←←←←←←←─── 1 ┴─ 0 →→→→→→→─┘
-             ┌───┴──────┐                      ↑
-             │ pending  │                      ↑
-             └───┬──────┘                      ↑
-                 │                             ↑
-           sd_event_dispatch                   ↑
-                 ↓                             ↑
-                 ├ 1 ──────────→→→→→→→─────────┘
-                 0
-                 ↓
-             ┌───┴──────┐
-             │ finished │
-             └──────────┘
+          INITIAL -&lt;---&lt;---&lt;---&lt;---&lt;---&lt;---&lt;---&lt;---&lt;---&lt;---&lt;---&lt;---\
+             |                                                     |
+             |                                                     ^
+             |                                                     |
+             v                 ret == 0                            |
+      sd_event_prepare() &gt;---&gt;---&gt;---&gt;---&gt;- ARMED                  |
+             |                                |                    ^
+             | ret > 0                        |                    |
+             |                                |                    |
+             v                                v          ret == 0  |
+          PENDING &lt;---&lt;---&lt;---&lt;---&lt;---&lt; sd_event_wait() &gt;---&gt;---&gt;--+
+             |           ret > 0                                   ^
+             |                                                     |
+             |                                                     |
+             v                                                     |
+      sd_event_dispatch() &gt;---&gt;---&gt;---&gt;---&gt;---&gt;---&gt;---&gt;---&gt;---&gt;---&gt;/
+             |                             ret > 0
+             | ret == 0
+             |
+             v
+          FINISHED
     </programlisting>
-
-    <para>All three functions as the first argument take the event
-    loop object <parameter>event</parameter> that is created with with
-    <function>sd_event_new</function>. The timeout for
-    <function>sd_event_wait</function> is specified with
-    <parameter>timeout</parameter> in milliseconds.
-    <constant>(uint64_t) -1</constant> may be used to specify an
-    infinite timeout.</para>
   </refsect1>
 
   <refsect1>
@@ -137,13 +273,15 @@
 
     <para>On success, these functions return 0 or a positive integer.
     On failure, they return a negative errno-style error code. In case
-    of <function>sd_event_prepare</function> and
-    <function>sd_event_wait</function> a positive value means that
-    events are ready to be processed and 0 means that no events are
-    ready. In case of <function>sd_event_dispatch</function> a
-    positive value means that the loop is again in the initial state
-    and 0 means the loop is finished. For any of those functions, a
-    negative return value means the loop must be aborted.</para>
+    of <function>sd_event_prepare()</function> and
+    <function>sd_event_wait()</function>, a positive, non-zero return
+    code indicates that events are ready to be processed and zero
+    indicates that no events are ready. In case of
+    <function>sd_event_dispatch()</function>, a positive, non-zero
+    return code indicates that the event loop returned to its initial
+    state and zero indicates the event loop has
+    exited. <function>sd_event_get_state()</function> returns a
+    positive or zero state on success.</para>
   </refsect1>
 
   <refsect1>
@@ -155,8 +293,8 @@
       <varlistentry>
         <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Parameter <parameter>event</parameter> is
-        <constant>NULL</constant>.</para></listitem>
+        <listitem><para>The <parameter>event</parameter> parameter is
+        invalid or <constant>NULL</constant>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -182,17 +320,10 @@
 
     </variablelist>
 
-    <para>Other errors are possible too.</para>
+    <para>Other errors are possible, too.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>Functions described here are available
-    as a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
@@ -200,13 +331,15 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_run</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_add_post</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      <citerefentry><refentrytitle>sd_event_add_post</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_run</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

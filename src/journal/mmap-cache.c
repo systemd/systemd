@@ -23,13 +23,15 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "list.h"
 #include "log.h"
-#include "util.h"
 #include "macro.h"
-#include "sigbus.h"
 #include "mmap-cache.h"
+#include "sigbus.h"
+#include "util.h"
 
 typedef struct Window Window;
 typedef struct Context Context;
@@ -288,7 +290,7 @@ static void fd_free(FileDescriptor *f) {
                 window_free(f->windows);
 
         if (f->cache)
-                assert_se(hashmap_remove(f->cache->fds, INT_TO_PTR(f->fd + 1)));
+                assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
 
         free(f);
 }
@@ -300,7 +302,7 @@ static FileDescriptor* fd_add(MMapCache *m, int fd) {
         assert(m);
         assert(fd >= 0);
 
-        f = hashmap_get(m->fds, INT_TO_PTR(fd + 1));
+        f = hashmap_get(m->fds, FD_TO_PTR(fd));
         if (f)
                 return f;
 
@@ -315,7 +317,7 @@ static FileDescriptor* fd_add(MMapCache *m, int fd) {
         f->cache = m;
         f->fd = fd;
 
-        r = hashmap_put(m->fds, UINT_TO_PTR(fd + 1), f);
+        r = hashmap_put(m->fds, FD_TO_PTR(fd), f);
         if (r < 0) {
                 free(f);
                 return NULL;
@@ -428,7 +430,7 @@ static int find_mmap(
         assert(fd >= 0);
         assert(size > 0);
 
-        f = hashmap_get(m->fds, INT_TO_PTR(fd + 1));
+        f = hashmap_get(m->fds, FD_TO_PTR(fd));
         if (!f)
                 return 0;
 
@@ -678,7 +680,7 @@ bool mmap_cache_got_sigbus(MMapCache *m, int fd) {
 
         mmap_cache_process_sigbus(m);
 
-        f = hashmap_get(m->fds, INT_TO_PTR(fd + 1));
+        f = hashmap_get(m->fds, FD_TO_PTR(fd));
         if (!f)
                 return false;
 
@@ -697,7 +699,7 @@ void mmap_cache_close_fd(MMapCache *m, int fd) {
 
         mmap_cache_process_sigbus(m);
 
-        f = hashmap_get(m->fds, INT_TO_PTR(fd + 1));
+        f = hashmap_get(m->fds, FD_TO_PTR(fd));
         if (!f)
                 return;
 

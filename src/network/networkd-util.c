@@ -19,10 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
 #include "conf-parser.h"
-
 #include "networkd-util.h"
+#include "parse-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "util.h"
 
 const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
         if (b == ADDRESS_FAMILY_YES ||
@@ -77,12 +79,20 @@ int config_parse_address_family_boolean_with_kernel(
         assert(rvalue);
         assert(data);
 
+        /* This function is mostly obsolete now. It simply redirects
+         * "kernel" to "no". In older networkd versions we used to
+         * distuingish IPForward=off from IPForward=kernel, where the
+         * former would explicitly turn off forwarding while the
+         * latter would simply not touch the setting. But that logic
+         * is gone, hence silently accept the old setting, but turn it
+         * to "no". */
+
         s = address_family_boolean_from_string(rvalue);
         if (s < 0) {
                 if (streq(rvalue, "kernel"))
-                        s = _ADDRESS_FAMILY_BOOLEAN_INVALID;
+                        s = ADDRESS_FAMILY_NO;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPForwarding= option, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPForward= option, ignoring: %s", rvalue);
                         return 0;
                 }
         }

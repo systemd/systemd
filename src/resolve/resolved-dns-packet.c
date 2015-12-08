@@ -19,12 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include "utf8.h"
-#include "util.h"
-#include "strv.h"
-#include "unaligned.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-packet.h"
+#include "string-table.h"
+#include "strv.h"
+#include "unaligned.h"
+#include "utf8.h"
+#include "util.h"
+
+#define EDNS0_OPT_DO (1<<15)
 
 int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         DnsPacket *p;
@@ -61,7 +65,7 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         return 0;
 }
 
-int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
+int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool dnssec_checking_disabled) {
         DnsPacket *p;
         DnsPacketHeader *h;
         int r;
@@ -92,7 +96,7 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
                                                          1 /* rd (ask for recursion) */,
                                                          0 /* ra */,
                                                          0 /* ad */,
-                                                         0 /* cd */,
+                                                         dnssec_checking_disabled /* cd */,
                                                          0 /* rcode */));
 
         *ret = p;
@@ -103,6 +107,8 @@ DnsPacket *dns_packet_ref(DnsPacket *p) {
 
         if (!p)
                 return NULL;
+
+        assert(!p->on_stack);
 
         assert(p->n_ref > 0);
         p->n_ref++;
@@ -122,7 +128,9 @@ static void dns_packet_free(DnsPacket *p) {
         hashmap_free(p->names);
 
         free(p->_data);
-        free(p);
+
+        if (!p->on_stack)
+                free(p);
 }
 
 DnsPacket *dns_packet_unref(DnsPacket *p) {
@@ -265,7 +273,7 @@ static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start
         return 0;
 }
 
-static void dns_packet_truncate(DnsPacket *p, size_t sz) {
+void dns_packet_truncate(DnsPacket *p, size_t sz) {
         Iterator i;
         char *s;
         void *n;
@@ -347,29 +355,36 @@ int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start) {
 }
 
 int dns_packet_append_string(DnsPacket *p, const char *s, size_t *start) {
-        void *d;
-        size_t l;
-        int r;
-
         assert(p);
         assert(s);
 
-        l = strlen(s);
-        if (l > 255)
+        return dns_packet_append_raw_string(p, s, strlen(s), start);
+}
+
+int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_t *start) {
+        void *d;
+        int r;
+
+        assert(p);
+        assert(s || size == 0);
+
+        if (size > 255)
                 return -E2BIG;
 
-        r = dns_packet_extend(p, 1 + l, &d, start);
+        r = dns_packet_extend(p, 1 + size, &d, start);
         if (r < 0)
                 return r;
 
-        ((uint8_t*) d)[0] = (uint8_t) l;
-        memcpy(((uint8_t*) d) + 1, s, l);
+        ((uint8_t*) d)[0] = (uint8_t) size;
+
+        if (size > 0)
+                memcpy(((uint8_t*) d) + 1, s, size);
 
         return 0;
 }
 
 int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start) {
-        void *w;
+        uint8_t *w;
         int r;
 
         assert(p);
@@ -378,12 +393,29 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start
         if (l > DNS_LABEL_MAX)
                 return -E2BIG;
 
-        r = dns_packet_extend(p, 1 + l, &w, start);
+        r = dns_packet_extend(p, 1 + l, (void**) &w, start);
         if (r < 0)
                 return r;
 
-        ((uint8_t*) w)[0] = (uint8_t) l;
-        memcpy(((uint8_t*) w) + 1, d, l);
+        *(w++) = (uint8_t) l;
+
+        if (p->canonical_form) {
+                size_t i;
+
+                /* Generate in canonical form, as defined by DNSSEC
+                 * RFC 4034, Section 6.2, i.e. all lower-case. */
+
+                for (i = 0; i < l; i++) {
+                        if (d[i] >= 'A' && d[i] <= 'Z')
+                                w[i] = (uint8_t) (d[i] - 'A' + 'a');
+                        else
+                                w[i] = (uint8_t) d[i];
+                }
+        } else
+                /* Otherwise, just copy the string unaltered. This is
+                 * essential for DNS-SD, where the casing of labels
+                 * matters and needs to be retained. */
+                memcpy(w, d, l);
 
         return 0;
 }
@@ -585,8 +617,59 @@ fail:
         return r;
 }
 
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start) {
-        size_t saved_size, rdlength_offset, end, rdlength;
+/* Append the OPT pseudo-RR described in RFC6891 */
+int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
+        size_t saved_size;
+        int r;
+
+        assert(p);
+        /* we must never advertise supported packet size smaller than the legacy max */
+        assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+
+        saved_size = p->size;
+
+        /* empty name */
+        r = dns_packet_append_uint8(p, 0, NULL);
+        if (r < 0)
+                return r;
+
+        /* type */
+        r = dns_packet_append_uint16(p, DNS_TYPE_OPT, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* maximum udp packet that can be received */
+        r = dns_packet_append_uint16(p, max_udp_size, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* extended RCODE and VERSION */
+        r = dns_packet_append_uint16(p, 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* flags: DNSSEC OK (DO), see RFC3225 */
+        r = dns_packet_append_uint16(p, edns0_do ? EDNS0_OPT_DO : 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        /* RDLENGTH */
+        r = dns_packet_append_uint16(p, 0, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (start)
+                *start = saved_size;
+
+        return 0;
+
+fail:
+        dns_packet_truncate(p, saved_size);
+        return r;
+}
+
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start) {
+        size_t saved_size, rdlength_offset, end, rdlength, rds;
         int r;
 
         assert(p);
@@ -606,6 +689,8 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
         r = dns_packet_append_uint16(p, 0, &rdlength_offset);
         if (r < 0)
                 goto fail;
+
+        rds = p->size - saved_size;
 
         switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
@@ -641,19 +726,20 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
-        case DNS_TYPE_TXT: {
-                char **s;
+        case DNS_TYPE_TXT:
 
-                if (strv_isempty(rr->txt.strings)) {
+                if (!rr->txt.items) {
                         /* RFC 6763, section 6.1 suggests to generate
                          * single empty string for an empty array. */
 
-                        r = dns_packet_append_string(p, "", NULL);
+                        r = dns_packet_append_raw_string(p, NULL, 0, NULL);
                         if (r < 0)
                                 goto fail;
                 } else {
-                        STRV_FOREACH(s, rr->txt.strings) {
-                                r = dns_packet_append_string(p, *s, NULL);
+                        DnsTxtItem *i;
+
+                        LIST_FOREACH(items, i, rr->txt.items) {
+                                r = dns_packet_append_raw_string(p, i->data, i->length, NULL);
                                 if (r < 0)
                                         goto fail;
                         }
@@ -661,7 +747,6 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
                 r = 0;
                 break;
-        }
 
         case DNS_TYPE_A:
                 r = dns_packet_append_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
@@ -764,11 +849,11 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_DNSKEY:
-                r = dns_packet_append_uint16(p, dnskey_to_flags(rr), NULL);
+                r = dns_packet_append_uint16(p, rr->dnskey.flags, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, 3u, NULL);
+                r = dns_packet_append_uint8(p, rr->dnskey.protocol, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -884,6 +969,9 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
         if (start)
                 *start = saved_size;
+
+        if (rdata_start)
+                *rdata_start = rds;
 
         return 0;
 
@@ -1060,6 +1148,35 @@ fail:
         return r;
 }
 
+int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, size_t *start) {
+        size_t saved_rindex;
+        uint8_t c;
+        int r;
+
+        assert(p);
+
+        saved_rindex = p->rindex;
+
+        r = dns_packet_read_uint8(p, &c, NULL);
+        if (r < 0)
+                goto fail;
+
+        r = dns_packet_read(p, c, ret, NULL);
+        if (r < 0)
+                goto fail;
+
+        if (size)
+                *size = c;
+        if (start)
+                *start = saved_rindex;
+
+        return 0;
+
+fail:
+        dns_packet_rewind(p, saved_rindex);
+        return r;
+}
+
 int dns_packet_read_name(
                 DnsPacket *p,
                 char **_ret,
@@ -1092,7 +1209,6 @@ int dns_packet_read_name(
                         /* End of name */
                         break;
                 else if (c <= 63) {
-                        _cleanup_free_ char *t = NULL;
                         const char *label;
 
                         /* Literal label */
@@ -1100,21 +1216,20 @@ int dns_packet_read_name(
                         if (r < 0)
                                 goto fail;
 
-                        r = dns_label_escape(label, c, &t);
-                        if (r < 0)
-                                goto fail;
-
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + strlen(t) + 1)) {
+                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX)) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
 
-                        if (!first)
-                                ret[n++] = '.';
-                        else
+                        if (first)
                                 first = false;
+                        else
+                                ret[n++] = '.';
 
-                        memcpy(ret + n, t, r);
+                        r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
+                        if (r < 0)
+                                goto fail;
+
                         n += r;
                         continue;
                 } else if (allow_compression && (c & 0xc0) == 0xc0) {
@@ -1323,17 +1438,6 @@ static bool loc_size_ok(uint8_t size) {
         return m <= 9 && e <= 9 && (m > 0 || e == 0);
 }
 
-static int dnskey_parse_flags(DnsResourceRecord *rr, uint16_t flags) {
-        assert(rr);
-
-        if (flags & ~(DNSKEY_FLAG_SEP | DNSKEY_FLAG_ZONE_KEY))
-                return -EBADMSG;
-
-        rr->dnskey.zone_key_flag = flags & DNSKEY_FLAG_ZONE_KEY;
-        rr->dnskey.sep_flag = flags & DNSKEY_FLAG_SEP;
-        return 0;
-}
-
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -1399,6 +1503,10 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_name(p, &rr->ptr.name, true, NULL);
                 break;
 
+        case DNS_TYPE_OPT: /* we only care about the header */
+                r = 0;
+                break;
+
         case DNS_TYPE_HINFO:
                 r = dns_packet_read_string(p, &rr->hinfo.cpu, NULL);
                 if (r < 0)
@@ -1410,24 +1518,37 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
                 if (rdlength <= 0) {
+                        DnsTxtItem *i;
                         /* RFC 6763, section 6.1 suggests to treat
                          * empty TXT RRs as equivalent to a TXT record
                          * with a single empty string. */
 
-                        r = strv_extend(&rr->txt.strings, "");
-                        if (r < 0)
-                                goto fail;
+                        i = malloc0(offsetof(DnsTxtItem, data) + 1); /* for safety reasons we add an extra NUL byte */
+                        if (!i)
+                                return -ENOMEM;
+
+                        rr->txt.items = i;
                 } else {
+                        DnsTxtItem *last = NULL;
+
                         while (p->rindex < offset + rdlength) {
-                                char *s;
+                                DnsTxtItem *i;
+                                const void *data;
+                                size_t sz;
 
-                                r = dns_packet_read_string(p, &s, NULL);
+                                r = dns_packet_read_raw_string(p, &data, &sz, NULL);
                                 if (r < 0)
-                                        goto fail;
+                                        return r;
 
-                                r = strv_consume(&rr->txt.strings, s);
-                                if (r < 0)
-                                        goto fail;
+                                i = malloc0(offsetof(DnsTxtItem, data) + sz + 1); /* extra NUL byte at the end */
+                                if (!i)
+                                        return -ENOMEM;
+
+                                memcpy(i->data, data, sz);
+                                i->length = sz;
+
+                                LIST_INSERT_AFTER(items, rr->txt.items, last, i);
+                                last = i;
                         }
                 }
 
@@ -1585,27 +1706,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
                 break;
 
-        case DNS_TYPE_DNSKEY: {
-                uint16_t flags;
-                uint8_t proto;
-
-                r = dns_packet_read_uint16(p, &flags, NULL);
+        case DNS_TYPE_DNSKEY:
+                r = dns_packet_read_uint16(p, &rr->dnskey.flags, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dnskey_parse_flags(rr, flags);
+                r = dns_packet_read_uint8(p, &rr->dnskey.protocol, NULL);
                 if (r < 0)
                         goto fail;
-
-                r = dns_packet_read_uint8(p, &proto, NULL);
-                if (r < 0)
-                        goto fail;
-
-                /* protocol is required to be always 3 */
-                if (proto != 3) {
-                        r = -EBADMSG;
-                        goto fail;
-                }
 
                 r = dns_packet_read_uint8(p, &rr->dnskey.algorithm, NULL);
                 if (r < 0)
@@ -1623,7 +1731,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 }
 
                 break;
-        }
 
         case DNS_TYPE_RRSIG:
                 r = dns_packet_read_uint16(p, &rr->rrsig.type_covered, NULL);
@@ -1680,12 +1787,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 if (r < 0)
                         goto fail;
 
-                /* The types bitmap must contain at least the NSEC record itself, so an empty bitmap means
-                   something went wrong */
-                if (bitmap_isclear(rr->nsec.types)) {
-                        r = -EBADMSG;
-                        goto fail;
-                }
+                /* We accept empty NSEC bitmaps. The bit indicating the presence of the NSEC record itself
+                 * is redundant and in e.g., RFC4956 this fact is used to define a use for NSEC records
+                 * without the NSEC bit set. */
 
                 break;
 
@@ -1858,17 +1962,3 @@ static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
         [DNS_PROTOCOL_LLMNR] = "llmnr",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);
-
-static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
-        [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
-        [DNSSEC_ALGORITHM_DH]                 = "DH",
-        [DNSSEC_ALGORITHM_DSA]                = "DSA",
-        [DNSSEC_ALGORITHM_ECC]                = "ECC",
-        [DNSSEC_ALGORITHM_RSASHA1]            = "RSASHA1",
-        [DNSSEC_ALGORITHM_DSA_NSEC3_SHA1]     = "DSA-NSEC3-SHA1",
-        [DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1] = "RSASHA1-NSEC3-SHA1",
-        [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
-        [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
-        [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
-};
-DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);

@@ -21,13 +21,17 @@
 
 #include "sd-netlink.h"
 
-#include "util.h"
-#include "in-addr-util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "firewall-util.h"
+#include "in-addr-util.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
-
 #include "nspawn-expose-ports.h"
+#include "parse-util.h"
+#include "socket-util.h"
+#include "string-util.h"
+#include "util.h"
 
 int expose_port_parse(ExposePort **l, const char *s) {
 
@@ -207,7 +211,7 @@ int expose_port_watch_rtnl(
                 sd_netlink_message_handler_t handler,
                 union in_addr_union *exposed,
                 sd_netlink **ret) {
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int fd, r;
 
         assert(event);

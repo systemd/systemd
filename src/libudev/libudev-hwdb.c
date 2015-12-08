@@ -17,9 +17,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "libudev-private.h"
 #include "sd-hwdb.h"
+
+#include "alloc-util.h"
 #include "hwdb-util.h"
+#include "libudev-private.h"
 
 /**
  * SECTION:libudev-hwdb
@@ -51,7 +53,7 @@ struct udev_hwdb {
  * Returns: a hwdb context.
  **/
 _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
-        _cleanup_hwdb_unref_ sd_hwdb *hwdb_internal = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb_internal = NULL;
         struct udev_hwdb *hwdb;
         int r;
 

@@ -27,8 +27,9 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 
-#include "sd-id128.h"
 #include "sd-event.h"
+#include "sd-id128.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -443,6 +444,14 @@ unsigned sd_bus_track_count(sd_bus_track *track);
 const char* sd_bus_track_contains(sd_bus_track *track, const char *names);
 const char* sd_bus_track_first(sd_bus_track *track);
 const char* sd_bus_track_next(sd_bus_track *track);
+
+/* Define helpers so that __attribute__((cleanup(sd_bus_unrefp))) and similar may be used. */
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_flush_close_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus_slot, sd_bus_slot_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus_message, sd_bus_message_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus_creds, sd_bus_creds_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus_track, sd_bus_track_unref);
 
 _SD_END_DECLARATIONS;
 

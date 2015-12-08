@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
@@ -60,7 +60,6 @@
     <filename><replaceable>target</replaceable>.target</filename>,
     <filename><replaceable>path</replaceable>.path</filename>,
     <filename><replaceable>timer</replaceable>.timer</filename>,
-    <filename><replaceable>snapshot</replaceable>.snapshot</filename>,
     <filename><replaceable>slice</replaceable>.slice</filename>,
     <filename><replaceable>scope</replaceable>.scope</filename></para>
 
@@ -90,7 +89,7 @@
     swap file or partition, a start-up target, a watched file system
     path, a timer controlled and supervised by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-    a temporary system state snapshot, a resource management slice or
+    a resource management slice or
     a group of externally created processes. The syntax is inspired by
     <ulink
     url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
@@ -115,8 +114,7 @@
     <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
@@ -186,8 +184,8 @@
     be parsed after the file itself is parsed. This is useful to alter
     or add configuration settings to a unit, without having to modify
     their unit files. Make sure that the file that is included has the
-    appropriate section headers before any directive. Note that for
-    instanced units this logic will first look for the instance
+    appropriate section headers before any directive. Note that, for
+    instanced units, this logic will first look for the instance
     <literal>.d/</literal> subdirectory and read its
     <literal>.conf</literal> files, followed by the template
     <literal>.d/</literal> subdirectory and reads its
@@ -197,19 +195,13 @@
          consider it mostly obsolete, and want people to
          use .d/ drop-ins instead. -->
 
-    <para>Note that while systemd offers a flexible dependency system
-    between units it is recommended to use this functionality only
-    sparingly and instead rely on techniques such as bus-based or
-    socket-based activation which make dependencies implicit,
-    resulting in a both simpler and more flexible system.</para>
-
     <para>Some unit names reflect paths existing in the file system
     namespace. Example: a device unit
     <filename>dev-sda.device</filename> refers to a device with the
     device node <filename noindex='true'>/dev/sda</filename> in the
     file system namespace. If this applies, a special way to escape
     the path name is used, so that the result is usable as part of a
-    filename. Basically, given a path, "/" is replaced by "-" and all
+    filename. Basically, given a path, "/" is replaced by "-", and all
     other characters which are not ASCII alphanumerics are replaced by
     C-style "\x2d" escapes (except that "_" is never replaced and "."
     is only replaced when it would be the first character in the
@@ -256,6 +248,31 @@
   </refsect1>
 
   <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Note that while systemd offers a flexible dependency system
+    between units it is recommended to use this functionality only
+    sparingly and instead rely on techniques such as bus-based or
+    socket-based activation which make dependencies implicit,
+    resulting in a both simpler and more flexible system.</para>
+
+    <para>A number of unit dependencies are automatically established,
+    depending on unit configuration. On top of that, for units with
+    <varname>DefaultDependencies=yes</varname> (the default) a couple
+    of additional dependencies are added. The precise effect of
+    <varname>DefaultDependencies=yes</varname> depends on the unit
+    type (see below).</para>
+
+    <para>If <varname>DefaultDependencies=yes</varname> is set, units
+    that are referenced by other units of type
+    <filename>.target</filename> via a <varname>Wants=</varname> or
+    <varname>Requires=</varname> dependency might automatically gain
+    an <varname>Before=</varname> dependency too. See
+    <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Unit File Load Path</title>
 
     <para>Unit files are loaded from a set of paths determined during
@@ -263,10 +280,8 @@
     in directories listed earlier override files with the same name in
     directories lower in the list.</para>
 
-    <para>When systemd is running in user mode
-    (<option>--user</option>) and the variable
-    <varname>$SYSTEMD_UNIT_PATH</varname> is set, the contents of this
-    variable overrides the unit load path. If
+    <para>When the variable <varname>$SYSTEMD_UNIT_PATH</varname> is set,
+    the contents of this variable overrides the unit load path. If
     <varname>$SYSTEMD_UNIT_PATH</varname> ends with an empty component
     (<literal>:</literal>), the usual unit load path will be appended
     to the contents of the variable.</para>
@@ -365,7 +380,7 @@
   <refsect1>
     <title>[Unit] Section Options</title>
 
-    <para>Unit file may include a [Unit] section, which carries
+    <para>The unit file may include a [Unit] section, which carries
     generic information about the unit that is not dependent on the
     type of unit:</para>
 
@@ -424,7 +439,7 @@
         with <varname>After=</varname> or <varname>Before=</varname>,
         then both units will be started simultaneously and without any
         delay between them if <filename>foo.service</filename> is
-        activated. Often it is a better choice to use
+        activated. Often, it is a better choice to use
         <varname>Wants=</varname> instead of
         <varname>Requires=</varname> in order to achieve a system that
         is more robust when dealing with failing services.</para>
@@ -432,32 +447,14 @@
         <para>Note that dependencies of this type may also be
         configured outside of the unit configuration file by adding a
         symlink to a <filename>.requires/</filename> directory
-        accompanying the unit file. For details see
+        accompanying the unit file. For details, see
         above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>RequiresOverridable=</varname></term>
+        <term><varname>Requisite=</varname></term>
 
         <listitem><para>Similar to <varname>Requires=</varname>.
-        Dependencies listed in <varname>RequiresOverridable=</varname>
-        which cannot be fulfilled or fail to start are ignored if the
-        startup was explicitly requested by the user. If the start-up
-        was pulled in indirectly by some dependency or automatic
-        start-up of units that is not requested by the user, this
-        dependency must be fulfilled and otherwise the transaction
-        fails. Hence, this option may be used to configure
-        dependencies that are normally honored unless the user
-        explicitly starts up the unit, in which case whether they
-        failed or not is irrelevant.</para></listitem>
-
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Requisite=</varname></term>
-        <term><varname>RequisiteOverridable=</varname></term>
-
-        <listitem><para>Similar to <varname>Requires=</varname> and
-        <varname>RequiresOverridable=</varname>, respectively.
         However, if the units listed here are not started already,
         they will not be started and the transaction will fail
         immediately. </para></listitem>
@@ -654,21 +651,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>IgnoreOnSnapshot=</varname></term>
-
-        <listitem><para>Takes a boolean argument. If
-        <option>true</option>, this unit will not be included in
-        snapshots. Defaults to <option>true</option> for device and
-        snapshot units, <option>false</option> for the
-        others.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>StopWhenUnneeded=</varname></term>
 
         <listitem><para>Takes a boolean argument. If
         <option>true</option>, this unit will be stopped when it is no
-        longer used. Note that in order to minimize the work to be
+        longer used. Note that, in order to minimize the work to be
         executed, systemd will not stop units by default unless they
         are conflicting with other units, or the user explicitly
         requested their shut down. If this option is set, a unit will
@@ -730,7 +717,7 @@
         <term><varname>JobTimeoutAction=</varname></term>
         <term><varname>JobTimeoutRebootArgument=</varname></term>
 
-        <listitem><para>When a job for this unit is queued a time-out
+        <listitem><para>When a job for this unit is queued, a time-out
         may be configured. If this time limit is reached, the job will
         be cancelled, the unit however will not change state or even
         enter the <literal>failed</literal> mode. This value defaults
@@ -781,8 +768,8 @@
         <term><varname>ConditionFileNotEmpty=</varname></term>
         <term><varname>ConditionFileIsExecutable=</varname></term>
 
-        <!-- We don't document ConditionNull=
-             here as it is not particularly
+        <!-- We do not document ConditionNull=
+             here, as it is not particularly
              useful and probably just
              confusing. -->
 
@@ -856,7 +843,8 @@
         <varname>lxc</varname>,
         <varname>lxc-libvirt</varname>,
         <varname>systemd-nspawn</varname>,
-        <varname>docker</varname> to test
+        <varname>docker</varname>,
+        <varname>rkt</varname> to test
         against a specific implementation. See
         <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for a full list of known virtualization technologies and their
@@ -887,7 +875,7 @@
 
         <para><varname>ConditionSecurity=</varname> may be used to
         check whether the given security module is enabled on the
-        system. Currently the recognized values values are
+        system. Currently, the recognized values values are
         <varname>selinux</varname>,
         <varname>apparmor</varname>,
         <varname>ima</varname>,
@@ -1027,10 +1015,10 @@
 
         <listitem><para>Similar to the
         <varname>ConditionArchitecture=</varname>,
-        <varname>ConditionVirtualization=</varname>, ... condition
-        settings described above these settings add assertion checks
+        <varname>ConditionVirtualization=</varname>, etc., condition
+        settings described above, these settings add assertion checks
         to the start-up of the unit. However, unlike the conditions
-        settings any assertion setting that is not met results in
+        settings, any assertion setting that is not met results in
         failure of the start job it was triggered
         by.</para></listitem>
       </varlistentry>
@@ -1045,22 +1033,6 @@
         units.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><varname>NetClass=</varname></term>
-        <listitem><para>Configures a network class number to assign to the
-        unit. This value will be set to the
-        <literal>net_cls.class_id</literal> property of the
-        <literal>net_cls</literal> cgroup of the unit. The directive
-        accepts a numerical value (for fixed number assignment) and the keyword
-        <literal>auto</literal> (for dynamic allocation). Network traffic of
-        all processes inside the unit will have the network class ID assigned
-        by the kernel. Also see
-        the kernel docs for
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroups/net_cls.txt">net_cls controller</ulink>
-        and
-        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
-      </varlistentry>
     </variablelist>
 
   </refsect1>
@@ -1237,22 +1209,22 @@
           <row>
       <entry><literal>%u</literal></entry>
       <entry>User name</entry>
-      <entry>This is the name of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+      <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
           </row>
           <row>
       <entry><literal>%U</literal></entry>
       <entry>User UID</entry>
-      <entry>This is the numeric UID of the configured user of the unit, or (if none is set) the user running the systemd user instance. Note that this specifier is not available for units run by the systemd system instance (as opposed to those run by a systemd user instance), unless the user has been configured as a numeric UID in the first place or the configured user is the root user.</entry>
+      <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <literal>0</literal>.</entry>
           </row>
           <row>
       <entry><literal>%h</literal></entry>
       <entry>User home directory</entry>
-      <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal>, this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
+      <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
           </row>
           <row>
       <entry><literal>%s</literal></entry>
       <entry>User shell</entry>
-      <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal>, this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
+      <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
           </row>
           <row>
       <entry><literal>%m</literal></entry>
@@ -1448,7 +1420,6 @@ PrivateTmp=yes</programlisting>
       <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

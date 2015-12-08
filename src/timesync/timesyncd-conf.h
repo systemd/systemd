@@ -22,7 +22,6 @@
 ***/
 
 #include "conf-parser.h"
-
 #include "timesyncd-manager.h"
 
 const struct ConfigPerfItem* timesyncd_gperf_lookup(const char *key, unsigned length);

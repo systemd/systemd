@@ -17,3 +17,4 @@ ExecStart=-@rootlibexecdir@/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
 Delegate=yes
+TasksMax=infinity

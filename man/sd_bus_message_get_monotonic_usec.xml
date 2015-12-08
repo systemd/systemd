@@ -83,7 +83,7 @@
     <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for details.</para>
 
-    <para>Similar,
+    <para>Similarly,
     <function>sd_bus_message_get_realtime_usec()</function> returns
     the realtime (wallclock) timestamp of the time the message was
     sent. This value is in microseconds since Jan 1st, 1970, i.e. in

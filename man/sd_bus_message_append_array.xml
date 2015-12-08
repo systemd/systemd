@@ -131,8 +131,8 @@
     <parameter>type</parameter>. However, as a special exception, if
     the offset is specified as zero and the size specified as
     UINT64_MAX the full memory file descriptor contents is used. The
-    memory file descriptor is sealed by this call if it hasn't been
-    sealed yet, and cannot be modified a after this call. See
+    memory file descriptor is sealed by this call if it has not been
+    sealed yet, and cannot be modified after this call. See
     <citerefentry
     project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for details about memory file descriptors. Appending arrays with
@@ -142,7 +142,7 @@
     process. Not all protocol transports support passing memory file
     descriptors between participants, in which case this call will
     automatically fall back to copying. Also, as memory file
-    descriptor passing is inefficient for smaller amounts of data
+    descriptor passing is inefficient for smaller amounts of data,
     copying might still be enforced even where memory file descriptor
     passing is supported.</para>
 
@@ -150,13 +150,13 @@
     function appends an array of a trivial type to the message
     <parameter>m</parameter>, similar to
     <function>sd_bus_message_append_array()</function>. Contents of
-    the IO vector array <parameter>iov</parameter> are used as the
+    the I/O vector array <parameter>iov</parameter> are used as the
     contents of the array. The total size of
     <parameter>iov</parameter> payload (the sum of
     <structfield>iov_len</structfield> fields) must be a multiple of
     the size of the type <parameter>type</parameter>. The
     <parameter>iov</parameter> argument must point to
-    <parameter>n</parameter> IO vector structures. Each structure may
+    <parameter>n</parameter> I/O vector structures. Each structure may
     have the <structname>iov_base</structname> field set, in which
     case the memory pointed to will be copied into the message, or
     unset (set to zero), in which case a block of zeros of length
@@ -171,9 +171,9 @@
     copying items to the message, it returns a pointer to the
     destination area to the caller in pointer
     <parameter>p</parameter>. The caller should subsequently write the
-    array contents to this memory. Modifications of the memory
+    array contents to this memory. Modifications to the memory
     pointed to should only occur until the next operation on the bus
-    message is invoked, most importantly the memory should not be
+    message is invoked. Most importantly, the memory should not be
     altered anymore when another field has been added to the message
     or the message has been sealed.</para>
   </refsect1>

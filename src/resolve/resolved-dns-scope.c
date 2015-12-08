@@ -21,15 +21,17 @@
 
 #include <netinet/tcp.h>
 
-#include "missing.h"
-#include "strv.h"
-#include "socket-util.h"
 #include "af-list.h"
-#include "random-util.h"
-#include "hostname-util.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
-#include "resolved-llmnr.h"
+#include "fd-util.h"
+#include "hostname-util.h"
+#include "missing.h"
+#include "random-util.h"
 #include "resolved-dns-scope.h"
+#include "resolved-llmnr.h"
+#include "socket-util.h"
+#include "strv.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000
@@ -67,18 +69,12 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         return 0;
 }
 
-DnsScope* dns_scope_free(DnsScope *s) {
-        DnsTransaction *t;
-        DnsResourceRecord *rr;
+static void dns_scope_abort_transactions(DnsScope *s) {
+        assert(s);
 
-        if (!s)
-                return NULL;
+        while (s->transactions) {
+                DnsTransaction *t = s->transactions;
 
-        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->name : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
-
-        dns_scope_llmnr_membership(s, false);
-
-        while ((t = hashmap_steal_first(s->transactions))) {
                 /* Abort the transaction, but make sure it is not
                  * freed while we still look at it */
 
@@ -88,8 +84,23 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
                 dns_transaction_free(t);
         }
+}
 
-        hashmap_free(s->transactions);
+DnsScope* dns_scope_free(DnsScope *s) {
+        DnsResourceRecord *rr;
+
+        if (!s)
+                return NULL;
+
+        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->name : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
+
+        dns_scope_llmnr_membership(s, false);
+        dns_scope_abort_transactions(s);
+
+        while (s->query_candidates)
+                dns_query_candidate_free(s->query_candidates);
+
+        hashmap_free(s->transactions_by_key);
 
         while ((rr = ordered_hashmap_steal_first(s->conflict_queue)))
                 dns_resource_record_unref(rr);
@@ -101,7 +112,6 @@ DnsScope* dns_scope_free(DnsScope *s) {
         dns_zone_flush(&s->zone);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
-        strv_free(s->domains);
         free(s);
 
         return NULL;
@@ -134,11 +144,11 @@ void dns_scope_next_dns_server(DnsScope *s) {
 void dns_scope_packet_received(DnsScope *s, usec_t rtt) {
         assert(s);
 
-        if (rtt > s->max_rtt) {
-                s->max_rtt = rtt;
-                s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2),
-                                        MULTICAST_RESEND_TIMEOUT_MAX_USEC);
-        }
+        if (rtt <= s->max_rtt)
+                return;
+
+        s->max_rtt = rtt;
+        s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2), MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
 void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
@@ -148,12 +158,13 @@ void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
                 s->resend_timeout = MIN(s->resend_timeout * 2, MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
-int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
+int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
         uint16_t port;
         uint32_t mtu;
+        size_t saved_size = 0;
 
         assert(s);
         assert(p);
@@ -168,8 +179,28 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
 
         switch (s->protocol) {
         case DNS_PROTOCOL_DNS:
+                assert(server);
+
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
+
+                if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
+                        bool edns_do;
+                        size_t packet_size;
+
+                        edns_do = server->possible_features >= DNS_SERVER_FEATURE_LEVEL_DO;
+
+                        if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_LARGE)
+                                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
+                        else
+                                packet_size = server->received_udp_packet_max;
+
+                        r = dns_packet_append_opt_rr(p, packet_size, edns_do, &saved_size);
+                        if (r < 0)
+                                return r;
+
+                        DNS_PACKET_HEADER(p)->arcount = htobe16(be16toh(DNS_PACKET_HEADER(p)->arcount) + 1);
+                }
 
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
@@ -180,6 +211,12 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 r = manager_write(s->manager, fd, p);
                 if (r < 0)
                         return r;
+
+                if (saved_size > 0) {
+                        dns_packet_truncate(p, saved_size);
+
+                        DNS_PACKET_HEADER(p)->arcount = htobe16(be16toh(DNS_PACKET_HEADER(p)->arcount) - 1);
+                }
 
                 break;
 
@@ -232,6 +269,11 @@ static int dns_scope_socket(DnsScope *s, int type, int family, const union in_ad
                 srv = dns_scope_get_dns_server(s);
                 if (!srv)
                         return -ESRCH;
+
+                srv->possible_features = dns_server_possible_features(srv);
+
+                if (type == SOCK_DGRAM && srv->possible_features < DNS_SERVER_FEATURE_LEVEL_UDP)
+                        return -EAGAIN;
 
                 sa.sa.sa_family = srv->family;
                 if (srv->family == AF_INET) {
@@ -321,18 +363,19 @@ int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *add
 }
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
-        char **i;
+        DnsSearchDomain *d;
 
         assert(s);
         assert(domain);
 
+        /* Checks if the specified domain is something to look up on
+         * this scope. Note that this accepts non-qualified hostnames,
+         * i.e. those without any search path prefixed yet. */
+
         if (ifindex != 0 && (!s->link || s->link->ifindex != ifindex))
                 return DNS_SCOPE_NO;
 
-        if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family) & flags) == 0)
-                return DNS_SCOPE_NO;
-
-        if (dns_name_root(domain) != 0)
+        if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, 0) & flags) == 0)
                 return DNS_SCOPE_NO;
 
         /* Never resolve any loopback hostname or IP address via DNS,
@@ -343,15 +386,30 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
             dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
-        STRV_FOREACH(i, s->domains)
-                if (dns_name_endswith(domain, *i) > 0)
+        /* Never respond to some of the domains listed in RFC6303 */
+        if (dns_name_endswith(domain, "0.in-addr.arpa") > 0 ||
+            dns_name_equal(domain, "255.255.255.255.in-addr.arpa") > 0 ||
+            dns_name_equal(domain, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+                return DNS_SCOPE_NO;
+
+        /* Always honour search domains for routing queries. Note that
+         * we return DNS_SCOPE_YES here, rather than just
+         * DNS_SCOPE_MAYBE, which means wildcard scopes won't be
+         * considered anymore. */
+        LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
+                if (dns_name_endswith(domain, d->name) > 0)
                         return DNS_SCOPE_YES;
 
         switch (s->protocol) {
+
         case DNS_PROTOCOL_DNS:
+
+                /* Exclude link-local IP ranges */
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
-                    dns_name_endswith(domain, "0.8.e.f.ip6.arpa") == 0 &&
-                    dns_name_single_label(domain) == 0)
+                    dns_name_endswith(domain, "8.e.f.ip6.arpa") == 0 &&
+                    dns_name_endswith(domain, "9.e.f.ip6.arpa") == 0 &&
+                    dns_name_endswith(domain, "a.e.f.ip6.arpa") == 0 &&
+                    dns_name_endswith(domain, "b.e.f.ip6.arpa") == 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
@@ -369,7 +427,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         case DNS_PROTOCOL_LLMNR:
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
                     (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
-                    (dns_name_single_label(domain) > 0 && /* only resolve single label names via LLMNR */
+                    (dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_MAYBE;
@@ -385,8 +443,27 @@ int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {
         assert(s);
         assert(key);
 
-        if (s->protocol == DNS_PROTOCOL_DNS)
-                return true;
+        /* Check if it makes sense to resolve the specified key on
+         * this scope. Note that this call assumes as fully qualified
+         * name, i.e. the search suffixes already appended. */
+
+        if (s->protocol == DNS_PROTOCOL_DNS) {
+
+                /* On classic DNS, lookin up non-address RRs is always
+                 * fine. (Specifically, we want to permit looking up
+                 * DNSKEY and DS records on the root and top-level
+                 * domains.) */
+                if (!dns_resource_key_is_address(key))
+                        return true;
+
+                /* However, we refuse to look up A and AAAA RRs on the
+                 * root and single-label domains, under the assumption
+                 * that those should be resolved via LLMNR or search
+                 * path only, and should not be leaked onto the
+                 * internet. */
+                return !(dns_name_is_single_label(DNS_RESOURCE_KEY_NAME(key)) ||
+                         dns_name_is_root(DNS_RESOURCE_KEY_NAME(key)));
+        }
 
         /* On mDNS and LLMNR, send A and AAAA queries only on the
          * respective scopes */
@@ -500,7 +577,7 @@ static int dns_scope_make_reply_packet(
 
         if (answer) {
                 for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, answer->items[i].rr, NULL);
+                        r = dns_packet_append_rr(p, answer->items[i].rr, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -510,7 +587,7 @@ static int dns_scope_make_reply_packet(
 
         if (soa) {
                 for (i = 0; i < soa->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, soa->items[i].rr, NULL);
+                        r = dns_packet_append_rr(p, soa->items[i].rr, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -541,6 +618,7 @@ static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        DnsResourceKey *key = NULL;
         bool tentative = false;
         int r, fd;
 
@@ -574,7 +652,10 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        r = dns_zone_lookup(&s->zone, p->question, &answer, &soa, &tentative);
+        assert(p->question->n_keys == 1);
+        key = p->question->keys[0];
+
+        r = dns_zone_lookup(&s->zone, key, &answer, &soa, &tentative);
         if (r < 0) {
                 log_debug_errno(r, "Failed to lookup key: %m");
                 return;
@@ -632,7 +713,7 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
 
         /* Try to find an ongoing transaction that is a equal to the
          * specified question */
-        t = hashmap_get(scope->transactions, key);
+        t = hashmap_get(scope->transactions_by_key, key);
         if (!t)
                 return NULL;
 
@@ -640,7 +721,7 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
          * data instead of a real packet, if that's requested. */
         if (!cache_ok &&
             IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
-            !t->received)
+            t->answer_source != DNS_TRANSACTION_NETWORK)
                 return NULL;
 
         return t;
@@ -680,7 +761,7 @@ static int dns_scope_make_conflict_packet(
         if (r < 0)
                 return r;
 
-        r = dns_packet_append_rr(p, rr, NULL);
+        r = dns_packet_append_rr(p, rr, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -713,7 +794,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, -1, p);
+                r = dns_scope_emit(scope, -1, NULL, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }
@@ -843,4 +924,25 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
                 fputs("CACHE:\n", f);
                 dns_cache_dump(&s->cache, f);
         }
+}
+
+DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
+        assert(s);
+
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return NULL;
+
+        if (s->link)
+                return s->link->search_domains;
+
+        return s->manager->search_domains;
+}
+
+bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {
+        assert(s);
+
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        return dns_name_is_single_label(name);
 }

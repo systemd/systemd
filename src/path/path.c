@@ -26,8 +26,10 @@
 
 #include "sd-path.h"
 
+#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
+#include "string-util.h"
 #include "util.h"
 
 static const char *arg_suffix = NULL;

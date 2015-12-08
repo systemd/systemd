@@ -20,9 +20,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "selinux-util.h"
+#include <sys/stat.h>
+
 #include "fileio-label.h"
+#include "fileio.h"
+#include "selinux-util.h"
 
 int write_string_file_atomic_label(const char *fn, const char *line) {
         int r;

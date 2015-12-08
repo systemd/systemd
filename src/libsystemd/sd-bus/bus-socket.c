@@ -20,22 +20,29 @@
 ***/
 
 #include <endian.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <poll.h>
-
-#include "sd-daemon.h"
-#include "util.h"
-#include "macro.h"
-#include "missing.h"
-#include "utf8.h"
-#include "formats-util.h"
-#include "signal-util.h"
 
 #include "sd-bus.h"
-#include "bus-socket.h"
+#include "sd-daemon.h"
+
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "bus-socket.h"
+#include "fd-util.h"
+#include "formats-util.h"
+#include "hexdecoct.h"
+#include "macro.h"
+#include "missing.h"
+#include "selinux-util.h"
+#include "signal-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
+#include "user-util.h"
+#include "utf8.h"
+#include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 
@@ -602,9 +609,11 @@ static void bus_get_peercred(sd_bus *b) {
         b->ucred_valid = getpeercred(b->input_fd, &b->ucred) >= 0;
 
         /* Get the SELinux context of the peer */
-        r = getpeersec(b->input_fd, &b->label);
-        if (r < 0 && r != -EOPNOTSUPP)
-                log_debug_errno(r, "Failed to determine peer security context: %m");
+        if (mac_selinux_have()) {
+                r = getpeersec(b->input_fd, &b->label);
+                if (r < 0 && r != -EOPNOTSUPP)
+                        log_debug_errno(r, "Failed to determine peer security context: %m");
+        }
 }
 
 static int bus_socket_start_auth_client(sd_bus *b) {

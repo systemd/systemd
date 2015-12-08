@@ -23,16 +23,20 @@
 #include <linux/veth.h>
 
 #include "sd-netlink.h"
+
 #include "networkd-netdev-veth.h"
 
 static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Veth *v = VETH(netdev);
+        Veth *v;
         int r;
 
         assert(netdev);
         assert(!link);
-        assert(v);
         assert(m);
+
+        v = VETH(netdev);
+
+        assert(v);
 
         r = sd_netlink_message_open_container(m, VETH_INFO_PEER);
         if (r < 0)
@@ -58,12 +62,15 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 }
 
 static int netdev_veth_verify(NetDev *netdev, const char *filename) {
-        Veth *v = VETH(netdev);
+        Veth *v;
         int r;
 
         assert(netdev);
-        assert(v);
         assert(filename);
+
+        v = VETH(netdev);
+
+        assert(v);
 
         if (!v->ifname_peer) {
                 log_warning("Veth NetDev without peer name configured in %s. Ignoring",
@@ -84,9 +91,12 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
 }
 
 static void veth_done(NetDev *n) {
-        Veth *v = VETH(n);
+        Veth *v;
 
         assert(n);
+
+        v = VETH(n);
+
         assert(v);
 
         free(v->ifname_peer);

@@ -82,7 +82,7 @@
       matches apply to the same field, then they are automatically
       matched as alternatives, i.e. the resulting output will show
       entries matching any of the specified matches for the same
-      field. Finally, the character <literal>+</literal> may appears
+      field. Finally, the character <literal>+</literal> may appear
       as a separate word between other terms on the command line. This
       causes all matches before and after to be combined in a
       disjunction (i.e. logical OR).</para>
@@ -95,7 +95,7 @@
       <literal>_KERNEL_DEVICE=</literal> match for the device.</para>
 
       <para>Additional constraints may be added using options
-      <option>--boot</option>, <option>--unit=</option>, etc, to
+      <option>--boot</option>, <option>--unit=</option>, etc., to
       further limit what entries will be shown (logical AND).</para>
 
       <para>Output is interleaved from all accessible journal files,
@@ -181,7 +181,7 @@
           <option>-n1000</option> to guarantee that the pager will not
           buffer logs of unbounded size. This may be overridden with
           an explicit <option>-n</option> with some other numeric
-          value while <option>-nall</option> will disable this cap.
+          value, while <option>-nall</option> will disable this cap.
           Note that this option is only supported for the
           <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           pager.</para></listitem>
@@ -368,7 +368,9 @@
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
-        <listitem><para>Suppresses any warning messages regarding
+        <listitem><para>Suppresses all info messages
+        (i.e. "-- Logs begin at ...", "-- Reboot --"),
+        any warning messages regarding
         inaccessible system journals when run as a normal
         user.</para></listitem>
       </varlistentry>
@@ -393,7 +395,7 @@
 
         <para>If the boot ID is omitted, a positive
         <replaceable>offset</replaceable> will look up the boots
-        starting from the beginning of the journal, and a
+        starting from the beginning of the journal, and an
         equal-or-less-than zero <replaceable>offset</replaceable> will
         look up boots starting from the end of the journal. Thus,
         <constant>1</constant> means the first boot found in the
@@ -411,7 +413,7 @@
         <replaceable>offset</replaceable> which identifies the boot
         relative to the one given by boot
         <replaceable>ID</replaceable>. Negative values mean earlier
-        boots and a positive values mean later boots. If
+        boots and positive values mean later boots. If
         <replaceable>offset</replaceable> is not specified, a value of
         zero is assumed, and the logs for the boot given by
         <replaceable>ID</replaceable> are shown.</para>
@@ -518,7 +520,7 @@
 
         <listitem><para>Start showing entries from the location in the
         journal <emphasis>after</emphasis> the location specified by
-        the this cursor.  The cursor is shown when the
+        the passed cursor.  The cursor is shown when the
         <option>--show-cursor</option> option is used.</para>
         </listitem>
       </varlistentry>
@@ -534,7 +536,9 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-S</option></term>
         <term><option>--since=</option></term>
+        <term><option>-U</option></term>
         <term><option>--until=</option></term>
 
         <listitem><para>Start showing entries on or newer than the
@@ -552,7 +556,10 @@
         respectively. <literal>now</literal> refers to the current
         time. Finally, relative times may be specified, prefixed with
         <literal>-</literal> or <literal>+</literal>, referring to
-        times before or after the current time, respectively.</para>
+        times before or after the current time, respectively. For complete
+        time and date specification, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
         </listitem>
       </varlistentry>
 
@@ -652,18 +659,18 @@
         <listitem><para>Removes archived journal files until the disk
         space they use falls below the specified size (specified with
         the usual <literal>K</literal>, <literal>M</literal>,
-        <literal>G</literal>, <literal>T</literal> suffixes), or all
+        <literal>G</literal> and <literal>T</literal> suffixes), or all
         journal files contain no data older than the specified
         timespan (specified with the usual <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>,
         <literal>days</literal>, <literal>months</literal>,
-        <literal>weeks</literal>, <literal>years</literal> suffixes),
+        <literal>weeks</literal> and <literal>years</literal> suffixes),
         or no more than the specified number of separate journal files
         remain. Note that running <option>--vacuum-size=</option> has
-        only indirect effect on the output shown by
-        <option>--disk-usage</option> as the latter includes active
-        journal files, while the the vacuuming operation only operates
-        on archived journal files. Similar,
+        only an indirect effect on the output shown by
+        <option>--disk-usage</option>, as the latter includes active
+        journal files, while the vacuuming operation only operates
+        on archived journal files. Similarly,
         <option>--vacuum-files=</option> might not actually reduce the
         number of journal files to below the specified number, as it
         will not remove active journal
@@ -766,21 +773,41 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--sync</option></term>
+
+        <listitem><para>Asks the journal daemon to write all yet
+        unwritten journal data to the backing file system and
+        synchronize all journals. This call does not return until the
+        synchronization operation is complete. This command guarantees
+        that any log messages written before its invocation are safely
+        stored on disk at the time it returns.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--flush</option></term>
 
-        <listitem><para>Asks the Journal daemon to flush any log data
+        <listitem><para>Asks the journal daemon to flush any log data
         stored in <filename>/run/log/journal</filename> into
-        <filename>/var/log/journal</filename>, if persistent storage is
-        enabled. This call does not return until the operation is
-        complete.</para></listitem>
+        <filename>/var/log/journal</filename>, if persistent storage
+        is enabled. This call does not return until the operation is
+        complete. Note that this call is idempotent: the data is only
+        flushed from <filename>/run/log/journal</filename> into
+        <filename>/var/log/journal</filename> once during system
+        runtime, and this command exits cleanly without executing any
+        operation if this has already has happened. This command
+        effectively guarantees that all data is flushed to
+        <filename>/var/log/journal</filename> at the time it
+        returns.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--rotate</option></term>
 
-        <listitem><para>Asks the Journal daemon to rotate journal files.
-        </para></listitem>
+        <listitem><para>Asks the journal daemon to rotate journal
+        files. This call does not return until the rotation operation
+        is complete.</para></listitem>
       </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -850,7 +877,8 @@
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

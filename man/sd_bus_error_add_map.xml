@@ -87,7 +87,7 @@
     <citerefentry><refentrytitle>sd_bus_error_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     or
     <citerefentry><refentrytitle>sd_bus_error_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>. By
-    default a number of generic, standardized mappings are known, as
+    default, a number of generic, standardized mappings are known, as
     documented in
     <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Use
     this call to add further, application-specific mappings.</para>
@@ -95,12 +95,12 @@
     <para>The function takes a pointer to an array of
     <structname>sd_bus_error_map</structname> structures. A reference
     to the specified array is added to the lookup tables for error
-    mappings. Note that the structure is not copied, it is hence
+    mappings. Note that the structure is not copied, and that it is hence
     essential that the array stays available and constant during the
     entire remaining runtime of the process.</para>
 
     <para>The mapping array should be put together with a series of
-    <constant>SD_BUS_ERROR_MAP()</constant> macro invocations, that
+    <constant>SD_BUS_ERROR_MAP()</constant> macro invocations that
     take a literal name string and a (positive)
     <varname>errno</varname>-style error number. The last entry of the
     array should be an invocation of the

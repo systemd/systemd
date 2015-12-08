@@ -19,12 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "log.h"
-
 #include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
+#include "fd-util.h"
+#include "log.h"
+#include "util.h"
 
 static int test_match(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         int *found = userdata;
@@ -45,7 +47,7 @@ static void test_one(
 
         _cleanup_close_ int bus_ref = -1;
         _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *a, *b;
         int r, found = 0;
 

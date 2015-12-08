@@ -20,18 +20,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <arpa/inet.h>
+#include <net/ethernet.h>
 #include <stdio.h>
 #include <string.h>
-#include <net/ethernet.h>
-#include <arpa/inet.h>
 
-#include "sd-lldp.h"
 #include "sd-event.h"
-#include "event-util.h"
-#include "macro.h"
-#include "lldp.h"
-#include "lldp-tlv.h"
+#include "sd-lldp.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "lldp-network.h"
+#include "lldp-tlv.h"
+#include "lldp.h"
+#include "macro.h"
+#include "string-util.h"
 
 #define TEST_LLDP_PORT "em1"
 #define TEST_LLDP_TYPE_SYSTEM_NAME "systemd-lldp"
@@ -44,13 +47,13 @@ static struct ether_addr mac_addr = {
 };
 
 static int lldp_build_tlv_packet(tlv_packet **ret) {
-        _cleanup_lldp_packet_unref_ tlv_packet *m = NULL;
+        _cleanup_(sd_lldp_packet_unrefp) tlv_packet *m = NULL;
         const uint8_t lldp_dst[] = LLDP_MULTICAST_ADDR;
         struct ether_header ether = {
                 .ether_type = htons(ETHERTYPE_LLDP),
         };
 
-        /* Append ethernet header */
+        /* Append Ethernet header */
         memcpy(&ether.ether_dhost, lldp_dst, ETHER_ADDR_LEN);
         memcpy(&ether.ether_shost, &mac_addr, ETHER_ADDR_LEN);
 
@@ -233,7 +236,7 @@ static int lldp_parse_tlv_packet(tlv_packet *m, int len) {
 }
 
 static void test_parser(void) {
-        _cleanup_lldp_packet_unref_ tlv_packet *tlv = NULL;
+        _cleanup_(sd_lldp_packet_unrefp) tlv_packet *tlv = NULL;
 
         /* form a packet */
         lldp_build_tlv_packet(&tlv);
@@ -288,7 +291,7 @@ static int stop_lldp(sd_lldp *lldp) {
         if (r)
                 return r;
 
-        sd_lldp_free(lldp);
+        sd_lldp_unref(lldp);
         safe_close(test_fd[1]);
 
         return 0;
@@ -453,7 +456,7 @@ static void test_receive_oui_packet(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         test_parser();
 

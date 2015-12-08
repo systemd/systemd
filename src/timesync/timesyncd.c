@@ -19,15 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-event.h"
 #include "sd-daemon.h"
-#include "capability.h"
+#include "sd-event.h"
+
+#include "capability-util.h"
 #include "clock-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "network-util.h"
 #include "signal-util.h"
-
-#include "timesyncd-manager.h"
 #include "timesyncd-conf.h"
+#include "timesyncd-manager.h"
+#include "user-util.h"
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
@@ -57,12 +60,12 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 
                 /* Try to fix the access mode, so that we can still
                    touch the file after dropping priviliges */
-                fchmod(fd, 0644);
-                fchown(fd, uid, gid);
+                (void) fchmod(fd, 0644);
+                (void) fchown(fd, uid, gid);
 
         } else
                 /* create stamp file with the compiled-in date */
-                touch_file("/var/lib/systemd/clock", true, min, uid, gid, 0644);
+                (void) touch_file("/var/lib/systemd/clock", true, min, uid, gid, 0644);
 
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
@@ -150,7 +153,7 @@ int main(int argc, char *argv[]) {
 
         /* if we got an authoritative time, store it in the file system */
         if (m->sync)
-                touch("/var/lib/systemd/clock");
+                (void) touch("/var/lib/systemd/clock");
 
         sd_event_get_exit_code(m->event, &r);
 

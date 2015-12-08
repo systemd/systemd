@@ -84,7 +84,7 @@
       <varlistentry>
         <term><filename>/boot</filename></term>
         <listitem><para>The boot partition used for bringing up the
-        system. On EFI systems this is possibly the EFI System
+        system. On EFI systems, this is possibly the EFI System
         Partition, also see
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         This directory is usually strictly local to the host, and
@@ -147,14 +147,14 @@
         directory is usually mounted as a <literal>tmpfs</literal>
         instance, and should hence not be used for larger files. (Use
         <filename>/var/tmp</filename> for larger files.) Since the
-        directory is accessible to other users of the system it is
+        directory is accessible to other users of the system, it is
         essential that this directory is only written to with the
         <citerefentry project='man-pages'><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         and related calls. This directory is usually flushed at
         boot-up. Also, files that are not accessed within a certain
         time are usually automatically deleted. If applications find
-        the environment variable <varname>$TMPDIR</varname> set they
+        the environment variable <varname>$TMPDIR</varname> set, they
         should prefer using the directory specified in it over
         directly referencing <filename>/tmp</filename> (see
         <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -217,7 +217,7 @@
 
       <varlistentry>
         <term><filename>/usr/bin</filename></term>
-        <listitem><para>Binaries and executables for user commands,
+        <listitem><para>Binaries and executables for user commands
         that shall appear in the <varname>$PATH</varname> search path.
         It is recommended not to place binaries in this directory that
         are not useful for invocation from a shell (such as daemon
@@ -245,7 +245,7 @@
 
       <varlistentry>
         <term><filename>/usr/lib/<replaceable>arch-id</replaceable></filename></term>
-        <listitem><para>Location for placing dynamic libraries, also
+        <listitem><para>Location for placing dynamic libraries into, also
         called <varname>$libdir</varname>. The architecture identifier
         to use is defined on <ulink
         url="https://wiki.debian.org/Multiarch/Tuples">Multiarch
@@ -291,7 +291,7 @@
         <term><filename>/usr/share/factory/var</filename></term>
 
         <listitem><para>Similar to
-        <filename>/usr/share/factory/etc</filename> but for vendor
+        <filename>/usr/share/factory/etc</filename>, but for vendor
         versions of files in the variable, persistent data directory
         <filename>/var</filename>.</para></listitem>
 
@@ -353,7 +353,7 @@
       <varlistentry>
         <term><filename>/var/tmp</filename></term>
         <listitem><para>The place for larger and persistent temporary
-        files. In contrast to <filename>/tmp</filename> this directory
+        files. In contrast to <filename>/tmp</filename>, this directory
         is usually mounted from a persistent physical file system and
         can thus accept larger files. (Use <filename>/tmp</filename>
         for smaller files.) This directory is generally not flushed at
@@ -365,7 +365,7 @@
         <citerefentry project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         or similar calls should be used to make use of this directory.
         If applications find the environment variable
-        <varname>$TMPDIR</varname> set they should prefer using the
+        <varname>$TMPDIR</varname> set, they should prefer using the
         directory specified in it over directly referencing
         <filename>/var/tmp</filename> (see
         <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -381,7 +381,7 @@
     <variablelist>
       <varlistentry>
         <term><filename>/dev</filename></term>
-        <listitem><para>The root directory for device nodes. Usually
+        <listitem><para>The root directory for device nodes. Usually,
         this directory is mounted as a <literal>devtmpfs</literal>
         instance, but might be of a different type in
         sandboxed/containerized setups. This directory is managed
@@ -402,10 +402,10 @@
         write access to this directory, special care should be taken
         to avoid name clashes and vulnerabilities. For normal users,
         shared memory segments in this directory are usually deleted
-        when the user logs out. Usually it is a better idea to use
+        when the user logs out. Usually, it is a better idea to use
         memory mapped files in <filename>/run</filename> (for system
         programs) or <varname>$XDG_RUNTIME_DIR</varname> (for user
-        programs) instead of POSIX shared memory segments, since those
+        programs) instead of POSIX shared memory segments, since these
         directories are not world-writable and hence not vulnerable to
         security-sensitive name clashes.</para></listitem>
       </varlistentry>
@@ -427,7 +427,7 @@
         that exposes a number of kernel tunables. The primary way to
         configure the settings in this API file tree is via
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        files. In sandboxed/containerized setups this directory is
+        files. In sandboxed/containerized setups, this directory is
         generally mounted read-only.</para></listitem>
       </varlistentry>
 
@@ -437,7 +437,7 @@
         discovered devices and other functionality. This file system
         is mostly an API to interface with the kernel and not a place
         where normal files may be stored. In sandboxed/containerized
-        setups this directory is generally mounted read-only. A number
+        setups, this directory is generally mounted read-only. A number
         of special purpose virtual file systems might be mounted below
         this directory.</para></listitem>
       </varlistentry>
@@ -472,7 +472,7 @@
       <varlistentry>
         <term><filename>/lib64</filename></term>
 
-        <listitem><para>On some architecture ABIs this compatibility
+        <listitem><para>On some architecture ABIs, this compatibility
         symlink points to <varname>$libdir</varname>, ensuring that
         binaries referencing this legacy path correctly find their
         dynamic loader. This symlink only exists on architectures
@@ -513,7 +513,7 @@
         directory should have no effect on operation of programs,
         except for increased runtimes necessary to rebuild these
         caches. If an application finds
-        <varname>$XDG_CACHE_HOME</varname> set is should use the
+        <varname>$XDG_CACHE_HOME</varname> set, it should use the
         directory specified in it instead of this
         directory.</para></listitem>
       </varlistentry>
@@ -522,10 +522,10 @@
         <term><filename>~/.config</filename></term>
 
         <listitem><para>Application configuration and state. When a
-        new user is created this directory will be empty or not exist
+        new user is created, this directory will be empty or not exist
         at all. Applications should fall back to defaults should their
         configuration or state in this directory be missing. If an
-        application finds <varname>$XDG_CONFIG_HOME</varname> set is
+        application finds <varname>$XDG_CONFIG_HOME</varname> set, it
         should use the directory specified in it instead of this
         directory.</para></listitem>
       </varlistentry>
@@ -539,7 +539,7 @@
         invocation from a shell; these should be placed in a
         subdirectory of <filename>~/.local/lib</filename> instead.
         Care should be taken when placing architecture-dependent
-        binaries in this place which might be problematic if the home
+        binaries in this place, which might be problematic if the home
         directory is shared between multiple hosts with different
         architectures.</para></listitem>
       </varlistentry>
@@ -555,7 +555,7 @@
         <term><filename>~/.local/lib/<replaceable>arch-id</replaceable></filename></term>
 
         <listitem><para>Location for placing public dynamic libraries.
-        The architecture identifier to use, is defined on <ulink
+        The architecture identifier to use is defined on <ulink
         url="https://wiki.debian.org/Multiarch/Tuples">Multiarch
         Architecture Specifiers (Tuples)</ulink>
         list.</para></listitem>
@@ -568,7 +568,7 @@
         such as fonts or artwork. Usually, the precise location and
         format of files stored below this directory is subject to
         specifications that ensure interoperability. If an application
-        finds <varname>$XDG_DATA_HOME</varname> set is should use the
+        finds <varname>$XDG_DATA_HOME</varname> set, it should use the
         directory specified in it instead of this
         directory.</para></listitem>
       </varlistentry>
@@ -593,11 +593,11 @@
     <filename>/run/user</filename>) of the user, which are all
     writable.</para>
 
-    <para>For unprivileged system processes only
+    <para>For unprivileged system processes, only
     <filename>/tmp</filename>,
     <filename>/var/tmp</filename> and
     <filename>/dev/shm</filename> are writable. If an
-    unprivileged system process needs a private, writable directory in
+    unprivileged system process needs a private writable directory in
     <filename>/var</filename> or <filename>/run</filename>, it is
     recommended to either create it before dropping privileges in the
     daemon code, to create it via
@@ -618,7 +618,7 @@
 
     <para>It is strongly recommended that <filename>/dev</filename> is
     the only location below which device nodes shall be placed.
-    Similar, <filename>/run</filename> shall be the only location to
+    Similarly, <filename>/run</filename> shall be the only location to
     place sockets and FIFOs. Regular files, directories and symlinks
     may be used in all directories.</para>
   </refsect1>
@@ -645,7 +645,7 @@
         <tbody>
           <row>
       <entry><filename>/usr/bin</filename></entry>
-      <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for any of the supported architectures compatible with the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
+      <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path, compiled for any of the supported architectures compatible with the operating system. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries. As this directory is shared with most other packages of the system, special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
           </row>
           <row>
       <entry><filename>/usr/lib/<replaceable>arch-id</replaceable></filename></entry>
@@ -653,7 +653,7 @@
           </row>
           <row>
       <entry><filename>/usr/lib/<replaceable>package</replaceable></filename></entry>
-      <entry>Private, static vendor resources of the package, including private binaries and libraries, or any other kind of read-only vendor data.</entry>
+      <entry>Private static vendor resources of the package, including private binaries and libraries, or any other kind of read-only vendor data.</entry>
           </row>
           <row>
       <entry><filename>/usr/lib/<replaceable>arch-id</replaceable>/<replaceable>package</replaceable></filename></entry>
@@ -668,10 +668,10 @@
     </table>
 
     <para>Additional static vendor files may be installed in the
-    <filename>/usr/share</filename> hierarchy, to the locations
+    <filename>/usr/share</filename> hierarchy to the locations
     defined by the various relevant specifications.</para>
 
-    <para>During runtime and for local configuration and state
+    <para>During runtime, and for local configuration and state,
     additional directories are defined:</para>
 
     <table>
@@ -700,7 +700,7 @@
           </row>
           <row>
       <entry><filename>/var/cache/<replaceable>package</replaceable></filename></entry>
-      <entry>Persistent cache data of the package. If this directory is flushed the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary.</entry>
+      <entry>Persistent cache data of the package. If this directory is flushed, the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary.</entry>
           </row>
           <row>
       <entry><filename>/var/lib/<replaceable>package</replaceable></filename></entry>
@@ -726,7 +726,7 @@
     when placing their own files in the user's home directory. The
     following table lists recommended locations in the home directory
     for specific types of files supplied by the vendor if the
-    application is installed in the home directory. (Note however,
+    application is installed in the home directory. (Note, however,
     that user applications installed system-wide should follow the
     rules outlined above regarding placing vendor files.)</para>
 
@@ -744,7 +744,7 @@
         <tbody>
           <row>
       <entry><filename>~/.local/bin</filename></entry>
-      <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path. It is not recommended to place internal executables or executables that are not commonly invoked from the shell in this directory, such as daemon executables. As this directory is shared with most other packages of the user special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
+      <entry>Package executables that shall appear in the <varname>$PATH</varname> executable search path. It is not recommended to place internal executables or executables that are not commonly invoked from the shell in this directory, such as daemon executables. As this directory is shared with most other packages of the user, special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package's files.</entry>
           </row>
           <row>
       <entry><filename>~/.local/lib/<replaceable>arch-id</replaceable></filename></entry>
@@ -763,10 +763,10 @@
     </table>
 
     <para>Additional static vendor files may be installed in the
-    <filename>~/.local/share</filename> hierarchy, to the locations
+    <filename>~/.local/share</filename> hierarchy to the locations
     defined by the various relevant specifications.</para>
 
-    <para>During runtime and for local configuration and state
+    <para>During runtime, and for local configuration and state,
     additional directories are defined:</para>
 
     <table>
@@ -791,7 +791,7 @@
           </row>
           <row>
       <entry><filename>~/.cache/<replaceable>package</replaceable></filename></entry>
-      <entry>Persistent cache data of the package. If this directory is flushed the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary.</entry>
+      <entry>Persistent cache data of the package. If this directory is flushed, the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary.</entry>
           </row>
         </tbody>
       </tgroup>

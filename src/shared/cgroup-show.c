@@ -19,18 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <string.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "util.h"
-#include "formats-util.h"
-#include "process-util.h"
-#include "macro.h"
-#include "path-util.h"
-#include "cgroup-util.h"
+#include "alloc-util.h"
 #include "cgroup-show.h"
+#include "cgroup-util.h"
+#include "fd-util.h"
+#include "formats-util.h"
+#include "locale-util.h"
+#include "macro.h"
+#include "output-mode.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
 
 static int compare(const void *a, const void *b) {

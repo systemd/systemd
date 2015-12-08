@@ -27,9 +27,11 @@
 #include "sd-messages.h"
 
 #include "def.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "sleep-config.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 

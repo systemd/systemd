@@ -9,4 +9,4 @@
 # and systemd-coredump(8) and core(5) for the explanation of the
 # setting below.
 
-kernel.core_pattern=|@rootlibexecdir@/systemd-coredump %p %u %g %s %t %e
+kernel.core_pattern=|@rootlibexecdir@/systemd-coredump %P %u %g %s %t %e

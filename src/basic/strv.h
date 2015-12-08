@@ -21,10 +21,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <fnmatch.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <fnmatch.h>
+#include <stddef.h>
 
+#include "alloc-util.h"
+#include "extract-word.h"
+#include "macro.h"
 #include "util.h"
 
 char *strv_find(char **l, const char *name) _pure_;
@@ -34,6 +38,10 @@ char *strv_find_startswith(char **l, const char *name) _pure_;
 char **strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
+
+char **strv_free_erase(char **l);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase);
+#define _cleanup_strv_free_erase_ _cleanup_(strv_free_erasep)
 
 void strv_clear(char **l);
 

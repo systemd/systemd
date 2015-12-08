@@ -19,13 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
 #include <errno.h>
+#include <fnmatch.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "util.h"
+#include "alloc-util.h"
+#include "escape.h"
+#include "extract-word.h"
+#include "string-util.h"
 #include "strv.h"
+#include "util.h"
 
 char *strv_find(char **l, const char *name) {
         char **i;
@@ -84,6 +90,15 @@ char **strv_free(char **l) {
         strv_clear(l);
         free(l);
         return NULL;
+}
+
+char **strv_free_erase(char **l) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                string_erase(*i);
+
+        return strv_free(l);
 }
 
 char **strv_copy(char * const *l) {

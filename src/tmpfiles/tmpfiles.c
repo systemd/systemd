@@ -39,22 +39,39 @@
 #include <unistd.h>
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "btrfs-util.h"
-#include "capability.h"
+#include "capability-util.h"
+#include "chattr-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "def.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
+#include "glob-util.h"
+#include "io-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "specifier.h"
+#include "stat-util.h"
+#include "stdio-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
+#include "user-util.h"
 #include "util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
@@ -69,6 +86,8 @@ typedef enum ItemType {
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
         CREATE_SUBVOLUME = 'v',
+        CREATE_SUBVOLUME_INHERIT_QUOTA = 'q',
+        CREATE_SUBVOLUME_NEW_QUOTA = 'Q',
         CREATE_FIFO = 'p',
         CREATE_SYMLINK = 'L',
         CREATE_CHAR_DEVICE = 'c',
@@ -140,7 +159,7 @@ static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("tmpfiles");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("tmpfiles.d");
 
 #define MAX_DEPTH 256
 
@@ -180,6 +199,8 @@ static bool takes_ownership(ItemType t) {
                       CREATE_DIRECTORY,
                       TRUNCATE_DIRECTORY,
                       CREATE_SUBVOLUME,
+                      CREATE_SUBVOLUME_INHERIT_QUOTA,
+                      CREATE_SUBVOLUME_NEW_QUOTA,
                       CREATE_FIFO,
                       CREATE_SYMLINK,
                       CREATE_CHAR_DEVICE,
@@ -1198,16 +1219,36 @@ static int create_item(Item *i) {
         case CREATE_DIRECTORY:
         case TRUNCATE_DIRECTORY:
         case CREATE_SUBVOLUME:
+        case CREATE_SUBVOLUME_INHERIT_QUOTA:
+        case CREATE_SUBVOLUME_NEW_QUOTA:
 
                 RUN_WITH_UMASK(0000)
                         mkdir_parents_label(i->path, 0755);
 
-                if (i->type == CREATE_SUBVOLUME)
-                        RUN_WITH_UMASK((~i->mode) & 0777) {
-                                r = btrfs_subvol_make(i->path);
-                                log_debug_errno(r, "Creating subvolume \"%s\": %m", i->path);
+                if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
+
+                        if (btrfs_is_subvol(isempty(arg_root) ? "/" : arg_root) <= 0)
+
+                                /* Don't create a subvolume unless the
+                                 * root directory is one, too. We do
+                                 * this under the assumption that if
+                                 * the root directory is just a plain
+                                 * directory (i.e. very light-weight),
+                                 * we shouldn't try to split it up
+                                 * into subvolumes (i.e. more
+                                 * heavy-weight). Thus, chroot()
+                                 * environments and suchlike will get
+                                 * a full brtfs subvolume set up below
+                                 * their tree only if they
+                                 * specifically set up a btrfs
+                                 * subvolume for the root dir too. */
+
+                                r = -ENOTTY;
+                        else {
+                                RUN_WITH_UMASK((~i->mode) & 0777)
+                                        r = btrfs_subvol_make(i->path);
                         }
-                else
+                } else
                         r = 0;
 
                 if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
@@ -1235,6 +1276,28 @@ static int create_item(Item *i) {
                         creation = CREATION_NORMAL;
 
                 log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
+
+                if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
+                        r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
+                        if (r == -ENOTTY) {
+                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because of unsupported file system or because directory is not a subvolume: %m", i->path);
+                                return 0;
+                        }
+                        if (r == -EROFS) {
+                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because of read-only file system: %m", i->path);
+                                return 0;
+                        }
+                        if (r == -ENOPROTOOPT) {
+                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because quota support is disabled: %m", i->path);
+                                return 0;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
+                        if (r > 0)
+                                log_debug("Adjusted quota for subvolume \"%s\".", i->path);
+                        if (r == 0)
+                                log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
+                }
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -1492,6 +1555,8 @@ static int remove_item(Item *i) {
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
         case CREATE_SUBVOLUME:
+        case CREATE_SUBVOLUME_INHERIT_QUOTA:
+        case CREATE_SUBVOLUME_NEW_QUOTA:
         case CREATE_FIFO:
         case CREATE_SYMLINK:
         case CREATE_CHAR_DEVICE:
@@ -1561,8 +1626,7 @@ static int clean_item_instance(Item *i, const char* instance) {
         if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
                 return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
 
-        mountpoint = s.st_dev != ps.st_dev ||
-                     (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
+        mountpoint = s.st_dev != ps.st_dev || s.st_ino == ps.st_ino;
 
         log_debug("Cleanup threshold for %s \"%s\" is %s",
                   mountpoint ? "mount point" : "directory",
@@ -1583,6 +1647,8 @@ static int clean_item(Item *i) {
         switch (i->type) {
         case CREATE_DIRECTORY:
         case CREATE_SUBVOLUME:
+        case CREATE_SUBVOLUME_INHERIT_QUOTA:
+        case CREATE_SUBVOLUME_NEW_QUOTA:
         case TRUNCATE_DIRECTORY:
         case IGNORE_PATH:
         case COPY_FILES:
@@ -1819,6 +1885,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case CREATE_DIRECTORY:
         case CREATE_SUBVOLUME:
+        case CREATE_SUBVOLUME_INHERIT_QUOTA:
+        case CREATE_SUBVOLUME_NEW_QUOTA:
         case TRUNCATE_DIRECTORY:
         case CREATE_FIFO:
         case IGNORE_PATH:
@@ -1983,8 +2051,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.mode = m;
                 i.mode_set = true;
         } else
-                i.mode = IN_SET(i.type, CREATE_DIRECTORY, CREATE_SUBVOLUME, TRUNCATE_DIRECTORY)
-                        ? 0755 : 0644;
+                i.mode = IN_SET(i.type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA) ? 0755 : 0644;
 
         if (!isempty(age) && !streq(age, "-")) {
                 const char *a = age;
@@ -2075,7 +2142,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -2118,12 +2185,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        free(arg_root);
-                        arg_root = path_make_absolute_cwd(optarg);
-                        if (!arg_root)
-                                return log_oom();
-
-                        path_kill_slashes(arg_root);
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -2186,7 +2250,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                         continue;
 
                 ORDERED_HASHMAP_FOREACH(j, items, iter) {
-                        if (j->type != CREATE_DIRECTORY && j->type != TRUNCATE_DIRECTORY && j->type != CREATE_SUBVOLUME)
+                        if (!IN_SET(j->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA))
                                 continue;
 
                         if (path_equal(j->path, i->path)) {

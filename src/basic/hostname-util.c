@@ -19,11 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <bits/local_lim.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/utsname.h>
-#include <ctype.h>
+#include <unistd.h>
 
-#include "util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "hostname-util.h"
+#include "macro.h"
+#include "string-util.h"
 
 bool hostname_is_set(void) {
         struct utsname u;
@@ -69,7 +77,7 @@ static bool hostname_valid_char(char c) {
  * allow_trailing_dot is true and at least two components are present
  * in the name. Note that due to the restricted charset and length
  * this call is substantially more conservative than
- * dns_domain_is_valid().
+ * dns_name_is_valid().
  */
 bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
         unsigned n_dots = 0;

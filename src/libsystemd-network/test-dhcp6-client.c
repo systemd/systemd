@@ -19,23 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <net/ethernet.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <net/ethernet.h>
-
-#include "socket-util.h"
-#include "macro.h"
-#include "sd-event.h"
-#include "event-util.h"
-#include "virt.h"
 
 #include "sd-dhcp6-client.h"
-#include "dhcp6-protocol.h"
+#include "sd-event.h"
+
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "dhcp6-protocol.h"
+#include "fd-util.h"
+#include "macro.h"
+#include "socket-util.h"
+#include "virt.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
@@ -205,7 +205,7 @@ static uint8_t msg_reply[173] = {
 };
 
 static int test_advertise_option(sd_event *e) {
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         DHCP6Message *advertise = (DHCP6Message *)msg_advertise;
         uint8_t *optval, *opt = msg_advertise + sizeof(DHCP6Message);
         uint16_t optcode;
@@ -407,7 +407,7 @@ static int test_client_send_reply(DHCP6Message *request) {
 
 static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
                                       size_t len) {
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t *optval;
         uint16_t optcode;
         size_t optlen;
@@ -561,6 +561,7 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         sd_event *e = userdata;
         sd_dhcp6_lease *lease;
         struct in6_addr *addrs;
+        struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         char **domains;
 
         assert_se(e);
@@ -589,13 +590,15 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         assert_se(sd_dhcp6_client_set_callback(client,
                                                test_client_solicit_cb, e) >= 0);
 
+        assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
+
         assert_se(sd_dhcp6_client_start(client) >= 0);
 }
 
 static int test_client_verify_information_request(DHCP6Message *information_request,
                                                   uint8_t *option, size_t len) {
 
-        _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t *optval;
         uint16_t optcode;
         size_t optlen;
@@ -700,7 +703,8 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
 static int test_client_solicit(sd_event *e) {
         sd_dhcp6_client *client;
         usec_t time_now = now(clock_boottime_or_monotonic());
-        bool val = true;
+        struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
+        int val = true;
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
@@ -728,6 +732,8 @@ static int test_client_solicit(sd_event *e) {
                                     time_now + 2 * USEC_PER_SEC, 0,
                                     test_hangcheck, NULL) >= 0);
 
+        assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
+
         assert_se(sd_dhcp6_client_start(client) >= 0);
 
         sd_event_loop(e);
@@ -742,7 +748,7 @@ static int test_client_solicit(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e;
 
         assert_se(sd_event_new(&e) >= 0);
 

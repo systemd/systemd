@@ -22,8 +22,9 @@
 #include <errno.h>
 
 #include "sd-bus.h"
-#include "bus-error.h"
+
 #include "bus-common-errors.h"
+#include "bus-error.h"
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_UNIT,                 ENOENT),

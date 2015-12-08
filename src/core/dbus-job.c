@@ -19,12 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "log.h"
 #include "sd-bus.h"
-#include "selinux-access.h"
-#include "job.h"
+
+#include "alloc-util.h"
 #include "dbus-job.h"
 #include "dbus.h"
+#include "job.h"
+#include "log.h"
+#include "selinux-access.h"
+#include "string-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
@@ -90,7 +93,7 @@ const sd_bus_vtable bus_job_vtable[] = {
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
         int r;
@@ -150,7 +153,7 @@ void bus_job_send_change_signal(Job *j) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
         int r;

@@ -10,5 +10,5 @@ Description=System Slice
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
 Before=slices.target
-Wants=-.slice
+Requires=-.slice
 After=-.slice

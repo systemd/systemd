@@ -19,8 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <string.h>
+
 #include "login-util.h"
-#include "def.h"
+#include "string-util.h"
 
 bool session_id_valid(const char *id) {
 

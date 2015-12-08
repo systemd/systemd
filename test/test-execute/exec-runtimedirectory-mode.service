@@ -1,0 +1,8 @@
+[Unit]
+Description=Test for RuntimeDirectoryMode
+
+[Service]
+ExecStart=/bin/sh -x -c 'mode=$$(stat -c %%a /tmp/test-exec_runtimedirectory-mode); test "$$mode" = "750"'
+Type=oneshot
+RuntimeDirectory=test-exec_runtimedirectory-mode
+RuntimeDirectoryMode=0750

@@ -19,14 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <string.h>
 #include <errno.h>
-#include <sys/un.h>
 #include <stddef.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
+#include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "string-util.h"
 #include "util.h"
 
 static int send_on_socket(int fd, const char *socket_name, const void *packet, size_t size) {
@@ -50,9 +52,10 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 }
 
 int main(int argc, char *argv[]) {
-        int fd = -1, r = EXIT_FAILURE;
+        _cleanup_close_ int fd = -1;
         char packet[LINE_MAX];
         size_t length;
+        int r;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -60,14 +63,14 @@ int main(int argc, char *argv[]) {
 
         if (argc != 3) {
                 log_error("Wrong number of arguments.");
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         if (streq(argv[1], "1")) {
 
                 packet[0] = '+';
                 if (!fgets(packet+1, sizeof(packet)-1, stdin)) {
-                        log_error_errno(errno, "Failed to read password: %m");
+                        r = log_error_errno(errno, "Failed to read password: %m");
                         goto finish;
                 }
 
@@ -78,22 +81,20 @@ int main(int argc, char *argv[]) {
                 length = 1;
         } else {
                 log_error("Invalid first argument %s", argv[1]);
+                r = -EINVAL;
                 goto finish;
         }
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
-                log_error_errno(errno, "socket() failed: %m");
+                r = log_error_errno(errno, "socket() failed: %m");
                 goto finish;
         }
 
-        if (send_on_socket(fd, argv[2], packet, length) < 0)
-                goto finish;
-
-        r = EXIT_SUCCESS;
+        r = send_on_socket(fd, argv[2], packet, length);
 
 finish:
-        safe_close(fd);
+        memory_erase(packet, sizeof(packet));
 
-        return r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

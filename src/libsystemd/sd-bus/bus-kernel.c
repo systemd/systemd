@@ -34,19 +34,23 @@
 #include <libgen.h>
 #undef basename
 
-#include "util.h"
-#include "strv.h"
-#include "memfd-util.h"
-#include "capability.h"
+#include "alloc-util.h"
+#include "bus-bloom.h"
+#include "bus-internal.h"
+#include "bus-kernel.h"
+#include "bus-label.h"
+#include "bus-message.h"
+#include "bus-util.h"
+#include "capability-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
-
-#include "bus-internal.h"
-#include "bus-message.h"
-#include "bus-kernel.h"
-#include "bus-bloom.h"
-#include "bus-util.h"
-#include "bus-label.h"
+#include "memfd-util.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "user-util.h"
+#include "util.h"
 
 #define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))
 
@@ -1138,7 +1142,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
 
         r = ioctl(bus->output_fd, KDBUS_CMD_SEND, &cmd);
         if (r < 0) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus_message *reply;
 
                 if (errno == EAGAIN || errno == EINTR)
@@ -1217,7 +1221,7 @@ static int push_name_owner_changed(
                 const char *new_owner,
                 const struct kdbus_timestamp *ts) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -1304,7 +1308,7 @@ static int translate_reply(
                 const struct kdbus_item *d,
                 const struct kdbus_timestamp *ts) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -1433,12 +1437,12 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         if (!bus || !bus->is_kernel)
                 return -EOPNOTSUPP;
 
-        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) == 0);
 
         if (bus->n_memfd_cache <= 0) {
                 int r;
 
-                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 
                 r = memfd_new(bus->description);
                 if (r < 0)
@@ -1460,7 +1464,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         *allocated = c->allocated;
         fd = c->fd;
 
-        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 
         return fd;
 }
@@ -1484,10 +1488,10 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, si
                 return;
         }
 
-        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) == 0);
 
         if (bus->n_memfd_cache >= ELEMENTSOF(bus->memfd_cache)) {
-                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 
                 close_and_munmap(fd, address, mapped);
                 return;
@@ -1507,7 +1511,7 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, si
                 c->allocated = allocated;
         }
 
-        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
+        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
 }
 
 void bus_kernel_flush_memfd(sd_bus *b) {

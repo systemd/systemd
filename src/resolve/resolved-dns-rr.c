@@ -21,12 +21,15 @@
 
 #include <math.h>
 
-#include "strv.h"
-
+#include "alloc-util.h"
 #include "dns-domain.h"
-#include "resolved-dns-rr.h"
-#include "resolved-dns-packet.h"
 #include "dns-type.h"
+#include "hexdecoct.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
         DnsResourceKey *k;
@@ -48,17 +51,62 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
         return k;
 }
 
-DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key) {
-        assert(key);
-
-        return dns_resource_key_new(key->class, DNS_TYPE_CNAME, DNS_RESOURCE_KEY_NAME(key));
-}
-
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname) {
+        int r;
+
         assert(key);
         assert(cname);
 
-        return dns_resource_key_new(key->class, key->type, cname->cname.name);
+        assert(IN_SET(cname->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME));
+
+        if (cname->key->type == DNS_TYPE_CNAME)
+                return dns_resource_key_new(key->class, key->type, cname->cname.name);
+        else {
+                DnsResourceKey *k;
+                char *destination = NULL;
+
+                r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                if (r < 0)
+                        return NULL;
+                if (r == 0)
+                        return dns_resource_key_ref((DnsResourceKey*) key);
+
+                k = dns_resource_key_new_consume(key->class, key->type, destination);
+                if (!k) {
+                        free(destination);
+                        return NULL;
+                }
+
+                return k;
+        }
+}
+
+int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name) {
+        DnsResourceKey *new_key;
+        char *joined;
+        int r;
+
+        assert(ret);
+        assert(key);
+        assert(name);
+
+        if (dns_name_is_root(name)) {
+                *ret = dns_resource_key_ref(key);
+                return 0;
+        }
+
+        r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), name, &joined);
+        if (r < 0)
+                return r;
+
+        new_key = dns_resource_key_new_consume(key->class, key->type, joined);
+        if (!new_key) {
+                free(joined);
+                return -ENOMEM;
+        }
+
+        *ret = new_key;
+        return 0;
 }
 
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
@@ -83,6 +131,10 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
         if (!k)
                 return NULL;
 
+        /* Static/const keys created with DNS_RESOURCE_KEY_CONST will
+         * set this to -1, they should not be reffed/unreffed */
+        assert(k->n_ref != (unsigned) -1);
+
         assert(k->n_ref > 0);
         k->n_ref++;
 
@@ -93,6 +145,7 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
         if (!k)
                 return NULL;
 
+        assert(k->n_ref != (unsigned) -1);
         assert(k->n_ref > 0);
 
         if (k->n_ref == 1) {
@@ -102,6 +155,14 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
                 k->n_ref--;
 
         return NULL;
+}
+
+bool dns_resource_key_is_address(const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is an A or AAAA resource key */
+
+        return key->class == DNS_CLASS_IN && IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_AAAA);
 }
 
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
@@ -120,9 +181,15 @@ int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         return 1;
 }
 
-int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr) {
+int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain) {
+        int r;
+
         assert(key);
         assert(rr);
+
+        /* Checks if an rr matches the specified key. If a search
+         * domain is specified, it will also be checked if the key
+         * with the search domain suffixed might match the RR. */
 
         if (rr->key->class != key->class && key->class != DNS_CLASS_ANY)
                 return 0;
@@ -130,20 +197,57 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord
         if (rr->key->type != key->type && key->type != DNS_TYPE_ANY)
                 return 0;
 
-        return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+        if (r != 0)
+                return r;
+
+        if (search_domain) {
+                _cleanup_free_ char *joined = NULL;
+
+                r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), search_domain, &joined);
+                if (r < 0)
+                        return r;
+
+                return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), joined);
+        }
+
+        return 0;
 }
 
-int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr) {
+int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain) {
+        int r;
+
         assert(key);
         assert(rr);
 
         if (rr->key->class != key->class && key->class != DNS_CLASS_ANY)
                 return 0;
 
-        if (rr->key->type != DNS_TYPE_CNAME)
+        if (rr->key->type == DNS_TYPE_CNAME)
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
+        else if (rr->key->type == DNS_TYPE_DNAME)
+                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(rr->key));
+        else
                 return 0;
 
-        return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+        if (r != 0)
+                return r;
+
+        if (search_domain) {
+                _cleanup_free_ char *joined = NULL;
+
+                r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), search_domain, &joined);
+                if (r < 0)
+                        return r;
+
+                if (rr->key->type == DNS_TYPE_CNAME)
+                        return dns_name_equal(joined, DNS_RESOURCE_KEY_NAME(rr->key));
+                else if (rr->key->type == DNS_TYPE_DNAME)
+                        return dns_name_endswith(joined, DNS_RESOURCE_KEY_NAME(rr->key));
+        }
+
+        return 0;
+
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
@@ -271,7 +375,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
 
                 case DNS_TYPE_TXT:
                 case DNS_TYPE_SPF:
-                        strv_free(rr->txt.strings);
+                        dns_txt_item_free_all(rr->txt.items);
                         break;
 
                 case DNS_TYPE_SOA:
@@ -320,6 +424,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->generic.data);
                 }
 
+                free(rr->wire_format);
                 dns_resource_key_unref(rr->key);
         }
 
@@ -428,7 +533,7 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
-                return strv_equal(a->txt.strings, b->txt.strings);
+                return dns_txt_item_equal(a->txt.items, b->txt.items);
 
         case DNS_TYPE_A:
                 return memcmp(&a->a.in_addr, &b->a.in_addr, sizeof(struct in_addr)) == 0;
@@ -480,8 +585,8 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        memcmp(a->sshfp.fingerprint, b->sshfp.fingerprint, a->sshfp.fingerprint_size) == 0;
 
         case DNS_TYPE_DNSKEY:
-                return a->dnskey.zone_key_flag == b->dnskey.zone_key_flag &&
-                       a->dnskey.sep_flag == b->dnskey.sep_flag &&
+                return a->dnskey.flags == b->dnskey.flags &&
+                       a->dnskey.protocol == b->dnskey.protocol &&
                        a->dnskey.algorithm == b->dnskey.algorithm &&
                        a->dnskey.key_size == b->dnskey.key_size &&
                        memcmp(a->dnskey.key, b->dnskey.key, a->dnskey.key_size) == 0;
@@ -598,6 +703,43 @@ static char *format_types(Bitmap *types) {
         return strjoin("( ", str, " )", NULL);
 }
 
+static char *format_txt(DnsTxtItem *first) {
+        DnsTxtItem *i;
+        size_t c = 1;
+        char *p, *s;
+
+        LIST_FOREACH(items, i, first)
+                c += i->length * 4 + 3;
+
+        p = s = new(char, c);
+        if (!s)
+                return NULL;
+
+        LIST_FOREACH(items, i, first) {
+                size_t j;
+
+                if (i != first)
+                        *(p++) = ' ';
+
+                *(p++) = '"';
+
+                for (j = 0; j < i->length; j++) {
+                        if (i->data[j] < ' ' || i->data[j] == '"' || i->data[j] >= 127) {
+                                *(p++) = '\\';
+                                *(p++) = '0' + (i->data[j] / 100);
+                                *(p++) = '0' + ((i->data[j] / 10) % 10);
+                                *(p++) = '0' + (i->data[j] % 10);
+                        } else
+                                *(p++) = i->data[j];
+                }
+
+                *(p++) = '"';
+        }
+
+        *p = 0;
+        return s;
+}
+
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         _cleanup_free_ char *k = NULL, *t = NULL;
         char *s;
@@ -640,14 +782,13 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
-                t = strv_join_quoted(rr->txt.strings);
+                t = format_txt(rr->txt.items);
                 if (!t)
                         return -ENOMEM;
 
                 s = strjoin(k, " ", t, NULL);
                 if (!s)
                         return -ENOMEM;
-
                 break;
 
         case DNS_TYPE_A: {
@@ -751,9 +892,10 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (!t)
                         return -ENOMEM;
 
-                r = asprintf(&s, "%s %u 3 %.*s%.*u %s",
+                r = asprintf(&s, "%s %u %u %.*s%.*u %s",
                              k,
-                             dnskey_to_flags(rr),
+                             rr->dnskey.flags,
+                             rr->dnskey.protocol,
                              alg ? -1 : 0, alg,
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->dnskey.algorithm,
                              t);
@@ -861,6 +1003,51 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         return 0;
 }
 
+int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
+
+        DnsPacket packet = {
+                .n_ref = 1,
+                .protocol = DNS_PROTOCOL_DNS,
+                .on_stack = true,
+                .refuse_compression = true,
+                .canonical_form = canonical,
+        };
+
+        size_t start, rds;
+        int r;
+
+        assert(rr);
+
+        /* Generates the RR in wire-format, optionally in the
+         * canonical form as discussed in the DNSSEC RFC 4034, Section
+         * 6.2. We allocate a throw-away DnsPacket object on the stack
+         * here, because we need some book-keeping for memory
+         * management, and can reuse the DnsPacket serializer, that
+         * can generate the canonical form, too, but also knows label
+         * compression and suchlike. */
+
+        if (rr->wire_format && rr->wire_format_canonical == canonical)
+                return 0;
+
+        r = dns_packet_append_rr(&packet, rr, &start, &rds);
+        if (r < 0)
+                return r;
+
+        assert(start == 0);
+        assert(packet._data);
+
+        free(rr->wire_format);
+        rr->wire_format = packet._data;
+        rr->wire_format_size = packet.size;
+        rr->wire_format_rdata_offset = rds;
+        rr->wire_format_canonical = canonical;
+
+        packet._data = NULL;
+        dns_packet_unref(&packet);
+
+        return 0;
+}
+
 const char *dns_class_to_string(uint16_t class) {
 
         switch (class) {
@@ -888,3 +1075,54 @@ int dns_class_from_string(const char *s, uint16_t *class) {
 
         return 0;
 }
+
+DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
+        DnsTxtItem *n;
+
+        if (!i)
+                return NULL;
+
+        n = i->items_next;
+
+        free(i);
+        return dns_txt_item_free_all(n);
+}
+
+bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
+
+        if (!a != !b)
+                return false;
+
+        if (!a)
+                return true;
+
+        if (a->length != b->length)
+                return false;
+
+        if (memcmp(a->data, b->data, a->length) != 0)
+                return false;
+
+        return dns_txt_item_equal(a->items_next, b->items_next);
+}
+
+static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
+        [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
+        [DNSSEC_ALGORITHM_DH]                 = "DH",
+        [DNSSEC_ALGORITHM_DSA]                = "DSA",
+        [DNSSEC_ALGORITHM_ECC]                = "ECC",
+        [DNSSEC_ALGORITHM_RSASHA1]            = "RSASHA1",
+        [DNSSEC_ALGORITHM_DSA_NSEC3_SHA1]     = "DSA-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1] = "RSASHA1-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSASHA256]          = "RSASHA256",
+        [DNSSEC_ALGORITHM_RSASHA512]          = "RSASHA512",
+        [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
+        [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
+        [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);
+
+static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
+        [DNSSEC_DIGEST_SHA1] = "SHA1",
+        [DNSSEC_DIGEST_SHA256] = "SHA256",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_digest, int);

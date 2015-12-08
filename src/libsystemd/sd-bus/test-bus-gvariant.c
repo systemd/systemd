@@ -23,14 +23,16 @@
 #include <glib.h>
 #endif
 
-#include "util.h"
-#include "macro.h"
 #include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "bus-dump.h"
 #include "bus-gvariant.h"
-#include "bus-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-dump.h"
+#include "bus-util.h"
+#include "macro.h"
+#include "util.h"
 
 static void test_bus_gvariant_is_fixed_size(void) {
         assert_se(bus_gvariant_is_fixed_size("") > 0);
@@ -131,8 +133,8 @@ static void test_bus_gvariant_get_alignment(void) {
 }
 
 static void test_marshal(void) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *n = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *n = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ void *blob;
         size_t sz;
         int r;

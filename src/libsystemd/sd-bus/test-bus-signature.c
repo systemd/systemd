@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
-#include "log.h"
-#include "bus-signature.h"
 #include "bus-internal.h"
+#include "bus-signature.h"
+#include "log.h"
+#include "string-util.h"
 
 int main(int argc, char *argv[]) {
         char prefix[256];

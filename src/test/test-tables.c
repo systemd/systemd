@@ -17,7 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "architecture.h"
 #include "automount.h"
+#include "bus-xml-policy.h"
+#include "busname.h"
 #include "cgroup.h"
 #include "compress.h"
 #include "condition.h"
@@ -25,31 +28,27 @@
 #include "execute.h"
 #include "install.h"
 #include "job.h"
+#include "journald-server.h"
 #include "kill.h"
+#include "link-config.h"
+#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "mount.h"
 #include "path.h"
+#include "rlimit-util.h"
 #include "scope.h"
 #include "service.h"
 #include "slice.h"
-#include "snapshot.h"
 #include "socket-util.h"
 #include "socket.h"
 #include "swap.h"
 #include "target.h"
+#include "test-tables.h"
 #include "timer.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "util.h"
-#include "architecture.h"
-#include "link-config.h"
-#include "bus-xml-policy.h"
-#include "busname.h"
-#include "journald-server.h"
-#include "locale-util.h"
-
-#include "test-tables.h"
 
 int main(int argc, char **argv) {
         test_table(architecture, ARCHITECTURE);
@@ -97,7 +96,6 @@ int main(int argc, char **argv) {
         test_table(service_state, SERVICE_STATE);
         test_table(service_type, SERVICE_TYPE);
         test_table(slice_state, SLICE_STATE);
-        test_table(snapshot_state, SNAPSHOT_STATE);
         test_table(socket_address_bind_ipv6_only, SOCKET_ADDRESS_BIND_IPV6_ONLY);
         test_table(socket_exec_command, SOCKET_EXEC_COMMAND);
         test_table(socket_result, SOCKET_RESULT);

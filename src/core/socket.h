@@ -23,9 +23,9 @@
 
 typedef struct Socket Socket;
 
-#include "socket-util.h"
 #include "mount.h"
 #include "service.h"
+#include "socket-util.h"
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
@@ -119,6 +119,8 @@ struct Socket {
         bool accept;
         bool remove_on_stop;
         bool writable;
+
+        int socket_protocol;
 
         /* Socket options */
         bool keep_alive;

@@ -19,15 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/if.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
-#include "util.h"
 #include "netlink-util.h"
-
-#include "networkd.h"
 #include "networkd-fdb.h"
+#include "networkd.h"
+#include "util.h"
 
 /* create a new FDB entry or get an existing one. */
 int fdb_entry_new_static(Network *const network,
@@ -97,7 +97,7 @@ static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
 int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         sd_netlink *rtnl;
         int r;
 

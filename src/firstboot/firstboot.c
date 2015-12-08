@@ -24,17 +24,24 @@
 #include <shadow.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "locale-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "umask-util.h"
+#include "user-util.h"
 
 static char *arg_root = NULL;
 static char *arg_locale = NULL;  /* $LANG */
@@ -50,15 +57,6 @@ static bool arg_prompt_root_password = false;
 static bool arg_copy_locale = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
-
-static void clear_string(char *x) {
-
-        if (!x)
-                return;
-
-        /* A delicious drop of snake-oil! */
-        memset(x, 'x', strlen(x));
-}
 
 static bool press_any_key(void) {
         char k = 0;
@@ -464,7 +462,7 @@ static int prompt_root_password(void) {
         msg2 = strjoina(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter new root password again: ");
 
         for (;;) {
-                _cleanup_free_ char *a = NULL, *b = NULL;
+                _cleanup_string_free_erase_ char *a = NULL, *b = NULL;
 
                 r = ask_password_tty(msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
@@ -476,19 +474,14 @@ static int prompt_root_password(void) {
                 }
 
                 r = ask_password_tty(msg2, NULL, 0, 0, NULL, &b);
-                if (r < 0) {
-                        clear_string(a);
+                if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
-                }
 
                 if (!streq(a, b)) {
                         log_error("Entered passwords did not match, please try again.");
-                        clear_string(a);
-                        clear_string(b);
                         continue;
                 }
 
-                clear_string(b);
                 arg_root_password = a;
                 a = NULL;
                 break;
@@ -547,9 +540,9 @@ static int process_root_password(void) {
 
         mkdir_parents(etc_shadow, 0755);
 
-        lock = take_password_lock(arg_root);
+        lock = take_etc_passwd_lock(arg_root);
         if (lock < 0)
-                return lock;
+                return log_error_errno(lock, "Failed to take a lock: %m");
 
         if (arg_copy_root_password && arg_root) {
                 struct spwd *p;
@@ -561,8 +554,7 @@ static int process_root_password(void) {
                                 if (!errno)
                                         errno = EIO;
 
-                                log_error_errno(errno, "Failed to find shadow entry for root: %m");
-                                return -errno;
+                                return log_error_errno(errno, "Failed to find shadow entry for root: %m");
                         }
 
                         r = write_root_shadow(etc_shadow, p);
@@ -597,10 +589,9 @@ static int process_root_password(void) {
         item.sp_pwdp = crypt(arg_root_password, salt);
         if (!item.sp_pwdp) {
                 if (!errno)
-                        errno = -EINVAL;
+                        errno = EINVAL;
 
-                log_error_errno(errno, "Failed to encrypt password: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to encrypt password: %m");
         }
 
         item.sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
@@ -704,16 +695,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        free(arg_root);
-                        arg_root = path_make_absolute_cwd(optarg);
-                        if (!arg_root)
-                                return log_oom();
-
-                        path_kill_slashes(arg_root);
-
-                        if (path_equal(arg_root, "/"))
-                                arg_root = mfree(arg_root);
-
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_LOCALE:
@@ -881,7 +865,7 @@ finish:
         free(arg_locale_messages);
         free(arg_timezone);
         free(arg_hostname);
-        clear_string(arg_root_password);
+        string_erase(arg_root_password);
         free(arg_root_password);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

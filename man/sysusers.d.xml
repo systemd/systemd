@@ -121,7 +121,7 @@ u root 0 "Superuser" /root</programlisting>
           <term><varname>r</varname></term>
           <listitem><para>Add a range of numeric UIDs/GIDs to the pool
           to allocate new UIDs and GIDs from. If no line of this type
-          is specified the range of UIDs/GIDs is set to some
+          is specified, the range of UIDs/GIDs is set to some
           compiled-in default. Note that both UIDs and GIDs are
           allocated from the same pool, in order to ensure that users
           and groups of the same name are likely to carry the same
@@ -143,32 +143,32 @@ u root 0 "Superuser" /root</programlisting>
       all system and group names with the underscore, and avoiding too
       generic names.</para>
 
-      <para>For <varname>m</varname> lines this field should contain
+      <para>For <varname>m</varname> lines, this field should contain
       the user name to add to a group.</para>
 
-      <para>For lines of type <varname>r</varname> this field should
+      <para>For lines of type <varname>r</varname>, this field should
       be set to <literal>-</literal>.</para>
     </refsect2>
 
     <refsect2>
       <title>ID</title>
 
-      <para>For <varname>u</varname> and <varname>g</varname> the
-      numeric 32bit UID or GID of the user/group. Do not use IDs 65535
+      <para>For <varname>u</varname> and <varname>g</varname>, the
+      numeric 32-bit UID or GID of the user/group. Do not use IDs 65535
       or 4294967295, as they have special placeholder meanings.
       Specify <literal>-</literal> for automatic UID/GID allocation
       for the user or group. Alternatively, specify an absolute path
-      in the file system. In this case the UID/GID is read from the
+      in the file system. In this case, the UID/GID is read from the
       path's owner/group. This is useful to create users whose UID/GID
       match the owners of pre-existing files (such as SUID or SGID
       binaries).</para>
 
-      <para>For <varname>m</varname> lines this field should contain
+      <para>For <varname>m</varname> lines, this field should contain
       the group name to add to a user to.</para>
 
-      <para>For lines of type <varname>r</varname> this field should
+      <para>For lines of type <varname>r</varname>, this field should
       be set to a UID/GID range in the format
-      <literal>FROM-TO</literal> where both values are formatted as
+      <literal>FROM-TO</literal>, where both values are formatted as
       decimal ASCII numbers. Alternatively, a single UID/GID may be
       specified formatted as decimal ASCII numbers.</para>
     </refsect2>
@@ -188,7 +188,7 @@ u root 0 "Superuser" /root</programlisting>
     <refsect2>
       <title>Home Directory</title>
 
-      <para>The home directory for a new system user. If omitted
+      <para>The home directory for a new system user. If omitted,
       defaults to the root directory. It is recommended to not
       unnecessarily specify home directories for system users, unless
       software strictly requires one to be set.</para>
@@ -207,7 +207,7 @@ u root 0 "Superuser" /root</programlisting>
 
     <para>Note that <command>systemd-sysusers</command> will do
     nothing if the specified users or groups already exist, so
-    normally there no reason to override
+    normally, there is no reason to override
     <filename>sysusers.d</filename> vendor configuration, except to
     block certain users or groups from being created.</para>
   </refsect1>

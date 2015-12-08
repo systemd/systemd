@@ -23,19 +23,23 @@
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 
-#include "sd-id128.h"
 #include "sd-daemon.h"
-#include "macro.h"
-#include "prioq.h"
-#include "hashmap.h"
-#include "util.h"
-#include "time-util.h"
-#include "missing.h"
-#include "set.h"
-#include "list.h"
-#include "signal-util.h"
-
 #include "sd-event.h"
+#include "sd-id128.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "hashmap.h"
+#include "list.h"
+#include "macro.h"
+#include "missing.h"
+#include "prioq.h"
+#include "process-util.h"
+#include "set.h"
+#include "signal-util.h"
+#include "string-util.h"
+#include "time-util.h"
+#include "util.h"
 
 #define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
 
@@ -412,11 +416,9 @@ _public_ int sd_event_new(sd_event** ret) {
         e->original_pid = getpid();
         e->perturb = USEC_INFINITY;
 
-        e->pending = prioq_new(pending_prioq_compare);
-        if (!e->pending) {
-                r = -ENOMEM;
+        r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
+        if (r < 0)
                 goto fail;
-        }
 
         e->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (e->epoll_fd < 0) {
@@ -433,7 +435,9 @@ fail:
 }
 
 _public_ sd_event* sd_event_ref(sd_event *e) {
-        assert_return(e, NULL);
+
+        if (!e)
+                return NULL;
 
         assert(e->n_ref >= 1);
         e->n_ref++;
@@ -805,7 +809,7 @@ static void source_disconnect(sd_event_source *s) {
                                 s->event->n_enabled_child_sources--;
                         }
 
-                        (void) hashmap_remove(s->event->child_sources, INT_TO_PTR(s->child.pid));
+                        (void) hashmap_remove(s->event->child_sources, PID_TO_PTR(s->child.pid));
                         event_gc_signal_data(s->event, &s->priority, SIGCHLD);
                 }
 
@@ -1046,17 +1050,13 @@ _public_ int sd_event_add_time(
         d = event_get_clock_data(e, type);
         assert(d);
 
-        if (!d->earliest) {
-                d->earliest = prioq_new(earliest_time_prioq_compare);
-                if (!d->earliest)
-                        return -ENOMEM;
-        }
+        r = prioq_ensure_allocated(&d->earliest, earliest_time_prioq_compare);
+        if (r < 0)
+                return r;
 
-        if (!d->latest) {
-                d->latest = prioq_new(latest_time_prioq_compare);
-                if (!d->latest)
-                        return -ENOMEM;
-        }
+        r = prioq_ensure_allocated(&d->latest, latest_time_prioq_compare);
+        if (r < 0)
+                return r;
 
         if (d->fd < 0) {
                 r = event_setup_timer_fd(e, d, clock);
@@ -1123,8 +1123,8 @@ _public_ int sd_event_add_signal(
                 callback = signal_exit_callback;
 
         r = pthread_sigmask(SIG_SETMASK, NULL, &ss);
-        if (r < 0)
-                return -errno;
+        if (r != 0)
+                return -r;
 
         if (!sigismember(&ss, sig))
                 return -EBUSY;
@@ -1185,7 +1185,7 @@ _public_ int sd_event_add_child(
         if (r < 0)
                 return r;
 
-        if (hashmap_contains(e->child_sources, INT_TO_PTR(pid)))
+        if (hashmap_contains(e->child_sources, PID_TO_PTR(pid)))
                 return -EBUSY;
 
         s = source_new(e, !ret, SOURCE_CHILD);
@@ -1198,7 +1198,7 @@ _public_ int sd_event_add_child(
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
 
-        r = hashmap_put(e->child_sources, INT_TO_PTR(pid), s);
+        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
         if (r < 0) {
                 source_free(s);
                 return r;
@@ -1307,11 +1307,9 @@ _public_ int sd_event_add_exit(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        if (!e->exit) {
-                e->exit = prioq_new(exit_prioq_compare);
-                if (!e->exit)
-                        return -ENOMEM;
-        }
+        r = prioq_ensure_allocated(&e->exit, exit_prioq_compare);
+        if (r < 0)
+                return r;
 
         s = source_new(e, !ret, SOURCE_EXIT);
         if (!s)
@@ -1335,7 +1333,9 @@ _public_ int sd_event_add_exit(
 }
 
 _public_ sd_event_source* sd_event_source_ref(sd_event_source *s) {
-        assert_return(s, NULL);
+
+        if (!s)
+                return NULL;
 
         assert(s->n_ref >= 1);
         s->n_ref++;
@@ -2429,7 +2429,9 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         e->iteration++;
 
+        e->state = SD_EVENT_PREPARING;
         r = event_prepare(e);
+        e->state = SD_EVENT_INITIAL;
         if (r < 0)
                 return r;
 

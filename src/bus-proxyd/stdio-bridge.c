@@ -27,9 +27,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-bus.h"
+#include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "def.h"
@@ -37,6 +38,7 @@
 #include "log.h"
 #include "proxy.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static char *arg_address = NULL;
@@ -144,7 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int rename_service(sd_bus *a, sd_bus *b) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_free_ char *p = NULL, *name = NULL;
         const char *comm;
         char **cmdline;

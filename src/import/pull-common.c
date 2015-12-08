@@ -21,17 +21,25 @@
 
 #include <sys/prctl.h>
 
-#include "util.h"
-#include "strv.h"
-#include "copy.h"
-#include "rm-rf.h"
+#include "alloc-util.h"
 #include "btrfs-util.h"
-#include "capability.h"
-#include "pull-job.h"
-#include "pull-common.h"
+#include "capability-util.h"
+#include "copy.h"
+#include "dirent-util.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "io-util.h"
+#include "path-util.h"
 #include "process-util.h"
+#include "pull-common.h"
+#include "pull-job.h"
+#include "rm-rf.h"
 #include "signal-util.h"
 #include "siphash24.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
+#include "web-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 #define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)
@@ -138,7 +146,7 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         if (force_local)
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        r = btrfs_subvol_snapshot(final, p, 0);
+        r = btrfs_subvol_snapshot(final, p, BTRFS_SNAPSHOT_QUOTA);
         if (r == -ENOTTY) {
                 r = copy_tree(final, p, false);
                 if (r < 0)
@@ -157,7 +165,7 @@ static int hash_url(const char *url, char **ret) {
 
         assert(url);
 
-        siphash24((uint8_t *) &h, url, strlen(url), k.bytes);
+        h = siphash24(url, strlen(url), k.bytes);
         if (asprintf(ret, "%"PRIx64, h) < 0)
                 return -ENOMEM;
 
@@ -366,9 +374,10 @@ int pull_verify(PullJob *main_job,
 
         log_info("SHA256 checksum of %s is valid.", main_job->url);
 
-        assert(!settings_job || settings_job->state == PULL_JOB_DONE);
+        assert(!settings_job || IN_SET(settings_job->state, PULL_JOB_DONE, PULL_JOB_FAILED));
 
         if (settings_job &&
+            settings_job->state == PULL_JOB_DONE &&
             settings_job->error == 0 &&
             !settings_job->etag_exists) {
 

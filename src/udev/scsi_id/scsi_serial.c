@@ -17,27 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <stdio.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
 #include <inttypes.h>
+#include <linux/bsg.h>
+#include <linux/types.h>
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
-#include <linux/types.h>
-#include <linux/bsg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "libudev.h"
+
 #include "libudev-private.h"
+#include "random-util.h"
 #include "scsi.h"
 #include "scsi_id.h"
-#include "random-util.h"
+#include "string-util.h"
 
 /*
  * A priority based list of id, naa, and binary/ascii for the identifier

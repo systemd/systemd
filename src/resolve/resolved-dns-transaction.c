@@ -20,14 +20,16 @@
 ***/
 
 #include "af-list.h"
-
-#include "resolved-llmnr.h"
-#include "resolved-dns-transaction.h"
-#include "random-util.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "fd-util.h"
+#include "random-util.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-llmnr.h"
+#include "string-table.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
-        DnsQuery *q;
+        DnsQueryCandidate *c;
         DnsZoneItem *i;
 
         if (!t)
@@ -37,7 +39,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         dns_packet_unref(t->sent);
         dns_packet_unref(t->received);
-        dns_answer_unref(t->cached);
+
+        dns_answer_unref(t->answer);
 
         sd_event_source_unref(t->dns_udp_event_source);
         safe_close(t->dns_udp_fd);
@@ -46,7 +49,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_stream_free(t->stream);
 
         if (t->scope) {
-                hashmap_remove(t->scope->transactions, t->key);
+                hashmap_remove_value(t->scope->transactions_by_key, t->key, t);
+                LIST_REMOVE(transactions_by_scope, t->scope->transactions, t);
 
                 if (t->id != 0)
                         hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
@@ -54,9 +58,10 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         dns_resource_key_unref(t->key);
 
-        while ((q = set_steal_first(t->queries)))
-                set_remove(q->transactions, t);
-        set_free(t->queries);
+        while ((c = set_steal_first(t->query_candidates)))
+                set_remove(c->transactions, t);
+
+        set_free(t->query_candidates);
 
         while ((i = set_steal_first(t->zone_items)))
                 i->probe_transaction = NULL;
@@ -74,7 +79,7 @@ void dns_transaction_gc(DnsTransaction *t) {
         if (t->block_gc > 0)
                 return;
 
-        if (set_isempty(t->queries) && set_isempty(t->zone_items))
+        if (set_isempty(t->query_candidates) && set_isempty(t->zone_items))
                 dns_transaction_free(t);
 }
 
@@ -90,7 +95,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&s->transactions, &dns_resource_key_hash_ops);
+        r = hashmap_ensure_allocated(&s->transactions_by_key, &dns_resource_key_hash_ops);
         if (r < 0)
                 return r;
 
@@ -99,6 +104,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
                 return -ENOMEM;
 
         t->dns_udp_fd = -1;
+        t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->key = dns_resource_key_ref(key);
 
         /* Find a fresh, unused transaction id */
@@ -113,12 +119,13 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
                 return r;
         }
 
-        r = hashmap_put(s->transactions, t->key, t);
+        r = hashmap_replace(s->transactions_by_key, t->key, t);
         if (r < 0) {
                 hashmap_remove(s->manager->dns_transactions, UINT_TO_PTR(t->id));
                 return r;
         }
 
+        LIST_PREPEND(transactions_by_scope, s->transactions, t);
         t->scope = s;
 
         if (ret)
@@ -134,6 +141,9 @@ static void dns_transaction_stop(DnsTransaction *t) {
 
         t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
         t->stream = dns_stream_free(t->stream);
+
+        /* Note that we do not drop the UDP socket here, as we want to
+         * reuse it to repeat the interaction. */
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
@@ -179,7 +189,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 }
 
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
-        DnsQuery *q;
+        DnsQueryCandidate *c;
         DnsZoneItem *z;
         Iterator i;
 
@@ -190,11 +200,12 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        log_debug("Transaction on scope %s on %s/%s now complete with <%s>",
+        log_debug("Transaction on scope %s on %s/%s now complete with <%s> from %s",
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
                   t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
-                  dns_transaction_state_to_string(state));
+                  dns_transaction_state_to_string(state),
+                  t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source));
 
         t->state = state;
 
@@ -203,8 +214,8 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         /* Notify all queries that are interested, but make sure the
          * transaction isn't freed while we are still looking at it */
         t->block_gc++;
-        SET_FOREACH(q, t->queries, i)
-                dns_query_ready(q);
+        SET_FOREACH(c, t->query_candidates, i)
+                dns_query_candidate_ready(c);
         SET_FOREACH(z, t->zone_items, i)
                 dns_zone_item_ready(z);
         t->block_gc--;
@@ -312,6 +323,8 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         dns_server_unref(t->server);
         t->server = dns_server_ref(server);
         t->received = dns_packet_unref(t->received);
+        t->answer = dns_answer_unref(t->answer);
+        t->answer_rcode = 0;
         t->stream->complete = on_stream_complete;
         t->stream->transaction = t;
 
@@ -383,6 +396,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 t->received = dns_packet_ref(p);
         }
 
+        t->answer_source = DNS_TRANSACTION_NETWORK;
+
         if (p->ipproto == IPPROTO_TCP) {
                 if (DNS_PACKET_TC(p)) {
                         /* Truncated via TCP? Somebody must be fucking with us */
@@ -403,7 +418,22 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         case DNS_PROTOCOL_DNS:
                 assert(t->server);
 
-                dns_server_packet_received(t->server, ts - t->start_usec);
+                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+
+                        /* request failed, immediately try again with reduced features */
+                        log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+
+                        dns_server_packet_failed(t->server, t->current_features);
+
+                        r = dns_transaction_go(t);
+                        if (r < 0) {
+                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        return;
+                } else
+                        dns_server_packet_received(t->server, t->current_features, ts - t->start_usec, p->size);
 
                 break;
         case DNS_PROTOCOL_LLMNR:
@@ -457,8 +487,23 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
+        /* Install the answer as answer to the transaction */
+        dns_answer_unref(t->answer);
+        t->answer = dns_answer_ref(p->answer);
+        t->answer_rcode = DNS_PACKET_RCODE(p);
+        t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
+
         /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
-        dns_cache_put(&t->scope->cache, t->key, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
+        if (DNS_PACKET_SHALL_CACHE(p))
+                dns_cache_put(&t->scope->cache,
+                              t->key,
+                              DNS_PACKET_RCODE(p),
+                              p->answer,
+                              DNS_PACKET_ANCOUNT(p),
+                              t->answer_authenticated,
+                              0,
+                              p->family,
+                              &p->sender);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
@@ -509,9 +554,12 @@ static int dns_transaction_emit(DnsTransaction *t) {
                 t->server = dns_server_ref(server);
         }
 
-        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->sent);
+        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->server, t->sent);
         if (r < 0)
                 return r;
+
+        if (t->server)
+                t->current_features = t->server->possible_features;
 
         return 0;
 }
@@ -523,14 +571,25 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
-        /* Timeout reached? Try again, with a new server */
-        dns_transaction_next_dns_server(t);
+        /* Timeout reached? Increase the timeout for the server used */
+        switch (t->scope->protocol) {
+        case DNS_PROTOCOL_DNS:
+                assert(t->server);
 
-        /* ... and possibly increased timeout */
-        if (t->server)
-                dns_server_packet_lost(t->server, usec - t->start_usec);
-        else
+                dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+
+                break;
+        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_MDNS:
                 dns_scope_packet_lost(t->scope, usec - t->start_usec);
+
+                break;
+        default:
+                assert_not_reached("Invalid DNS protocol.");
+        }
+
+        /* ...and try again with a new server */
+        dns_transaction_next_dns_server(t);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -548,7 +607,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (t->sent)
                 return 0;
 
-        r = dns_packet_new_query(&p, t->scope->protocol, 0);
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode == DNSSEC_YES);
         if (r < 0)
                 return r;
 
@@ -621,8 +680,39 @@ int dns_transaction_go(DnsTransaction *t) {
         t->n_attempts++;
         t->start_usec = ts;
         t->received = dns_packet_unref(t->received);
-        t->cached = dns_answer_unref(t->cached);
-        t->cached_rcode = 0;
+        t->answer = dns_answer_unref(t->answer);
+        t->answer_rcode = 0;
+        t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
+
+        /* Check the trust anchor. Do so only on classic DNS, since DNSSEC does not apply otherwise. */
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                r = dns_trust_anchor_lookup(&t->scope->manager->trust_anchor, t->key, &t->answer);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        t->answer_rcode = DNS_RCODE_SUCCESS;
+                        t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
+                        t->answer_authenticated = true;
+                        dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                        return 0;
+                }
+        }
+
+        /* Check the zone, but only if this transaction is not used
+         * for probing or verifying a zone item. */
+        if (set_isempty(t->zone_items)) {
+
+                r = dns_zone_lookup(&t->scope->zone, t->key, &t->answer, NULL, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        t->answer_rcode = DNS_RCODE_SUCCESS;
+                        t->answer_source = DNS_TRANSACTION_ZONE;
+                        t->answer_authenticated = true;
+                        dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                        return 0;
+                }
+        }
 
         /* Check the cache, but only if this transaction is not used
          * for probing or verifying a zone item. */
@@ -636,11 +726,12 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
-                r = dns_cache_lookup(&t->scope->cache, t->key, &t->cached_rcode, &t->cached);
+                r = dns_cache_lookup(&t->scope->cache, t->key, &t->answer_rcode, &t->answer, &t->answer_authenticated);
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        if (t->cached_rcode == DNS_RCODE_SUCCESS)
+                        t->answer_source = DNS_TRANSACTION_CACHE;
+                        if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         else
                                 dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
@@ -696,11 +787,13 @@ int dns_transaction_go(DnsTransaction *t) {
                  * always be made via TCP on LLMNR */
                 r = dns_transaction_open_tcp(t);
         } else {
-                /* Try via UDP, and if that fails due to large size try via TCP */
+                /* Try via UDP, and if that fails due to large size or lack of
+                 * support try via TCP */
                 r = dns_transaction_emit(t);
-                if (r == -EMSGSIZE)
+                if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
+
         if (r == -ESRCH) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
@@ -743,3 +836,11 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_ABORTED] = "aborted",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
+
+static const char* const dns_transaction_source_table[_DNS_TRANSACTION_SOURCE_MAX] = {
+        [DNS_TRANSACTION_NETWORK] = "network",
+        [DNS_TRANSACTION_CACHE] = "cache",
+        [DNS_TRANSACTION_ZONE] = "zone",
+        [DNS_TRANSACTION_TRUST_ANCHOR] = "trust-anchor",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_transaction_source, DnsTransactionSource);

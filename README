@@ -122,7 +122,7 @@ REQUIREMENTS:
 
         glibc >= 2.16
         libcap
-        libmount >= 2.27 (from util-linux)
+        libmount >= 2.27.1 (from util-linux)
         libseccomp >= 1.0.0 (optional)
         libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)
@@ -144,7 +144,7 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.27 required
+        util-linux >= v2.27.1 required
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
         dracut (optional)
         PolicyKit (optional)

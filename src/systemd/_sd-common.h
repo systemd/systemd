@@ -57,10 +57,10 @@
 #  ifdef __cplusplus
 #    define _SD_BEGIN_DECLARATIONS                              \
         extern "C" {                                            \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        struct _sd_useless_struct_to_allow_trailing_semicolon_
 #  else
 #    define _SD_BEGIN_DECLARATIONS                              \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        struct _sd_useless_struct_to_allow_trailing_semicolon_
 #  endif
 #endif
 
@@ -68,11 +68,18 @@
 #  ifdef __cplusplus
 #    define _SD_END_DECLARATIONS                                \
         }                                                       \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        struct _sd_useless_cpp_struct_to_allow_trailing_semicolon_
 #  else
 #    define _SD_END_DECLARATIONS                                \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        struct _sd_useless_struct_to_allow_trailing_semicolon_
 #  endif
 #endif
+
+#define _SD_DEFINE_POINTER_CLEANUP_FUNC(type, func)             \
+        static inline void func##p(type **p) {                  \
+                if (*p)                                         \
+                        func(*p);                               \
+        }                                                       \
+        struct _sd_useless_struct_to_allow_trailing_semicolon_
 
 #endif

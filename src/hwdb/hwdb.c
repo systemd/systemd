@@ -22,11 +22,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
 #include "mkdir.h"
 #include "strbuf.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 #include "verbs.h"
@@ -566,7 +571,7 @@ static int import_file(struct trie *trie, const char *filename) {
 }
 
 static int hwdb_query(int argc, char *argv[], void *userdata) {
-        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *key, *value;
         const char *modalias;
         int r;

@@ -18,7 +18,6 @@
 ***/
 
 #include "machine.h"
-
 #include "test-tables.h"
 
 int main(int argc, char **argv) {

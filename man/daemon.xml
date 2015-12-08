@@ -490,13 +490,13 @@
       configured address redundant. Another often suggested trigger
       for service activation is low system load. However, here too, a
       more convincing approach might be to make proper use of features
-      of the operating system, in particular, the CPU or IO scheduler
+      of the operating system, in particular, the CPU or I/O scheduler
       of Linux. Instead of scheduling jobs from userspace based on
       monitoring the OS scheduler, it is advisable to leave the
       scheduling of processes to the OS scheduler itself. systemd
-      provides fine-grained access to the CPU and IO schedulers. If a
+      provides fine-grained access to the CPU and I/O schedulers. If a
       process executed by the init system shall not negatively impact
-      the amount of CPU or IO bandwidth available to other processes,
+      the amount of CPU or I/O bandwidth available to other processes,
       it should be configured with
       <varname>CPUSchedulingPolicy=idle</varname> and/or
       <varname>IOSchedulingClass=idle</varname>. Optionally, this may

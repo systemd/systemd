@@ -325,7 +325,7 @@
       <varlistentry>
         <term><option>--private-users=</option></term>
 
-        <listitem><para>Enables user namespacing. If enabled the
+        <listitem><para>Enables user namespacing. If enabled, the
         container will run with its own private set of Unix user and
         group ids (UIDs and GIDs). Takes none, one or two
         colon-separated parameters: the first parameter specifies the
@@ -335,7 +335,7 @@
         assigned. If the first parameter is also omitted (and hence
         no parameter passed at all), the first UID assigned to the
         container is read from the owner of the root directory of the
-        container's directory tree. By default no user namespacing is
+        container's directory tree. By default, no user namespacing is
         applied.</para>
 
         <para>Note that user namespacing currently requires OS trees
@@ -344,15 +344,15 @@
         must be shifted to the container UID base that is
         used during container runtime.</para>
 
-        <para>It is recommended to assign as least 65536 UIDs to each
+        <para>It is recommended to assign at least 65536 UIDs to each
         container, so that the usable UID range in the container
-        covers 16bit. For best security do not assign overlapping UID
+        covers 16 bit. For best security, do not assign overlapping UID
         ranges to multiple containers. It is hence a good idea to use
-        the upper 16bit of the host 32bit UIDs as container
-        identifier, while the lower 16bit encode the container UID
+        the upper 16 bit of the host 32-bit UIDs as container
+        identifier, while the lower 16 bit encode the container UID
         used.</para>
 
-        <para>When user namespaces are used the GID range assigned to
+        <para>When user namespaces are used, the GID range assigned to
         each container is always chosen identical to the UID
         range.</para></listitem>
       </varlistentry>
@@ -433,6 +433,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--network-veth-extra=</option></term>
+
+        <listitem><para>Adds an additional virtual Ethernet link
+        between host and container. Takes a colon-separated pair of
+        host interface name and container interface name. The latter
+        may be omitted in which case the container and host sides will
+        be assigned the same name. This switch is independent of
+        <option>--network-veth</option>, and -- in contrast -- may be
+        used multiple times, and allows configuration of the network
+        interface names. Note that <option>--network-bridge=</option>
+        has no effect on interfaces created with
+        <option>--network-veth-extra=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--network-bridge=</option></term>
 
         <listitem><para>Adds the host side of the Ethernet link
@@ -458,7 +473,7 @@
         which case <literal>tcp</literal> is assumed. The container
         port number and its colon may be omitted, in which case the
         same port as the host port is implied. This option is only
-        supported if private networking is used, such as
+        supported if private networking is used, such as with
         <option>--network-veth</option> or
         <option>--network-bridge=</option>.</para></listitem>
       </varlistentry>
@@ -575,15 +590,15 @@
         <term><option>--bind-ro=</option></term>
 
         <listitem><para>Bind mount a file or directory from the host
-        into the container. Takes one of: a path argument -- in which
+        into the container. Takes one of: a path argument — in which
         case the specified path will be mounted from the host to the
-        same path in the container --, or a colon-separated pair of
-        paths -- in which case the first specified path is the source
+        same path in the container —, or a colon-separated pair of
+        paths — in which case the first specified path is the source
         in the host, and the second path is the destination in the
-        container --, or a colon-separated triple of source path,
-        destination path and mount options. Mount options are comma
-        separated and currently only "rbind" and "norbind"
-        are allowed. Defaults to "rbind". Backslash escapes are interpreted so
+        container —, or a colon-separated triple of source path,
+        destination path and mount options. Mount options are
+        comma-separated and currently, only "rbind" and "norbind"
+        are allowed. Defaults to "rbind". Backslash escapes are interpreted, so
         <literal>\:</literal> may be used to embed colons in either path.
         This option may be specified multiple times for
         creating multiple independent bind mount points. The
@@ -599,13 +614,13 @@
         mount the tmpfs instance to (in which case the directory
         access mode will be chosen as 0755, owned by root/root), or
         optionally a colon-separated pair of path and mount option
-        string, that is used for mounting (in which case the kernel
+        string that is used for mounting (in which case the kernel
         default for access mode and owner will be chosen, unless
         otherwise specified). This option is particularly useful for
         mounting directories such as <filename>/var</filename> as
         tmpfs, to allow state-less systems, in particular when
         combined with <option>--read-only</option>.
-        Backslash escapes are interpreted in the path so
+        Backslash escapes are interpreted in the path, so
         <literal>\:</literal> may be used to embed colons in the path.
         </para></listitem>
       </varlistentry>
@@ -630,9 +645,9 @@
         overlay file system. The left-most path is hence the lowest
         directory tree, the second-to-last path the highest directory
         tree in the stacking order. If <option>--overlay-ro=</option>
-        is used instead of <option>--overlay=</option> a read-only
+        is used instead of <option>--overlay=</option>, a read-only
         overlay file system is created. If a writable overlay file
-        system is created all changes made to it are written to the
+        system is created, all changes made to it are written to the
         highest directory tree in the stacking order, i.e. the
         second-to-last specified.</para>
 
@@ -693,7 +708,7 @@
         <listitem><para>Controls whether the container is registered
         with
         <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        Takes a boolean argument, defaults to <literal>yes</literal>.
+        Takes a boolean argument, which defaults to <literal>yes</literal>.
         This option should be enabled when the container runs a full
         Operating System (more specifically: an init system), and is
         useful to ensure that the container is accessible via
@@ -752,20 +767,20 @@
 
         <listitem><para>Boots the container in volatile mode. When no
         mode parameter is passed or when mode is specified as
-        <option>yes</option> full volatile mode is enabled. This
-        means the root directory is mounted as mostly unpopulated
+        <option>yes</option>, full volatile mode is enabled. This
+        means the root directory is mounted as a mostly unpopulated
         <literal>tmpfs</literal> instance, and
         <filename>/usr</filename> from the OS tree is mounted into it,
         read-only (the system thus starts up with read-only OS
         resources, but pristine state and configuration, any changes
         to the either are lost on shutdown). When the mode parameter
-        is specified as <option>state</option> the OS tree is
+        is specified as <option>state</option>, the OS tree is
         mounted read-only, but <filename>/var</filename> is mounted as
-        <literal>tmpfs</literal> instance into it (the system thus
+        a <literal>tmpfs</literal> instance into it (the system thus
         starts up with read-only OS resources and configuration, but
-        pristine state, any changes to the latter are lost on
+        pristine state, and any changes to the latter are lost on
         shutdown). When the mode parameter is specified as
-        <option>no</option> (the default) the whole OS tree is made
+        <option>no</option> (the default), the whole OS tree is made
         available writable.</para>
 
         <para>Note that setting this to <option>yes</option> or
@@ -786,43 +801,43 @@
         special values <option>override</option> or
         <option>trusted</option>.</para>
 
-        <para>If enabled (the default) a settings file named after the
+        <para>If enabled (the default), a settings file named after the
         machine (as specified with the <option>--machine=</option>
         setting, or derived from the directory or image file name)
         with the suffix <filename>.nspawn</filename> is searched in
         <filename>/etc/systemd/nspawn/</filename> and
         <filename>/run/systemd/nspawn/</filename>. If it is found
         there, its settings are read and used. If it is not found
-        there it is subsequently searched in the same directory as the
+        there, it is subsequently searched in the same directory as the
         image file or in the immediate parent of the root directory of
-        the container. In this case, if the file is found its settings
+        the container. In this case, if the file is found, its settings
         will be also read and used, but potentially unsafe settings
-        are ignored. Note that in both these cases settings on the
+        are ignored. Note that in both these cases, settings on the
         command line take precedence over the corresponding settings
         from loaded <filename>.nspawn</filename> files, if both are
         specified. Unsafe settings are considered all settings that
         elevate the container's privileges or grant access to
         additional resources such as files or directories of the
         host. For details about the format and contents of
-        <filename>.nspawn</filename> files consult
+        <filename>.nspawn</filename> files, consult
         <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <para>If this option is set to <option>override</option> the
-        file is searched, read and used the same way, however the order of
+        <para>If this option is set to <option>override</option>, the
+        file is searched, read and used the same way, however, the order of
         precedence is reversed: settings read from the
         <filename>.nspawn</filename> file will take precedence over
         the corresponding command line options, if both are
         specified.</para>
 
-        <para>If this option is set to <option>trusted</option> the
+        <para>If this option is set to <option>trusted</option>, the
         file is searched, read and used the same way, but regardless
-        if found in <filename>/etc/systemd/nspawn/</filename>,
+        of being found in <filename>/etc/systemd/nspawn/</filename>,
         <filename>/run/systemd/nspawn/</filename> or next to the image
         file or container root directory, all settings will take
-        effect, however command line arguments still take precedence
+        effect, however, command line arguments still take precedence
         over corresponding settings.</para>
 
-        <para>If disabled no <filename>.nspawn</filename> file is read
+        <para>If disabled, no <filename>.nspawn</filename> file is read
         and no settings except the ones on the command line are in
         effect.</para></listitem>
       </varlistentry>
@@ -850,7 +865,7 @@
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
-      <programlisting># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
+      <programlisting># dnf -y --releasever=23 --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora --enablerepo=updates install systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
       <para>This installs a minimal Fedora distribution into the

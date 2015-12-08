@@ -34,7 +34,7 @@
 
   <refsect1><title>Description</title>
     <para>The hardware database is a key-value store for associating modalias-like keys to
-    udev-properties-like values. It is used primarily by udev to add the relevant properties
+    udev-property-like values. It is used primarily by udev to add the relevant properties
     to matching devices, but it can also be queried directly.</para>
   </refsect1>
 
@@ -55,9 +55,9 @@
 
       <para>The hwdb file contains data records consisting of matches and
       associated key-value pairs. Every record in the hwdb starts with one or
-      more match string, specifying a shell glob to compare the database
+      more match strings, specifying a shell glob to compare the database
       lookup string against. Multiple match lines are specified in additional
-      consecutive lines. Every match line is compared individually, they are
+      consecutive lines. Every match line is compared individually, and they are
       combined by OR. Every match line must start at the first character of
       the line.</para>
 
@@ -71,7 +71,7 @@
       and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>,
       or alternatively <filename>/usr/lib/udev/hwdb.bin</filename> if you want ship the compiled
       database in an immutable image.
-      During runtime only the binary database is used.</para>
+      During runtime, only the binary database is used.</para>
   </refsect1>
 
   <refsect1>

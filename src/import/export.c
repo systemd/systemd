@@ -23,13 +23,16 @@
 
 #include "sd-event.h"
 
-#include "event-util.h"
+#include "alloc-util.h"
 #include "export-raw.h"
 #include "export-tar.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-image.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
@@ -72,7 +75,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
 
 static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -1;
@@ -151,7 +154,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
 
 static int export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -1;

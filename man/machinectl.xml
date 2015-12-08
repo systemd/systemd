@@ -83,9 +83,9 @@
     </itemizedlist>
 
     <para>Machines are identified by names that follow the same rules
-    as UNIX and DNS host names, for details see below. Machines are
-    instantiated from disk or file system images, that frequently but not
-    necessarily carry the same name as machines running from
+    as UNIX and DNS host names, for details, see below. Machines are
+    instantiated from disk or file system images that frequently — but not
+    necessarily — carry the same name as machines running from
     them. Images in this sense are considered:</para>
 
     <itemizedlist>
@@ -201,7 +201,7 @@
       <varlistentry>
         <term><option>--mkdir</option></term>
 
-        <listitem><para>When used with <command>bind</command> creates
+        <listitem><para>When used with <command>bind</command>, creates
         the destination directory before applying the bind
         mount.</para></listitem>
       </varlistentry>
@@ -209,7 +209,7 @@
       <varlistentry>
         <term><option>--read-only</option></term>
 
-        <listitem><para>When used with <command>bind</command> applies
+        <listitem><para>When used with <command>bind</command>, applies
         a read-only bind mount.</para></listitem>
       </varlistentry>
 
@@ -243,9 +243,9 @@
         specify whether the image shall be verified before it is made
         available. Takes one of <literal>no</literal>,
         <literal>checksum</literal> and <literal>signature</literal>.
-        If <literal>no</literal> no verification is done. If
-        <literal>checksum</literal> is specified the download is
-        checked for integrity after transfer is complete, but no
+        If <literal>no</literal>, no verification is done. If
+        <literal>checksum</literal> is specified, the download is
+        checked for integrity after the transfer is complete, but no
         signatures are verified. If <literal>signature</literal> is
         specified, the checksum is verified and the images's signature
         is checked against a local keyring of trustable vendors. It is
@@ -278,10 +278,10 @@
         <term><option>--format=</option></term>
 
         <listitem><para>When used with the <option>export-tar</option>
-        or <option>export-raw</option> commands specifies the
+        or <option>export-raw</option> commands, specifies the
         compression format to use for the resulting file. Takes one of
         <literal>uncompressed</literal>, <literal>xz</literal>,
-        <literal>gzip</literal>, <literal>bzip2</literal>. By default
+        <literal>gzip</literal>, <literal>bzip2</literal>. By default,
         the format is determined automatically from the image file
         name passed.</para></listitem>
       </varlistentry>
@@ -317,7 +317,7 @@
       <varlistentry>
         <term><command>status</command> <replaceable>NAME</replaceable>...</term>
 
-        <listitem><para>Show terse runtime status information about
+        <listitem><para>Show runtime status information about
         one or more virtual machines and containers, followed by the
         most recent log data from the journal. This function is
         intended to generate human-readable output. If you are looking
@@ -339,7 +339,8 @@
         are suppressed. Use <option>--all</option> to show those too.
         To select specific properties to show, use
         <option>--property=</option>. This command is intended to be
-        used whenever computer-parsable output is required. Use
+        used whenever computer-parsable output is required, and does
+        not print the cgroup tree or journal entries. Use
         <command>status</command> if you are looking for formatted
         human-readable output.</para></listitem>
       </varlistentry>
@@ -356,7 +357,7 @@
         image by the specified name in
         <filename>/var/lib/machines/</filename> (and other search
         paths, see below) and runs it. Use
-        <command>list-images</command> (see below), for listing
+        <command>list-images</command> (see below) for listing
         available container images to start.</para>
 
         <para>Note that
@@ -381,7 +382,7 @@
         <term><command>login</command> [<replaceable>NAME</replaceable>]</term>
 
         <listitem><para>Open an interactive terminal login session in
-        a container or on the local host. If an argument is supplied
+        a container or on the local host. If an argument is supplied,
         it refers to the container machine to connect to. If none is
         specified, or the container name is specified as the empty
         string, or the special machine name <literal>.host</literal>
@@ -414,7 +415,7 @@
         instead. This works similar to <command>login</command> but
         immediately invokes a user process. This command runs the
         specified executable with the specified arguments, or
-        <filename>/bin/sh</filename> if none is specified. By default
+        <filename>/bin/sh</filename> if none is specified. By default,
         opens a <literal>root</literal> shell, but by using
         <option>--uid=</option>, or by prefixing the machine name with
         a username and an <literal>@</literal> character, a different
@@ -422,10 +423,10 @@
         environment variables for the executed process.</para>
 
         <para>When using the <command>shell</command> command without
-        arguments (thus invoking the executed shell or command on the
-        local host) it is similar in many ways to a <citerefentry
+        arguments, (thus invoking the executed shell or command on the
+        local host), it is in many ways similar to a <citerefentry
         project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        session, but unlike <command>su</command> completely isolates
+        session, but, unlike <command>su</command>, completely isolates
         the new session from the originating session, so that it
         shares no process or session properties, and is in a clean and
         well-defined state. It will be tracked in a new utmp, login,
@@ -433,7 +434,7 @@
         environment variables or resource limits, among other
         properties.</para>
 
-        <para>Note that the
+        <para>Note that
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         may be used in place of the <command>shell</command> command,
         and allows more detailed, low-level configuration of the
@@ -509,11 +510,11 @@
         specified container. The first directory argument is the
         source directory on the host, the second directory argument
         is the destination directory in the container. When the
-        latter is omitted the destination path in the container is
+        latter is omitted, the destination path in the container is
         the same as the source path on the host. When combined with
-        the <option>--read-only</option> switch a ready-only bind
+        the <option>--read-only</option> switch, a ready-only bind
         mount is created. When combined with the
-        <option>--mkdir</option> switch the destination path is first
+        <option>--mkdir</option> switch, the destination path is first
         created before the mount is applied. Note that this option is
         currently only supported for
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -526,7 +527,7 @@
         <listitem><para>Copies files or directories from the host
         system into a running container. Takes a container name,
         followed by the source path on the host and the destination
-        path in the container. If the destination path is omitted the
+        path in the container. If the destination path is omitted, the
         same as the source path is used.</para></listitem>
       </varlistentry>
 
@@ -537,7 +538,7 @@
         <listitem><para>Copies files or directories from a container
         into the host system. Takes a container name, followed by the
         source path in the container the destination path on the host.
-        If the destination path is omitted the same as the source path
+        If the destination path is omitted, the same as the source path
         is used.</para></listitem>
       </varlistentry>
     </variablelist></refsect2>
@@ -552,8 +553,8 @@
         directories and subvolumes in
         <filename>/var/lib/machines/</filename> (and other search
         paths, see below). Use <command>start</command> (see above) to
-        run a container off one of the listed images. Note that by
-        default containers whose name begins with a dot
+        run a container off one of the listed images. Note that, by
+        default, containers whose name begins with a dot
         (<literal>.</literal>) are not shown. To show these too,
         specify <option>--all</option>. Note that a special image
         <literal>.host</literal> always implicitly exists and refers
@@ -626,27 +627,27 @@
 
         <listitem><para>Removes one or more container or VM images.
         The special image <literal>.host</literal>, which refers to
-        the host's own directory tree may not be
+        the host's own directory tree, may not be
         removed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>set-limit</command> [<replaceable>NAME</replaceable>] <replaceable>BYTES</replaceable></term>
 
-        <listitem><para>Sets the maximum size in bytes a specific
-        container or VM image, or all images may grow up to on disk
+        <listitem><para>Sets the maximum size in bytes that a specific
+        container or VM image, or all images, may grow up to on disk
         (disk quota). Takes either one or two parameters. The first,
         optional parameter refers to a container or VM image name. If
-        specified the size limit of the specified image is changed. If
-        omitted the overall size limit of the sum of all images stored
+        specified, the size limit of the specified image is changed. If
+        omitted, the overall size limit of the sum of all images stored
         locally is changed. The final argument specifies the size
         limit in bytes, possibly suffixed by the usual K, M, G, T
         units. If the size limit shall be disabled, specify
         <literal>-</literal> as size.</para>
 
         <para>Note that per-container size limits are only supported
-        on btrfs file systems. Also note that if
-        <command>set-limit</command> is invoked without image
+        on btrfs file systems. Also note that, if
+        <command>set-limit</command> is invoked without an image
         parameter, and <filename>/var/lib/machines</filename> is
         empty, and the directory is not located on btrfs, a btrfs
         loopback file is implicitly created as
@@ -656,7 +657,7 @@
         loopback may later be readjusted with
         <command>set-limit</command>, as well. If such a
         loopback-mounted <filename>/var/lib/machines</filename>
-        directory is used <command>set-limit</command> without image
+        directory is used, <command>set-limit</command> without an image
         name alters both the quota setting within the file system as
         well as the loopback file and file system size
         itself.</para></listitem>
@@ -676,20 +677,20 @@
         <literal>https://</literal>, and must refer to a
         <filename>.tar</filename>, <filename>.tar.gz</filename>,
         <filename>.tar.xz</filename> or <filename>.tar.bz2</filename>
-        archive file. If the local machine name is omitted it
+        archive file. If the local machine name is omitted, it
         is automatically derived from the last component of the URL,
         with its suffix removed.</para>
 
         <para>The image is verified before it is made available,
         unless <option>--verify=no</option> is specified. Verification
-        is done via SHA256SUMS and SHA256SUMS.gpg files, that need to
+        is done via SHA256SUMS and SHA256SUMS.gpg files that need to
         be made available on the same web server, under the same URL
         as the <filename>.tar</filename> file, but with the last
         component (the filename) of the URL replaced. With
-        <option>--verify=checksum</option> only the SHA256 checksum
+        <option>--verify=checksum</option>, only the SHA256 checksum
         for the file is verified, based on the
         <filename>SHA256SUMS</filename> file. With
-        <option>--verify=signature</option> the SHA256SUMS file is
+        <option>--verify=signature</option>, the SHA256SUMS file is
         first verified with detached GPG signature file
         <filename>SHA256SUMS.gpg</filename>. The public key for this
         verification step needs to be available in
@@ -698,7 +699,7 @@
 
         <para>The container image will be downloaded and stored in a
         read-only subvolume in
-        <filename>/var/lib/machines/</filename>, that is named after
+        <filename>/var/lib/machines/</filename> that is named after
         the specified URL and its HTTP etag. A writable snapshot is
         then taken from this subvolume, and named after the specified
         local name. This behavior ensures that creating multiple
@@ -729,7 +730,7 @@
         be a <filename>.qcow2</filename> or raw disk image, optionally
         compressed as <filename>.gz</filename>,
         <filename>.xz</filename>, or <filename>.bz2</filename>. If the
-        local machine name is omitted it is automatically
+        local machine name is omitted, it is automatically
         derived from the last component of the URL, with its suffix
         removed.</para>
 
@@ -801,22 +802,22 @@
         <listitem><para>Imports a TAR or RAW container or VM image,
         and places it under the specified name in
         <filename>/var/lib/machines/</filename>. When
-        <command>import-tar</command> is used the file specified as
-        first argument should be a tar archive, possibly compressed
+        <command>import-tar</command> is used, the file specified as
+        the first argument should be a tar archive, possibly compressed
         with xz, gzip or bzip2. It will then be unpacked into its own
         subvolume in <filename>/var/lib/machines</filename>. When
-        <command>import-raw</command> is used the file should be a
+        <command>import-raw</command> is used, the file should be a
         qcow2 or raw disk image, possibly compressed with xz, gzip or
         bzip2. If the second argument (the resulting image name) is
-        not specified it is automatically derived from the file
-        name. If the file name is passed as <literal>-</literal> the
+        not specified, it is automatically derived from the file
+        name. If the file name is passed as <literal>-</literal>, the
         image is read from standard input, in which case the second
         argument is mandatory.</para>
 
         <para>Similar as with <command>pull-tar</command>,
         <command>pull-raw</command> the file system
         <filename>/var/lib/machines.raw</filename> is increased in
-        size of necessary and appropriate. Optionally the
+        size of necessary and appropriate. Optionally, the
         <option>--read-only</option> switch may be used to create a
         read-only container or VM image. No cryptographic validation
         is done when importing the images.</para>
@@ -833,11 +834,11 @@
         stores it in the specified file. The first parameter should be
         a VM or container image name. The second parameter should be a
         file path the TAR or RAW image is written to. If the path ends
-        in <literal>.gz</literal> the file is compressed with gzip, if
-        it ends in <literal>.xz</literal> with xz, and if it ends in
-        <literal>.bz2</literal> with bzip2. If the path ends in
-        neither the file is left uncompressed. If the second argument
-        is missing the image is written to standard output. The
+        in <literal>.gz</literal>, the file is compressed with gzip, if
+        it ends in <literal>.xz</literal>, with xz, and if it ends in
+        <literal>.bz2</literal>, with bzip2. If the path ends in
+        neither, the file is left uncompressed. If the second argument
+        is missing, the image is written to standard output. The
         compression may also be explicitly selected with the
         <option>--format=</option> switch. This is in particular
         useful if the second parameter is left unspecified.</para>
@@ -847,7 +848,7 @@
         aborted with
         <command>cancel-transfer</command>.</para>
 
-        <para>Note that currently only directory and subvolume images
+        <para>Note that, currently, only directory and subvolume images
         may be exported as TAR images, and only raw disk images as RAW
         images.</para></listitem>
       </varlistentry>
@@ -877,34 +878,34 @@
     <title>Machine and Image Names</title>
 
     <para>The <command>machinectl</command> tool operates on machines
-    and images, whose names must be chosen following strict
+    and images whose names must be chosen following strict
     rules. Machine names must be suitable for use as host names
     following a conservative subset of DNS and UNIX/Linux
     semantics. Specifically, they must consist of one or more
     non-empty label strings, separated by dots. No leading or trailing
     dots are allowed. No sequences of multiple dots are allowed. The
-    label strings may only consists of alphanumeric characters as well
+    label strings may only consist of alphanumeric characters as well
     as the dash and underscore. The maximum length of a machine name
     is 64 characters.</para>
 
     <para>A special machine with the name <literal>.host</literal>
     refers to the running host system itself. This is useful for execution
-    operations or inspecting the host system as well. Not that
+    operations or inspecting the host system as well. Note that
     <command>machinectl list</command> will not show this special
     machine unless the <option>--all</option> switch is specified.</para>
 
-    <para>Requirements on image names are less strict, however must be
+    <para>Requirements on image names are less strict, however, they must be
     valid UTF-8, must be suitable as file names (hence not be the
     single or double dot, and not include a slash), and may not
     contain control characters. Since many operations search for an
-    image by the name of a requested machine it is recommended to name
+    image by the name of a requested machine, it is recommended to name
     images in the same strict fashion as machines.</para>
 
     <para>A special image with the name <literal>.host</literal>
-    refers to the image of the running host system. It is hence
+    refers to the image of the running host system. It hence
     conceptually maps to the special <literal>.host</literal> machine
     name described above. Note that <command>machinectl
-    list-images</command> won't show this special image either, unless
+    list-images</command> will not show this special image either, unless
     <option>--all</option> is specified.</para>
   </refsect1>
 
@@ -914,7 +915,7 @@
     <para>Machine images are preferably stored in
     <filename>/var/lib/machines/</filename>, but are also searched for
     in <filename>/usr/local/lib/machines/</filename> and
-    <filename>/usr/lib/machines/</filename>. For compatibility reasons
+    <filename>/usr/lib/machines/</filename>. For compatibility reasons,
     the directory <filename>/var/lib/container/</filename> is
     searched, too. Note that images stored below
     <filename>/usr</filename> are always considered read-only. It is
@@ -943,7 +944,7 @@
       <listitem><para>A simple directory tree, containing the files
       and directories of the container to boot.</para></listitem>
 
-      <listitem><para>A subvolume (on btrfs file systems), which are
+      <listitem><para>Subvolumes (on btrfs file systems), which are
       similar to the simple directories, described above. However,
       they have additional benefits, such as efficient cloning and
       quota reporting.</para></listitem>
@@ -956,7 +957,7 @@
 
     <para>See
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for more information on image formats, in particular it's
+    for more information on image formats, in particular its
     <option>--directory=</option> and <option>--image=</option>
     options.</para>
   </refsect1>
@@ -987,7 +988,7 @@
 # machinectl login Fedora-Cloud-Base-20141203-21</programlisting>
 
       <para>This downloads the specified <filename>.raw</filename>
-      image with verification disabled. Then a shell is opened in it
+      image with verification disabled. Then, a shell is opened in it
       and a root password is set. Afterwards the shell is left, and
       the machine started as system service. With the last command a
       login prompt into the container is requested.</para>
@@ -1010,8 +1011,8 @@
 
       <programlisting># machinectl export-tar fedora myfedora.tar.xz</programlisting>
 
-      <para>Exports the container <literal>fedora</literal> in an
-      xz-compress tar file <filename>myfedora.tar.xz</filename> in the
+      <para>Exports the container <literal>fedora</literal> as an
+      xz-compressed tar file <filename>myfedora.tar.xz</filename> into the
       current directory.</para>
     </example>
 
@@ -1020,7 +1021,7 @@
 
       <programlisting># machinectl shell --uid=lennart</programlisting>
 
-      <para>This creates a new shell session on the local host, for
+      <para>This creates a new shell session on the local host for
       the user ID <literal>lennart</literal>, in a <citerefentry
       project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>-like
       fashion.</para>

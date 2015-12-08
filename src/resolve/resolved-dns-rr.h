@@ -24,12 +24,14 @@
 #include <netinet/in.h>
 
 #include "bitmap.h"
+#include "dns-type.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
-#include "dns-type.h"
+#include "list.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
+typedef struct DnsTxtItem DnsTxtItem;
 
 /* DNS record classes, see RFC 1035 */
 enum {
@@ -39,17 +41,71 @@ enum {
         _DNS_CLASS_INVALID = -1
 };
 
+/* DNSKEY RR flags */
+#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
+#define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
+
+/* DNSSEC algorithm identifiers, see
+ * http://tools.ietf.org/html/rfc4034#appendix-A.1 and
+ * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
+enum {
+        DNSSEC_ALGORITHM_RSAMD5 = 1,
+        DNSSEC_ALGORITHM_DH,
+        DNSSEC_ALGORITHM_DSA,
+        DNSSEC_ALGORITHM_ECC,
+        DNSSEC_ALGORITHM_RSASHA1,
+        DNSSEC_ALGORITHM_DSA_NSEC3_SHA1,
+        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
+        DNSSEC_ALGORITHM_RSASHA256 = 8,  /* RFC 5702 */
+        DNSSEC_ALGORITHM_RSASHA512 = 10, /* RFC 5702 */
+        DNSSEC_ALGORITHM_INDIRECT = 252,
+        DNSSEC_ALGORITHM_PRIVATEDNS,
+        DNSSEC_ALGORITHM_PRIVATEOID,
+        _DNSSEC_ALGORITHM_MAX_DEFINED
+};
+
+/* DNSSEC digest identifiers, see
+ * https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
+enum {
+        DNSSEC_DIGEST_SHA1 = 1,
+        DNSSEC_DIGEST_SHA256 = 2,
+        _DNSSEC_DIGEST_MAX_DEFINED
+};
+
 struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
 };
 
+/* Creates a temporary resource key. This is only useful to quickly
+ * look up something, without allocating a full DnsResourceKey object
+ * for it. Note that it is not OK to take references to this kind of
+ * resource key object. */
+#define DNS_RESOURCE_KEY_CONST(c, t, n)                 \
+        ((DnsResourceKey) {                             \
+                .n_ref = (unsigned) -1,                 \
+                .class = c,                             \
+                .type = t,                              \
+                ._name = (char*) n,                     \
+        })
+
+
+struct DnsTxtItem {
+        size_t length;
+        LIST_FIELDS(DnsTxtItem, items);
+        uint8_t data[];
+};
+
 struct DnsResourceRecord {
         unsigned n_ref;
         DnsResourceKey *key;
         uint32_t ttl;
-        bool unparseable;
+        bool unparseable:1;
+        bool wire_format_canonical:1;
+        void *wire_format;
+        size_t wire_format_size;
+        size_t wire_format_rdata_offset;
         union {
                 struct {
                         void *data;
@@ -73,7 +129,7 @@ struct DnsResourceRecord {
                 } hinfo;
 
                 struct {
-                        char **strings;
+                        DnsTxtItem *items;
                 } txt, spf;
 
                 struct {
@@ -127,8 +183,8 @@ struct DnsResourceRecord {
 
                 /* http://tools.ietf.org/html/rfc4034#section-2.1 */
                 struct {
-                        bool zone_key_flag:1;
-                        bool sep_flag:1;
+                        uint16_t flags;
+                        uint8_t protocol;
                         uint8_t algorithm;
                         void* key;
                         size_t key_size;
@@ -148,6 +204,7 @@ struct DnsResourceRecord {
                         size_t signature_size;
                 } rrsig;
 
+                /* https://tools.ietf.org/html/rfc4034#section-4.1 */
                 struct {
                         char *next_domain_name;
                         Bitmap *types;
@@ -177,14 +234,15 @@ static inline const char* DNS_RESOURCE_KEY_NAME(const DnsResourceKey *key) {
 }
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
-DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
+int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
 DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
+bool dns_resource_key_is_address(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
-int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr);
-int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr);
+int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain);
+int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
@@ -198,7 +256,18 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
+int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
+
+DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
+bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
+
 const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name, uint16_t *class);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
+
+const char* dnssec_algorithm_to_string(int i) _const_;
+int dnssec_algorithm_from_string(const char *s) _pure_;
+
+const char *dnssec_digest_to_string(int i) _const_;
+int dnssec_digest_from_string(const char *s) _pure_;

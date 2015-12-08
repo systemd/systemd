@@ -121,10 +121,10 @@
     <title>Description</title>
 
     <para>In addition to the error names user programs define, D-Bus
-    knows a number of generic, standardized error names, that are
+    knows a number of generic, standardized error names that are
     listed below.</para>
 
-    <para>In addition to this list, in sd-bus the special error
+    <para>In addition to this list, in sd-bus, the special error
     namespace <literal>System.Error.</literal> is used to map
     arbitrary Linux system errors (as defined by <citerefentry
     project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
@@ -167,7 +167,7 @@
       <varlistentry>
         <term><varname>SD_BUS_ERROR_IO_ERROR</varname></term>
         <listitem><para>Generic input/output error, for example when
-        accessing a socket or other IO context.</para></listitem>
+        accessing a socket or other I/O context.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_BAD_ADDRESS</varname></term>
@@ -186,7 +186,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_ACCESS_DENIED</varname></term>
-        <listitem><para>Access to a resource has been denied, due to security restrictions.</para></listitem>
+        <listitem><para>Access to a resource has been denied due to security restrictions.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_AUTH_FAILED</varname></term>
@@ -224,7 +224,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_FILE_EXISTS</varname></term>
-        <listitem><para>The requested file exists already.</para></listitem>
+        <listitem><para>The requested file already exists.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>SD_BUS_ERROR_UNKNOWN_METHOD</varname></term>
@@ -272,7 +272,7 @@
       <varlistentry>
         <term><varname>SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED</varname></term>
         <listitem><para>Access to the requested operation is not
-        permitted, however, it might be available after interactive
+        permitted. However, it might be available after interactive
         authentication. This is usually returned by method calls
         supporting a framework for additional interactive
         authorization, when interactive authorization was not enabled

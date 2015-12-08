@@ -19,11 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include <resolv.h>
 #include <netinet/in.h>
+#include <resolv.h>
 
-#include "resolved-manager.h"
+#include "fd-util.h"
 #include "resolved-llmnr.h"
+#include "resolved-manager.h"
 
 void manager_llmnr_stop(Manager *m) {
         assert(m);

@@ -119,7 +119,7 @@
         run a system instance, even if the process ID is not 1, i.e.
         systemd is not run as init process. <option>--user</option>
         does the opposite, running a user instance even if the process
-        ID is 1. Normally it should not be necessary to pass these
+        ID is 1. Normally, it should not be necessary to pass these
         options, as systemd automatically detects the mode it is
         started in. These options are hence of little use except for
         debugging. Note that it is not supported booting and
@@ -142,7 +142,7 @@
         <term><option>--crash-vt=</option><replaceable>VT</replaceable></term>
 
         <listitem><para>Switch to a specific virtual console (VT) on
-        crash. Takes a positive integer in the range 1..63, or a
+        crash. Takes a positive integer in the range 1–63, or a
         boolean argument. If an integer is passed, selects which VT to
         switch to. If <constant>yes</constant>, the VT kernel messages
         are written to is selected. If <constant>no</constant>, no VT
@@ -289,12 +289,12 @@
 
     <orderedlist>
       <listitem><para>Service units, which start and control daemons
-      and the processes they consist of. For details see
+      and the processes they consist of. For details, see
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
       <listitem><para>Socket units, which encapsulate local IPC or
       network sockets in the system, useful for socket-based
-      activation. For details about socket units see
+      activation. For details about socket units, see
       <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       for details on socket-based activation and other forms of
       activation, see
@@ -306,7 +306,7 @@
 
       <listitem><para>Device units expose kernel devices in systemd
       and may be used to implement device-based activation. For
-      details see
+      details, see
       <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
       <listitem><para>Mount units control mount points in the file
@@ -317,12 +317,6 @@
       for on-demand mounting of file systems as well as parallelized
       boot-up. See
       <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
-
-      <listitem><para>Snapshot units can be used to temporarily save
-      the state of the set of systemd units, which later may be
-      restored by activating the saved snapshot unit. For more
-      information see
-      <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
       <listitem><para>Timer units are useful for triggering activation
       of other units based on timers. You may find details in
@@ -379,7 +373,7 @@
     <para>On boot systemd activates the target unit
     <filename>default.target</filename> whose job is to activate
     on-boot services and other on-boot units by pulling them in via
-    dependencies. Usually the unit name is just an alias (symlink) for
+    dependencies. Usually, the unit name is just an alias (symlink) for
     either <filename>graphical.target</filename> (for fully-featured
     boots into the UI) or <filename>multi-user.target</filename> (for
     limited console-only boots for use in embedded or server
@@ -448,7 +442,7 @@
 
     <para>Units may be generated dynamically at boot and system
     manager reload time, for example based on other configuration
-    files or parameters passed on the kernel command line. For details see
+    files or parameters passed on the kernel command line. For details, see
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
     <para>Systems which invoke systemd in a container or initrd
@@ -562,9 +556,9 @@
         <filename>ctrl-alt-del.target</filename> unit. This is mostly
         equivalent to <command>systemctl start
         ctl-alt-del.target</command>. If this signal is received more
-        often than 7 times per 2s an immediate reboot is triggered.
+        than 7 times per 2s, an immediate reboot is triggered.
         Note that pressing Ctrl-Alt-Del on the console will trigger
-        this signal. Hence, if a reboot is hanging pressing
+        this signal. Hence, if a reboot is hanging, pressing
         Ctrl-Alt-Del more than 7 times in 2s is a relatively safe way
         to trigger an immediate reboot.</para>
 
@@ -606,7 +600,7 @@
         <term><constant>SIGUSR2</constant></term>
 
         <listitem><para>When this signal is received the systemd
-        manager will log its complete state in human readable form.
+        manager will log its complete state in human-readable form.
         The data logged is the same as printed by
         <command>systemd-analyze dump</command>.</para></listitem>
       </varlistentry>
@@ -895,11 +889,11 @@
         <term><varname>systemd.crash_chvt=</varname></term>
 
         <listitem><para>Takes a positive integer, or a boolean
-        argument. If a positive integer (in the range 1..63) is
-        specified the system manager (PID 1) will activate the specified
+        argument. If a positive integer (in the range 1–63) is
+        specified, the system manager (PID 1) will activate the specified
         virtual terminal (VT) when it crashes. Defaults to
         <constant>no</constant>, meaning that no such switch is
-        attempted. If set to <constant>yes</constant> the VT the
+        attempted. If set to <constant>yes</constant>, the VT the
         kernel messages are written to is selected.</para></listitem>
       </varlistentry>
 
@@ -945,7 +939,7 @@
         like <option>false</option> until a service fails or there is
         a significant delay in boot.  Defaults to
         <option>yes</option>, unless <option>quiet</option> is passed
-        as kernel command line option in which case it defaults to
+        as kernel command line option, in which case it defaults to
         <constant>auto</constant>.</para></listitem>
       </varlistentry>
 
@@ -1061,7 +1055,7 @@
 
         <listitem><para>Set the system locale to use. This overrides
         the settings in <filename>/etc/locale.conf</filename>. For
-        more information see
+        more information, see
         <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         and
         <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.

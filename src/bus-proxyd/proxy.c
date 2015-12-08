@@ -22,30 +22,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <string.h>
 #include <errno.h>
 #include <poll.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
-#include "log.h"
-#include "util.h"
-#include "sd-daemon.h"
 #include "sd-bus.h"
+#include "sd-daemon.h"
+
+#include "alloc-util.h"
+#include "bus-control.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "strv.h"
-#include "bus-control.h"
-#include "set.h"
 #include "bus-xml-policy.h"
 #include "driver.h"
-#include "proxy.h"
-#include "synthesize.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "log.h"
+#include "proxy.h"
+#include "set.h"
+#include "strv.h"
+#include "synthesize.h"
+#include "user-util.h"
+#include "util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {
-        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *b = NULL;
         int r;
 
         r = sd_bus_new(&b);
@@ -100,18 +104,24 @@ static int proxy_create_destination(Proxy *p, const char *destination, const cha
         return 0;
 }
 
-static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fds) {
-        _cleanup_bus_flush_close_unref_ sd_bus *b = NULL;
+static int proxy_create_local(Proxy *p, bool negotiate_fds) {
         sd_id128_t server_id;
+        sd_bus *b;
         int r;
 
         r = sd_bus_new(&b);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate bus: %m");
 
-        r = sd_bus_set_fd(b, in_fd, out_fd);
-        if (r < 0)
+        r = sd_bus_set_fd(b, p->local_in, p->local_out);
+        if (r < 0) {
+                sd_bus_unref(b);
                 return log_error_errno(r, "Failed to set fds: %m");
+        }
+
+        /* The fds are now owned by the bus, and we indicate that by
+         * storing the bus object in the proxy object. */
+        p->local_bus = b;
 
         r = sd_bus_get_bus_id(p->destination_bus, &server_id);
         if (r < 0)
@@ -139,8 +149,6 @@ static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fd
         if (r < 0)
                 return log_error_errno(r, "Failed to start bus client: %m");
 
-        p->local_bus = b;
-        b = NULL;
         return 0;
 }
 
@@ -224,9 +232,17 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
         bool is_unix;
         int r;
 
+        /* This takes possession/destroys the file descriptors passed
+         * in even on failure. The caller should hence forget about
+         * the fds in all cases after calling this function and not
+         * close them. */
+
         p = new0(Proxy, 1);
-        if (!p)
+        if (!p) {
+                safe_close(in_fd);
+                safe_close(out_fd);
                 return log_oom();
+        }
 
         p->local_in = in_fd;
         p->local_out = out_fd;
@@ -247,7 +263,7 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
         if (r < 0)
                 return r;
 
-        r = proxy_create_local(p, in_fd, out_fd, is_unix);
+        r = proxy_create_local(p, is_unix);
         if (r < 0)
                 return r;
 
@@ -257,6 +273,7 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
 
         *out = p;
         p = NULL;
+
         return 0;
 }
 
@@ -273,7 +290,14 @@ Proxy *proxy_free(Proxy *p) {
                 free(activation);
         }
 
-        sd_bus_flush_close_unref(p->local_bus);
+        if (p->local_bus)
+                sd_bus_flush_close_unref(p->local_bus);
+        else {
+                safe_close(p->local_in);
+                if (p->local_out != p->local_in)
+                        safe_close(p->local_out);
+        }
+
         sd_bus_flush_close_unref(p->destination_bus);
         set_free_free(p->owned_names);
         free(p);
@@ -467,7 +491,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 (void) sd_bus_creds_get_egid(&m->creds, &sender_gid);
 
                 if (sender_uid == UID_INVALID || sender_gid == GID_INVALID) {
-                        _cleanup_bus_creds_unref_ sd_bus_creds *sender_creds = NULL;
+                        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *sender_creds = NULL;
 
                         /* If the message came from another legacy
                          * client, then the message creds will be
@@ -498,7 +522,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
         }
 
         if (to->is_kernel) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *destination_creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *destination_creds = NULL;
                 uid_t destination_uid = UID_INVALID;
                 gid_t destination_gid = GID_INVALID;
                 const char *destination_unique = NULL;
@@ -585,7 +609,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, SharedPol
 }
 
 static int process_hello(Proxy *p, sd_bus_message *m) {
-        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *n = NULL;
         bool is_hello;
         int r;
 
@@ -699,7 +723,7 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
 }
 
 static int proxy_process_destination_to_local(Proxy *p) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         bool matched, matched_synthetic;
         int r;
 
@@ -808,7 +832,7 @@ static int proxy_process_destination_to_local(Proxy *p) {
 }
 
 static int proxy_process_local_to_destination(Proxy *p) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(p);

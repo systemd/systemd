@@ -21,12 +21,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <libmount.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <libmount.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
+
 #include "cgroup-util.h"
 #include "fdset.h"
 #include "hashmap.h"
@@ -140,8 +141,6 @@ struct Manager {
         sd_event_source *time_change_event_source;
 
         sd_event_source *jobs_in_progress_event_source;
-
-        unsigned n_snapshots;
 
         LookupPaths lookup_paths;
         Set *unit_path_cache;
@@ -262,6 +261,7 @@ struct Manager {
         bool default_blockio_accounting;
         bool default_tasks_accounting;
 
+        uint64_t default_tasks_max;
         usec_t default_timer_accuracy_usec;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
@@ -316,13 +316,11 @@ struct Manager {
 int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);
 Manager* manager_free(Manager *m);
 
-int manager_enumerate(Manager *m);
+void manager_enumerate(Manager *m);
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
-
-int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found);
 
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
@@ -330,8 +328,9 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd
 int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, sd_bus_error *e, Job **_ret);
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, sd_bus_error *e, Job **_ret);
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret);
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, sd_bus_error *e, Job **_ret);
+int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Job **ret);
 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);

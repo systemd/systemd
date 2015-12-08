@@ -21,13 +21,15 @@
 
 
 #include <errno.h>
+
 #include "audit-fd.h"
 
 #ifdef HAVE_AUDIT
 
-#include <stdbool.h>
 #include <libaudit.h>
+#include <stdbool.h>
 
+#include "fd-util.h"
 #include "log.h"
 #include "util.h"
 

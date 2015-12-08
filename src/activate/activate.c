@@ -28,10 +28,13 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static char** arg_listen = NULL;

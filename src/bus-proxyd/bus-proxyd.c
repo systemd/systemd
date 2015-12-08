@@ -33,14 +33,18 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-xml-policy.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "def.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "log.h"
 #include "proxy.h"
+#include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static char *arg_address = NULL;
@@ -85,10 +89,10 @@ static void *run_client(void *userdata) {
         int r;
 
         r = proxy_new(&p, c->fd, c->fd, arg_address);
+        c->fd = -1;
+
         if (r < 0)
                 goto exit;
-
-        c->fd = -1;
 
         /* set comm to "p$PIDu$UID" and suffix with '*' if truncated */
         r = snprintf(comm, sizeof(comm), "p" PID_FMT "u" UID_FMT, p->local_creds.pid, p->local_creds.uid);
@@ -116,13 +120,12 @@ static int loop_clients(int accept_fd, uid_t bus_uid) {
         int r;
 
         r = pthread_attr_init(&attr);
-        if (r < 0) {
-                return log_error_errno(errno, "Cannot initialize pthread attributes: %m");
-        }
+        if (r != 0)
+                return log_error_errno(r, "Cannot initialize pthread attributes: %m");
 
         r = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        if (r < 0) {
-                r = log_error_errno(errno, "Cannot mark pthread attributes as detached: %m");
+        if (r != 0) {
+                r = log_error_errno(r, "Cannot mark pthread attributes as detached: %m");
                 goto finish;
         }
 
@@ -156,8 +159,8 @@ static int loop_clients(int accept_fd, uid_t bus_uid) {
                 c->bus_uid = bus_uid;
 
                 r = pthread_create(&tid, &attr, run_client, c);
-                if (r < 0) {
-                        log_error("Cannot spawn thread: %m");
+                if (r != 0) {
+                        log_warning_errno(r, "Cannot spawn thread, ignoring: %m");
                         client_context_free(c);
                         continue;
                 }

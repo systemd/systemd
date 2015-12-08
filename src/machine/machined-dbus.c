@@ -24,21 +24,26 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
-#include "strv.h"
-#include "path-util.h"
-#include "unit-name.h"
-#include "bus-util.h"
-#include "bus-common-errors.h"
-#include "cgroup-util.h"
+
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "bus-common-errors.h"
+#include "bus-util.h"
+#include "cgroup-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "process-util.h"
 #include "hostname-util.h"
+#include "image-dbus.h"
+#include "machine-dbus.h"
 #include "machine-image.h"
 #include "machine-pool.h"
-#include "image-dbus.h"
 #include "machined.h"
-#include "machine-dbus.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "stdio-util.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "user-util.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,
@@ -79,7 +84,7 @@ static int property_get_pool_usage(
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
-                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         usage = q.referenced;
         }
 
@@ -115,7 +120,7 @@ static int property_get_pool_limit(
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
-                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         size = q.referenced_max;
         }
 
@@ -194,8 +199,11 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
+        if (pid < 0)
+                return -EINVAL;
+
         if (pid == 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
@@ -220,7 +228,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Machine *machine;
         Iterator i;
@@ -325,7 +333,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
         if (leader == 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
@@ -546,7 +554,7 @@ static int method_get_machine_os_release(sd_bus_message *message, void *userdata
 }
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
         Manager *m = userdata;
         Image *image;
@@ -831,7 +839,9 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
 
-        r = btrfs_quota_limit("/var/lib/machines", limit);
+        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
+
+        r = btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, limit);
         if (r == -ENOTTY)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
@@ -1166,7 +1176,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                         if (streq(result, "done"))
                                 machine_send_create_reply(machine, NULL);
                         else {
-                                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+                                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
 
@@ -1270,7 +1280,7 @@ int manager_start_scope(
                 sd_bus_error *error,
                 char **job) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
 
         assert(manager);
@@ -1315,6 +1325,10 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", 8192);
+        if (r < 0)
+                return bus_log_create_error(r);
+
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
                 if (r < 0)
@@ -1352,7 +1366,7 @@ int manager_start_scope(
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
@@ -1415,8 +1429,8 @@ int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_erro
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         const char *state;
         int r;
@@ -1457,8 +1471,8 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
 }
 
 int manager_job_is_active(Manager *manager, const char *path) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
@@ -1498,7 +1512,7 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
         assert(pid >= 1);
         assert(machine);
 
-        mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
+        mm = hashmap_get(m->machine_leaders, PID_TO_PTR(pid));
         if (!mm) {
                 _cleanup_free_ char *unit = NULL;
 

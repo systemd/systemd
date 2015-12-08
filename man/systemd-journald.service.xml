@@ -46,6 +46,7 @@
     <refname>systemd-journald.service</refname>
     <refname>systemd-journald.socket</refname>
     <refname>systemd-journald-dev-log.socket</refname>
+    <refname>systemd-journald-audit.socket</refname>
     <refname>systemd-journald</refname>
     <refpurpose>Journal service</refpurpose>
   </refnamediv>
@@ -54,6 +55,7 @@
     <para><filename>systemd-journald.service</filename></para>
     <para><filename>systemd-journald.socket</filename></para>
     <para><filename>systemd-journald-dev-log.socket</filename></para>
+    <para><filename>systemd-journald-audit.socket</filename></para>
     <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
   </refsynopsisdiv>
 
@@ -104,13 +106,6 @@
     <programlisting>mkdir -p /var/log/journal
 systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
-    <para><filename>systemd-journald</filename> will forward all
-    received log messages to the
-    <constant>AF_UNIX</constant>/<constant>SOCK_DGRAM</constant>
-    socket <filename>/run/systemd/journal/syslog</filename>, if it
-    exists, which may be used by Unix syslog daemons to process the
-    data further.</para>
-
     <para>See
     <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of this service.</para>
@@ -129,15 +124,30 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         this is enabled). This must be used after
         <filename>/var/</filename> is mounted, as otherwise log data
         from <filename>/run</filename> is never flushed to
-        <filename>/var</filename> regardless of the
-        configuration.</para></listitem>
+        <filename>/var</filename> regardless of the configuration. The
+        <command>journalctl --flush</command> command uses this signal
+        to request flushing of the journal files, and then waits for
+        the operation to complete. See
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>SIGUSR2</term>
 
         <listitem><para>Request immediate rotation of the journal
-        files.</para></listitem>
+        files. The <command>journalctl --rotate</command> command uses
+        this signal to request journal file
+        rotation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>SIGRTMIN+1</term>
+
+        <listitem><para>Request that all unwritten log data is written
+        to disk. The <command>journalctl --sync</command> command uses
+        this signal to trigger journal synchronization, and then waits
+        for the operation to complete.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -230,7 +240,20 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <filename>/var/log/journal</filename> is not available, or
         when <option>Storage=volatile</option> is set in the
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        configuration file. </para></listitem>
+        configuration file.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/dev/kmsg</filename></term>
+        <term><filename>/dev/log</filename></term>
+        <term><filename>/run/systemd/journal/dev-log</filename></term>
+        <term><filename>/run/systemd/journal/socket</filename></term>
+        <term><filename>/run/systemd/journal/stdout</filename></term>
+
+        <listitem><para>Sockets and other paths that
+        <command>systemd-journald</command> will listen on that are
+        visible in the file system. In addition to these, journald can
+        listen for audit events using netlink.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -246,7 +269,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
       <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
-      <command>pydoc systemd.journal</command>.
+      <command>pydoc systemd.journal</command>
     </para>
   </refsect1>
 

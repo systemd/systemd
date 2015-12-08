@@ -19,31 +19,36 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
-#include <time.h>
 #include <math.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <resolv.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
-#include <sys/socket.h>
-#include <resolv.h>
 #include <sys/types.h>
+#include <time.h>
 
-#include "missing.h"
-#include "util.h"
-#include "sparse-endian.h"
-#include "log.h"
-#include "socket-util.h"
-#include "list.h"
-#include "ratelimit.h"
-#include "strv.h"
 #include "sd-daemon.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "list.h"
+#include "log.h"
+#include "missing.h"
 #include "network-util.h"
+#include "ratelimit.h"
+#include "socket-util.h"
+#include "sparse-endian.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
-#include "time-util.h"
+#include "util.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
@@ -365,7 +370,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         r = clock_adjtime(CLOCK_REALTIME, &tmx);
         if (r < 0)
-                return r;
+                return -errno;
 
         touch("/var/lib/systemd/clock");
 
@@ -662,7 +667,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 m->sync = true;
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
-                        log_error_errno(errno, "Failed to call clock_adjtime(): %m");
+                        log_error_errno(r, "Failed to call clock_adjtime(): %m");
         }
 
         log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",

@@ -317,7 +317,7 @@
     to determine the mask of fields available.</para>
 
     <para><function>sd_bus_creds_get_pid()</function> will retrieve
-    the PID (process identifier). Similar,
+    the PID (process identifier). Similarly,
     <function>sd_bus_creds_get_ppid()</function> will retrieve the
     parent PID. Note that PID 1 has no parent process, in which case
     -ENXIO is returned.</para>
@@ -326,14 +326,14 @@
     TID (thread identifier).</para>
 
     <para><function>sd_bus_creds_get_uid()</function> will retrieve
-    the numeric UID (user identifier). Similar,
+    the numeric UID (user identifier). Similarly,
     <function>sd_bus_creds_get_euid()</function> returns the effective
     UID, <function>sd_bus_creds_get_suid()</function> the saved UID
     and <function>sd_bus_creds_get_fsuid()</function> the file system
     UID.</para>
 
     <para><function>sd_bus_creds_get_gid()</function> will retrieve the
-    numeric GID (group identifier). Similar,
+    numeric GID (group identifier). Similarly,
     <function>sd_bus_creds_get_egid()</function> returns the effective
     GID, <function>sd_bus_creds_get_sgid()</function> the saved GID
     and <function>sd_bus_creds_get_fsgid()</function> the file system
@@ -355,7 +355,7 @@
     <para><function>sd_bus_creds_get_exe()</function> will retrieve
     the path to the program executable (as stored in the
     <filename>/proc/<replaceable>pid</replaceable>/exe</filename>
-    link, but with <literal> (deleted)</literal> suffix removed). Note
+    link, but with the <literal> (deleted)</literal> suffix removed). Note
     that kernel threads do not have an executable path, in which case
     -ENXIO is returned.</para>
 
@@ -372,38 +372,38 @@
 
     <para><function>sd_bus_creds_get_unit()</function> will retrieve
     the systemd unit name (in the system instance of systemd) that the
-    process is part of. See
+    process is a part of. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
-    processes that are not part of a unit returns -ENXIO.
+    processes that are not part of a unit, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_user_unit()</function> will
     retrieve the systemd unit name (in the user instance of systemd)
-    that the process is part of. See
+    that the process is a part of. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
-    processes that are not part of a user unit returns -ENXIO.
+    processes that are not part of a user unit, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_slice()</function> will retrieve
     the systemd slice (a unit in the system instance of systemd) that
-    the process is part of. See
-    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Similar,
+    the process is a part of. See
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Similarly,
     <function>sd_bus_creds_get_user_slice()</function> retrieves the
     systemd slice of the process, in the user instance of systemd.
     </para>
 
     <para><function>sd_bus_creds_get_session()</function> will
     retrieve the identifier of the login session that the process is
-    part of. See
+    a part of. See
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. For
-    processes that are not part of a session returns -ENXIO.
+    processes that are not part of a session, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_get_owner_uid()</function> will
     retrieve the numeric UID (user identifier) of the user who owns
-    the login session that the process is part of. See
+    the login session that the process is a part of. See
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    For processes that are not part of a session returns -ENXIO.
+    For processes that are not part of a session, returns -ENXIO.
     </para>
 
     <para><function>sd_bus_creds_has_effective_cap()</function> will
@@ -494,7 +494,7 @@
       <varlistentry>
         <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>Given field is not available in the
+        <listitem><para>The given field is not available in the
         credentials object <parameter>c</parameter>.</para>
         </listitem>
       </varlistentry>
@@ -502,7 +502,7 @@
       <varlistentry>
         <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>Given field is not specified for the described
+        <listitem><para>The given field is not specified for the described
         process or peer. This will be returned by
         <function>sd_bus_get_unit()</function>,
         <function>sd_bus_get_slice()</function>,
@@ -514,8 +514,8 @@
         slice, or logind session. It will also be returned by
         <function>sd_bus_creds_get_exe()</function> and
         <function>sd_bus_creds_get_cmdline()</function> for kernel
-        threads (since these aren't started from an executable binary
-        or have a command line),
+        threads (since these are not started from an executable binary,
+        nor have a command line), and by
         <function>sd_bus_creds_get_audit_session_id()</function> and
         <function>sd_bus_creds_get_audit_login_uid()</function> when
         the process is not part of an audit session, and

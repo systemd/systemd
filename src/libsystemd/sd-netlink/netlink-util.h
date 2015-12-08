@@ -21,9 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-netlink.h"
 
 #include "util.h"
-#include "sd-netlink.h"
 
 int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_netlink_message **ret);
 uint32_t rtnl_message_get_serial(sd_netlink_message *m);
@@ -39,9 +39,3 @@ int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, 
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_netlink*, sd_netlink_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_netlink_message*, sd_netlink_message_unref);
-
-#define _cleanup_netlink_unref_ _cleanup_(sd_netlink_unrefp)
-#define _cleanup_netlink_message_unref_ _cleanup_(sd_netlink_message_unrefp)

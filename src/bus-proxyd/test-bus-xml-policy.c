@@ -19,15 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <errno.h>
 #include <stddef.h>
+#include <unistd.h>
 
-#include "log.h"
-#include "util.h"
 #include "sd-bus.h"
-#include "strv.h"
+
+#include "alloc-util.h"
 #include "bus-xml-policy.h"
+#include "log.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 static int test_policy_load(Policy *p, const char *name) {
         _cleanup_free_ char *path = NULL;

@@ -19,17 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <errno.h>
-#include <string.h>
+#include <fcntl.h>
 #include <stdio.h>
-#include <limits.h>
+#include <string.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
-#include "util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "lockfile-util.h"
-#include "fileio.h"
+#include "macro.h"
+#include "path-util.h"
 
 int make_lock_file(const char *p, int operation, LockFile *ret) {
         _cleanup_close_ int fd = -1;

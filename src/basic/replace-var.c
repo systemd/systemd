@@ -19,12 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "macro.h"
-#include "util.h"
 #include "replace-var.h"
-#include "def.h"
+#include "string-util.h"
 
 /*
  * Generic infrastructure for replacing @FOO@ style variables in

@@ -23,31 +23,38 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "async.h"
-#include "manager.h"
-#include "unit.h"
-#include "service.h"
-#include "load-fragment.h"
+#include "bus-error.h"
+#include "bus-kernel.h"
+#include "bus-util.h"
+#include "dbus-service.h"
+#include "def.h"
+#include "env-util.h"
+#include "escape.h"
+#include "exit-status.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "formats-util.h"
+#include "fs-util.h"
 #include "load-dropin.h"
+#include "load-fragment.h"
 #include "log.h"
+#include "manager.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "service.h"
+#include "signal-util.h"
+#include "special.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "dbus-service.h"
-#include "special.h"
-#include "exit-status.h"
-#include "def.h"
-#include "path-util.h"
-#include "util.h"
+#include "unit.h"
 #include "utf8.h"
-#include "env-util.h"
-#include "fileio.h"
-#include "bus-error.h"
-#include "bus-util.h"
-#include "bus-kernel.h"
-#include "formats-util.h"
-#include "process-util.h"
-#include "signal-util.h"
+#include "util.h"
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -168,7 +175,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         s->main_pid = pid;
         s->main_pid_known = true;
 
-        if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
+        if (get_process_ppid(pid, &ppid) >= 0 && ppid != getpid()) {
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", pid);
                 s->main_pid_alien = true;
         } else
@@ -413,7 +420,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
         }
 
         if (fdset_size(fds) > 0)
-                log_unit_warning(UNIT(s), "Tried to store more fds than FDStoreMax=%u allows, closing remaining.", s->n_fd_store_max);
+                log_unit_warning(UNIT(s), "Tried to store more fds than FileDescriptorStoreMax=%u allows, closing remaining.", s->n_fd_store_max);
 
         return 0;
 }
@@ -508,15 +515,38 @@ static int service_add_default_dependencies(Service *s) {
 
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         /* Add a number of automatic dependencies useful for the
          * majority of services. */
 
-        /* First, pull in base system */
-        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true);
+        if (UNIT(s)->manager->running_as == MANAGER_SYSTEM) {
+                /* First, pull in the really early boot stuff, and
+                 * require it, so that we fail if we can't acquire
+                 * it. */
+
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+        } else {
+
+                /* In the --user instance there's no sysinit.target,
+                 * in that case require basic.target instead. */
+
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Second, if the rest of the base system is in the same
+         * transaction, order us after it, but do not pull it in or
+         * even require it. */
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL, true);
         if (r < 0)
                 return r;
 
-        /* Second, activate normal shutdown */
+        /* Third, add us in for normal shutdown. */
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
@@ -536,6 +566,43 @@ static void service_fix_output(Service *s) {
         if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_input == EXEC_INPUT_NULL)
                 s->exec_context.std_output = UNIT(s)->manager->default_std_output;
+}
+
+static int service_setup_bus_name(Service *s) {
+        int r;
+
+        assert(s);
+
+        if (!s->bus_name)
+                return 0;
+
+        if (is_kdbus_available()) {
+                const char *n;
+
+                n = strjoina(s->bus_name, ".busname");
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency to .busname unit: %m");
+
+        } else {
+                /* If kdbus is not available, we know the dbus socket is required, hence pull it in, and require it */
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+        }
+
+        /* Regardless if kdbus is used or not, we always want to be ordered against dbus.socket if both are in the transaction. */
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, NULL, true);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+
+        r = unit_watch_bus_name(UNIT(s), s->bus_name);
+        if (r == -EEXIST)
+                return log_unit_error_errno(UNIT(s), r, "Two services allocated for the same bus name %s, refusing operation.", s->bus_name);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Cannot watch bus name %s: %m", s->bus_name);
+
+        return 0;
 }
 
 static int service_add_extras(Service *s) {
@@ -577,26 +644,13 @@ static int service_add_extras(Service *s) {
         if (s->watchdog_usec > 0 && s->notify_access == NOTIFY_NONE)
                 s->notify_access = NOTIFY_MAIN;
 
-        if (s->bus_name) {
-                const char *n;
+        r = service_add_default_dependencies(s);
+        if (r < 0)
+                return r;
 
-                n = strjoina(s->bus_name, ".busname");
-                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
-                if (r < 0)
-                        return r;
-
-                r = unit_watch_bus_name(UNIT(s), s->bus_name);
-                if (r == -EEXIST)
-                        return log_unit_error_errno(UNIT(s), r, "Two services allocated for the same bus name %s, refusing operation.", s->bus_name);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Cannot watch bus name %s: %m", s->bus_name);
-        }
-
-        if (UNIT(s)->default_dependencies) {
-                r = service_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = service_setup_bus_name(s);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -905,66 +959,67 @@ static int service_coldplug(Unit *u) {
         assert(s);
         assert(s->state == SERVICE_DEAD);
 
-        if (s->deserialized_state != s->state) {
+        if (s->deserialized_state == s->state)
+                return 0;
 
-                if (IN_SET(s->deserialized_state,
-                           SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                           SERVICE_RELOAD,
-                           SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                           SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+        if (IN_SET(s->deserialized_state,
+                   SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                   SERVICE_RELOAD,
+                   SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
 
-                        usec_t k;
+                usec_t k;
 
-                        k = IN_SET(s->deserialized_state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD) ? s->timeout_start_usec : s->timeout_stop_usec;
+                k = IN_SET(s->deserialized_state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD) ? s->timeout_start_usec : s->timeout_stop_usec;
 
-                        /* For the start/stop timeouts 0 means off */
-                        if (k > 0) {
-                                r = service_arm_timer(s, k);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                if (s->deserialized_state == SERVICE_AUTO_RESTART) {
-
-                        /* The restart timeouts 0 means immediately */
-                        r = service_arm_timer(s, s->restart_usec);
+                /* For the start/stop timeouts 0 means off */
+                if (k > 0) {
+                        r = service_arm_timer(s, k);
                         if (r < 0)
                                 return r;
                 }
-
-                if (pid_is_unwaited(s->main_pid) &&
-                    ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
-                     IN_SET(s->deserialized_state,
-                            SERVICE_START, SERVICE_START_POST,
-                            SERVICE_RUNNING, SERVICE_RELOAD,
-                            SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                            SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
-                        r = unit_watch_pid(UNIT(s), s->main_pid);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (pid_is_unwaited(s->control_pid) &&
-                    IN_SET(s->deserialized_state,
-                           SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                           SERVICE_RELOAD,
-                           SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                           SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
-                        r = unit_watch_pid(UNIT(s), s->control_pid);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
-                        unit_watch_all_pids(UNIT(s));
-
-                if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
-                        service_start_watchdog(s);
-
-                service_set_state(s, s->deserialized_state);
         }
 
+        if (s->deserialized_state == SERVICE_AUTO_RESTART) {
+
+                /* The restart timeouts 0 means immediately */
+                r = service_arm_timer(s, s->restart_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        if (s->main_pid > 0 &&
+            pid_is_unwaited(s->main_pid) &&
+            ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
+             IN_SET(s->deserialized_state,
+                    SERVICE_START, SERVICE_START_POST,
+                    SERVICE_RUNNING, SERVICE_RELOAD,
+                    SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
+                r = unit_watch_pid(UNIT(s), s->main_pid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (s->control_pid > 0 &&
+            pid_is_unwaited(s->control_pid) &&
+            IN_SET(s->deserialized_state,
+                   SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                   SERVICE_RELOAD,
+                   SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+                r = unit_watch_pid(UNIT(s), s->control_pid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
+                unit_watch_all_pids(UNIT(s));
+
+        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
+                service_start_watchdog(s);
+
+        service_set_state(s, s->deserialized_state);
         return 0;
 }
 
@@ -1215,7 +1270,7 @@ static int service_spawn(
 
         if (is_control && UNIT(s)->cgroup_path) {
                 path = strjoina(UNIT(s)->cgroup_path, "/control");
-                cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
+                (void) cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
         } else
                 path = UNIT(s)->cgroup_path;
 
@@ -1774,7 +1829,7 @@ fail:
 }
 
 static void service_enter_restart(Service *s) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(s);
@@ -1794,7 +1849,7 @@ static void service_enter_restart(Service *s) {
          * restarted. We use JOB_RESTART (instead of the more obvious
          * JOB_START) here so that those dependency jobs will be added
          * as well. */
-        r = manager_add_job(UNIT(s)->manager, JOB_RESTART, UNIT(s), JOB_FAIL, false, &error, NULL);
+        r = manager_add_job(UNIT(s)->manager, JOB_RESTART, UNIT(s), JOB_FAIL, &error, NULL);
         if (r < 0)
                 goto fail;
 
@@ -2355,14 +2410,6 @@ static bool service_check_gc(Unit *u) {
                 return true;
 
         return false;
-}
-
-_pure_ static bool service_check_snapshot(Unit *u) {
-        Service *s = SERVICE(u);
-
-        assert(s);
-
-        return s->socket_fd < 0;
 }
 
 static int service_retry_pid_file(Service *s) {
@@ -3103,7 +3150,7 @@ static void service_bus_name_owner_change(
                     s->state == SERVICE_RUNNING ||
                     s->state == SERVICE_RELOAD)) {
 
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid;
 
                 /* Try to acquire PID from bus service */
@@ -3286,7 +3333,6 @@ const UnitVTable service_vtable = {
         .sub_state_to_string = service_sub_state_to_string,
 
         .check_gc = service_check_gc,
-        .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,
 

@@ -23,13 +23,16 @@
 
 #include "sd-event.h"
 
-#include "event-util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "import-raw.h"
 #include "import-tar.h"
 #include "import-util.h"
 #include "machine-image.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "verbs.h"
 
 static bool arg_force = false;
@@ -54,7 +57,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
 
 static int import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(tar_import_unrefp) TarImport *import = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_free_ char *ll = NULL;
         _cleanup_close_ int open_fd = -1;
@@ -149,7 +152,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
 
 static int import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_import_unrefp) RawImport *import = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_free_ char *ll = NULL;
         _cleanup_close_ int open_fd = -1;

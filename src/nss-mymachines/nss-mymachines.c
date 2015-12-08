@@ -19,18 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <nss.h>
 #include <netdb.h>
+#include <nss.h>
 
 #include "sd-bus.h"
 #include "sd-login.h"
-#include "macro.h"
-#include "util.h"
-#include "nss-util.h"
-#include "bus-util.h"
+
+#include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "in-addr-util.h"
+#include "bus-util.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
+#include "macro.h"
+#include "nss-util.h"
+#include "string-util.h"
+#include "user-util.h"
+#include "util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);
@@ -82,8 +86,8 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 int32_t *ttlp) {
 
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ int *ifindices = NULL;
         _cleanup_free_ char *class = NULL;
         size_t l, ms, idx;
@@ -231,8 +235,8 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                 int32_t *ttlp,
                 char **canonp) {
 
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *class = NULL;
         unsigned c = 0, i = 0;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
@@ -392,9 +396,9 @@ enum nss_status _nss_mymachines_getpwnam_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *p, *e, *machine;
         uint32_t mapped;
         uid_t uid;
@@ -410,6 +414,9 @@ enum nss_status _nss_mymachines_getpwnam_r(
 
         e = strrchr(p, '-');
         if (!e || e == p)
+                goto not_found;
+
+        if (e - p > HOST_NAME_MAX - 1) /* -1 for the last dash */
                 goto not_found;
 
         r = parse_uid(e + 1, &uid);
@@ -478,9 +485,9 @@ enum nss_status _nss_mymachines_getpwuid_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *machine, *object;
         uint32_t mapped;
         int r;
@@ -549,9 +556,9 @@ enum nss_status _nss_mymachines_getgrnam_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *p, *e, *machine;
         uint32_t mapped;
         uid_t gid;
@@ -567,6 +574,9 @@ enum nss_status _nss_mymachines_getgrnam_r(
 
         e = strrchr(p, '-');
         if (!e || e == p)
+                goto not_found;
+
+        if (e - p > HOST_NAME_MAX - 1)  /* -1 for the last dash */
                 goto not_found;
 
         r = parse_gid(e + 1, &gid);
@@ -633,9 +643,9 @@ enum nss_status _nss_mymachines_getgrgid_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message* reply = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *machine, *object;
         uint32_t mapped;
         int r;

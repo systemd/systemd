@@ -22,13 +22,15 @@
 #include <errno.h>
 #include <string.h>
 
-#include "util.h"
-#include "bus-util.h"
-#include "strv.h"
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
-#include "logind.h"
+#include "bus-util.h"
 #include "logind-seat.h"
+#include "logind.h"
+#include "strv.h"
+#include "user-util.h"
+#include "util.h"
 
 static int property_get_active_session(
                 sd_bus *bus,
@@ -332,7 +334,7 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/seat/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
                 Session *session;
                 const char *name;
@@ -414,7 +416,7 @@ int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
 
         message = sd_bus_get_current_message(bus);
         if (message) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 const char *name;
                 Session *session;
 

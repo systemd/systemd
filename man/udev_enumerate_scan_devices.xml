@@ -112,7 +112,7 @@
     <constant>NULL</constant> is returned.</para>
 
     <para><function>udev_enumerate_get_udev()</function> always
-    returns a pointer to the udev context that this enumerate
+    returns a pointer to the udev context that this enumerated
     object is associated with.</para>
   </refsect1>
 

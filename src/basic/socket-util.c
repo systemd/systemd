@@ -19,23 +19,33 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <limits.h>
+#include <net/if.h>
+#include <netdb.h>
+#include <netinet/ip.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <net/if.h>
-#include <sys/types.h>
-#include <stddef.h>
-#include <netdb.h>
 
-#include "macro.h"
-#include "path-util.h"
-#include "util.h"
-#include "socket-util.h"
-#include "missing.h"
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "socket-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "user-util.h"
+#include "util.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         char *e, *n;
@@ -749,21 +759,190 @@ bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b
         return false;
 }
 
-char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
-        assert(addr);
-        assert(buffer);
+int fd_inc_sndbuf(int fd, size_t n) {
+        int r, value;
+        socklen_t l = sizeof(value);
 
-        /* Like ether_ntoa() but uses %02x instead of %x to print
-         * ethernet addresses, which makes them look less funny. Also,
-         * doesn't use a static buffer. */
+        r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
+                return 0;
 
-        sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
-                addr->ether_addr_octet[0],
-                addr->ether_addr_octet[1],
-                addr->ether_addr_octet[2],
-                addr->ether_addr_octet[3],
-                addr->ether_addr_octet[4],
-                addr->ether_addr_octet[5]);
+        /* If we have the privileges we will ignore the kernel limit. */
 
-        return buffer;
+        value = (int) n;
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
+                        return -errno;
+
+        return 1;
+}
+
+int fd_inc_rcvbuf(int fd, size_t n) {
+        int r, value;
+        socklen_t l = sizeof(value);
+
+        r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
+                return 0;
+
+        /* If we have the privileges we will ignore the kernel limit. */
+
+        value = (int) n;
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
+                        return -errno;
+        return 1;
+}
+
+static const char* const ip_tos_table[] = {
+        [IPTOS_LOWDELAY] = "low-delay",
+        [IPTOS_THROUGHPUT] = "throughput",
+        [IPTOS_RELIABILITY] = "reliability",
+        [IPTOS_LOWCOST] = "low-cost",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
+
+int getpeercred(int fd, struct ucred *ucred) {
+        socklen_t n = sizeof(struct ucred);
+        struct ucred u;
+        int r;
+
+        assert(fd >= 0);
+        assert(ucred);
+
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &u, &n);
+        if (r < 0)
+                return -errno;
+
+        if (n != sizeof(struct ucred))
+                return -EIO;
+
+        /* Check if the data is actually useful and not suppressed due
+         * to namespacing issues */
+        if (u.pid <= 0)
+                return -ENODATA;
+        if (u.uid == UID_INVALID)
+                return -ENODATA;
+        if (u.gid == GID_INVALID)
+                return -ENODATA;
+
+        *ucred = u;
+        return 0;
+}
+
+int getpeersec(int fd, char **ret) {
+        socklen_t n = 64;
+        char *s;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        s = new0(char, n);
+        if (!s)
+                return -ENOMEM;
+
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+        if (r < 0) {
+                free(s);
+
+                if (errno != ERANGE)
+                        return -errno;
+
+                s = new0(char, n);
+                if (!s)
+                        return -ENOMEM;
+
+                r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+                if (r < 0) {
+                        free(s);
+                        return -errno;
+                }
+        }
+
+        if (isempty(s)) {
+                free(s);
+                return -EOPNOTSUPP;
+        }
+
+        *ret = s;
+        return 0;
+}
+
+int send_one_fd_sa(
+                int transport_fd,
+                int fd,
+                const struct sockaddr *sa, socklen_t len,
+                int flags) {
+
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct cmsghdr *cmsg;
+
+        struct msghdr mh = {
+                .msg_name = (struct sockaddr*) sa,
+                .msg_namelen = len,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+
+        assert(transport_fd >= 0);
+        assert(fd >= 0);
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+        mh.msg_controllen = CMSG_SPACE(sizeof(int));
+        if (sendmsg(transport_fd, &mh, MSG_NOSIGNAL | flags) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int receive_one_fd(int transport_fd, int flags) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg, *found = NULL;
+
+        assert(transport_fd >= 0);
+
+        /*
+         * Receive a single FD via @transport_fd. We don't care for
+         * the transport-type. We retrieve a single FD at most, so for
+         * packet-based transports, the caller must ensure to send
+         * only a single FD per packet.  This is best used in
+         * combination with send_one_fd().
+         */
+
+        if (recvmsg(transport_fd, &mh, MSG_NOSIGNAL | MSG_CMSG_CLOEXEC | flags) < 0)
+                return -errno;
+
+        CMSG_FOREACH(cmsg, &mh) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_RIGHTS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                        assert(!found);
+                        found = cmsg;
+                        break;
+                }
+        }
+
+        if (!found) {
+                cmsg_close_all(&mh);
+                return -EIO;
+        }
+
+        return *(int*) CMSG_DATA(found);
 }

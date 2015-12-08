@@ -18,11 +18,15 @@
 ***/
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <linux/input.h>
 
+#include "fd-util.h"
+#include "parse-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "udev.h"
 
 static const struct key *keyboard_lookup_key(const char *str, unsigned len);

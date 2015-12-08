@@ -100,7 +100,7 @@
     <para><function>sd_notify()</function> may be called by a service
     to notify the service manager about state changes. It can be used
     to send arbitrary information, encoded in an
-    environment-block-like string. Most importantly it can be used for
+    environment-block-like string. Most importantly, it can be used for
     start-up completion notification.</para>
 
     <para>If the <parameter>unset_environment</parameter> parameter is
@@ -158,7 +158,7 @@
         to the service manager that describes the service state. This
         is free-form and can be used for various purposes: general
         state feedback, fsck-like programs could pass completion
-        percentages and failing programs could pass a human readable
+        percentages and failing programs could pass a human-readable
         error message. Example: <literal>STATUS=Completed 66% of file
         system check...</literal></para></listitem>
       </varlistentry>
@@ -233,21 +233,21 @@
         <term>FDNAME=...</term>
 
         <listitem><para>When used in combination with
-        <varname>FDSTORE=1</varname> specifies a name for the
+        <varname>FDSTORE=1</varname>, specifies a name for the
         submitted file descriptors. This name is passed to the service
         during activation, and may be queried using
         <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>. File
         descriptors submitted without this field set, will implicitly
-        get the name <literal>stored</literal> assigned. Note that if
-        multiple file descriptors are submitted at once the specified
+        get the name <literal>stored</literal> assigned. Note that, if
+        multiple file descriptors are submitted at once, the specified
         name will be assigned to all of them. In order to assign
         different names to submitted file descriptors, submit them in
         seperate invocations of
         <function>sd_pid_notify_with_fds()</function>. The name may
-        consist of any ASCII characters, but must not contain control
+        consist of any ASCII character, but must not contain control
         characters or <literal>:</literal>. It may not be longer than
         255 characters. If a submitted name does not follow these
-        restrictions it is ignored.</para></listitem>
+        restrictions, it is ignored.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -274,7 +274,7 @@
     use as originating PID for the message as first argument. This is
     useful to send notification messages on behalf of other processes,
     provided the appropriate privileges are available. If the PID
-    argument is specified as 0 the process ID of the calling process
+    argument is specified as 0, the process ID of the calling process
     is used, in which case the calls are fully equivalent to
     <function>sd_notify()</function> and
     <function>sd_notifyf()</function>.</para>
@@ -311,7 +311,7 @@
 
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
-    <para>Internally, these functions send a single datagram with the
+    <para>These functions send a single datagram with the
     state string as payload to the <constant>AF_UNIX</constant> socket
     referenced in the <varname>$NOTIFY_SOCKET</varname> environment
     variable. If the first character of
@@ -377,7 +377,7 @@
 
       <para>To store an open file descriptor in the service manager,
       in order to continue operation after a service restart without
-      losing state use <literal>FDSTORE=1</literal>:</para>
+      losing state, use <literal>FDSTORE=1</literal>:</para>
 
       <programlisting>sd_pid_notify_with_fds(0, 0, "FDSTORE=1\nFDNAME=foobar", &amp;fd, 1);</programlisting>
     </example>

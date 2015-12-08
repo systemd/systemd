@@ -19,14 +19,18 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "copy.h"
-#include "path-util.h"
+#include "fd-util.h"
 #include "fileio.h"
-#include "mkdir.h"
-#include "strv.h"
+#include "fs-util.h"
 #include "macro.h"
-#include "util.h"
+#include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 static void test_copy_file(void) {
         _cleanup_free_ char *buf = NULL;

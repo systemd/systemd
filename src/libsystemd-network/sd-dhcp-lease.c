@@ -18,21 +18,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
 #include <arpa/inet.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "fileio.h"
-#include "unaligned.h"
-#include "in-addr-util.h"
-#include "hostname-util.h"
-#include "dns-domain.h"
-#include "network-internal.h"
-#include "dhcp-protocol.h"
-#include "dhcp-lease-internal.h"
 #include "sd-dhcp-lease.h"
+
+#include "alloc-util.h"
+#include "dhcp-lease-internal.h"
+#include "dhcp-protocol.h"
+#include "dns-domain.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "hexdecoct.h"
+#include "hostname-util.h"
+#include "in-addr-util.h"
+#include "network-internal.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "unaligned.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
@@ -655,7 +661,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         default:
-                log_debug("Ignoring option DHCP option %i while parsing.", code);
+                log_debug("Ignoring option DHCP option %"PRIu8" while parsing.", code);
                 break;
         }
 
@@ -859,7 +865,7 @@ fail:
 
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
 
-        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char
                 *address = NULL,
                 *router = NULL,
@@ -945,19 +951,19 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         if (address) {
                 r = inet_pton(AF_INET, address, &lease->address);
                 if (r <= 0)
-                        log_debug_errno(errno, "Failed to parse address %s, ignoring: %m", address);
+                        log_debug("Failed to parse address %s, ignoring.", address);
         }
 
         if (router) {
                 r = inet_pton(AF_INET, router, &lease->router);
                 if (r <= 0)
-                        log_debug_errno(errno, "Failed to parse router %s, ignoring: %m", router);
+                        log_debug("Failed to parse router %s, ignoring.", router);
         }
 
         if (netmask) {
                 r = inet_pton(AF_INET, netmask, &lease->subnet_mask);
                 if (r <= 0)
-                        log_debug_errno(errno, "Failed to parse netmask %s, ignoring: %m", netmask);
+                        log_debug("Failed to parse netmask %s, ignoring.", netmask);
                 else
                         lease->have_subnet_mask = true;
         }
@@ -965,19 +971,19 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         if (server_address) {
                 r = inet_pton(AF_INET, server_address, &lease->server_address);
                 if (r <= 0)
-                        log_debug_errno(errno, "Failed to parse netmask %s, ignoring: %m", server_address);
+                        log_debug("Failed to parse server address %s, ignoring.", server_address);
         }
 
         if (next_server) {
                 r = inet_pton(AF_INET, next_server, &lease->next_server);
                 if (r <= 0)
-                        log_debug_errno(errno, "Failed to parse next server %s, ignoring: %m", next_server);
+                        log_debug("Failed to parse next server %s, ignoring.", next_server);
         }
 
         if (broadcast) {
                 r = inet_pton(AF_INET, broadcast, &lease->broadcast);
                 if (r <= 0)
-                        log_debug_errno(errno, "Failed to parse broadcast address %s, ignoring: %m", broadcast);
+                        log_debug("Failed to parse broadcast address %s, ignoring.", broadcast);
                 else
                         lease->have_broadcast = true;
         }

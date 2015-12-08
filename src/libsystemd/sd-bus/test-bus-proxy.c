@@ -23,13 +23,14 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-#include "util.h"
-#include "log.h"
-
 #include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "bus-dump.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
-#include "bus-dump.h"
+#include "log.h"
+#include "util.h"
 
 typedef struct {
         const char *sender;
@@ -52,7 +53,7 @@ static int test_proxy_acquired(sd_bus_message *m, void *userdata, sd_bus_error *
 }
 
 static void test_proxy_matched(void) {
-        _cleanup_bus_flush_close_unref_ sd_bus *a = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *a = NULL;
         _cleanup_free_ char *matchstr = NULL;
         TestProxyMatch match = {};
         const char *me;

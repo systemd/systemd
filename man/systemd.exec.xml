@@ -77,6 +77,31 @@
   </refsect1>
 
   <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>A few execution parameters result in additional, automatic
+    dependencies to be added.</para>
+
+    <para>Units with <varname>WorkingDirectory=</varname> or
+    <varname>RootDirectory=</varname> set automatically gain
+    dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on all mount units required to access
+    the specified paths. This is equivalent to having them listed
+    explicitly in <varname>RequiresMountsFor=</varname>.</para>
+
+    <para>Similar, units with <varname>PrivateTmp=</varname> enabled
+    automatically get mount unit dependencies for all mounts
+    required to access <filename>/tmp</filename> and
+    <filename>/var/tmp</filename>.</para>
+
+    <para>Units whose output standard output or error output is
+    connected to any other sink but <option>null</option>,
+    <option>tty</option> and <option>socket</option> automatically
+    acquire dependencies of type <varname>After=</varname> on
+    <filename>journald.socket</filename>.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <variablelist class='unit-directives'>
@@ -86,14 +111,16 @@
 
         <listitem><para>Takes an absolute directory path, or the
         special value <literal>~</literal>. Sets the working directory
-        for executed processes. If set to <literal>~</literal> the
+        for executed processes. If set to <literal>~</literal>, the
         home directory of the user specified in
         <varname>User=</varname> is used. If not set, defaults to the
         root directory when systemd is running as a system instance
         and the respective user's home directory if run as user. If
         the setting is prefixed with the <literal>-</literal>
         character, a missing working directory is not considered
-        fatal.</para></listitem>
+        fatal. Note that setting this parameter might result in
+        additional dependencies to be added to the unit (see
+        above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -104,7 +131,9 @@
         project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call. If this is used, it must be ensured that the
         process binary and all its auxiliary files are available in
-        the <function>chroot()</function> jail.</para></listitem>
+        the <function>chroot()</function> jail. Note that setting this
+        parameter might result in additional dependencies to be added
+        to the unit (see above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -123,8 +152,8 @@
         <listitem><para>Sets the supplementary Unix groups the
         processes are executed as. This takes a space-separated list
         of group names or IDs. This option may be specified more than
-        once in which case all listed groups are set as supplementary
-        groups. When the empty string is assigned the list of
+        once, in which case all listed groups are set as supplementary
+        groups. When the empty string is assigned, the list of
         supplementary groups is reset, and all assignments prior to
         this one will have no effect. In any way, this option does not
         override, but extends the list of supplementary groups
@@ -157,7 +186,7 @@
       <varlistentry>
         <term><varname>IOSchedulingClass=</varname></term>
 
-        <listitem><para>Sets the IO scheduling class for executed
+        <listitem><para>Sets the I/O scheduling class for executed
         processes. Takes an integer between 0 and 3 or one of the
         strings <option>none</option>, <option>realtime</option>,
         <option>best-effort</option> or <option>idle</option>. See
@@ -168,10 +197,10 @@
       <varlistentry>
         <term><varname>IOSchedulingPriority=</varname></term>
 
-        <listitem><para>Sets the IO scheduling priority for executed
+        <listitem><para>Sets the I/O scheduling priority for executed
         processes. Takes an integer between 0 (highest priority) and 7
         (lowest priority). The available priorities depend on the
-        selected IO scheduling class (see above). See
+        selected I/O scheduling class (see above). See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
@@ -217,8 +246,10 @@
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Controls the CPU affinity of the executed
-        processes. Takes a space-separated list of CPU indices. This
-        option may be specified more than once in which case the
+        processes. Takes a list of CPU indices or ranges separated by
+        either whitespace or commas. CPU ranges are specified by the
+        lower and upper CPU indices separated by a dash.
+        This option may be specified more than once, in which case the
         specified CPU affinity masks are merged. If the empty string
         is assigned, the mask is reset, all assignments prior to this
         will have no effect. See
@@ -240,7 +271,7 @@
 
         <listitem><para>Sets environment variables for executed
         processes. Takes a space-separated list of variable
-        assignments. This option may be specified more than once in
+        assignments. This option may be specified more than once, in
         which case all listed variables will be set. If the same
         variable is set twice, the later setting will override the
         earlier setting. If the empty string is assigned to this
@@ -301,6 +332,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PassEnvironment=</varname></term>
+
+        <listitem><para>Pass environment variables from the systemd system
+        manager to executed processes. Takes a space-separated list of variable
+        names. This option may be specified more than once, in which case all
+        listed variables will be set. If the empty string is assigned to this
+        option, the list of environment variables is reset, all prior
+        assignments have no effect. Variables that are not set in the system
+        manager will not be passed and will be silently ignored.</para>
+
+        <para>Variables passed from this setting are overridden by those passed
+        from <varname>Environment=</varname> or
+        <varname>EnvironmentFile=</varname>.</para>
+
+        <para>Example:
+        <programlisting>PassEnvironment=VAR1 VAR2 VAR3</programlisting>
+        passes three variables <literal>VAR1</literal>,
+        <literal>VAR2</literal>, <literal>VAR3</literal>
+        with the values set for those variables in PID1.</para>
+
+        <para>
+        See
+        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details about environment variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>StandardInput=</varname></term>
         <listitem><para>Controls where file descriptor 0 (STDIN) of
         the executed processes is connected to. Takes one of
@@ -349,6 +407,7 @@
         <para>This setting defaults to
         <option>null</option>.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>StandardOutput=</varname></term>
         <listitem><para>Controls where file descriptor 1 (STDOUT) of
@@ -414,8 +473,11 @@
         <para>This setting defaults to the value set with
         <option>DefaultStandardOutput=</option> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        which defaults to <option>journal</option>.</para></listitem>
+        which defaults to <option>journal</option>. Note that setting
+        this parameter might result in additional dependencies to be
+        added to the unit (see above).</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>StandardError=</varname></term>
         <listitem><para>Controls where file descriptor 2 (STDERR) of
@@ -426,8 +488,11 @@
         standard error. This setting defaults to the value set with
         <option>DefaultStandardError=</option> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        which defaults to <option>inherit</option>.</para></listitem>
+        which defaults to <option>inherit</option>. Note that setting
+        this parameter might result in additional dependencies to be
+        added to the unit (see above).</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>TTYPath=</varname></term>
         <listitem><para>Sets the terminal device node to use if
@@ -491,7 +556,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>SyslogLevel=</varname></term>
-        <listitem><para>Default syslog level to use when logging to
+        <listitem><para>The default syslog level to use when logging to
         syslog or the kernel log buffer. One of
         <option>emerg</option>,
         <option>alert</option>,
@@ -510,7 +575,7 @@
         different log level which can be used to override the default
         log level specified here. The interpretation of these prefixes
         may be disabled with <varname>SyslogLevelPrefix=</varname>,
-        see below. For details see
+        see below. For details, see
         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
 
         Defaults to
@@ -565,89 +630,137 @@
         <listitem><para>These settings set both soft and hard limits
         of various resources for executed processes. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. Use the string <varname>infinity</varname> to
-        configure no limit on a specific resource.</para></listitem>
+        for details. The resource limit is possible to specify in two formats,
+        <option>value</option> to set soft and hard limits to the same value,
+        or <option>soft:hard</option> to set both limits individually (e.g. LimitAS=4G:16G).
+        Use the string <varname>infinity</varname> to
+        configure no limit on a specific resource. The multiplicative
+        suffixes K (=1024), M (=1024*1024) and so on for G, T, P and E
+        may be used for resource limits measured in bytes
+        (e.g. LimitAS=16G). For the limits referring to time values,
+        the usual time units ms, s, min, h and so on may be used (see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details). Note that if no time unit is specified for
+        <varname>LimitCPU=</varname> the default unit of seconds is
+        implied, while for <varname>LimitRTTIME=</varname> the default
+        unit of microseconds is implied. Also, note that the effective
+        granularity of the limits might influence their
+        enforcement. For example, time limits specified for
+        <varname>LimitCPU=</varname> will be rounded up implicitly to
+        multiples of 1s.</para>
+
+        <para>Note that most process resource limits configured with
+        these options are per-process, and processes may fork in order
+        to acquire a new set of resources that are accounted
+        independently of the original process, and may thus escape
+        limits set. Also note that <varname>LimitRSS=</varname> is not
+        implemented on Linux, and setting it has no effect. Often it
+        is advisable to prefer the resource controls listed in
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        over these per-process limits, as they apply to services as a
+        whole, may be altered dynamically at runtime, and are
+        generally more expressive. For example,
+        <varname>MemoryLimit=</varname> is a more powerful (and
+        working) replacement for <varname>LimitRSS=</varname>.</para>
 
         <table>
           <title>Limit directives and their equivalent with ulimit</title>
 
-          <tgroup cols='2'>
+          <tgroup cols='3'>
             <colspec colname='directive' />
             <colspec colname='equivalent' />
+            <colspec colname='unit' />
             <thead>
               <row>
                 <entry>Directive</entry>
                 <entry>ulimit equivalent</entry>
+                <entry>Unit</entry>
               </row>
             </thead>
             <tbody>
               <row>
-                <entry>LimitCPU</entry>
+                <entry>LimitCPU=</entry>
                 <entry>ulimit -t</entry>
+                <entry>Seconds</entry>
               </row>
               <row>
-                <entry>LimitFSIZE</entry>
+                <entry>LimitFSIZE=</entry>
                 <entry>ulimit -f</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitDATA</entry>
+                <entry>LimitDATA=</entry>
                 <entry>ulimit -d</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitSTACK</entry>
+                <entry>LimitSTACK=</entry>
                 <entry>ulimit -s</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitCORE</entry>
+                <entry>LimitCORE=</entry>
                 <entry>ulimit -c</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitRSS</entry>
+                <entry>LimitRSS=</entry>
                 <entry>ulimit -m</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitNOFILE</entry>
+                <entry>LimitNOFILE=</entry>
                 <entry>ulimit -n</entry>
+                <entry>Number of File Descriptors</entry>
               </row>
               <row>
-                <entry>LimitAS</entry>
+                <entry>LimitAS=</entry>
                 <entry>ulimit -v</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitNPROC</entry>
+                <entry>LimitNPROC=</entry>
                 <entry>ulimit -u</entry>
+                <entry>Number of Processes</entry>
               </row>
               <row>
-                <entry>LimitMEMLOCK</entry>
+                <entry>LimitMEMLOCK=</entry>
                 <entry>ulimit -l</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitLOCKS</entry>
+                <entry>LimitLOCKS=</entry>
                 <entry>ulimit -x</entry>
+                <entry>Number of Locks</entry>
               </row>
               <row>
-                <entry>LimitSIGPENDING</entry>
+                <entry>LimitSIGPENDING=</entry>
                 <entry>ulimit -i</entry>
+                <entry>Number of Queued Signals</entry>
               </row>
               <row>
-                <entry>LimitMSGQUEUE</entry>
+                <entry>LimitMSGQUEUE=</entry>
                 <entry>ulimit -q</entry>
+                <entry>Bytes</entry>
               </row>
               <row>
-                <entry>LimitNICE</entry>
+                <entry>LimitNICE=</entry>
                 <entry>ulimit -e</entry>
+                <entry>Nice Level</entry>
               </row>
               <row>
-                <entry>LimitRTPRIO</entry>
+                <entry>LimitRTPRIO=</entry>
                 <entry>ulimit -r</entry>
+                <entry>Realtime Priority</entry>
               </row>
               <row>
-                <entry>LimitRTTIME</entry>
+                <entry>LimitRTTIME=</entry>
                 <entry>No equivalent</entry>
+                <entry>Microseconds</entry>
               </row>
             </tbody>
           </tgroup>
-        </table>
+        </table></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -683,7 +796,7 @@
         of what <varname>Capabilities=</varname> does. If this option
         is not used, the capability bounding set is not modified on
         process execution, hence no limits on the capabilities of the
-        process are enforced. This option may appear more than once in
+        process are enforced. This option may appear more than once, in
         which case the bounding sets are merged. If the empty string
         is assigned to this option, the bounding set is reset to the
         empty capability set, and all prior settings have no effect.
@@ -704,7 +817,7 @@
         <option>no-setuid-fixup-locked</option>,
         <option>noroot</option>, and
         <option>noroot-locked</option>.
-        This option may appear more than once in which case the secure
+        This option may appear more than once, in which case the secure
         bits are ORed. If the empty string is assigned to this option,
         the bits are reset to 0. See
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -745,7 +858,7 @@
         inaccessible for processes inside the namespace. Note that
         restricting access with these options does not extend to
         submounts of a directory that are created later on. These
-        options may be specified more than once in which case all
+        options may be specified more than once, in which case all
         directories listed will have limited access from within the
         namespace. If the empty string is assigned to this option, the
         specific list is reset, and all prior assignments have no
@@ -848,7 +961,7 @@
         directories read-only for processes invoked by this unit. If
         set to <literal>full</literal>, the <filename>/etc</filename>
         directory is mounted read-only, too. This setting ensures that
-        any modification of the vendor supplied operating system (and
+        any modification of the vendor-supplied operating system (and
         optionally its configuration) is prohibited for the service.
         It is recommended to enable this setting for all long-running
         services, unless they are involved with system updates or need
@@ -949,15 +1062,15 @@
          invoked process must implement a
          <command>getty</command>-compatible utmp/wtmp logic. If
          <literal>login</literal> is set, first an
-         <constant>INIT_PROCESS</constant> entry, followed by an
+         <constant>INIT_PROCESS</constant> entry, followed by a
          <constant>LOGIN_PROCESS</constant> entry is generated. In
-         this case the invoked process must implement a <citerefentry
+         this case, the invoked process must implement a <citerefentry
          project='die-net'><refentrytitle>login</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
          utmp/wtmp logic. If <literal>user</literal> is set, first an
          <constant>INIT_PROCESS</constant> entry, then a
-         <constant>LOGIN_PROCESS</constant> entry and finally an
+         <constant>LOGIN_PROCESS</constant> entry and finally a
          <constant>USER_PROCESS</constant> entry is generated. In this
-         case the invoked process may be any process that is suitable
+         case, the invoked process may be any process that is suitable
          to be run as session leader. Defaults to
          <literal>init</literal>.</para></listitem>
       </varlistentry>
@@ -992,7 +1105,7 @@
         <listitem><para>Takes a <option>SMACK64</option> security
         label as argument. The process executed by the unit will be
         started under this label and SMACK will decide whether the
-        processes is allowed to run or not based on it. The process
+        process is allowed to run or not, based on it. The process
         will continue to run under the label specified here unless the
         executable has its own <option>SMACK64EXEC</option> label, in
         which case the process will transition to run under that
@@ -1048,7 +1161,7 @@
         <function>sigreturn</function>,
         <function>exit_group</function>, <function>exit</function>
         system calls are implicitly whitelisted and do not need to be
-        listed explicitly. This option may be specified more than once
+        listed explicitly. This option may be specified more than once,
         in which case the filter masks are merged. If the empty string
         is assigned, the filter is reset, all prior assignments will
         have no effect.</para>
@@ -1084,7 +1197,7 @@
       <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
-        <listitem><para>Takes a space separated list of architecture
+        <listitem><para>Takes a space-separated list of architecture
         identifiers to include in the system call filter. The known
         architecture identifiers are <constant>x86</constant>,
         <constant>x86-64</constant>, <constant>x32</constant>,
@@ -1271,10 +1384,29 @@
       <varlistentry>
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_PID</varname></term>
+        <term><varname>$LISTEN_FDNAMES</varname></term>
 
         <listitem><para>Information about file descriptors passed to a
         service for socket activation. See
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$NOTIFY_SOCKET</varname></term>
+
+        <listitem><para>The socket
+        <function>sd_notify()</function> talks to. See
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$WATCHDOG_PID</varname></term>
+        <term><varname>$WATCHDOG_USEC</varname></term>
+
+        <listitem><para>Information about watchdog keep-alive notifications. See
+        <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 
@@ -1292,8 +1424,8 @@
 
     <para>Additional variables may be configured by the following
     means: for processes spawned in specific units, use the
-    <varname>Environment=</varname> and
-    <varname>EnvironmentFile=</varname> options above; to specify
+    <varname>Environment=</varname>, <varname>EnvironmentFile=</varname>
+    and <varname>PassEnvironment=</varname> options above; to specify
     variables globally, use <varname>DefaultEnvironment=</varname>
     (see
     <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
@@ -1316,6 +1448,7 @@
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>

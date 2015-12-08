@@ -19,8 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved-dns-answer.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "resolved-dns-answer.h"
+#include "string-util.h"
 
 DnsAnswer *dns_answer_new(unsigned n) {
         DnsAnswer *a;
@@ -139,7 +141,7 @@ int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key) {
                 return 0;
 
         for (i = 0; i < a->n_rrs; i++) {
-                r = dns_resource_key_match_rr(key, a->items[i].rr);
+                r = dns_resource_key_match_rr(key, a->items[i].rr, NULL);
                 if (r < 0)
                         return r;
                 if (r > 0)

@@ -19,19 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <pthread.h>
-
-#include "log.h"
-#include "util.h"
-#include "macro.h"
-#include "strv.h"
+#include <stdlib.h>
 
 #include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "bus-dump.h"
+#include "log.h"
+#include "macro.h"
+#include "strv.h"
+#include "util.h"
 
 struct context {
         int fds[2];
@@ -296,9 +297,9 @@ fail:
 }
 
 static int client(struct context *c) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *s;
         int r;
 

@@ -13,15 +13,15 @@
  */
 
 #include <errno.h>
+#include <getopt.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include <getopt.h>
 
-#include "udev.h"
 #include "udev-util.h"
+#include "udev.h"
 
 static void print_help(void) {
         printf("%s control COMMAND\n\n"

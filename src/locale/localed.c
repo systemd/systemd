@@ -24,25 +24,28 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "sd-bus.h"
-
-#include "util.h"
-#include "mkdir.h"
-#include "strv.h"
-#include "def.h"
-#include "env-util.h"
-#include "fileio.h"
-#include "fileio-label.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "bus-message.h"
-#include "event-util.h"
-#include "locale-util.h"
-#include "selinux-util.h"
-
 #ifdef HAVE_XKBCOMMON
 #include <xkbcommon/xkbcommon.h>
 #endif
+
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-message.h"
+#include "bus-util.h"
+#include "def.h"
+#include "env-util.h"
+#include "fd-util.h"
+#include "fileio-label.h"
+#include "fileio.h"
+#include "locale-util.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "selinux-util.h"
+#include "strv.h"
+#include "user-util.h"
+#include "util.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
@@ -323,7 +326,7 @@ static int locale_write_data(Context *c, char ***settings) {
 static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_free_ char **l_unset = NULL;
         _cleanup_strv_free_ char **l_set = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned c_set, c_unset, p;
         int r;
@@ -496,7 +499,7 @@ fail:
 }
 
 static int vconsole_reload(sd_bus *bus) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1255,7 +1258,7 @@ static const sd_bus_vtable locale_vtable[] = {
 };
 
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
@@ -1286,8 +1289,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(context_free) Context context = {};
-        _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);

@@ -47,11 +47,11 @@ _journalctl() {
                               --version --list-catalog --update-catalog --list-boots
                               --show-cursor --dmesg -k --pager-end -e -r --reverse
                               --utc -x --catalog --no-full --force --dump-catalog
-                              --flush --rotate'
+                              --flush --rotate --sync'
                        [ARG]='-b --boot --this-boot -D --directory --file -F --field
                               -o --output -u --unit --user-unit -p --priority
                               --vacuum-size --vacuum-time'
-                [ARGUNKNOWN]='-c --cursor --interval -n --lines --since --until
+                [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
                               --after-cursor --verify-key -t --identifier
                               --root -M --machine'
         )

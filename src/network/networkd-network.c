@@ -22,15 +22,20 @@
 #include <ctype.h>
 #include <net/if.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "util.h"
-#include "hostname-util.h"
 #include "dns-domain.h"
+#include "fd-util.h"
+#include "hostname-util.h"
 #include "network-internal.h"
-
-#include "networkd.h"
 #include "networkd-network.h"
+#include "networkd.h"
+#include "parse-util.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "util.h"
 
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
@@ -121,6 +126,8 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO;
         network->ipv6_accept_ra = -1;
+        network->ipv6_dad_transmits = -1;
+        network->ipv6_hop_limit = -1;
 
         r = config_parse(NULL, filename, file,
                          "Match\0"
@@ -326,12 +333,12 @@ int network_get(Manager *manager, struct udev_device *device,
                                         (void) safe_atou8(attr, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM)
-                                        log_warning("%-*s: found matching network '%s', based on potentially unpredictable ifname",
-                                                    IFNAMSIZ, ifname, network->filename);
+                                        log_warning("%s: found matching network '%s', based on potentially unpredictable ifname",
+                                                    ifname, network->filename);
                                 else
-                                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+                                        log_debug("%s: found matching network '%s'", ifname, network->filename);
                         } else
-                                log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+                                log_debug("%s: found matching network '%s'", ifname, network->filename);
 
                         *ret = network;
                         return 0;
@@ -346,6 +353,10 @@ int network_get(Manager *manager, struct udev_device *device,
 int network_apply(Manager *manager, Network *network, Link *link) {
         int r;
 
+        assert(manager);
+        assert(network);
+        assert(link);
+
         link->network = network;
 
         if (network->ipv4ll_route) {
@@ -355,7 +366,7 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 if (r < 0)
                         return r;
 
-                r = inet_pton(AF_INET, "169.254.0.0", &route->dst_addr.in);
+                r = inet_pton(AF_INET, "169.254.0.0", &route->dst.in);
                 if (r == 0)
                         return -EINVAL;
                 if (r < 0)
@@ -364,14 +375,13 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 route->family = AF_INET;
                 route->dst_prefixlen = 16;
                 route->scope = RT_SCOPE_LINK;
-                route->metrics = IPV4LL_ROUTE_METRIC;
+                route->priority = IPV4LL_ROUTE_METRIC;
                 route->protocol = RTPROT_STATIC;
         }
 
-        if (network->dns || network->ntp) {
-                r = link_save(link);
-                if (r < 0)
-                        return r;
+        if (network->dns || network->ntp || network->domains) {
+                manager_dirty(manager);
+                link_dirty(link);
         }
 
         return 0;

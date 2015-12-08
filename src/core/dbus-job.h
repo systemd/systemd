@@ -22,6 +22,7 @@
 ***/
 
 #include "sd-bus.h"
+
 #include "job.h"
 
 extern const sd_bus_vtable bus_job_vtable[];

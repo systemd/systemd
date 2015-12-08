@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
+"POT-Creation-Date: 2015-11-22 16:37+0100\n"
 "PO-Revision-Date: 2015-03-14 11:09+0100\n"
 "Last-Translator: Sebastian Rasmussen <sebras@gmail.com>\n"
 "Language-Team: Swedish\n"
@@ -418,6 +418,15 @@ msgid ""
 "interface."
 msgstr "Autentisering krävs för att ange lokalt värdnamn."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#, fuzzy
+msgid "Authentication is required to set a wall message"
+msgstr "Autentisering krävs för att ange lokalt värdnamn."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Logga till en lokal behållare"
@@ -427,20 +436,69 @@ msgid "Authentication is required to log into a local container."
 msgstr "Autentisering krävs för att logga till en lokal behållare"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+#, fuzzy
+msgid "Log into the local host"
+msgstr "Logga till en lokal behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#, fuzzy
+msgid "Authentication is required to log into the local host."
+msgstr "Autentisering krävs för att logga till en lokal behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#, fuzzy
+msgid "Acquire a shell in a local container"
+msgstr "Logga till en lokal behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#, fuzzy
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "Autentisering krävs för att logga till en lokal behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+#, fuzzy
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "Autentisering krävs för att ange lokalt värdnamn."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+#, fuzzy
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Logga till en lokal behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+#, fuzzy
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "Autentisering krävs för att logga till en lokal behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+#, fuzzy
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "Autentisering krävs för att ange lokalt värdnamn."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
 msgstr "Hantera lokala virtuella maskiner och behållare"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Autentisering krävs för att hantera lokala virtuella maskiner och behållare."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
 msgstr "Hantera lokala virtuella maskin- och behållaravbildningar"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -489,6 +547,41 @@ msgid ""
 msgstr ""
 "Autentisering krävs för att kontrollera huruvida synkronisering av "
 "nätverkstid ska vara aktiverat."
+
+#: ../src/core/dbus-unit.c:428
+#, fuzzy
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Autentisering krävs för ange systemtiden."
+
+#: ../src/core/dbus-unit.c:429
+#, fuzzy
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Autentisering krävs för ange systemtiden."
+
+#: ../src/core/dbus-unit.c:430
+#, fuzzy
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Autentisering krävs för att läsa om tillståndet för systemd."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+#, fuzzy
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Autentisering krävs för ange systemtiden."
+
+#: ../src/core/dbus-unit.c:535
+#, fuzzy
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Autentisering krävs för att logga till en lokal behållare"
+
+#: ../src/core/dbus-unit.c:565
+#, fuzzy
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "Autentisering krävs för att ange lokalt värdnamn."
+
+#: ../src/core/dbus-unit.c:597
+#, fuzzy
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Autentisering krävs för ange systemtiden."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr "Tryck Ctrl+C för att avbryta alla pågående filsystemskontroller."

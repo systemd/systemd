@@ -22,10 +22,11 @@
 #include <netinet/ether.h>
 #include <linux/if.h>
 
-#include "hostname-util.h"
-#include "networkd-link.h"
-#include "network-internal.h"
+#include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "hostname-util.h"
+#include "network-internal.h"
+#include "networkd-link.h"
 
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {
@@ -33,7 +34,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
         int r;
 
         assert(link);
-        assert(link->dhcp4_messages);
+        assert(link->dhcp4_messages > 0);
 
         link->dhcp4_messages --;
 
@@ -43,9 +44,9 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                 link_enter_failed(link);
         }
 
-        if (!link->dhcp4_messages) {
+        if (link->dhcp4_messages == 0) {
                 link->dhcp4_configured = true;
-                link_client_handler(link);
+                link_check_ready(link);
         }
 
         return 1;
@@ -72,11 +73,13 @@ static int link_set_dhcp_routes(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
-                r = route_new_dynamic(&route, RTPROT_DHCP);
+                r = route_new(&route);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not allocate route: %m");
 
-                r = route_new_dynamic(&route_gw, RTPROT_DHCP);
+                route->protocol = RTPROT_DHCP;
+
+                r = route_new(&route_gw);
                 if (r < 0)
                         return log_link_error_errno(link, r,  "Could not allocate route: %m");
 
@@ -84,11 +87,12 @@ static int link_set_dhcp_routes(Link *link) {
                  * route for the gw host so that we can route no matter the
                  * netmask or existing kernel route tables. */
                 route_gw->family = AF_INET;
-                route_gw->dst_addr.in = gateway;
+                route_gw->dst.in = gateway;
                 route_gw->dst_prefixlen = 32;
-                route_gw->prefsrc_addr.in = address;
+                route_gw->prefsrc.in = address;
                 route_gw->scope = RT_SCOPE_LINK;
-                route_gw->metrics = link->network->dhcp_route_metric;
+                route_gw->protocol = RTPROT_DHCP;
+                route_gw->priority = link->network->dhcp_route_metric;
 
                 r = route_configure(route_gw, link, &dhcp4_route_handler);
                 if (r < 0)
@@ -97,9 +101,9 @@ static int link_set_dhcp_routes(Link *link) {
                 link->dhcp4_messages ++;
 
                 route->family = AF_INET;
-                route->in_addr.in = gateway;
-                route->prefsrc_addr.in = address;
-                route->metrics = link->network->dhcp_route_metric;
+                route->gw.in = gateway;
+                route->prefsrc.in = address;
+                route->priority = link->network->dhcp_route_metric;
 
                 r = route_configure(route, link, &dhcp4_route_handler);
                 if (r < 0) {
@@ -120,15 +124,16 @@ static int link_set_dhcp_routes(Link *link) {
         for (i = 0; i < n; i++) {
                 _cleanup_route_free_ Route *route = NULL;
 
-                r = route_new_dynamic(&route, RTPROT_DHCP);
+                r = route_new(&route);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not allocate route: %m");
 
                 route->family = AF_INET;
-                route->in_addr.in = static_routes[i].gw_addr;
-                route->dst_addr.in = static_routes[i].dst_addr;
+                route->protocol = RTPROT_DHCP;
+                route->gw.in = static_routes[i].gw_addr;
+                route->dst.in = static_routes[i].dst_addr;
                 route->dst_prefixlen = static_routes[i].dst_prefixlen;
-                route->metrics = link->network->dhcp_route_metric;
+                route->priority = link->network->dhcp_route_metric;
 
                 r = route_configure(route, link, &dhcp4_route_handler);
                 if (r < 0)
@@ -162,45 +167,45 @@ static int dhcp_lease_lost(Link *link) {
                         for (i = 0; i < n; i++) {
                                 _cleanup_route_free_ Route *route = NULL;
 
-                                r = route_new_dynamic(&route, RTPROT_UNSPEC);
+                                r = route_new(&route);
                                 if (r >= 0) {
                                         route->family = AF_INET;
-                                        route->in_addr.in = routes[i].gw_addr;
-                                        route->dst_addr.in = routes[i].dst_addr;
+                                        route->gw.in = routes[i].gw_addr;
+                                        route->dst.in = routes[i].dst_addr;
                                         route->dst_prefixlen = routes[i].dst_prefixlen;
 
-                                        route_drop(route, link,
-                                                   &link_route_drop_handler);
+                                        route_remove(route, link,
+                                                   &link_route_remove_handler);
                                 }
                         }
                 }
         }
 
-        r = address_new_dynamic(&address);
+        r = address_new(&address);
         if (r >= 0) {
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
                 if (r >= 0) {
                         _cleanup_route_free_ Route *route_gw = NULL;
                         _cleanup_route_free_ Route *route = NULL;
 
-                        r = route_new_dynamic(&route_gw, RTPROT_UNSPEC);
+                        r = route_new(&route_gw);
                         if (r >= 0) {
                                 route_gw->family = AF_INET;
-                                route_gw->dst_addr.in = gateway;
+                                route_gw->dst.in = gateway;
                                 route_gw->dst_prefixlen = 32;
                                 route_gw->scope = RT_SCOPE_LINK;
 
-                                route_drop(route_gw, link,
-                                           &link_route_drop_handler);
+                                route_remove(route_gw, link,
+                                           &link_route_remove_handler);
                         }
 
-                        r = route_new_dynamic(&route, RTPROT_UNSPEC);
+                        r = route_new(&route);
                         if (r >= 0) {
                                 route->family = AF_INET;
-                                route->in_addr.in = gateway;
+                                route->gw.in = gateway;
 
-                                route_drop(route, link,
-                                           &link_route_drop_handler);
+                                route_remove(route, link,
+                                           &link_route_remove_handler);
                         }
                 }
 
@@ -214,7 +219,7 @@ static int dhcp_lease_lost(Link *link) {
                         address->in_addr.in = addr;
                         address->prefixlen = prefixlen;
 
-                        address_drop(address, link, &link_address_drop_handler);
+                        address_remove(address, link, &link_address_remove_handler);
                 }
         }
 
@@ -250,6 +255,7 @@ static int dhcp_lease_lost(Link *link) {
         }
 
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
+        link_dirty(link);
         link->dhcp4_configured = false;
 
         return 0;
@@ -267,7 +273,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                 log_link_error_errno(link, r, "Could not set DHCPv4 address: %m");
                 link_enter_failed(link);
         } else if (r >= 0)
-                link_rtnl_process_address(rtnl, m, link->manager);
+                manager_rtnl_process_address(rtnl, m, link->manager);
 
         link_set_dhcp_routes(link);
 
@@ -288,7 +294,7 @@ static int dhcp4_update_address(Link *link,
 
         prefixlen = in_addr_netmask_to_prefixlen(netmask);
 
-        r = address_new_dynamic(&addr);
+        r = address_new(&addr);
         if (r < 0)
                 return r;
 
@@ -299,9 +305,9 @@ static int dhcp4_update_address(Link *link,
         addr->prefixlen = prefixlen;
         addr->broadcast.s_addr = address->s_addr | ~netmask->s_addr;
 
-        /* use update rather than configure so that we will update the
-         * lifetime of an existing address if it has already been configured */
-        r = address_update(addr, link, &dhcp4_address_handler);
+        /* allow reusing an existing address and simply update its lifetime
+         * in case it already exists */
+        r = address_configure(addr, link, &dhcp4_address_handler, true);
         if (r < 0)
                 return r;
 
@@ -326,6 +332,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         sd_dhcp_lease_unref(link->dhcp_lease);
         link->dhcp4_configured = false;
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
+        link_dirty(link);
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0)
@@ -403,6 +410,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                            NULL);
 
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
+        link_dirty(link);
 
         if (link->network->dhcp_mtu) {
                 uint16_t mtu;
@@ -528,9 +536,11 @@ int dhcp4_configure(Link *link) {
         assert(link->network);
         assert(link->network->dhcp & ADDRESS_FAMILY_IPV4);
 
-        r = sd_dhcp_client_new(&link->dhcp_client);
-        if (r < 0)
-                return r;
+        if (!link->dhcp_client) {
+                r = sd_dhcp_client_new(&link->dhcp_client);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
         if (r < 0)

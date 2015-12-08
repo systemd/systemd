@@ -21,21 +21,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
 #include <pthread.h>
-
-#include "hashmap.h"
-#include "prioq.h"
-#include "list.h"
-#include "util.h"
-#include "refcnt.h"
-#include "socket-util.h"
+#include <sys/socket.h>
 
 #include "sd-bus.h"
+
 #include "bus-error.h"
-#include "bus-match.h"
 #include "bus-kernel.h"
+#include "bus-match.h"
+#include "hashmap.h"
 #include "kdbus.h"
+#include "list.h"
+#include "prioq.h"
+#include "refcnt.h"
+#include "socket-util.h"
+#include "util.h"
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
@@ -381,7 +381,7 @@ char *bus_address_escape(const char *v);
  * bus from the callback doesn't destroy the object we are working
  * on */
 #define BUS_DONT_DESTROY(bus) \
-        _cleanup_bus_unref_ _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
+        _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
 
 int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);

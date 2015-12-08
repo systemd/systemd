@@ -17,16 +17,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <fnmatch.h>
 #include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "udev.h"
 #include "sd-hwdb.h"
 
+#include "alloc-util.h"
 #include "hwdb-util.h"
+#include "string-util.h"
 #include "udev-util.h"
+#include "udev.h"
 
 static sd_hwdb *hwdb;
 

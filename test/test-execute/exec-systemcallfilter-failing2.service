@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for SystemCallFilter
+
+[Service]
+ExecStart=/bin/echo "This should not be seen"
+Type=oneshot
+SystemCallFilter=~write open execve exit_group close mmap munmap fstat DONOTEXIST

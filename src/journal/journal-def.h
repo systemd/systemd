@@ -21,11 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sparse-endian.h"
-
-#include "systemd/sd-id128.h"
+#include "sd-id128.h"
 
 #include "macro.h"
+#include "sparse-endian.h"
 
 /*
  * If you change this file you probably should also change its documentation:

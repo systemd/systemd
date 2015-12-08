@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [227],
+        [228],
         [http://github.com/systemd/systemd/issues],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -93,7 +93,6 @@ AC_PROG_GREP
 AC_PROG_AWK
 
 AC_PATH_PROG([M4], [m4])
-AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon], [$PATH:/usr/sbin:/sbin])
 AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck], [$PATH:/usr/sbin:/sbin])
@@ -282,7 +281,6 @@ AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 
 # ------------------------------------------------------------------------------
 
-AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
 AC_CHECK_HEADERS([linux/btrfs.h], [], [])
 AC_CHECK_HEADERS([linux/memfd.h], [], [])
@@ -294,6 +292,7 @@ save_LIBS="$LIBS"
 LIBS=
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
 CAP_LIBS="$LIBS"
+LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
 AC_CHECK_FUNCS([memfd_create])
@@ -531,25 +530,27 @@ AC_SUBST(CERTIFICATEROOT)
 # ------------------------------------------------------------------------------
 have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
-if test "x$enable_xz" != "xno"; then
+AS_IF([test "x$enable_xz" != "xno"], [
         PKG_CHECK_MODULES(XZ, [ liblzma ],
-                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
-        if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
-                AC_MSG_ERROR([*** XZ support requested but libraries not found])
-        fi
-fi
+                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available])
+                 have_xz=yes],
+                 have_xz=no)
+        AS_IF([test "x$have_xz" = xno -a "x$enable_xz" = xyes],
+              [AC_MSG_ERROR([*** XZ support requested but libraries not found])])
+])
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_zlib=no
 AC_ARG_ENABLE(zlib, AS_HELP_STRING([--disable-zlib], [Disable optional ZLIB support]))
-if test "x$enable_zlib" != "xno"; then
+AS_IF([test "x$enable_zlib" != "xno"], [
         PKG_CHECK_MODULES(ZLIB, [ zlib ],
-                [AC_DEFINE(HAVE_ZLIB, 1, [Define if ZLIB is available]) have_zlib=yes], have_zlib=no)
-        if test "x$have_zlib" = xno -a "x$enable_zlib" = xyes; then
-                AC_MSG_ERROR([*** ZLIB support requested but libraries not found])
-        fi
-fi
+                [AC_DEFINE(HAVE_ZLIB, 1, [Define if ZLIB is available])
+                 have_zlib=yes],
+                 have_zlib=no)
+        AS_IF([test "x$have_zlib" = xno -a "x$enable_zlib" = xyes],
+              [AC_MSG_ERROR([*** ZLIB support requested but libraries not found])])
+])
 AM_CONDITIONAL(HAVE_ZLIB, [test "$have_zlib" = "yes"])
 
 # ------------------------------------------------------------------------------
@@ -557,20 +558,24 @@ have_bzip2=no
 AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Disable optional BZIP2 support]))
 AS_IF([test "x$enable_bzip2" != "xno"], [
         AC_CHECK_HEADERS(bzlib.h,
-                [AC_DEFINE(HAVE_BZIP2, 1, [Define in BZIP2 is available])
+                [AC_DEFINE(HAVE_BZIP2, 1, [Define if BZIP2 is available])
                  have_bzip2=yes],
-                [AS_IF([test "x$have_bzip2" = xyes], [AC_MSG_ERROR([*** BZIP2 support requested but headers not found])])
-        ])
+                [AS_IF([test "x$enable_bzip2" = xyes],
+                       [AC_MSG_ERROR([*** BZIP2 support requested but headers not found])])]
+        )
 ])
 AM_CONDITIONAL(HAVE_BZIP2, [test "$have_bzip2" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_lz4=no
-AC_ARG_ENABLE(lz4, AS_HELP_STRING([--enable-lz4], [Enable optional LZ4 support]))
-AS_IF([test "x$enable_lz4" = "xyes"], [
-        AC_CHECK_HEADERS(lz4.h,
-               [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available]) have_lz4=yes],
-               [AC_MSG_ERROR([*** LZ4 support requested but headers not found])])
+AC_ARG_ENABLE(lz4, AS_HELP_STRING([--disable-lz4], [Disable optional LZ4 support]))
+AS_IF([test "x$enable_lz4" != "xno"], [
+        PKG_CHECK_MODULES(LZ4, [ liblz4 >= 125 ],
+               [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available])
+                have_lz4=yes],
+                have_lz4=no)
+        AS_IF([test "x$have_lz4" = xno -a "x$enable_lz4" = xyes],
+              [AC_MSG_ERROR([*** LZ4 support requested but libraries not found])])
 ])
 AM_CONDITIONAL(HAVE_LZ4, [test "$have_lz4" = "yes"])
 
@@ -787,14 +792,6 @@ if test "x${have_elfutils}" != xno ; then
                 [],
                 [if test "x$have_elfutils" = xyes ; then
                         AC_MSG_ERROR([*** ELFUTILS headers not found.])
-                fi])
-
-        AC_CHECK_LIB(
-                [dw],
-                [dwfl_begin],
-                [],
-                [if test "x$have_elfutils" = xyes ; then
-                        AC_MSG_ERROR([*** ELFUTILS libs not found.])
                 fi])
 
         AC_CHECK_LIB(
@@ -1107,10 +1104,12 @@ AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
 # ------------------------------------------------------------------------------
 have_resolved=no
 AC_ARG_ENABLE(resolved, AS_HELP_STRING([--disable-resolved], [disable resolve daemon]))
-if test "x$enable_resolved" != "xno"; then
+AS_IF([test "x$enable_resolved" != "xno"], [
+        AC_CHECK_LIB([dl], [dlsym], [true], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
+
         have_resolved=yes
         M4_DEFINES="$M4_DEFINES -DENABLE_RESOLVED"
-fi
+])
 AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
 
 AC_ARG_WITH(dns-servers,
@@ -1286,7 +1285,12 @@ AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
 # ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
-AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
+AS_IF([test "x$enable_manpages" != xno], [
+       have_manpages=yes
+       AC_PATH_PROG([XSLTPROC], [xsltproc])
+       AS_IF([test -z "$XSLTPROC"],
+             AC_MSG_ERROR([*** xsltproc is required for man pages]))
+])
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------

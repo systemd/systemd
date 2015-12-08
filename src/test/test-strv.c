@@ -22,9 +22,11 @@
 
 #include <string.h>
 
-#include "util.h"
+#include "alloc-util.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
+#include "util.h"
 
 static void test_specifier_printf(void) {
         static const Specifier table[] = {

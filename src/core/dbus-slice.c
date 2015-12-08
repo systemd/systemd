@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "unit.h"
-#include "slice.h"
 #include "dbus-cgroup.h"
 #include "dbus-slice.h"
+#include "slice.h"
+#include "unit.h"
 
 const sd_bus_vtable bus_slice_vtable[] = {
         SD_BUS_VTABLE_START(0),

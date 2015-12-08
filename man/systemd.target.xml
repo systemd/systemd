@@ -77,15 +77,19 @@
     See
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
 
     <para>Unless <varname>DefaultDependencies=</varname> is set to
-    <option>false</option>, target units will implicitly complement
-    all configured dependencies of type <varname>Wants=</varname>,
-    <varname>Requires=</varname>,
-    <varname>RequiresOverridable=</varname> with dependencies of type
-    <varname>After=</varname> if the units in question also have
-    <varname>DefaultDependencies=true</varname>.
-    </para>
+    <option>no</option>, target units will implicitly complement all
+    configured dependencies of type <varname>Wants=</varname>,
+    <varname>Requires=</varname> with dependencies of type
+    <varname>After=</varname>, unless an ordering dependency of any
+    kind between the target and the respective other unit is already
+    in place. Note that this behaviour is disabled if either unit has
+    <varname>DefaultDependencies=no</varname>.</para>
   </refsect1>
 
   <refsect1>

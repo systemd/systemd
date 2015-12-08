@@ -19,14 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <fcntl.h>
 
+#include "fd-util.h"
+#include "fileio.h"
 #include "macro.h"
-#include "util.h"
 #include "mmap-cache.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         int x, y, z, r;

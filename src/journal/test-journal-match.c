@@ -21,14 +21,16 @@
 
 #include <stdio.h>
 
-#include "systemd/sd-journal.h"
+#include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "journal-internal.h"
-#include "util.h"
 #include "log.h"
+#include "string-util.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_journal_close_ sd_journal*j;
+        _cleanup_(sd_journal_closep) sd_journal*j = NULL;
         _cleanup_free_ char *t;
 
         log_set_max_level(LOG_DEBUG);

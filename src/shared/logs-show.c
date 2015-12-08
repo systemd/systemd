@@ -19,25 +19,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <time.h>
 #include <errno.h>
-#include <sys/socket.h>
-#include <string.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <syslog.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "logs-show.h"
-#include "log.h"
-#include "util.h"
-#include "utf8.h"
-#include "hashmap.h"
-#include "journal-internal.h"
+#include "sd-id128.h"
+#include "sd-journal.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "process-util.h"
-#include "terminal-util.h"
+#include "hashmap.h"
 #include "hostname-util.h"
+#include "io-util.h"
+#include "journal-internal.h"
+#include "log.h"
+#include "logs-show.h"
+#include "macro.h"
+#include "output-mode.h"
+#include "parse-util.h"
+#include "process-util.h"
+#include "sparse-endian.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
+#include "utf8.h"
+#include "util.h"
 
-/* up to three lines (each up to 100 characters),
-   or 300 characters, whichever is less */
+/* up to three lines (each up to 100 characters) or 300 characters, whichever is less */
 #define PRINT_LINE_THRESHOLD 3
 #define PRINT_CHAR_THRESHOLD 300
 
@@ -1236,7 +1253,7 @@ int show_journal_by_unit(
                 bool system_unit,
                 bool *ellipsized) {
 
-        _cleanup_journal_close_ sd_journal*j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert(mode >= 0);

@@ -25,6 +25,7 @@
 ***/
 
 #include <stdbool.h>
+
 #include "list.h"
 
 #define MAXCPUS        16

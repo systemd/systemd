@@ -19,19 +19,37 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <linux/fs.h>
-#include <sys/statfs.h>
-
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "hashmap.h"
+#include "lockfile-util.h"
+#include "log.h"
+#include "macro.h"
+#include "machine-image.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "utf8.h"
-
-#include "machine-image.h"
+#include "util.h"
+#include "xattr-util.h"
 
 static const char image_search_path[] =
         "/var/lib/machines\0"
@@ -176,11 +194,10 @@ static int image_make(
                                 return r;
                         if (r) {
                                 BtrfsSubvolInfo info;
-                                BtrfsQuotaInfo quota;
 
                                 /* It's a btrfs subvolume */
 
-                                r = btrfs_subvol_get_info_fd(fd, &info);
+                                r = btrfs_subvol_get_info_fd(fd, 0, &info);
                                 if (r < 0)
                                         return r;
 
@@ -195,13 +212,17 @@ static int image_make(
                                 if (r < 0)
                                         return r;
 
-                                r = btrfs_subvol_get_quota_fd(fd, &quota);
-                                if (r >= 0) {
-                                        (*ret)->usage = quota.referenced;
-                                        (*ret)->usage_exclusive = quota.exclusive;
+                                if (btrfs_quota_scan_ongoing(fd) == 0) {
+                                        BtrfsQuotaInfo quota;
 
-                                        (*ret)->limit = quota.referenced_max;
-                                        (*ret)->limit_exclusive = quota.exclusive_max;
+                                        r = btrfs_subvol_get_subtree_quota_fd(fd, 0, &quota);
+                                        if (r >= 0) {
+                                                (*ret)->usage = quota.referenced;
+                                                (*ret)->usage_exclusive = quota.exclusive;
+
+                                                (*ret)->limit = quota.referenced_max;
+                                                (*ret)->limit_exclusive = quota.exclusive_max;
+                                        }
                                 }
 
                                 return 1;
@@ -397,7 +418,7 @@ int image_remove(Image *i) {
         switch (i->type) {
 
         case IMAGE_SUBVOLUME:
-                r = btrfs_subvol_remove(i->path, true);
+                r = btrfs_subvol_remove(i->path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (r < 0)
                         return r;
                 break;
@@ -587,7 +608,12 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_DIRECTORY:
                 new_path = strjoina("/var/lib/machines/", new_name);
 
-                r = btrfs_subvol_snapshot(i->path, new_path, (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE);
+                r = btrfs_subvol_snapshot(i->path, new_path, (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
+
+                /* Enable "subtree" quotas for the copy, if we didn't
+                 * copy any quota from the source. */
+                (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
+
                 break;
 
         case IMAGE_RAW:
@@ -629,6 +655,10 @@ int image_read_only(Image *i, bool b) {
         switch (i->type) {
 
         case IMAGE_SUBVOLUME:
+
+                /* Note that we set the flag only on the top-level
+                 * subvolume of the image. */
+
                 r = btrfs_subvol_set_read_only(i->path, b);
                 if (r < 0)
                         return r;
@@ -729,7 +759,14 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
         if (i->type != IMAGE_SUBVOLUME)
                 return -EOPNOTSUPP;
 
-        return btrfs_quota_limit(i->path, referenced_max);
+        /* We set the quota both for the subvolume as well as for the
+         * subtree. The latter is mostly for historical reasons, since
+         * we didn't use to have a concept of subtree quota, and hence
+         * only modified the subvolume quota. */
+
+        (void) btrfs_qgroup_set_limit(i->path, 0, referenced_max);
+        (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
+        return btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {

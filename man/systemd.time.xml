@@ -82,8 +82,8 @@
       <listitem><para>hours, hour, hr, h</para></listitem>
       <listitem><para>days, day, d</para></listitem>
       <listitem><para>weeks, week, w</para></listitem>
-      <listitem><para>months, month</para></listitem>
-      <listitem><para>years, year, y</para></listitem>
+      <listitem><para>months, month, M (defined as 30.44 days)</para></listitem>
+      <listitem><para>years, year, y (define as 365.25 days)</para></listitem>
     </itemizedlist>
 
     <para>If no time unit is specified, generally seconds are assumed,
@@ -117,11 +117,12 @@
   <refsect1>
     <title>Parsing Timestamps</title>
 
-    <para>When parsing systemd will accept a similar timestamp syntax,
-    but excluding any timezone specification (this limitation might be
-    removed eventually). The weekday specification is optional, but
-    when the weekday is specified it must either be in the abbreviated
-    (<literal>Wed</literal>) or non-abbreviated
+    <para>When parsing, systemd will accept a similar syntax, but
+    expects no timezone specification, unless it is given as the
+    literal string "UTC". In this case, the time is considered in UTC,
+    otherwise in the local timezone. The weekday specification is
+    optional, but when the weekday is specified, it must either be in
+    the abbreviated (<literal>Wed</literal>) or non-abbreviated
     (<literal>Wednesday</literal>) English language form (case does
     not matter), and is not subject to the locale choice of the user.
     Either the date, or the time part may be omitted, in which case
@@ -138,8 +139,8 @@
     placeholders instead of timestamps: <literal>now</literal> may be
     used to refer to the current time (or of the invocation of the
     command that is currently executed). <literal>today</literal>,
-    <literal>yesterday</literal>, <literal>tomorrow</literal> refer to
-    00:00:00 of the current day, the day before or the next day,
+    <literal>yesterday</literal>, and <literal>tomorrow</literal> refer to
+    00:00:00 of the current day, the day before, or the next day,
     respectively.</para>
 
     <para>When parsing, systemd will also accept relative time
@@ -157,27 +158,34 @@
     00:00.</para>
 
     <para>Examples for valid timestamps and their normalized form
-    (assuming the current time was 2012-11-23 18:15:22):</para>
+    (assuming the current time was 2012-11-23 18:15:22 and the timezone
+    was UTC+8, for example TZ=Asia/Shanghai):</para>
 
     <programlisting>Fri 2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
     2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
-       2012-11-23 → Fri 2012-11-23 00:00:00
-         12-11-23 → Fri 2012-11-23 00:00:00
-         11:12:13 → Fri 2012-11-23 11:12:13
-      11:12 → Fri 2012-11-23 11:12:00
-        now → Fri 2012-11-23 18:15:22
-      today → Fri 2012-11-23 00:00:00
-        yesterday → Fri 2012-11-22 00:00:00
-         tomorrow → Fri 2012-11-24 00:00:00
-         +3h30min → Fri 2012-11-23 21:45:22
-        -5s → Fri 2012-11-23 18:15:17
-        11min ago → Fri 2012-11-23 18:04:22
-      @1395716396 → Tue 2014-03-25 03:59:56</programlisting>
+2012-11-23 11:12:13 UTC → Fri 2012-11-23 19:12:13
+             2012-11-23 → Fri 2012-11-23 00:00:00
+               12-11-23 → Fri 2012-11-23 00:00:00
+               11:12:13 → Fri 2012-11-23 11:12:13
+       11:12:13.9900009 → Fri 2012-11-23 11:12:13
+                          format_timestamp_us: Fri 2012-11-23 11:12:13.990000
+                  11:12 → Fri 2012-11-23 11:12:00
+                    now → Fri 2012-11-23 18:15:22
+                  today → Fri 2012-11-23 00:00:00
+              today UTC → Fri 2012-11-23 16:00:00
+              yesterday → Fri 2012-11-22 00:00:00
+               tomorrow → Fri 2012-11-24 00:00:00
+               +3h30min → Fri 2012-11-23 21:45:22
+           +3h30min UTC → -EINVAL
+                    -5s → Fri 2012-11-23 18:15:17
+              11min ago → Fri 2012-11-23 18:04:22
+          11min ago UTC → -EINVAL
+            @1395716396 → Tue 2014-03-25 03:59:56</programlisting>
 
     <para>Note that timestamps printed by systemd will not be parsed
     correctly by systemd, as the timezone specification is not
     accepted, and printing timestamps is subject to locale settings
-    for the weekday while parsing only accepts English weekday
+    for the weekday, while parsing only accepts English weekday
     names.</para>
 
     <para>In some cases, systemd will display a relative timestamp
@@ -221,12 +229,17 @@
     the value and all values plus multiples of the repetition value
     are matched.</para>
 
+    <para>The seconds component may contain decimal fractions both in
+    the value and the repetition. All fractions are rounded to 6
+    decimal places.</para>
+
     <para>Either time or date specification may be omitted, in which
     case the current day and 00:00:00 is implied, respectively. If the
     second component is not specified, <literal>:00</literal> is
     assumed.</para>
 
-    <para>Timezone names may not be specified.</para>
+    <para>A timezone specification is not expected, unless it is given
+    as the literal string "UTC", similarly to timestamps.</para>
 
     <para>The special expressions
     <literal>minutely</literal>,
@@ -242,8 +255,8 @@
     <literal>*-*-01 00:00:00</literal>,
     <literal>Mon *-*-* 00:00:00</literal>,
     <literal>*-01-01 00:00:00</literal>,
-    <literal>*-01,04,07,10-01 00:00:0</literal> and
-    <literal>*-01,07-01 00:00:00</literal> respectively.
+    <literal>*-01,04,07,10-01 00:00:00</literal> and
+    <literal>*-01,07-01 00:00:00</literal>, respectively.
     </para>
 
     <para>Examples for valid timestamps and their
@@ -251,31 +264,34 @@
 
 <programlisting>   Sat,Thu,Mon-Wed,Sat-Sun → Mon-Thu,Sat,Sun *-*-* 00:00:00
      Mon,Sun 12-*-* 2,1:23 → Mon,Sun 2012-*-* 01,02:23:00
-       Wed *-1 → Wed *-*-01 00:00:00
-     Wed-Wed,Wed *-1 → Wed *-*-01 00:00:00
-    Wed, 17:48 → Wed *-*-* 17:48:00
+                   Wed *-1 → Wed *-*-01 00:00:00
+           Wed-Wed,Wed *-1 → Wed *-*-01 00:00:00
+                Wed, 17:48 → Wed *-*-* 17:48:00
 Wed-Sat,Tue 12-10-15 1:2:3 → Tue-Sat 2012-10-15 01:02:03
-         *-*-7 0:0:0 → *-*-07 00:00:00
-         10-15 → *-10-15 00:00:00
+               *-*-7 0:0:0 → *-*-07 00:00:00
+                     10-15 → *-10-15 00:00:00
        monday *-12-* 17:00 → Mon *-12-* 17:00:00
  Mon,Fri *-*-3,1,2 *:30:45 → Mon,Fri *-*-01,02,03 *:30:45
       12,14,13,12:20,10,30 → *-*-* 12,13,14:10,20,30:00
  mon,fri *-1/2-1,3 *:30:45 → Mon,Fri *-01/2-01,03 *:30:45
-      03-05 08:05:40 → *-03-05 08:05:40
-      08:05:40 → *-*-* 08:05:40
-         05:40 → *-*-* 05:40:00
+            03-05 08:05:40 → *-03-05 08:05:40
+                  08:05:40 → *-*-* 08:05:40
+                     05:40 → *-*-* 05:40:00
     Sat,Sun 12-05 08:05:40 → Sat,Sun *-12-05 08:05:40
-    Sat,Sun 08:05:40 → Sat,Sun *-*-* 08:05:40
-    2003-03-05 05:40 → 2003-03-05 05:40:00
-    2003-03-05 → 2003-03-05 00:00:00
-         03-05 → *-03-05 00:00:00
-        hourly → *-*-* *:00:00
-         daily → *-*-* 00:00:00
-       monthly → *-*-01 00:00:00
-        weekly → Mon *-*-* 00:00:00
-        yearly → *-01-01 00:00:00
-      annually → *-01-01 00:00:00
-         *:2/3 → *-*-* *:02/3:00</programlisting>
+          Sat,Sun 08:05:40 → Sat,Sun *-*-* 08:05:40
+          2003-03-05 05:40 → 2003-03-05 05:40:00
+05:40:23.4200004/3.1700005 → 05:40:23.420000/3.170001
+      2003-03-05 05:40 UTC → 2003-03-05 05:40:00 UTC
+                2003-03-05 → 2003-03-05 00:00:00
+                     03-05 → *-03-05 00:00:00
+                    hourly → *-*-* *:00:00
+                     daily → *-*-* 00:00:00
+                 daily UTC → *-*-* 00:00:00 UTC
+                   monthly → *-*-01 00:00:00
+                    weekly → Mon *-*-* 00:00:00
+                    yearly → *-01-01 00:00:00
+                  annually → *-01-01 00:00:00
+                     *:2/3 → *-*-* *:02/3:00</programlisting>
 
       <para>Calendar events are used by timer units, see
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>

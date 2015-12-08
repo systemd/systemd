@@ -17,22 +17,38 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <sys/types.h>
-#include <string.h>
-#include <stdio.h>
-#include <assert.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <signal.h>
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
+#include <linux/oom.h>
+#include <sched.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/personality.h>
+#include <sys/prctl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <syslog.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
+#include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
-#include "util.h"
+#include "fs-util.h"
+#include "ioprio.h"
 #include "log.h"
-#include "signal-util.h"
+#include "macro.h"
+#include "missing.h"
 #include "process-util.h"
+#include "signal-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "user-util.h"
+#include "util.h"
 
 int get_process_state(pid_t pid) {
         const char *p;
@@ -172,6 +188,37 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
         *line = r;
         return 0;
+}
+
+void rename_process(const char name[8]) {
+        assert(name);
+
+        /* This is a like a poor man's setproctitle(). It changes the
+         * comm field, argv[0], and also the glibc's internally used
+         * name of the process. For the first one a limit of 16 chars
+         * applies, to the second one usually one of 10 (i.e. length
+         * of "/sbin/init"), to the third one one of 7 (i.e. length of
+         * "systemd"). If you pass a longer string it will be
+         * truncated */
+
+        prctl(PR_SET_NAME, name);
+
+        if (program_invocation_name)
+                strncpy(program_invocation_name, name, strlen(program_invocation_name));
+
+        if (saved_argc > 0) {
+                int i;
+
+                if (saved_argv[0])
+                        strncpy(saved_argv[0], name, strlen(saved_argv[0]));
+
+                for (i = 1; i < saved_argc; i++) {
+                        if (!saved_argv[i])
+                                break;
+
+                        memzero(saved_argv[i], strlen(saved_argv[i]));
+                }
+        }
 }
 
 int is_kernel_thread(pid_t pid) {
@@ -364,7 +411,7 @@ int get_process_environ(pid_t pid, char **env) {
         return 0;
 }
 
-int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
+int get_process_ppid(pid_t pid, pid_t *_ppid) {
         int r;
         _cleanup_free_ char *line = NULL;
         long unsigned ppid;
@@ -476,6 +523,16 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_cod
         return -EPROTO;
 }
 
+void sigkill_wait(pid_t *pid) {
+        if (!pid)
+                return;
+        if (*pid <= 1)
+                return;
+
+        if (kill(*pid, SIGKILL) > 0)
+                (void) wait_for_terminate(*pid, NULL);
+}
+
 int kill_and_sigcont(pid_t pid, int sig) {
         int r;
 
@@ -547,8 +604,11 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
 bool pid_is_unwaited(pid_t pid) {
         /* Checks whether a PID is still valid at all, including a zombie */
 
-        if (pid <= 0)
+        if (pid < 0)
                 return false;
+
+        if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
+                return true;
 
         if (kill(pid, 0) >= 0)
                 return true;
@@ -561,8 +621,11 @@ bool pid_is_alive(pid_t pid) {
 
         /* Checks whether a PID is still valid and not a zombie */
 
-        if (pid <= 0)
+        if (pid < 0)
                 return false;
+
+        if (pid <= 1) /* If we or PID 1 would be a zombie, this code would not be running */
+                return true;
 
         r = get_process_state(pid);
         if (r == -ESRCH || r == 'Z')
@@ -570,3 +633,129 @@ bool pid_is_alive(pid_t pid) {
 
         return true;
 }
+
+bool is_main_thread(void) {
+        static thread_local int cached = 0;
+
+        if (_unlikely_(cached == 0))
+                cached = getpid() == gettid() ? 1 : -1;
+
+        return cached > 0;
+}
+
+noreturn void freeze(void) {
+
+        /* Make sure nobody waits for us on a socket anymore */
+        close_all_fds(NULL, 0);
+
+        sync();
+
+        for (;;)
+                pause();
+}
+
+bool oom_score_adjust_is_valid(int oa) {
+        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
+}
+
+unsigned long personality_from_string(const char *p) {
+
+        /* Parse a personality specifier. We introduce our own
+         * identifiers that indicate specific ABIs, rather than just
+         * hints regarding the register size, since we want to keep
+         * things open for multiple locally supported ABIs for the
+         * same register size. We try to reuse the ABI identifiers
+         * used by libseccomp. */
+
+#if defined(__x86_64__)
+
+        if (streq(p, "x86"))
+                return PER_LINUX32;
+
+        if (streq(p, "x86-64"))
+                return PER_LINUX;
+
+#elif defined(__i386__)
+
+        if (streq(p, "x86"))
+                return PER_LINUX;
+
+#elif defined(__s390x__)
+
+        if (streq(p, "s390"))
+                return PER_LINUX32;
+
+        if (streq(p, "s390x"))
+                return PER_LINUX;
+
+#elif defined(__s390__)
+
+        if (streq(p, "s390"))
+                return PER_LINUX;
+#endif
+
+        return PERSONALITY_INVALID;
+}
+
+const char* personality_to_string(unsigned long p) {
+
+#if defined(__x86_64__)
+
+        if (p == PER_LINUX32)
+                return "x86";
+
+        if (p == PER_LINUX)
+                return "x86-64";
+
+#elif defined(__i386__)
+
+        if (p == PER_LINUX)
+                return "x86";
+
+#elif defined(__s390x__)
+
+        if (p == PER_LINUX)
+                return "s390x";
+
+        if (p == PER_LINUX32)
+                return "s390";
+
+#elif defined(__s390__)
+
+        if (p == PER_LINUX)
+                return "s390";
+
+#endif
+
+        return NULL;
+}
+
+static const char *const ioprio_class_table[] = {
+        [IOPRIO_CLASS_NONE] = "none",
+        [IOPRIO_CLASS_RT] = "realtime",
+        [IOPRIO_CLASS_BE] = "best-effort",
+        [IOPRIO_CLASS_IDLE] = "idle"
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, INT_MAX);
+
+static const char *const sigchld_code_table[] = {
+        [CLD_EXITED] = "exited",
+        [CLD_KILLED] = "killed",
+        [CLD_DUMPED] = "dumped",
+        [CLD_TRAPPED] = "trapped",
+        [CLD_STOPPED] = "stopped",
+        [CLD_CONTINUED] = "continued",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
+
+static const char* const sched_policy_table[] = {
+        [SCHED_OTHER] = "other",
+        [SCHED_BATCH] = "batch",
+        [SCHED_IDLE] = "idle",
+        [SCHED_FIFO] = "fifo",
+        [SCHED_RR] = "rr"
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);

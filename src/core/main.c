@@ -37,23 +37,26 @@
 #include <valgrind/valgrind.h>
 #endif
 
-#include "sd-daemon.h"
 #include "sd-bus.h"
+#include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "dbus-manager.h"
 #include "def.h"
 #include "env-util.h"
+#include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hostname-setup.h"
 #include "ima-setup.h"
 #include "killall.h"
@@ -66,15 +69,21 @@
 #include "missing.h"
 #include "mount-setup.h"
 #include "pager.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
+#include "stat-util.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "switch-root.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -116,7 +125,8 @@ static FILE* arg_serialization = NULL;
 static bool arg_default_cpu_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
-static bool arg_default_tasks_accounting = false;
+static bool arg_default_tasks_accounting = true;
+static uint64_t arg_default_tasks_max = UINT64_C(512);
 
 static void pager_open_if_enabled(void) {
 
@@ -292,20 +302,6 @@ static int parse_crash_chvt(const char *value) {
 
 static int parse_proc_cmdline_item(const char *key, const char *value) {
 
-        static const char * const rlmap[] = {
-                "emergency", SPECIAL_EMERGENCY_TARGET,
-                "-b",        SPECIAL_EMERGENCY_TARGET,
-                "rescue",    SPECIAL_RESCUE_TARGET,
-                "single",    SPECIAL_RESCUE_TARGET,
-                "-s",        SPECIAL_RESCUE_TARGET,
-                "s",         SPECIAL_RESCUE_TARGET,
-                "S",         SPECIAL_RESCUE_TARGET,
-                "1",         SPECIAL_RESCUE_TARGET,
-                "2",         SPECIAL_MULTI_USER_TARGET,
-                "3",         SPECIAL_MULTI_USER_TARGET,
-                "4",         SPECIAL_MULTI_USER_TARGET,
-                "5",         SPECIAL_GRAPHICAL_TARGET,
-        };
         int r;
 
         assert(key);
@@ -406,12 +402,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         log_set_target(LOG_TARGET_CONSOLE);
 
         } else if (!in_initrd() && !value) {
-                unsigned i;
+                const char *target;
 
                 /* SysV compatibility */
-                for (i = 0; i < ELEMENTSOF(rlmap); i += 2)
-                        if (streq(key, rlmap[i]))
-                                return free_and_strdup(&arg_default_unit, rlmap[i+1]);
+                target = runlevel_to_target(key);
+                if (target)
+                        return free_and_strdup(&arg_default_unit, target);
         }
 
         return 0;
@@ -662,33 +658,40 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval", config_parse_sec,              0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",    config_parse_unsigned,         0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",        config_parse_environ,          0, &arg_default_environment               },
-                { "Manager", "DefaultLimitCPU",           config_parse_limit,            0, &arg_default_rlimit[RLIMIT_CPU]        },
-                { "Manager", "DefaultLimitFSIZE",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_FSIZE]      },
-                { "Manager", "DefaultLimitDATA",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_DATA]       },
-                { "Manager", "DefaultLimitSTACK",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_STACK]      },
-                { "Manager", "DefaultLimitCORE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_CORE]       },
-                { "Manager", "DefaultLimitRSS",           config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RSS]        },
+                { "Manager", "DefaultLimitCPU",           config_parse_sec_limit,        0, &arg_default_rlimit[RLIMIT_CPU]        },
+                { "Manager", "DefaultLimitFSIZE",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_FSIZE]      },
+                { "Manager", "DefaultLimitDATA",          config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_DATA]       },
+                { "Manager", "DefaultLimitSTACK",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_STACK]      },
+                { "Manager", "DefaultLimitCORE",          config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_CORE]       },
+                { "Manager", "DefaultLimitRSS",           config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_RSS]        },
                 { "Manager", "DefaultLimitNOFILE",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NOFILE]     },
-                { "Manager", "DefaultLimitAS",            config_parse_limit,            0, &arg_default_rlimit[RLIMIT_AS]         },
+                { "Manager", "DefaultLimitAS",            config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_AS]         },
                 { "Manager", "DefaultLimitNPROC",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NPROC]      },
-                { "Manager", "DefaultLimitMEMLOCK",       config_parse_limit,            0, &arg_default_rlimit[RLIMIT_MEMLOCK]    },
+                { "Manager", "DefaultLimitMEMLOCK",       config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_MEMLOCK]    },
                 { "Manager", "DefaultLimitLOCKS",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_LOCKS]      },
                 { "Manager", "DefaultLimitSIGPENDING",    config_parse_limit,            0, &arg_default_rlimit[RLIMIT_SIGPENDING] },
-                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_limit,            0, &arg_default_rlimit[RLIMIT_MSGQUEUE]   },
+                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_MSGQUEUE]   },
                 { "Manager", "DefaultLimitNICE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NICE]       },
                 { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTPRIO]     },
-                { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTTIME]     },
+                { "Manager", "DefaultLimitRTTIME",        config_parse_usec_limit,       0, &arg_default_rlimit[RLIMIT_RTTIME]     },
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
                 { "Manager", "DefaultTasksAccounting",    config_parse_bool,             0, &arg_default_tasks_accounting          },
+                { "Manager", "DefaultTasksMax",           config_parse_tasks_max,        0, &arg_default_tasks_max                 },
                 {}
         };
 
         const char *fn, *conf_dirs_nulstr;
 
-        fn = arg_running_as == MANAGER_SYSTEM ? PKGSYSCONFDIR "/system.conf" : PKGSYSCONFDIR "/user.conf";
-        conf_dirs_nulstr = arg_running_as == MANAGER_SYSTEM ? CONF_DIRS_NULSTR("systemd/system.conf") : CONF_DIRS_NULSTR("systemd/user.conf");
+        fn = arg_running_as == MANAGER_SYSTEM ?
+                PKGSYSCONFDIR "/system.conf" :
+                PKGSYSCONFDIR "/user.conf";
+
+        conf_dirs_nulstr = arg_running_as == MANAGER_SYSTEM ?
+                CONF_PATHS_NULSTR("systemd/system.conf.d") :
+                CONF_PATHS_NULSTR("systemd/user.conf.d");
+
         config_parse_many(fn, conf_dirs_nulstr, "Manager\0",
                           config_item_table_lookup, items, false, NULL);
 
@@ -711,6 +714,7 @@ static void manager_set_defaults(Manager *m) {
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;
+        m->default_tasks_max = arg_default_tasks_max;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
         manager_environment_add(m, NULL, arg_default_environment);
@@ -1104,33 +1108,6 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static void test_mtab(void) {
-
-        static const char ok[] =
-                "/proc/self/mounts\0"
-                "/proc/mounts\0"
-                "../proc/self/mounts\0"
-                "../proc/mounts\0";
-
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        /* Check that /etc/mtab is a symlink to the right place or
-         * non-existing. But certainly not a file, or a symlink to
-         * some weird place... */
-
-        r = readlink_malloc("/etc/mtab", &p);
-        if (r == -ENOENT)
-                return;
-        if (r >= 0 && nulstr_contains(ok, p))
-                return;
-
-        log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
-                  "This is not supported anymore. "
-                  "Please replace /etc/mtab with a symlink to /proc/self/mounts.");
-        freeze_or_reboot();
-}
-
 static void test_usr(void) {
 
         /* Check that /usr is not a separate fs */
@@ -1233,12 +1210,50 @@ static int status_welcome(void) {
 
 static int write_container_id(void) {
         const char *c;
+        int r;
 
         c = getenv("container");
         if (isempty(c))
                 return 0;
 
-        return write_string_file("/run/systemd/container", c, WRITE_STRING_FILE_CREATE);
+        r = write_string_file("/run/systemd/container", c, WRITE_STRING_FILE_CREATE);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to write /run/systemd/container, ignoring: %m");
+
+        return 1;
+}
+
+static int bump_unix_max_dgram_qlen(void) {
+        _cleanup_free_ char *qlen = NULL;
+        unsigned long v;
+        int r;
+
+        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel
+         * default of 16 is simply too low. We set the value really
+         * really early during boot, so that it is actually applied to
+         * all our sockets, including the $NOTIFY_SOCKET one. */
+
+        r = read_one_line_file("/proc/sys/net/unix/max_dgram_qlen", &qlen);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read AF_UNIX datagram queue length, ignoring: %m");
+
+        r = safe_atolu(qlen, &v);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse AF_UNIX datagram queue length, ignoring: %m");
+
+        if (v >= DEFAULT_UNIX_MAX_DGRAM_QLEN)
+                return 0;
+
+        qlen = mfree(qlen);
+        if (asprintf(&qlen, "%lu\n", DEFAULT_UNIX_MAX_DGRAM_QLEN) < 0)
+                return log_oom();
+
+        r = write_string_file("/proc/sys/net/unix/max_dgram_qlen", qlen, 0);
+        if (r < 0)
+                return log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to bump AF_UNIX datagram queue length, ignoring: %m");
+
+        return 1;
 }
 
 int main(int argc, char *argv[]) {
@@ -1604,8 +1619,8 @@ int main(int argc, char *argv[]) {
                 hostname_setup();
                 machine_id_setup(NULL);
                 loopback_setup();
+                bump_unix_max_dgram_qlen();
 
-                test_mtab();
                 test_usr();
         }
 
@@ -1650,7 +1665,7 @@ int main(int argc, char *argv[]) {
                 if (empty_etc) {
                         r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, false, NULL, 0);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to populate /etc with preset unit settings, ignoring: %m");
+                                log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r, "Failed to populate /etc with preset unit settings, ignoring: %m");
                         else
                                 log_info("Populated /etc with preset unit settings.");
                 }
@@ -1692,7 +1707,7 @@ int main(int argc, char *argv[]) {
         arg_serialization = safe_fclose(arg_serialization);
 
         if (queue_default_job) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 Unit *target = NULL;
                 Job *default_unit_job;
 
@@ -1732,11 +1747,13 @@ int main(int argc, char *argv[]) {
                         manager_dump_units(m, stdout, "\t");
                 }
 
-                r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, false, &error, &default_unit_job);
+                r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &default_unit_job);
                 if (r == -EPERM) {
                         log_debug("Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
-                        r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
+                        sd_bus_error_free(&error);
+
+                        r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &default_unit_job);
                         if (r < 0) {
                                 log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
                                 error_message = "Failed to start default target";

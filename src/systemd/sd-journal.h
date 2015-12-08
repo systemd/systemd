@@ -23,12 +23,13 @@
 ***/
 
 #include <inttypes.h>
-#include <sys/types.h>
 #include <stdarg.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #include <syslog.h>
 
 #include "sd-id128.h"
+
 #include "_sd-common.h"
 
 /* Journal APIs. See sd-journal(3) for more information. */
@@ -153,6 +154,8 @@ int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **text);
 
 #define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
         for (sd_journal_restart_unique(j); sd_journal_enumerate_unique((j), &(data), &(l)) > 0; )
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_journal, sd_journal_close);
 
 _SD_END_DECLARATIONS;
 

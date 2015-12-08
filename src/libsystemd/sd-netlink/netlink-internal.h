@@ -23,13 +23,12 @@
 
 #include <linux/netlink.h>
 
-#include "refcnt.h"
-#include "prioq.h"
-#include "list.h"
-
 #include "sd-netlink.h"
 
+#include "list.h"
 #include "netlink-types.h"
+#include "prioq.h"
+#include "refcnt.h"
 
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
@@ -63,6 +62,9 @@ struct sd_netlink {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
         } sockaddr;
+
+        Hashmap *broadcast_group_refs;
+        bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
 
         sd_netlink_message **rqueue;
         unsigned rqueue_size;
@@ -124,7 +126,8 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
 
 int socket_open(int family);
 int socket_bind(sd_netlink *nl);
-int socket_join_broadcast_group(sd_netlink *nl, unsigned group);
+int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
+int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
 int socket_read_message(sd_netlink *nl);
 
@@ -132,5 +135,5 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
 
 /* Make sure callbacks don't destroy the rtnl connection */
-#define RTNL_DONT_DESTROY(rtnl) \
-        _cleanup_netlink_unref_ _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)
+#define NETLINK_DONT_DESTROY(rtnl) \
+        _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)

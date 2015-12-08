@@ -19,8 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
+#include <errno.h>
+#include <string.h>
+
+#include "alloc-util.h"
+#include "btrfs-util.h"
 #include "import-util.h"
+#include "log.h"
+#include "macro.h"
+#include "path-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "util.h"
 
 int import_url_last_component(const char *url, char **ret) {
         const char *e, *p;
@@ -200,4 +210,30 @@ bool dkr_id_is_valid(const char *id) {
                 return false;
 
         return true;
+}
+
+int import_assign_pool_quota_and_warn(const char *path) {
+        int r;
+
+        r = btrfs_subvol_auto_qgroup("/var/lib/machines", 0, true);
+        if (r == -ENOTTY)  {
+                log_debug_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, as directory is not on btrfs or not a subvolume. Ignoring.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines: %m");
+        if (r > 0)
+                log_info("Set up default quota hierarchy for /var/lib/machines.");
+
+        r = btrfs_subvol_auto_qgroup(path, 0, true);
+        if (r == -ENOTTY) {
+                log_debug_errno(r, "Failed to set up quota hierarchy for %s, as directory is not on btrfs or not a subvolume. Ignoring.", path);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up default quota hierarchy for %s: %m", path);
+        if (r > 0)
+                log_info("Set up default quota hierarchy for %s.", path);
+
+        return 0;
 }

@@ -21,11 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-
-#include <lzma.h>
-#include <zlib.h>
 #include <bzlib.h>
+#include <lzma.h>
+#include <sys/types.h>
+#include <zlib.h>
 
 #include "macro.h"
 

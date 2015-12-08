@@ -90,6 +90,15 @@
   </refsect1>
 
   <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Units with the <varname>Slice=</varname> setting set get
+    automatic <varname>Requires=</varname> and
+    <varname>After=</varname> dependencies on the specified slice
+    unit.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>Units of the types listed above can have settings
@@ -189,7 +198,7 @@
           or T, the specified memory size is parsed as Kilobytes,
           Megabytes, Gigabytes, or Terabytes (with the base 1024),
           respectively. If assigned the special value
-          <literal>infinity</literal> no memory limit is applied. This
+          <literal>infinity</literal>, no memory limit is applied. This
           controls the <literal>memory.limit_in_bytes</literal>
           control group attribute. For details about this control
           group attribute, see <ulink
@@ -226,13 +235,16 @@
           created in the unit. This ensures that the number of tasks
           accounted for the unit (see above) stays below a specific
           limit. If assigned the special value
-          <literal>infinity</literal> no tasks limit is applied. This
+          <literal>infinity</literal>, no tasks limit is applied. This
           controls the <literal>pids.max</literal> control group
           attribute. For details about this control group attribute,
           see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/pids.txt">pids.txt</ulink>.</para>
 
-          <para>Implies <literal>TasksAccounting=true</literal>.</para>
+          <para>Implies <literal>TasksAccounting=true</literal>. The
+          system default for this setting may be controlled with
+          <varname>DefaultTasksMax=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -240,8 +252,8 @@
         <term><varname>BlockIOAccounting=</varname></term>
 
         <listitem>
-          <para>Turn on Block IO accounting for this unit. Takes a
-          boolean argument. Note that turning on block IO accounting
+          <para>Turn on Block I/O accounting for this unit. Takes a
+          boolean argument. Note that turning on block I/O accounting
           for one unit will also implicitly turn it on for all units
           contained in the same slice and all for its parent slices
           and the units contained therein. The system default for this
@@ -255,15 +267,15 @@
         <term><varname>BlockIOWeight=<replaceable>weight</replaceable></varname></term>
         <term><varname>StartupBlockIOWeight=<replaceable>weight</replaceable></varname></term>
 
-        <listitem><para>Set the default overall block IO weight for
+        <listitem><para>Set the default overall block I/O weight for
         the executed processes. Takes a single weight value (between
-        10 and 1000) to set the default block IO weight. This controls
+        10 and 1000) to set the default block I/O weight. This controls
         the <literal>blkio.weight</literal> control group attribute,
         which defaults to 500. For details about this control group
         attribute, see <ulink
         url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
-        The available IO bandwidth is split up among all units within
-        one slice relative to their block IO weight.</para>
+        The available I/O bandwidth is split up among all units within
+        one slice relative to their block I/O weight.</para>
 
         <para>While <varname>StartupBlockIOWeight=</varname> only
         applies to the startup phase of the system,
@@ -281,7 +293,7 @@
         <term><varname>BlockIODeviceWeight=<replaceable>device</replaceable> <replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Set the per-device overall block IO weight for the
+          <para>Set the per-device overall block I/O weight for the
           executed processes. Takes a space-separated pair of a file
           path and a weight value to specify the device specific
           weight value, between 10 and 1000. (Example: "/dev/sda
@@ -305,7 +317,7 @@
         <term><varname>BlockIOWriteBandwidth=<replaceable>device</replaceable> <replaceable>bytes</replaceable></varname></term>
 
         <listitem>
-          <para>Set the per-device overall block IO bandwidth limit
+          <para>Set the per-device overall block I/O bandwidth limit
           for the executed processes. Takes a space-separated pair of
           a file path and a bandwidth value (in bytes per second) to
           specify the device specific bandwidth. The file path may be
@@ -412,6 +424,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NetClass=</varname></term>
+        <listitem><para>Configures a network class number to assign to the
+        unit. This value will be set to the
+        <literal>net_cls.class_id</literal> property of the
+        <literal>net_cls</literal> cgroup of the unit. The directive
+        accepts a numerical value (for fixed number assignment) and the keyword
+        <literal>auto</literal> (for dynamic allocation). Network traffic of
+        all processes inside the unit will have the network class ID assigned
+        by the kernel. Also see
+        the kernel docs for
+        <ulink url="https://www.kernel.org/doc/Documentation/cgroups/net_cls.txt">net_cls controller</ulink>
+        and
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Slice=</varname></term>
 
         <listitem>
@@ -440,9 +469,9 @@
           <para>Turns on delegation of further resource control
           partitioning to processes of the unit. For unprivileged
           services (i.e. those using the <varname>User=</varname>
-          setting) this allows processes to create a subhierarchy
+          setting), this allows processes to create a subhierarchy
           beneath its control group path. For privileged services and
-          scopes this ensures the processes will have all control
+          scopes, this ensures the processes will have all control
           group controllers enabled.</para>
         </listitem>
       </varlistentry>

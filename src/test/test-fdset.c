@@ -20,9 +20,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "fd-util.h"
 #include "fdset.h"
-#include "util.h"
+#include "fileio.h"
 #include "macro.h"
+#include "util.h"
 
 static void test_fdset_new_fill(void) {
         int fd = -1;

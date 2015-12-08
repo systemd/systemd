@@ -19,9 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <sys/types.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -70,9 +71,6 @@ const char *default_term_for_tty(const char *tty);
 int make_stdio(int fd);
 int make_null_stdio(void);
 int make_console_stdio(void);
-
-int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) _printf_(4,0);
-int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) _printf_(4,5);
 
 int fd_columns(int fd);
 unsigned columns(void);

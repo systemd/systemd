@@ -108,7 +108,7 @@
         on. Note that whether network time synchronization is on
         simply reflects whether the
         <filename>systemd-timesyncd.service</filename> unit is
-        enabled. Even if this command shows the status as off a
+        enabled. Even if this command shows the status as off, a
         different service might still synchronize the clock with the
         network.</para></listitem>
       </varlistentry>
@@ -179,10 +179,10 @@
 
         <para>Note that even if time synchronization is turned off
         with this command, another unrelated system service might
-        still synchronize the clock with the network. Also note that
-        strictly speaking
+        still synchronize the clock with the network. Also note that,
+        strictly speaking,
         <filename>systemd-timesyncd.service</filename> does more than
-        just network time synchronization as it ensures a monotonic
+        just network time synchronization, as it ensures a monotonic
         clock on systems without RTC even if no network is
         available. See
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>

@@ -19,19 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <pwd.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
 #include <linux/vt.h>
 
-#include "strv.h"
-#include "cgroup-util.h"
-#include "bus-util.h"
+#include "alloc-util.h"
 #include "bus-error.h"
-#include "udev-util.h"
+#include "bus-util.h"
+#include "cgroup-util.h"
+#include "fd-util.h"
 #include "logind.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "udev-util.h"
+#include "user-util.h"
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;
@@ -95,15 +98,16 @@ int manager_add_session(Manager *m, const char *id, Session **_session) {
 
 int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user) {
         User *u;
+        int r;
 
         assert(m);
         assert(name);
 
         u = hashmap_get(m->users, UID_TO_PTR(uid));
         if (!u) {
-                u = user_new(m, uid, gid, name);
-                if (!u)
-                        return -ENOMEM;
+                r = user_new(&u, m, uid, gid, name);
+                if (r < 0)
+                        return r;
         }
 
         if (_user)
@@ -400,7 +404,7 @@ static int vt_is_busy(unsigned int vtnr) {
 }
 
 int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char name[sizeof("autovt@tty.service") + DECIMAL_STR_MAX(unsigned int)];
         int r;
 

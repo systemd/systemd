@@ -55,7 +55,7 @@
     <title>Description</title>
 
     <para><filename>systemd-remount-fs.service</filename> is an
-    early-boot service that applies mount options listed in
+    early boot service that applies mount options listed in
     <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     to the root file system, the <filename>/usr</filename> file system,
     and the kernel API file systems. This is required so that the

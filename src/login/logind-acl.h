@@ -21,9 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <stdbool.h>
-#include <libudev.h>
+#include <sys/types.h>
+
+#include "libudev.h"
 
 #ifdef HAVE_ACL
 

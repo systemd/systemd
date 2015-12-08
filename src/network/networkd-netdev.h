@@ -26,8 +26,8 @@
 typedef struct NetDev NetDev;
 typedef struct NetDevVTable NetDevVTable;
 
-#include "networkd.h"
 #include "networkd-link.h"
+#include "networkd.h"
 
 typedef struct netdev_join_callback netdev_join_callback;
 
@@ -103,16 +103,16 @@ struct NetDev {
         LIST_HEAD(netdev_join_callback, callbacks);
 };
 
-#include "networkd-netdev-bridge.h"
 #include "networkd-netdev-bond.h"
-#include "networkd-netdev-vlan.h"
-#include "networkd-netdev-macvlan.h"
-#include "networkd-netdev-ipvlan.h"
-#include "networkd-netdev-vxlan.h"
-#include "networkd-netdev-veth.h"
-#include "networkd-netdev-tunnel.h"
+#include "networkd-netdev-bridge.h"
 #include "networkd-netdev-dummy.h"
+#include "networkd-netdev-ipvlan.h"
+#include "networkd-netdev-macvlan.h"
+#include "networkd-netdev-tunnel.h"
 #include "networkd-netdev-tuntap.h"
+#include "networkd-netdev-veth.h"
+#include "networkd-netdev-vlan.h"
+#include "networkd-netdev-vxlan.h"
 
 struct NetDevVTable {
         /* How much memory does an object of this unit type need */

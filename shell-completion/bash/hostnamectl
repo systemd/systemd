@@ -38,7 +38,7 @@ _hostnamectl() {
         local -A VERBS=(
                 [STANDALONE]='status'
                      [ICONS]='set-icon-name'
-                      [NAME]='set-hostname set-deployment'
+                      [NAME]='set-hostname set-deployment set-location'
                    [CHASSIS]='set-chassis'
         )
 

@@ -21,21 +21,33 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #ifdef HAVE_XZ
-#  include <lzma.h>
+#include <lzma.h>
 #endif
 
 #ifdef HAVE_LZ4
-#  include <lz4.h>
+#include <lz4.h>
+#include <lz4frame.h>
 #endif
 
+#include "alloc-util.h"
 #include "compress.h"
-#include "macro.h"
-#include "util.h"
-#include "sparse-endian.h"
+#include "fd-util.h"
+#include "io-util.h"
 #include "journal-def.h"
+#include "macro.h"
+#include "sparse-endian.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "util.h"
+
+#ifdef HAVE_LZ4
+DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_compressionContext_t, LZ4F_freeCompressionContext);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_decompressionContext_t, LZ4F_freeDecompressionContext);
+#endif
 
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
 
@@ -50,10 +62,11 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
 #ifdef HAVE_XZ
         static const lzma_options_lzma opt = {
                 1u << 20u, NULL, 0, LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
-                LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3, 4};
-        static const lzma_filter filters[2] = {
-                {LZMA_FILTER_LZMA2, (lzma_options_lzma*) &opt},
-                {LZMA_VLI_UNKNOWN, NULL}
+                LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3, 4
+        };
+        static const lzma_filter filters[] = {
+                { LZMA_FILTER_LZMA2, (lzma_options_lzma*) &opt },
+                { LZMA_VLI_UNKNOWN, NULL }
         };
         lzma_ret ret;
         size_t out_pos = 0;
@@ -188,7 +201,7 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
                 return -EBADMSG;
 
         size = le64toh( *(le64_t*)src );
-        if (size < 0 || (le64_t) size != *(le64_t*)src)
+        if (size < 0 || (unsigned) size != le64toh(*(le64_t*)src))
                 return -EFBIG;
         if ((size_t) size > *dst_alloc_size) {
                 out = realloc(*dst, size);
@@ -416,81 +429,96 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 #endif
 }
 
-#define LZ4_BUFSIZE (512*1024)
+#define LZ4_BUFSIZE (512*1024u)
 
 int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 
 #ifdef HAVE_LZ4
+        LZ4F_errorCode_t c;
+        _cleanup_(LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
+        _cleanup_free_ char *buf = NULL;
+        char *src = NULL;
+        size_t size, n, total_in = 0, total_out = 0, offset = 0, frame_size;
+        struct stat st;
+        int r;
+        static const LZ4F_compressOptions_t options = {
+                .stableSrc = 1,
+        };
+        static const LZ4F_preferences_t preferences = {
+                .frameInfo.blockSizeID = 5,
+        };
 
-        _cleanup_free_ char *buf1 = NULL, *buf2 = NULL, *out = NULL;
-        char *buf;
-        LZ4_stream_t lz4_data = {};
-        le32_t header;
-        size_t total_in = 0, total_out = sizeof(header);
-        ssize_t n;
+        c = LZ4F_createCompressionContext(&ctx, LZ4F_VERSION);
+        if (LZ4F_isError(c))
+                return -ENOMEM;
 
-        assert(fdf >= 0);
-        assert(fdt >= 0);
+        if (fstat(fdf, &st) < 0)
+                return log_debug_errno(errno, "fstat() failed: %m");
 
-        buf1 = malloc(LZ4_BUFSIZE);
-        buf2 = malloc(LZ4_BUFSIZE);
-        out = malloc(LZ4_COMPRESSBOUND(LZ4_BUFSIZE));
-        if (!buf1 || !buf2 || !out)
-                return log_oom();
+        frame_size = LZ4F_compressBound(LZ4_BUFSIZE, &preferences);
+        size =  frame_size + 64*1024; /* add some space for header and trailer */
+        buf = malloc(size);
+        if (!buf)
+                return -ENOMEM;
 
-        buf = buf1;
-        for (;;) {
-                size_t m;
-                int r;
+        n = offset = LZ4F_compressBegin(ctx, buf, size, &preferences);
+        if (LZ4F_isError(n))
+                return -EINVAL;
 
-                m = LZ4_BUFSIZE;
-                if (max_bytes != (uint64_t) -1 && (uint64_t) m > (max_bytes - total_in))
-                        m = (size_t) (max_bytes - total_in);
+        src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fdf, 0);
+        if (src == MAP_FAILED)
+                return -errno;
 
-                n = read(fdf, buf, m);
-                if (n < 0)
-                        return -errno;
-                if (n == 0)
-                        break;
+        log_debug("Buffer size is %zu bytes, header size %zu bytes.", size, n);
 
-                total_in += n;
+        while (total_in < (size_t) st.st_size) {
+                ssize_t k;
 
-                r = LZ4_compress_continue(&lz4_data, buf, out, n);
-                if (r == 0) {
-                        log_error("LZ4 compression failed.");
-                        return -EBADMSG;
+                k = MIN(LZ4_BUFSIZE, st.st_size - total_in);
+                n = LZ4F_compressUpdate(ctx, buf + offset, size - offset,
+                                        src + total_in, k, &options);
+                if (LZ4F_isError(n)) {
+                        r = -ENOTRECOVERABLE;
+                        goto cleanup;
                 }
 
-                header = htole32(r);
-                errno = 0;
+                total_in += k;
+                offset += n;
+                total_out += n;
 
-                n = write(fdt, &header, sizeof(header));
-                if (n < 0)
-                        return -errno;
-                if (n != sizeof(header))
-                        return errno ? -errno : -EIO;
+                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
+                        log_debug("Compressed stream longer than %zd bytes", max_bytes);
+                        return -EFBIG;
+                }
 
-                n = loop_write(fdt, out, r, false);
-                if (n < 0)
-                        return n;
-
-                total_out += sizeof(header) + r;
-
-                buf = buf == buf1 ? buf2 : buf1;
+                if (size - offset < frame_size + 4) {
+                        k = loop_write(fdt, buf, offset, false);
+                        if (k < 0) {
+                                r = k;
+                                goto cleanup;
+                        }
+                        offset = 0;
+                }
         }
 
-        header = htole32(0);
-        n = write(fdt, &header, sizeof(header));
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(header))
-                return errno ? -errno : -EIO;
+        n = LZ4F_compressEnd(ctx, buf + offset, size - offset, &options);
+        if (LZ4F_isError(n)) {
+                r = -ENOTRECOVERABLE;
+                goto cleanup;
+        }
+
+        offset += n;
+        total_out += n;
+        r = loop_write(fdt, buf, offset, false);
+        if (r < 0)
+                goto cleanup;
 
         log_debug("LZ4 compression finished (%zu -> %zu bytes, %.1f%%)",
                   total_in, total_out,
                   (double) total_out / total_in * 100);
-
-        return 0;
+ cleanup:
+        munmap(src, st.st_size);
+        return r;
 #else
         return -EPROTONOSUPPORT;
 #endif
@@ -510,7 +538,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
         ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK) {
-                log_error("Failed to initialize XZ decoder: code %u", ret);
+                log_debug("Failed to initialize XZ decoder: code %u", ret);
                 return -ENOMEM;
         }
 
@@ -536,7 +564,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
                 ret = lzma_code(&s, action);
                 if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
-                        log_error("Decompression failed: code %u", ret);
+                        log_debug("Decompression failed: code %u", ret);
                         return -EBADMSG;
                 }
 
@@ -566,14 +594,14 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                 }
         }
 #else
-        log_error("Cannot decompress file. Compiled without XZ support.");
+        log_debug("Cannot decompress file. Compiled without XZ support.");
         return -EPROTONOSUPPORT;
 #endif
 }
 
-int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
-
 #ifdef HAVE_LZ4
+static int decompress_stream_lz4_v1(int fdf, int fdt, uint64_t max_bytes) {
+
         _cleanup_free_ char *buf = NULL, *out = NULL;
         size_t buf_size = 0;
         LZ4_streamDecode_t lz4_data = {};
@@ -585,7 +613,7 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 
         out = malloc(4*LZ4_BUFSIZE);
         if (!out)
-                return log_oom();
+                return -ENOMEM;
 
         for (;;) {
                 ssize_t m;
@@ -606,22 +634,24 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                  * not accept buffers compressed by newer binaries then.
                  */
                 if (m > LZ4_COMPRESSBOUND(LZ4_BUFSIZE * 4)) {
-                        log_error("Compressed stream block too big: %zd bytes", m);
-                        return -EBADMSG;
+                        log_debug("Compressed stream block too big: %zd bytes", m);
+                        return -ENOBUFS;
                 }
 
                 total_in += sizeof(header) + m;
 
                 if (!GREEDY_REALLOC(buf, buf_size, m))
-                        return log_oom();
+                        return -ENOMEM;
 
                 r = loop_read_exact(fdf, buf, m, false);
                 if (r < 0)
                         return r;
 
                 r = LZ4_decompress_safe_continue(&lz4_data, buf, out, m, 4*LZ4_BUFSIZE);
-                if (r <= 0)
-                        log_error("LZ4 decompression failed.");
+                if (r <= 0) {
+                        log_debug("LZ4 decompression failed (legacy format).");
+                        return -EBADMSG;
+                }
 
                 total_out += r;
 
@@ -635,13 +665,80 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                         return r;
         }
 
-        log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
+        log_debug("LZ4 decompression finished (legacy format, %zu -> %zu bytes, %.1f%%)",
                   total_in, total_out,
                   (double) total_out / total_in * 100);
 
         return 0;
+}
+
+static int decompress_stream_lz4_v2(int in, int out, uint64_t max_bytes) {
+        size_t c;
+        _cleanup_(LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
+        _cleanup_free_ char *buf = NULL;
+        char *src;
+        struct stat st;
+        int r = 0;
+        size_t total_in = 0, total_out = 0;
+
+        c = LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION);
+        if (LZ4F_isError(c))
+                return -ENOMEM;
+
+        if (fstat(in, &st) < 0)
+                return log_debug_errno(errno, "fstat() failed: %m");
+
+        buf = malloc(LZ4_BUFSIZE);
+        if (!buf)
+                return -ENOMEM;
+
+        src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, in, 0);
+        if (src == MAP_FAILED)
+                return -errno;
+
+        while (total_in < (size_t) st.st_size) {
+                size_t produced = LZ4_BUFSIZE;
+                size_t used = st.st_size - total_in;
+
+                c = LZ4F_decompress(ctx, buf, &produced, src + total_in, &used, NULL);
+                if (LZ4F_isError(c)) {
+                        r = -EBADMSG;
+                        goto cleanup;
+                }
+
+                total_in += used;
+                total_out += produced;
+
+                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
+                        log_debug("Decompressed stream longer than %zd bytes", max_bytes);
+                        r = -EFBIG;
+                        goto cleanup;
+                }
+
+                r = loop_write(out, buf, produced, false);
+                if (r < 0)
+                        goto cleanup;
+        }
+
+        log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
+                  total_in, total_out,
+                  (double) total_out / total_in * 100);
+ cleanup:
+        munmap(src, st.st_size);
+        return r;
+}
+#endif
+
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
+#ifdef HAVE_LZ4
+        int r;
+
+        r = decompress_stream_lz4_v2(fdf, fdt, max_bytes);
+        if (r == -EBADMSG)
+                r = decompress_stream_lz4_v1(fdf, fdt, max_bytes);
+        return r;
 #else
-        log_error("Cannot decompress file. Compiled without LZ4 support.");
+        log_debug("Cannot decompress file. Compiled without LZ4 support.");
         return -EPROTONOSUPPORT;
 #endif
 }

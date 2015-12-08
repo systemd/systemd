@@ -19,11 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "bus-util.h"
-#include "strv.h"
-
-#include "networkd.h"
 #include "networkd-link.h"
+#include "networkd.h"
+#include "parse-util.h"
+#include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_state, LinkState);
@@ -101,7 +102,7 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (r < 0)
                 return 0;
 
-        r = safe_atoi(identifier, &ifindex);
+        r = parse_ifindex(identifier, &ifindex);
         if (r < 0)
                 return 0;
 

@@ -22,15 +22,18 @@
 
 #include <arpa/inet.h>
 
-#include "siphash24.h"
-#include "hashmap.h"
-
-#include "lldp-tlv.h"
-#include "lldp-port.h"
 #include "sd-lldp.h"
-#include "prioq.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "hashmap.h"
 #include "lldp-internal.h"
-#include "lldp-util.h"
+#include "lldp-port.h"
+#include "lldp-tlv.h"
+#include "prioq.h"
+#include "siphash24.h"
+#include "string-util.h"
 
 typedef enum LLDPAgentRXState {
         LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL = 4,
@@ -648,10 +651,10 @@ int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata) {
         return 0;
 }
 
-void sd_lldp_free(sd_lldp *lldp) {
+sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
 
         if (!lldp)
-                return;
+                return NULL;
 
         /* Drop all packets */
         lldp_mib_objects_flush(lldp);
@@ -662,13 +665,14 @@ void sd_lldp_free(sd_lldp *lldp) {
         prioq_free(lldp->by_expiry);
 
         free(lldp);
+        return NULL;
 }
 
 int sd_lldp_new(int ifindex,
                 const char *ifname,
                 const struct ether_addr *mac,
                 sd_lldp **ret) {
-        _cleanup_lldp_free_ sd_lldp *lldp = NULL;
+        _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;
         int r;
 
         assert_return(ret, -EINVAL);

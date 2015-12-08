@@ -22,7 +22,7 @@
 -->
 
 <refentry id="systemd-detect-virt"
-    xmlns:xi="http://www.w3.org/2001/XInclude">
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-detect-virt</title>
@@ -62,7 +62,7 @@
     technology and can distinguish full VM virtualization from
     container virtualization. <filename>systemd-detect-virt</filename>
     exits with a return value of 0 (success) if a virtualization
-    technology is detected, and non-zero (error) otherwise. By default
+    technology is detected, and non-zero (error) otherwise. By default,
     any type of virtualization is detected, and the options
     <option>--container</option> and <option>--vm</option> can be used
     to limit what types of virtualization are detected.</para>
@@ -81,87 +81,92 @@
         <colspec colname="product" />
         <thead>
           <row>
-      <entry>Type</entry>
-      <entry>ID</entry>
-      <entry>Product</entry>
+            <entry>Type</entry>
+            <entry>ID</entry>
+            <entry>Product</entry>
           </row>
         </thead>
         <tbody>
           <row>
-      <entry morerows="9">VM</entry>
-      <entry><varname>qemu</varname></entry>
-      <entry>QEMU software virtualization</entry>
+            <entry morerows="9">VM</entry>
+            <entry><varname>qemu</varname></entry>
+            <entry>QEMU software virtualization</entry>
           </row>
 
           <row>
-      <entry><varname>kvm</varname></entry>
-      <entry>Linux KVM kernel virtual machine</entry>
+            <entry><varname>kvm</varname></entry>
+            <entry>Linux KVM kernel virtual machine</entry>
           </row>
 
           <row>
-      <entry><varname>zvm</varname></entry>
-      <entry>s390 z/VM</entry>
+            <entry><varname>zvm</varname></entry>
+            <entry>s390 z/VM</entry>
           </row>
 
           <row>
-      <entry><varname>vmware</varname></entry>
-      <entry>VMware Workstation or Server, and related products</entry>
+            <entry><varname>vmware</varname></entry>
+            <entry>VMware Workstation or Server, and related products</entry>
           </row>
 
           <row>
-      <entry><varname>microsoft</varname></entry>
-      <entry>Hyper-V, also known as Viridian or Windows Server Virtualization</entry>
+            <entry><varname>microsoft</varname></entry>
+            <entry>Hyper-V, also known as Viridian or Windows Server Virtualization</entry>
           </row>
 
           <row>
-      <entry><varname>oracle</varname></entry>
-      <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems)</entry>
+            <entry><varname>oracle</varname></entry>
+            <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems)</entry>
           </row>
 
           <row>
-      <entry><varname>xen</varname></entry>
-      <entry>Xen hypervisor (only domU, not dom0)</entry>
+            <entry><varname>xen</varname></entry>
+            <entry>Xen hypervisor (only domU, not dom0)</entry>
           </row>
 
           <row>
-      <entry><varname>bochs</varname></entry>
-      <entry>Bochs Emulator</entry>
+            <entry><varname>bochs</varname></entry>
+            <entry>Bochs Emulator</entry>
           </row>
 
           <row>
-      <entry><varname>uml</varname></entry>
-      <entry>User-mode Linux</entry>
+            <entry><varname>uml</varname></entry>
+            <entry>User-mode Linux</entry>
           </row>
 
           <row>
-      <entry><varname>parallels</varname></entry>
-      <entry>Parallels Desktop, Parallels Server</entry>
+            <entry><varname>parallels</varname></entry>
+            <entry>Parallels Desktop, Parallels Server</entry>
           </row>
 
           <row>
-      <entry morerows="5">container</entry>
-      <entry><varname>openvz</varname></entry>
-      <entry>OpenVZ/Virtuozzo</entry>
+            <entry morerows="5">Container</entry>
+            <entry><varname>openvz</varname></entry>
+            <entry>OpenVZ/Virtuozzo</entry>
           </row>
 
           <row>
-      <entry><varname>lxc</varname></entry>
-      <entry>Linux container implementation by LXC</entry>
+            <entry><varname>lxc</varname></entry>
+            <entry>Linux container implementation by LXC</entry>
           </row>
 
           <row>
-      <entry><varname>lxc-libvirt</varname></entry>
-      <entry>Linux container implementation by libvirt</entry>
+            <entry><varname>lxc-libvirt</varname></entry>
+            <entry>Linux container implementation by libvirt</entry>
           </row>
 
           <row>
-       <entry><varname>systemd-nspawn</varname></entry>
-       <entry>systemd's minimal container implementation, see <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></entry>
+            <entry><varname>systemd-nspawn</varname></entry>
+            <entry>systemd's minimal container implementation, see <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></entry>
           </row>
 
           <row>
-      <entry><varname>docker</varname></entry>
-      <entry>Docker container manager</entry>
+            <entry><varname>docker</varname></entry>
+            <entry>Docker container manager</entry>
+          </row>
+
+          <row>
+            <entry><varname>rkt</varname></entry>
+            <entry>rkt app container runtime</entry>
           </row>
         </tbody>
       </tgroup>
@@ -197,6 +202,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--chroot</option></term>
+
+        <listitem><para>Detect whether invoked in a
+        <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        environment. In this mode, no output is written, but the return
+        value indicates whether the process was invoked in a
+        <function>chroot()</function>
+        environment or not.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
@@ -221,7 +238,8 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -26,19 +26,24 @@
 #include <shadow.h>
 #include <utmp.h>
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "def.h"
+#include "fd-util.h"
 #include "fileio-label.h"
 #include "formats-util.h"
 #include "hashmap.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "smack-util.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
 #include "uid-range.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "smack-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
@@ -67,7 +72,7 @@ typedef struct Item {
 
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysusers");
+static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysusers.d");
 
 static Hashmap *users = NULL, *groups = NULL;
 static Hashmap *todo_uids = NULL, *todo_gids = NULL;
@@ -938,7 +943,7 @@ static int add_user(Item *i) {
                 }
         }
 
-        /* Otherwise try to reuse the group ID */
+        /* Otherwise, try to reuse the group ID */
         if (!i->uid_set && i->gid_set) {
                 r = uid_is_ok((uid_t) i->gid, i->name);
                 if (r < 0)
@@ -1762,7 +1767,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -1779,12 +1784,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        free(arg_root);
-                        arg_root = path_make_absolute_cwd(optarg);
-                        if (!arg_root)
-                                return log_oom();
-
-                        path_kill_slashes(arg_root);
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -1859,7 +1861,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        lock = take_password_lock(arg_root);
+        lock = take_etc_passwd_lock(arg_root);
         if (lock < 0) {
                 log_error_errno(lock, "Failed to take lock: %m");
                 goto finish;

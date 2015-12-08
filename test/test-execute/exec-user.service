@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for User
+
+[Service]
+ExecStart=/bin/sh -x -c 'test "$$USER" = "nobody"'
+Type=oneshot
+User=nobody

@@ -19,25 +19,31 @@
 ***/
 
 #include <ctype.h>
-#include <sys/types.h>
 #include <net/if.h>
-
-#include "util.h"
-#include "macro.h"
-#include "refcnt.h"
-#include "path-util.h"
-#include "strxcpyx.h"
-#include "fileio.h"
-#include "hashmap.h"
-#include "set.h"
-#include "strv.h"
-#include "mkdir.h"
+#include <sys/types.h>
 
 #include "sd-device.h"
 
-#include "device-util.h"
+#include "alloc-util.h"
 #include "device-internal.h"
 #include "device-private.h"
+#include "device-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "hashmap.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "refcnt.h"
+#include "set.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "strxcpyx.h"
+#include "user-util.h"
+#include "util.h"
 
 int device_add_property(sd_device *device, const char *key, const char *value) {
         int r;
@@ -547,7 +553,7 @@ static int device_verify(sd_device *device, DeviceAction action, uint64_t seqnum
 }
 
 int device_new_from_strv(sd_device **ret, char **strv) {
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char **key;
         const char *major = NULL, *minor = NULL;
         DeviceAction action = _DEVICE_ACTION_INVALID;
@@ -584,7 +590,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
 }
 
 int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *major = NULL, *minor = NULL;
         DeviceAction action = _DEVICE_ACTION_INVALID;
         uint64_t seqnum;
@@ -787,7 +793,7 @@ int device_rename(sd_device *device, const char *name) {
 }
 
 int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
-        _cleanup_device_unref_ sd_device *ret = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
         int r;
 
         assert(old_device);
@@ -814,7 +820,7 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
 }
 
 int device_clone_with_db(sd_device *old_device, sd_device **new_device) {
-        _cleanup_device_unref_ sd_device *ret = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
         int r;
 
         assert(old_device);
@@ -837,7 +843,7 @@ int device_clone_with_db(sd_device *old_device, sd_device **new_device) {
 }
 
 int device_new_from_synthetic_event(sd_device **new_device, const char *syspath, const char *action) {
-        _cleanup_device_unref_ sd_device *ret = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
         int r;
 
         assert(new_device);

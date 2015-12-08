@@ -29,11 +29,11 @@
 
 #include "sd-id128.h"
 
-#include "sparse-endian.h"
+#include "hashmap.h"
 #include "journal-def.h"
 #include "macro.h"
 #include "mmap-cache.h"
-#include "hashmap.h"
+#include "sparse-endian.h"
 
 typedef struct JournalMetrics {
         /* For all these: -1 means "pick automatically", and 0 means "no limit enforced" */
@@ -235,3 +235,8 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec);
 
 int journal_file_map_data_hash_table(JournalFile *f);
 int journal_file_map_field_hash_table(JournalFile *f);
+
+static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
+        assert(f);
+        return f->compress_xz || f->compress_lz4;
+}

@@ -15,19 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stddef.h>
-#include <string.h>
 #include <errno.h>
-#include <signal.h>
 #include <getopt.h>
-#include <time.h>
-#include <sys/time.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/epoll.h>
+#include <sys/time.h>
+#include <time.h>
 
-#include "udev.h"
-#include "udev-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "udev-util.h"
+#include "udev.h"
 
 static bool udev_exit;
 

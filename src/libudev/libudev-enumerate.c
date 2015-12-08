@@ -18,22 +18,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <errno.h>
-#include <string.h>
 #include <dirent.h>
+#include <errno.h>
 #include <fnmatch.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 
 #include "libudev.h"
-#include "libudev-device-internal.h"
 #include "sd-device.h"
-#include "device-util.h"
-#include "device-enumerator-private.h"
 
+#include "alloc-util.h"
+#include "device-enumerator-private.h"
+#include "device-util.h"
+#include "libudev-device-internal.h"
 
 /**
  * SECTION:libudev-enumerate
@@ -369,7 +370,7 @@ _public_ int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumer
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath) {
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
         assert_return(udev_enumerate, -EINVAL);

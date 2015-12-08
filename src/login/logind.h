@@ -22,20 +22,21 @@
 ***/
 
 #include <stdbool.h>
-#include <libudev.h>
 
-#include "sd-event.h"
+#include "libudev.h"
 #include "sd-bus.h"
-#include "list.h"
+#include "sd-event.h"
+
 #include "hashmap.h"
+#include "list.h"
 #include "set.h"
 
 typedef struct Manager Manager;
 
+#include "logind-action.h"
+#include "logind-button.h"
 #include "logind-device.h"
 #include "logind-inhibit.h"
-#include "logind-button.h"
-#include "logind-action.h"
 
 struct Manager {
         sd_event *event;
@@ -133,6 +134,7 @@ struct Manager {
         sd_event_source *lid_switch_ignore_event_source;
 
         size_t runtime_dir_size;
+        uint64_t user_tasks_max;
 };
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device);
@@ -170,7 +172,8 @@ int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name
 
 int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *after2, sd_bus_error *error, char **job);
+int manager_start_slice(Manager *manager, const char *slice, const char *description, const char *after, const char *after2, uint64_t tasks_max, sd_bus_error *error, char **job);
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *after2, uint64_t tasks_max, sd_bus_error *error, char **job);
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error);

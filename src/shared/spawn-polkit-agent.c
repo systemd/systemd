@@ -19,16 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
 #include <errno.h>
 #include <poll.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include "fd-util.h"
+#include "io-util.h"
 #include "log.h"
-#include "util.h"
+#include "macro.h"
 #include "process-util.h"
 #include "spawn-polkit-agent.h"
+#include "stdio-util.h"
+#include "time-util.h"
+#include "util.h"
 
 #ifdef ENABLE_POLKIT
 static pid_t agent_pid = 0;
@@ -76,8 +81,9 @@ void polkit_agent_close(void) {
                 return;
 
         /* Inform agent that we are done */
-        kill(agent_pid, SIGTERM);
-        kill(agent_pid, SIGCONT);
+        (void) kill(agent_pid, SIGTERM);
+        (void) kill(agent_pid, SIGCONT);
+
         (void) wait_for_terminate(agent_pid, NULL);
         agent_pid = 0;
 }

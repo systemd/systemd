@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for CapabilityBoundingSet
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(capsh --print | grep "Bounding set "); test "$$c" = "Bounding set =cap_fowner,cap_kill"'
+Type=oneshot
+CapabilityBoundingSet=CAP_FOWNER CAP_KILL

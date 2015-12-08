@@ -1,6 +1,0 @@
-[Unit]
-Description=Test for Group
-
-[Service]
-ExecStart=/bin/sh -c 'exit $(test $(id -n -g) = nobody)'
-Group=nobody

@@ -28,17 +28,23 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "compress.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "journal-internal.h"
 #include "log.h"
 #include "macro.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static enum {
@@ -84,37 +90,35 @@ static Set *new_matches(void) {
 }
 
 static int add_match(Set *set, const char *match) {
-        int r = -ENOMEM;
-        unsigned pid;
-        const char* prefix;
-        char *pattern = NULL;
         _cleanup_free_ char *p = NULL;
+        char *pattern = NULL;
+        const char* prefix;
+        pid_t pid;
+        int r;
 
         if (strchr(match, '='))
                 prefix = "";
         else if (strchr(match, '/')) {
-                p = path_make_absolute_cwd(match);
-                if (!p)
+                r = path_make_absolute_cwd(match, &p);
+                if (r < 0)
                         goto fail;
-
                 match = p;
                 prefix = "COREDUMP_EXE=";
-        }
-        else if (safe_atou(match, &pid) == 0)
+        } else if (parse_pid(match, &pid) >= 0)
                 prefix = "COREDUMP_PID=";
         else
                 prefix = "COREDUMP_COMM=";
 
         pattern = strjoin(prefix, match, NULL);
-        if (!pattern)
+        if (!pattern) {
+                r = -ENOMEM;
                 goto fail;
+        }
 
         log_debug("Adding pattern: %s", pattern);
         r = set_consume(set, pattern);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add pattern: %m");
+        if (r < 0)
                 goto fail;
-        }
 
         return 0;
 fail:
@@ -613,7 +617,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         fdt = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
                         if (fdt < 0)
-                                return log_error_errno(errno, "Failed to create temporary file: %m");
+                                return log_error_errno(fdt, "Failed to create temporary file: %m");
                         log_debug("Created temporary file %s", temp);
 
                         fd = fdt;
@@ -772,7 +776,7 @@ static int run_gdb(sd_journal *j) {
 
         r = wait_for_terminate(pid, &st);
         if (r < 0) {
-                log_error_errno(errno, "Failed to wait for gdb: %m");
+                log_error_errno(r, "Failed to wait for gdb: %m");
                 goto finish;
         }
 
@@ -788,7 +792,7 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_journal_close_ sd_journal*j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal*j = NULL;
         const char* match;
         Iterator it;
         int r = 0;

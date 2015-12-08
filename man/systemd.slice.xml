@@ -97,6 +97,14 @@
     url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
     Control Group Interfaces</ulink> for an introduction on how to make
     use of slice units from programs.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Slice units automatically gain dependencies of type
+    <varname>After=</varname> and <varname>Requires=</varname> on
+    their immediate parent slice unit.</para>
 
     <para>Unless <varname>DefaultDependencies=false</varname>
     is used, slice units will implicitly have dependencies of

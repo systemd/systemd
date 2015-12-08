@@ -12,6 +12,3 @@ DefaultDependencies=no
 Requires=systemd-exit.service
 After=systemd-exit.service
 AllowIsolate=yes
-
-[Install]
-Alias=ctrl-alt-del.target

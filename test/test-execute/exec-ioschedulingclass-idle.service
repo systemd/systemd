@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for IOSchedulingClass=idle
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "idle"'
+Type=oneshot
+IOSchedulingClass=idle

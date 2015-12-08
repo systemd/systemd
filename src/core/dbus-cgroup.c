@@ -19,11 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "bus-util.h"
-#include "path-util.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "dbus-cgroup.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "path-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
 
@@ -421,7 +424,9 @@ int bus_cgroup_set_property(
                                                 fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->bandwidth);
                         }
 
-                        fflush(f);
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
                         unit_write_drop_in_private(u, mode, name, buf);
                 }
 
@@ -495,7 +500,9 @@ int bus_cgroup_set_property(
                         LIST_FOREACH(device_weights, a, c->blockio_device_weights)
                                 fprintf(f, "BlockIODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
-                        fflush(f);
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
                         unit_write_drop_in_private(u, mode, name, buf);
                 }
 
@@ -640,7 +647,9 @@ int bus_cgroup_set_property(
                         LIST_FOREACH(device_allow, a, c->device_allow)
                                 fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
 
-                        fflush(f);
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
                         unit_write_drop_in_private(u, mode, name, buf);
                 }
 

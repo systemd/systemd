@@ -26,9 +26,10 @@
 
 #include "log.h"
 #include "machine-id-setup.h"
+#include "path-util.h"
 #include "util.h"
 
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static bool arg_commit = false;
 
 static void help(void) {
@@ -57,7 +58,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -74,7 +75,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        arg_root = optarg;
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_COMMIT:
@@ -104,13 +107,14 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                goto finish;
 
         if (arg_commit)
                 r = machine_id_commit(arg_root);
         else
                 r = machine_id_setup(arg_root);
 
-
+finish:
+        free(arg_root);
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

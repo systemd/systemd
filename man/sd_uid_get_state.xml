@@ -179,7 +179,7 @@
       <varlistentry>
         <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>Given field is not specified for the described
+        <listitem><para>The given field is not specified for the described
         user.</para>
         </listitem>
       </varlistentry>
@@ -195,7 +195,7 @@
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that's not accepted). This is also returned if
+        or NULL, where that is not accepted). This is also returned if
         the passed user ID is 0xFFFF or 0xFFFFFFFF, which are
         undefined on Linux.</para></listitem>
       </varlistentry>

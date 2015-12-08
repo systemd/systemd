@@ -196,7 +196,7 @@
       <programlisting>openssl req -newkey rsa:2048 -days 3650 -x509 -nodes \
       -out ca.pem -keyout ca.key -subj '/CN=Certificate authority/'
 
-cat >ca.conf &lt;&lt;EOF
+cat &gt;ca.conf &lt;&lt;EOF
 [ ca ]
 default_ca = this
 
@@ -221,7 +221,7 @@ emailAddress            = optional
 EOF
 
 touch index
-echo 0001 > serial
+echo 0001 &gt;serial
 
 SERVER=server
 CLIENT=client
@@ -244,7 +244,7 @@ openssl ca -batch -config ca.conf -notext -in $CLIENT.csr -out $CLIENT.pem
       <varname>ServerCertificateFile=</varname>,
       <varname>ServerKeyFile=</varname>, in
       <filename>/etc/systemd/journal-remote.conf</filename> and
-      <filename>/etc/systemd/journal-upload.conf</filename>
+      <filename>/etc/systemd/journal-upload.conf</filename>,
       respectively. The default locations can be queried by using
       <command>systemd-journal-remote --help</command> and
       <command>systemd-journal-upload --help</command>.</para>

@@ -18,15 +18,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "prioq.h"
-#include "strv.h"
-#include "set.h"
-
 #include "sd-device.h"
 
-#include "device-util.h"
+#include "alloc-util.h"
 #include "device-enumerator-private.h"
+#include "device-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "prioq.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 #define DEVICE_ENUMERATE_MAX_DEPTH 256
 
@@ -56,7 +59,7 @@ struct sd_device_enumerator {
 };
 
 _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
-        _cleanup_device_enumerator_unref_ sd_device_enumerator *enumerator = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerator = NULL;
 
         assert(ret);
 
@@ -484,7 +487,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                 return -errno;
 
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
-                _cleanup_device_unref_ sd_device *device = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 char syspath[strlen(path) + 1 + strlen(dent->d_name) + 1];
                 dev_t devnum;
                 int ifindex, initialized, k;
@@ -637,7 +640,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
         /* TODO: filter away subsystems? */
 
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
-                _cleanup_device_unref_ sd_device *device = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 const char *subsystem, *sysname;
                 int k;
 
@@ -707,7 +710,7 @@ static int enumerator_scan_devices_tags(sd_device_enumerator *enumerator) {
 }
 
 static int parent_add_child(sd_device_enumerator *enumerator, const char *path) {
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *subsystem, *sysname;
         int r;
 

@@ -19,21 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
-
-#include <linux/veth.h>
 #include <net/if.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <linux/veth.h>
 
 #include "sd-event.h"
-#include "sd-netlink.h"
 #include "sd-ipv4ll.h"
+#include "sd-netlink.h"
 
-#include "util.h"
-#include "event-util.h"
-#include "netlink-util.h"
+#include "alloc-util.h"
 #include "in-addr-util.h"
+#include "netlink-util.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         _cleanup_free_ char *address = NULL;
@@ -89,9 +90,9 @@ static int client_run(int ifindex, const char *seed_str, const struct ether_addr
 }
 
 static int test_ll(const char *ifname, const char *seed) {
-        _cleanup_event_unref_ sd_event *e = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
         struct ether_addr ha;
         int ifindex;
 

@@ -20,29 +20,37 @@
 ***/
 
 #include <errno.h>
-#include <limits.h>
-#include <sys/mount.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <sys/epoll.h>
-#include <sys/stat.h>
-#include <linux/auto_fs4.h>
+#include <limits.h>
 #include <linux/auto_dev-ioctl.h>
+#include <linux/auto_fs4.h>
+#include <sys/epoll.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "unit.h"
+#include "alloc-util.h"
+#include "async.h"
 #include "automount.h"
-#include "mount.h"
-#include "unit-name.h"
-#include "special.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "dbus-automount.h"
+#include "fd-util.h"
+#include "formats-util.h"
+#include "io-util.h"
 #include "label.h"
 #include "mkdir.h"
+#include "mount-util.h"
+#include "mount.h"
+#include "parse-util.h"
 #include "path-util.h"
-#include "dbus-automount.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "formats-util.h"
 #include "process-util.h"
-#include "async.h"
+#include "special.h"
+#include "stdio-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "unit-name.h"
+#include "unit.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -81,26 +89,11 @@ static void automount_init(Unit *u) {
         UNIT(a)->ignore_on_isolate = true;
 }
 
-static void repeat_unmount(const char *path) {
-        assert(path);
-
-        for (;;) {
-                /* If there are multiple mounts on a mount point, this
-                 * removes them all */
-
-                if (umount2(path, MNT_DETACH) >= 0)
-                        continue;
-
-                if (errno != EINVAL)
-                        log_error_errno(errno, "Failed to unmount: %m");
-
-                break;
-        }
-}
-
 static int automount_send_ready(Automount *a, Set *tokens, int status);
 
 static void unmount_autofs(Automount *a) {
+        int r;
+
         assert(a);
 
         if (a->pipe_fd < 0)
@@ -116,8 +109,11 @@ static void unmount_autofs(Automount *a) {
          * around */
         if (a->where &&
             (UNIT(a)->manager->exit_code != MANAGER_RELOAD &&
-             UNIT(a)->manager->exit_code != MANAGER_REEXECUTE))
-                repeat_unmount(a->where);
+             UNIT(a)->manager->exit_code != MANAGER_REEXECUTE)) {
+                r = repeat_unmount(a->where, MNT_DETACH);
+                if (r < 0)
+                        log_error_errno(r, "Failed to unmount: %m");
+        }
 }
 
 static void automount_done(Unit *u) {
@@ -137,13 +133,12 @@ static void automount_done(Unit *u) {
 
 static int automount_add_mount_links(Automount *a) {
         _cleanup_free_ char *parent = NULL;
-        int r;
 
         assert(a);
 
-        r = path_get_parent(a->where, &parent);
-        if (r < 0)
-                return r;
+        parent = dirname_malloc(a->where);
+        if (!parent)
+                return -ENOMEM;
 
         return unit_require_mounts_for(UNIT(a), parent);
 }
@@ -152,6 +147,9 @@ static int automount_add_default_dependencies(Automount *a) {
         int r;
 
         assert(a);
+
+        if (!UNIT(a)->default_dependencies)
+                return 0;
 
         if (UNIT(a)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
@@ -224,11 +222,9 @@ static int automount_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (UNIT(a)->default_dependencies) {
-                        r = automount_add_default_dependencies(a);
-                        if (r < 0)
-                                return r;
-                }
+                r = automount_add_default_dependencies(a);
+                if (r < 0)
+                        return r;
         }
 
         return automount_verify(a);
@@ -608,12 +604,16 @@ static void automount_enter_waiting(Automount *a) {
         return;
 
 fail:
+        log_unit_error_errno(UNIT(a), r, "Failed to initialize automounter: %m");
+
         safe_close_pair(p);
 
-        if (mounted)
-                repeat_unmount(a->where);
+        if (mounted) {
+                r = repeat_unmount(a->where, MNT_DETACH);
+                if (r < 0)
+                        log_error_errno(r, "Failed to unmount, ignoring: %m");
+        }
 
-        log_unit_error_errno(UNIT(a), r, "Failed to initialize automounter: %m");
         automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
 }
 
@@ -702,7 +702,7 @@ static int automount_start_expire(Automount *a) {
 }
 
 static void automount_enter_runnning(Automount *a) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         struct stat st;
         int r;
 
@@ -728,8 +728,7 @@ static void automount_enter_runnning(Automount *a) {
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
                 log_unit_info(UNIT(a), "Automount point already active?");
         else {
-                r = manager_add_job(UNIT(a)->manager, JOB_START, UNIT_TRIGGER(UNIT(a)),
-                                    JOB_REPLACE, true, &error, NULL);
+                r = manager_add_job(UNIT(a)->manager, JOB_START, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                         goto fail;
@@ -898,7 +897,7 @@ static bool automount_check_gc(Unit *u) {
 }
 
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         union autofs_v5_packet_union packet;
         Automount *a = AUTOMOUNT(userdata);
         struct stat st;
@@ -974,7 +973,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         break;
                 }
 
-                r = manager_add_job(UNIT(a)->manager, JOB_STOP, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, true, &error, NULL);
+                r = manager_add_job(UNIT(a)->manager, JOB_STOP, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
                         goto fail;

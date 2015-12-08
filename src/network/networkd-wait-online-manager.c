@@ -23,14 +23,13 @@
 #include <linux/if.h>
 #include <fnmatch.h>
 
+#include "alloc-util.h"
 #include "netlink-util.h"
-
 #include "network-internal.h"
 #include "networkd-wait-online-link.h"
 #include "networkd-wait-online.h"
-
-#include "util.h"
 #include "time-util.h"
+#include "util.h"
 
 bool manager_ignore_link(Manager *m, Link *link) {
         char **ignore;
@@ -176,7 +175,7 @@ static int on_rtnl_event(sd_netlink *rtnl, sd_netlink_message *mm, void *userdat
 }
 
 static int manager_rtnl_listen(Manager *m) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *i;
         int r;
 

@@ -71,7 +71,7 @@
     for more information about this file.</para>
 
     <para>If the tool is invoked without the <option>--commit</option>
-    switch <filename>/etc/machine-id</filename> is initialized with a
+    switch, <filename>/etc/machine-id</filename> is initialized with a
     valid, new machined ID if it is missing or empty. The new machine
     ID will be acquired in the following fashion:</para>
 
@@ -88,14 +88,14 @@
       and is different for every booted instance of the
       VM.</para></listitem>
 
-      <listitem><para>Similar, if run inside a Linux container
-      environment and a UUID is configured for the container this is
-      used to initialize the machine ID. For details see the
+      <listitem><para>Similarly, if run inside a Linux container
+      environment and a UUID is configured for the container, this is
+      used to initialize the machine ID. For details, see the
       documentation of the <ulink
       url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
       Interface</ulink>.</para></listitem>
 
-      <listitem><para>Otherwise a new ID is randomly
+      <listitem><para>Otherwise, a new ID is randomly
       generated.</para></listitem>
     </orderedlist>
 
@@ -148,7 +148,7 @@
 
         <para>This command is primarily used by the
         <citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        early-boot service.</para></listitem>
+        early boot service.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

@@ -18,13 +18,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-#include "terminal-util.h"
-#include "macro.h"
-#include "util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
+#include "macro.h"
+#include "terminal-util.h"
+#include "util.h"
 
 static void test_default_term_for_tty(void) {
         puts(default_term_for_tty("/dev/tty23"));

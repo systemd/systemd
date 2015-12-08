@@ -21,8 +21,10 @@
 
 #include <stddef.h>
 
-#include "util.h"
+#include "alloc-util.h"
 #include "uid-range.h"
+#include "user-util.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ UidRange *p = NULL;

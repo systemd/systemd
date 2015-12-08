@@ -43,20 +43,28 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
-#include "event-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "netlink-util.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "udev.h"
+#include "user-util.h"
 
 static bool arg_debug = false;
 static int arg_daemonize = false;
@@ -182,7 +190,7 @@ static void worker_free(struct worker *worker) {
 
         assert(worker->manager);
 
-        hashmap_remove(worker->manager->workers, UINT_TO_PTR(worker->pid));
+        hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
         udev_monitor_unref(worker->monitor);
         event_free(worker->event);
 
@@ -225,7 +233,7 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (r < 0)
                 return r;
 
-        r = hashmap_put(manager->workers, UINT_TO_PTR(pid), worker);
+        r = hashmap_put(manager->workers, PID_TO_PTR(pid), worker);
         if (r < 0)
                 return r;
 
@@ -341,7 +349,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         switch (pid) {
         case 0: {
                 struct udev_device *dev = NULL;
-                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
                 int fd_monitor;
                 _cleanup_close_ int fd_signal = -1, fd_ep = -1;
                 struct epoll_event ep_signal = { .events = EPOLLIN };
@@ -882,7 +890,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 }
 
                 /* lookup worker who sent the signal */
-                worker = hashmap_get(manager->workers, UINT_TO_PTR(ucred->pid));
+                worker = hashmap_get(manager->workers, PID_TO_PTR(ucred->pid));
                 if (!worker) {
                         log_debug("worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
                         continue;
@@ -1186,7 +1194,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                 if (pid <= 0)
                         break;
 
-                worker = hashmap_get(manager->workers, UINT_TO_PTR(pid));
+                worker = hashmap_get(manager->workers, PID_TO_PTR(pid));
                 if (!worker) {
                         log_warning("worker ["PID_FMT"] is unknown, ignoring", pid);
                         continue;
@@ -1549,7 +1557,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         r = sd_event_default(&manager->event);
         if (r < 0)
-                return log_error_errno(errno, "could not allocate event loop: %m");
+                return log_error_errno(r, "could not allocate event loop: %m");
 
         r = sd_event_add_signal(manager->event, NULL, SIGINT, on_sigterm, manager);
         if (r < 0)

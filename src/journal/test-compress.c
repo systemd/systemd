@@ -17,10 +17,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "compress.h"
-#include "util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "macro.h"
 #include "random-util.h"
+#include "util.h"
 
 #ifdef HAVE_XZ
 # define XZ_OK 0
@@ -144,8 +147,8 @@ static void test_compress_stream(int compression,
                                  const char *srcfile) {
 
         _cleanup_close_ int src = -1, dst = -1, dst2 = -1;
-        char pattern[] = "/tmp/systemd-test.xz.XXXXXX",
-             pattern2[] = "/tmp/systemd-test.xz.XXXXXX";
+        char pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
+             pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
         int r;
         _cleanup_free_ char *cmd = NULL, *cmd2;
         struct stat st = {};
@@ -185,7 +188,7 @@ static void test_compress_stream(int compression,
 
         assert_se(lseek(dst, 1, SEEK_SET) == 1);
         r = decompress(dst, dst2, st.st_size);
-        assert_se(r == -EBADMSG);
+        assert_se(r == -EBADMSG || r == 0);
 
         assert_se(lseek(dst, 0, SEEK_SET) == 0);
         assert_se(lseek(dst2, 0, SEEK_SET) == 0);
@@ -236,8 +239,7 @@ int main(int argc, char *argv[]) {
                                    compress_blob_lz4, decompress_startswith_lz4,
                                    data, sizeof(data), true);
 
-        /* Produced stream is not compatible with lz4 binary, skip lz4cat check. */
-        test_compress_stream(OBJECT_COMPRESSED_LZ4, NULL,
+        test_compress_stream(OBJECT_COMPRESSED_LZ4, "lz4cat",
                              compress_stream_lz4, decompress_stream_lz4, argv[0]);
 #else
         log_info("/* LZ4 test skipped */");

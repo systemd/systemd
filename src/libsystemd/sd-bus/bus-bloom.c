@@ -19,9 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "siphash24.h"
 #include "bus-bloom.h"
+#include "siphash24.h"
+#include "util.h"
 
 static inline void set_bit(uint64_t filter[], unsigned long b) {
         filter[b >> 6] |= 1ULL << (b & 63);
@@ -45,7 +45,7 @@ static void bloom_add_data(
                 const void *data,      /* Data to hash */
                 size_t n) {            /* Size of data to hash in bytes */
 
-        uint8_t h[8];
+        uint64_t h;
         uint64_t m;
         unsigned w, i, c = 0;
         unsigned hash_index;
@@ -72,11 +72,11 @@ static void bloom_add_data(
 
                 for (d = 0; d < w; d++) {
                         if (c <= 0) {
-                                siphash24(h, data, n, hash_keys[hash_index++].bytes);
+                                h = siphash24(data, n, hash_keys[hash_index++].bytes);
                                 c += 8;
                         }
 
-                        p = (p << 8ULL) | (uint64_t) h[8 - c];
+                        p = (p << 8ULL) | (uint64_t) ((uint8_t *)&h)[8 - c];
                         c--;
                 }
 

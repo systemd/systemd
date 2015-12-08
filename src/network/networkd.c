@@ -20,9 +20,11 @@
 ***/
 
 #include "sd-daemon.h"
-#include "capability.h"
-#include "signal-util.h"
+
+#include "capability-util.h"
 #include "networkd.h"
+#include "signal-util.h"
+#include "user-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_manager_free_ Manager *m = NULL;
@@ -104,6 +106,12 @@ int main(int argc, char *argv[]) {
         r = manager_rtnl_enumerate_addresses(m);
         if (r < 0) {
                 log_error_errno(r, "Could not enumerate addresses: %m");
+                goto out;
+        }
+
+        r = manager_rtnl_enumerate_routes(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not enumerate routes: %m");
                 goto out;
         }
 

@@ -63,7 +63,7 @@
     <para><ulink url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB headers</ulink>
     in SysV init scripts are interpreted, and the ordering specified
     in the header is turned into dependencies between the generated
-    unit and other units. LSB facilities
+    unit and other units. The LSB facilities
     <literal>$remote_fs</literal>, <literal>$network</literal>,
     <literal>$named</literal>, <literal>$portmap</literal>,
     <literal>$time</literal> are supported and will be turned into
@@ -73,7 +73,7 @@
 
     <para>SysV runlevels have corresponding systemd targets
     (<filename>runlevel<replaceable>X</replaceable>.target</filename>).
-    Wrapper unit that is generated will be wanted by those targets
+    The wrapper unit that is generated will be wanted by those targets
     which correspond to runlevels for which the script is
     enabled.</para>
 

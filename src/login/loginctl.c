@@ -27,6 +27,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
@@ -35,6 +36,7 @@
 #include "logs-show.h"
 #include "macro.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
@@ -42,6 +44,7 @@
 #include "sysfs-show.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 #include "verbs.h"
 
@@ -89,8 +92,8 @@ static OutputFlags get_output_flags(void) {
 }
 
 static int list_sessions(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *id, *user, *seat, *object;
         sd_bus *bus = userdata;
         unsigned k = 0;
@@ -136,8 +139,8 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 }
 
 static int list_users(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *user, *object;
         sd_bus *bus = userdata;
         unsigned k = 0;
@@ -183,8 +186,8 @@ static int list_users(int argc, char *argv[], void *userdata) {
 }
 
 static int list_seats(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *seat, *object;
         sd_bus *bus = userdata;
         unsigned k = 0;
@@ -229,8 +232,8 @@ static int list_seats(int argc, char *argv[], void *userdata) {
 }
 
 static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit, pid_t leader) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         const char *cgroup;
         int r;
@@ -781,8 +784,8 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 }
 
 static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -870,8 +873,8 @@ static int show_session(int argc, char *argv[], void *userdata) {
         }
 
         for (i = 1; i < argc; i++) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message * reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message * reply = NULL;
                 const char *path = NULL;
 
                 r = sd_bus_call_method(
@@ -925,8 +928,8 @@ static int show_user(int argc, char *argv[], void *userdata) {
         }
 
         for (i = 1; i < argc; i++) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message * reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message * reply = NULL;
                 const char *path = NULL;
                 uid_t uid;
 
@@ -985,8 +988,8 @@ static int show_seat(int argc, char *argv[], void *userdata) {
         }
 
         for (i = 1; i < argc; i++) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_bus_message_unref_ sd_bus_message * reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message * reply = NULL;
                 const char *path = NULL;
 
                 r = sd_bus_call_method(
@@ -1019,7 +1022,7 @@ static int show_seat(int argc, char *argv[], void *userdata) {
 }
 
 static int activate(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         char *short_argv[3];
         int r, i;
@@ -1065,7 +1068,7 @@ static int activate(int argc, char *argv[], void *userdata) {
 }
 
 static int kill_session(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1097,7 +1100,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
 }
 
 static int enable_linger(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         char* short_argv[3];
         bool b;
@@ -1147,7 +1150,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
 }
 
 static int terminate_user(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1181,7 +1184,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
 }
 
 static int kill_user(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1218,7 +1221,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
 }
 
 static int attach(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1248,7 +1251,7 @@ static int attach(int argc, char *argv[], void *userdata) {
 }
 
 static int flush_devices(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
 
@@ -1272,7 +1275,7 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
 }
 
 static int lock_sessions(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
 
@@ -1296,7 +1299,7 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
 }
 
 static int terminate_seat(int argc, char *argv[], void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1531,7 +1534,7 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

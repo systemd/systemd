@@ -363,7 +363,7 @@ msgstr ""
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while an application asked to inhibit it"
 msgstr ""
-"Sæt systemet på standby mens en applikation har forespurgt at hæmme"  
+"Sæt systemet på standby mens en applikation har forespurgt at hæmme"
 "det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42

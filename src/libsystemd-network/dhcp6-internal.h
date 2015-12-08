@@ -24,10 +24,11 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 
-#include "sparse-endian.h"
 #include "sd-event.h"
+
 #include "list.h"
 #include "macro.h"
+#include "sparse-endian.h"
 
 typedef struct DHCP6Address DHCP6Address;
 
@@ -57,9 +58,6 @@ struct DHCP6IA {
 typedef struct DHCP6IA DHCP6IA;
 
 #define log_dhcp6_client(p, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCPv6 CLIENT: " fmt, ##__VA_ARGS__)
-
-int dhcp_network_icmp6_bind_router_solicitation(int index);
-int dhcp_network_icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr);
 
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);

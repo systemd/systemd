@@ -19,20 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stddef.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 
-#include "systemd/sd-messages.h"
-#include "socket-util.h"
-#include "selinux-util.h"
+#include "sd-messages.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "formats-util.h"
+#include "io-util.h"
+#include "journald-console.h"
+#include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
-#include "journald-kmsg.h"
-#include "journald-console.h"
 #include "journald-wall.h"
-#include "formats-util.h"
 #include "process-util.h"
+#include "selinux-util.h"
+#include "socket-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
+#include "syslog-util.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
@@ -408,7 +415,7 @@ int server_open_syslog_socket(Server *s) {
                 return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
 #ifdef HAVE_SELINUX
-        if (mac_selinux_use()) {
+        if (mac_selinux_have()) {
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)
                         log_warning_errno(errno, "SO_PASSSEC failed: %m");

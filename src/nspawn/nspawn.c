@@ -46,20 +46,22 @@
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "barrier.h"
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "copy.h"
 #include "dev-setup.h"
 #include "env-util.h"
-#include "event-util.h"
+#include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
 #include "gpt.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -68,7 +70,16 @@
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "netlink-util.h"
+#include "nspawn-cgroup.h"
+#include "nspawn-expose-ports.h"
+#include "nspawn-mount.h"
+#include "nspawn-network.h"
+#include "nspawn-register.h"
+#include "nspawn-settings.h"
+#include "nspawn-setuid.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -78,18 +89,16 @@
 #include "seccomp-util.h"
 #endif
 #include "signal-util.h"
+#include "socket-util.h"
+#include "stat-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
+#include "umask-util.h"
+#include "user-util.h"
 #include "util.h"
-
-#include "nspawn-cgroup.h"
-#include "nspawn-expose-ports.h"
-#include "nspawn-mount.h"
-#include "nspawn-network.h"
-#include "nspawn-register.h"
-#include "nspawn-settings.h"
-#include "nspawn-setuid.h"
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
@@ -155,6 +164,7 @@ static char **arg_network_interfaces = NULL;
 static char **arg_network_macvlan = NULL;
 static char **arg_network_ipvlan = NULL;
 static bool arg_network_veth = false;
+static char **arg_network_veth_extra = NULL;
 static char *arg_network_bridge = NULL;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
@@ -168,6 +178,7 @@ static bool arg_unified_cgroup_hierarchy = false;
 static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
+static const char *arg_container_service_name = "systemd-nspawn";
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -199,10 +210,13 @@ static void help(void) {
                "     --network-ipvlan=INTERFACE\n"
                "                            Create a ipvlan network interface based on an\n"
                "                            existing network interface to the container\n"
-               "  -n --network-veth         Add a virtual ethernet connection between host\n"
+               "  -n --network-veth         Add a virtual Ethernet connection between host\n"
                "                            and container\n"
+               "     --network-veth-extra=HOSTIF[:CONTAINERIF]\n"
+               "                            Add an additional virtual Ethernet link between\n"
+               "                            host and container\n"
                "     --network-bridge=INTERFACE\n"
-               "                            Add a virtual ethernet connection between host\n"
+               "                            Add a virtual Ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
                "                            the host\n"
                "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
@@ -276,27 +290,6 @@ static int custom_mounts_prepare(void) {
         return 0;
 }
 
-static int set_sanitized_path(char **b, const char *path) {
-        char *p;
-
-        assert(b);
-        assert(path);
-
-        p = canonicalize_file_name(path);
-        if (!p) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                p = path_make_absolute_cwd(path);
-                if (!p)
-                        return -ENOMEM;
-        }
-
-        free(*b);
-        *b = path_kill_slashes(p);
-        return 0;
-}
-
 static int detect_unified_cgroup_hierarchy(void) {
         const char *e;
         int r;
@@ -344,6 +337,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_MACVLAN,
                 ARG_NETWORK_IPVLAN,
                 ARG_NETWORK_BRIDGE,
+                ARG_NETWORK_VETH_EXTRA,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
                 ARG_TEMPLATE,
@@ -385,6 +379,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
                 { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN    },
                 { "network-veth",          no_argument,       NULL, 'n'                   },
+                { "network-veth-extra",    required_argument, NULL, ARG_NETWORK_VETH_EXTRA},
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
@@ -398,6 +393,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
+        const char *p, *e;
         uint64_t plus = 0, minus = 0;
         bool mask_all_settings = false, mask_no_settings = false;
 
@@ -416,24 +412,21 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'D':
-                        r = set_sanitized_path(&arg_directory, optarg);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_directory);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid root directory: %m");
-
+                                return r;
                         break;
 
                 case ARG_TEMPLATE:
-                        r = set_sanitized_path(&arg_template, optarg);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_template);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid template directory: %m");
-
+                                return r;
                         break;
 
                 case 'i':
-                        r = set_sanitized_path(&arg_image, optarg);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_image);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid image path: %m");
-
+                                return r;
                         break;
 
                 case 'x':
@@ -457,6 +450,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         arg_network_veth = true;
+                        arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
+                        break;
+
+                case ARG_NETWORK_VETH_EXTRA:
+                        r = veth_extra_parse(&arg_network_veth_extra, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --network-veth-extra= parameter: %s", optarg);
+
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
                         break;
@@ -538,15 +540,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CAPABILITY:
                 case ARG_DROP_CAPABILITY: {
-                        const char *state, *word;
-                        size_t length;
+                        p = optarg;
+                        for(;;) {
+                                _cleanup_free_ char *t = NULL;
 
-                        FOREACH_WORD_SEPARATOR(word, length, optarg, ",", state) {
-                                _cleanup_free_ char *t;
+                                r = extract_first_word(&p, &t, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse capability %s.", t);
 
-                                t = strndup(word, length);
-                                if (!t)
-                                        return log_oom();
+                                if (r == 0)
+                                        break;
 
                                 if (streq(t, "all")) {
                                         if (c == ARG_CAPABILITY)
@@ -921,6 +924,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
+        if (e)
+                arg_container_service_name = e;
+
         return 1;
 }
 
@@ -1189,6 +1196,7 @@ static int copy_devnodes(const char *dest) {
 static int setup_pts(const char *dest) {
         _cleanup_free_ char *options = NULL;
         const char *p;
+        int r;
 
 #ifdef HAVE_SELINUX
         if (arg_selinux_apifs_context)
@@ -1211,20 +1219,23 @@ static int setup_pts(const char *dest) {
                 return log_error_errno(errno, "Failed to create /dev/pts: %m");
         if (mount("devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options) < 0)
                 return log_error_errno(errno, "Failed to mount /dev/pts: %m");
-        if (userns_lchown(p, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to chown /dev/pts: %m");
+        r = userns_lchown(p, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown /dev/pts: %m");
 
         /* Create /dev/ptmx symlink */
         p = prefix_roota(dest, "/dev/ptmx");
         if (symlink("pts/ptmx", p) < 0)
                 return log_error_errno(errno, "Failed to create /dev/ptmx symlink: %m");
-        if (userns_lchown(p, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to chown /dev/ptmx: %m");
+        r = userns_lchown(p, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown /dev/ptmx: %m");
 
         /* And fix /dev/pts/ptmx ownership */
         p = prefix_roota(dest, "/dev/pts/ptmx");
-        if (userns_lchown(p, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to chown /dev/pts/ptmx: %m");
+        r = userns_lchown(p, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown /dev/pts/ptmx: %m");
 
         return 0;
 }
@@ -1406,7 +1417,7 @@ static int setup_journal(const char *directory) {
 
                         r = userns_mkdir(directory, p, 0755, 0, 0);
                         if (r < 0)
-                                log_warning_errno(errno, "Failed to create directory %s: %m", q);
+                                log_warning_errno(r, "Failed to create directory %s: %m", q);
                         return 0;
                 }
 
@@ -1420,15 +1431,11 @@ static int setup_journal(const char *directory) {
                         if (errno == ENOTDIR) {
                                 log_error("%s already exists and is neither a symlink nor a directory", p);
                                 return r;
-                        } else {
-                                log_error_errno(errno, "Failed to remove %s: %m", p);
-                                return -errno;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to remove %s: %m", p);
                 }
-        } else if (r != -ENOENT) {
-                log_error_errno(errno, "readlink(%s) failed: %m", p);
-                return r;
-        }
+        } else if (r != -ENOENT)
+                return log_error_errno(r, "readlink(%s) failed: %m", p);
 
         if (arg_link_journal == LINK_GUEST) {
 
@@ -1436,15 +1443,13 @@ static int setup_journal(const char *directory) {
                         if (arg_link_journal_try) {
                                 log_debug_errno(errno, "Failed to symlink %s to %s, skipping journal setup: %m", q, p);
                                 return 0;
-                        } else {
-                                log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
-                                return -errno;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
                 }
 
                 r = userns_mkdir(directory, p, 0755, 0, 0);
                 if (r < 0)
-                        log_warning_errno(errno, "Failed to create directory %s: %m", q);
+                        log_warning_errno(r, "Failed to create directory %s: %m", q);
                 return 0;
         }
 
@@ -1456,10 +1461,8 @@ static int setup_journal(const char *directory) {
                         if (arg_link_journal_try) {
                                 log_debug_errno(errno, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
-                        } else {
-                                log_error_errno(errno, "Failed to create %s: %m", p);
-                                return r;
-                        }
+                        } else
+                                return log_error_errno(errno, "Failed to create %s: %m", p);
                 }
 
         } else if (access(p, F_OK) < 0)
@@ -1469,10 +1472,8 @@ static int setup_journal(const char *directory) {
                 log_warning("%s is not empty, proceeding anyway.", q);
 
         r = userns_mkdir(directory, p, 0755, 0, 0);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to create %s: %m", q);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", q);
 
         if (mount(p, q, NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
@@ -1613,20 +1614,24 @@ finish:
 
 static int setup_propagate(const char *root) {
         const char *p, *q;
+        int r;
 
         (void) mkdir_p("/run/systemd/nspawn/", 0755);
         (void) mkdir_p("/run/systemd/nspawn/propagate", 0600);
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        if (userns_mkdir(root, "/run/systemd", 0755, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to create /run/systemd: %m");
+        r = userns_mkdir(root, "/run/systemd", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd: %m");
 
-        if (userns_mkdir(root, "/run/systemd/nspawn", 0755, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to create /run/systemd/nspawn: %m");
+        r = userns_mkdir(root, "/run/systemd/nspawn", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/nspawn: %m");
 
-        if (userns_mkdir(root, "/run/systemd/nspawn/incoming", 0600, 0, 0) < 0)
-                return log_error_errno(errno, "Failed to create /run/systemd/nspawn/incoming: %m");
+        r = userns_mkdir(root, "/run/systemd/nspawn/incoming", 0600, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/nspawn/incoming: %m");
 
         q = prefix_roota(root, "/run/systemd/nspawn/incoming");
         if (mount(p, q, NULL, MS_BIND, NULL) < 0)
@@ -1676,7 +1681,7 @@ static int setup_image(char **device_path, int *loop_nr) {
         }
 
         if (!S_ISREG(st.st_mode)) {
-                log_error_errno(errno, "%s is not a regular file or block device: %m", arg_image);
+                log_error("%s is not a regular file or block device.", arg_image);
                 return -EINVAL;
         }
 
@@ -1768,8 +1773,7 @@ static int dissect_image(
                 if (errno == 0)
                         return log_oom();
 
-                log_error_errno(errno, "Failed to set device on blkid probe: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to set device on blkid probe: %m");
         }
 
         blkid_probe_enable_partitions(b, 1);
@@ -1785,8 +1789,7 @@ static int dissect_image(
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error_errno(errno, "Failed to probe: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to probe: %m");
         }
 
         (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
@@ -1909,8 +1912,7 @@ static int dissect_image(
                         if (!errno)
                                 errno = ENOMEM;
 
-                        log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
                 }
 
                 qn = udev_device_get_devnum(q);
@@ -2117,8 +2119,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
         }
 
         blkid_probe_enable_superblocks(b, 1);
@@ -2132,8 +2133,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error_errno(errno, "Failed to probe %s: %m", what);
-                return -errno;
+                return log_error_errno(errno, "Failed to probe %s: %m", what);
         }
 
         errno = 0;
@@ -2282,7 +2282,7 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         pid_t pid;
 
-        pid = PTR_TO_UINT32(userdata);
+        pid = PTR_TO_PID(userdata);
         if (pid > 0) {
                 if (kill(pid, arg_kill_signal) >= 0) {
                         log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
@@ -2322,9 +2322,9 @@ static int determine_names(void) {
                         }
 
                         if (i->type == IMAGE_RAW)
-                                r = set_sanitized_path(&arg_image, i->path);
+                                r = free_and_strdup(&arg_image, i->path);
                         else
-                                r = set_sanitized_path(&arg_directory, i->path);
+                                r = free_and_strdup(&arg_directory, i->path);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid image directory: %m");
 
@@ -2416,10 +2416,10 @@ static int inner_child(
                 FDSet *fds) {
 
         _cleanup_free_ char *home = NULL;
-        unsigned n_env = 2;
+        unsigned n_env = 1;
         const char *envp[] = {
                 "PATH=" DEFAULT_PATH_SPLIT_USR,
-                "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
+                NULL, /* container */
                 NULL, /* TERM */
                 NULL, /* HOME */
                 NULL, /* USER */
@@ -2450,7 +2450,7 @@ static int inner_child(
                 }
         }
 
-        r = mount_all(NULL, arg_userns, true, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
+        r = mount_all(NULL, arg_userns, true, arg_uid_shift, arg_private_network, arg_uid_range, arg_selinux_apifs_context);
         if (r < 0)
                 return r;
 
@@ -2497,8 +2497,9 @@ static int inner_child(
                 rtnl_socket = safe_close(rtnl_socket);
         }
 
-        if (drop_capabilities() < 0)
-                return log_error_errno(errno, "drop_capabilities() failed: %m");
+        r = drop_capabilities();
+        if (r < 0)
+                return log_error_errno(r, "drop_capabilities() failed: %m");
 
         setup_hostname();
 
@@ -2519,6 +2520,9 @@ static int inner_child(
         r = change_uid_gid(arg_user, &home);
         if (r < 0)
                 return r;
+
+        /* LXC sets container=lxc, so follow the scheme here */
+        envp[n_env++] = strjoina("container=", arg_container_service_name);
 
         envp[n_env] = strv_find_prefix(environ, "TERM=");
         if (envp[n_env])
@@ -2598,8 +2602,9 @@ static int inner_child(
                 execle("/bin/sh", "-sh", NULL, env_use);
         }
 
+        r = -errno;
         (void) log_open();
-        return log_error_errno(errno, "execv() failed: %m");
+        return log_error_errno(r, "execv() failed: %m");
 }
 
 static int outer_child(
@@ -2705,7 +2710,7 @@ static int outer_child(
                         return log_error_errno(r, "Failed to make tree read-only: %m");
         }
 
-        r = mount_all(directory, arg_userns, false, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
+        r = mount_all(directory, arg_userns, false, arg_private_network, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
         if (r < 0)
                 return r;
 
@@ -2840,7 +2845,7 @@ static int load_settings(void) {
                         p = j;
                         j = NULL;
 
-                        /* By default we trust configuration from /etc and /run */
+                        /* By default, we trust configuration from /etc and /run */
                         if (arg_settings_trusted < 0)
                                 arg_settings_trusted = true;
 
@@ -2870,7 +2875,7 @@ static int load_settings(void) {
                         if (!f && errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open %s: %m", p);
 
-                        /* By default we do not trust configuration from /var/lib/machines */
+                        /* By default, we do not trust configuration from /var/lib/machines */
                         if (arg_settings_trusted < 0)
                                 arg_settings_trusted = false;
                 }
@@ -2912,11 +2917,17 @@ static int load_settings(void) {
         }
 
         if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
+                uint64_t plus;
 
-                if (!arg_settings_trusted && settings->capability != 0)
-                        log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
-                else
-                        arg_retain |= settings->capability;
+                plus = settings->capability;
+                if (settings_private_network(settings))
+                        plus |= (1ULL << CAP_NET_ADMIN);
+
+                if (!arg_settings_trusted && plus != 0) {
+                        if (settings->capability != 0)
+                                log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
+                } else
+                        arg_retain |= plus;
 
                 arg_retain &= ~settings->drop_capability;
         }
@@ -2967,11 +2978,15 @@ static int load_settings(void) {
              settings->network_bridge ||
              settings->network_interfaces ||
              settings->network_macvlan ||
-             settings->network_ipvlan)) {
+             settings->network_ipvlan ||
+             settings->network_veth_extra)) {
 
                 if (!arg_settings_trusted)
                         log_warning("Ignoring network settings, file %s is not trusted.", p);
                 else {
+                        arg_network_veth = settings_network_veth(settings);
+                        arg_private_network = settings_private_network(settings);
+
                         strv_free(arg_network_interfaces);
                         arg_network_interfaces = settings->network_interfaces;
                         settings->network_interfaces = NULL;
@@ -2984,13 +2999,13 @@ static int load_settings(void) {
                         arg_network_ipvlan = settings->network_ipvlan;
                         settings->network_ipvlan = NULL;
 
+                        strv_free(arg_network_veth_extra);
+                        arg_network_veth_extra = settings->network_veth_extra;
+                        settings->network_veth_extra = NULL;
+
                         free(arg_network_bridge);
                         arg_network_bridge = settings->network_bridge;
                         settings->network_bridge = NULL;
-
-                        arg_network_veth = settings->network_veth > 0 || settings->network_bridge;
-
-                        arg_private_network = true; /* all these settings imply private networking */
                 }
         }
 
@@ -3096,7 +3111,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = btrfs_subvol_snapshot(arg_directory, np, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE);
+                        r = btrfs_subvol_snapshot(arg_directory, np, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
                                 goto finish;
@@ -3120,7 +3135,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (arg_template) {
-                                r = btrfs_subvol_snapshot(arg_template, arg_directory, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE);
+                                r = btrfs_subvol_snapshot(arg_template, arg_directory, (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
                                 if (r == -EEXIST) {
                                         if (!arg_quiet)
                                                 log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
@@ -3143,10 +3158,9 @@ int main(int argc, char *argv[]) {
                 } else {
                         const char *p;
 
-                        p = strjoina(arg_directory,
-                                       argc > optind && path_is_absolute(argv[optind]) ? argv[optind] : "/usr/bin/");
-                        if (access(p, F_OK) < 0) {
-                                log_error("Directory %s lacks the binary to execute or doesn't look like a binary tree. Refusing.", arg_directory);
+                        p = strjoina(arg_directory, "/usr/");
+                        if (laccess(p, F_OK) < 0) {
+                                log_error("Directory %s doesn't look like it has an OS tree. Refusing.", arg_directory);
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -3235,8 +3249,7 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 }, rtnl_socket_pair[2] = { -1, -1 }, pid_socket_pair[2] = { -1, -1 },
-                                         uid_shift_socket_pair[2] = { -1, -1 };
+                _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 }, rtnl_socket_pair[2] = { -1, -1 }, pid_socket_pair[2] = { -1, -1 }, uid_shift_socket_pair[2] = { -1, -1 };
                 ContainerStatus container_status;
                 _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 static const struct sigaction sa = {
@@ -3245,9 +3258,9 @@ int main(int argc, char *argv[]) {
                 };
                 int ifi = 0;
                 ssize_t l;
-                _cleanup_event_unref_ sd_event *event = NULL;
+                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
                 char last_char = 0;
 
                 r = barrier_create(&barrier);
@@ -3415,6 +3428,10 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
+                        r = setup_veth_extra(arg_machine, pid, arg_network_veth_extra);
+                        if (r < 0)
+                                goto finish;
+
                         r = setup_macvlan(arg_machine, pid, arg_network_macvlan);
                         if (r < 0)
                                 goto finish;
@@ -3435,7 +3452,8 @@ int main(int argc, char *argv[]) {
                                         arg_custom_mounts, arg_n_custom_mounts,
                                         arg_kill_signal,
                                         arg_property,
-                                        arg_keep_unit);
+                                        arg_keep_unit,
+                                        arg_container_service_name);
                         if (r < 0)
                                 goto finish;
                 }
@@ -3491,8 +3509,8 @@ int main(int argc, char *argv[]) {
 
                 if (arg_kill_signal > 0) {
                         /* Try to kill the init system on SIGINT or SIGTERM */
-                        sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, UINT32_TO_PTR(pid));
-                        sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, UINT32_TO_PTR(pid));
+                        sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(pid));
+                        sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(pid));
                 } else {
                         /* Immediately exit */
                         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
@@ -3591,7 +3609,7 @@ finish:
         if (remove_subvol && arg_directory) {
                 int k;
 
-                k = btrfs_subvol_remove(arg_directory, true);
+                k = btrfs_subvol_remove(arg_directory, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (k < 0)
                         log_warning_errno(k, "Cannot remove subvolume '%s', ignoring: %m", arg_directory);
         }
@@ -3615,6 +3633,7 @@ finish:
         strv_free(arg_network_interfaces);
         strv_free(arg_network_macvlan);
         strv_free(arg_network_ipvlan);
+        strv_free(arg_network_veth_extra);
         strv_free(arg_parameters);
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);

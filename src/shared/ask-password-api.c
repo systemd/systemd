@@ -21,27 +21,45 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/uio.h>
 #include <sys/un.h>
 #include <termios.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "ask-password-api.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "io-util.h"
+#include "log.h"
+#include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "random-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
+#include "umask-util.h"
 #include "util.h"
-#include "ask-password-api.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
 
@@ -78,6 +96,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 if (n < m)
                         break;
 
+                memory_erase(p, n);
                 free(p);
                 m *= 2;
         }
@@ -86,12 +105,14 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
         if (!l)
                 return -ENOMEM;
 
+        memory_erase(p, n);
+
         *ret = l;
         return 0;
 }
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         _cleanup_free_ char *p = NULL;
         key_serial_t serial;
         size_t n;
@@ -124,6 +145,7 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         assert(p[n-1] == 0);
 
         serial = add_key("user", keyname, p, n-1, KEY_SPEC_USER_KEYRING);
+        memory_erase(p, n);
         if (serial == -1)
                 return -errno;
 
@@ -361,9 +383,12 @@ int ask_password_tty(
 
                         dirty = true;
                 }
+
+                c = 'x';
         }
 
         x = strndup(passphrase, p);
+        memory_erase(passphrase, p);
         if (!x) {
                 r = -ENOMEM;
                 goto finish;
@@ -459,7 +484,7 @@ int ask_password_agent(
 
         fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                r = -errno;
+                r = fd;
                 goto finish;
         }
 
@@ -620,6 +645,7 @@ int ask_password_agent(
                                 l = strv_new("", NULL);
                         else
                                 l = strv_parse_nulstr(passphrase+1, n-1);
+                        memory_erase(passphrase, n);
                         if (!l) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -688,9 +714,12 @@ int ask_password_auto(
                 if (r < 0)
                         return r;
 
-                r = strv_consume(&l, s);
-                if (r < 0)
+                r = strv_push(&l, s);
+                if (r < 0) {
+                        string_erase(s);
+                        free(s);
                         return -ENOMEM;
+                }
 
                 *ret = l;
                 return 0;

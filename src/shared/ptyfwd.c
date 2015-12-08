@@ -19,13 +19,27 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <limits.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
-#include <limits.h>
+#include <sys/time.h>
 #include <termios.h>
+#include <unistd.h>
 
-#include "util.h"
+#include "sd-event.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "log.h"
+#include "macro.h"
 #include "ptyfwd.h"
+#include "time-util.h"
 
 struct PTYForward {
         sd_event *event;
@@ -411,6 +425,7 @@ PTYForward *pty_forward_free(PTYForward *f) {
                 sd_event_source_unref(f->stdin_event_source);
                 sd_event_source_unref(f->stdout_event_source);
                 sd_event_source_unref(f->master_event_source);
+                sd_event_source_unref(f->sigwinch_event_source);
                 sd_event_unref(f->event);
 
                 if (f->saved_stdout)

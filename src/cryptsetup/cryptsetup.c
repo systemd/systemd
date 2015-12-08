@@ -19,21 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
-#include <sys/mman.h>
-#include <mntent.h>
-
 #include <libcryptsetup.h>
+#include <mntent.h>
+#include <string.h>
+#include <sys/mman.h>
 
+#include "sd-device.h"
+
+#include "alloc-util.h"
+#include "ask-password-api.h"
+#include "device-util.h"
+#include "escape.h"
 #include "fileio.h"
 #include "log.h"
-#include "util.h"
+#include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "ask-password-api.h"
-#include "sd-device.h"
-#include "device-util.h"
+#include "util.h"
 
 static const char *arg_type = NULL; /* CRYPT_LUKS1, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
@@ -263,7 +268,7 @@ static char* disk_description(const char *path) {
                 "ID_MODEL_FROM_DATABASE\0"
                 "ID_MODEL\0";
 
-        _cleanup_device_unref_ sd_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         struct stat st;
         const char *i;
         int r;
@@ -312,15 +317,16 @@ static char *disk_mount_point(const char *label) {
         return NULL;
 }
 
-static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***passwords) {
+static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***ret) {
         _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *maj_min = NULL, *text = NULL, *escaped_name = NULL;
+        _cleanup_strv_free_erase_ char **passwords = NULL;
         const char *name = NULL;
         char **p, *id;
         int r = 0;
 
         assert(vol);
         assert(src);
-        assert(passwords);
+        assert(ret);
 
         description = disk_description(src);
         mount_point = disk_mount_point(vol);
@@ -360,14 +366,16 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
         id = strjoina("cryptsetup:", escaped_name);
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE|(accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0), passwords);
+        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
+                              ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
+                              &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
         if (arg_verify) {
-                _cleanup_strv_free_ char **passwords2 = NULL;
+                _cleanup_strv_free_erase_ char **passwords2 = NULL;
 
-                assert(strv_length(*passwords) == 1);
+                assert(strv_length(passwords) == 1);
 
                 if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
                         return log_oom();
@@ -380,22 +388,23 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
                 assert(strv_length(passwords2) == 1);
 
-                if (!streq(*passwords[0], passwords2[0])) {
+                if (!streq(passwords[0], passwords2[0])) {
                         log_warning("Passwords did not match, retrying.");
                         return -EAGAIN;
                 }
         }
 
-        strv_uniq(*passwords);
+        strv_uniq(passwords);
 
-        STRV_FOREACH(p, *passwords) {
+        STRV_FOREACH(p, passwords) {
                 char *c;
 
                 if (strlen(*p)+1 >= arg_key_size)
                         continue;
 
                 /* Pad password if necessary */
-                if (!(c = new(char, arg_key_size)))
+                c = new(char, arg_key_size);
+                if (!c)
                         return log_oom();
 
                 strncpy(c, *p, arg_key_size);
@@ -403,14 +412,19 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 *p = c;
         }
 
+        *ret = passwords;
+        passwords = NULL;
+
         return 0;
 }
 
-static int attach_tcrypt(struct crypt_device *cd,
-                                const char *name,
-                                const char *key_file,
-                                char **passwords,
-                                uint32_t flags) {
+static int attach_tcrypt(
+                struct crypt_device *cd,
+                const char *name,
+                const char *key_file,
+                char **passwords,
+                uint32_t flags) {
+
         int r = 0;
         _cleanup_free_ char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
@@ -520,8 +534,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                  * it just configures encryption
                  * parameters when used for plain
                  * mode. */
-                r = crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode,
-                                 NULL, NULL, arg_keyfile_size, &params);
+                r = crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode, NULL, NULL, arg_keyfile_size, &params);
 
                 /* hash == NULL implies the user passed "plain" */
                 pass_volume_key = (params.hash == NULL);
@@ -537,9 +550,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                  crypt_get_device_name(cd));
 
         if (key_file) {
-                r = crypt_activate_by_keyfile_offset(cd, name, arg_key_slot,
-                                                     key_file, arg_keyfile_size,
-                                                     arg_keyfile_offset, flags);
+                r = crypt_activate_by_keyfile_offset(cd, name, arg_key_slot, key_file, arg_keyfile_size, arg_keyfile_offset, flags);
                 if (r < 0) {
                         log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
                         return -EAGAIN;
@@ -631,7 +642,6 @@ int main(int argc, char *argv[]) {
                         k = crypt_init(&cd, arg_header);
                 } else
                         k = crypt_init(&cd, argv[3]);
-
                 if (k) {
                         log_error_errno(k, "crypt_init() failed: %m");
                         goto finish;
@@ -669,7 +679,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
-                        _cleanup_strv_free_ char **passwords = NULL;
+                        _cleanup_strv_free_erase_ char **passwords = NULL;
 
                         if (!key_file) {
                                 k = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);

@@ -202,7 +202,7 @@
         </varlistentry>
       </variablelist>
 
-      <para>In addition an optional positional argument can be used
+      <para>In addition, an optional positional argument can be used
       to specify a device name or a sys path. It must start with
       <filename>/dev</filename> or <filename>/sys</filename>
       respectively.</para>
@@ -317,7 +317,7 @@
           <term><option>--name-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices with a matching
-            device path. This options can be specified multiple
+            device path. This option can be specified multiple
             times.</para>
           </listitem>
         </varlistentry>
@@ -338,7 +338,7 @@
         </varlistentry>
       </variablelist>
 
-      <para>In addition optional positional arguments can be used
+      <para>In addition, optional positional arguments can be used
       to specify device names or sys paths. They must start with
       <filename>/dev</filename> or <filename>/sys</filename>
       respectively.</para>

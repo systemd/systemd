@@ -311,6 +311,9 @@ mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
 mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
 # Logitech V500 Cordless Notebook Mouse
 mouse:usb:v046dpc510:name:Logitech USB Receiver:
+# Logitech M560 Wireless Mouse
+mouse:usb:v046dp402d:name:Logitech M560:
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
  MOUSE_DPI=1000@125
 
 # Logitech V220 Cordless Optical Mouse

@@ -21,9 +21,10 @@
 
 #include <ftw.h>
 
-#include "util.h"
-#include "rm-rf.h"
 #include "aufs-util.h"
+#include "rm-rf.h"
+#include "string-util.h"
+#include "util.h"
 
 static int nftw_cb(
                 const char *fpath,

@@ -17,10 +17,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <getopt.h>
 #include <stdio.h>
 #include <string.h>
-#include <getopt.h>
 
+#include "string-util.h"
 #include "udev.h"
 
 static bool initialized;

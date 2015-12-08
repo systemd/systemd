@@ -27,12 +27,16 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "glob-util.h"
 #include "hashmap.h"
+#include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -130,7 +134,7 @@ static void pager_open_if_enabled(void) {
 }
 
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -157,7 +161,7 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
 }
 
 static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *property, char ***strv) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -335,8 +339,8 @@ static void free_host_info(struct host_info *hi) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
 
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, c = 0;
         struct boot_times *boot_times = NULL;
         struct unit_times *unit_times = NULL;
@@ -451,7 +455,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                 {}
         };
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(free_host_infop) struct host_info *host;
         int r;
 
@@ -895,8 +899,8 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         int r;
         const char *id;
         _cleanup_free_ char *path = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         struct boot_times *boot;
 
         assert(bus);
@@ -1062,29 +1066,23 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
         assert(bus);
         assert(u);
 
-        if (arg_dot == DEP_ORDER ||arg_dot == DEP_ALL) {
+        if (IN_SET(arg_dot, DEP_ORDER, DEP_ALL)) {
                 r = graph_one_property(bus, u, "After", "green", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
-        if (arg_dot == DEP_REQUIRE ||arg_dot == DEP_ALL) {
+        if (IN_SET(arg_dot, DEP_REQUIRE, DEP_ALL)) {
                 r = graph_one_property(bus, u, "Requires", "black", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "RequiresOverridable", "black", patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "RequisiteOverridable", "darkblue", patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Requisite", "darkblue", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
                 r = graph_one_property(bus, u, "Wants", "grey66", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
                 r = graph_one_property(bus, u, "Conflicts", "red", patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
@@ -1098,7 +1096,7 @@ static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
         int r;
 
         STRV_FOREACH(pattern, patterns) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *unit = NULL, *unit_id = NULL;
 
                 if (strv_extend(&expanded_patterns, *pattern) < 0)
@@ -1135,8 +1133,8 @@ static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
 }
 
 static int dot(sd_bus *bus, char* patterns[]) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **expanded_patterns = NULL;
         _cleanup_strv_free_ char **expanded_from_patterns = NULL;
         _cleanup_strv_free_ char **expanded_to_patterns = NULL;
@@ -1200,8 +1198,8 @@ static int dot(sd_bus *bus, char* patterns[]) {
 }
 
 static int dump(sd_bus *bus, char **args) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *text = NULL;
         int r;
 
@@ -1233,7 +1231,7 @@ static int dump(sd_bus *bus, char **args) {
 }
 
 static int set_log_level(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1260,7 +1258,7 @@ static int set_log_level(sd_bus *bus, char **args) {
 }
 
 static int set_log_target(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1458,7 +1456,7 @@ int main(int argc, char *argv[]) {
                                  arg_user ? MANAGER_USER : MANAGER_SYSTEM,
                                  arg_man);
         else {
-                _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
                 if (r < 0) {

@@ -158,7 +158,7 @@
       <varlistentry>
         <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>Given field is not specified for the described
+        <listitem><para>The given field is not specified for the described
         seat.</para>
         </listitem>
       </varlistentry>
@@ -174,7 +174,7 @@
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that's not accepted).</para></listitem>
+        or NULL, where that is not accepted).</para></listitem>
       </varlistentry>
 
       <varlistentry>

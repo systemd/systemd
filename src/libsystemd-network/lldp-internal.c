@@ -20,8 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "lldp-internal.h"
 #include "sd-lldp.h"
+
+#include "alloc-util.h"
+#include "lldp-internal.h"
 
 /* We store maximum 1K chassis entries */
 #define LLDP_MIB_MAX_CHASSIS 1024
@@ -333,7 +335,7 @@ int lldp_chassis_new(tlv_packet *tlv,
 }
 
 int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_lldp_packet_unref_ tlv_packet *packet = NULL;
+        _cleanup_(sd_lldp_packet_unrefp) tlv_packet *packet = NULL;
         tlv_packet *p;
         uint16_t length;
         int r;

@@ -23,22 +23,29 @@
 #include <sys/prctl.h>
 
 #include "sd-daemon.h"
-#include "json.h"
-#include "strv.h"
-#include "btrfs-util.h"
-#include "utf8.h"
-#include "mkdir.h"
-#include "rm-rf.h"
-#include "path-util.h"
-#include "import-util.h"
-#include "curl-util.h"
+
+#include "alloc-util.h"
 #include "aufs-util.h"
-#include "pull-job.h"
-#include "pull-common.h"
-#include "import-common.h"
-#include "pull-dkr.h"
-#include "process-util.h"
+#include "btrfs-util.h"
+#include "curl-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "hostname-util.h"
+#include "import-common.h"
+#include "import-util.h"
+#include "json.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "pull-common.h"
+#include "pull-dkr.h"
+#include "pull-job.h"
+#include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "utf8.h"
+#include "web-util.h"
 
 typedef enum DkrProgress {
         DKR_SEARCHING,
@@ -476,13 +483,13 @@ static int dkr_pull_make_local_copy(DkrPull *i, DkrPullVersion version) {
         if (!i->final_path) {
                 i->final_path = strjoin(i->image_root, "/.dkr-", i->id, NULL);
                 if (!i->final_path)
-                        return log_oom();
+                        return -ENOMEM;
         }
 
         if (version == DKR_PULL_V2) {
-                r = path_get_parent(i->image_root, &p);
-                if (r < 0)
-                        return r;
+                p = dirname_malloc(i->image_root);
+                if (!p)
+                        return -ENOMEM;
         }
 
         r = pull_make_local_copy(i->final_path, p ?: i->image_root, i->local, i->force_local);
@@ -490,10 +497,16 @@ static int dkr_pull_make_local_copy(DkrPull *i, DkrPullVersion version) {
                 return r;
 
         if (version == DKR_PULL_V2) {
-                char **k = NULL;
+                char **k;
+
                 STRV_FOREACH(k, i->ancestry) {
-                        _cleanup_free_ char *d = strjoin(i->image_root, "/.dkr-", *k, NULL);
-                        r = btrfs_subvol_remove(d, false);
+                        _cleanup_free_ char *d;
+
+                        d = strjoin(i->image_root, "/.dkr-", *k, NULL);
+                        if (!d)
+                                return -ENOMEM;
+
+                        r = btrfs_subvol_remove(d, BTRFS_REMOVE_QUOTA);
                         if (r < 0)
                                return r;
                 }
@@ -531,11 +544,13 @@ static int dkr_pull_job_on_open_disk(PullJob *j) {
                 const char *base_path;
 
                 base_path = strjoina(i->image_root, "/.dkr-", base);
-                r = btrfs_subvol_snapshot(base_path, i->temp_path, BTRFS_SNAPSHOT_FALLBACK_COPY);
+                r = btrfs_subvol_snapshot(base_path, i->temp_path, BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_QUOTA);
         } else
                 r = btrfs_subvol_make(i->temp_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to make btrfs subvolume %s: %m", i->temp_path);
+
+        (void) import_assign_pool_quota_and_warn(i->temp_path);
 
         j->disk_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)

@@ -56,6 +56,7 @@ VXLAN.UDP6ZeroCheckSumRx,    config_parse_bool,                  0,             
 VXLAN.UDP6ZeroCheckSumTx,    config_parse_bool,                  0,                             offsetof(VxLan, udp6zerocsumtx)
 VXLAN.FDBAgeingSec,          config_parse_sec,                   0,                             offsetof(VxLan, fdb_ageing)
 VXLAN.GroupPolicyExtension,  config_parse_bool,                  0,                             offsetof(VxLan, group_policy)
+VXLAN.MaximumFDBEntries,     config_parse_unsigned,              0,                             offsetof(VxLan, max_fdb)
 Tun.OneQueue,                config_parse_bool,                  0,                             offsetof(TunTap, one_queue)
 Tun.MultiQueue,              config_parse_bool,                  0,                             offsetof(TunTap, multi_queue)
 Tun.PacketInfo,              config_parse_bool,                  0,                             offsetof(TunTap, packet_info)

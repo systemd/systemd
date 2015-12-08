@@ -19,17 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifdef HAVE_KMOD
 #include <libkmod.h>
 #endif
 
-#include "macro.h"
-#include "capability.h"
 #include "bus-util.h"
+#include "capability-util.h"
 #include "kmod-setup.h"
+#include "macro.h"
 
 #ifdef HAVE_KMOD
 static void systemd_kmod_log(

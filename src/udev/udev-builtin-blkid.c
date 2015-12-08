@@ -18,18 +18,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <blkid/blkid.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
-#include <blkid/blkid.h>
 
 #include "sd-id128.h"
-#include "gpt.h"
+
+#include "alloc-util.h"
 #include "efivars.h"
+#include "fd-util.h"
+#include "gpt.h"
+#include "string-util.h"
 #include "udev.h"
 
 static void print_property(struct udev_device *dev, bool test, const char *name, const char *value) {

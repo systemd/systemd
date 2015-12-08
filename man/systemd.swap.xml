@@ -68,14 +68,15 @@
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    which define the execution environment the
-    <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    binary is executed in, and in
+    which define the execution environment the <citerefentry
+    project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    binary is executed in, in
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    which define the way the processes are terminated, and in
+    which define the way the these processes are
+    terminated, and in
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    which configure resource control settings for the processes of the
-    service.</para>
+    which configure resource control settings for these processes of the
+    unit.</para>
 
     <para>Swap units must be named after the devices
     or files they control. Example: the swap device
@@ -84,15 +85,28 @@
     the escaping logic used to convert a file system path to a unit
     name, see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
 
-    <para>All swap units automatically get the appropriate
-    dependencies on the devices or on the mount points of the files
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>All swap units automatically get the
+    <varname>BindsTo=</varname> and <varname>After=</varname>
+    dependencies on the device units or the mount units of the files
     they are activated from.</para>
 
     <para>Swap units with <varname>DefaultDependencies=</varname>
-    enabled implicitly acquire a conflicting dependency to
+    enabled implicitly acquire a <varname>Conflicts=</varname> and an
+    <varname>After=</varname> dependency on
     <filename>umount.target</filename> so that they are deactivated at
-    shutdown.</para>
+    shutdown, unless <varname>DefaultDependencies=no</varname> is
+    specified.</para>
+
+    <para>Additional implicit dependencies may be added as result of
+    execution and resource control parameters as documented in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -111,7 +125,7 @@
     <filename>/etc/fstab</filename> and a unit file, the configuration
     in the latter takes precedence.</para>
 
-    <para>When reading <filename>/etc/fstab</filename> a few special
+    <para>When reading <filename>/etc/fstab</filename>, a few special
     options are understood by systemd which influence how dependencies
     are created for swap units.</para>
 
@@ -120,11 +134,11 @@
         <term><option>noauto</option></term>
         <term><option>auto</option></term>
 
-        <listitem><para>With <option>noauto</option> the swap unit
+        <listitem><para>With <option>noauto</option>, the swap unit
         will not be added as a dependency for
         <filename>swap.target</filename>. This means that it will not
         be activated automatically during boot, unless it is pulled in
-        by some other unit. Option <option>auto</option> has the
+        by some other unit. The <option>auto</option> option has the
         opposite meaning and is the default.</para>
         </listitem>
       </varlistentry>
@@ -132,7 +146,7 @@
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>With <option>nofail</option> the swap unit
+        <listitem><para>With <option>nofail</option>, the swap unit
         will be only wanted, not required by
         <filename>swap.target</filename>. This means that the boot
         will continue even if this swap device is not activated
@@ -177,8 +191,8 @@
 
         <listitem><para>Swap priority to use when activating the swap
         device or file. This takes an integer. This setting is
-        optional and ignored when priority is set by <option>pri=</option> in the
-        <varname>Options=</varname> option.</para></listitem>
+        optional and ignored when the priority is set by <option>pri=</option> in the
+        <varname>Options=</varname> key.</para></listitem>
       </varlistentry>
 
       <varlistentry>

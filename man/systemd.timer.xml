@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -73,19 +73,29 @@
     <filename>foo.timer</filename> activates a matching service
     <filename>foo.service</filename>. The unit to activate may be
     controlled by <varname>Unit=</varname> (see below).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>Timer units automatically gain a <varname>Before=</varname>
+    dependency on the service they are supposed to activate.</para>
 
     <para>Unless <varname>DefaultDependencies=</varname> is set to
     <option>false</option>, all timer units will implicitly have
-    dependencies of type <varname>Conflicts=</varname> and
-    <varname>Before=</varname> on <filename>shutdown.target</filename>
-    to ensure that they are stopped cleanly prior to system shutdown.
-    Timer units with at least one <varname>OnCalendar=</varname>
-    directive will have an additional <varname>After=</varname>
-    dependency on <filename>timer-sync.target</filename> to avoid
-    being started before the system clock has been correctly set. Only
-    timer units involved with early boot or late system shutdown
-    should disable the <varname>DefaultDependencies=</varname>
-    option.</para>
+    dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on <filename>sysinit.target</filename>,
+    a dependency of type <varname>Before=</varname> on
+    <filename>timers.target</filename>, as well as
+    <varname>Conflicts=</varname> and <varname>Before=</varname> on
+    <filename>shutdown.target</filename> to ensure that they are
+    stopped cleanly prior to system shutdown.  Timer units with at
+    least one <varname>OnCalendar=</varname> directive will have an
+    additional <varname>After=</varname> dependency on
+    <filename>timer-sync.target</filename> to avoid being started
+    before the system clock has been correctly set. Only timer units
+    involved with early boot or late system shutdown should disable
+    the <varname>DefaultDependencies=</varname> option.</para>
   </refsect1>
 
   <refsect1>
@@ -127,7 +137,7 @@
         boot-up. The argument may also include time units. Example:
         "OnBootSec=5h 30min" means 5 hours and 30 minutes after
         boot-up. For details about the syntax of time spans, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <para>If a timer configured with <varname>OnBootSec=</varname>
         or <varname>OnStartupSec=</varname> is already in the past
@@ -180,13 +190,12 @@
         <varname>OnUnitInactiveSec=</varname> and ending the time
         configured with <varname>AccuracySec=</varname> later. Within
         this time window, the expiry time will be placed at a
-        host-specific, randomized but stable position that is
+        host-specific, randomized, but stable position that is
         synchronized between all local timer units. This is done in
-        order to distribute the wake-up time in networked
-        installations, as well as optimizing power consumption to
-        suppress unnecessary CPU wake-ups. To get best accuracy, set
-        this option to 1us. Note that the timer is still subject to
-        the timer slack configured via
+        order to optimize power consumption to suppress unnecessary
+        CPU wake-ups. To get best accuracy, set this option to
+        1us. Note that the timer is still subject to the timer slack
+        configured via
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
         <varname>TimerSlackNSec=</varname> setting. See
         <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -194,6 +203,38 @@
         this value as high as possible and as low as
         necessary.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RandomizedDelaySec=</varname></term>
+
+        <listitem><para>Delay the timer by a randomly selected, evenly
+        distributed amount of time between 0 and the specified time
+        value. Defaults to 0, indicating that no randomized delay
+        shall be applied. Each timer unit will determine this delay
+        randomly each time it is started, and the delay will simply be
+        added on top of the next determined elapsing time. This is
+        useful to stretch dispatching of similarly configured timer
+        events over a certain amount time, to avoid that they all fire
+        at the same time, possibly resulting in resource
+        congestion. Note the relation to
+        <varname>AccuracySec=</varname> above: the latter allows the
+        service manager to coalesce timer events within a specified
+        time range in order to minimize wakeups, the former does the
+        opposite: it stretches timer events over a time range, to make
+        it unlikely that they fire simultaneously. If
+        <varname>RandomizedDelaySec=</varname> and
+        <varname>AccuracySec=</varname> are used in conjunction, first
+        the randomized delay is added, and then the result is
+        possibly further shifted to coalesce it with other timer
+        events happening on the system. As mentioned above
+        <varname>AccuracySec=</varname> defaults to 1min and
+        <varname>RandomizedDelaySec=</varname> to 0, thus encouraging
+        coalescing of timer events. In order to optimally stretch
+        timer events over a certain range of time, make sure to set
+        <varname>RandomizedDelaySec=</varname> to a higher value, and
+        <varname>AccuracySec=1us</varname>.</para></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><varname>Unit=</varname></term>
 
@@ -232,6 +273,24 @@
         appropriate times, it will not take care of suspending it
         again after any work that is to be done is finished. Defaults
         to <varname>false</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RemainAfterElapse=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, an elapsed
+        timer will stay loaded, and its state remains queriable. If
+        false, an elapsed timer unit that cannot elapse anymore is
+        unloaded. Turning this off is particularly useful for
+        transient timer units that shall disappear after they first
+        elapse. Note that this setting has an effect on repeatedly
+        starting the a timer unit that only elapses once: if
+        <varname>RemainAfterElapse=</varname> is on, it will not be
+        started again, and is guaranteed to elapse only once. However,
+        if <varname>RemainAfterLeapse=</varname> is off, it might be
+        started again if it is already elapsed, and thus be triggered
+        multiple times. Defaults to
+        <varname>yes</varname>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

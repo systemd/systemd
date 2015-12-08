@@ -22,6 +22,7 @@
 #pragma once
 
 #include "sd-event.h"
+
 #include "util.h"
 
 typedef enum { DKR_PULL_V1, DKR_PULL_V2 } DkrPullVersion;

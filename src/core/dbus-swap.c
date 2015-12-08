@@ -20,12 +20,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "unit.h"
-#include "swap.h"
-#include "dbus-execute.h"
-#include "dbus-cgroup.h"
-#include "dbus-swap.h"
 #include "bus-util.h"
+#include "dbus-cgroup.h"
+#include "dbus-execute.h"
+#include "dbus-swap.h"
+#include "string-util.h"
+#include "swap.h"
+#include "unit.h"
 
 static int property_get_priority(
                 sd_bus *bus,

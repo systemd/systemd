@@ -17,16 +17,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-#include "unit.h"
-#include "manager.h"
-#include "util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
-#include "strv.h"
+#include "manager.h"
 #include "mkdir.h"
 #include "rm-rf.h"
+#include "string-util.h"
+#include "strv.h"
+#include "test-helper.h"
+#include "unit.h"
+#include "util.h"
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -40,8 +45,8 @@ static int setup_test(Manager **m) {
         assert_se(m);
 
         r = manager_new(MANAGER_USER, true, &tmp);
-        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT, -ENOEXEC)) {
-                printf("Skipping test: manager_new: %s", strerror(-r));
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return -EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);
@@ -254,7 +259,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        assert_se(set_unit_path(TEST_DIR) >= 0);
+        assert_se(set_unit_path(TEST_DIR "/test-path/") >= 0);
 
         for (test = tests; test && *test; test++) {
                 int r;

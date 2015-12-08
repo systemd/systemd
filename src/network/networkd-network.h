@@ -25,12 +25,12 @@
 
 typedef struct Network Network;
 
-#include "networkd.h"
-#include "networkd-netdev.h"
 #include "networkd-address.h"
-#include "networkd-route.h"
 #include "networkd-fdb.h"
+#include "networkd-netdev.h"
+#include "networkd-route.h"
 #include "networkd-util.h"
+#include "networkd.h"
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
@@ -121,6 +121,8 @@ struct Network {
         bool ip_masquerade;
 
         int ipv6_accept_ra;
+        int ipv6_dad_transmits;
+        int ipv6_hop_limit;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;

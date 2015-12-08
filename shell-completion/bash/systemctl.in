@@ -106,6 +106,8 @@ _systemctl () {
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
             mode=--user
+        elif __contains_word "--global" ${COMP_WORDS[*]}; then
+            mode=--user
         else
             mode=--system
         fi
@@ -113,7 +115,8 @@ _systemctl () {
         if __contains_word "$prev" ${OPTS[ARG]}; then
                 case $prev in
                         --signal|-s)
-                                comps=$(compgen -A signal)
+                                _signals
+                                return
                         ;;
                         --type|-t)
                                 comps=$(__systemctl $mode -t help)
@@ -159,7 +162,7 @@ _systemctl () {
         fi
 
         local -A VERBS=(
-                [ALL_UNITS]='is-active is-failed is-enabled status show cat mask preset help list-dependencies edit'
+                [ALL_UNITS]='is-active is-failed is-enabled status show cat mask preset help list-dependencies edit set-property'
             [ENABLED_UNITS]='disable'
            [DISABLED_UNITS]='enable'
         [REENABLABLE_UNITS]='reenable'
@@ -172,14 +175,12 @@ _systemctl () {
          [TARGET_AND_UNITS]='add-wants add-requires'
              [MASKED_UNITS]='unmask'
                      [JOBS]='cancel'
-                [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
                [STANDALONE]='daemon-reexec daemon-reload default
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
                              list-sockets list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
                              is-system-running'
-                     [NAME]='snapshot'
                      [FILE]='link switch-root'
                   [TARGETS]='set-default'
         )
@@ -257,15 +258,11 @@ _systemctl () {
                 fi
                 compopt -o filenames
 
-        elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[NAME]}; then
+        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 comps=''
 
         elif __contains_word "$verb" ${VERBS[JOBS]}; then
                 comps=$( __systemctl $mode list-jobs | { while read -r a b; do echo " $a"; done; } )
-
-        elif __contains_word "$verb" ${VERBS[SNAPSHOTS]}; then
-                comps=$( __systemctl $mode list-units --type snapshot --full --all \
-                        | { while read -r a b; do echo " $a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
                 comps=$( __systemctl $mode show-environment \

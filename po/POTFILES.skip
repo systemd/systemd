@@ -6,7 +6,6 @@ src/core/dbus-mount.c
 src/core/dbus-path.c
 src/core/dbus-service.c
 src/core/dbus-slice.c
-src/core/dbus-snapshot.c
 src/core/dbus-socket.c
 src/core/dbus-swap.c
 src/core/dbus-target.c

@@ -21,7 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-
+#include <inttypes.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/types.h>
 
 int memfd_new(const char *name);
 int memfd_new_and_map(const char *name, size_t sz, void **p);

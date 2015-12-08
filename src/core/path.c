@@ -19,20 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/inotify.h>
-#include <sys/epoll.h>
 #include <errno.h>
+#include <sys/epoll.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
-#include "unit.h"
-#include "unit-name.h"
-#include "path.h"
-#include "mkdir.h"
-#include "dbus-path.h"
-#include "special.h"
-#include "macro.h"
-#include "bus-util.h"
 #include "bus-error.h"
+#include "bus-util.h"
+#include "dbus-path.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "glob-util.h"
+#include "macro.h"
+#include "mkdir.h"
+#include "path.h"
+#include "special.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "unit-name.h"
+#include "unit.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
@@ -309,20 +315,20 @@ static int path_add_default_dependencies(Path *p) {
 
         assert(p);
 
-        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE,
-                                        SPECIAL_PATHS_TARGET, NULL, true);
+        if (!UNIT(p)->default_dependencies)
+                return 0;
+
+        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, NULL, true);
         if (r < 0)
                 return r;
 
         if (UNIT(p)->manager->running_as == MANAGER_SYSTEM) {
-                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES,
-                                                      SPECIAL_SYSINIT_TARGET, NULL, true);
+                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS,
-                                                 SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int path_load(Unit *u) {
@@ -354,11 +360,9 @@ static int path_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (UNIT(p)->default_dependencies) {
-                        r = path_add_default_dependencies(p);
-                        if (r < 0)
-                                return r;
-                }
+                r = path_add_default_dependencies(p);
+                if (r < 0)
+                        return r;
         }
 
         return path_verify(p);
@@ -461,7 +465,7 @@ static void path_enter_dead(Path *p, PathResult f) {
 }
 
 static void path_enter_running(Path *p) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(p);
@@ -470,8 +474,7 @@ static void path_enter_running(Path *p) {
         if (unit_stop_pending(UNIT(p)))
                 return;
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_TRIGGER(UNIT(p)),
-                            JOB_REPLACE, true, &error, NULL);
+        r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_TRIGGER(UNIT(p)), JOB_REPLACE, &error, NULL);
         if (r < 0)
                 goto fail;
 

@@ -33,30 +33,37 @@
 
  ***/
 
-#include <sys/resource.h>
-#include <stdio.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <time.h>
-#include <getopt.h>
-#include <limits.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <limits.h>
+#include <signal.h>
 #include <stdbool.h>
-#include "systemd/sd-journal.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/resource.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "fileio.h"
-#include "macro.h"
+#include "sd-journal.h"
+
+#include "alloc-util.h"
+#include "bootchart.h"
 #include "conf-parser.h"
-#include "strxcpyx.h"
+#include "def.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "io-util.h"
+#include "list.h"
+#include "macro.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "store.h"
+#include "string-util.h"
+#include "strxcpyx.h"
 #include "svg.h"
-#include "bootchart.h"
-#include "list.h"
+#include "util.h"
 
 static int exiting = 0;
 
@@ -88,8 +95,6 @@ static void signal_handler(int sig) {
         exiting = 1;
 }
 
-#define BOOTCHART_CONF "/etc/systemd/bootchart.conf"
-
 #define BOOTCHART_MAX (16*1024*1024)
 
 static void parse_conf(void) {
@@ -110,8 +115,8 @@ static void parse_conf(void) {
                 { NULL, NULL, NULL, 0, NULL }
         };
 
-        config_parse_many(BOOTCHART_CONF,
-                          CONF_DIRS_NULSTR("systemd/bootchart.conf"),
+        config_parse_many(PKGSYSCONFDIR "/bootchart.conf",
+                          CONF_PATHS_NULSTR("systemd/bootchart.conf.d"),
                           NULL, config_item_table_lookup, items, true, NULL);
 
         if (init != NULL)

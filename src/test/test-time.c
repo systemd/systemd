@@ -19,8 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "time-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 static void test_parse_sec(void) {
         usec_t u;
@@ -55,6 +55,28 @@ static void test_parse_sec(void) {
         assert_se(parse_sec(".s ", &u) < 0);
         assert_se(parse_sec(" infinity .7", &u) < 0);
         assert_se(parse_sec(".3 infinity", &u) < 0);
+}
+
+static void test_parse_time(void) {
+        usec_t u;
+
+        assert_se(parse_time("5", &u, 1) >= 0);
+        assert_se(u == 5);
+
+        assert_se(parse_time("5", &u, USEC_PER_MSEC) >= 0);
+        assert_se(u == 5 * USEC_PER_MSEC);
+
+        assert_se(parse_time("5", &u, USEC_PER_SEC) >= 0);
+        assert_se(u == 5 * USEC_PER_SEC);
+
+        assert_se(parse_time("5s", &u, 1) >= 0);
+        assert_se(u == 5 * USEC_PER_SEC);
+
+        assert_se(parse_time("5s", &u, USEC_PER_SEC) >= 0);
+        assert_se(u == 5 * USEC_PER_SEC);
+
+        assert_se(parse_time("5s", &u, USEC_PER_MSEC) >= 0);
+        assert_se(u == 5 * USEC_PER_SEC);
 }
 
 static void test_parse_nsec(void) {
@@ -161,6 +183,7 @@ static void test_get_timezones(void) {
 
 int main(int argc, char *argv[]) {
         test_parse_sec();
+        test_parse_time();
         test_parse_nsec();
         test_format_timespan(1);
         test_format_timespan(USEC_PER_MSEC);

@@ -18,8 +18,8 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
 #include "console.h"
+#include "util.h"
 
 #define EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID \
         { 0xdd9e7534, 0x7762, 0x4698, { 0x8c, 0x14, 0xf5, 0x85, 0x17, 0xa6, 0x25, 0xaa } }

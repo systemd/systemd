@@ -32,7 +32,6 @@ typedef enum UnitType {
         UNIT_SOCKET,
         UNIT_BUSNAME,
         UNIT_TARGET,
-        UNIT_SNAPSHOT,
         UNIT_DEVICE,
         UNIT_MOUNT,
         UNIT_AUTOMOUNT,
@@ -165,13 +164,6 @@ typedef enum SliceState {
         _SLICE_STATE_INVALID = -1
 } SliceState;
 
-typedef enum SnapshotState {
-        SNAPSHOT_DEAD,
-        SNAPSHOT_ACTIVE,
-        _SNAPSHOT_STATE_MAX,
-        _SNAPSHOT_STATE_INVALID = -1
-} SnapshotState;
-
 typedef enum SocketState {
         SOCKET_DEAD,
         SOCKET_START_PRE,
@@ -226,18 +218,14 @@ typedef enum TimerState {
 typedef enum UnitDependency {
         /* Positive dependencies */
         UNIT_REQUIRES,
-        UNIT_REQUIRES_OVERRIDABLE,
         UNIT_REQUISITE,
-        UNIT_REQUISITE_OVERRIDABLE,
         UNIT_WANTS,
         UNIT_BINDS_TO,
         UNIT_PART_OF,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' is 'required_by' */
-        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' is 'required_by_overridable' */
         UNIT_REQUISITE_OF,            /* inverse of 'requisite' is 'requisite_of' */
-        UNIT_REQUISITE_OF_OVERRIDABLE,/* inverse of 'requisite_overridable' is 'requisite_of_overridable' */
         UNIT_WANTED_BY,               /* inverse of 'wants' */
         UNIT_BOUND_BY,                /* inverse of 'binds_to' */
         UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
@@ -365,9 +353,6 @@ ServiceState service_state_from_string(const char *s) _pure_;
 
 const char* slice_state_to_string(SliceState i) _const_;
 SliceState slice_state_from_string(const char *s) _pure_;
-
-const char* snapshot_state_to_string(SnapshotState i) _const_;
-SnapshotState snapshot_state_from_string(const char *s) _pure_;
 
 const char* socket_state_to_string(SocketState i) _const_;
 SocketState socket_state_from_string(const char *s) _pure_;

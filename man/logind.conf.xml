@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -255,8 +255,8 @@
 
         <listitem><para>Specifies the timeout after system startup or
         system resume in which systemd will hold off on reacting to
-        LID events. This is required for the system to properly
-        detect any hotplugged devices so systemd can ignore LID events
+        lid events. This is required for the system to properly
+        detect any hotplugged devices so systemd can ignore lid events
         if external monitors, or docks, are connected. If set to 0,
         systemd will always react immediately, possibly before the
         kernel fully probed all hotplugged devices. This is safe, as
@@ -277,7 +277,18 @@
         limit relative to the amount of physical RAM. Defaults to 10%.
         Note that this size is a safety limit only. As each runtime
         directory is a tmpfs file system, it will only consume as much
-        memory as is needed. </para></listitem>
+        memory as is needed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UserTasksMax=</varname></term>
+
+        <listitem><para>Sets the maximum number of OS tasks each user
+        may run concurrently. This controls the
+        <varname>TasksMax=</varname> setting of the per-user slice
+        unit, see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Defaults to 4096.</para></listitem>
       </varlistentry>
 
       <varlistentry>

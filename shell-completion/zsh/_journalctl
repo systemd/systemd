@@ -69,6 +69,7 @@ _arguments -s \
     {-u+,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
     '--user-unit=[Show data only from the specified user session unit]:units:_journal_fields USER_UNIT' \
     {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
+    {-t+,--identifier=}'[Show only messages with the specified syslog identifier]:identifier:_journal_fields SYSLOG_IDENTIFIER' \
     {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journal_fields __CURSORS' \
     '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journal_fields __CURSORS' \
     '--since=[Start showing entries on or newer than the specified date]:YYYY-MM-DD HH\:MM\:SS' \

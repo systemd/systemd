@@ -17,22 +17,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <linux/filter.h>
+#include <linux/netlink.h>
+#include <poll.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <poll.h>
 #include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/filter.h>
+#include <unistd.h>
 
 #include "libudev.h"
-#include "libudev-private.h"
-#include "socket-util.h"
-#include "missing.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
+#include "libudev-private.h"
+#include "missing.h"
+#include "mount-util.h"
+#include "socket-util.h"
+#include "string-util.h"
 
 /**
  * SECTION:libudev-monitor
@@ -408,10 +414,8 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 
         if (err >= 0)
                 monitor_set_nl_address(udev_monitor);
-        else {
-                log_debug_errno(errno, "bind failed: %m");
-                return -errno;
-        }
+        else
+                return log_debug_errno(errno, "bind failed: %m");
 
         /* enable receiving of sender credentials */
         err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));

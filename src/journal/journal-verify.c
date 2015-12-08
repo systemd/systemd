@@ -19,20 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <sys/mman.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "macro.h"
+#include "alloc-util.h"
+#include "compress.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
-#include "journal-authenticate.h"
 #include "journal-verify.h"
 #include "lookup3.h"
-#include "compress.h"
+#include "macro.h"
 #include "terminal-util.h"
+#include "util.h"
 
 static void draw_progress(uint64_t p, usec_t *last_usec) {
         unsigned n, i, j, k;
@@ -839,19 +842,19 @@ int journal_file_verify(
 
         data_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (data_fd < 0) {
-                r = log_error_errno(errno, "Failed to create data file: %m");
+                r = log_error_errno(data_fd, "Failed to create data file: %m");
                 goto fail;
         }
 
         entry_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_fd < 0) {
-                r = log_error_errno(errno, "Failed to create entry file: %m");
+                r = log_error_errno(entry_fd, "Failed to create entry file: %m");
                 goto fail;
         }
 
         entry_array_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_array_fd < 0) {
-                r = log_error_errno(errno,
+                r = log_error_errno(entry_array_fd,
                                     "Failed to create entry array file: %m");
                 goto fail;
         }
@@ -897,7 +900,7 @@ int journal_file_verify(
 
                 r = journal_file_object_verify(f, p, o);
                 if (r < 0) {
-                        error(p, "Envalid object contents: %s", strerror(-r));
+                        error(p, "Invalid object contents: %s", strerror(-r));
                         goto fail;
                 }
 

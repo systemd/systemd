@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for Personality=s390
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(uname -m); test "$$c" = "s390"'
+Type=oneshot
+Personality=s390

@@ -17,21 +17,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdint.h>
+#include <elf.h>
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <time.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <linux/random.h>
+#include <stdint.h>
+
 #ifdef HAVE_SYS_AUXV_H
 #include <sys/auxv.h>
 #endif
-#include <linux/random.h>
 
+#include "fd-util.h"
+#include "io-util.h"
+#include "missing.h"
 #include "random-util.h"
 #include "time-util.h"
-#include "missing.h"
-#include "util.h"
 
 int dev_urandom(void *p, size_t n) {
         static int have_syscall = -1;

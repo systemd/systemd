@@ -58,7 +58,7 @@
     service that is invoked as part of the first boot after the vendor
     operating system resources in <filename>/usr</filename> have been
     updated. This is useful to implement offline updates of
-    <filename>/usr</filename> which might requires updates to
+    <filename>/usr</filename> which might require updates to
     <filename>/etc</filename> or <filename>/var</filename> on the
     following boot.</para>
 

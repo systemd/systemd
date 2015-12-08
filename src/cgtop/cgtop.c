@@ -30,11 +30,14 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
@@ -838,8 +841,8 @@ static const char* counting_what(void) {
 }
 
 static int get_cgroup_root(char **ret) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *unit = NULL, *path = NULL;
         const char *m;
         int r;

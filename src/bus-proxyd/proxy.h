@@ -22,6 +22,7 @@
 ***/
 
 #include "sd-bus.h"
+
 #include "bus-xml-policy.h"
 
 typedef struct Proxy Proxy;

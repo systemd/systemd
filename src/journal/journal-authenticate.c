@@ -22,10 +22,12 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
+#include "fd-util.h"
+#include "fsprg.h"
+#include "hexdecoct.h"
+#include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
-#include "journal-authenticate.h"
-#include "fsprg.h"
 
 static uint64_t journal_file_tag_seqnum(JournalFile *f) {
         uint64_t r;

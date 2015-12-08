@@ -1,15 +1,15 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#include <stdio.h>
-#include <stdbool.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "util.h"
-#include "macro.h"
-
-#include "dhcp-protocol.h"
+#include "alloc-util.h"
 #include "dhcp-internal.h"
+#include "dhcp-protocol.h"
+#include "macro.h"
+#include "util.h"
 
 struct option_desc {
         uint8_t sname[64];
@@ -75,9 +75,8 @@ static const char *dhcp_type(int type) {
 static void test_invalid_buffer_length(void) {
         DHCPMessage message;
 
-        assert_se(dhcp_option_parse(&message, 0, NULL, NULL) == -EINVAL);
-        assert_se(dhcp_option_parse(&message, sizeof(DHCPMessage) - 1, NULL, NULL)
-               == -EINVAL);
+        assert_se(dhcp_option_parse(&message, 0, NULL, NULL, NULL) == -EINVAL);
+        assert_se(dhcp_option_parse(&message, sizeof(DHCPMessage) - 1, NULL, NULL, NULL) == -EINVAL);
 }
 
 static void test_message_init(void) {
@@ -101,7 +100,7 @@ static void test_message_init(void) {
         assert_se(magic[2] == 83);
         assert_se(magic[3] == 99);
 
-        assert_se(dhcp_option_parse(message, len, NULL, NULL) >= 0);
+        assert_se(dhcp_option_parse(message, len, NULL, NULL, NULL) >= 0);
 }
 
 static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
@@ -264,19 +263,12 @@ static void test_options(struct option_desc *desc) {
         buflen = sizeof(DHCPMessage) + optlen;
 
         if (!desc) {
-                assert_se((res = dhcp_option_parse(message, buflen,
-                                                test_options_cb,
-                                                NULL)) == -ENOMSG);
+                assert_se((res = dhcp_option_parse(message, buflen, test_options_cb, NULL, NULL)) == -ENOMSG);
         } else if (desc->success) {
-                assert_se((res = dhcp_option_parse(message, buflen,
-                                                test_options_cb,
-                                                desc)) >= 0);
-                assert_se(desc->pos == -1 && desc->filepos == -1 &&
-                                desc->snamepos == -1);
+                assert_se((res = dhcp_option_parse(message, buflen, test_options_cb, desc, NULL)) >= 0);
+                assert_se(desc->pos == -1 && desc->filepos == -1 && desc->snamepos == -1);
         } else
-                assert_se((res = dhcp_option_parse(message, buflen,
-                                                test_options_cb,
-                                                desc)) < 0);
+                assert_se((res = dhcp_option_parse(message, buflen, test_options_cb, desc, NULL)) < 0);
 
         if (verbose)
                 printf("DHCP type %s\n", dhcp_type(res));

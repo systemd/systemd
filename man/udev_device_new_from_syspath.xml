@@ -127,7 +127,7 @@
     <function>udev_device_new_from_subsystem_sysname</function>, and
     <function>udev_device_new_from_device_id</function>
     create the device object based on information found in
-    <filename>/sys</filename> annotated with properties from the udev-internal
+    <filename>/sys</filename>, annotated with properties from the udev-internal
     device database. A syspath is any subdirectory of <filename>/sys</filename>,
     with the restriction that a subdirectory of <filename>/sys/devices</filename>
     (or a symlink to one) represents a real device and as such must contain
@@ -141,7 +141,7 @@
     and
     <citerefentry><refentrytitle>udev_device_get_sysname</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
     and <function>udev_device_new_from_device_id</function> looks up devices based on the provided
-    device id which is a special string in one of the following four forms:
+    device ID, which is a special string in one of the following four forms:
     <table>
       <title>Device ID strings</title>
 

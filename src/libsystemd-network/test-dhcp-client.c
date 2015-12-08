@@ -24,14 +24,15 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "sd-event.h"
-#include "event-util.h"
-
-#include "dhcp-identifier.h"
-#include "dhcp-protocol.h"
-#include "dhcp-internal.h"
 #include "sd-dhcp-client.h"
+#include "sd-event.h"
+
+#include "alloc-util.h"
+#include "dhcp-identifier.h"
+#include "dhcp-internal.h"
+#include "dhcp-protocol.h"
+#include "fd-util.h"
+#include "util.h"
 
 static uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
 
@@ -221,7 +222,7 @@ int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port, const voi
 static int test_discover_message_verify(size_t size, struct DHCPMessage *dhcp) {
         int res;
 
-        res = dhcp_option_parse(dhcp, size, check_options, NULL);
+        res = dhcp_option_parse(dhcp, size, check_options, NULL, NULL);
         assert_se(res == DHCP_DISCOVER);
 
         if (verbose)
@@ -388,7 +389,7 @@ static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
         uint8_t *msg_bytes = (uint8_t *)request;
         int res;
 
-        res = dhcp_option_parse(request, size, check_options, NULL);
+        res = dhcp_option_parse(request, size, check_options, NULL, NULL);
         assert_se(res == DHCP_REQUEST);
         assert_se(xid == request->xid);
 
@@ -418,7 +419,7 @@ static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
         uint8_t *msg_bytes = (uint8_t *)discover;
         int res;
 
-        res = dhcp_option_parse(discover, size, check_options, NULL);
+        res = dhcp_option_parse(discover, size, check_options, NULL, NULL);
         assert_se(res == DHCP_DISCOVER);
 
         assert_se(msg_bytes[size - 1] == DHCP_OPTION_END);
@@ -489,7 +490,7 @@ static void test_addr_acq(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e;
 
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();

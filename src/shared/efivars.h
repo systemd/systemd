@@ -22,8 +22,11 @@
 ***/
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "sd-id128.h"
+
 #include "time-util.h"
 
 #define EFI_VENDOR_LOADER SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)

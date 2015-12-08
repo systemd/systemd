@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
@@ -59,7 +59,7 @@
     <title>Description</title>
 
     <para>These configuration files control local DNS and LLMNR
-    name resolving.</para>
+    name resolution.</para>
 
   </refsect1>
 
@@ -72,20 +72,21 @@
 
       <varlistentry>
         <term><varname>DNS=</varname></term>
-        <listitem><para>A space separated list of IPv4 and IPv6
+        <listitem><para>A space-separated list of IPv4 and IPv6
         addresses to be used as system DNS servers. DNS requests are
         sent to one of the listed DNS servers in parallel to any
         per-interface DNS servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        For compatibility reasons, if set to the empty list the DNS
-        servers listed in <filename>/etc/resolv.conf</filename> are
-        used, if any are configured there. This setting defaults to
-        the empty list.</para></listitem>
+        For compatibility reasons, if this setting is not specified,
+        the DNS servers listed in
+        <filename>/etc/resolv.conf</filename> are used instead, if
+        that file exists and any servers are configured in it. This
+        setting defaults to the empty list.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>FallbackDNS=</varname></term>
-        <listitem><para>A space separated list of IPv4 and IPv6
+        <listitem><para>A space-separated list of IPv4 and IPv6
         addresses to be used as the fallback DNS servers. Any
         per-interface DNS servers obtained from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -98,14 +99,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Domains=</varname></term>
+        <listitem><para>A space-separated list of search domains.  For
+        compatibility reasons, if this setting is not specified, the
+        search domains listed in <filename>/etc/resolv.conf</filename>
+        are used instead, if that file exists and any domains are
+        configured in it. This setting defaults to the empty
+        list.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LLMNR=</varname></term>
         <listitem><para>Takes a boolean argument or
         <literal>resolve</literal>. Controls Link-Local Multicast Name
         Resolution support (<ulink
         url="https://tools.ietf.org/html/rfc4795">RFC 4794</ulink>) on
-        the local host. If true enables full LLMNR responder and
-        resolver support. If false disable both. If set to
-        <literal>resolve</literal> only resolving support is enabled,
+        the local host. If true, enables full LLMNR responder and
+        resolver support. If false, disables both. If set to
+        <literal>resolve</literal>, only resolution support is enabled,
         but responding is disabled. Note that
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         also maintains per-interface LLMNR settings. LLMNR will be

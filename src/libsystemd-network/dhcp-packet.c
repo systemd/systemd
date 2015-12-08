@@ -19,13 +19,12 @@
 ***/
 
 #include <errno.h>
-#include <string.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
+#include <string.h>
 
-
-#include "dhcp-protocol.h"
 #include "dhcp-internal.h"
+#include "dhcp-protocol.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 

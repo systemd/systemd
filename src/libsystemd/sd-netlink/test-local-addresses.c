@@ -19,9 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "af-list.h"
+#include "alloc-util.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
-#include "af-list.h"
 
 static void print_local_addresses(struct local_address *a, unsigned n) {
         unsigned i;

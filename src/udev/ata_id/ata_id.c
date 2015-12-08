@@ -19,28 +19,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <linux/bsg.h>
+#include <linux/hdreg.h>
+#include <scsi/scsi.h>
+#include <scsi/scsi_ioctl.h>
+#include <scsi/sg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <ctype.h>
 #include <string.h>
-#include <errno.h>
-#include <getopt.h>
-#include <scsi/scsi.h>
-#include <scsi/sg.h>
-#include <scsi/scsi_ioctl.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <linux/hdreg.h>
-#include <linux/bsg.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "libudev.h"
+
+#include "fd-util.h"
 #include "libudev-private.h"
-#include "udev-util.h"
 #include "log.h"
+#include "udev-util.h"
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 

@@ -25,12 +25,14 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "calendarspec.h"
 #include "env-util.h"
-#include "event-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"
@@ -38,6 +40,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 
 static bool arg_ask_password = true;
 static bool arg_scope = false;
@@ -644,6 +647,11 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         if (r < 0)
                 return r;
 
+        /* Automatically clean up our transient timers */
+        r = sd_bus_message_append(m, "(sv)", "RemainAfterElapse", "b", false);
+        if (r < 0)
+                return r;
+
         if (arg_on_active) {
                 r = sd_bus_message_append(m, "(sv)", "OnActiveSec", "t", arg_on_active);
                 if (r < 0)
@@ -683,12 +691,57 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         return 0;
 }
 
+static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
+        const char *unique, *id;
+        char *p;
+        int r;
+
+        assert(bus);
+        assert(t >= 0);
+        assert(t < _UNIT_TYPE_MAX);
+
+        r = sd_bus_get_unique_name(bus, &unique);
+        if (r < 0) {
+                sd_id128_t rnd;
+
+                /* We couldn't get the unique name, which is a pretty
+                 * common case if we are connected to systemd
+                 * directly. In that case, just pick a random uuid as
+                 * name */
+
+                r = sd_id128_randomize(&rnd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate random run unit name: %m");
+
+                if (asprintf(ret, "run-r" SD_ID128_FORMAT_STR ".%s", SD_ID128_FORMAT_VAL(rnd), unit_type_to_string(t)) < 0)
+                        return log_oom();
+
+                return 0;
+        }
+
+        /* We managed to get the unique name, then let's use that to
+         * name our transient units. */
+
+        id = startswith(unique, ":1.");
+        if (!id) {
+                log_error("Unique name %s has unexpected format.", unique);
+                return -EINVAL;
+        }
+
+        p = strjoin("run-u", id, ".", unit_type_to_string(t), NULL);
+        if (!p)
+                return log_oom();
+
+        *ret = p;
+        return 0;
+}
+
 static int start_transient_service(
                 sd_bus *bus,
                 char **argv) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *service = NULL, *pty_path = NULL;
         _cleanup_close_ int master = -1;
@@ -712,7 +765,7 @@ static int start_transient_service(
                                 return log_error_errno(errno, "Failed to unlock tty: %m");
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                        _cleanup_bus_unref_ sd_bus *system_bus = NULL;
+                        _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
                         const char *s;
 
                         r = sd_bus_default_system(&system_bus);
@@ -759,8 +812,11 @@ static int start_transient_service(
                 r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".service", &service);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name: %m");
-        } else if (asprintf(&service, "run-"PID_FMT".service", getpid()) < 0)
-                return log_oom();
+        } else {
+                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -819,7 +875,7 @@ static int start_transient_service(
 
         if (master >= 0) {
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                _cleanup_event_unref_ sd_event *event = NULL;
+                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 char last_char = 0;
 
                 r = sd_event_default(&event);
@@ -859,8 +915,8 @@ static int start_transient_scope(
                 sd_bus *bus,
                 char **argv) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
@@ -878,8 +934,11 @@ static int start_transient_scope(
                 r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".scope", &scope);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle scope name: %m");
-        } else if (asprintf(&scope, "run-"PID_FMT".scope", getpid()) < 0)
-                return log_oom();
+        } else {
+                r = make_unit_name(bus, UNIT_SCOPE, &scope);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -1000,8 +1059,8 @@ static int start_transient_timer(
                 sd_bus *bus,
                 char **argv) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *timer = NULL, *service = NULL;
         const char *object = NULL;
@@ -1048,9 +1107,15 @@ static int start_transient_timer(
 
                         break;
                 }
-        } else if ((asprintf(&service, "run-"PID_FMT".service", getpid()) < 0) ||
-                   (asprintf(&timer, "run-"PID_FMT".timer", getpid()) < 0))
-                return log_oom();
+        } else {
+                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_change_suffix(service, ".timer", &timer);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to change unit suffix: %m");
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -1142,7 +1207,7 @@ static int start_transient_timer(
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL, *command = NULL;
         int r;
 
@@ -1153,14 +1218,15 @@ int main(int argc, char* argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (argc > optind) {
-                r = find_binary(argv[optind], arg_transport == BUS_TRANSPORT_LOCAL, &command);
+        if (argc > optind && arg_transport == BUS_TRANSPORT_LOCAL) {
+                /* Patch in an absolute path */
+
+                r = find_binary(argv[optind], &command);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to find executable %s%s: %m",
-                                        argv[optind],
-                                        arg_transport == BUS_TRANSPORT_LOCAL ? "" : " on local system");
+                        log_error_errno(r, "Failed to find executable %s: %m", argv[optind]);
                         goto finish;
                 }
+
                 argv[optind] = command;
         }
 

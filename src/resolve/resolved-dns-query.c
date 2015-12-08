@@ -19,10 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "hostname-util.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "hostname-util.h"
 #include "local-addresses.h"
-
 #include "resolved-dns-query.h"
 
 /* How long to wait for the query in total */
@@ -30,29 +30,285 @@
 
 #define CNAME_MAX 8
 #define QUERIES_MAX 2048
+#define AUXILIARY_QUERIES_MAX 64
+
+static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScope *s) {
+        DnsQueryCandidate *c;
+
+        assert(ret);
+        assert(q);
+        assert(s);
+
+        c = new0(DnsQueryCandidate, 1);
+        if (!c)
+                return -ENOMEM;
+
+        c->query = q;
+        c->scope = s;
+
+        LIST_PREPEND(candidates_by_query, q->candidates, c);
+        LIST_PREPEND(candidates_by_scope, s->query_candidates, c);
+
+        *ret = c;
+        return 0;
+}
+
+static void dns_query_candidate_stop(DnsQueryCandidate *c) {
+        DnsTransaction *t;
+
+        assert(c);
+
+        while ((t = set_steal_first(c->transactions))) {
+                set_remove(t->query_candidates, c);
+                dns_transaction_gc(t);
+        }
+}
+
+DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
+
+        if (!c)
+                return NULL;
+
+        dns_query_candidate_stop(c);
+
+        set_free(c->transactions);
+        dns_search_domain_unref(c->search_domain);
+
+        if (c->query)
+                LIST_REMOVE(candidates_by_query, c->query->candidates, c);
+
+        if (c->scope)
+                LIST_REMOVE(candidates_by_scope, c->scope->query_candidates, c);
+
+        free(c);
+
+        return NULL;
+}
+
+static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
+        DnsSearchDomain *next = NULL;
+
+        assert(c);
+
+        if (c->search_domain && c->search_domain->linked) {
+                next = c->search_domain->domains_next;
+
+                if (!next) /* We hit the end of the list */
+                        return 0;
+
+        } else {
+                next = dns_scope_get_search_domains(c->scope);
+
+                if (!next) /* OK, there's nothing. */
+                        return 0;
+        }
+
+        dns_search_domain_unref(c->search_domain);
+        c->search_domain = dns_search_domain_ref(next);
+
+        return 1;
+}
+
+static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResourceKey *key) {
+        DnsTransaction *t;
+        int r;
+
+        assert(c);
+        assert(key);
+
+        r = set_ensure_allocated(&c->transactions, NULL);
+        if (r < 0)
+                return r;
+
+        t = dns_scope_find_transaction(c->scope, key, true);
+        if (!t) {
+                r = dns_transaction_new(&t, c->scope, key);
+                if (r < 0)
+                        return r;
+        }
+
+        r = set_ensure_allocated(&t->query_candidates, NULL);
+        if (r < 0)
+                goto gc;
+
+        r = set_put(t->query_candidates, c);
+        if (r < 0)
+                goto gc;
+
+        r = set_put(c->transactions, t);
+        if (r < 0) {
+                set_remove(t->query_candidates, c);
+                goto gc;
+        }
+
+        return 0;
+
+gc:
+        dns_transaction_gc(t);
+        return r;
+}
+
+static int dns_query_candidate_go(DnsQueryCandidate *c) {
+        DnsTransaction *t;
+        Iterator i;
+        int r;
+
+        assert(c);
+
+        /* Start the transactions that are not started yet */
+        SET_FOREACH(t, c->transactions, i) {
+                if (t->state != DNS_TRANSACTION_NULL)
+                        continue;
+
+                r = dns_transaction_go(t);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
+        DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
+        DnsTransaction *t;
+        Iterator i;
+
+        assert(c);
+
+        if (c->error_code != 0)
+                return DNS_TRANSACTION_RESOURCES;
+
+        SET_FOREACH(t, c->transactions, i) {
+
+                switch (t->state) {
+
+                case DNS_TRANSACTION_PENDING:
+                case DNS_TRANSACTION_NULL:
+                        return t->state;
+
+                case DNS_TRANSACTION_SUCCESS:
+                        state = t->state;
+                        break;
+
+                default:
+                        if (state != DNS_TRANSACTION_SUCCESS)
+                                state = t->state;
+
+                        break;
+                }
+        }
+
+        return state;
+}
+
+static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
+        DnsResourceKey *key;
+        int n = 0, r;
+
+        assert(c);
+
+        dns_query_candidate_stop(c);
+
+        /* Create one transaction per question key */
+        DNS_QUESTION_FOREACH(key, c->query->question) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *new_key = NULL;
+
+                if (c->search_domain) {
+                        r = dns_resource_key_new_append_suffix(&new_key, key, c->search_domain->name);
+                        if (r < 0)
+                                goto fail;
+                }
+
+                r = dns_query_candidate_add_transaction(c, new_key ?: key);
+                if (r < 0)
+                        goto fail;
+
+                n++;
+        }
+
+        return n;
+
+fail:
+        dns_query_candidate_stop(c);
+        return r;
+}
+
+void dns_query_candidate_ready(DnsQueryCandidate *c) {
+        DnsTransactionState state;
+        int r;
+
+        assert(c);
+
+        state = dns_query_candidate_state(c);
+
+        if (IN_SET(state, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_NULL))
+                return;
+
+        if (state != DNS_TRANSACTION_SUCCESS && c->search_domain) {
+
+                r = dns_query_candidate_next_search_domain(c);
+                if (r < 0)
+                        goto fail;
+
+                if (r > 0) {
+                        /* OK, there's another search domain to try, let's do so. */
+
+                        r = dns_query_candidate_setup_transactions(c);
+                        if (r < 0)
+                                goto fail;
+
+                        if (r > 0) {
+                                /* New transactions where queued. Start them and wait */
+
+                                r = dns_query_candidate_go(c);
+                                if (r < 0)
+                                        goto fail;
+
+                                return;
+                        }
+                }
+
+        }
+
+        dns_query_ready(c->query);
+        return;
+
+fail:
+        log_warning_errno(r, "Failed to follow search domains: %m");
+        c->error_code = r;
+        dns_query_ready(c->query);
+}
 
 static void dns_query_stop(DnsQuery *q) {
-        DnsTransaction *t;
+        DnsQueryCandidate *c;
 
         assert(q);
 
         q->timeout_event_source = sd_event_source_unref(q->timeout_event_source);
 
-        while ((t = set_steal_first(q->transactions))) {
-                set_remove(t->queries, q);
-                dns_transaction_gc(t);
-        }
+        LIST_FOREACH(candidates_by_query, c, q->candidates)
+                dns_query_candidate_stop(c);
 }
 
 DnsQuery *dns_query_free(DnsQuery *q) {
         if (!q)
                 return NULL;
 
-        dns_query_stop(q);
-        set_free(q->transactions);
+        while (q->auxiliary_queries)
+                dns_query_free(q->auxiliary_queries);
+
+        if (q->auxiliary_for) {
+                assert(q->auxiliary_for->n_auxiliary_queries > 0);
+                q->auxiliary_for->n_auxiliary_queries--;
+                LIST_REMOVE(auxiliary_queries, q->auxiliary_for->auxiliary_queries, q);
+        }
+
+        while (q->candidates)
+                dns_query_candidate_free(q->candidates);
 
         dns_question_unref(q->question);
         dns_answer_unref(q->answer);
+        dns_search_domain_unref(q->answer_search_domain);
 
         sd_bus_message_unref(q->request);
         sd_bus_track_unref(q->bus_track);
@@ -75,7 +331,7 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question, int ifindex
         assert(m);
         assert(question);
 
-        r = dns_question_is_valid(question);
+        r = dns_question_is_valid_for_query(question);
         if (r < 0)
                 return r;
 
@@ -89,6 +345,8 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question, int ifindex
         q->question = dns_question_ref(question);
         q->ifindex = ifindex;
         q->flags = flags;
+        q->answer_family = AF_UNSPEC;
+        q->answer_protocol = _DNS_PROTOCOL_INVALID;
 
         for (i = 0; i < question->n_keys; i++) {
                 _cleanup_free_ char *p;
@@ -108,6 +366,29 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question, int ifindex
                 *ret = q;
         q = NULL;
 
+        return 0;
+}
+
+int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for) {
+        assert(q);
+        assert(auxiliary_for);
+
+        /* Ensure that that the query is not auxiliary yet, and
+         * nothing else is auxiliary to it either */
+        assert(!q->auxiliary_for);
+        assert(!q->auxiliary_queries);
+
+        /* Ensure that the unit we shall be made auxiliary for isn't
+         * auxiliary itself */
+        assert(!auxiliary_for->auxiliary_for);
+
+        if (auxiliary_for->n_auxiliary_queries >= AUXILIARY_QUERIES_MAX)
+                return -EAGAIN;
+
+        LIST_PREPEND(auxiliary_queries, auxiliary_for->auxiliary_queries, q);
+        q->auxiliary_for = auxiliary_for;
+
+        auxiliary_for->n_auxiliary_queries++;
         return 0;
 }
 
@@ -137,62 +418,40 @@ static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         return 0;
 }
 
-static int dns_query_add_transaction(DnsQuery *q, DnsScope *s, DnsResourceKey *key) {
-        DnsTransaction *t;
+static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
+        DnsQueryCandidate *c;
         int r;
 
         assert(q);
         assert(s);
-        assert(key);
 
-        r = set_ensure_allocated(&q->transactions, NULL);
+        r = dns_query_candidate_new(&c, q, s);
         if (r < 0)
                 return r;
 
-        t = dns_scope_find_transaction(s, key, true);
-        if (!t) {
-                r = dns_transaction_new(&t, s, key);
+        /* If this a single-label domain on DNS, we might append a suitable search domain first. */
+        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0)  {
+                r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question));
                 if (r < 0)
-                        return r;
+                        goto fail;
+                if (r > 0) {
+                        /* OK, we need a search domain now. Let's find one for this scope */
+
+                        r = dns_query_candidate_next_search_domain(c);
+                        if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
+                                goto fail;
+                }
         }
 
-        r = set_ensure_allocated(&t->queries, NULL);
+        r = dns_query_candidate_setup_transactions(c);
         if (r < 0)
-                goto gc;
-
-        r = set_put(t->queries, q);
-        if (r < 0)
-                goto gc;
-
-        r = set_put(q->transactions, t);
-        if (r < 0) {
-                set_remove(t->queries, q);
-                goto gc;
-        }
+                goto fail;
 
         return 0;
 
-gc:
-        dns_transaction_gc(t);
+fail:
+        dns_query_candidate_free(c);
         return r;
-}
-
-static int dns_query_add_transaction_split(DnsQuery *q, DnsScope *s) {
-        unsigned i;
-        int r;
-
-        assert(q);
-        assert(s);
-
-        /* Create one transaction per question key */
-
-        for (i = 0; i < q->question->n_keys; i++) {
-                r = dns_query_add_transaction(q, s, q->question->keys[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
 }
 
 static int SYNTHESIZE_IFINDEX(int ifindex) {
@@ -597,9 +856,9 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer = answer;
         answer = NULL;
 
-        q->answer_family = SYNTHESIZE_FAMILY(q->flags);
-        q->answer_protocol = SYNTHESIZE_PROTOCOL(q->flags);
         q->answer_rcode = DNS_RCODE_SUCCESS;
+        q->answer_protocol = SYNTHESIZE_PROTOCOL(q->flags);
+        q->answer_family = SYNTHESIZE_FAMILY(q->flags);
 
         *state = DNS_TRANSACTION_SUCCESS;
 
@@ -609,9 +868,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
 int dns_query_go(DnsQuery *q) {
         DnsScopeMatch found = DNS_SCOPE_NO;
         DnsScope *s, *first = NULL;
-        DnsTransaction *t;
+        DnsQueryCandidate *c;
         const char *name;
-        Iterator i;
         int r;
 
         assert(q);
@@ -622,7 +880,7 @@ int dns_query_go(DnsQuery *q) {
         assert(q->question);
         assert(q->question->n_keys > 0);
 
-        name = DNS_RESOURCE_KEY_NAME(q->question->keys[0]);
+        name = dns_question_first_name(q->question);
 
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
@@ -655,7 +913,7 @@ int dns_query_go(DnsQuery *q) {
                 return 1;
         }
 
-        r = dns_query_add_transaction_split(q, first);
+        r = dns_query_add_candidate(q, first);
         if (r < 0)
                 goto fail;
 
@@ -669,7 +927,7 @@ int dns_query_go(DnsQuery *q) {
                 if (match != found)
                         continue;
 
-                r = dns_query_add_transaction_split(q, s);
+                r = dns_query_add_candidate(q, s);
                 if (r < 0)
                         goto fail;
         }
@@ -691,14 +949,13 @@ int dns_query_go(DnsQuery *q) {
         q->state = DNS_TRANSACTION_PENDING;
         q->block_ready++;
 
-        /* Start the transactions that are not started yet */
-        SET_FOREACH(t, q->transactions, i) {
-                if (t->state != DNS_TRANSACTION_NULL)
-                        continue;
-
-                r = dns_transaction_go(t);
-                if (r < 0)
+        /* Start the transactions */
+        LIST_FOREACH(candidates_by_query, c, q->candidates) {
+                r = dns_query_candidate_go(c);
+                if (r < 0) {
+                        q->block_ready--;
                         goto fail;
+                }
         }
 
         q->block_ready--;
@@ -711,14 +968,85 @@ fail:
         return r;
 }
 
-void dns_query_ready(DnsQuery *q) {
-        DnsTransaction *t;
+static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        int rcode = 0;
-        DnsScope *scope = NULL;
-        bool pending = false;
+        DnsTransaction *t;
         Iterator i;
+        bool has_authenticated = false, has_non_authenticated = false;
+
+        assert(q);
+
+        if (!c) {
+                dns_query_synthesize_reply(q, &state);
+                dns_query_complete(q, state);
+                return;
+        }
+
+        SET_FOREACH(t, c->transactions, i) {
+
+                switch (t->state) {
+
+                case DNS_TRANSACTION_SUCCESS: {
+                        /* We found a successfuly reply, merge it into the answer */
+                        DnsAnswer *merged;
+
+                        merged = dns_answer_merge(q->answer, t->answer);
+                        if (!merged) {
+                                dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
+                                return;
+                        }
+
+                        dns_answer_unref(q->answer);
+                        q->answer = merged;
+                        q->answer_rcode = t->answer_rcode;
+
+                        if (t->answer_authenticated)
+                                has_authenticated = true;
+                        else
+                                has_non_authenticated = true;
+
+                        state = DNS_TRANSACTION_SUCCESS;
+                        break;
+                }
+
+                case DNS_TRANSACTION_PENDING:
+                case DNS_TRANSACTION_NULL:
+                case DNS_TRANSACTION_ABORTED:
+                        /* Ignore transactions that didn't complete */
+                        continue;
+
+                default:
+                        /* Any kind of failure? Store the data away,
+                         * if there's nothing stored yet. */
+
+                        if (state != DNS_TRANSACTION_SUCCESS) {
+
+                                dns_answer_unref(q->answer);
+                                q->answer = dns_answer_ref(t->answer);
+                                q->answer_rcode = t->answer_rcode;
+
+                                state = t->state;
+                        }
+
+                        break;
+                }
+        }
+
+        q->answer_protocol = c->scope->protocol;
+        q->answer_family = c->scope->family;
+        q->answer_authenticated = has_authenticated && !has_non_authenticated;
+
+        dns_search_domain_unref(q->answer_search_domain);
+        q->answer_search_domain = dns_search_domain_ref(c->search_domain);
+
+        dns_query_synthesize_reply(q, &state);
+        dns_query_complete(q, state);
+}
+
+void dns_query_ready(DnsQuery *q) {
+
+        DnsQueryCandidate *bad = NULL, *c;
+        bool pending = false;
 
         assert(q);
         assert(IN_SET(q->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
@@ -731,112 +1059,44 @@ void dns_query_ready(DnsQuery *q) {
         if (q->block_ready > 0)
                 return;
 
-        SET_FOREACH(t, q->transactions, i) {
+        LIST_FOREACH(candidates_by_query, c, q->candidates) {
+                DnsTransactionState state;
 
-                /* If we found a successful answer, ignore all answers from other scopes */
-                if (state == DNS_TRANSACTION_SUCCESS && t->scope != scope)
-                        continue;
+                state = dns_query_candidate_state(c);
+                switch (state) {
 
-                /* One of the transactions is still going on, let's maybe wait for it */
-                if (IN_SET(t->state, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_NULL)) {
-                        pending = true;
-                        continue;
-                }
-
-                /* One of the transactions is successful, let's use
-                 * it, and copy its data out */
-                if (t->state == DNS_TRANSACTION_SUCCESS) {
-                        DnsAnswer *a;
-
-                        if (t->received) {
-                                rcode = DNS_PACKET_RCODE(t->received);
-                                a = t->received->answer;
-                        } else {
-                                rcode = t->cached_rcode;
-                                a = t->cached;
-                        }
-
-                        if (state == DNS_TRANSACTION_SUCCESS) {
-                                DnsAnswer *merged;
-
-                                merged = dns_answer_merge(answer, a);
-                                if (!merged) {
-                                        dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
-                                        return;
-                                }
-
-                                dns_answer_unref(answer);
-                                answer = merged;
-                        } else {
-                                dns_answer_unref(answer);
-                                answer = dns_answer_ref(a);
-                        }
-
-                        scope = t->scope;
-                        state = DNS_TRANSACTION_SUCCESS;
-                        continue;
-                }
-
-                /* One of the transactions has failed, let's see
-                 * whether we find anything better, but if not, return
-                 * its response data */
-                if (state != DNS_TRANSACTION_SUCCESS && t->state == DNS_TRANSACTION_FAILURE) {
-                        DnsAnswer *a;
-
-                        if (t->received) {
-                                rcode = DNS_PACKET_RCODE(t->received);
-                                a = t->received->answer;
-                        } else {
-                                rcode = t->cached_rcode;
-                                a = t->cached;
-                        }
-
-                        dns_answer_unref(answer);
-                        answer = dns_answer_ref(a);
-
-                        scope = t->scope;
-                        state = DNS_TRANSACTION_FAILURE;
-                        continue;
-                }
-
-                if (state == DNS_TRANSACTION_NO_SERVERS && t->state != DNS_TRANSACTION_NO_SERVERS)
-                        state = t->state;
-        }
-
-        if (pending) {
-
-                /* If so far we weren't successful, and there's
-                 * something still pending, then wait for it */
-                if (state != DNS_TRANSACTION_SUCCESS)
+                case DNS_TRANSACTION_SUCCESS:
+                        /* One of the transactions is successful,
+                         * let's use it, and copy its data out */
+                        dns_query_accept(q, c);
                         return;
 
-                /* If we already were successful, then only wait for
-                 * other transactions on the same scope to finish. */
-                SET_FOREACH(t, q->transactions, i) {
-                        if (t->scope == scope && IN_SET(t->state, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_NULL))
-                                return;
+                case DNS_TRANSACTION_PENDING:
+                case DNS_TRANSACTION_NULL:
+                        /* One of the transactions is still going on, let's maybe wait for it */
+                        pending = true;
+                        break;
+
+                default:
+                        /* Any kind of failure */
+                        bad = c;
+                        break;
                 }
         }
 
-        if (IN_SET(state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE)) {
-                q->answer = dns_answer_ref(answer);
-                q->answer_rcode = rcode;
-                q->answer_protocol = scope ? scope->protocol : _DNS_PROTOCOL_INVALID;
-                q->answer_family = scope ? scope->family : AF_UNSPEC;
-        }
+        if (pending)
+                return;
 
-        /* Try to synthesize a reply if we couldn't resolve something. */
-        dns_query_synthesize_reply(q, &state);
-
-        dns_query_complete(q, state);
+        dns_query_accept(q, bad);
 }
 
-int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
+static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
         _cleanup_(dns_question_unrefp) DnsQuestion *nq = NULL;
         int r;
 
         assert(q);
 
+        q->n_cname_redirects ++;
         if (q->n_cname_redirects > CNAME_MAX)
                 return -ELOOP;
 
@@ -848,12 +1108,64 @@ int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
         q->question = nq;
         nq = NULL;
 
-        q->n_cname_redirects++;
-
         dns_query_stop(q);
         q->state = DNS_TRANSACTION_NULL;
 
         return 0;
+}
+
+int dns_query_process_cname(DnsQuery *q) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(q);
+
+        if (q->state != DNS_TRANSACTION_SUCCESS)
+                return 0;
+
+        DNS_ANSWER_FOREACH(rr, q->answer) {
+
+                r = dns_question_matches_rr(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0; /* The answer matches directly, no need to follow cnames */
+
+                r = dns_question_matches_cname(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                if (r < 0)
+                        return r;
+                if (r > 0 && !cname)
+                        cname = dns_resource_record_ref(rr);
+        }
+
+        if (!cname)
+                return 0; /* No cname to follow */
+
+        if (q->flags & SD_RESOLVED_NO_CNAME)
+                return -ELOOP;
+
+        /* OK, let's actually follow the CNAME */
+        r = dns_query_cname_redirect(q, cname);
+        if (r < 0)
+                return r;
+
+        /* Let's see if the answer can already answer the new
+         * redirected question */
+        DNS_ANSWER_FOREACH(rr, q->answer) {
+                r = dns_question_matches_rr(q->question, rr, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0; /* It can answer it, yay! */
+        }
+
+        /* OK, it cannot, let's begin with the new query */
+        r = dns_query_go(q);
+        if (r < 0)
+                return r;
+
+        return 1; /* We return > 0, if we restarted the query for a new cname */
 }
 
 static int on_bus_track(sd_bus_track *t, void *userdata) {

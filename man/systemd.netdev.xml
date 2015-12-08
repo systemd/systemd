@@ -81,8 +81,8 @@
     name in <filename>/usr/lib</filename>. This can be used to
     override a system-supplied configuration file with a local file if
     needed. As a special case, an empty file (file size 0) or symlink
-    with the same name pointing to <filename>/dev/null</filename>,
-    disable the configuration file entirely (it is "masked").</para>
+    with the same name pointing to <filename>/dev/null</filename>
+    disables the configuration file entirely (it is "masked").</para>
   </refsect1>
 
   <refsect1>
@@ -106,7 +106,7 @@
           <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
 
           <row><entry><varname>bridge</varname></entry>
-          <entry>A bridge device is a software switch, each of its slave devices and the bridge itself are ports of the switch.</entry></row>
+          <entry>A bridge device is a software switch, and each of its slave devices and the bridge itself are ports of the switch.</entry></row>
 
           <row><entry><varname>dummy</varname></entry>
           <entry>A dummy device drops all packets sent to it.</entry></row>
@@ -148,7 +148,7 @@
           <entry>A persistent Level 3 tunnel between a network device and a device node.</entry></row>
 
           <row><entry><varname>veth</varname></entry>
-          <entry>An ethernet tunnel between a pair of network devices.</entry></row>
+          <entry>An Ethernet tunnel between a pair of network devices.</entry></row>
 
           <row><entry><varname>vlan</varname></entry>
           <entry>A VLAN is a stacked device which receives packets from its underlying device based on VLAN tagging. See <ulink url="http://www.ieee802.org/1/pages/802.1Q.html">IEEE 802.1Q</ulink> for details.</entry></row>
@@ -282,13 +282,13 @@
 
       <para>The <literal>[Bridge]</literal> section only applies for
       netdevs of kind <literal>bridge</literal>, and accepts the
-      following key:</para>
+      following keys:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
           <term><varname>HelloTimeSec=</varname></term>
           <listitem>
-            <para>HelloTimeSec specifies the number of seconds a hello packet is
+            <para>HelloTimeSec specifies the number of seconds between two hello packets
             sent out by the root bridge and the designated bridges. Hello packets are
             used to communicate information about the topology throughout the entire
             bridged local area network.</para>
@@ -414,7 +414,7 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on Virtual eXtensible Local
-          Area Network packets. N is a number in the range 1-255. 0
+          Area Network packets. N is a number in the range 1–255. 0
           is a special value meaning that packets inherit the TTL
           value.</para>
         </listitem>
@@ -430,13 +430,19 @@
         <term><varname>FDBAgeingSec=</varname></term>
         <listitem>
           <para>The lifetime of Forwarding Database entry learnt by
-          the kernel in seconds.</para>
+          the kernel, in seconds.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MaximumFDBEntries=</varname></term>
+        <listitem>
+          <para>Configures maximum number of FDB entries.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>ARPProxy=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables ARP proxy.</para>
+          <para>A boolean. When true, enables ARP proxying.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -449,40 +455,40 @@
       <varlistentry>
         <term><varname>L3MissNotification=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables netlink IP ADDR miss
+          <para>A boolean. When true, enables netlink IP address miss
           notifications.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RouteShortCircuit=</varname></term>
         <listitem>
-          <para>A boolean. When true route short circuit is turned
+          <para>A boolean. When true, route short circuiting is turned
           on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPCheckSum=</varname></term>
         <listitem>
-          <para>A boolean. When true transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
+          <para>A boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true sending zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>A boolean. When true, sending zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroCheckSumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true receiving zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>A boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
     <varlistentry>
       <term><varname>GroupPolicyExtension=</varname></term>
       <listitem>
-        <para>A boolean. When true it enables Group Policy VXLAN extension security label mechanism
-        across network peers based on VXLAN. For details about the Group Policy VXLAN see the
+        <para>A boolean. When true, it enables Group Policy VXLAN extension security label mechanism
+        across network peers based on VXLAN. For details about the Group Policy VXLAN, see the
         <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
         VXLAN Group Policy </ulink> document. Defaults to false.</para>
       </listitem>
@@ -523,7 +529,7 @@
         <term><varname>TOS=</varname></term>
         <listitem>
           <para>The Type Of Service byte value for a tunnel interface.
-          For details about the TOS see the
+          For details about the TOS, see the
           <ulink url="http://tools.ietf.org/html/rfc1349"> Type of
           Service in the Internet Protocol Suite </ulink> document.
           </para>
@@ -533,9 +539,9 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on tunneled packets. N is a
-          number in the range 1-255. 0 is a special value meaning that
+          number in the range 1–255. 0 is a special value meaning that
           packets inherit the TTL value. The default value for IPv4
-          tunnels is: inherit. The default value for IPv6 tunnels is:
+          tunnels is: inherit. The default value for IPv6 tunnels is
           64.</para>
         </listitem>
       </varlistentry>
@@ -549,14 +555,14 @@
       <varlistentry>
         <term><varname>IPv6FlowLabel=</varname></term>
         <listitem>
-          <para>Configures The 20-bit Flow Label (see <ulink url="https://tools.ietf.org/html/rfc6437">
+          <para>Configures the 20-bit flow label (see <ulink url="https://tools.ietf.org/html/rfc6437">
           RFC 6437</ulink>) field in the IPv6 header (see <ulink url="https://tools.ietf.org/html/rfc2460">
-          RFC 2460</ulink>), is used by a node to label packets of a flow.
-          It's only used for IPv6 Tunnels.
-          A Flow Label of zero is used to indicate packets that have
-          not been labeled. Takes following values.
-          When <literal>inherit</literal> it uses the original flowlabel,
-          or can be configured to any value between 0 to 0xFFFFF.</para>
+          RFC 2460</ulink>), which is used by a node to label packets of a flow.
+          It is only used for IPv6 tunnels.
+          A flow label of zero is used to indicate packets that have
+          not been labeled.
+          It can be configured to a value in the range 0–0xFFFFF, or be
+          set to <literal>inherit</literal>, in which case the original flowlabel is used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -580,14 +586,14 @@
           value of zero means that a packet carrying that option may not enter
           another tunnel before exiting the current tunnel.
           (see <ulink url="https://tools.ietf.org/html/rfc2473#section-4.1.1"> RFC 2473</ulink>).
-          The valid range is 0-255 and <literal>none</literal>. Defaults to 4.
+          The valid range is 0–255 and <literal>none</literal>. Defaults to 4.
         </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Mode=</varname></term>
         <listitem>
-          <para>An <literal>ip6tnl</literal> tunnels can have three
+          <para>An <literal>ip6tnl</literal> tunnel can be in one of three
           modes
           <literal>ip6ip6</literal> for IPv6 over IPv6,
           <literal>ipip6</literal> for IPv4 over IPv6 or
@@ -602,7 +608,7 @@
 
       <para>The <literal>[Peer]</literal> section only applies for
       netdevs of kind <literal>veth</literal> and accepts the
-      following key:</para>
+      following keys:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -615,7 +621,7 @@
         <varlistentry>
           <term><varname>MACAddress=</varname></term>
           <listitem>
-            <para>The peer MACAddress, if not set it is generated in
+            <para>The peer MACAddress, if not set, it is generated in
             the same way as the MAC address of the main
             interface.</para>
           </listitem>
@@ -651,7 +657,7 @@
         <term><varname>PacketInfo=</varname></term>
         <listitem><para>Takes a boolean argument. Configures whether
         packets should be prepended with four extra bytes (two flag
-        bytes and two protocol bytes). If disabled it indicates that
+        bytes and two protocol bytes). If disabled, it indicates that
         the packets will be pure IP packets. Defaults to
         <literal>no</literal>.</para>
         </listitem>
@@ -777,9 +783,9 @@
         <term><varname>LearnPacketIntervalSec=</varname></term>
         <listitem>
           <para>Specifies the number of seconds between instances where the bonding
-          driver sends learning packets to each slaves peer switch.
-          The valid range is 1 - 0x7fffffff; the default value is 1. This Option
-          has effect only in balance-tlb and balance-alb modes.</para>
+          driver sends learning packets to each slave peer switch.
+          The valid range is 1–0x7fffffff; the default value is 1. This option
+          has an effect only for the balance-tlb and balance-alb modes.</para>
         </listitem>
       </varlistentry>
 
@@ -788,8 +794,8 @@
         <listitem>
           <para>Specifies the 802.3ad aggregation selection logic to use. Possible values are
           <literal>stable</literal>,
-          <literal>bandwidth</literal>,
-          <literal>count</literal>
+          <literal>bandwidth</literal> and
+          <literal>count</literal>.
           </para>
         </listitem>
       </varlistentry>
@@ -797,13 +803,13 @@
       <varlistentry>
         <term><varname>FailOverMACPolicy=</varname></term>
         <listitem>
-          <para>Specifies whether active-backup mode should set all slaves to
-          the same MAC address at enslavement or, when enabled, perform special handling of the
+          <para>Specifies whether the active-backup mode should set all slaves to
+          the same MAC address at the time of enslavement or, when enabled, to perform special handling of the
           bond's MAC address in accordance with the selected policy. The default policy is none.
           Possible values are
           <literal>none</literal>,
-          <literal>active</literal>,
-          <literal>follow</literal>
+          <literal>active</literal> and
+          <literal>follow</literal>.
           </para>
         </listitem>
       </varlistentry>
@@ -817,8 +823,8 @@
           monitoring purposes. Possible values are
           <literal>none</literal>,
           <literal>active</literal>,
-          <literal>backup</literal>,
-          <literal>all</literal>
+          <literal>backup</literal> and
+          <literal>all</literal>.
           </para>
         </listitem>
       </varlistentry>
@@ -838,7 +844,7 @@
           <para>Specifies the IP addresses to use as ARP monitoring peers when
           ARPIntervalSec is greater than 0. These are the targets of the ARP request
           sent to determine the health of the link to the targets.
-          Specify these values in ipv4 dotted decimal format. At least one IP
+          Specify these values in IPv4 dotted decimal format. At least one IP
           address must be given for ARP monitoring to function. The
           maximum number of targets that can be specified is 16. The
           default value is no IP addresses.
@@ -853,8 +859,8 @@
           in order for the ARP monitor to consider a slave as being up.
           This option affects only active-backup mode for slaves with
           ARPValidate enabled. Possible values are
-          <literal>any</literal>,
-          <literal>all</literal>
+          <literal>any</literal> and
+          <literal>all</literal>.
           </para>
         </listitem>
       </varlistentry>
@@ -868,8 +874,8 @@
           occurs. This option is designed to prevent flip-flopping between
           the primary slave and other slaves.  Possible values are
           <literal>always</literal>,
-          <literal>better</literal>,
-          <literal>failure</literal>
+          <literal>better</literal> and
+          <literal>failure</literal>.
           </para>
         </listitem>
       </varlistentry>
@@ -880,7 +886,7 @@
           <para>Specifies the number of IGMP membership reports to be issued after
           a failover event. One membership report is issued immediately after
           the failover, subsequent packets are sent in each 200ms interval.
-          The valid range is (0 - 255). Defaults to 1. A value of 0
+          The valid range is 0–255. Defaults to 1. A value of 0
           prevents the IGMP membership report from being issued in response
           to the failover event.
           </para>
@@ -890,10 +896,10 @@
       <varlistentry>
         <term><varname>PacketsPerSlave=</varname></term>
         <listitem>
-          <para> Specify the number of packets to transmit through a slave before
-            moving to the next one. When set to 0 then a slave is chosen at
-            random. The valid range is (0 - 65535). Defaults to 1. This option
-            has effect only in balance-rr mode.
+          <para>Specify the number of packets to transmit through a slave before
+            moving to the next one. When set to 0, then a slave is chosen at
+            random. The valid range is 0–65535. Defaults to 1. This option
+            only has effect when in balance-rr mode.
           </para>
         </listitem>
       </varlistentry>
@@ -903,11 +909,11 @@
         <listitem>
           <para>Specify the number of peer notifications (gratuitous ARPs and
             unsolicited IPv6 Neighbor Advertisements) to be issued after a
-            failover event.  As soon as the link is up on the new slave
+            failover event.  As soon as the link is up on the new slave,
             a peer notification is sent on the  bonding device and each
             VLAN sub-device.  This is repeated at each link monitor interval
             (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
-            greater than 1. The valid range is (0 - 255). Default value is 1.
+            greater than 1. The valid range is 0–255. The default value is 1.
             These options affect only the active-backup mode.
           </para>
         </listitem>
@@ -916,8 +922,8 @@
       <varlistentry>
         <term><varname>AllSlavesActive=</varname></term>
         <listitem>
-          <para> A boolean. Specifies that duplicate frames (received on inactive ports)
-          should be dropped false or delivered true. Normally, bonding will drop
+          <para>A boolean. Specifies that duplicate frames (received on inactive ports)
+          should be dropped when false, or delivered when true. Normally, bonding will drop
           duplicate frames (received on inactive ports), which is desirable for
           most users. But there are some times it is nice to allow duplicate
           frames to be delivered. The default value is false (drop duplicate frames

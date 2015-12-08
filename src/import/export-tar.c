@@ -19,15 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/sendfile.h>
-
 #include "sd-daemon.h"
-#include "util.h"
-#include "ratelimit.h"
+
+#include "alloc-util.h"
 #include "btrfs-util.h"
-#include "import-common.h"
 #include "export-tar.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "import-common.h"
 #include "process-util.h"
+#include "ratelimit.h"
+#include "string-util.h"
+#include "util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)
 
@@ -78,7 +81,7 @@ TarExport *tar_export_unref(TarExport *e) {
         }
 
         if (e->temp_path) {
-                (void) btrfs_subvol_remove(e->temp_path, false);
+                (void) btrfs_subvol_remove(e->temp_path, BTRFS_REMOVE_QUOTA);
                 free(e->temp_path);
         }
 
@@ -283,7 +286,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
         if (e->st.st_ino == 256) { /* might be a btrfs subvolume? */
                 BtrfsQuotaInfo q;
 
-                r = btrfs_subvol_get_quota_fd(sfd, &q);
+                r = btrfs_subvol_get_subtree_quota_fd(sfd, 0, &q);
                 if (r >= 0)
                         e->quota_referenced = q.referenced;
 

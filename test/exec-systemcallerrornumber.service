@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for SystemCallErrorNumber
-
-[Service]
-ExecStart=/usr/bin/uname -a
-SystemCallFilter=~uname
-SystemCallErrorNumber=EACCES

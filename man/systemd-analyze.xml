@@ -178,7 +178,7 @@
     <replaceable>TARGET</replaceable></command> changes the current log
     target of the <command>systemd</command> daemon to
     <replaceable>TARGET</replaceable> (accepts the same values as
-    <option>--log-target=</option> described in
+    <option>--log-target=</option>, described in
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
 
     <para><command>systemd-analyze verify</command> will load unit
@@ -226,9 +226,7 @@
         <varname>After=</varname> or <varname>Before=</varname> are
         shown. If <option>--require</option> is passed, only
         dependencies of type <varname>Requires=</varname>,
-        <varname>RequiresOverridable=</varname>,
         <varname>Requisite=</varname>,
-        <varname>RequisiteOverridable=</varname>,
         <varname>Wants=</varname> and <varname>Conflicts=</varname>
         are shown. If neither is passed, this shows dependencies of
         all these types.</para></listitem>

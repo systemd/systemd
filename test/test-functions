@@ -4,6 +4,7 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
+LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 
@@ -12,7 +13,7 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
-BASICTOOLS="sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe"
+BASICTOOLS="sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname"
 
 function find_qemu_bin() {
@@ -50,8 +51,11 @@ run_qemu() {
             && KERNEL_BIN="/boot/$MACHINE_ID/$KERNEL_VER/linux"
     fi
 
+    default_fedora_initrd=/boot/initramfs-${KERNEL_VER}.img
+    default_debian_initrd=/boot/initrd.img-${KERNEL_VER}
     [ "$KERNEL_BIN" ] || KERNEL_BIN=/boot/vmlinuz-$KERNEL_VER
-    [ "$INITRD" ]     || INITRD=/boot/initramfs-${KERNEL_VER}.img
+    [ "$INITRD" ]     || { [ -e "$default_fedora_initrd" ] && INITRD=$default_fedora_initrd; }
+    [ "$INITRD" ]     || { [ "$LOOKS_LIKE_DEBIAN" ] && [ -e "$default_debian_initrd" ] && INITRD=$default_debian_initrd; }
     [ "$QEMU_SMP" ]   || QEMU_SMP=1
 
     find_qemu_bin || return 1
@@ -67,8 +71,7 @@ selinux=0 \
 $KERNEL_APPEND \
 "
 
-    QEMU_OPTIONS="-machine accel=kvm:tcg \
--smp $QEMU_SMP \
+    QEMU_OPTIONS="-smp $QEMU_SMP \
 -net none \
 -m 512M \
 -nographic \
@@ -79,13 +82,17 @@ $KERNEL_APPEND \
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
     fi
 
+    if [ -c /dev/kvm ]; then
+        QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
+    fi
+
     ( set -x
       $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" $TESTDIR/rootdisk.img ) || return 1
 }
 
 run_nspawn() {
     set -x
-    ../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
+    ../../systemd-nspawn --register=no --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
 }
 
 setup_basic_environment() {
@@ -141,12 +148,12 @@ install_missing_libraries() {
 create_empty_image() {
     rm -f "$TESTDIR/rootdisk.img"
     # Create the blank file to use as a root filesystem
-    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek=300
+    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek=400
     LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
     [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
     sfdisk "$LOOPDEV" <<EOF
-,290M
+,390M
 ,
 EOF
 
@@ -179,12 +186,17 @@ EOF
 }
 
 install_execs() {
-    # install any Execs from the service files
-    egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/lib/systemd/system/*.service \
-        | while read i; do
-        i=${i##Exec*=}; i=${i##-}
-        inst $i
-    done
+    ddebug "install any Execs from the service files"
+    (
+    export PKG_CONFIG_PATH=$TEST_BASE_DIR/../src/core/
+    systemdsystemunitdir=$(pkg-config --variable=systemdsystemunitdir systemd)
+    systemduserunitdir=$(pkg-config --variable=systemduserunitdir systemd)
+    egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
+         | while read i; do
+         i=${i##Exec*=}; i=${i##-}
+         inst $i
+     done
+    )
 }
 
 generate_module_dependencies() {
@@ -220,6 +232,7 @@ install_config_files() {
     inst /etc/sysconfig/init
     inst /etc/passwd
     inst /etc/shadow
+    inst /etc/login.defs
     inst /etc/group
     inst /etc/shells
     inst /etc/nsswitch.conf
@@ -260,21 +273,26 @@ install_dbus() {
     inst $ROOTLIBDIR/system/dbus.service
 
     find \
-        /etc/dbus-1 -xtype f \
+        /etc/dbus-1 /usr/share/dbus-1 -xtype f \
         | while read file; do
         inst $file
     done
 }
 
 install_pam() {
+    (
+    [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null && find "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security" -xtype f
     find \
         /etc/pam.d \
         /etc/security \
         /lib64/security \
         /lib/security -xtype f \
-        | while read file; do
+    ) | while read file; do
         inst $file
     done
+
+    [[ "$LOOKS_LIKE_DEBIAN" ]] &&
+        cp /etc/pam.d/systemd-user $initdir/etc/pam.d/
 }
 
 install_keymaps() {
@@ -305,7 +323,7 @@ install_terminfo() {
 
 setup_testsuite() {
     cp $TEST_BASE_DIR/testsuite.target $initdir/etc/systemd/system/
-    sed "s#@SYSTEMCTL@#$(type -P systemctl)#g" $TEST_BASE_DIR/end.service.in > $initdir/etc/systemd/system/end.service
+    cp $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/
 
     mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
     ln -fs $TEST_BASE_DIR/testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
@@ -1116,7 +1134,7 @@ inst_libdir_file() {
 }
 
 check_nspawn() {
-    [[ -d /sys/fs/cgroup/systemd ]]
+    [[ -d /run/systemd/system ]]
 }
 
 

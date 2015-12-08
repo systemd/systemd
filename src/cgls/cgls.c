@@ -27,6 +27,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
@@ -122,15 +123,17 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int get_cgroup_root(char **ret) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *unit = NULL, *path = NULL;
         const char *m;
         int r;
 
         if (!arg_machine) {
                 r = cg_get_root_path(ret);
-                if (r < 0)
+                if (r == -ENOMEDIUM)
+                        return log_error_errno(r, "Failed to get root control group path: No cgroup filesystem mounted on /sys/fs/cgroup");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to get root control group path: %m");
 
                 return 0;
@@ -164,8 +167,10 @@ static int get_cgroup_root(char **ret) {
 }
 
 static void show_cg_info(const char *controller, const char *path) {
-        if (cg_unified() <= 0)
+
+        if (cg_unified() <= 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 printf("Controller %s; ", controller);
+
         printf("Control group %s:\n", isempty(path) ? "/" : path);
         fflush(stdout);
 }
@@ -269,6 +274,7 @@ int main(int argc, char *argv[]) {
 
                         show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
+                        printf("-.slice\n");
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);
                 }
         }

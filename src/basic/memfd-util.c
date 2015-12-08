@@ -19,19 +19,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#ifdef HAVE_LINUX_MEMFD_H
+#include <linux/memfd.h>
+#endif
+#include <stdio.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 
-#ifdef HAVE_LINUX_MEMFD_H
-#  include <linux/memfd.h>
-#endif
-
-#include "util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "macro.h"
 #include "memfd-util.h"
-#include "utf8.h"
 #include "missing.h"
+#include "string-util.h"
+#include "utf8.h"
 
 int memfd_new(const char *name) {
         _cleanup_free_ char *g = NULL;

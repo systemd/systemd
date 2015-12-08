@@ -19,26 +19,43 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdarg.h>
-#include <stdio.h>
 #include <errno.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <stdarg.h>
 #include <stddef.h>
-#include <printf.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/signalfd.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/uio.h>
+#include <sys/un.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "sd-messages.h"
-#include "log.h"
-#include "util.h"
-#include "missing.h"
-#include "macro.h"
-#include "socket-util.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
+#include "log.h"
+#include "macro.h"
+#include "missing.h"
+#include "parse-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
-#include "terminal-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
+#include "stdio-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "syslog-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
+#include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 
@@ -435,7 +452,7 @@ static int write_to_syslog(
 static int write_to_kmsg(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,
@@ -506,7 +523,7 @@ static int log_do_header(
 static int write_to_journal(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,
@@ -640,7 +657,7 @@ int log_dump_internal(
 int log_internalv(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *format,
@@ -667,7 +684,7 @@ int log_internalv(
 int log_internal(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *format, ...) {
@@ -685,7 +702,7 @@ int log_internal(
 int log_object_internalv(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,
@@ -729,7 +746,7 @@ int log_object_internalv(
 int log_object_internal(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,

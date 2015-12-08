@@ -24,9 +24,11 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "log.h"
-#include "util.h"
 #include "mkdir.h"
+#include "string-util.h"
+#include "util.h"
 
 #ifndef RC_LOCAL_SCRIPT_PATH_START
 #define RC_LOCAL_SCRIPT_PATH_START "/etc/rc.d/rc.local"
@@ -60,8 +62,7 @@ static int add_symlink(const char *service, const char *where) {
                 if (errno == EEXIST)
                         return 0;
 
-                log_error_errno(errno, "Failed to create symlink %s: %m", to);
-                return -errno;
+                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
         }
 
         return 1;

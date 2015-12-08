@@ -19,11 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "systemd/sd-journal.h"
+#include "sd-journal.h"
 
 #include "log.h"
-#include "util.h"
+#include "parse-util.h"
 #include "rm-rf.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         sd_journal *j;

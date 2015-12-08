@@ -1,8 +1,0 @@
-[Unit]
-Description=Test for RuntimeDirectoryMode
-
-[Service]
-ExecStart=/bin/sh -c 's=$(stat -c %a /tmp/test-exec_runtimedirectory-mode); echo $s; exit $(test $s = "750")'
-Type=oneshot
-RuntimeDirectory=test-exec_runtimedirectory-mode
-RuntimeDirectoryMode=0750

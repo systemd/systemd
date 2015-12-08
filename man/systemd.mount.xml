@@ -88,15 +88,12 @@
     configured in a unit file <filename>home-lennart.mount</filename>.
     For details about the escaping logic used to convert a file system
     path to a unit name, see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Note that mount units cannot be templated.</para>
 
     <para>Optionally, a mount unit may be accompanied by an automount
     unit, to allow on-demand or parallelized mounting. See
     <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-    <para>If a mount point is beneath another mount point in the file
-    system hierarchy, a dependency between both units is created
-    automatically.</para>
 
     <para>Mount points created at runtime (independently of unit files
     or <filename>/etc/fstab</filename>) will be monitored by systemd
@@ -111,6 +108,52 @@
     disabled. For a longer discussion see <ulink
     url="http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
     File Systems</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <para>If a mount unit is beneath another mount unit in the file
+    system hierarchy, both a requirement dependency and an ordering
+    dependency between both units are created automatically.</para>
+
+    <para>Block device backed file systems automatically gain
+    <varname>BindsTo=</varname> and <varname>After=</varname> type
+    dependencies on the device unit encapsulating the block
+    device (see below).</para>
+
+    <para>If traditional file system quota is enabled for a mount
+    unit, automatic <varname>Wants=</varname> and
+    <varname>Before=</varname> dependencies on
+    <filename>systemd-quotacheck.service</filename> and
+    <filename>quotaon.service</filename> are added.</para>
+
+    <para>For mount units with
+    <varname>DefaultDependencies=yes</varname> (the default) a couple
+    additional dependencies are added. Mount units referring to local
+    file systems automatically gain an <varname>After=</varname>
+    dependency on <filename>local-fs-pre.target</filename>. Network
+    mount units automatically acquire <varname>After=</varname>
+    dependencies on <filename>remote-fs-pre.target</filename>,
+    <filename>network.target</filename> and
+    <filename>network-online.target</filename>. Towards the latter a
+    <varname>Wants=</varname> unit is added as well. Mount units
+    referring to local and network file systems are distinguished by
+    their file system type specification. In some cases this is not
+    sufficient (for example network block device based mounts, such as
+    iSCSI), in which case <option>_netdev</option> may be added to the
+    mount option string of the unit, which forces systemd to consider the
+    mount unit a network mount. Mount units (regardless if local or
+    network) also acquire automatic <varname>Before=</varname> and
+    <varname>Conflicts=</varname> on
+    <filename>umount.target</filename> in order to be stopped
+    during shutdown.</para>
+
+    <para>Additional implicit dependencies may be added as result of
+    execution and resource control parameters as documented in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -130,7 +173,7 @@
     <para>When reading <filename>/etc/fstab</filename> a few special
     mount options are understood by systemd which influence how
     dependencies are created for mount points. systemd will create a
-    dependency of type <option>Wants</option> or
+    dependency of type <varname>Wants=</varname> or
     <option>Requires</option> (see option <option>nofail</option>
     below), from either <filename>local-fs.target</filename> or
     <filename>remote-fs.target</filename>, depending whether the file
@@ -180,7 +223,7 @@
       <varlistentry>
         <term><option>x-systemd.idle-timeout=</option></term>
 
-        <listitem><para>Configures the idleness timeout of the
+        <listitem><para>Configures the idle timeout of the
         automount unit. See <varname>TimeoutIdleSec=</varname> in
         <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para></listitem>
@@ -192,13 +235,13 @@
         <listitem><para>Configure how long systemd should wait for a
         device to show up before giving up on an entry from
         <filename>/etc/fstab</filename>. Specify a time in seconds or
-        explicitly append a unit as <literal>s</literal>,
+        explicitly append a unit such as <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>,
         <literal>ms</literal>.</para>
 
         <para>Note that this option can only be used in
         <filename>/etc/fstab</filename>, and will be
-        ignored when part of <varname>Options=</varname>
+        ignored when part of the <varname>Options=</varname>
         setting in a unit file.</para>
         </listitem>
       </varlistentry>
@@ -212,7 +255,7 @@
         <filename>local-fs.target</filename> or
         <filename>remote-fs.target</filename>. This means that it will
         not be mounted automatically during boot, unless it is pulled
-        in by some other unit. Option <option>auto</option> has the
+        in by some other unit. The <option>auto</option> option has the
         opposite meaning and is the default.</para>
         </listitem>
       </varlistentry>
@@ -220,7 +263,7 @@
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>With <option>nofail</option> this mount will
+        <listitem><para>With <option>nofail</option>, this mount will
         be only wanted, not required, by
         <filename>local-fs.target</filename> or
         <filename>remote-fs.target</filename>. This means that the

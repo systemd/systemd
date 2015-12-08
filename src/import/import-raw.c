@@ -23,19 +23,27 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
-#include "util.h"
-#include "path-util.h"
+
+#include "alloc-util.h"
 #include "btrfs-util.h"
-#include "hostname-util.h"
+#include "chattr-util.h"
 #include "copy.h"
-#include "mkdir.h"
-#include "rm-rf.h"
-#include "ratelimit.h"
-#include "machine-pool.h"
-#include "qcow2-util.h"
-#include "import-compress.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "hostname-util.h"
 #include "import-common.h"
+#include "import-compress.h"
 #include "import-raw.h"
+#include "io-util.h"
+#include "machine-pool.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "qcow2-util.h"
+#include "ratelimit.h"
+#include "rm-rf.h"
+#include "string-util.h"
+#include "util.h"
 
 struct RawImport {
         sd_event *event;
@@ -191,7 +199,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
 
         r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes on %s: %m", t);
+                log_warning_errno(r, "Failed to set file attributes on %s: %m", t);
 
         log_info("Unpacking QCOW2 file.");
 
@@ -279,7 +287,7 @@ static int raw_import_open_disk(RawImport *i) {
 
         r = chattr_fd(i->output_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes on %s: %m", i->temp_path);
+                log_warning_errno(r, "Failed to set file attributes on %s: %m", i->temp_path);
 
         return 0;
 }

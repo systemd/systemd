@@ -23,7 +23,4 @@
 
 #include "sd-network.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_network_monitor*, sd_network_monitor_unref);
-#define _cleanup_network_monitor_unref_ _cleanup_(sd_network_monitor_unrefp)
-
 bool network_is_online(void);

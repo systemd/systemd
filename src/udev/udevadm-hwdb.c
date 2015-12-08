@@ -17,18 +17,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <getopt.h>
-#include <string.h>
 #include <ctype.h>
+#include <getopt.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "util.h"
-#include "strbuf.h"
+#include "alloc-util.h"
 #include "conf-files.h"
-
-#include "udev.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
+#include "strbuf.h"
+#include "string-util.h"
+#include "udev.h"
+#include "util.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.
@@ -662,7 +665,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         }
 
         if (test) {
-                _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+                _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
                 int r;
 
                 r = sd_hwdb_new(&hwdb);

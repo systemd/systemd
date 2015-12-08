@@ -19,20 +19,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <nss.h>
-#include <netdb.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 #include <dlfcn.h>
+#include <errno.h>
+#include <netdb.h>
+#include <nss.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "sd-bus.h"
-#include "bus-util.h"
+
 #include "bus-common-errors.h"
+#include "bus-util.h"
+#include "in-addr-util.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "string-util.h"
 #include "util.h"
-#include "in-addr-util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
@@ -117,10 +119,10 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *canonical = NULL;
         size_t l, ms, idx;
         char *r_name;
@@ -298,10 +300,10 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 int32_t *ttlp,
                 char **canonp) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         size_t l, idx, ms, alen;
         const char *canonical;
         int c, r, i = 0;
@@ -502,10 +504,10 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         unsigned c = 0, i = 0;
         size_t ms = 0, idx;
         const char *n;

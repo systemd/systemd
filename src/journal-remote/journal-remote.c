@@ -35,16 +35,25 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "conf-parser.h"
+#include "def.h"
+#include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "journal-file.h"
-#include "journald-native.h"
-#include "macro.h"
-#include "signal-util.h"
-#include "socket-util.h"
-#include "strv.h"
 #include "journal-remote-write.h"
 #include "journal-remote.h"
+#include "journald-native.h"
+#include "macro.h"
+#include "parse-util.h"
+#include "signal-util.h"
+#include "socket-util.h"
+#include "stat-util.h"
+#include "stdio-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
 
@@ -137,7 +146,7 @@ static int spawn_curl(const char* url) {
 
         r = spawn_child("curl", argv);
         if (r < 0)
-                log_error_errno(errno, "Failed to spawn curl: %m");
+                log_error_errno(r, "Failed to spawn curl: %m");
         return r;
 }
 
@@ -156,7 +165,7 @@ static int spawn_getter(const char *getter, const char *url) {
 
         r = spawn_child(words[0], words);
         if (r < 0)
-                log_error_errno(errno, "Failed to spawn getter %s: %m", getter);
+                log_error_errno(r, "Failed to spawn getter %s: %m", getter);
 
         return r;
 }
@@ -640,11 +649,12 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
+                { MHD_OPTION_CONNECTION_MEMORY_LIMIT, DATA_SIZE_MAX},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END}};
-        int opts_pos = 3;
+        int opts_pos = 4;
         int flags =
                 MHD_USE_DEBUG |
                 MHD_USE_DUAL_STACK |
@@ -1178,7 +1188,7 @@ static int parse_config(void) {
                 {}};
 
         return config_parse_many(PKGSYSCONFDIR "/journal-remote.conf",
-                                 CONF_DIRS_NULSTR("systemd/journal-remote.conf"),
+                                 CONF_PATHS_NULSTR("systemd/journal-remote.conf.d"),
                                  "Remote\0", config_item_table_lookup, items,
                                  false, NULL);
 }
@@ -1407,18 +1417,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG: {
 #ifdef HAVE_GNUTLS
-                        const char *word, *state;
-                        size_t size;
+                        const char* p = optarg;
+                        for (;;) {
+                                _cleanup_free_ char *word = NULL;
 
-                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                char *cat;
+                                r = extract_first_word(&p, &word, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --gnutls-log= argument: %m");
 
-                                cat = strndup(word, size);
-                                if (!cat)
+                                if (r == 0)
+                                        break;
+
+                                if (strv_push(&arg_gnutls_log, word) < 0)
                                         return log_oom();
 
-                                if (strv_consume(&arg_gnutls_log, cat) < 0)
-                                        return log_oom();
+                                word = NULL;
                         }
                         break;
 #else

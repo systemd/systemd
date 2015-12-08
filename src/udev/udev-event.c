@@ -15,26 +15,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <ctype.h>
-#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <net/if.h>
-#include <sys/prctl.h>
 #include <poll.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/epoll.h>
-#include <sys/wait.h>
+#include <sys/prctl.h>
 #include <sys/signalfd.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "netlink-util.h"
-#include "event-util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "netlink-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "udev.h"
 
 typedef struct Spawn {
@@ -438,9 +440,7 @@ static int spawn_exec(struct udev_event *event,
         execve(argv[0], argv, envp);
 
         /* exec failed */
-        log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
-
-        return -errno;
+        return log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
 }
 
 static void spawn_read(struct udev_event *event,
@@ -637,7 +637,7 @@ static int spawn_wait(struct udev_event *event,
                 .pid = pid,
                 .accept_failure = accept_failure,
         };
-        _cleanup_event_unref_ sd_event *e = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r, ret;
 
         r = sd_event_new(&e);
@@ -848,11 +848,11 @@ void udev_event_execute_rules(struct udev_event *event,
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
                                 udev_watch_end(event->udev, event->dev_db);
-                }
 
-                if (major(udev_device_get_devnum(dev)) == 0 &&
-                    streq(udev_device_get_action(dev), "move"))
-                        udev_device_copy_properties(dev, event->dev_db);
+                        if (major(udev_device_get_devnum(dev)) == 0 &&
+                            streq(udev_device_get_action(dev), "move"))
+                                udev_device_copy_properties(dev, event->dev_db);
+                }
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,

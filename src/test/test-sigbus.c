@@ -21,8 +21,9 @@
 
 #include <sys/mman.h>
 
-#include "util.h"
+#include "fd-util.h"
 #include "sigbus.h"
+#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -1;

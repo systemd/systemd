@@ -6,6 +6,8 @@ import argparse
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument('n', type=int)
 PARSER.add_argument('--dots', action='store_true')
+PARSER.add_argument('--data-size', type=int, default=4000)
+PARSER.add_argument('--data-type', choices={'random', 'simple'})
 OPTIONS = PARSER.parse_args()
 
 template = """\
@@ -38,10 +40,16 @@ facility = 6
 src = open('/dev/urandom', 'rb')
 
 bytes = 0
+counter = 0
 
 for i in range(OPTIONS.n):
     message = repr(src.read(2000))
-    data = repr(src.read(4000))
+    if OPTIONS.data_type == 'random':
+        data = repr(src.read(OPTIONS.data_size))
+    else:
+        # keep the pattern non-repeating so we get a different blob every time
+        data = '{:0{}}'.format(counter, OPTIONS.data_size)
+        counter += 1
 
     entry = template.format(m=m,
                             realtime_ts=realtime_ts,

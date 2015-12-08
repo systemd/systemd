@@ -19,14 +19,29 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <langinfo.h>
+#include <libintl.h>
+#include <locale.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
-#include "set.h"
-#include "util.h"
-#include "utf8.h"
-#include "strv.h"
-
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "hashmap.h"
 #include "locale-util.h"
+#include "path-util.h"
+#include "set.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "utf8.h"
 
 static int add_locales_from_archive(Set *locales) {
         /* Stolen from glibc... */
@@ -202,6 +217,88 @@ bool locale_is_valid(const char *name) {
                 return false;
 
         return true;
+}
+
+void init_gettext(void) {
+        setlocale(LC_ALL, "");
+        textdomain(GETTEXT_PACKAGE);
+}
+
+bool is_locale_utf8(void) {
+        const char *set;
+        static int cached_answer = -1;
+
+        /* Note that we default to 'true' here, since today UTF8 is
+         * pretty much supported everywhere. */
+
+        if (cached_answer >= 0)
+                goto out;
+
+        if (!setlocale(LC_ALL, "")) {
+                cached_answer = true;
+                goto out;
+        }
+
+        set = nl_langinfo(CODESET);
+        if (!set) {
+                cached_answer = true;
+                goto out;
+        }
+
+        if (streq(set, "UTF-8")) {
+                cached_answer = true;
+                goto out;
+        }
+
+        /* For LC_CTYPE=="C" return true, because CTYPE is effectly
+         * unset and everything can do to UTF-8 nowadays. */
+        set = setlocale(LC_CTYPE, NULL);
+        if (!set) {
+                cached_answer = true;
+                goto out;
+        }
+
+        /* Check result, but ignore the result if C was set
+         * explicitly. */
+        cached_answer =
+                STR_IN_SET(set, "C", "POSIX") &&
+                !getenv("LC_ALL") &&
+                !getenv("LC_CTYPE") &&
+                !getenv("LANG");
+
+out:
+        return (bool) cached_answer;
+}
+
+
+const char *draw_special_char(DrawSpecialChar ch) {
+
+        static const char *draw_table[2][_DRAW_SPECIAL_CHAR_MAX] = {
+
+                /* UTF-8 */ {
+                        [DRAW_TREE_VERTICAL]      = "\342\224\202 ",            /* │  */
+                        [DRAW_TREE_BRANCH]        = "\342\224\234\342\224\200", /* ├─ */
+                        [DRAW_TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
+                        [DRAW_TREE_SPACE]         = "  ",                       /*    */
+                        [DRAW_TRIANGULAR_BULLET]  = "\342\200\243",             /* ‣ */
+                        [DRAW_BLACK_CIRCLE]       = "\342\227\217",             /* ● */
+                        [DRAW_ARROW]              = "\342\206\222",             /* → */
+                        [DRAW_DASH]               = "\342\200\223",             /* – */
+                },
+
+                /* ASCII fallback */ {
+                        [DRAW_TREE_VERTICAL]      = "| ",
+                        [DRAW_TREE_BRANCH]        = "|-",
+                        [DRAW_TREE_RIGHT]         = "`-",
+                        [DRAW_TREE_SPACE]         = "  ",
+                        [DRAW_TRIANGULAR_BULLET]  = ">",
+                        [DRAW_BLACK_CIRCLE]       = "*",
+                        [DRAW_ARROW]              = "->",
+                        [DRAW_DASH]               = "-",
+                }
+        };
+
+        return draw_table[!is_locale_utf8()][ch];
 }
 
 static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {

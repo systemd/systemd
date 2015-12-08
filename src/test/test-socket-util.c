@@ -17,12 +17,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "socket-util.h"
-#include "in-addr-util.h"
-#include "util.h"
-#include "macro.h"
-#include "log.h"
+#include "alloc-util.h"
 #include "async.h"
+#include "fd-util.h"
+#include "in-addr-util.h"
+#include "log.h"
+#include "macro.h"
+#include "socket-util.h"
+#include "string-util.h"
+#include "util.h"
 
 static void test_socket_address_parse(void) {
         SocketAddress a;
@@ -38,28 +41,25 @@ static void test_socket_address_parse(void) {
 
         assert_se(socket_address_parse(&a, "65535") >= 0);
 
-        if (socket_ipv6_is_supported()) {
-                assert_se(socket_address_parse(&a, "[::1]") < 0);
-                assert_se(socket_address_parse(&a, "[::1]8888") < 0);
-                assert_se(socket_address_parse(&a, "::1") < 0);
-                assert_se(socket_address_parse(&a, "[::1]:0") < 0);
-                assert_se(socket_address_parse(&a, "[::1]:65536") < 0);
-                assert_se(socket_address_parse(&a, "[a:b:1]:8888") < 0);
+        /* The checks below will pass even if ipv6 is disabled in
+         * kernel. The underlying glibc's inet_pton() is just a string
+         * parser and doesn't make any syscalls. */
 
-                assert_se(socket_address_parse(&a, "8888") >= 0);
-                assert_se(a.sockaddr.sa.sa_family == AF_INET6);
+        assert_se(socket_address_parse(&a, "[::1]") < 0);
+        assert_se(socket_address_parse(&a, "[::1]8888") < 0);
+        assert_se(socket_address_parse(&a, "::1") < 0);
+        assert_se(socket_address_parse(&a, "[::1]:0") < 0);
+        assert_se(socket_address_parse(&a, "[::1]:65536") < 0);
+        assert_se(socket_address_parse(&a, "[a:b:1]:8888") < 0);
 
-                assert_se(socket_address_parse(&a, "[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888") >= 0);
-                assert_se(a.sockaddr.sa.sa_family == AF_INET6);
+        assert_se(socket_address_parse(&a, "8888") >= 0);
+        assert_se(a.sockaddr.sa.sa_family == (socket_ipv6_is_supported() ? AF_INET6 : AF_INET));
 
-                assert_se(socket_address_parse(&a, "[::1]:8888") >= 0);
-                assert_se(a.sockaddr.sa.sa_family == AF_INET6);
-        } else {
-                assert_se(socket_address_parse(&a, "[::1]:8888") < 0);
+        assert_se(socket_address_parse(&a, "[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888") >= 0);
+        assert_se(a.sockaddr.sa.sa_family == AF_INET6);
 
-                assert_se(socket_address_parse(&a, "8888") >= 0);
-                assert_se(a.sockaddr.sa.sa_family == AF_INET);
-        }
+        assert_se(socket_address_parse(&a, "[::1]:8888") >= 0);
+        assert_se(a.sockaddr.sa.sa_family == AF_INET6);
 
         assert_se(socket_address_parse(&a, "192.168.1.254:8888") >= 0);
         assert_se(a.sockaddr.sa.sa_family == AF_INET);

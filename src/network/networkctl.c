@@ -28,15 +28,20 @@
 #include "sd-netlink.h"
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "arphrd-list.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "hwdb-util.h"
 #include "lldp.h"
 #include "local-addresses.h"
+#include "locale-util.h"
 #include "netlink-util.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "socket-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -191,8 +196,8 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 }
 
 static int list_links(int argc, char *argv[], void *userdata) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
@@ -223,7 +228,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-                _cleanup_device_unref_ sd_device *d = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
                 const char *on_color_operational, *off_color_operational,
                            *on_color_setup, *off_color_setup;
                 char devid[2 + DECIMAL_STR_MAX(int)];
@@ -292,7 +297,7 @@ static int get_gateway_description(
                 int family,
                 union in_addr_union *gateway,
                 char **gateway_description) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *m;
         int r;
 
@@ -497,8 +502,8 @@ static int link_status_one(
                 const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_device_unref_ sd_device *d = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
@@ -515,7 +520,7 @@ static int link_status_one(
         assert(rtnl);
         assert(name);
 
-        if (safe_atoi(name, &ifindex) >= 0 && ifindex > 0)
+        if (parse_ifindex(name, &ifindex) >= 0)
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
         else {
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
@@ -669,8 +674,8 @@ static int link_status_one(
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
-        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **name;
         int r;
 
@@ -715,7 +720,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         pager_open_if_enabled();
 
         if (arg_all) {
-                _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
                 _cleanup_free_ LinkInfo *links = NULL;
                 int c, i;
 
@@ -901,15 +906,13 @@ static char *lldp_system_caps(uint16_t cap) {
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_netlink_unref_ sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
-        const char *state, *word;
-
         double ttl = -1;
         uint32_t capability;
         int i, r, c, j;
-        size_t ll;
+        const char *p;
         char **s;
 
         pager_open_if_enabled();
@@ -950,14 +953,19 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         return -ENOMEM;
 
                 STRV_FOREACH(s, l) {
-                        FOREACH_WORD_QUOTED(word, ll, *s, state) {
-                                _cleanup_free_ char *t = NULL, *a = NULL, *b = NULL;
 
-                                t = strndup(word, ll);
-                                if (!t)
-                                        return -ENOMEM;
+                        p = *s;
+                        for (;;) {
+                                _cleanup_free_ char *a = NULL, *b = NULL, *word = NULL;
 
-                                r = split_pair(t, "=", &a, &b);
+                                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse LLDP syntax \"%s\": %m", *s);
+
+                                if (r == 0)
+                                        break;
+
+                                r = split_pair(word, "=", &a, &b);
                                 if (r < 0)
                                         continue;
 

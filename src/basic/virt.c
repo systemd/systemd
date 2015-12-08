@@ -19,18 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "virt.h"
+#include "alloc-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "macro.h"
+#include "process-util.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "virt.h"
 
 static int detect_vm_cpuid(void) {
 
-        /* Both CPUID and DMI are x86 specific interfaces... */
+        /* CPUID is an x86 specific interface. */
 #if defined(__i386__) || defined(__x86_64__)
 
         static const struct {
@@ -140,11 +148,10 @@ static int detect_vm_device_tree(void) {
 }
 
 static int detect_vm_dmi(void) {
-
-        /* Both CPUID and DMI are x86 specific interfaces... */
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
 
         static const char *const dmi_vendors[] = {
+                "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
                 "/sys/class/dmi/id/sys_vendor",
                 "/sys/class/dmi/id/board_vendor",
                 "/sys/class/dmi/id/bios_vendor"
@@ -154,6 +161,7 @@ static int detect_vm_dmi(void) {
                 const char *vendor;
                 int id;
         } dmi_vendor_table[] = {
+                { "KVM",           VIRTUALIZATION_KVM       },
                 { "QEMU",          VIRTUALIZATION_QEMU      },
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
                 { "VMware",        VIRTUALIZATION_VMWARE    },
@@ -263,17 +271,13 @@ int detect_vm(void) {
         if (cached_found >= 0)
                 return cached_found;
 
-        /* Try xen capabilities file first, if not found try
-         * high-level hypervisor sysfs file:
+        /* We have to use the correct order here:
+         * Some virtualization technologies do use KVM hypervisor but are
+         * expected to be detected as something else. So detect DMI first.
          *
-         * https://bugs.freedesktop.org/show_bug.cgi?id=77271 */
-
-        r = detect_vm_xen();
-        if (r < 0)
-                return r;
-        if (r != VIRTUALIZATION_NONE)
-                goto finish;
-
+         * An example is Virtualbox since version 5.0, which uses KVM backend.
+         * Detection via DMI works corretly, the CPU ID would find KVM
+         * only. */
         r = detect_vm_dmi();
         if (r < 0)
                 return r;
@@ -281,6 +285,19 @@ int detect_vm(void) {
                 goto finish;
 
         r = detect_vm_cpuid();
+        if (r < 0)
+                return r;
+        if (r != VIRTUALIZATION_NONE)
+                goto finish;
+
+        /* x86 xen will most likely be detected by cpuid. If not (most likely
+         * because we're not an x86 guest), then we should try the xen capabilities
+         * file next. If that's not found, then we check for the high-level
+         * hypervisor sysfs file:
+         *
+         * https://bugs.freedesktop.org/show_bug.cgi?id=77271 */
+
+        r = detect_vm_xen();
         if (r < 0)
                 return r;
         if (r != VIRTUALIZATION_NONE)
@@ -323,6 +340,7 @@ int detect_container(void) {
                 { "lxc-libvirt",    VIRTUALIZATION_LXC_LIBVIRT    },
                 { "systemd-nspawn", VIRTUALIZATION_SYSTEMD_NSPAWN },
                 { "docker",         VIRTUALIZATION_DOCKER         },
+                { "rkt",            VIRTUALIZATION_RKT            },
         };
 
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
@@ -393,7 +411,7 @@ int detect_container(void) {
                         goto finish;
                 }
 
-        r = VIRTUALIZATION_NONE;
+        r = VIRTUALIZATION_CONTAINER_OTHER;
 
 finish:
         cached_found = r;
@@ -408,6 +426,16 @@ int detect_virtualization(void) {
                 return r;
 
         return detect_vm();
+}
+
+int running_in_chroot(void) {
+        int ret;
+
+        ret = files_same("/proc/1/root", "/");
+        if (ret < 0)
+                return ret;
+
+        return ret == 0;
 }
 
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
@@ -429,6 +457,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_LXC] = "lxc",
         [VIRTUALIZATION_OPENVZ] = "openvz",
         [VIRTUALIZATION_DOCKER] = "docker",
+        [VIRTUALIZATION_RKT] = "rkt",
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 

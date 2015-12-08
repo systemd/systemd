@@ -20,14 +20,20 @@
 ***/
 
 #include <errno.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "path-util.h"
+#include "alloc-util.h"
 #include "bus-label.h"
-#include "util.h"
-#include "unit-name.h"
-#include "def.h"
+#include "hexdecoct.h"
+#include "macro.h"
+#include "path-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "unit-name.h"
 
 #define VALID_CHARS                             \
         DIGITS LETTERS                          \
@@ -593,7 +599,6 @@ const char* unit_dbus_interface_from_type(UnitType t) {
                 [UNIT_SOCKET] = "org.freedesktop.systemd1.Socket",
                 [UNIT_BUSNAME] = "org.freedesktop.systemd1.BusName",
                 [UNIT_TARGET] = "org.freedesktop.systemd1.Target",
-                [UNIT_SNAPSHOT] = "org.freedesktop.systemd1.Snapshot",
                 [UNIT_DEVICE] = "org.freedesktop.systemd1.Device",
                 [UNIT_MOUNT] = "org.freedesktop.systemd1.Mount",
                 [UNIT_AUTOMOUNT] = "org.freedesktop.systemd1.Automount",
@@ -651,7 +656,7 @@ static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t
  *  /blah/blah is converted to blah-blah.mount, anything else is left alone,
  *  except that @suffix is appended if a valid unit suffix is not present.
  *
- *  If @allow_globs, globs characters are preserved. Otherwise they are escaped.
+ *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
 int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, const char *suffix, char **ret) {
         char *s, *t;
@@ -815,7 +820,6 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SOCKET] = "socket",
         [UNIT_BUSNAME] = "busname",
         [UNIT_TARGET] = "target",
-        [UNIT_SNAPSHOT] = "snapshot",
         [UNIT_DEVICE] = "device",
         [UNIT_MOUNT] = "mount",
         [UNIT_AUTOMOUNT] = "automount",
@@ -946,13 +950,6 @@ static const char* const slice_state_table[_SLICE_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
 
-static const char* const snapshot_state_table[_SNAPSHOT_STATE_MAX] = {
-        [SNAPSHOT_DEAD] = "dead",
-        [SNAPSHOT_ACTIVE] = "active"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(snapshot_state, SnapshotState);
-
 static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = "dead",
         [SOCKET_START_PRE] = "start-pre",
@@ -1005,16 +1002,12 @@ DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
 
 static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUIRES] = "Requires",
-        [UNIT_REQUIRES_OVERRIDABLE] = "RequiresOverridable",
         [UNIT_REQUISITE] = "Requisite",
-        [UNIT_REQUISITE_OVERRIDABLE] = "RequisiteOverridable",
         [UNIT_WANTS] = "Wants",
         [UNIT_BINDS_TO] = "BindsTo",
         [UNIT_PART_OF] = "PartOf",
         [UNIT_REQUIRED_BY] = "RequiredBy",
-        [UNIT_REQUIRED_BY_OVERRIDABLE] = "RequiredByOverridable",
         [UNIT_REQUISITE_OF] = "RequisiteOf",
-        [UNIT_REQUISITE_OF_OVERRIDABLE] = "RequisiteOfOverridable",
         [UNIT_WANTED_BY] = "WantedBy",
         [UNIT_BOUND_BY] = "BoundBy",
         [UNIT_CONSISTS_OF] = "ConsistsOf",

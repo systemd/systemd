@@ -19,9 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "networkd.h"
-#include "network-internal.h"
+#include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "network-internal.h"
+#include "networkd.h"
 
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -143,8 +144,8 @@ static void test_network_get(Manager *manager, struct udev_device *loopback) {
 static void test_address_equality(void) {
         _cleanup_address_free_ Address *a1 = NULL, *a2 = NULL;
 
-        assert_se(address_new_dynamic(&a1) >= 0);
-        assert_se(address_new_dynamic(&a2) >= 0);
+        assert_se(address_new(&a1) >= 0);
+        assert_se(address_new(&a2) >= 0);
 
         assert_se(address_equal(NULL, NULL));
         assert_se(!address_equal(a1, NULL));
@@ -158,15 +159,16 @@ static void test_address_equality(void) {
         assert_se(address_equal(a1, a2));
 
         assert_se(inet_pton(AF_INET, "192.168.3.9", &a1->in_addr.in));
-        assert_se(address_equal(a1, a2));
+        assert_se(!address_equal(a1, a2));
         assert_se(inet_pton(AF_INET, "192.168.3.9", &a2->in_addr.in));
+        assert_se(address_equal(a1, a2));
+        assert_se(inet_pton(AF_INET, "192.168.3.10", &a1->in_addr_peer.in));
+        assert_se(address_equal(a1, a2));
+        assert_se(inet_pton(AF_INET, "192.168.3.11", &a2->in_addr_peer.in));
         assert_se(address_equal(a1, a2));
         a1->prefixlen = 10;
         assert_se(!address_equal(a1, a2));
         a2->prefixlen = 10;
-        assert_se(address_equal(a1, a2));
-
-        assert_se(inet_pton(AF_INET, "192.168.3.10", &a2->in_addr.in));
         assert_se(address_equal(a1, a2));
 
         a1->family = AF_INET6;

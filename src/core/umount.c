@@ -21,23 +21,30 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/dm-ioctl.h>
+#include <linux/loop.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/swap.h>
-#include <linux/loop.h>
-#include <linux/dm-ioctl.h>
 
+#include "libudev.h"
+
+#include "alloc-util.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fstab-util.h"
 #include "list.h"
 #include "mount-setup.h"
-#include "umount.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "udev-util.h"
+#include "umount.h"
 #include "util.h"
 #include "virt.h"
-#include "libudev.h"
-#include "udev-util.h"
 
 typedef struct MountPoint {
         char *path;
+        char *options;
         dev_t devnum;
         LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
@@ -71,7 +78,7 @@ static int mount_points_list_get(MountPoint **head) {
                 return -errno;
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *path = NULL;
+                _cleanup_free_ char *path = NULL, *options = NULL;
                 char *p = NULL;
                 MountPoint *m;
                 int k;
@@ -82,15 +89,15 @@ static int mount_points_list_get(MountPoint **head) {
                            "%*s "       /* (3) major:minor */
                            "%*s "       /* (4) root */
                            "%ms "       /* (5) mount point */
-                           "%*s"        /* (6) mount options */
+                           "%*s"        /* (6) mount flags */
                            "%*[^-]"     /* (7) optional fields */
                            "- "         /* (8) separator */
                            "%*s "       /* (9) file system type */
                            "%*s"        /* (10) mount source */
-                           "%*s"        /* (11) mount options 2 */
+                           "%ms"        /* (11) mount options */
                            "%*[^\n]",   /* some rubbish at the end */
-                           &path);
-                if (k != 1) {
+                           &path, &options);
+                if (k != 2) {
                         if (k == EOF)
                                 break;
 
@@ -125,6 +132,9 @@ static int mount_points_list_get(MountPoint **head) {
                 }
 
                 m->path = p;
+                m->options = options;
+                options = NULL;
+
                 LIST_PREPEND(mount_point, *head, m);
         }
 
@@ -369,6 +379,14 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                    benefits, but might confuse the host, as we remount
                    the superblock here, not the bind mound. */
                 if (detect_container() <= 0)  {
+                        _cleanup_free_ char *options = NULL;
+                        /* MS_REMOUNT requires that the data parameter
+                         * should be the same from the original mount
+                         * except for the desired changes. Since we want
+                         * to remount read-only, we should filter out
+                         * rw (and ro too, because it confuses the kernel) */
+                        (void) fstab_filter_options(m->options, "rw\0ro\0", NULL, NULL, &options);
+
                         /* We always try to remount directories
                          * read-only first, before we go on and umount
                          * them.
@@ -385,7 +403,8 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                          * alias read-only we hence should be
                          * relatively safe regarding keeping the fs we
                          * can otherwise not see dirty. */
-                        (void) mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, NULL);
+                        log_info("Remounting '%s' read-only with options '%s'.", m->path, options);
+                        (void) mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, options);
                 }
 
                 /* Skip / and /usr since we cannot unmount that

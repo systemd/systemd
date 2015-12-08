@@ -24,15 +24,19 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
-#include "cgroup-util.h"
-#include "bus-util.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
-#include "label.h"
+#include "bus-util.h"
+#include "cgroup-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "signal-util.h"
 #include "hostname-util.h"
+#include "label.h"
 #include "machine-image.h"
 #include "machined.h"
+#include "signal-util.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -146,8 +150,7 @@ int manager_enumerate_machines(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/machines: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/machines: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -181,7 +184,7 @@ int manager_enumerate_machines(Manager *m) {
 }
 
 static int manager_connect_bus(Manager *m) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(m);

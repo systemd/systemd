@@ -17,20 +17,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/wait.h>
-#include <sys/capability.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <pwd.h>
+#include <sys/capability.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
-#include "capability.h"
-#include "util.h"
+#include "capability-util.h"
+#include "fd-util.h"
 #include "macro.h"
+#include "util.h"
 
 static uid_t test_uid = -1;
 static gid_t test_gid = -1;
-// We keep CAP_DAC_OVERRIDE to avoid errors with gcov when doing test coverage
+
+/* We keep CAP_DAC_OVERRIDE to avoid errors with gcov when doing test coverage */
 static uint64_t test_flags = 1ULL << CAP_DAC_OVERRIDE;
 
 static void fork_test(void (*test_func)(void)) {

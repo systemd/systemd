@@ -495,6 +495,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook445G1NotebookPC:pvr
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook450G0:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
+# HP ProBook 6555b
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard:pnHPProBook6555b:*
+ KEYBOARD_KEY_b2=www                                    # Earth
+
 ###########################################################
 # IBM
 ###########################################################
@@ -647,11 +651,6 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 # V480
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
-
-# Thinkpad Yoga 12 (2015)
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPadS1Yoga12*
- KEYBOARD_KEY_d8=direction
- KEYBOARD_KEY_d9=direction
 
 # enhanced USB keyboard
 evdev:input:b0003v04B3p301B*

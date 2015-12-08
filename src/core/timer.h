@@ -58,6 +58,7 @@ struct Timer {
         Unit meta;
 
         usec_t accuracy_usec;
+        usec_t random_usec;
 
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse_realtime;
@@ -73,6 +74,7 @@ struct Timer {
 
         bool persistent;
         bool wake_system;
+        bool remain_after_elapse;
 
         char *stamp_path;
 };

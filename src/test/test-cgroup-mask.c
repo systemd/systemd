@@ -21,10 +21,10 @@
 
 #include <stdio.h>
 
-#include "manager.h"
-#include "unit.h"
 #include "macro.h"
+#include "manager.h"
 #include "test-helper.h"
+#include "unit.h"
 
 static int test_cgroup_mask(void) {
         Manager *m = NULL;
@@ -40,6 +40,16 @@ static int test_cgroup_mask(void) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
+
+        /* Turn off all kinds of default accouning, so that we can
+         * verify the masks resulting of our configuration and nothing
+         * else. */
+        m->default_cpu_accounting =
+                m->default_memory_accounting =
+                m->default_blockio_accounting =
+                m->default_tasks_accounting = false;
+        m->default_tasks_max = (uint64_t) -1;
+
         assert_se(r >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);
 

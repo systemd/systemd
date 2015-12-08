@@ -53,45 +53,53 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "alloc-util.h"
+#ifdef HAVE_APPARMOR
+#include "apparmor-util.h"
+#endif
 #include "async.h"
 #include "barrier.h"
 #include "bus-endpoint.h"
 #include "cap-list.h"
-#include "capability.h"
+#include "capability-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "execute.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "formats-util.h"
+#include "fs-util.h"
+#include "glob-util.h"
+#include "io-util.h"
 #include "ioprio.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "namespace.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
 #include "securebits.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "unit.h"
+#include "user-util.h"
 #include "util.h"
 #include "utmp-wtmp.h"
-
-#ifdef HAVE_APPARMOR
-#include "apparmor-util.h"
-#endif
-
-#ifdef HAVE_SECCOMP
-#include "seccomp-util.h"
-#endif
-
-#include "execute.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -1324,6 +1332,34 @@ static int build_environment(
         return 0;
 }
 
+static int build_pass_environment(const ExecContext *c, char ***ret) {
+        _cleanup_strv_free_ char **pass_env = NULL;
+        size_t n_env = 0, n_bufsize = 0;
+        char **i;
+
+        STRV_FOREACH(i, c->pass_environment) {
+                _cleanup_free_ char *x = NULL;
+                char *v;
+
+                v = getenv(*i);
+                if (!v)
+                        continue;
+                x = strjoin(*i, "=", v, NULL);
+                if (!x)
+                        return -ENOMEM;
+                if (!GREEDY_REALLOC(pass_env, n_bufsize, n_env + 2))
+                        return -ENOMEM;
+                pass_env[n_env++] = x;
+                pass_env[n_env] = NULL;
+                x = NULL;
+        }
+
+        *ret = pass_env;
+        pass_env = NULL;
+
+        return 0;
+}
+
 static bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -1404,7 +1440,7 @@ static int exec_child(
                 char **files_env,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
+        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         const char *username = NULL, *home = NULL, *shell = NULL, *wd;
         uid_t uid = UID_INVALID;
@@ -1920,9 +1956,16 @@ static int exec_child(
                 return r;
         }
 
-        final_env = strv_env_merge(5,
+        r = build_pass_environment(context, &pass_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return r;
+        }
+
+        final_env = strv_env_merge(6,
                                    params->environment,
                                    our_env,
+                                   pass_env,
                                    context->environment,
                                    files_env,
                                    pam_env,
@@ -2013,7 +2056,7 @@ int exec_spawn(Unit *unit,
                    NULL);
         pid = fork();
         if (pid < 0)
-                return log_unit_error_errno(unit, r, "Failed to fork: %m");
+                return log_unit_error_errno(unit, errno, "Failed to fork: %m");
 
         if (pid == 0) {
                 int exit_status;
@@ -2080,6 +2123,7 @@ void exec_context_done(ExecContext *c) {
 
         c->environment = strv_free(c->environment);
         c->environment_files = strv_free(c->environment_files);
+        c->pass_environment = strv_free(c->pass_environment);
 
         for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
                 c->rlimit[l] = mfree(c->rlimit[l]);
@@ -2314,7 +2358,7 @@ static void strv_fprintf(FILE *f, char **l) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
-        char **e;
+        char **e, **d;
         unsigned i;
 
         assert(c);
@@ -2350,6 +2394,14 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         STRV_FOREACH(e, c->environment_files)
                 fprintf(f, "%sEnvironmentFile: %s\n", prefix, *e);
 
+        STRV_FOREACH(e, c->pass_environment)
+                fprintf(f, "%sPassEnvironment: %s\n", prefix, *e);
+
+        fprintf(f, "%sRuntimeDirectoryMode: %04o\n", prefix, c->runtime_directory_mode);
+
+        STRV_FOREACH(d, c->runtime_directory)
+                fprintf(f, "%sRuntimeDirectory: %s\n", prefix, *d);
+
         if (c->nice_set)
                 fprintf(f,
                         "%sNice: %i\n",
@@ -2362,8 +2414,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i])
-                        fprintf(f, "%s%s: "RLIM_FMT"\n",
-                                prefix, rlimit_to_string(i), c->rlimit[i]->rlim_max);
+                        fprintf(f, "%s%s: " RLIM_FMT " " RLIM_FMT "\n",
+                                prefix, rlimit_to_string(i), c->rlimit[i]->rlim_cur, c->rlimit[i]->rlim_max);
 
         if (c->ioprio_set) {
                 _cleanup_free_ char *class_str = NULL;

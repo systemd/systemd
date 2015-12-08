@@ -20,6 +20,7 @@ RestartForceExitStatus=133
 SuccessExitStatus=133
 Slice=machine.slice
 Delegate=yes
+TasksMax=8192
 
 # Enforce a strict device policy, similar to the one nspawn configures
 # when it allocates its own scope unit. Make sure to keep these
@@ -39,6 +40,7 @@ DeviceAllow=char-pts rw
 # implement the --image= option. Add these here, too.
 DeviceAllow=/dev/loop-control rw
 DeviceAllow=block-loop rw
+DeviceAllow=block-blkext rw
 
 [Install]
 WantedBy=machines.target

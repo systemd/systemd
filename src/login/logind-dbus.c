@@ -20,33 +20,40 @@
 ***/
 
 #include <errno.h>
+#include <pwd.h>
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
 
 #include "sd-messages.h"
-#include "strv.h"
+
+#include "alloc-util.h"
+#include "audit-util.h"
+#include "bus-common-errors.h"
+#include "bus-error.h"
+#include "bus-util.h"
+#include "dirent-util.h"
+#include "efivars.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio-label.h"
+#include "formats-util.h"
+#include "fs-util.h"
+#include "logind.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "special.h"
-#include "sleep-config.h"
-#include "fileio-label.h"
-#include "unit-name.h"
-#include "audit.h"
-#include "bus-util.h"
-#include "bus-error.h"
-#include "bus-common-errors.h"
-#include "udev-util.h"
-#include "selinux-util.h"
-#include "efivars.h"
-#include "logind.h"
-#include "formats-util.h"
 #include "process-util.h"
+#include "selinux-util.h"
+#include "sleep-config.h"
+#include "special.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "udev-util.h"
+#include "unit-name.h"
+#include "user-util.h"
 #include "utmp-wtmp.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         Session *session;
         int r;
 
@@ -81,7 +88,7 @@ int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, 
         assert(ret);
 
         if (uid == UID_INVALID) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 /* Note that we get the owner UID of the session, not the actual client UID here! */
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
@@ -301,8 +308,10 @@ static int method_get_session_by_pid(sd_bus_message *message, void *userdata, sd
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
+        if (pid < 0)
+                return -EINVAL;
 
-        if (pid <= 0) {
+        if (pid == 0) {
                 r = manager_get_session_from_creds(m, message, NULL, error, &session);
                 if (r < 0)
                         return r;
@@ -362,8 +371,10 @@ static int method_get_user_by_pid(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return r;
+        if (pid < 0)
+                return -EINVAL;
 
-        if (pid <= 0) {
+        if (pid == 0) {
                 r = manager_get_user_from_creds(m, message, UID_INVALID, error, &user);
                 if (r < 0)
                         return r;
@@ -408,7 +419,7 @@ static int method_get_seat(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Session *session;
         Iterator i;
@@ -450,7 +461,7 @@ static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         User *user;
         Iterator i;
@@ -490,7 +501,7 @@ static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_list_seats(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Seat *seat;
         Iterator i;
@@ -527,7 +538,7 @@ static int method_list_seats(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Inhibitor *inhibitor;
         Iterator i;
@@ -566,12 +577,14 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
-        uint32_t uid, leader, audit_id = 0;
+        uint32_t audit_id = 0;
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         Manager *m = userdata;
         User *user = NULL;
         Seat *seat = NULL;
+        pid_t leader;
+        uid_t uid;
         int remote;
         uint32_t vtnr = 0;
         SessionType t;
@@ -581,11 +594,16 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(m);
 
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
         r = sd_bus_message_read(message, "uusssssussbss", &uid, &leader, &service, &type, &class, &desktop, &cseat, &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
         if (r < 0)
                 return r;
 
-        if (leader == 1)
+        if (!uid_is_valid(uid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
+        if (leader < 0 || leader == 1)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (isempty(type))
@@ -677,8 +695,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         c = SESSION_USER;
         }
 
-        if (leader <= 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        if (leader == 0) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
@@ -1076,7 +1094,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                 return r;
 
         if (uid == UID_INVALID) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 /* Note that we get the owner UID of the session, not the actual client UID here! */
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
@@ -1086,7 +1104,9 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                 r = sd_bus_creds_get_owner_uid(creds, &uid);
                 if (r < 0)
                         return r;
-        }
+
+        } else if (!uid_is_valid(uid))
+                return -EINVAL;
 
         errno = 0;
         pw = getpwuid(uid);
@@ -1445,7 +1465,7 @@ static int execute_shutdown_or_sleep(
                 const char *unit_name,
                 sd_bus_error *error) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         char *c = NULL;
         const char *p;
         int r;
@@ -1495,7 +1515,7 @@ static int execute_shutdown_or_sleep(
 
 int manager_dispatch_delayed(Manager *manager, bool timeout) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Inhibitor *offending = NULL;
         int r;
 
@@ -1648,7 +1668,7 @@ static int verify_shutdown_creds(
                 const char *action_ignore_inhibit,
                 sd_bus_error *error) {
 
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, blocked;
         uid_t uid;
         int r;
@@ -1800,7 +1820,7 @@ static int nologin_timeout_handler(
 
         log_info("Creating /run/nologin, blocking further logins...");
 
-        r = write_string_file("/run/nologin", "System is going down.", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file_atomic_label("/run/nologin", "System is going down.");
         if (r < 0)
                 log_error_errno(r, "Failed to create /run/nologin: %m");
         else
@@ -1869,7 +1889,7 @@ static int manager_scheduled_shutdown_handler(
                         uint64_t usec,
                         void *userdata) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Manager *m = userdata;
         const char *target;
         int r;
@@ -1895,7 +1915,7 @@ static int manager_scheduled_shutdown_handler(
 
 static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *action_multiple_sessions = NULL;
         const char *action_ignore_inhibit = NULL;
         const char *action = NULL;
@@ -2012,7 +2032,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         reset_scheduled_shutdown(m);
 
         if (cancelled) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 const char *tty = NULL;
                 uid_t uid = 0;
                 int r;
@@ -2024,7 +2044,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                 }
 
                 utmp_wall("The system shutdown has been cancelled",
-                          lookup_uid(uid), tty, logind_wall_tty_filter, m);
+                          uid_to_name(uid), tty, logind_wall_tty_filter, m);
         }
 
         return sd_bus_reply_method_return(message, "b", cancelled);
@@ -2068,7 +2088,7 @@ static int method_can_shutdown_or_sleep(
                 const char *sleep_verb,
                 sd_bus_error *error) {
 
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, challenge, blocked;
         const char *result = NULL;
         uid_t uid;
@@ -2354,7 +2374,7 @@ static int method_set_wall_message(
 }
 
 static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *who, *why, *what, *mode;
         _cleanup_free_ char *id = NULL;
         _cleanup_close_ int fifo_fd = -1;
@@ -2561,7 +2581,7 @@ static int session_jobs_reply(Session *s, const char *unit, const char *result) 
         if (streq(result, "done"))
                 r = session_send_create_reply(s, NULL);
         else {
-                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
                 r = session_send_create_reply(s, &e);
@@ -2588,7 +2608,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         if (m->action_job && streq(m->action_job, path)) {
-                log_info("Operation finished.");
+                log_info("Operation '%s' finished.", inhibit_what_to_string(m->action_what));
 
                 /* Tell people that they now may take a lock again */
                 send_prepare_for(m, m->action_what, false);
@@ -2600,11 +2620,8 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         session = hashmap_get(m->session_units, unit);
-        if (session) {
-
-                if (streq_ptr(path, session->scope_job))
-                        session->scope_job = mfree(session->scope_job);
-
+        if (session && streq_ptr(path, session->scope_job)) {
+                session->scope_job = mfree(session->scope_job);
                 session_jobs_reply(session, unit, result);
 
                 session_save(session);
@@ -2613,7 +2630,9 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         user = hashmap_get(m->user_units, unit);
-        if (user) {
+        if (user &&
+            (streq_ptr(path, user->service_job) ||
+             streq_ptr(path, user->slice_job))) {
 
                 if (streq_ptr(path, user->service_job))
                         user->service_job = mfree(user->service_job);
@@ -2733,17 +2752,105 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
                         l);
 }
 
+int manager_start_slice(
+                Manager *manager,
+                const char *slice,
+                const char *description,
+                const char *after,
+                const char *after2,
+                uint64_t tasks_max,
+                sd_bus_error *error,
+                char **job) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        int r;
+
+        assert(manager);
+        assert(slice);
+
+        r = sd_bus_message_new_method_call(
+                        manager->bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "ss", strempty(slice), "fail");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        if (!isempty(description)) {
+                r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!isempty(after)) {
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!isempty(after2)) {
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after2);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", tasks_max);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(manager->bus, m, 0, error, &reply);
+        if (r < 0)
+                return r;
+
+        if (job) {
+                const char *j;
+                char *copy;
+
+                r = sd_bus_message_read(reply, "o", &j);
+                if (r < 0)
+                        return r;
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 1;
+}
+
 int manager_start_scope(
                 Manager *manager,
                 const char *scope,
                 pid_t pid,
                 const char *slice,
                 const char *description,
-                const char *after, const char *after2,
+                const char *after,
+                const char *after2,
+                uint64_t tasks_max,
                 sd_bus_error *error,
                 char **job) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
 
         assert(manager);
@@ -2807,6 +2914,10 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", tasks_max);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_close_container(m);
         if (r < 0)
                 return r;
@@ -2838,7 +2949,7 @@ int manager_start_scope(
 }
 
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
@@ -2852,7 +2963,7 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
                         "StartUnit",
                         error,
                         &reply,
-                        "ss", unit, "fail");
+                        "ss", unit, "replace");
         if (r < 0)
                 return r;
 
@@ -2875,7 +2986,7 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
@@ -2972,8 +3083,8 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         const char *state;
         int r;
@@ -3018,8 +3129,8 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
 }
 
 int manager_job_is_active(Manager *manager, const char *path) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);

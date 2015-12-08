@@ -22,22 +22,28 @@
 #include <netinet/ether.h>
 #include <linux/netdevice.h>
 
-
-#include "missing.h"
-#include "link-config.h"
-#include "ethtool-util.h"
-
-#include "libudev-private.h"
 #include "sd-netlink.h"
-#include "util.h"
-#include "log.h"
-#include "strv.h"
-#include "path-util.h"
-#include "conf-parser.h"
+
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "conf-parser.h"
+#include "ethtool-util.h"
+#include "fd-util.h"
+#include "libudev-private.h"
+#include "link-config.h"
+#include "log.h"
+#include "missing.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
@@ -348,14 +354,14 @@ static int get_mac(struct udev_device *device, bool want_random,
         if (want_random)
                 random_bytes(mac->ether_addr_octet, ETH_ALEN);
         else {
-                uint8_t result[8];
+                uint64_t result;
 
-                r = net_get_unique_predictable_data(device, result);
+                r = net_get_unique_predictable_data(device, &result);
                 if (r < 0)
                         return r;
 
                 assert_cc(ETH_ALEN <= sizeof(result));
-                memcpy(mac->ether_addr_octet, result, ETH_ALEN);
+                memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
         }
 
         /* see eth_random_addr in the kernel */

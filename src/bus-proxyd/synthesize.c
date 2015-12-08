@@ -23,13 +23,14 @@
 
 #include <stddef.h>
 
-#include "util.h"
 #include "sd-bus.h"
+
 #include "bus-internal.h"
+#include "bus-match.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "bus-match.h"
 #include "synthesize.h"
+#include "util.h"
 
 int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {
         int r;
@@ -49,7 +50,7 @@ int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {
 }
 
 int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error *e) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(call);
@@ -65,7 +66,7 @@ int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error *e) {
 }
 
 int synthetic_reply_method_errorf(sd_bus_message *call, const char *name, const char *format, ...) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
 
         va_start(ap, format);
@@ -76,7 +77,7 @@ int synthetic_reply_method_errorf(sd_bus_message *call, const char *name, const 
 }
 
 int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p) {
-        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         assert(call);
 
@@ -92,7 +93,7 @@ int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_e
 }
 
 int synthetic_reply_method_errnof(sd_bus_message *call, int error, const char *format, ...) {
-        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
 
         assert(call);
@@ -108,7 +109,7 @@ int synthetic_reply_method_errnof(sd_bus_message *call, int error, const char *f
 }
 
 int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(call);
@@ -134,7 +135,7 @@ int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...) 
 }
 
 int synthetic_reply_method_return_strv(sd_bus_message *call, char **l) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(call);
@@ -154,7 +155,7 @@ int synthetic_reply_method_return_strv(sd_bus_message *call, char **l) {
 }
 
 int synthesize_name_acquired(Proxy *p, sd_bus *a, sd_bus *b, sd_bus_message *m) {
-        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *n = NULL;
         const char *name, *old_owner, *new_owner;
         int r;
 

@@ -22,10 +22,13 @@
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
 
-#include "util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "formats-util.h"
 #include "macro.h"
 #include "stacktrace.h"
-#include "formats-util.h"
+#include "string-util.h"
+#include "util.h"
 
 #define FRAMES_MAX 64
 #define THREADS_MAX 64

@@ -22,8 +22,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <locale.h>
-#include <math.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/types.h>
@@ -31,17 +29,34 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "def.h"
+#include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "fstab-util.h"
+#include "glob-util.h"
+#include "hexdecoct.h"
+#include "io-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "special.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
+#include "web-util.h"
+#include "xattr-util.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -221,63 +236,6 @@ static void test_close_many(void) {
         unlink(name2);
 }
 
-static void test_parse_boolean(void) {
-        assert_se(parse_boolean("1") == 1);
-        assert_se(parse_boolean("y") == 1);
-        assert_se(parse_boolean("Y") == 1);
-        assert_se(parse_boolean("yes") == 1);
-        assert_se(parse_boolean("YES") == 1);
-        assert_se(parse_boolean("true") == 1);
-        assert_se(parse_boolean("TRUE") == 1);
-        assert_se(parse_boolean("on") == 1);
-        assert_se(parse_boolean("ON") == 1);
-
-        assert_se(parse_boolean("0") == 0);
-        assert_se(parse_boolean("n") == 0);
-        assert_se(parse_boolean("N") == 0);
-        assert_se(parse_boolean("no") == 0);
-        assert_se(parse_boolean("NO") == 0);
-        assert_se(parse_boolean("false") == 0);
-        assert_se(parse_boolean("FALSE") == 0);
-        assert_se(parse_boolean("off") == 0);
-        assert_se(parse_boolean("OFF") == 0);
-
-        assert_se(parse_boolean("garbage") < 0);
-        assert_se(parse_boolean("") < 0);
-        assert_se(parse_boolean("full") < 0);
-}
-
-static void test_parse_pid(void) {
-        int r;
-        pid_t pid;
-
-        r = parse_pid("100", &pid);
-        assert_se(r == 0);
-        assert_se(pid == 100);
-
-        r = parse_pid("0x7FFFFFFF", &pid);
-        assert_se(r == 0);
-        assert_se(pid == 2147483647);
-
-        pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
-        r = parse_pid("0", &pid);
-        assert_se(r == -ERANGE);
-        assert_se(pid == 65);
-
-        pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
-        r = parse_pid("-100", &pid);
-        assert_se(r == -ERANGE);
-        assert_se(pid == 65);
-
-        pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
-        r = parse_pid("0xFFFFFFFFFFFFFFFFF", &pid);
-        assert_se(r == -ERANGE);
-        assert_se(pid == 65);
-
-        r = parse_pid("junk", &pid);
-        assert_se(r == -EINVAL);
-}
-
 static void test_parse_uid(void) {
         int r;
         uid_t uid;
@@ -291,96 +249,6 @@ static void test_parse_uid(void) {
 
         r = parse_uid("asdsdas", &uid);
         assert_se(r == -EINVAL);
-}
-
-static void test_safe_atou16(void) {
-        int r;
-        uint16_t l;
-
-        r = safe_atou16("12345", &l);
-        assert_se(r == 0);
-        assert_se(l == 12345);
-
-        r = safe_atou16("123456", &l);
-        assert_se(r == -ERANGE);
-
-        r = safe_atou16("junk", &l);
-        assert_se(r == -EINVAL);
-}
-
-static void test_safe_atoi16(void) {
-        int r;
-        int16_t l;
-
-        r = safe_atoi16("-12345", &l);
-        assert_se(r == 0);
-        assert_se(l == -12345);
-
-        r = safe_atoi16("36536", &l);
-        assert_se(r == -ERANGE);
-
-        r = safe_atoi16("junk", &l);
-        assert_se(r == -EINVAL);
-}
-
-static void test_safe_atolli(void) {
-        int r;
-        long long l;
-
-        r = safe_atolli("12345", &l);
-        assert_se(r == 0);
-        assert_se(l == 12345);
-
-        r = safe_atolli("junk", &l);
-        assert_se(r == -EINVAL);
-}
-
-static void test_safe_atod(void) {
-        int r;
-        double d;
-        char *e;
-
-        r = safe_atod("junk", &d);
-        assert_se(r == -EINVAL);
-
-        r = safe_atod("0.2244", &d);
-        assert_se(r == 0);
-        assert_se(fabs(d - 0.2244) < 0.000001);
-
-        r = safe_atod("0,5", &d);
-        assert_se(r == -EINVAL);
-
-        errno = 0;
-        strtod("0,5", &e);
-        assert_se(*e == ',');
-
-        /* Check if this really is locale independent */
-        if (setlocale(LC_NUMERIC, "de_DE.utf8")) {
-
-                r = safe_atod("0.2244", &d);
-                assert_se(r == 0);
-                assert_se(fabs(d - 0.2244) < 0.000001);
-
-                r = safe_atod("0,5", &d);
-                assert_se(r == -EINVAL);
-
-                errno = 0;
-                assert_se(fabs(strtod("0,5", &e) - 0.5) < 0.00001);
-        }
-
-        /* And check again, reset */
-        assert_se(setlocale(LC_NUMERIC, "C"));
-
-        r = safe_atod("0.2244", &d);
-        assert_se(r == 0);
-        assert_se(fabs(d - 0.2244) < 0.000001);
-
-        r = safe_atod("0,5", &d);
-        assert_se(r == -EINVAL);
-
-        errno = 0;
-        strtod("0,5", &e);
-        assert_se(*e == ',');
 }
 
 static void test_strappend(void) {
@@ -895,74 +763,6 @@ static void test_protect_errno(void) {
         assert_se(errno == 12);
 }
 
-static void test_parse_size(void) {
-        uint64_t bytes;
-
-        assert_se(parse_size("111", 1024, &bytes) == 0);
-        assert_se(bytes == 111);
-
-        assert_se(parse_size("111.4", 1024, &bytes) == 0);
-        assert_se(bytes == 111);
-
-        assert_se(parse_size(" 112 B", 1024, &bytes) == 0);
-        assert_se(bytes == 112);
-
-        assert_se(parse_size(" 112.6 B", 1024, &bytes) == 0);
-        assert_se(bytes == 112);
-
-        assert_se(parse_size("3.5 K", 1024, &bytes) == 0);
-        assert_se(bytes == 3*1024 + 512);
-
-        assert_se(parse_size("3. K", 1024, &bytes) == 0);
-        assert_se(bytes == 3*1024);
-
-        assert_se(parse_size("3.0 K", 1024, &bytes) == 0);
-        assert_se(bytes == 3*1024);
-
-        assert_se(parse_size("3. 0 K", 1024, &bytes) == -EINVAL);
-
-        assert_se(parse_size(" 4 M 11.5K", 1024, &bytes) == 0);
-        assert_se(bytes == 4*1024*1024 + 11 * 1024 + 512);
-
-        assert_se(parse_size("3B3.5G", 1024, &bytes) == -EINVAL);
-
-        assert_se(parse_size("3.5G3B", 1024, &bytes) == 0);
-        assert_se(bytes == 3ULL*1024*1024*1024 + 512*1024*1024 + 3);
-
-        assert_se(parse_size("3.5G 4B", 1024, &bytes) == 0);
-        assert_se(bytes == 3ULL*1024*1024*1024 + 512*1024*1024 + 4);
-
-        assert_se(parse_size("3B3G4T", 1024, &bytes) == -EINVAL);
-
-        assert_se(parse_size("4T3G3B", 1024, &bytes) == 0);
-        assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
-
-        assert_se(parse_size(" 4 T 3 G 3 B", 1024, &bytes) == 0);
-        assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
-
-        assert_se(parse_size("12P", 1024, &bytes) == 0);
-        assert_se(bytes == 12ULL * 1024*1024*1024*1024*1024);
-
-        assert_se(parse_size("12P12P", 1024, &bytes) == -EINVAL);
-
-        assert_se(parse_size("3E 2P", 1024, &bytes) == 0);
-        assert_se(bytes == (3 * 1024 + 2ULL) * 1024*1024*1024*1024*1024);
-
-        assert_se(parse_size("12X", 1024, &bytes) == -EINVAL);
-
-        assert_se(parse_size("12.5X", 1024, &bytes) == -EINVAL);
-
-        assert_se(parse_size("12.5e3", 1024, &bytes) == -EINVAL);
-
-        assert_se(parse_size("1024E", 1024, &bytes) == -ERANGE);
-        assert_se(parse_size("-1", 1024, &bytes) == -ERANGE);
-        assert_se(parse_size("-1024E", 1024, &bytes) == -ERANGE);
-
-        assert_se(parse_size("-1024P", 1024, &bytes) == -ERANGE);
-
-        assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
-}
-
 static void test_parse_cpu_set(void) {
         cpu_set_t *c = NULL;
         int ncpus;
@@ -996,16 +796,73 @@ static void test_parse_cpu_set(void) {
 
         /* Use commas as separators */
         ncpus = parse_cpu_set_and_warn("0,1,2,3 8,9,10,11", &c, NULL, "fake", 1, "CPUAffinity");
-        assert_se(ncpus < 0);
-        assert_se(!c);
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 4; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Commas with spaces (and trailing comma, space) */
+        ncpus = parse_cpu_set_and_warn("0, 1, 2, 3, 4, 5, 6, 7, ", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 8; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
 
         /* Ranges */
         ncpus = parse_cpu_set_and_warn("0-3,8-11", &c, NULL, "fake", 1, "CPUAffinity");
-        assert_se(ncpus < 0);
-        assert_se(!c);
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 4; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Ranges with trailing comma, space */
+        ncpus = parse_cpu_set_and_warn("0-3  8-11, ", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 8);
+        for (cpu = 0; cpu < 4; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        for (cpu = 8; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Negative range (returns empty cpu_set) */
+        ncpus = parse_cpu_set_and_warn("3-0", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 0);
+        c = mfree(c);
+
+        /* Overlapping ranges */
+        ncpus = parse_cpu_set_and_warn("0-7 4-11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 12);
+        for (cpu = 0; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
+
+        /* Mix ranges and individual CPUs */
+        ncpus = parse_cpu_set_and_warn("0,1 4-11", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus >= 1024);
+        assert_se(CPU_COUNT_S(CPU_ALLOC_SIZE(ncpus), c) == 10);
+        assert_se(CPU_ISSET_S(0, CPU_ALLOC_SIZE(ncpus), c));
+        assert_se(CPU_ISSET_S(1, CPU_ALLOC_SIZE(ncpus), c));
+        for (cpu = 4; cpu < 12; cpu++)
+                assert_se(CPU_ISSET_S(cpu, CPU_ALLOC_SIZE(ncpus), c));
+        c = mfree(c);
 
         /* Garbage */
         ncpus = parse_cpu_set_and_warn("0 1 2 3 garbage", &c, NULL, "fake", 1, "CPUAffinity");
+        assert_se(ncpus < 0);
+        assert_se(!c);
+
+        /* Range with garbage */
+        ncpus = parse_cpu_set_and_warn("0-3 8-garbage", &c, NULL, "fake", 1, "CPUAffinity");
         assert_se(ncpus < 0);
         assert_se(!c);
 
@@ -1554,507 +1411,6 @@ static void test_execute_directory(void) {
         (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
-static void test_extract_first_word(void) {
-        const char *p, *original;
-        char *t;
-
-        p = original = "foobar waldo";
-        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
-        assert_se(streq(t, "foobar"));
-        free(t);
-        assert_se(p == original + 7);
-
-        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
-        assert_se(streq(t, "waldo"));
-        free(t);
-        assert_se(isempty(p));
-
-        assert_se(extract_first_word(&p, &t, NULL, 0) == 0);
-        assert_se(!t);
-        assert_se(isempty(p));
-
-        p = original = "\"foobar\" \'waldo\'";
-        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
-        assert_se(streq(t, "\"foobar\""));
-        free(t);
-        assert_se(p == original + 9);
-
-        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
-        assert_se(streq(t, "\'waldo\'"));
-        free(t);
-        assert_se(isempty(p));
-
-        assert_se(extract_first_word(&p, &t, NULL, 0) == 0);
-        assert_se(!t);
-        assert_se(isempty(p));
-
-        p = original = "\"foobar\" \'waldo\'";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) > 0);
-        assert_se(streq(t, "foobar"));
-        free(t);
-        assert_se(p == original + 9);
-
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) > 0);
-        assert_se(streq(t, "waldo"));
-        free(t);
-        assert_se(isempty(p));
-
-        assert_se(extract_first_word(&p, &t, NULL, 0) == 0);
-        assert_se(!t);
-        assert_se(isempty(p));
-
-        p = original = "\"";
-        assert_se(extract_first_word(&p, &t, NULL, 0) == 1);
-        assert_se(streq(t, "\""));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\"";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) == -EINVAL);
-        assert_se(p == original + 1);
-
-        p = original = "\'";
-        assert_se(extract_first_word(&p, &t, NULL, 0) == 1);
-        assert_se(streq(t, "\'"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\'";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) == -EINVAL);
-        assert_se(p == original + 1);
-
-        p = original = "\'fooo";
-        assert_se(extract_first_word(&p, &t, NULL, 0) == 1);
-        assert_se(streq(t, "\'fooo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\'fooo";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) == -EINVAL);
-        assert_se(p == original + 5);
-
-        p = original = "\'fooo";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "fooo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "yay\'foo\'bar";
-        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
-        assert_se(streq(t, "yay\'foo\'bar"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "yay\'foo\'bar";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) > 0);
-        assert_se(streq(t, "yayfoobar"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "   foobar   ";
-        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
-        assert_se(streq(t, "foobar"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = " foo\\ba\\x6ar ";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE) > 0);
-        assert_se(streq(t, "foo\ba\x6ar"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = " foo\\ba\\x6ar ";
-        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
-        assert_se(streq(t, "foobax6ar"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "    f\\u00f6o \"pi\\U0001F4A9le\"   ";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE) > 0);
-        assert_se(streq(t, "föo"));
-        free(t);
-        assert_se(p == original + 13);
-
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE) > 0);
-        assert_se(streq(t, "pi\360\237\222\251le"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "fooo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE_RELAX) > 0);
-        assert_se(streq(t, "fooo\\"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE_RELAX|EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "fooo\\"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX) > 0);
-        assert_se(streq(t, "fooo\\"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word(&p, &t, NULL, 0) == -EINVAL);
-        assert_se(p == original + 5);
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "foo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "foo::bar";
-        assert_se(extract_first_word(&p, &t, ":", 0) == 1);
-        assert_se(streq(t, "foo"));
-        free(t);
-        assert_se(p == original + 5);
-
-        assert_se(extract_first_word(&p, &t, ":", 0) == 1);
-        assert_se(streq(t, "bar"));
-        free(t);
-        assert_se(isempty(p));
-
-        assert_se(extract_first_word(&p, &t, ":", 0) == 0);
-        assert_se(!t);
-        assert_se(isempty(p));
-
-        p = original = "foo\\:bar::waldo";
-        assert_se(extract_first_word(&p, &t, ":", 0) == 1);
-        assert_se(streq(t, "foo:bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        assert_se(extract_first_word(&p, &t, ":", 0) == 1);
-        assert_se(streq(t, "waldo"));
-        free(t);
-        assert_se(isempty(p));
-
-        assert_se(extract_first_word(&p, &t, ":", 0) == 0);
-        assert_se(!t);
-        assert_se(isempty(p));
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE_RELAX) == -EINVAL);
-        assert_se(p == original + 5);
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE_RELAX|EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "foo\\"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX|EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "foo\\"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "fooo bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE_RELAX) > 0);
-        assert_se(streq(t, "fooo bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE_RELAX|EXTRACT_RELAX) > 0);
-        assert_se(streq(t, "fooo bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE) == -EINVAL);
-        assert_se(p == original + 5);
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX) > 0);
-        assert_se(streq(t, "fooo\\ bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        p = original = "\\w+@\\K[\\d.]+";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE) == -EINVAL);
-        assert_se(p == original + 1);
-
-        p = original = "\\w+@\\K[\\d.]+";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX) > 0);
-        assert_se(streq(t, "\\w+@\\K[\\d.]+"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\\w+\\b";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX) > 0);
-        assert_se(streq(t, "\\w+\b"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "-N ''";
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) > 0);
-        assert_se(streq(t, "-N"));
-        free(t);
-        assert_se(p == original + 3);
-
-        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_QUOTES) > 0);
-        assert_se(streq(t, ""));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = ":foo\\:bar::waldo:";
-        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
-        assert_se(t);
-        assert_se(streq(t, ""));
-        free(t);
-        assert_se(p == original + 1);
-
-        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
-        assert_se(streq(t, "foo:bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
-        assert_se(t);
-        assert_se(streq(t, ""));
-        free(t);
-        assert_se(p == original + 11);
-
-        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
-        assert_se(streq(t, "waldo"));
-        free(t);
-        assert_se(p == original + 17);
-
-        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
-        assert_se(streq(t, ""));
-        free(t);
-        assert_se(p == NULL);
-
-        assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 0);
-        assert_se(!t);
-        assert_se(!p);
-}
-
-static void test_extract_first_word_and_warn(void) {
-        const char *p, *original;
-        char *t;
-
-        p = original = "foobar waldo";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, 0, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "foobar"));
-        free(t);
-        assert_se(p == original + 7);
-
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, 0, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "waldo"));
-        free(t);
-        assert_se(isempty(p));
-
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, 0, NULL, "fake", 1, original) == 0);
-        assert_se(!t);
-        assert_se(isempty(p));
-
-        p = original = "\"foobar\" \'waldo\'";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "foobar"));
-        free(t);
-        assert_se(p == original + 9);
-
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "waldo"));
-        free(t);
-        assert_se(isempty(p));
-
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, 0, NULL, "fake", 1, original) == 0);
-        assert_se(!t);
-        assert_se(isempty(p));
-
-        p = original = "\"";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES, NULL, "fake", 1, original) == -EINVAL);
-        assert_se(p == original + 1);
-
-        p = original = "\'";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES, NULL, "fake", 1, original) == -EINVAL);
-        assert_se(p == original + 1);
-
-        p = original = "\'fooo";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES, NULL, "fake", 1, original) == -EINVAL);
-        assert_se(p == original + 5);
-
-        p = original = "\'fooo";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_RELAX, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "fooo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = " foo\\ba\\x6ar ";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_CUNESCAPE, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "foo\ba\x6ar"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = " foo\\ba\\x6ar ";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, 0, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "foobax6ar"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "    f\\u00f6o \"pi\\U0001F4A9le\"   ";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_CUNESCAPE, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "föo"));
-        free(t);
-        assert_se(p == original + 13);
-
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "pi\360\237\222\251le"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_RELAX, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "fooo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, 0, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "fooo\\"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_CUNESCAPE, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "fooo\\"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES, NULL, "fake", 1, original) == -EINVAL);
-        assert_se(p == original + 5);
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_RELAX, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "foo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE, NULL, "fake", 1, original) == -EINVAL);
-        assert_se(p == original + 5);
-
-        p = original = "\"foo\\";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE|EXTRACT_RELAX, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "foo"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_RELAX, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "fooo bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, 0, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "fooo bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        p = original = "fooo\\ bar quux";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_CUNESCAPE, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "fooo\\ bar"));
-        free(t);
-        assert_se(p == original + 10);
-
-        p = original = "\\w+@\\K[\\d.]+";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_CUNESCAPE, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "\\w+@\\K[\\d.]+"));
-        free(t);
-        assert_se(isempty(p));
-
-        p = original = "\\w+\\b";
-        assert_se(extract_first_word_and_warn(&p, &t, NULL, EXTRACT_CUNESCAPE, NULL, "fake", 1, original) > 0);
-        assert_se(streq(t, "\\w+\b"));
-        free(t);
-        assert_se(isempty(p));
-}
-
-static void test_extract_many_words(void) {
-        const char *p, *original;
-        char *a, *b, *c;
-
-        p = original = "foobar waldi piep";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 3);
-        assert_se(isempty(p));
-        assert_se(streq_ptr(a, "foobar"));
-        assert_se(streq_ptr(b, "waldi"));
-        assert_se(streq_ptr(c, "piep"));
-        free(a);
-        free(b);
-        free(c);
-
-        p = original = "'foobar' wa\"ld\"i   ";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 2);
-        assert_se(isempty(p));
-        assert_se(streq_ptr(a, "'foobar'"));
-        assert_se(streq_ptr(b, "wa\"ld\"i"));
-        assert_se(streq_ptr(c, NULL));
-        free(a);
-        free(b);
-
-        p = original = "'foobar' wa\"ld\"i   ";
-        assert_se(extract_many_words(&p, NULL, EXTRACT_QUOTES, &a, &b, &c, NULL) == 2);
-        assert_se(isempty(p));
-        assert_se(streq_ptr(a, "foobar"));
-        assert_se(streq_ptr(b, "waldi"));
-        assert_se(streq_ptr(c, NULL));
-        free(a);
-        free(b);
-
-        p = original = "";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 0);
-        assert_se(isempty(p));
-        assert_se(streq_ptr(a, NULL));
-        assert_se(streq_ptr(b, NULL));
-        assert_se(streq_ptr(c, NULL));
-
-        p = original = "  ";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 0);
-        assert_se(isempty(p));
-        assert_se(streq_ptr(a, NULL));
-        assert_se(streq_ptr(b, NULL));
-        assert_se(streq_ptr(c, NULL));
-
-        p = original = "foobar";
-        assert_se(extract_many_words(&p, NULL, 0, NULL) == 0);
-        assert_se(p == original);
-
-        p = original = "foobar waldi";
-        assert_se(extract_many_words(&p, NULL, 0, &a, NULL) == 1);
-        assert_se(p == original+7);
-        assert_se(streq_ptr(a, "foobar"));
-        free(a);
-
-        p = original = "     foobar    ";
-        assert_se(extract_many_words(&p, NULL, 0, &a, NULL) == 1);
-        assert_se(isempty(p));
-        assert_se(streq_ptr(a, "foobar"));
-        free(a);
-}
-
 static int parse_item(const char *key, const char *value) {
         assert_se(key);
 
@@ -2203,20 +1559,6 @@ static void test_shell_maybe_quote(void) {
         test_shell_maybe_quote_one("foo$bar", "\"foo\\$bar\"");
 }
 
-static void test_parse_mode(void) {
-        mode_t m;
-
-        assert_se(parse_mode("-1", &m) < 0);
-        assert_se(parse_mode("", &m) < 0);
-        assert_se(parse_mode("888", &m) < 0);
-        assert_se(parse_mode("77777", &m) < 0);
-
-        assert_se(parse_mode("544", &m) >= 0 && m == 0544);
-        assert_se(parse_mode("777", &m) >= 0 && m == 0777);
-        assert_se(parse_mode("7777", &m) >= 0 && m == 07777);
-        assert_se(parse_mode("0", &m) >= 0 && m == 0);
-}
-
 static void test_tempfn(void) {
         char *ret = NULL, *p;
 
@@ -2297,6 +1639,12 @@ cleanup:
         assert_se(rmdir(t) >= 0);
 }
 
+static void test_runlevel_to_target(void) {
+        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
+        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -2309,13 +1657,7 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_first_word();
         test_close_many();
-        test_parse_boolean();
-        test_parse_pid();
         test_parse_uid();
-        test_safe_atou16();
-        test_safe_atoi16();
-        test_safe_atolli();
-        test_safe_atod();
         test_strappend();
         test_strstrip();
         test_delete_chars();
@@ -2342,7 +1684,6 @@ int main(int argc, char *argv[]) {
         test_memdup_multiply();
         test_u64log2();
         test_protect_errno();
-        test_parse_size();
         test_parse_cpu_set();
         test_config_parse_iec_uint64();
         test_strextend();
@@ -2374,9 +1715,6 @@ int main(int argc, char *argv[]) {
         test_search_and_fopen_nulstr();
         test_glob_exists();
         test_execute_directory();
-        test_extract_first_word();
-        test_extract_first_word_and_warn();
-        test_extract_many_words();
         test_parse_proc_cmdline();
         test_raw_clone();
         test_same_fd();
@@ -2384,10 +1722,10 @@ int main(int argc, char *argv[]) {
         test_sparse_write();
         test_shell_escape();
         test_shell_maybe_quote();
-        test_parse_mode();
         test_tempfn();
         test_strcmp_ptr();
         test_fgetxattrat_fake();
+        test_runlevel_to_target();
 
         return 0;
 }

@@ -22,15 +22,16 @@
 #include <errno.h>
 #include <string.h>
 
-#include "util.h"
-#include "strv.h"
-#include "bus-util.h"
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
-
-#include "logind.h"
-#include "logind-session.h"
+#include "bus-util.h"
+#include "fd-util.h"
 #include "logind-session-device.h"
+#include "logind-session.h"
+#include "logind.h"
+#include "strv.h"
+#include "util.h"
 
 static int property_get_user(
                 sd_bus *bus,
@@ -251,7 +252,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         Session *s = userdata;
         uid_t uid;
         int r, b;
@@ -326,7 +327,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         Session *s = userdata;
         int r, force;
         uid_t uid;
@@ -520,7 +521,7 @@ int session_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/session/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
                 const char *name;
 
@@ -597,7 +598,7 @@ int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
 
         message = sd_bus_get_current_message(bus);
         if (message) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 const char *name;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
@@ -691,7 +692,7 @@ int session_send_lock_all(Manager *m, bool lock) {
 }
 
 int session_send_create_reply(Session *s, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *c = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -1;
         _cleanup_free_ char *p = NULL;
 

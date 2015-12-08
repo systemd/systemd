@@ -22,20 +22,23 @@
 #include <net/if.h>
 
 #include "sd-netlink.h"
-#include "networkd-netdev-vxlan.h"
-#include "networkd-link.h"
+
 #include "conf-parser.h"
 #include "missing.h"
+#include "networkd-link.h"
+#include "networkd-netdev-vxlan.h"
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        VxLan *v = VXLAN(netdev);
+        VxLan *v;
         int r;
 
         assert(netdev);
-        assert(v);
         assert(link);
         assert(m);
 
+        v = VXLAN(netdev);
+
+        assert(v);
 
         if (v->id <= VXLAN_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->id);
@@ -87,6 +90,12 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_AGEING attribute: %m");
+        }
+
+        if (v->max_fdb) {
+                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LIMIT, v->max_fdb);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LIMIT attribute: %m");
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_CSUM, v->udpcsum);
@@ -162,9 +171,12 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
 }
 
 static void vxlan_init(NetDev *netdev) {
-        VxLan *v = VXLAN(netdev);
+        VxLan *v;
 
         assert(netdev);
+
+        v = VXLAN(netdev);
+
         assert(v);
 
         v->id = VXLAN_VID_MAX + 1;

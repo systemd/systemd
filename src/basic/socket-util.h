@@ -21,9 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <netinet/ether.h>
+#include <netinet/in.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <linux/netlink.h>
 #include <linux/if_packet.h>
@@ -116,6 +119,21 @@ int netlink_family_from_string(const char *s) _pure_;
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
 
-#define ETHER_ADDR_TO_STRING_MAX (3*6)
+int fd_inc_sndbuf(int fd, size_t n);
+int fd_inc_rcvbuf(int fd, size_t n);
 
-char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]);
+int ip_tos_to_string_alloc(int i, char **s);
+int ip_tos_from_string(const char *s);
+
+int getpeercred(int fd, struct ucred *ucred);
+int getpeersec(int fd, char **ret);
+
+int send_one_fd_sa(int transport_fd,
+                   int fd,
+                   const struct sockaddr *sa, socklen_t len,
+                   int flags);
+#define send_one_fd(transport_fd, fd, flags) send_one_fd_sa(transport_fd, fd, NULL, 0, flags)
+int receive_one_fd(int transport_fd, int flags);
+
+#define CMSG_FOREACH(cmsg, mh)                                          \
+        for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))

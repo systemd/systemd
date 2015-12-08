@@ -19,13 +19,35 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "strv.h"
-#include "utf8.h"
+#include "alloc-util.h"
 #include "ctype.h"
+#include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "hexdecoct.h"
+#include "log.h"
+#include "macro.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "random-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#include "umask-util.h"
+#include "utf8.h"
 
 int write_string_stream(FILE *f, const char *line, bool enforce_newline) {
 
@@ -51,7 +73,7 @@ static int write_string_file_atomic(const char *fn, const char *line, bool enfor
         if (r < 0)
                 return r;
 
-        fchmod_umask(fileno(f), 0644);
+        (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream(f, line, enforce_newline);
         if (r >= 0) {
@@ -60,13 +82,14 @@ static int write_string_file_atomic(const char *fn, const char *line, bool enfor
         }
 
         if (r < 0)
-                unlink(p);
+                (void) unlink(p);
 
         return r;
 }
 
 int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
+        int q, r;
 
         assert(fn);
         assert(line);
@@ -74,30 +97,58 @@ int write_string_file(const char *fn, const char *line, WriteStringFileFlags fla
         if (flags & WRITE_STRING_FILE_ATOMIC) {
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
-                return write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+                r = write_string_file_atomic(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+                if (r < 0)
+                        goto fail;
+
+                return r;
         }
 
         if (flags & WRITE_STRING_FILE_CREATE) {
                 f = fopen(fn, "we");
-                if (!f)
-                        return -errno;
+                if (!f) {
+                        r = -errno;
+                        goto fail;
+                }
         } else {
                 int fd;
 
                 /* We manually build our own version of fopen(..., "we") that
                  * works without O_CREAT */
                 fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        return -errno;
+                if (fd < 0) {
+                        r = -errno;
+                        goto fail;
+                }
 
                 f = fdopen(fd, "we");
                 if (!f) {
+                        r = -errno;
                         safe_close(fd);
-                        return -errno;
+                        goto fail;
                 }
         }
 
-        return write_string_stream(f, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        r = write_string_stream(f, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        if (r < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        if (!(flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE))
+                return r;
+
+        f = safe_fclose(f);
+
+        /* OK, the operation failed, but let's see if the right
+         * contents in place already. If so, eat up the error. */
+
+        q = verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        if (q <= 0)
+                return r;
+
+        return 0;
 }
 
 int read_one_line_file(const char *fn, char **line) {
@@ -128,15 +179,41 @@ int read_one_line_file(const char *fn, char **line) {
         return 0;
 }
 
-int verify_one_line_file(const char *fn, const char *line) {
-        _cleanup_free_ char *value = NULL;
-        int r;
+int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *buf = NULL;
+        size_t l, k;
 
-        r = read_one_line_file(fn, &value);
-        if (r < 0)
-                return r;
+        assert(fn);
+        assert(blob);
 
-        return streq(value, line);
+        l = strlen(blob);
+
+        if (accept_extra_nl && endswith(blob, "\n"))
+                accept_extra_nl = false;
+
+        buf = malloc(l + accept_extra_nl + 1);
+        if (!buf)
+                return -ENOMEM;
+
+        f = fopen(fn, "re");
+        if (!f)
+                return -errno;
+
+        /* We try to read one byte more than we need, so that we know whether we hit eof */
+        errno = 0;
+        k = fread(buf, 1, l + accept_extra_nl + 1, f);
+        if (ferror(f))
+                return errno > 0 ? -errno : -EIO;
+
+        if (k != l && k != l + accept_extra_nl)
+                return 0;
+        if (memcmp(buf, blob, l) != 0)
+                return 0;
+        if (k > l && buf[l] != '\n')
+                return 0;
+
+        return 1;
 }
 
 int read_full_stream(FILE *f, char **contents, size_t *size) {
@@ -843,5 +920,334 @@ int get_proc_field(const char *filename, const char *pattern, const char *termin
                 return -ENOMEM;
 
         *field = f;
+        return 0;
+}
+
+DIR *xopendirat(int fd, const char *name, int flags) {
+        int nfd;
+        DIR *d;
+
+        assert(!(flags & O_CREAT));
+
+        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
+        if (nfd < 0)
+                return NULL;
+
+        d = fdopendir(nfd);
+        if (!d) {
+                safe_close(nfd);
+                return NULL;
+        }
+
+        return d;
+}
+
+static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
+        char **i;
+
+        assert(path);
+        assert(mode);
+        assert(_f);
+
+        if (!path_strv_resolve_uniq(search, root))
+                return -ENOMEM;
+
+        STRV_FOREACH(i, search) {
+                _cleanup_free_ char *p = NULL;
+                FILE *f;
+
+                if (root)
+                        p = strjoin(root, *i, "/", path, NULL);
+                else
+                        p = strjoin(*i, "/", path, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                f = fopen(p, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                if (errno != ENOENT)
+                        return -errno;
+        }
+
+        return -ENOENT;
+}
+
+int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f) {
+        _cleanup_strv_free_ char **copy = NULL;
+
+        assert(path);
+        assert(mode);
+        assert(_f);
+
+        if (path_is_absolute(path)) {
+                FILE *f;
+
+                f = fopen(path, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                return -errno;
+        }
+
+        copy = strv_copy((char**) search);
+        if (!copy)
+                return -ENOMEM;
+
+        return search_and_fopen_internal(path, mode, root, copy, _f);
+}
+
+int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f) {
+        _cleanup_strv_free_ char **s = NULL;
+
+        if (path_is_absolute(path)) {
+                FILE *f;
+
+                f = fopen(path, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                return -errno;
+        }
+
+        s = strv_split_nulstr(search);
+        if (!s)
+                return -ENOMEM;
+
+        return search_and_fopen_internal(path, mode, root, s, _f);
+}
+
+int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
+        FILE *f;
+        char *t;
+        int r, fd;
+
+        assert(path);
+        assert(_f);
+        assert(_temp_path);
+
+        r = tempfn_xxxxxx(path, NULL, &t);
+        if (r < 0)
+                return r;
+
+        fd = mkostemp_safe(t, O_WRONLY|O_CLOEXEC);
+        if (fd < 0) {
+                free(t);
+                return -errno;
+        }
+
+        f = fdopen(fd, "we");
+        if (!f) {
+                unlink_noerrno(t);
+                free(t);
+                safe_close(fd);
+                return -errno;
+        }
+
+        *_f = f;
+        *_temp_path = t;
+
+        return 0;
+}
+
+int fflush_and_check(FILE *f) {
+        assert(f);
+
+        errno = 0;
+        fflush(f);
+
+        if (ferror(f))
+                return errno ? -errno : -EIO;
+
+        return 0;
+}
+
+/* This is much like like mkostemp() but is subject to umask(). */
+int mkostemp_safe(char *pattern, int flags) {
+        _cleanup_umask_ mode_t u;
+        int fd;
+
+        assert(pattern);
+
+        u = umask(077);
+
+        fd = mkostemp(pattern, flags);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
+
+int open_tmpfile(const char *path, int flags) {
+        char *p;
+        int fd;
+
+        assert(path);
+
+#ifdef O_TMPFILE
+        /* Try O_TMPFILE first, if it is supported */
+        fd = open(path, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
+        if (fd >= 0)
+                return fd;
+#endif
+
+        /* Fall back to unguessable name + unlinking */
+        p = strjoina(path, "/systemd-tmp-XXXXXX");
+
+        fd = mkostemp_safe(p, flags);
+        if (fd < 0)
+                return fd;
+
+        unlink(p);
+        return fd;
+}
+
+int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
+        const char *fn;
+        char *t;
+
+        assert(p);
+        assert(ret);
+
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.#<extra>waldoXXXXXX
+         */
+
+        fn = basename(p);
+        if (!filename_is_valid(fn))
+                return -EINVAL;
+
+        if (extra == NULL)
+                extra = "";
+
+        t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
+
+        *ret = path_kill_slashes(t);
+        return 0;
+}
+
+int tempfn_random(const char *p, const char *extra, char **ret) {
+        const char *fn;
+        char *t, *x;
+        uint64_t u;
+        unsigned i;
+
+        assert(p);
+        assert(ret);
+
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.#<extra>waldobaa2a261115984a9
+         */
+
+        fn = basename(p);
+        if (!filename_is_valid(fn))
+                return -EINVAL;
+
+        if (!extra)
+                extra = "";
+
+        t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        x = stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn);
+
+        u = random_u64();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
+        }
+
+        *x = 0;
+
+        *ret = path_kill_slashes(t);
+        return 0;
+}
+
+int tempfn_random_child(const char *p, const char *extra, char **ret) {
+        char *t, *x;
+        uint64_t u;
+        unsigned i;
+
+        assert(p);
+        assert(ret);
+
+        /* Turns this:
+         *         /foo/bar/waldo
+         * Into this:
+         *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
+         */
+
+        if (!extra)
+                extra = "";
+
+        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
+
+        u = random_u64();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
+        }
+
+        *x = 0;
+
+        *ret = path_kill_slashes(t);
+        return 0;
+}
+
+int write_timestamp_file_atomic(const char *fn, usec_t n) {
+        char ln[DECIMAL_STR_MAX(n)+2];
+
+        /* Creates a "timestamp" file, that contains nothing but a
+         * usec_t timestamp, formatted in ASCII. */
+
+        if (n <= 0 || n >= USEC_INFINITY)
+                return -ERANGE;
+
+        xsprintf(ln, USEC_FMT "\n", n);
+
+        return write_string_file(fn, ln, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+}
+
+int read_timestamp_file(const char *fn, usec_t *ret) {
+        _cleanup_free_ char *ln = NULL;
+        uint64_t t;
+        int r;
+
+        r = read_one_line_file(fn, &ln);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(ln, &t);
+        if (r < 0)
+                return r;
+
+        if (t <= 0 || t >= (uint64_t) USEC_INFINITY)
+                return -ERANGE;
+
+        *ret = (usec_t) t;
         return 0;
 }

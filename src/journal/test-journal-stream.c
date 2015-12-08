@@ -19,16 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "sd-journal.h"
-#include "util.h"
-#include "log.h"
-#include "macro.h"
-#include "rm-rf.h"
+
+#include "alloc-util.h"
 #include "journal-file.h"
 #include "journal-internal.h"
+#include "log.h"
+#include "macro.h"
+#include "parse-util.h"
+#include "rm-rf.h"
+#include "util.h"
 
 #define N_ENTRIES 200
 
@@ -76,7 +79,7 @@ int main(int argc, char *argv[]) {
         JournalFile *one, *two, *three;
         char t[] = "/tmp/journal-stream-XXXXXX";
         unsigned i;
-        _cleanup_journal_close_ sd_journal *j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         char *z;
         const void *data;
         size_t l;

@@ -51,6 +51,8 @@ Network.IPForward,                      config_parse_address_family_boolean_with
 Network.IPMasquerade,                   config_parse_bool,                              0,                             offsetof(Network, ip_masquerade)
 Network.IPv6PrivacyExtensions,          config_parse_ipv6_privacy_extensions,           0,                             offsetof(Network, ipv6_privacy_extensions)
 Network.IPv6AcceptRouterAdvertisements, config_parse_tristate,                          0,                             offsetof(Network, ipv6_accept_ra)
+Network.IPv6DuplicateAddressDetection,  config_parse_int,                               0,                             offsetof(Network, ipv6_dad_transmits)
+Network.IPv6HopLimit,                   config_parse_int,                               0,                             offsetof(Network, ipv6_hop_limit)
 Network.BindCarrier,                    config_parse_strv,                              0,                             offsetof(Network, bind_carrier)
 Address.Address,                        config_parse_address,                           0,                             0
 Address.Peer,                           config_parse_address,                           0,                             0

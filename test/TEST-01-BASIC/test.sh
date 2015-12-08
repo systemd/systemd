@@ -11,7 +11,7 @@ check_result_qemu() {
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
     [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
-    [[ -f $TESTDIR/root/var/log/journal ]] && cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    cp -a $TESTDIR/root/var/log/journal $TESTDIR
     umount $TESTDIR/root
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
@@ -53,13 +53,20 @@ Description=Testsuite service
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
+ExecStart=/bin/sh -x -c 'systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok'
 Type=oneshot
 EOF
 
         setup_testsuite
-    )
+    ) || return 1
     setup_nspawn_root
+
+    # mask some services that we do not want to run in these tests
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+    ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
 
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root

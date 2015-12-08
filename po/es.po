@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-06-18 00:53+0200\n"
+"POT-Creation-Date: 2015-11-22 16:37+0100\n"
 "PO-Revision-Date: 2015-04-24 13:26+0200\n"
 "Last-Translator: Álex Puchades <alex94puchades@gmail.com>\n"
 "Language-Team: Español; Castellano <gnome-es-list@gnome.org>\n"
@@ -446,6 +446,15 @@ msgstr ""
 "Se requiere autenticación para indicar al firmware que arranque la interfaz "
 "de configuración."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
+msgid "Set a wall message"
+msgstr ""
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#, fuzzy
+msgid "Authentication is required to set a wall message"
+msgstr "Se requiere autenticación para establecer el nombre de equipo local."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Conectarse a un contenedor local"
@@ -455,21 +464,70 @@ msgid "Authentication is required to log into a local container."
 msgstr "Se requiere autenticación para conectarse a un contenedor local."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+#, fuzzy
+msgid "Log into the local host"
+msgstr "Conectarse a un contenedor local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#, fuzzy
+msgid "Authentication is required to log into the local host."
+msgstr "Se requiere autenticación para conectarse a un contenedor local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#, fuzzy
+msgid "Acquire a shell in a local container"
+msgstr "Conectarse a un contenedor local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#, fuzzy
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "Se requiere autenticación para conectarse a un contenedor local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+msgid "Acquire a shell on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+#, fuzzy
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "Se requiere autenticación para establecer el nombre de equipo local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+#, fuzzy
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Conectarse a un contenedor local"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+#, fuzzy
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "Se requiere autenticación para conectarse a un contenedor local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+msgid "Acquire a pseudo TTY on the local host"
+msgstr ""
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+#, fuzzy
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "Se requiere autenticación para establecer el nombre de equipo local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
 msgstr "Administrar máquinas virtuales y contenedores locales"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Se requiere autenticación para administrar las máquinas virtuales y los "
 "contenedores locales."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
 msgstr "Administrar imágenes de máquina virtual y de contenedor locales"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -516,6 +574,41 @@ msgid ""
 msgstr ""
 "Se requiere autenticación para activar/desactivar la sincronización de hora "
 "por red."
+
+#: ../src/core/dbus-unit.c:428
+#, fuzzy
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
+
+#: ../src/core/dbus-unit.c:429
+#, fuzzy
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
+
+#: ../src/core/dbus-unit.c:430
+#, fuzzy
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Se requiere autenticación para recargar el estado de systemd."
+
+#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+#, fuzzy
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
+
+#: ../src/core/dbus-unit.c:535
+#, fuzzy
+msgid "Authentication is required to kill '$(unit)'."
+msgstr "Se requiere autenticación para conectarse a un contenedor local."
+
+#: ../src/core/dbus-unit.c:565
+#, fuzzy
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "Se requiere autenticación para establecer el nombre de equipo local."
+
+#: ../src/core/dbus-unit.c:597
+#, fuzzy
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""

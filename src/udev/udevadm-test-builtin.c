@@ -15,12 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <errno.h>
 #include <getopt.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 
+#include "string-util.h"
 #include "udev.h"
 
 static void help(struct udev *udev) {

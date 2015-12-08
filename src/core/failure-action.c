@@ -23,10 +23,11 @@
 #include <sys/reboot.h>
 #include <linux/reboot.h>
 
-#include "bus-util.h"
 #include "bus-error.h"
-#include "special.h"
+#include "bus-util.h"
 #include "failure-action.h"
+#include "special.h"
+#include "string-table.h"
 #include "terminal-util.h"
 
 static void log_and_status(Manager *m, const char *message) {
@@ -40,8 +41,6 @@ int failure_action(
                 Manager *m,
                 FailureAction action,
                 const char *reboot_arg) {
-
-        int r;
 
         assert(m);
         assert(action >= 0);
@@ -61,18 +60,13 @@ int failure_action(
 
         switch (action) {
 
-        case FAILURE_ACTION_REBOOT: {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-
+        case FAILURE_ACTION_REBOOT:
                 log_and_status(m, "Rebooting as result of failure.");
 
                 update_reboot_param_file(reboot_arg);
-                r = manager_add_job_by_name(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, true, &error, NULL);
-                if (r < 0)
-                        log_error("Failed to reboot: %s.", bus_error_message(&error, r));
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, NULL);
 
                 break;
-        }
 
         case FAILURE_ACTION_REBOOT_FORCE:
                 log_and_status(m, "Forcibly rebooting as result of failure.");
@@ -95,17 +89,10 @@ int failure_action(
                 reboot(RB_AUTOBOOT);
                 break;
 
-        case FAILURE_ACTION_POWEROFF: {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-
+        case FAILURE_ACTION_POWEROFF:
                 log_and_status(m, "Powering off as result of failure.");
-
-                r = manager_add_job_by_name(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE, true, &error, NULL);
-                if (r < 0)
-                        log_error("Failed to poweroff: %s.", bus_error_message(&error, r));
-
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE, NULL);
                 break;
-        }
 
         case FAILURE_ACTION_POWEROFF_FORCE:
                 log_and_status(m, "Forcibly powering off as result of failure.");

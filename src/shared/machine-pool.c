@@ -19,19 +19,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/prctl.h>
-#include <sys/vfs.h>
-#include <sys/statvfs.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/loop.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
+#include <sys/statvfs.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "lockfile-util.h"
-#include "mkdir.h"
+#include "sd-bus-protocol.h"
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "btrfs-util.h"
-#include "path-util.h"
-#include "signal-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "lockfile-util.h"
+#include "log.h"
 #include "machine-pool.h"
+#include "macro.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "mount-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "signal-util.h"
+#include "stat-util.h"
+#include "string-util.h"
 
 #define VAR_LIB_MACHINES_SIZE_START (1024UL*1024UL*500UL)
 #define VAR_LIB_MACHINES_FREE_MIN (1024UL*1024UL*750UL)
@@ -170,7 +193,7 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         };
         _cleanup_close_ int fd = -1, control = -1, loop = -1;
         _cleanup_free_ char* loopdev = NULL;
-        char tmpdir[] = "/tmp/import-mount.XXXXXX", *mntdir = NULL;
+        char tmpdir[] = "/tmp/machine-pool.XXXXXX", *mntdir = NULL;
         bool tmpdir_made = false, mntdir_made = false, mntdir_mounted = false;
         char buf[FORMAT_BYTES_MAX];
         int r, nr = -1;
@@ -194,14 +217,35 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
 
                 r = btrfs_quota_enable("/var/lib/machines", true);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to enable quota, ignoring: %m");
+                        log_warning_errno(r, "Failed to enable quota for /var/lib/machines, ignoring: %m");
 
+                r = btrfs_subvol_auto_qgroup("/var/lib/machines", 0, true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, ignoring: %m");
+
+                return 1;
+        }
+
+        if (path_is_mount_point("/var/lib/machines", AT_SYMLINK_FOLLOW) > 0) {
+                log_debug("/var/lib/machines is already a mount point, not creating loopback file for it.");
                 return 0;
         }
 
-        if (path_is_mount_point("/var/lib/machines", AT_SYMLINK_FOLLOW) > 0 ||
-            dir_is_empty("/var/lib/machines") == 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "/var/lib/machines is not a btrfs file system. Operation is not supported on legacy file systems.");
+        r = dir_is_populated("/var/lib/machines");
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r > 0) {
+                log_debug("/var/log/machines is already populated, not creating loopback file for it.");
+                return 0;
+        }
+
+        r = mkfs_exists("btrfs");
+        if (r == -ENOENT) {
+                log_debug("mkfs.btrfs is missing, cannot create loopback file for /var/lib/machines.");
+                return 0;
+        }
+        if (r < 0)
+                return r;
 
         fd = setup_machine_raw(size, error);
         if (fd < 0)
@@ -266,6 +310,10 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         if (r < 0)
                 log_warning_errno(r, "Failed to enable quota, ignoring: %m");
 
+        r = btrfs_subvol_auto_qgroup(mntdir, 0, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set up default quota hierarchy, ignoring: %m");
+
         if (chmod(mntdir, 0700) < 0) {
                 r = sd_bus_error_set_errnof(error, errno, "Failed to fix owner: %m");
                 goto fail;
@@ -286,7 +334,7 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         (void) rmdir(mntdir);
         (void) rmdir(tmpdir);
 
-        return 0;
+        return 1;
 
 fail:
         if (mntdir_mounted)
@@ -345,7 +393,7 @@ int grow_machine_directory(void) {
         if (b.f_bavail > b.f_blocks / 3)
                 return 0;
 
-        /* Calculate how much we are willing to add at maximum */
+        /* Calculate how much we are willing to add at most */
         max_add = ((uint64_t) a.f_bavail * (uint64_t) a.f_bsize) - VAR_LIB_MACHINES_FREE_MIN;
 
         /* Calculate the old size */
@@ -370,9 +418,11 @@ int grow_machine_directory(void) {
         if (r <= 0)
                 return r;
 
-        r = btrfs_quota_limit("/var/lib/machines", new_size);
-        if (r < 0)
-                return r;
+        /* Also bump the quota, of both the subvolume leaf qgroup, as
+         * well as of any subtree quota group by the same id but a
+         * higher level, if it exists. */
+        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, new_size);
+        (void) btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, new_size);
 
         log_info("Grew /var/lib/machines btrfs loopback file system to %s.", format_bytes(buf, sizeof(buf), new_size));
         return 1;

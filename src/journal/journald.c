@@ -21,16 +21,15 @@
 
 #include <unistd.h>
 
-#include "sd-messages.h"
 #include "sd-daemon.h"
+#include "sd-messages.h"
 
-#include "journal-authenticate.h"
-#include "journald-server.h"
-#include "journald-kmsg.h"
-#include "journald-syslog.h"
-
-#include "sigbus.h"
 #include "formats-util.h"
+#include "journal-authenticate.h"
+#include "journald-kmsg.h"
+#include "journald-server.h"
+#include "journald-syslog.h"
+#include "sigbus.h"
 
 int main(int argc, char *argv[]) {
         Server server;
@@ -60,10 +59,6 @@ int main(int argc, char *argv[]) {
 
         log_debug("systemd-journald running as pid "PID_FMT, getpid());
         server_driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");
-
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing requests...");
 
         for (;;) {
                 usec_t t = USEC_INFINITY, n;
@@ -117,10 +112,6 @@ int main(int argc, char *argv[]) {
         server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
 
 finish:
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
-
         server_done(&server);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

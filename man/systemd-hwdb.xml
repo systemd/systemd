@@ -64,7 +64,7 @@
         <term><option>-r</option></term>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
         <listitem>
-          <para>Alternative root path in the filesystem.</para>
+          <para>Alternate root path in the filesystem.</para>
         </listitem>
       </varlistentry>
     </variablelist>

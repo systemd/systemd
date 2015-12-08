@@ -4,8 +4,8 @@
 /* This is minimal version of Linux' linux/ioprio.h header file, which
  * is licensed GPL2 */
 
-#include <unistd.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 /*
  * Gives us 8 prio classes with 13-bits of data for each class

@@ -23,9 +23,8 @@
 
 typedef struct VxLan VxLan;
 
-#include "networkd-netdev.h"
-
 #include "in-addr-util.h"
+#include "networkd-netdev.h"
 
 #define VXLAN_VID_MAX (1u << 24) - 1
 
@@ -39,6 +38,7 @@ struct VxLan {
 
         unsigned tos;
         unsigned ttl;
+        unsigned max_fdb;
 
         usec_t fdb_ageing;
 

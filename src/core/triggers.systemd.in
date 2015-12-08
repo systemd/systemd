@@ -1,0 +1,64 @@
+#  -*- Mode: rpm-spec; indent-tabs-mode: nil -*- */
+#
+#  This file is part of systemd.
+#
+#  Copyright 2015 Zbigniew Jędrzejewski-Szmek
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# The contents of this are an example to be copied into systemd.spec.
+
+%transfiletriggerin -P 900900 -p <lua> -- @systemunitdir@ /etc/systemd/system
+-- This script will run after any package is initially installed or
+-- upgraded. We care about the case where a package is initially
+-- installed, because other cases are covered by the *un scriptlets,
+-- so sometimes we will reload needlessly.
+
+pid = posix.fork()
+if pid == 0 then
+    assert(posix.exec("%{_bindir}/systemctl", "daemon-reload"))
+elseif pid > 0 then
+    posix.wait(pid)
+end
+
+%transfiletriggerun -p <lua> -- @systemunitdir@ /etc/systemd/system
+-- On removal, we need to run daemon-reload after any units have been
+-- removed. %transfiletriggerpostun would be ideal, but it does not get
+-- executed for some reason.
+-- On upgrade, we need to run daemon-reload after any new unit files
+-- have been installed, but before %postun scripts in packages get
+-- executed. %transfiletriggerun gets the right list of files
+-- but it is invoked too early (before changes happen).
+-- %filetriggerpostun happens at the right time, but it fires for
+-- every package.
+-- To execute the reload at the right time, we create a state
+-- file in %transfiletriggerun and execute the daemon-reload in
+-- the first %filetriggerpostun.
+
+posix.mkdir("%{_localstatedir}/lib")
+posix.mkdir("%{_localstatedir}/lib/rpm-state")
+posix.mkdir("%{_localstatedir}/lib/rpm-state/systemd")
+io.open("%{_localstatedir}/lib/rpm-state/systemd/needs-reload", "w")
+
+%filetriggerpostun -P 1000100 -p <lua> -- @systemunitdir@ /etc/systemd/system
+if posix.access("%{_localstatedir}/lib/rpm-state/systemd/needs-reload") then
+    posix.unlink("%{_localstatedir}/lib/rpm-state/systemd/needs-reload")
+    posix.rmdir("%{_localstatedir}/lib/rpm-state/systemd")
+    pid = posix.fork()
+    if pid == 0 then
+        assert(posix.exec("%{_bindir}/systemctl", "daemon-reload"))
+    elseif pid > 0 then
+        posix.wait(pid)
+    end
+end

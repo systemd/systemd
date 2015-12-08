@@ -21,18 +21,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
-#include "systemd/sd-id128.h"
-
-#include "journal-def.h"
-#include "list.h"
-#include "hashmap.h"
-#include "set.h"
-#include "journal-file.h"
+#include "sd-id128.h"
 #include "sd-journal.h"
+
+#include "hashmap.h"
+#include "journal-def.h"
+#include "journal-file.h"
+#include "list.h"
+#include "set.h"
 
 typedef struct Match Match;
 typedef struct Location Location;
@@ -121,14 +121,11 @@ struct sd_journal {
         Hashmap *directories_by_path;
         Hashmap *directories_by_wd;
 
-        Set *errors;
+        Hashmap *errors;
 };
 
 char *journal_make_match_string(sd_journal *j);
 void journal_print_header(sd_journal *j);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_journal*, sd_journal_close);
-#define _cleanup_journal_close_ _cleanup_(sd_journal_closep)
 
 #define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval)                     \
         for (sd_journal_restart_data(j); ((retval) = sd_journal_enumerate_data((j), &(data), &(l))) > 0; )

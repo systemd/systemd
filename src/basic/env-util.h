@@ -22,6 +22,7 @@
 ***/
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "macro.h"
 
@@ -36,6 +37,7 @@ bool strv_env_is_valid(char **e);
 #define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
 char **strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
 
+bool strv_env_name_is_valid(char **l);
 bool strv_env_name_or_assignment_is_valid(char **l);
 
 char **strv_env_merge(unsigned n_lists, ...);
@@ -47,3 +49,5 @@ char **strv_env_unset_many(char **l, ...) _sentinel_;
 
 char *strv_env_get_n(char **l, const char *name, size_t k) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
+
+int getenv_bool(const char *p);

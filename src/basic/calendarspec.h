@@ -25,6 +25,8 @@
  * time, a la cron */
 
 #include <stdbool.h>
+
+#include "time-util.h"
 #include "util.h"
 
 typedef struct CalendarComponent {
@@ -36,6 +38,7 @@ typedef struct CalendarComponent {
 
 typedef struct CalendarSpec {
         int weekdays_bits;
+        bool utc;
 
         CalendarComponent *year;
         CalendarComponent *month;
@@ -43,7 +46,7 @@ typedef struct CalendarSpec {
 
         CalendarComponent *hour;
         CalendarComponent *minute;
-        CalendarComponent *second;
+        CalendarComponent *microsecond;
 } CalendarSpec;
 
 void calendar_spec_free(CalendarSpec *c);

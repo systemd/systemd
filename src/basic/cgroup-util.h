@@ -21,12 +21,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <stdio.h>
 #include <dirent.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <sys/types.h>
 
-#include "set.h"
 #include "def.h"
+#include "hashmap.h"
+#include "macro.h"
+#include "set.h"
 
 /* An enum of well known cgroup controllers */
 typedef enum CGroupController {

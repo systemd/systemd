@@ -19,19 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
+#include "log.h"
+#include "macro.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
-#include "macro.h"
+#include "string-util.h"
 #include "util.h"
-#include "log.h"
 
 #ifdef HAVE_SELINUX
 _printf_(2,3)

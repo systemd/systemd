@@ -19,8 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved-dns-question.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "resolved-dns-question.h"
 
 DnsQuestion *dns_question_new(unsigned n) {
         DnsQuestion *q;
@@ -88,7 +89,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
         return 0;
 }
 
-int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr) {
+int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
         unsigned i;
         int r;
 
@@ -98,7 +99,7 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr) {
                 return 0;
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_resource_key_match_rr(q->keys[i], rr);
+                r = dns_resource_key_match_rr(q->keys[i], rr, search_domain);
                 if (r != 0)
                         return r;
         }
@@ -106,7 +107,7 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr) {
         return 0;
 }
 
-int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
+int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
         unsigned i;
         int r;
 
@@ -116,7 +117,7 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
                 return 0;
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_resource_key_match_cname(q->keys[i], rr);
+                r = dns_resource_key_match_cname(q->keys[i], rr, search_domain);
                 if (r != 0)
                         return r;
         }
@@ -124,7 +125,7 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr) {
         return 0;
 }
 
-int dns_question_is_valid(DnsQuestion *q) {
+int dns_question_is_valid_for_query(DnsQuestion *q) {
         const char *name;
         unsigned i;
         int r;
@@ -149,50 +150,6 @@ int dns_question_is_valid(DnsQuestion *q) {
                 r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), name);
                 if (r <= 0)
                         return r;
-        }
-
-        return 1;
-}
-
-int dns_question_is_superset(DnsQuestion *q, DnsQuestion *other) {
-        unsigned j;
-        int r;
-
-        /* Checks if all keys in "other" are also contained in "q" */
-
-        if (!other)
-                return 1;
-
-        for (j = 0; j < other->n_keys; j++) {
-                DnsResourceKey *b = other->keys[j];
-                bool found = false;
-                unsigned i;
-
-                if (!q)
-                        return 0;
-
-                for (i = 0; i < q->n_keys; i++) {
-                        DnsResourceKey *a = q->keys[i];
-
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(a), DNS_RESOURCE_KEY_NAME(b));
-                        if (r < 0)
-                                return r;
-
-                        if (r == 0)
-                                continue;
-
-                        if (a->class != b->class && a->class != DNS_CLASS_ANY)
-                                continue;
-
-                        if (a->type != b->type && a->type != DNS_TYPE_ANY)
-                                continue;
-
-                        found = true;
-                        break;
-                }
-
-                if (!found)
-                        return 0;
         }
 
         return 1;
@@ -250,6 +207,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
 
         assert(cname);
         assert(ret);
+        assert(IN_SET(cname->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME));
 
         if (!q) {
                 n = dns_question_new(0);
@@ -262,7 +220,22 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         }
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), cname->cname.name);
+                _cleanup_free_ char *destination = NULL;
+                const char *d;
+
+                if (cname->key->type == DNS_TYPE_CNAME)
+                        d = cname->cname.name;
+                else {
+                        r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(q->keys[i]), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        d = destination;
+                }
+
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), d);
                 if (r < 0)
                         return r;
 
@@ -299,4 +272,132 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         n = NULL;
 
         return 1;
+}
+
+const char *dns_question_first_name(DnsQuestion *q) {
+
+        if (!q)
+                return NULL;
+
+        if (q->n_keys < 1)
+                return NULL;
+
+        return DNS_RESOURCE_KEY_NAME(q->keys[0]);
+}
+
+int dns_question_new_address(DnsQuestion **ret, int family, const char *name) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
+                return -EAFNOSUPPORT;
+
+        q = dns_question_new(family == AF_UNSPEC ? 2 : 1);
+        if (!q)
+                return -ENOMEM;
+
+        if (family != AF_INET6) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, name);
+                if (!key)
+                        return -ENOMEM;
+
+                r = dns_question_add(q, key);
+                if (r < 0)
+                        return r;
+        }
+
+        if (family != AF_INET) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, name);
+                if (!key)
+                        return -ENOMEM;
+
+                r = dns_question_add(q, key);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = q;
+        q = NULL;
+
+        return 0;
+}
+
+int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_free_ char *reverse = NULL;
+        int r;
+
+        assert(ret);
+        assert(a);
+
+        if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
+                return -EAFNOSUPPORT;
+
+        r = dns_name_reverse(family, a, &reverse);
+        if (r < 0)
+                return r;
+
+        q = dns_question_new(1);
+        if (!q)
+                return -ENOMEM;
+
+        key = dns_resource_key_new_consume(DNS_CLASS_IN, DNS_TYPE_PTR, reverse);
+        if (!key)
+                return -ENOMEM;
+
+        reverse = NULL;
+
+        r = dns_question_add(q, key);
+        if (r < 0)
+                return r;
+
+        *ret = q;
+        q = NULL;
+
+        return 0;
+}
+
+int dns_question_new_service(DnsQuestion **ret, const char *name, bool with_txt) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        q = dns_question_new(1 + with_txt);
+        if (!q)
+                return -ENOMEM;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, name);
+        if (!key)
+                return -ENOMEM;
+
+        r = dns_question_add(q, key);
+        if (r < 0)
+                return r;
+
+        if (with_txt) {
+                dns_resource_key_unref(key);
+                key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_TXT, name);
+                if (!key)
+                        return -ENOMEM;
+
+                r = dns_question_add(q, key);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = q;
+        q = NULL;
+
+        return 0;
 }

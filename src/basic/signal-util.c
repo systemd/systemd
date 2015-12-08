@@ -19,8 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#include "macro.h"
+#include "parse-util.h"
 #include "signal-util.h"
+#include "string-table.h"
+#include "string-util.h"
 
 int reset_all_signal_handlers(void) {
         static const struct sigaction sa = {
@@ -265,4 +272,8 @@ int signal_from_string_try_harder(const char *s) {
                         return signal_from_string(s+3);
 
         return signo;
+}
+
+void nop_signal_handler(int sig) {
+        /* nothing here */
 }

@@ -17,15 +17,16 @@
  * Boston, MA  02110-1301  USA
  */
 
+#include <fcntl.h>
+#include <mtd/mtd-user.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <mtd/mtd-user.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <stdint.h>
+
 #include "mtd_probe.h"
 
 static const uint8_t cis_signature[] = {

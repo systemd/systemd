@@ -15,24 +15,25 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Exec.Boot,                 config_parse_tristate,      0, offsetof(Settings, boot)
-Exec.Parameters,           config_parse_strv,          0, offsetof(Settings, parameters)
-Exec.Environment,          config_parse_strv,          0, offsetof(Settings, environment)
-Exec.User,                 config_parse_string,        0, offsetof(Settings, user)
-Exec.Capability,           config_parse_capability,    0, offsetof(Settings, capability)
-Exec.DropCapability,       config_parse_capability,    0, offsetof(Settings, drop_capability)
-Exec.KillSignal,           config_parse_signal,        0, offsetof(Settings, kill_signal)
-Exec.Personality,          config_parse_personality,   0, offsetof(Settings, personality)
-Exec.MachineID,            config_parse_id128,         0, offsetof(Settings, machine_id)
-Files.ReadOnly,            config_parse_tristate,      0, offsetof(Settings, read_only)
-Files.Volatile,            config_parse_volatile_mode, 0, offsetof(Settings, volatile_mode)
-Files.Bind,                config_parse_bind,          0, 0
-Files.BindReadOnly,        config_parse_bind,          1, 0
-Files.TemporaryFileSystem, config_parse_tmpfs,         0, 0
-Network.Private,           config_parse_tristate,      0, offsetof(Settings, private_network)
-Network.Interface,         config_parse_strv,          0, offsetof(Settings, network_interfaces)
-Network.MACVLAN,           config_parse_strv,          0, offsetof(Settings, network_macvlan)
-Network.IPVLAN,            config_parse_strv,          0, offsetof(Settings, network_ipvlan)
-Network.VirtualEthernet,   config_parse_tristate,      0, offsetof(Settings, network_veth)
-Network.Bridge,            config_parse_string,        0, offsetof(Settings, network_bridge)
-Network.Port,              config_parse_expose_port,   0, 0
+Exec.Boot,                    config_parse_tristate,      0, offsetof(Settings, boot)
+Exec.Parameters,              config_parse_strv,          0, offsetof(Settings, parameters)
+Exec.Environment,             config_parse_strv,          0, offsetof(Settings, environment)
+Exec.User,                    config_parse_string,        0, offsetof(Settings, user)
+Exec.Capability,              config_parse_capability,    0, offsetof(Settings, capability)
+Exec.DropCapability,          config_parse_capability,    0, offsetof(Settings, drop_capability)
+Exec.KillSignal,              config_parse_signal,        0, offsetof(Settings, kill_signal)
+Exec.Personality,             config_parse_personality,   0, offsetof(Settings, personality)
+Exec.MachineID,               config_parse_id128,         0, offsetof(Settings, machine_id)
+Files.ReadOnly,               config_parse_tristate,      0, offsetof(Settings, read_only)
+Files.Volatile,               config_parse_volatile_mode, 0, offsetof(Settings, volatile_mode)
+Files.Bind,                   config_parse_bind,          0, 0
+Files.BindReadOnly,           config_parse_bind,          1, 0
+Files.TemporaryFileSystem,    config_parse_tmpfs,         0, 0
+Network.Private,              config_parse_tristate,      0, offsetof(Settings, private_network)
+Network.Interface,            config_parse_strv,          0, offsetof(Settings, network_interfaces)
+Network.MACVLAN,              config_parse_strv,          0, offsetof(Settings, network_macvlan)
+Network.IPVLAN,               config_parse_strv,          0, offsetof(Settings, network_ipvlan)
+Network.VirtualEthernet,      config_parse_tristate,      0, offsetof(Settings, network_veth)
+Network.VirtualEthernetExtra, config_parse_veth_extra,    0, 0
+Network.Bridge,               config_parse_string,        0, offsetof(Settings, network_bridge)
+Network.Port,                 config_parse_expose_port,   0, 0

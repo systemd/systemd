@@ -20,9 +20,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "boot-timestamps.h"
 #include "acpi-fpdt.h"
+#include "boot-timestamps.h"
 #include "efivars.h"
+#include "macro.h"
+#include "time-util.h"
 
 int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader) {
         usec_t x = 0, y = 0, a;

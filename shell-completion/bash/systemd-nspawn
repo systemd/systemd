@@ -57,7 +57,7 @@ _systemd_nspawn() {
                       [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro -M --machine
                              -S --slice --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
                              --personality -i --image --tmpfs --volatile
-                             --network-macvlan'
+                             --network-macvlan --kill-signal'
         )
 
         _init_completion || return
@@ -131,6 +131,10 @@ _systemd_nspawn() {
                         --image|-i)
                                 compopt -o nospace
                                 comps=$( compgen -A file -- "$cur" )
+                        ;;
+                        --kill-signal)
+                                _signals
+                                return
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

@@ -22,7 +22,9 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "fs-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "util.h"
 
 /*

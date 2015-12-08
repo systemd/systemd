@@ -25,22 +25,28 @@
 #include <seccomp.h>
 #endif
 
-#include "bus-util.h"
-#include "missing.h"
-#include "ioprio.h"
-#include "strv.h"
-#include "fileio.h"
-#include "execute.h"
-#include "capability.h"
-#include "env-util.h"
 #include "af-list.h"
-#include "namespace.h"
-#include "path-util.h"
+#include "alloc-util.h"
+#include "bus-util.h"
+#include "capability-util.h"
 #include "dbus-execute.h"
-
+#include "env-util.h"
+#include "execute.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "ioprio.h"
+#include "missing.h"
+#include "namespace.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "rlimit-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "strv.h"
+#include "syslog-util.h"
+#include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
 
@@ -83,45 +89,6 @@ static int property_get_environment_files(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_rlimit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        struct rlimit *rl;
-        uint64_t u;
-        rlim_t x;
-
-        assert(bus);
-        assert(reply);
-        assert(userdata);
-
-        rl = *(struct rlimit**) userdata;
-        if (rl)
-                x = rl->rlim_max;
-        else {
-                struct rlimit buf = {};
-                int z;
-
-                z = rlimit_from_string(property);
-                assert(z >= 0);
-
-                getrlimit(z, &buf);
-                x = buf.rlim_max;
-        }
-
-        /* rlim_t might have different sizes, let's map
-         * RLIMIT_INFINITY to (uint64_t) -1, so that it is the same on
-         * all archs */
-        u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
-
-        return sd_bus_message_append(reply, "t", u);
-}
-
 static int property_get_oom_score_adjust(
                 sd_bus *bus,
                 const char *path,
@@ -146,7 +113,7 @@ static int property_get_oom_score_adjust(
 
                 n = 0;
                 if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0)
-                        safe_atoi(t, &n);
+                        safe_atoi32(t, &n);
         }
 
         return sd_bus_message_append(reply, "i", n);
@@ -622,27 +589,64 @@ static int property_get_working_directory(
         return sd_bus_message_append(reply, "s", wd);
 }
 
+static int property_get_syslog_level(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "i", LOG_PRI(c->syslog_priority));
+}
+
+static int property_get_syslog_facility(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "i", LOG_FAC(c->syslog_priority));
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("EnvironmentFiles", "a(sb)", property_get_environment_files, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PassEnvironment", "as", NULL, offsetof(ExecContext, pass_environment), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UMask", "u", bus_property_get_mode, offsetof(ExecContext, umask), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitCPU", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CPU]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitFSIZE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_FSIZE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitDATA", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_DATA]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitSTACK", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_STACK]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitCORE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CORE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitRSS", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RSS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitNOFILE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NOFILE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitAS", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_AS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitNPROC", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NPROC]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitMEMLOCK", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_MEMLOCK]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitLOCKS", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_LOCKS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitSIGPENDING", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_SIGPENDING]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitMSGQUEUE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_MSGQUEUE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitNICE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NICE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitRTPRIO", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTPRIO]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LimitRTTIME", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitCPU", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CPU]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitFSIZE", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_FSIZE]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitDATA", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_DATA]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitSTACK", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_STACK]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitCORE", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CORE]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitRSS", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RSS]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitNOFILE", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NOFILE]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitAS", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_AS]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitNPROC", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NPROC]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitMEMLOCK", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_MEMLOCK]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitLOCKS", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_LOCKS]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitSIGPENDING", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_SIGPENDING]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitMSGQUEUE", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_MSGQUEUE]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitNICE", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NICE]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitRTPRIO", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTPRIO]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LimitRTTIME", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WorkingDirectory", "s", property_get_working_directory, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -664,6 +668,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SyslogPriority", "i", bus_property_get_int, offsetof(ExecContext, syslog_priority), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogIdentifier", "s", NULL, offsetof(ExecContext, syslog_identifier), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogLevelPrefix", "b", bus_property_get_bool, offsetof(ExecContext, syslog_level_prefix), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SyslogLevel", "i", property_get_syslog_level, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SyslogFacility", "i", property_get_syslog_facility, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Capabilities", "s", property_get_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", property_get_capability_bounding_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -879,6 +885,38 @@ int bus_exec_context_set_transient_property(
                         }
 
                         unit_write_drop_in_private_format(u, mode, name, "SyslogIdentifier=%s\n", id);
+                }
+
+                return 1;
+        } else if (streq(name, "SyslogLevel")) {
+                int level;
+
+                r = sd_bus_message_read(message, "i", &level);
+                if (r < 0)
+                        return r;
+
+                if (!log_level_is_valid(level))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log level value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->syslog_priority = (c->syslog_priority & LOG_FACMASK) | level;
+                        unit_write_drop_in_private_format(u, mode, name, "SyslogLevel=%i\n", level);
+                }
+
+                return 1;
+        } else if (streq(name, "SyslogFacility")) {
+                int facility;
+
+                r = sd_bus_message_read(message, "i", &facility);
+                if (r < 0)
+                        return r;
+
+                if (!log_facility_unshifted_is_valid(facility))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log facility value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->syslog_priority = (facility << 3) | LOG_PRI(c->syslog_priority);
+                        unit_write_drop_in_private_format(u, mode, name, "SyslogFacility=%i\n", facility);
                 }
 
                 return 1;
@@ -1124,18 +1162,299 @@ int bus_exec_context_set_transient_property(
                         _cleanup_free_ char *joined = NULL;
                         char **e;
 
-                        e = strv_env_merge(2, c->environment, l);
-                        if (!e)
-                                return -ENOMEM;
+                        if (strv_length(l) == 0) {
+                                c->environment = strv_free(c->environment);
+                                unit_write_drop_in_private_format(u, mode, name, "Environment=\n");
+                        } else {
+                                e = strv_env_merge(2, c->environment, l);
+                                if (!e)
+                                        return -ENOMEM;
 
-                        strv_free(c->environment);
-                        c->environment = e;
+                                strv_free(c->environment);
+                                c->environment = e;
 
-                        joined = strv_join_quoted(c->environment);
-                        if (!joined)
-                                return -ENOMEM;
+                                joined = strv_join_quoted(c->environment);
+                                if (!joined)
+                                        return -ENOMEM;
 
-                        unit_write_drop_in_private_format(u, mode, name, "Environment=%s\n", joined);
+                                unit_write_drop_in_private_format(u, mode, name, "Environment=%s\n", joined);
+                        }
+                }
+
+                return 1;
+
+        } else if (streq(name, "TimerSlackNSec")) {
+
+                nsec_t n;
+
+                r = sd_bus_message_read(message, "t", &n);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->timer_slack_nsec = n;
+                        unit_write_drop_in_private_format(u, mode, name, "TimerSlackNSec=" NSEC_FMT "\n", n);
+                }
+
+                return 1;
+
+        } else if (streq(name, "OOMScoreAdjust")) {
+                int oa;
+
+                r = sd_bus_message_read(message, "i", &oa);
+                if (r < 0)
+                        return r;
+
+                if (!oom_score_adjust_is_valid(oa))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "OOM score adjust value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->oom_score_adjust = oa;
+                        c->oom_score_adjust_set = true;
+                        unit_write_drop_in_private_format(u, mode, name, "OOMScoreAdjust=%i\n", oa);
+                }
+
+                return 1;
+
+        } else if (streq(name, "EnvironmentFiles")) {
+
+                _cleanup_free_ char *joined = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char **l = NULL;
+                size_t size = 0;
+                char **i;
+
+                r = sd_bus_message_enter_container(message, 'a', "(sb)");
+                if (r < 0)
+                        return r;
+
+                f = open_memstream(&joined, &size);
+                if (!f)
+                        return -ENOMEM;
+
+                STRV_FOREACH(i, c->environment_files)
+                        fprintf(f, "EnvironmentFile=%s\n", *i);
+
+                while ((r = sd_bus_message_enter_container(message, 'r', "sb")) > 0) {
+                        const char *path;
+                        int b;
+
+                        r = sd_bus_message_read(message, "sb", &path, &b);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        if (!isempty(path) && !path_is_absolute(path))
+                                return sd_bus_error_set_errnof(error, EINVAL, "Path %s is not absolute.", path);
+
+                        if (mode != UNIT_CHECK) {
+                                char *buf = NULL;
+
+                                buf = strjoin(b ? "-" : "", path, NULL);
+                                if (!buf)
+                                        return -ENOMEM;
+
+                                fprintf(f, "EnvironmentFile=%s\n", buf);
+
+                                r = strv_consume(&l, buf);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        if (strv_isempty(l)) {
+                                c->environment_files = strv_free(c->environment_files);
+                                unit_write_drop_in_private(u, mode, name, "EnvironmentFile=\n");
+                        } else {
+                                r = strv_extend_strv(&c->environment_files, l, true);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_drop_in_private(u, mode, name, joined);
+                        }
+                }
+
+                return 1;
+
+        } else if (streq(name, "PassEnvironment")) {
+
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                if (!strv_env_name_is_valid(l))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment block.");
+
+                if (mode != UNIT_CHECK) {
+                        if (strv_isempty(l)) {
+                                c->pass_environment = strv_free(c->pass_environment);
+                                unit_write_drop_in_private_format(u, mode, name, "PassEnvironment=\n");
+                        } else {
+                                _cleanup_free_ char *joined = NULL;
+
+                                r = strv_extend_strv(&c->pass_environment, l, true);
+                                if (r < 0)
+                                        return r;
+
+                                joined = strv_join_quoted(c->pass_environment);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "PassEnvironment=%s\n", joined);
+                        }
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories")) {
+
+                _cleanup_strv_free_ char **l = NULL;
+                char ***dirs;
+                char **p;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(p, l) {
+                        int offset;
+                        if (!utf8_is_valid(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+
+                        offset = **p == '-';
+                        if (!path_is_absolute(*p + offset))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (streq(name, "ReadWriteDirectories"))
+                                dirs = &c->read_write_dirs;
+                        else if (streq(name, "ReadOnlyDirectories"))
+                                dirs = &c->read_only_dirs;
+                        else if (streq(name, "InaccessibleDirectories"))
+                                dirs = &c->inaccessible_dirs;
+
+                        if (strv_length(l) == 0) {
+                                *dirs = strv_free(*dirs);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=\n", name);
+                        } else {
+                                r = strv_extend_strv(dirs, l, true);
+
+                                if (r < 0)
+                                        return -ENOMEM;
+
+                                joined = strv_join_quoted(*dirs);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, joined);
+                        }
+
+                }
+
+                return 1;
+
+        } else if (streq(name, "ProtectSystem")) {
+                const char *s;
+                ProtectSystem ps;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                r = parse_boolean(s);
+                if (r > 0)
+                        ps = PROTECT_SYSTEM_YES;
+                else if (r == 0)
+                        ps = PROTECT_SYSTEM_NO;
+                else {
+                        ps = protect_system_from_string(s);
+                        if (ps < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse protect system value");
+                }
+
+                if (mode != UNIT_CHECK) {
+                        c->protect_system = ps;
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, s);
+                }
+
+                return 1;
+
+        } else if (streq(name, "ProtectHome")) {
+                const char *s;
+                ProtectHome ph;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                r = parse_boolean(s);
+                if (r > 0)
+                        ph = PROTECT_HOME_YES;
+                else if (r == 0)
+                        ph = PROTECT_HOME_NO;
+                else {
+                        ph = protect_home_from_string(s);
+                        if (ph < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse protect home value");
+                }
+
+                if (mode != UNIT_CHECK) {
+                        c->protect_home = ph;
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, s);
+                }
+
+                return 1;
+
+        } else if (streq(name, "RuntimeDirectory")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **p;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(p, l) {
+                        if (!filename_is_valid(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Runtime directory is not valid %s", *p);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (strv_isempty(l)) {
+                                c->runtime_directory = strv_free(c->runtime_directory);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=\n", name);
+                        } else {
+                                r = strv_extend_strv(&c->runtime_directory, l, true);
+
+                                if (r < 0)
+                                        return -ENOMEM;
+
+                                joined = strv_join_quoted(c->runtime_directory);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, joined);
+                        }
                 }
 
                 return 1;

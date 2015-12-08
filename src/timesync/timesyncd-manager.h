@@ -22,8 +22,9 @@
 ***/
 
 #include "sd-event.h"
-#include "sd-resolve.h"
 #include "sd-network.h"
+#include "sd-resolve.h"
+
 #include "list.h"
 #include "ratelimit.h"
 

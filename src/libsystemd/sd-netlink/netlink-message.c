@@ -23,16 +23,17 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "socket-util.h"
-#include "formats-util.h"
-#include "refcnt.h"
-#include "missing.h"
-
 #include "sd-netlink.h"
-#include "netlink-util.h"
+
+#include "alloc-util.h"
+#include "formats-util.h"
+#include "missing.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "netlink-util.h"
+#include "refcnt.h"
+#include "socket-util.h"
+#include "util.h"
 
 #define GET_CONTAINER(m, i) ((i) < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset) : NULL)
 #define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
@@ -64,7 +65,7 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 }
 
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
-        _cleanup_netlink_message_unref_ sd_netlink_message *m = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *nl_type;
         size_t size;
         int r;

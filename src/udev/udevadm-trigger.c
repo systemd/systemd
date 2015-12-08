@@ -15,16 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stddef.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "udev.h"
+#include "string-util.h"
 #include "udev-util.h"
+#include "udev.h"
 #include "udevadm-util.h"
 #include "util.h"
 

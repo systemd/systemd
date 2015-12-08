@@ -39,27 +39,38 @@
 #include "sd-journal.h"
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
+#include "chattr-util.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fsprg.h"
+#include "glob-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "journal-def.h"
 #include "journal-internal.h"
 #include "journal-qrcode.h"
 #include "journal-vacuum.h"
 #include "journal-verify.h"
+#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "mkdir.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -104,7 +115,7 @@ static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
 static int arg_journal_type = 0;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static const char *arg_machine = NULL;
 static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
@@ -122,6 +133,7 @@ static enum {
         ACTION_UPDATE_CATALOG,
         ACTION_LIST_BOOTS,
         ACTION_FLUSH,
+        ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
 } arg_action = ACTION_SHOW;
@@ -190,12 +202,12 @@ static void help(void) {
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
-               "Flags:\n"
+               "Options:\n"
                "     --system              Show the system journal\n"
                "     --user                Show the user journal for the current user\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --since=DATE          Show entries not older than the specified date\n"
-               "     --until=DATE          Show entries not newer than the specified date\n"
+               "  -S --since=DATE          Show entries not older than the specified date\n"
+               "  -U --until=DATE          Show entries not newer than the specified date\n"
                "  -c --cursor=CURSOR       Show entries starting at the specified cursor\n"
                "     --after-cursor=CURSOR Show entries after the specified cursor\n"
                "     --show-cursor         Print the cursor after all the entries\n"
@@ -218,12 +230,12 @@ static void help(void) {
                "  -x --catalog             Add message explanations where available\n"
                "     --no-full             Ellipsize fields\n"
                "  -a --all                 Show all fields, including long and unprintable\n"
-               "  -q --quiet               Do not show privilege warning\n"
+               "  -q --quiet               Do not show info messages and privilege warning\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "  -m --merge               Show entries from all available journals\n"
                "  -D --directory=PATH      Show journal files from directory\n"
                "     --file=PATH           Show journal file\n"
-               "     --root=ROOT           Operate on catalog files underneath the root ROOT\n"
+               "     --root=ROOT           Operate on catalog files below a root directory\n"
 #ifdef HAVE_GCRYPT
                "     --interval=TIME       Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY      Specify FSS verification key\n"
@@ -233,20 +245,21 @@ static void help(void) {
                "  -h --help                Show this help text\n"
                "     --version             Show package version\n"
                "  -F --field=FIELD         List all values that a specified field takes\n"
-               "     --new-id128           Generate a new 128-bit ID\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
                "     --vacuum-files=INT    Leave only the specified number of journal files\n"
                "     --vacuum-time=TIME    Remove journal files older than specified time\n"
+               "     --verify              Verify journal file consistency\n"
+               "     --sync                Synchronize unwritten journal messages to disk\n"
                "     --flush               Flush all journal data from /run into /var\n"
                "     --rotate              Request immediate rotation of the journal files\n"
                "     --header              Show journal header information\n"
                "     --list-catalog        Show all message IDs in the catalog\n"
                "     --dump-catalog        Show entries in the message catalog\n"
                "     --update-catalog      Update the message catalog database\n"
+               "     --new-id128           Generate a new 128-bit ID\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys          Generate a new FSS key pair\n"
-               "     --verify              Verify journal file consistency\n"
 #endif
                , program_invocation_short_name);
 }
@@ -270,8 +283,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY,
                 ARG_VERIFY_KEY,
                 ARG_DISK_USAGE,
-                ARG_SINCE,
-                ARG_UNTIL,
                 ARG_AFTER_CURSOR,
                 ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
@@ -280,6 +291,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UPDATE_CATALOG,
                 ARG_FORCE,
                 ARG_UTC,
+                ARG_SYNC,
                 ARG_FLUSH,
                 ARG_ROTATE,
                 ARG_VACUUM_SIZE,
@@ -323,8 +335,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cursor",         required_argument, NULL, 'c'                },
                 { "after-cursor",   required_argument, NULL, ARG_AFTER_CURSOR   },
                 { "show-cursor",    no_argument,       NULL, ARG_SHOW_CURSOR    },
-                { "since",          required_argument, NULL, ARG_SINCE          },
-                { "until",          required_argument, NULL, ARG_UNTIL          },
+                { "since",          required_argument, NULL, 'S'                },
+                { "until",          required_argument, NULL, 'U'                },
                 { "unit",           required_argument, NULL, 'u'                },
                 { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
                 { "field",          required_argument, NULL, 'F'                },
@@ -336,6 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",        required_argument, NULL, 'M'                },
                 { "utc",            no_argument,       NULL, ARG_UTC            },
                 { "flush",          no_argument,       NULL, ARG_FLUSH          },
+                { "sync",           no_argument,       NULL, ARG_SYNC           },
                 { "rotate",         no_argument,       NULL, ARG_ROTATE         },
                 { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
                 { "vacuum-files",   required_argument, NULL, ARG_VACUUM_FILES   },
@@ -348,7 +361,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:t:u:F:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:F:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -507,7 +520,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        arg_root = optarg;
+                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'c':
@@ -646,7 +661,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_SINCE:
+                case 'S':
                         r = parse_timestamp(optarg, &arg_since);
                         if (r < 0) {
                                 log_error("Failed to parse timestamp: %s", optarg);
@@ -655,7 +670,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_since_set = true;
                         break;
 
-                case ARG_UNTIL:
+                case 'U':
                         r = parse_timestamp(optarg, &arg_until);
                         if (r < 0) {
                                 log_error("Failed to parse timestamp: %s", optarg);
@@ -718,6 +733,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_ROTATE;
                         break;
 
+                case ARG_SYNC:
+                        arg_action = ACTION_SYNC;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -748,7 +767,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_action != ACTION_SHOW && optind < argc) {
+        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc) {
                 log_error("Extraneous arguments starting with '%s'", argv[optind]);
                 return -EINVAL;
         }
@@ -1472,7 +1491,7 @@ static int setup_keys(void) {
         safe_close(fd);
         fd = mkostemp_safe(k, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                r = log_error_errno(errno, "Failed to open %s: %m", k);
+                r = log_error_errno(fd, "Failed to open %s: %m", k);
                 goto finish;
         }
 
@@ -1480,7 +1499,7 @@ static int setup_keys(void) {
          * writing and in-place updating */
         r = chattr_fd(fd, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set file attributes: %m");
+                log_warning_errno(r, "Failed to set file attributes: %m");
 
         zero(h);
         memcpy(h.signature, "KSHHRHLP", 8);
@@ -1697,46 +1716,65 @@ static int access_check_var_log_journal(sd_journal *j) {
 static int access_check(sd_journal *j) {
         Iterator it;
         void *code;
+        char *path;
         int r = 0;
 
         assert(j);
 
-        if (set_isempty(j->errors)) {
+        if (hashmap_isempty(j->errors)) {
                 if (ordered_hashmap_isempty(j->files))
                         log_notice("No journal files were found.");
 
                 return 0;
         }
 
-        if (set_contains(j->errors, INT_TO_PTR(-EACCES))) {
+        if (hashmap_contains(j->errors, INT_TO_PTR(-EACCES))) {
                 (void) access_check_var_log_journal(j);
 
                 if (ordered_hashmap_isempty(j->files))
                         r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
         }
 
-        SET_FOREACH(code, j->errors, it) {
+        HASHMAP_FOREACH_KEY(path, code, j->errors, it) {
                 int err;
 
-                err = -PTR_TO_INT(code);
-                assert(err > 0);
+                err = abs(PTR_TO_INT(code));
 
-                if (err == EACCES)
+                switch (err) {
+                case EACCES:
                         continue;
 
-                log_warning_errno(err, "Error was encountered while opening journal files: %m");
-                if (r == 0)
-                        r = -err;
+                case ENODATA:
+                        log_warning_errno(err, "Journal file %s is truncated, ignoring file.", path);
+                        break;
+
+                case EPROTONOSUPPORT:
+                        log_warning_errno(err, "Journal file %s uses an unsupported feature, ignoring file.", path);
+                        break;
+
+                case EBADMSG:
+                        log_warning_errno(err, "Journal file %s corrupted, ignoring file.", path);
+                        break;
+
+                default:
+                        log_warning_errno(err, "An error was encountered while opening journal file %s, ignoring file.", path);
+                        break;
+                }
         }
 
         return r;
 }
 
 static int flush_to_var(void) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int watch_fd = -1;
         int r;
+
+        if (arg_machine) {
+                log_error("--flush is not supported in conjunction with --machine=.");
+                return -EOPNOTSUPP;
+        }
 
         /* Quick exit */
         if (access("/run/systemd/journal/flushed", F_OK) >= 0)
@@ -1757,10 +1795,8 @@ static int flush_to_var(void) {
                         &error,
                         NULL,
                         "ssi", "systemd-journald.service", "main", SIGUSR1);
-        if (r < 0) {
-                log_error("Failed to kill journal service: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
 
         mkdir_p("/run/systemd/journal", 0755);
 
@@ -1791,33 +1827,100 @@ static int flush_to_var(void) {
         return 0;
 }
 
-static int rotate(void) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+static int send_signal_and_wait(int sig, const char *watch_path) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_ int watch_fd = -1;
+        usec_t start;
         int r;
 
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+        if (arg_machine) {
+                log_error("--sync and --rotate are not supported in conjunction with --machine=.");
+                return -EOPNOTSUPP;
+        }
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "KillUnit",
-                        &error,
-                        NULL,
-                        "ssi", "systemd-journald.service", "main", SIGUSR2);
-        if (r < 0)
-                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
+        start = now(CLOCK_MONOTONIC);
+
+        /* This call sends the specified signal to journald, and waits
+         * for acknowledgment by watching the mtime of the specified
+         * flag file. This is used to trigger syncing or rotation and
+         * then wait for the operation to complete. */
+
+        for (;;) {
+                usec_t tstamp;
+
+                /* See if a sync happened by now. */
+                r = read_timestamp_file(watch_path, &tstamp);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(errno, "Failed to read %s: %m", watch_path);
+                if (r >= 0 && tstamp >= start)
+                        return 0;
+
+                /* Let's ask for a sync, but only once. */
+                if (!bus) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        r = bus_connect_system_systemd(&bus);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "KillUnit",
+                                        &error,
+                                        NULL,
+                                        "ssi", "systemd-journald.service", "main", sig);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
+
+                        continue;
+                }
+
+                /* Let's install the inotify watch, if we didn't do that yet. */
+                if (watch_fd < 0) {
+
+                        mkdir_p("/run/systemd/journal", 0755);
+
+                        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                        if (watch_fd < 0)
+                                return log_error_errno(errno, "Failed to create inotify watch: %m");
+
+                        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_MOVED_TO|IN_DONT_FOLLOW|IN_ONLYDIR);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to watch journal directory: %m");
+
+                        /* Recheck the flag file immediately, so that we don't miss any event since the last check. */
+                        continue;
+                }
+
+                /* OK, all preparatory steps done, let's wait until
+                 * inotify reports an event. */
+
+                r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for event: %m");
+
+                r = flush_fd(watch_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to flush inotify events: %m");
+        }
 
         return 0;
 }
 
+static int rotate(void) {
+        return send_signal_and_wait(SIGUSR2, "/run/systemd/journal/rotated");
+}
+
+static int sync_journal(void) {
+        return send_signal_and_wait(SIGRTMIN+1, "/run/systemd/journal/synced");
+}
+
 int main(int argc, char *argv[]) {
         int r;
-        _cleanup_journal_close_ sd_journal *j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false, first_line = true;
@@ -1840,30 +1943,19 @@ int main(int argc, char *argv[]) {
          * be split up into many files. */
         setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
-        if (arg_action == ACTION_NEW_ID128) {
+        switch (arg_action) {
+
+        case ACTION_NEW_ID128:
                 r = generate_new_id128();
                 goto finish;
-        }
 
-        if (arg_action == ACTION_FLUSH) {
-                r = flush_to_var();
-                goto finish;
-        }
-
-        if (arg_action == ACTION_ROTATE) {
-                r = rotate();
-                goto finish;
-        }
-
-        if (arg_action == ACTION_SETUP_KEYS) {
+        case ACTION_SETUP_KEYS:
                 r = setup_keys();
                 goto finish;
-        }
 
-        if (arg_action == ACTION_UPDATE_CATALOG ||
-            arg_action == ACTION_LIST_CATALOG ||
-            arg_action == ACTION_DUMP_CATALOG) {
-
+        case ACTION_LIST_CATALOG:
+        case ACTION_DUMP_CATALOG:
+        case ACTION_UPDATE_CATALOG: {
                 _cleanup_free_ char *database;
 
                 database = path_join(arg_root, CATALOG_DATABASE, NULL);
@@ -1879,9 +1971,10 @@ int main(int argc, char *argv[]) {
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
+                        pager_open_if_enabled();
+
                         if (optind < argc)
-                                r = catalog_list_items(stdout, database,
-                                                       oneline, argv + optind);
+                                r = catalog_list_items(stdout, database, oneline, argv + optind);
                         else
                                 r = catalog_list(stdout, database, oneline);
                         if (r < 0)
@@ -1889,6 +1982,31 @@ int main(int argc, char *argv[]) {
                 }
 
                 goto finish;
+        }
+
+        case ACTION_FLUSH:
+                r = flush_to_var();
+                goto finish;
+
+        case ACTION_SYNC:
+                r = sync_journal();
+                goto finish;
+
+        case ACTION_ROTATE:
+                r = rotate();
+                goto finish;
+
+        case ACTION_SHOW:
+        case ACTION_PRINT_HEADER:
+        case ACTION_VERIFY:
+        case ACTION_DISK_USAGE:
+        case ACTION_LIST_BOOTS:
+        case ACTION_VACUUM:
+                /* These ones require access to the journal files, continue below. */
+                break;
+
+        default:
+                assert_not_reached("Unknown action");
         }
 
         if (arg_directory)
@@ -1900,8 +2018,7 @@ int main(int argc, char *argv[]) {
         else
                 r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
-                log_error_errno(r, "Failed to open %s: %m",
-                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
+                log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
                 goto finish;
         }
 
@@ -1909,18 +2026,28 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (arg_action == ACTION_VERIFY) {
-                r = verify(j);
-                goto finish;
-        }
+        switch (arg_action) {
 
-        if (arg_action == ACTION_PRINT_HEADER) {
+        case ACTION_NEW_ID128:
+        case ACTION_SETUP_KEYS:
+        case ACTION_LIST_CATALOG:
+        case ACTION_DUMP_CATALOG:
+        case ACTION_UPDATE_CATALOG:
+        case ACTION_FLUSH:
+        case ACTION_SYNC:
+        case ACTION_ROTATE:
+                assert_not_reached("Unexpected action.");
+
+        case ACTION_PRINT_HEADER:
                 journal_print_header(j);
                 r = 0;
                 goto finish;
-        }
 
-        if (arg_action == ACTION_DISK_USAGE) {
+        case ACTION_VERIFY:
+                r = verify(j);
+                goto finish;
+
+        case ACTION_DISK_USAGE: {
                 uint64_t bytes = 0;
                 char sbytes[FORMAT_BYTES_MAX];
 
@@ -1933,7 +2060,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_VACUUM) {
+        case ACTION_LIST_BOOTS:
+                r = list_boots(j);
+                goto finish;
+
+        case ACTION_VACUUM: {
                 Directory *d;
                 Iterator i;
 
@@ -1953,9 +2084,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_LIST_BOOTS) {
-                r = list_boots(j);
-                goto finish;
+        case ACTION_SHOW:
+                break;
+
+        default:
+                assert_not_reached("Unknown action");
         }
 
         /* add_boot() must be called first!
@@ -2114,7 +2247,8 @@ int main(int argc, char *argv[]) {
                 if (arg_follow)
                         need_seek = true;
                 else {
-                        printf("-- No entries --\n");
+                        if (!arg_quiet)
+                                printf("-- No entries --\n");
                         goto finish;
                 }
         }
@@ -2247,6 +2381,8 @@ finish:
         strv_free(arg_syslog_identifier);
         strv_free(arg_system_units);
         strv_free(arg_user_units);
+
+        free(arg_root);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

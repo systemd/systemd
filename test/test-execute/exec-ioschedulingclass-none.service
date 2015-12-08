@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for IOSchedulingClass=none
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "none"'
+Type=oneshot
+IOSchedulingClass=none

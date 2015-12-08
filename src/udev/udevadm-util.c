@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "string-util.h"
 #include "udevadm-util.h"
 
 struct udev_device *find_device(struct udev *udev,

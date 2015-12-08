@@ -22,11 +22,14 @@
 #include <poll.h>
 #include <string.h>
 
-#include "systemd/sd-login.h"
+#include "sd-login.h"
 
-#include "util.h"
-#include "strv.h"
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 static void test_login(void) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };

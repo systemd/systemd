@@ -31,27 +31,34 @@
 
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "copy.h"
 #include "dbus-socket.h"
 #include "def.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "formats-util.h"
 #include "label.h"
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket.h"
 #include "special.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "unit.h"
+#include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -107,11 +114,9 @@ static void socket_unwatch_control_pid(Socket *s) {
 }
 
 static void socket_cleanup_fd_list(SocketPort *p) {
-        int k = p->n_auxiliary_fds;
+        assert(p);
 
-        while (k--)
-                safe_close(p->auxiliary_fds[k]);
-
+        close_many(p->auxiliary_fds, p->n_auxiliary_fds);
         p->auxiliary_fds = mfree(p->auxiliary_fds);
         p->n_auxiliary_fds = 0;
 }
@@ -284,12 +289,15 @@ static int socket_add_device_link(Socket *s) {
                 return 0;
 
         t = strjoina("/sys/subsystem/net/devices/", s->bind_to_device);
-        return unit_add_node_link(UNIT(s), t, false);
+        return unit_add_node_link(UNIT(s), t, false, UNIT_BINDS_TO);
 }
 
 static int socket_add_default_dependencies(Socket *s) {
         int r;
         assert(s);
+
+        if (!UNIT(s)->default_dependencies)
+                return 0;
 
         r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true);
         if (r < 0)
@@ -360,11 +368,9 @@ static int socket_add_extras(Socket *s) {
                         return r;
         }
 
-        if (u->default_dependencies) {
-                r = socket_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = socket_add_default_dependencies(s);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -1167,9 +1173,9 @@ static int usbffs_dispatch_eps(SocketPort *p) {
         _cleanup_free_ char *path = NULL;
         int r, i, n, k;
 
-        r = path_get_parent(p->path, &path);
-        if (r < 0)
-                return r;
+        path = dirname_malloc(p->path);
+        if (!path)
+                return -ENOMEM;
 
         r = scandir(path, &ent, usbffs_select_ep, alphasort);
         if (r < 0)
@@ -1258,6 +1264,19 @@ static int socket_open_fds(Socket *s) {
                                 }
 
                                 know_label = true;
+                        }
+
+                        /* Apply the socket protocol */
+                        switch(p->address.type) {
+                        case SOCK_STREAM:
+                        case SOCK_SEQPACKET:
+                                if (p->socket->socket_protocol == IPPROTO_SCTP)
+                                        p->address.protocol = p->socket->socket_protocol;
+                                break;
+                        case SOCK_DGRAM:
+                                if (p->socket->socket_protocol == IPPROTO_UDPLITE)
+                                        p->address.protocol = p->socket->socket_protocol;
+                                break;
                         }
 
                         r = socket_address_listen(
@@ -1450,7 +1469,9 @@ static int socket_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        if (IN_SET(s->deserialized_state,
+        if (s->control_pid > 0 &&
+            pid_is_unwaited(s->control_pid) &&
+            IN_SET(s->deserialized_state,
                    SOCKET_START_PRE,
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST,
@@ -1460,9 +1481,6 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_STOP_POST,
                    SOCKET_FINAL_SIGTERM,
                    SOCKET_FINAL_SIGKILL)) {
-
-                if (s->control_pid <= 0)
-                        return -EBADMSG;
 
                 r = unit_watch_pid(UNIT(s), s->control_pid);
                 if (r < 0)
@@ -1862,7 +1880,7 @@ fail:
 }
 
 static void socket_enter_running(Socket *s, int cfd) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(s);
@@ -1916,7 +1934,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                                 goto fail;
                         }
 
-                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL);
+                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, NULL);
                         if (r < 0)
                                 goto fail;
                 }
@@ -1974,7 +1992,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 cfd = -1;
                 s->n_connections ++;
 
-                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL);
+                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -2328,7 +2346,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
         return 0;
 }
 
-static int socket_distribute_fds(Unit *u, FDSet *fds) {
+static void socket_distribute_fds(Unit *u, FDSet *fds) {
         Socket *s = SOCKET(u);
         SocketPort *p;
 
@@ -2352,8 +2370,6 @@ static int socket_distribute_fds(Unit *u, FDSet *fds) {
                         }
                 }
         }
-
-        return 0;
 }
 
 _pure_ static UnitActiveState socket_active_state(Unit *u) {

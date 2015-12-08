@@ -19,8 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include "macro.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
+#include "macro.h"
+#include "string-util.h"
 
 static void test_dns_label_unescape_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
         char buffer[buffer_sz];
@@ -37,7 +39,7 @@ static void test_dns_label_unescape_one(const char *what, const char *expect, si
 
 static void test_dns_label_unescape(void) {
         test_dns_label_unescape_one("hallo", "hallo", 6, 5);
-        test_dns_label_unescape_one("hallo", "hallo", 4, -ENOSPC);
+        test_dns_label_unescape_one("hallo", "hallo", 4, -ENOBUFS);
         test_dns_label_unescape_one("", "", 10, 0);
         test_dns_label_unescape_one("hallo\\.foobar", "hallo.foobar", 20, 12);
         test_dns_label_unescape_one("hallo.foobar", "hallo", 10, 5);
@@ -48,6 +50,66 @@ static void test_dns_label_unescape(void) {
         test_dns_label_unescape_one("..", "", 20, -EINVAL);
         test_dns_label_unescape_one(".foobar", "", 20, -EINVAL);
         test_dns_label_unescape_one("foobar.", "foobar", 20, 6);
+}
+
+static void test_dns_name_to_wire_format_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
+        uint8_t buffer[buffer_sz];
+        int r;
+
+        r = dns_name_to_wire_format(what, buffer, buffer_sz, false);
+        assert_se(r == ret);
+
+        if (r < 0)
+                return;
+
+        assert_se(!memcmp(buffer, expect, r));
+}
+
+static void test_dns_name_to_wire_format(void) {
+        static const char out0[] = { 0 };
+        static const char out1[] = { 3, 'f', 'o', 'o', 0 };
+        static const char out2[] = { 5, 'h', 'a', 'l', 'l', 'o', 3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
+        static const char out3[] = { 4, ' ', 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
+        static const char out4[] = { 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     3, 'a', '1', '2', 0 };
+
+        test_dns_name_to_wire_format_one("", out0, sizeof(out0), sizeof(out0));
+
+        test_dns_name_to_wire_format_one("foo", out1, sizeof(out1), sizeof(out1));
+        test_dns_name_to_wire_format_one("foo", out1, sizeof(out1) + 1, sizeof(out1));
+        test_dns_name_to_wire_format_one("foo", out1, sizeof(out1) - 1, -ENOBUFS);
+
+        test_dns_name_to_wire_format_one("hallo.foo.bar", out2, sizeof(out2), sizeof(out2));
+        test_dns_name_to_wire_format_one("hallo.foo..bar", NULL, 32, -EINVAL);
+
+        test_dns_name_to_wire_format_one("\\032foo.bar", out3, sizeof(out3), sizeof(out3));
+
+        test_dns_name_to_wire_format_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123", NULL, 500, -EINVAL);
+        test_dns_name_to_wire_format_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12", out4, sizeof(out4), sizeof(out4));
 }
 
 static void test_dns_label_unescape_suffix_one(const char *what, const char *expect1, const char *expect2, size_t buffer_sz, int ret1, int ret2) {
@@ -70,7 +132,7 @@ static void test_dns_label_unescape_suffix_one(const char *what, const char *exp
 
 static void test_dns_label_unescape_suffix(void) {
         test_dns_label_unescape_suffix_one("hallo", "hallo", "", 6, 5, 0);
-        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOSPC, -ENOSPC);
+        test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOBUFS, -ENOBUFS);
         test_dns_label_unescape_suffix_one("", "", "", 10, 0, 0);
         test_dns_label_unescape_suffix_one("hallo\\.foobar", "hallo.foobar", "", 20, 12, 0);
         test_dns_label_unescape_suffix_one("hallo.foobar", "foobar", "hallo", 10, 6, 5);
@@ -94,7 +156,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
         _cleanup_free_ char *t = NULL;
         int r;
 
-        r = dns_label_escape(what, l, &t);
+        r = dns_label_escape_new(what, l, &t);
         assert_se(r == ret);
 
         if (r < 0)
@@ -104,7 +166,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
 }
 
 static void test_dns_label_escape(void) {
-        test_dns_label_escape_one("", 0, "", 0);
+        test_dns_label_escape_one("", 0, NULL, -EINVAL);
         test_dns_label_escape_one("hallo", 5, "hallo", 5);
         test_dns_label_escape_one("hallo", 6, NULL, -EINVAL);
         test_dns_label_escape_one("hallo hallo.foobar,waldi", 24, "hallo\\032hallo\\.foobar\\044waldi", 31);
@@ -214,21 +276,21 @@ static void test_dns_name_endswith(void) {
         test_dns_name_endswith_one("x.y\001.z", "waldo", -EINVAL);
 }
 
-static void test_dns_name_root(void) {
-        assert_se(dns_name_root("") == true);
-        assert_se(dns_name_root(".") == true);
-        assert_se(dns_name_root("xxx") == false);
-        assert_se(dns_name_root("xxx.") == false);
-        assert_se(dns_name_root("..") == -EINVAL);
+static void test_dns_name_is_root(void) {
+        assert_se(dns_name_is_root(""));
+        assert_se(dns_name_is_root("."));
+        assert_se(!dns_name_is_root("xxx"));
+        assert_se(!dns_name_is_root("xxx."));
+        assert_se(!dns_name_is_root(".."));
 }
 
-static void test_dns_name_single_label(void) {
-        assert_se(dns_name_single_label("") == false);
-        assert_se(dns_name_single_label(".") == false);
-        assert_se(dns_name_single_label("..") == -EINVAL);
-        assert_se(dns_name_single_label("x") == true);
-        assert_se(dns_name_single_label("x.") == true);
-        assert_se(dns_name_single_label("xx.yy") == false);
+static void test_dns_name_is_single_label(void) {
+        assert_se(!dns_name_is_single_label(""));
+        assert_se(!dns_name_is_single_label("."));
+        assert_se(!dns_name_is_single_label(".."));
+        assert_se(dns_name_is_single_label("x"));
+        assert_se(dns_name_is_single_label("x."));
+        assert_se(!dns_name_is_single_label("xx.yy"));
 }
 
 static void test_dns_name_reverse_one(const char *address, const char *name) {
@@ -282,6 +344,135 @@ static void test_dns_name_is_valid(void) {
         test_dns_name_is_valid_one("\\zbar", 0);
         test_dns_name_is_valid_one("ä", 1);
         test_dns_name_is_valid_one("\n", 0);
+
+        /* 256 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345", 0);
+
+        /* 255 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a1234", 0);
+
+        /* 254 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123", 0);
+
+        /* 253 characters*/
+        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12", 1);
+
+        /* label of 64 chars length */
+        test_dns_name_is_valid_one("a123456789a123456789a123456789a123456789a123456789a123456789a123", 0);
+
+        /* label of 63 chars length */
+        test_dns_name_is_valid_one("a123456789a123456789a123456789a123456789a123456789a123456789a12", 1);
+}
+
+static void test_dns_service_name_is_valid(void) {
+        assert_se(dns_service_name_is_valid("Lennart's Compüter"));
+        assert_se(dns_service_name_is_valid("piff.paff"));
+
+        assert_se(!dns_service_name_is_valid(NULL));
+        assert_se(!dns_service_name_is_valid(""));
+        assert_se(!dns_service_name_is_valid("foo\nbar"));
+        assert_se(!dns_service_name_is_valid("foo\201bar"));
+        assert_se(!dns_service_name_is_valid("this is an overly long string that is certainly longer than 63 characters"));
+}
+
+static void test_dns_srv_type_is_valid(void) {
+
+        assert_se(dns_srv_type_is_valid("_http._tcp"));
+        assert_se(dns_srv_type_is_valid("_foo-bar._tcp"));
+        assert_se(dns_srv_type_is_valid("_w._udp"));
+        assert_se(dns_srv_type_is_valid("_a800._tcp"));
+        assert_se(dns_srv_type_is_valid("_a-800._tcp"));
+
+        assert_se(!dns_srv_type_is_valid(NULL));
+        assert_se(!dns_srv_type_is_valid(""));
+        assert_se(!dns_srv_type_is_valid("x"));
+        assert_se(!dns_srv_type_is_valid("_foo"));
+        assert_se(!dns_srv_type_is_valid("_tcp"));
+        assert_se(!dns_srv_type_is_valid("_"));
+        assert_se(!dns_srv_type_is_valid("_foo."));
+        assert_se(!dns_srv_type_is_valid("_föo._tcp"));
+        assert_se(!dns_srv_type_is_valid("_f\no._tcp"));
+        assert_se(!dns_srv_type_is_valid("_800._tcp"));
+        assert_se(!dns_srv_type_is_valid("_-800._tcp"));
+        assert_se(!dns_srv_type_is_valid("_-foo._tcp"));
+        assert_se(!dns_srv_type_is_valid("_piep._foo._udp"));
+}
+
+static void test_dns_service_join_one(const char *a, const char *b, const char *c, int r, const char *d) {
+        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *t = NULL;
+
+        assert_se(dns_service_join(a, b, c, &t) == r);
+        assert_se(streq_ptr(t, d));
+
+        if (r < 0)
+                return;
+
+        assert_se(dns_service_split(t, &x, &y, &z) >= 0);
+        assert_se(streq_ptr(a, x));
+        assert_se(streq_ptr(b, y));
+        assert_se(streq_ptr(c, z));
+}
+
+static void test_dns_service_join(void) {
+        test_dns_service_join_one("", "", "", -EINVAL, NULL);
+        test_dns_service_join_one("", "_http._tcp", "", -EINVAL, NULL);
+        test_dns_service_join_one("", "_http._tcp", "foo", -EINVAL, NULL);
+        test_dns_service_join_one("foo", "", "foo", -EINVAL, NULL);
+        test_dns_service_join_one("foo", "foo", "foo", -EINVAL, NULL);
+
+        test_dns_service_join_one("foo", "_http._tcp", "", 0, "foo._http._tcp");
+        test_dns_service_join_one(NULL, "_http._tcp", "", 0, "_http._tcp");
+        test_dns_service_join_one("foo", "_http._tcp", "foo", 0, "foo._http._tcp.foo");
+        test_dns_service_join_one(NULL, "_http._tcp", "foo", 0, "_http._tcp.foo");
+        test_dns_service_join_one("Lennart's PC", "_pc._tcp", "foo.bar.com", 0, "Lennart\\039s\\032PC._pc._tcp.foo.bar.com");
+        test_dns_service_join_one(NULL, "_pc._tcp", "foo.bar.com", 0, "_pc._tcp.foo.bar.com");
+}
+
+static void test_dns_service_split_one(const char *joined, const char *a, const char *b, const char *c, int r) {
+        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *t = NULL;
+
+        assert_se(dns_service_split(joined, &x, &y, &z) == r);
+        assert_se(streq_ptr(x, a));
+        assert_se(streq_ptr(y, b));
+        assert_se(streq_ptr(z, c));
+
+        if (r < 0)
+                return;
+
+        if (y) {
+                assert_se(dns_service_join(x, y, z, &t) == 0);
+                assert_se(streq_ptr(joined, t));
+        } else
+                assert_se(!x && streq_ptr(z, joined));
+}
+
+static void test_dns_service_split(void) {
+        test_dns_service_split_one("", NULL, NULL, "", 0);
+        test_dns_service_split_one("foo", NULL, NULL, "foo", 0);
+        test_dns_service_split_one("foo.bar", NULL, NULL, "foo.bar", 0);
+        test_dns_service_split_one("_foo.bar", NULL, NULL, "_foo.bar", 0);
+        test_dns_service_split_one("_foo._bar", NULL, "_foo._bar", "", 0);
+        test_dns_service_split_one("_meh._foo._bar", "_meh", "_foo._bar", "", 0);
+        test_dns_service_split_one("Wuff\\032Wuff._foo._bar.waldo.com", "Wuff Wuff", "_foo._bar", "waldo.com", 0);
+}
+
+static void test_dns_name_change_suffix_one(const char *name, const char *old_suffix, const char *new_suffix, int r, const char *result) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(dns_name_change_suffix(name, old_suffix, new_suffix, &s) == r);
+        assert_se(streq_ptr(s, result));
+}
+
+static void test_dns_name_change_suffix(void) {
+        test_dns_name_change_suffix_one("foo.bar", "bar", "waldo", 1, "foo.waldo");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "foo.bar.waldi.quux", "piff.paff", 1, "piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "bar.waldi.quux", "piff.paff", 1, "foo.piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "waldi.quux", "piff.paff", 1, "foo.bar.piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "quux", "piff.paff", 1, "foo.bar.waldi.piff.paff");
+        test_dns_name_change_suffix_one("foo.bar.waldi.quux", "", "piff.paff", 1, "foo.bar.waldi.quux.piff.paff");
+        test_dns_name_change_suffix_one("", "", "piff.paff", 1, "piff.paff");
+        test_dns_name_change_suffix_one("", "", "", 1, "");
+        test_dns_name_change_suffix_one("a", "b", "c", 0, NULL);
 }
 
 int main(int argc, char *argv[]) {
@@ -293,11 +484,17 @@ int main(int argc, char *argv[]) {
         test_dns_name_equal();
         test_dns_name_endswith();
         test_dns_name_between();
-        test_dns_name_root();
-        test_dns_name_single_label();
+        test_dns_name_is_root();
+        test_dns_name_is_single_label();
         test_dns_name_reverse();
         test_dns_name_concat();
         test_dns_name_is_valid();
+        test_dns_name_to_wire_format();
+        test_dns_service_name_is_valid();
+        test_dns_srv_type_is_valid();
+        test_dns_service_join();
+        test_dns_service_split();
+        test_dns_name_change_suffix();
 
         return 0;
 }

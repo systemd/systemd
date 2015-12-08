@@ -19,14 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "conf-parser.h"
-#include "special.h"
-#include "mkdir.h"
-#include "bus-util.h"
+#include "alloc-util.h"
 #include "bus-internal.h"
-#include "unit-name.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
+#include "conf-parser.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "mkdir.h"
+#include "special.h"
+#include "unit-name.h"
+#include "util.h"
 
 static const char *arg_dest_late = "/tmp", *arg_dest = "/tmp";
 
@@ -223,8 +227,7 @@ static int parse_dbus_fragments(const char *path, const char *type) {
                 if (errno == -ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to enumerate D-Bus activated services: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to enumerate D-Bus activated services: %m");
         }
 
         r = 0;
@@ -242,8 +245,7 @@ static int parse_dbus_fragments(const char *path, const char *type) {
         return r;
 
 fail:
-        log_error_errno(errno, "Failed to read D-Bus services directory: %m");
-        return -errno;
+        return log_error_errno(errno, "Failed to read D-Bus services directory: %m");
 }
 
 static int link_busnames_target(const char *units) {

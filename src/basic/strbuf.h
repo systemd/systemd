@@ -21,7 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 struct strbuf {
         char *buf;

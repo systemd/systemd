@@ -18,12 +18,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <unistd.h>
 #include <getopt.h>
+#include <stdio.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 
 #include "libudev.h"
+
+#include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
 

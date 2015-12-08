@@ -23,10 +23,10 @@
 
 typedef struct Transaction Transaction;
 
-#include "unit.h"
-#include "manager.h"
-#include "job.h"
 #include "hashmap.h"
+#include "job.h"
+#include "manager.h"
+#include "unit.h"
 
 struct Transaction {
         /* Jobs to be added */
@@ -44,7 +44,6 @@ int transaction_add_job_and_dependencies(
                 Unit *unit,
                 Job *by,
                 bool matters,
-                bool override,
                 bool conflicts,
                 bool ignore_requirements,
                 bool ignore_order,

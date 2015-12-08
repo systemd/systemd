@@ -20,16 +20,19 @@
 ***/
 
 #include <fcntl.h>
-#include <libudev.h>
 #include <linux/input.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 
-#include "util.h"
-#include "missing.h"
+#include "libudev.h"
+
+#include "alloc-util.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "logind-session-device.h"
+#include "missing.h"
+#include "util.h"
 
 enum SessionDeviceNotifications {
         SESSION_DEVICE_RESUME,
@@ -39,7 +42,7 @@ enum SessionDeviceNotifications {
 };
 
 static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotifications type) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *path = NULL;
         const char *t = NULL;
         uint32_t major, minor;

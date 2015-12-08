@@ -24,16 +24,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "event-util.h"
+#include "sd-ipv4acd.h"
+
+#include "alloc-util.h"
+#include "arp-util.h"
+#include "fd-util.h"
 #include "in-addr-util.h"
 #include "list.h"
-#include "refcnt.h"
 #include "random-util.h"
+#include "refcnt.h"
 #include "siphash24.h"
 #include "util.h"
-
-#include "arp-util.h"
-#include "sd-ipv4acd.h"
 
 /* Constants from the RFC */
 #define PROBE_WAIT 1
@@ -118,11 +119,8 @@ sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_ipv4acd*, sd_ipv4acd_unref);
-#define _cleanup_ipv4acd_unref_ _cleanup_(sd_ipv4acd_unrefp)
-
 int sd_ipv4acd_new(sd_ipv4acd **ret) {
-        _cleanup_ipv4acd_unref_ sd_ipv4acd *ll = NULL;
+        _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *ll = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -187,7 +185,7 @@ int sd_ipv4acd_stop(sd_ipv4acd *ll) {
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata);
 
 static int ipv4acd_set_next_wakeup(sd_ipv4acd *ll, int sec, int random_sec) {
-        _cleanup_event_source_unref_ sd_event_source *timer = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
         usec_t next_timeout;
         usec_t time_now;
         int r;
@@ -468,7 +466,7 @@ int sd_ipv4acd_set_address(sd_ipv4acd *ll, const struct in_addr *address){
         return 0;
 }
 
-bool sd_ipv4acd_is_running(sd_ipv4acd *ll) {
+int sd_ipv4acd_is_running(sd_ipv4acd *ll) {
         assert_return(ll, false);
 
         return ll->state != IPV4ACD_STATE_INIT;

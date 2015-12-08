@@ -19,11 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "fileio.h"
-#include "cap-list.h"
-#include "capability.h"
 #include <sys/prctl.h>
+
+#include "alloc-util.h"
+#include "cap-list.h"
+#include "capability-util.h"
+#include "fileio.h"
+#include "parse-util.h"
+#include "util.h"
 
 /* verify the capability parser */
 static void test_cap_list(void) {

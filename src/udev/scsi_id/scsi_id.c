@@ -16,22 +16,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <unistd.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <getopt.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "libudev.h"
+
+#include "fd-util.h"
 #include "libudev-private.h"
 #include "scsi_id.h"
+#include "string-util.h"
 #include "udev-util.h"
 
 static const struct option options[] = {

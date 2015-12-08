@@ -21,13 +21,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "path-util.h"
+#include "alloc-util.h"
 #include "fileio.h"
+#include "log.h"
+#include "macro.h"
+#include "path-util.h"
+#include "process-util.h"
 #include "smack-util.h"
+#include "string-table.h"
+#include "xattr-util.h"
 
 #ifdef HAVE_SMACK
 bool mac_smack_use(void) {

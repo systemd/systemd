@@ -25,8 +25,8 @@ typedef struct Session Session;
 typedef enum KillWho KillWho;
 
 #include "list.h"
-#include "logind-user.h"
 #include "login-util.h"
+#include "logind-user.h"
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */

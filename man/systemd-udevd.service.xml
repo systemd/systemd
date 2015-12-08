@@ -103,7 +103,7 @@
         <term><option>--event-timeout=</option></term>
         <listitem>
           <para>Set the number of seconds to wait for events to finish. After
-          this time the event will be terminated. The default is 180 seconds.</para>
+          this time, the event will be terminated. The default is 180 seconds.</para>
         </listitem>
       </varlistentry>
 

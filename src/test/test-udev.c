@@ -18,19 +18,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sched.h>
 #include <sys/mount.h>
 #include <sys/signalfd.h>
+#include <unistd.h>
 
+#include "fs-util.h"
 #include "missing.h"
 #include "selinux-util.h"
 #include "signal-util.h"
-#include "udev.h"
+#include "string-util.h"
 #include "udev-util.h"
+#include "udev.h"
 
 static int fake_filesystems(void) {
         static const struct fakefs {
@@ -42,7 +44,7 @@ static int fake_filesystems(void) {
                 { "test/dev", "/dev",                   "failed to mount test /dev" },
                 { "test/run", "/run",                   "failed to mount test /run" },
                 { "test/run", "/etc/udev/rules.d",      "failed to mount empty /etc/udev/rules.d" },
-                { "test/run", "/usr/lib/udev/rules.d",  "failed to mount empty /usr/lib/udev/rules.d" },
+                { "test/run", UDEVLIBEXECDIR "/rules.d","failed to mount empty " UDEVLIBEXECDIR "/rules.d" },
         };
         unsigned int i;
         int err;
@@ -64,7 +66,7 @@ static int fake_filesystems(void) {
                 err = mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
                 if (err < 0) {
                         err = -errno;
-                        fprintf(stderr, "%s %m", fakefss[i].error);
+                        fprintf(stderr, "%s %m\n", fakefss[i].error);
                         return err;
                 }
         }

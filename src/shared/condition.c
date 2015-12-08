@@ -19,25 +19,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
+#include <fcntl.h>
 #include <fnmatch.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
+
+#include "alloc-util.h"
+#include "apparmor-util.h"
+#include "architecture.h"
+#include "audit-util.h"
+#include "cap-list.h"
+#include "condition.h"
+#include "extract-word.h"
+#include "fd-util.h"
+#include "glob-util.h"
+#include "hostname-util.h"
+#include "ima-util.h"
+#include "list.h"
+#include "macro.h"
+#include "mount-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
+#include "selinux-util.h"
+#include "smack-util.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "util.h"
 #include "virt.h"
-#include "path-util.h"
-#include "architecture.h"
-#include "smack-util.h"
-#include "apparmor-util.h"
-#include "ima-util.h"
-#include "selinux-util.h"
-#include "audit.h"
-#include "cap-list.h"
-#include "hostname-util.h"
-#include "condition.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -220,7 +237,7 @@ static int condition_test_security(Condition *c) {
         assert(c->type == CONDITION_SECURITY);
 
         if (streq(c->parameter, "selinux"))
-                return mac_selinux_use();
+                return mac_selinux_have();
         if (streq(c->parameter, "smack"))
                 return mac_smack_use();
         if (streq(c->parameter, "apparmor"))

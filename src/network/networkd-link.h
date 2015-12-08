@@ -25,10 +25,10 @@
 
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
-#include "sd-ipv4ll.h"
-#include "sd-icmp6-nd.h"
 #include "sd-dhcp6-client.h"
+#include "sd-ipv4ll.h"
 #include "sd-lldp.h"
+#include "sd-ndisc.h"
 
 typedef struct Link Link;
 
@@ -56,9 +56,9 @@ typedef enum LinkOperationalState {
         _LINK_OPERSTATE_INVALID = -1
 } LinkOperationalState;
 
-#include "networkd.h"
-#include "networkd-network.h"
 #include "networkd-address.h"
+#include "networkd-network.h"
+#include "networkd.h"
 
 struct Link {
         Manager *manager;
@@ -69,6 +69,7 @@ struct Link {
         char *ifname;
         char *state_file;
         struct ether_addr mac;
+        struct in6_addr ipv6ll_address;
         uint32_t mtu;
         struct udev_device *udev_device;
 
@@ -83,7 +84,10 @@ struct Link {
         unsigned link_messages;
         unsigned enslaving;
 
-        LIST_HEAD(Address, addresses);
+        Set *addresses;
+        Set *addresses_foreign;
+        Set *routes;
+        Set *routes_foreign;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
@@ -92,10 +96,12 @@ struct Link {
         unsigned dhcp4_messages;
         bool dhcp4_configured;
         bool dhcp6_configured;
+        unsigned ndisc_messages;
+        bool ndisc_configured;
 
         sd_ipv4ll *ipv4ll;
-        bool ipv4ll_address;
-        bool ipv4ll_route;
+        bool ipv4ll_address:1;
+        bool ipv4ll_route:1;
 
         bool static_configured;
 
@@ -103,7 +109,7 @@ struct Link {
 
         sd_dhcp_server *dhcp_server;
 
-        sd_icmp6_nd *icmp6_router_discovery;
+        sd_ndisc *ndisc_router_discovery;
         sd_dhcp6_client *dhcp6_client;
         bool rtnl_extended_attrs;
 
@@ -120,21 +126,25 @@ int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
 void link_drop(Link *link);
 
-int link_address_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
-int link_route_drop_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
+int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
+int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, struct udev_device *device);
 
-void link_client_handler(Link *link);
+void link_check_ready(Link *link);
 
+void link_update_operstate(Link *link);
 int link_update(Link *link, sd_netlink_message *message);
-int link_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, void *userdata);
 
+void link_dirty(Link *link);
+void link_clean(Link *link);
 int link_save(Link *link);
 
 int link_carrier_reset(Link *link);
 bool link_has_carrier(Link *link);
+
+int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 
 int link_set_mtu(Link *link, uint32_t mtu);
 int link_set_hostname(Link *link, const char *hostname);
@@ -142,7 +152,9 @@ int link_set_timezone(Link *link, const char *timezone);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
-int icmp6_configure(Link *link);
+int dhcp6_configure(Link *link);
+int dhcp6_request_address(Link *link);
+int ndisc_configure(Link *link);
 
 bool link_lldp_enabled(Link *link);
 bool link_ipv4ll_enabled(Link *link);
@@ -150,6 +162,7 @@ bool link_ipv6ll_enabled(Link *link);
 bool link_dhcp4_server_enabled(Link *link);
 bool link_dhcp4_enabled(Link *link);
 bool link_dhcp6_enabled(Link *link);
+bool link_ipv6_accept_ra_enabled(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;

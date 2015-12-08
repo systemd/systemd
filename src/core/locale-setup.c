@@ -19,16 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
+#include <stdlib.h>
 
+#include "env-util.h"
+#include "fileio.h"
 #include "locale-setup.h"
+#include "locale-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "util.h"
 #include "virt.h"
-#include "fileio.h"
-#include "strv.h"
-#include "env-util.h"
-#include "locale-util.h"
 
 int locale_setup(char ***environment) {
         char **add;

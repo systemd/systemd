@@ -103,7 +103,7 @@
         <listitem>
           <para>The argument should be a comma-separated list of unit
           LOAD, SUB, or ACTIVE states. When listing units, show only
-          those in specified states. Use <option>--state=failed</option>
+          those in the specified states. Use <option>--state=failed</option>
           to show only failed units.</para>
 
           <para>As a special case, if one of the arguments is
@@ -134,7 +134,7 @@
 
           <para>Properties for units vary by unit type, so showing any
           unit (even a non-existent one) is a way to list properties
-          pertaining to this type. Similarly showing any job will list
+          pertaining to this type. Similarly, showing any job will list
           properties pertaining to all jobs. Properties for units are
           documented in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -179,7 +179,6 @@
           <command>list-dependencies</command>, i.e. follow
           dependencies of type <varname>WantedBy=</varname>,
           <varname>RequiredBy=</varname>,
-          <varname>RequiredByOverridable=</varname>,
           <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
           instead of <varname>Wants=</varname> and similar.
           </para>
@@ -359,7 +358,7 @@
 
       <!-- we do not document -failed here, as it has been made
            redundant by -state=failed, which it predates. To keep
-           things simple we only document the new switch, while
+           things simple, we only document the new switch, while
            keeping the old one around for compatibility only. -->
 
       <varlistentry>
@@ -458,7 +457,7 @@
         <listitem>
           <para>When used with <command>kill</command>, choose which
           signal to send to selected processes. Must be one of the
-          well known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
+          well-known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
           <constant>SIGSTOP</constant>. If omitted, defaults to
           <option>SIGTERM</option>.</para>
         </listitem>
@@ -518,7 +517,7 @@
         <listitem>
           <para>When used with
           <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
-          (and related commands), use alternative root path when
+          (and related commands), use an alternate root path when
           looking for unit files.</para>
         </listitem>
 
@@ -600,7 +599,9 @@
 
         <listitem>
           <para>When used with <command>list-dependencies</command>,
-          the output is printed as a list instead of a tree.</para>
+          <command>list-units</command> or <command>list-machines</command>, the
+          the output is printed as a list instead of a tree, and the bullet
+          circles are omitted.</para>
         </listitem>
       </varlistentry>
 
@@ -829,7 +830,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
             <para>This function is intended to generate human-readable
             output. If you are looking for computer-parsable output,
-            use <command>show</command> instead. By default this
+            use <command>show</command> instead. By default, this
             function only shows 10 lines of output and ellipsizes
             lines to fit in the terminal window. This can be changes
             with <option>--lines</option> and <option>--full</option>,
@@ -849,7 +850,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Show properties of one or more units, jobs, or the
             manager itself. If no argument is specified, properties of
             the manager will be shown. If a unit name is specified,
-            properties of the unit is shown, and if a job id is
+            properties of the unit is shown, and if a job ID is
             specified, properties of the job is shown. By default, empty
             properties are suppressed. Use <option>--all</option> to
             show those too. To select specific properties to show, use
@@ -886,6 +887,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             closely the syntax of assignments in unit files.</para>
 
             <para>Example: <command>systemctl set-property foobar.service CPUShares=777</command></para>
+
+            <para>If the specified unit appears to be inactive, the
+            changes will be only stored on disk as described
+            previously hence they will be effective when the unit will
+            be started.</para>
 
             <para>Note that this command allows changing multiple
             properties at the same time, which is preferable over
@@ -930,9 +936,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Shows units required and wanted by the specified
             unit. This recursively lists units following the
             <varname>Requires=</varname>,
-            <varname>RequiresOverridable=</varname>,
             <varname>Requisite=</varname>,
-            <varname>RequisiteOverridable=</varname>,
             <varname>ConsistsOf=</varname>,
             <varname>Wants=</varname>, <varname>BindsTo=</varname>
             dependencies. If no unit is specified,
@@ -959,10 +963,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>list-unit-files <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List installed unit files. If one or more
-            <replaceable>PATTERN</replaceable>s are specified, only
-            units whose filename (just the last component of the path)
-            matches one of them are shown.</para>
+            <para>List installed unit files and their enablement state
+            (as reported by <command>is-enabled</command>). If one or
+            more <replaceable>PATTERN</replaceable>s are specified,
+            only units whose filename (just the last component of the
+            path) matches one of them are shown.</para>
           </listitem>
         </varlistentry>
 
@@ -981,7 +986,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             starting any of the units being enabled. If this
             is desired, either <option>--now</option> should be used
             together with this command, or an additional <command>start</command>
-            command must be invoked for the unit. Also note that in case of
+            command must be invoked for the unit. Also note that, in case of
             instance enablement, symlinks named the same as instances
             are created in the install location, however they all point to the
             same template unit file.</para>
@@ -1132,7 +1137,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                 <tbody>
                   <row>
                     <entry><literal>enabled</literal></entry>
-                    <entry morerows='1'>Enabled through a symlink in <filename>.wants</filename> directory (permanently or just in <filename>/run</filename>).</entry>
+                    <entry morerows='1'>Enabled through a symlink in a <filename>.wants/</filename> or <filename>.requires/</filename> subdirectory of <filename>/etc/systemd/system/</filename> (persistently) or <filename>/run/systemd/system/</filename> (transiently).</entry>
                     <entry morerows='1'>0</entry>
                   </row>
                   <row>
@@ -1140,7 +1145,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>linked</literal></entry>
-                    <entry morerows='1'>Made available through a symlink to the unit file (permanently or just in <filename>/run</filename>).</entry>
+                    <entry morerows='1'>Made available through one or more symlinks to the unit file (permanently in <filename>/etc/systemd/system/</filename> or transiently in <filename>/run/systemd/system/</filename>), even though the unit file might reside outside of the unit file search path.</entry>
                     <entry morerows='1'>&gt; 0</entry>
                   </row>
                   <row>
@@ -1148,7 +1153,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>masked</literal></entry>
-                    <entry morerows='1'>Disabled entirely (permanently or just in <filename>/run</filename>).</entry>
+                    <entry morerows='1'>Completely disabled, so that any start operation on it fails (permanently in <filename>/etc/systemd/system/</filename> or transiently in <filename>/run/systemd/systemd/</filename>).</entry>
                     <entry morerows='1'>&gt; 0</entry>
                   </row>
                   <row>
@@ -1156,17 +1161,22 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>static</literal></entry>
-                    <entry>Unit file is not enabled, and has no provisions for enabling in the <literal>[Install]</literal> section.</entry>
+                    <entry>The unit file is not enabled, and has no provisions for enabling in the <literal>[Install]</literal> section.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>Unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> section, listing other unit files that might be enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> section, listing other unit files that might be enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>disabled</literal></entry>
-                    <entry>Unit file is not enabled.</entry>
+                    <entry>Unit file is not enabled, but contains an <literal>[Install]</literal> section with installation instructions.</entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>bad</literal></entry>
+                    <entry>Unit file is invalid or another error occured. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                 </tbody>
@@ -1225,12 +1235,12 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Adds <literal>Wants=</literal> or <literal>Requires=</literal>
-            dependency, respectively, to the specified
+            dependencies, respectively, to the specified
             <replaceable>TARGET</replaceable> for one or more units. </para>
 
             <para>This command honors <option>--system</option>,
             <option>--user</option>, <option>--runtime</option> and
-            <option>--global</option> in a similar way as
+            <option>--global</option> in a way similar to
             <command>enable</command>.</para>
 
           </listitem>
@@ -1246,8 +1256,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
             <para>Depending on whether <option>--system</option> (the default),
             <option>--user</option>, or <option>--global</option> is specified,
-            this creates a drop-in file for each unit either for the system,
-            for the calling user or for all futures logins of all users. Then,
+            this command creates a drop-in file for each unit either for the system,
+            for the calling user, or for all futures logins of all users. Then,
             the editor (see the "Environment" section below) is invoked on
             temporary files which will be written to the real location if the
             editor exits successfully.</para>
@@ -1259,8 +1269,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             be made temporarily in <filename>/run</filename> and they will be
             lost on the next reboot.</para>
 
-            <para>If the temporary file is empty upon exit the modification of
-            the related unit is canceled</para>
+            <para>If the temporary file is empty upon exit, the modification of
+            the related unit is canceled.</para>
 
             <para>After the units have been edited, systemd configuration is
             reloaded (in a way that is equivalent to <command>daemon-reload</command>).
@@ -1268,7 +1278,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
             <para>Note that this command cannot be used to remotely edit units
             and that you cannot temporarily edit units which are in
-            <filename>/etc</filename> since they take precedence over
+            <filename>/etc</filename>, since they take precedence over
             <filename>/run</filename>.</para>
           </listitem>
         </varlistentry>
@@ -1340,46 +1350,6 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     </refsect2>
 
     <refsect2>
-      <title>Snapshot Commands</title>
-
-      <variablelist>
-        <varlistentry>
-          <term><command>snapshot <optional><replaceable>NAME</replaceable></optional></command></term>
-
-          <listitem>
-            <para>Create a snapshot. If a snapshot name is specified,
-            the new snapshot will be named after it. If none is
-            specified, an automatic snapshot name is generated. In
-            either case, the snapshot name used is printed to standard
-            output, unless <option>--quiet</option> is specified.
-            </para>
-
-            <para>A snapshot refers to a saved state of the systemd
-            manager. It is implemented itself as a unit that is
-            generated dynamically with this command and has dependencies
-            on all units active at the time. At a later time, the user
-            may return to this state by using the
-            <command>isolate</command> command on the snapshot unit.
-            </para>
-
-            <para>Snapshots are only useful for saving and restoring
-            which units are running or are stopped, they do not
-            save/restore any other state. Snapshots are dynamic and lost
-            on reboot.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>delete <replaceable>PATTERN</replaceable>...</command></term>
-
-          <listitem>
-            <para>Remove a snapshot previously created with
-            <command>snapshot</command>.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
-    </refsect2>
-
-    <refsect2>
       <title>Environment Commands</title>
 
       <variablelist>
@@ -1440,7 +1410,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>daemon-reload</command></term>
 
           <listitem>
-            <para>Reload systemd manager configuration. This will
+            <para>Reload the systemd manager configuration. This will
             rerun all generators (see
             <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
             reload all unit files, and recreate the entire dependency
@@ -1483,7 +1453,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             maintenance mode, and with no failed services. Failure is
             returned otherwise (exit code non-zero). In addition, the
             current state is printed in a short string to standard
-            output, see table below. Use <option>--quiet</option> to
+            output, see the table below. Use <option>--quiet</option> to
             suppress this output.</para>
 
             <table>
@@ -1682,7 +1652,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Switches to a different root directory and executes a
             new system manager process below it. This is intended for
             usage in initial RAM disks ("initrd"), and will transition
-            from the initrd's system manager process (a.k.a "init"
+            from the initrd's system manager process (a.k.a. "init"
             process) to the main system manager process. This call takes two
             arguments: the directory that is to become the new root directory, and
             the path to the new system manager binary below it to

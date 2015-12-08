@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 int chown_cgroup(pid_t pid, uid_t uid_shift);
 int sync_cgroup(pid_t pid, bool unified_requested);

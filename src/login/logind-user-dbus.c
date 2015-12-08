@@ -22,11 +22,13 @@
 #include <errno.h>
 #include <string.h>
 
-#include "strv.h"
+#include "alloc-util.h"
 #include "bus-util.h"
-#include "logind.h"
-#include "logind-user.h"
 #include "formats-util.h"
+#include "logind-user.h"
+#include "logind.h"
+#include "strv.h"
+#include "user-util.h"
 
 static int property_get_display(
                 sd_bus *bus,
@@ -269,7 +271,7 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/user/self")) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
 
                 message = sd_bus_get_current_message(bus);
@@ -338,7 +340,7 @@ int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
 
         message = sd_bus_get_current_message(bus);
         if (message) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 uid_t uid;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);

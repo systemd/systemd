@@ -19,8 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "journald-syslog.h"
 #include "macro.h"
+#include "string-util.h"
 
 static void test_syslog_parse_identifier(const char* str,
                                          const char *ident, const char*pid, int ret) {

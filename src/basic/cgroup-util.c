@@ -19,28 +19,44 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <unistd.h>
-#include <signal.h>
-#include <string.h>
-#include <stdlib.h>
 #include <dirent.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <errno.h>
 #include <ftw.h>
+#include <limits.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "set.h"
-#include "macro.h"
-#include "util.h"
-#include "formats-util.h"
-#include "process-util.h"
-#include "path-util.h"
-#include "unit-name.h"
-#include "fileio.h"
-#include "special.h"
-#include "mkdir.h"
-#include "login-util.h"
+#include "alloc-util.h"
 #include "cgroup-util.h"
+#include "def.h"
+#include "dirent-util.h"
+#include "extract-word.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "formats-util.h"
+#include "fs-util.h"
+#include "log.h"
+#include "login-util.h"
+#include "macro.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
+#include "process-util.h"
+#include "set.h"
+#include "special.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "unit-name.h"
+#include "user-util.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         _cleanup_free_ char *fs = NULL;
@@ -2119,7 +2135,7 @@ int cg_unified(void) {
         else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC))
                 unified_cache = false;
         else
-                return -ENOEXEC;
+                return -ENOMEDIUM;
 
         return unified_cache;
 }

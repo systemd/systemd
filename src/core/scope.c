@@ -22,14 +22,17 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "log.h"
-#include "strv.h"
-#include "special.h"
-#include "unit-name.h"
-#include "unit.h"
-#include "scope.h"
+#include "alloc-util.h"
 #include "dbus-scope.h"
 #include "load-dropin.h"
+#include "log.h"
+#include "scope.h"
+#include "special.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "unit.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD] = UNIT_INACTIVE,
@@ -51,7 +54,6 @@ static void scope_init(Unit *u) {
         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
 
         UNIT(s)->ignore_on_isolate = true;
-        UNIT(s)->ignore_on_snapshot = true;
 }
 
 static void scope_done(Unit *u) {
@@ -120,6 +122,9 @@ static int scope_add_default_dependencies(Scope *s) {
 
         assert(s);
 
+        if (!UNIT(s)->default_dependencies)
+                return 0;
+
         /* Make sure scopes are unloaded on shutdown */
         r = unit_add_two_dependencies_by_name(
                         UNIT(s),
@@ -171,11 +176,9 @@ static int scope_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (u->default_dependencies) {
-                r = scope_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
-        }
+        r = scope_add_default_dependencies(s);
+        if (r < 0)
+                return r;
 
         return scope_verify(s);
 }
@@ -399,15 +402,10 @@ static bool scope_check_gc(Unit *u) {
         /* Never clean up scopes that still have a process around,
          * even if the scope is formally dead. */
 
-        if (u->cgroup_path) {
-                int r;
+        if (!u->cgroup_path)
+                return false;
 
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
-                if (r <= 0)
-                        return true;
-        }
-
-        return false;
+        return cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path) <= 0;
 }
 
 static void scope_notify_cgroup_empty_event(Unit *u) {
@@ -507,7 +505,7 @@ _pure_ static const char *scope_sub_state_to_string(Unit *u) {
         return scope_state_to_string(SCOPE(u)->state);
 }
 
-static int scope_enumerate(Manager *m) {
+static void scope_enumerate(Manager *m) {
         Unit *u;
         int r;
 
@@ -521,13 +519,16 @@ static int scope_enumerate(Manager *m) {
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
                 u = unit_new(m, sizeof(Scope));
-                if (!u)
-                        return log_oom();
+                if (!u) {
+                        log_oom();
+                        return;
+                }
 
                 r = unit_add_name(u, SPECIAL_INIT_SCOPE);
                 if (r < 0)  {
                         unit_free(u);
-                        return log_error_errno(r, "Failed to add init.scope name");
+                        log_error_errno(r, "Failed to add init.scope name");
+                        return;
                 }
         }
 
@@ -548,8 +549,6 @@ static int scope_enumerate(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
-
-        return 0;
 }
 
 static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
@@ -573,6 +572,7 @@ const UnitVTable scope_vtable = {
 
         .no_alias = true,
         .no_instances = true,
+        .can_transient = true,
 
         .init = scope_init,
         .load = scope_load,
@@ -606,8 +606,6 @@ const UnitVTable scope_vtable = {
         .bus_vtable = bus_scope_vtable,
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
-
-        .can_transient = true,
 
         .enumerate = scope_enumerate,
 };

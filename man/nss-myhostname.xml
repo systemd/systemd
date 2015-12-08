@@ -59,7 +59,7 @@
 
     <para><command>nss-myhostname</command> is a plugin for the GNU
     Name Service Switch (NSS) functionality of the GNU C Library
-    (<command>glibc</command>) primarily providing hostname resolution
+    (<command>glibc</command>), primarily providing hostname resolution
     for the locally configured system hostname as returned by
     <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
     The precise hostnames resolved by this module are:</para>
@@ -89,9 +89,9 @@
     time as changing the hostname. This is problematic since it
     requires a writable <filename>/etc</filename> file system and is
     fragile because the file might be edited by the administrator at
-    the same time. With <command>nss-myhostname</command> enabled
+    the same time. With <command>nss-myhostname</command> enabled,
     changing <filename>/etc/hosts</filename> is unnecessary, and on
-    many systems the file becomes entirely optional.</para>
+    many systems, the file becomes entirely optional.</para>
 
     <para>To activate the NSS modules, <literal>myhostname</literal>
     has to be added to the line starting with
@@ -100,7 +100,7 @@
 
     <para>It is recommended to place <literal>myhostname</literal>
     last in the <filename>nsswitch.conf</filename> line to make sure
-    that this mapping is only used as fallback, and any DNS or
+    that this mapping is only used as fallback, and that any DNS or
     <filename>/etc/hosts</filename> based mapping takes
     precedence.</para>
   </refsect1>
@@ -108,8 +108,8 @@
   <refsect1>
     <title>Example</title>
 
-    <para>Here's an example <filename>/etc/nsswitch.conf</filename>
-    file, that enables <command>myhostname</command> correctly:</para>
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename>
+    file that enables <command>myhostname</command> correctly:</para>
 
 <programlisting>passwd:         compat mymachines
 group:          compat mymachines
@@ -135,7 +135,7 @@ netgroup:       nis</programlisting>
 127.0.0.2       DGRAM
 127.0.0.2       RAW</programlisting>
 
-    <para>In this case the local hostname is <varname>omega</varname>.</para>
+    <para>In this case, the local hostname is <varname>omega</varname>.</para>
 
   </refsect1>
 

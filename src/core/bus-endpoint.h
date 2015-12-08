@@ -24,8 +24,8 @@
 typedef struct BusEndpoint BusEndpoint;
 typedef struct BusEndpointPolicy BusEndpointPolicy;
 
-#include "hashmap.h"
 #include "bus-policy.h"
+#include "hashmap.h"
 
 struct BusEndpointPolicy {
         char *name;

@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for PrivateNetwork
+
+[Service]
+ExecStart=/bin/sh -x -c 'i=$$(ip link | grep ": " | grep -v ": lo:"); test -z "$$i"'
+Type=oneshot
+PrivateNetwork=yes

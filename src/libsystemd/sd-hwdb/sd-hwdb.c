@@ -19,21 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <errno.h>
-#include <string.h>
-#include <inttypes.h>
-#include <stdlib.h>
 #include <fnmatch.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 
 #include "sd-hwdb.h"
 
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
-#include "refcnt.h"
-
-#include "hwdb-util.h"
 #include "hwdb-internal.h"
+#include "hwdb-util.h"
+#include "refcnt.h"
+#include "string-util.h"
 
 struct sd_hwdb {
         RefCount n_ref;
@@ -277,7 +279,7 @@ static const char hwdb_bin_paths[] =
         UDEVLIBEXECDIR "/hwdb.bin\0";
 
 _public_ int sd_hwdb_new(sd_hwdb **ret) {
-        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *hwdb_bin_path;
         const char sig[] = HWDB_SIG;
 

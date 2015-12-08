@@ -62,15 +62,15 @@
     device that is configured for file system checking.
     <filename>systemd-fsck-root.service</filename> is responsible for
     file system checks on the root file system, but only if the
-    root filesystem wasn't checked in the initramfs.
+    root filesystem was not checked in the initramfs.
     <filename>systemd-fsck@.service</filename> is used for all other
     file systems and for the root file system in the initramfs.</para>
 
-    <para>Those services are started at boot if
+    <para>These services are started at boot if
     <option>passno</option> in <filename>/etc/fstab</filename> for the
     file system is set to a value greater than zero. The file system
     check for root is performed before the other file systems. Other
-    file systems may be checked in parallel, except when they are one
+    file systems may be checked in parallel, except when they are on
     the same rotating disk.</para>
 
     <para><filename>systemd-fsck</filename> does not know any details

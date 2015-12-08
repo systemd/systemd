@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "sd-dhcp6-lease.h"
+
 #include "dhcp6-internal.h"
 
 struct sd_dhcp6_lease {
@@ -73,6 +74,3 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval,
                          size_t optlen) ;
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp6_lease*, sd_dhcp6_lease_unref);
-#define _cleanup_dhcp6_lease_free_ _cleanup_(sd_dhcp6_lease_unrefp)

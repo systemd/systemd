@@ -19,12 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
 
-#include "log.h"
-#include "util.h"
 #include "fileio.h"
+#include "fileio-label.h"
+#include "log.h"
+#include "selinux-util.h"
+#include "string-util.h"
+#include "util.h"
 
 int main(int argc, char*argv[]) {
 
@@ -38,6 +41,8 @@ int main(int argc, char*argv[]) {
         log_open();
 
         umask(0022);
+
+        mac_selinux_init(NULL);
 
         if (streq(argv[1], "start")) {
                 int r = 0;
@@ -64,7 +69,7 @@ int main(int argc, char*argv[]) {
         } else if (streq(argv[1], "stop")) {
                 int r;
 
-                r = write_string_file("/run/nologin", "System is going down.", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                r = write_string_file_atomic_label("/run/nologin", "System is going down.");
                 if (r < 0) {
                         log_error_errno(r, "Failed to create /run/nologin: %m");
                         return EXIT_FAILURE;
@@ -74,6 +79,8 @@ int main(int argc, char*argv[]) {
                 log_error("Unknown verb %s.", argv[1]);
                 return EXIT_FAILURE;
         }
+
+        mac_selinux_finish();
 
         return EXIT_SUCCESS;
 }

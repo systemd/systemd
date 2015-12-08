@@ -32,6 +32,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "def.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "locale-util.h"
 #include "pager.h"
@@ -194,8 +195,8 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_locale(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -247,7 +248,7 @@ static int list_locales(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *map, *toggle_map;
         int r;
 
@@ -350,7 +351,7 @@ static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
         int r;
 
@@ -665,7 +666,7 @@ static int localectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_flush_close_unref_ sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

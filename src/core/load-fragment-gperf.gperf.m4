@@ -33,6 +33,7 @@ $1.CPUAffinity,                  config_parse_exec_cpu_affinity,     0,         
 $1.UMask,                        config_parse_mode,                  0,                             offsetof($1, exec_context.umask)
 $1.Environment,                  config_parse_environ,               0,                             offsetof($1, exec_context.environment)
 $1.EnvironmentFile,              config_parse_unit_env_file,         0,                             offsetof($1, exec_context.environment_files)
+$1.PassEnvironment,              config_parse_pass_environ,          0,                             offsetof($1, exec_context.pass_environment)
 $1.StandardInput,                config_parse_input,                 0,                             offsetof($1, exec_context.std_input)
 $1.StandardOutput,               config_parse_output,                0,                             offsetof($1, exec_context.std_output)
 $1.StandardError,                config_parse_output,                0,                             offsetof($1, exec_context.std_error)
@@ -58,22 +59,22 @@ $1.RestrictAddressFamilies,      config_parse_address_families,      0,         
 $1.SystemCallArchitectures,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.SystemCallErrorNumber,        config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.RestrictAddressFamilies,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
-$1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
-$1.LimitFSIZE,                   config_parse_limit,                 RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)
-$1.LimitDATA,                    config_parse_limit,                 RLIMIT_DATA,                   offsetof($1, exec_context.rlimit)
-$1.LimitSTACK,                   config_parse_limit,                 RLIMIT_STACK,                  offsetof($1, exec_context.rlimit)
-$1.LimitCORE,                    config_parse_limit,                 RLIMIT_CORE,                   offsetof($1, exec_context.rlimit)
-$1.LimitRSS,                     config_parse_limit,                 RLIMIT_RSS,                    offsetof($1, exec_context.rlimit)
+$1.LimitCPU,                     config_parse_sec_limit,             RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
+$1.LimitFSIZE,                   config_parse_bytes_limit,           RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)
+$1.LimitDATA,                    config_parse_bytes_limit,           RLIMIT_DATA,                   offsetof($1, exec_context.rlimit)
+$1.LimitSTACK,                   config_parse_bytes_limit,           RLIMIT_STACK,                  offsetof($1, exec_context.rlimit)
+$1.LimitCORE,                    config_parse_bytes_limit,           RLIMIT_CORE,                   offsetof($1, exec_context.rlimit)
+$1.LimitRSS,                     config_parse_bytes_limit,           RLIMIT_RSS,                    offsetof($1, exec_context.rlimit)
 $1.LimitNOFILE,                  config_parse_limit,                 RLIMIT_NOFILE,                 offsetof($1, exec_context.rlimit)
-$1.LimitAS,                      config_parse_limit,                 RLIMIT_AS,                     offsetof($1, exec_context.rlimit)
+$1.LimitAS,                      config_parse_bytes_limit,           RLIMIT_AS,                     offsetof($1, exec_context.rlimit)
 $1.LimitNPROC,                   config_parse_limit,                 RLIMIT_NPROC,                  offsetof($1, exec_context.rlimit)
-$1.LimitMEMLOCK,                 config_parse_limit,                 RLIMIT_MEMLOCK,                offsetof($1, exec_context.rlimit)
+$1.LimitMEMLOCK,                 config_parse_bytes_limit,           RLIMIT_MEMLOCK,                offsetof($1, exec_context.rlimit)
 $1.LimitLOCKS,                   config_parse_limit,                 RLIMIT_LOCKS,                  offsetof($1, exec_context.rlimit)
 $1.LimitSIGPENDING,              config_parse_limit,                 RLIMIT_SIGPENDING,             offsetof($1, exec_context.rlimit)
-$1.LimitMSGQUEUE,                config_parse_limit,                 RLIMIT_MSGQUEUE,               offsetof($1, exec_context.rlimit)
+$1.LimitMSGQUEUE,                config_parse_bytes_limit,           RLIMIT_MSGQUEUE,               offsetof($1, exec_context.rlimit)
 $1.LimitNICE,                    config_parse_limit,                 RLIMIT_NICE,                   offsetof($1, exec_context.rlimit)
 $1.LimitRTPRIO,                  config_parse_limit,                 RLIMIT_RTPRIO,                 offsetof($1, exec_context.rlimit)
-$1.LimitRTTIME,                  config_parse_limit,                 RLIMIT_RTTIME,                 offsetof($1, exec_context.rlimit)
+$1.LimitRTTIME,                  config_parse_usec_limit,            RLIMIT_RTTIME,                 offsetof($1, exec_context.rlimit)
 $1.ReadWriteDirectories,         config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_write_dirs)
 $1.ReadOnlyDirectories,          config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_only_dirs)
 $1.InaccessibleDirectories,      config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.inaccessible_dirs)
@@ -125,7 +126,7 @@ $1.BlockIODeviceWeight,          config_parse_blockio_device_weight, 0,         
 $1.BlockIOReadBandwidth,         config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
 $1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
 $1.TasksAccounting,              config_parse_bool,                  0,                             offsetof($1, cgroup_context.tasks_accounting)
-$1.TasksMax,                     config_parse_tasks_max,             0,                             offsetof($1, cgroup_context)
+$1.TasksMax,                     config_parse_tasks_max,             0,                             offsetof($1, cgroup_context.tasks_max)
 $1.Delegate,                     config_parse_bool,                  0,                             offsetof($1, cgroup_context.delegate)
 $1.NetClass,                     config_parse_netclass,              0,                             offsetof($1, cgroup_context)'
 )m4_dnl
@@ -133,9 +134,7 @@ Unit.Description,                config_parse_unit_string_printf,    0,         
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)
 Unit.SourcePath,                 config_parse_path,                  0,                             offsetof(Unit, source_path)
 Unit.Requires,                   config_parse_unit_deps,             UNIT_REQUIRES,                 0
-Unit.RequiresOverridable,        config_parse_unit_deps,             UNIT_REQUIRES_OVERRIDABLE,     0
 Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUISITE,                0
-Unit.RequisiteOverridable,       config_parse_unit_deps,             UNIT_REQUISITE_OVERRIDABLE,    0
 Unit.Wants,                      config_parse_unit_deps,             UNIT_WANTS,                    0
 Unit.BindsTo,                    config_parse_unit_deps,             UNIT_BINDS_TO,                 0
 Unit.BindTo,                     config_parse_unit_deps,             UNIT_BINDS_TO,                 0
@@ -149,6 +148,8 @@ Unit.ReloadPropagatedFrom,       config_parse_unit_deps,             UNIT_RELOAD
 Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
 Unit.PartOf,                     config_parse_unit_deps,             UNIT_PART_OF,                  0
 Unit.JoinsNamespaceOf,           config_parse_unit_deps,             UNIT_JOINS_NAMESPACE_OF,       0
+Unit.RequiresOverridable,        config_parse_obsolete_unit_deps,    UNIT_REQUIRES,                 0
+Unit.RequisiteOverridable,       config_parse_obsolete_unit_deps,    UNIT_REQUISITE,    0
 Unit.RequiresMountsFor,          config_parse_unit_requires_mounts_for, 0,                          0
 Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
 Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)
@@ -158,7 +159,7 @@ Unit.DefaultDependencies,        config_parse_bool,                  0,         
 Unit.OnFailureJobMode,           config_parse_job_mode,              0,                             offsetof(Unit, on_failure_job_mode)
 Unit.OnFailureIsolate,           config_parse_job_mode_isolate,      0,                             offsetof(Unit, on_failure_job_mode)
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
-Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
+Unit.IgnoreOnSnapshot,           config_parse_warn_compat,           DISABLED_LEGACY,               0
 Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
 Unit.JobTimeoutAction,           config_parse_failure_action,        0,                             offsetof(Unit, job_timeout_action)
 Unit.JobTimeoutRebootArgument,   config_parse_string,                0,                             offsetof(Unit, job_timeout_reboot_arg)
@@ -248,6 +249,7 @@ Socket.ListenNetlink,            config_parse_socket_listen,         SOCKET_SOCK
 Socket.ListenSpecial,            config_parse_socket_listen,         SOCKET_SPECIAL,                0
 Socket.ListenMessageQueue,       config_parse_socket_listen,         SOCKET_MQUEUE,                 0
 Socket.ListenUSBFunction,        config_parse_socket_listen,         SOCKET_USB_FUNCTION,           0
+Socket.SocketProtocol,           config_parse_socket_protocol,       0,                             0
 Socket.BindIPv6Only,             config_parse_socket_bind,           0,                             0,
 Socket.Backlog,                  config_parse_unsigned,              0,                             offsetof(Socket, backlog)
 Socket.BindToDevice,             config_parse_socket_bindtodevice,   0,                             0
@@ -343,7 +345,9 @@ Timer.OnUnitActiveSec,           config_parse_timer,                 0,         
 Timer.OnUnitInactiveSec,         config_parse_timer,                 0,                             0
 Timer.Persistent,                config_parse_bool,                  0,                             offsetof(Timer, persistent)
 Timer.WakeSystem,                config_parse_bool,                  0,                             offsetof(Timer, wake_system)
+Timer.RemainAfterElapse,         config_parse_bool,                  0,                             offsetof(Timer, remain_after_elapse)
 Timer.AccuracySec,               config_parse_sec,                   0,                             offsetof(Timer, accuracy_usec)
+Timer.RandomizedDelaySec,        config_parse_sec,                   0,                             offsetof(Timer, random_usec)
 Timer.Unit,                      config_parse_trigger_unit,          0,                             0
 m4_dnl
 Path.PathExists,                 config_parse_path_spec,             0,                             0

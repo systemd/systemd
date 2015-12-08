@@ -22,15 +22,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdint.h>
 #include <linux/if_packet.h>
-#include <net/if_arp.h>
 #include <net/ethernet.h>
-
-#include "socket-util.h"
+#include <net/if_arp.h>
+#include <stdint.h>
 
 #include "sd-dhcp-client.h"
+
 #include "dhcp-protocol.h"
+#include "socket-util.h"
 
 int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
                                  uint32_t xid, const uint8_t *mac_addr,
@@ -47,8 +47,7 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_
 typedef int (*dhcp_option_cb_t)(uint8_t code, uint8_t len,
                                 const void *option, void *userdata);
 
-int dhcp_option_parse(DHCPMessage *message, size_t len,
-                      dhcp_option_cb_t cb, void *userdata);
+int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_cb_t cb, void *userdata, char **error_message);
 
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
                       uint8_t type, uint16_t arp_type, size_t optlen,
@@ -62,13 +61,10 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_client*, sd_dhcp_client_unref);
-#define _cleanup_dhcp_client_unref_ _cleanup_(sd_dhcp_client_unrefp)
-
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working
  * on */
 #define DHCP_CLIENT_DONT_DESTROY(client) \
-        _cleanup_dhcp_client_unref_ _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
+        _cleanup_(sd_dhcp_client_unrefp) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
 #define log_dhcp_client(client, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP CLIENT (0x%x): " fmt, client->xid, ##__VA_ARGS__)

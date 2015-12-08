@@ -24,6 +24,10 @@
 
 #include <inttypes.h>
 
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
+
 enum {
         /* Temporary files */
         SD_PATH_TEMPORARY = 0x0ULL,
@@ -83,5 +87,7 @@ enum {
 
 int sd_path_home(uint64_t type, const char *suffix, char **path);
 int sd_path_search(uint64_t type, const char *suffix, char ***paths);
+
+_SD_END_DECLARATIONS;
 
 #endif

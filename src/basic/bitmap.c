@@ -19,9 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
+#include <errno.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "alloc-util.h"
 #include "bitmap.h"
+#include "hashmap.h"
+#include "macro.h"
 
 struct Bitmap {
         uint64_t *bitmaps;

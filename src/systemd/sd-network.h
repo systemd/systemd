@@ -23,8 +23,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <inttypes.h>
+#include <sys/types.h>
 
 #include "_sd-common.h"
 
@@ -149,6 +149,8 @@ int sd_network_monitor_get_events(sd_network_monitor *m);
 
 /* Get timeout for poll(), as usec value relative to CLOCK_MONOTONIC's epoch */
 int sd_network_monitor_get_timeout(sd_network_monitor *m, uint64_t *timeout_usec);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_network_monitor, sd_network_monitor_unref);
 
 _SD_END_DECLARATIONS;
 

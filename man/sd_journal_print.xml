@@ -134,8 +134,8 @@
     be ignored.) The value can be of any size and format. It is highly
     recommended to submit text strings formatted in the UTF-8
     character encoding only, and submit binary fields only when
-    formatting in UTF-8 strings is not sensible. A number of well
-    known fields are defined, see
+    formatting in UTF-8 strings is not sensible. A number of
+    well-known fields are defined, see
     <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details, but additional application defined fields may be
     used. A variable may be assigned more than one value per
@@ -156,7 +156,7 @@
     <para><function>sd_journal_perror()</function> is a similar to
     <citerefentry project='die-net'><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and writes a message to the journal that consists of the passed
-    string, suffixed with ": " and a human readable representation of
+    string, suffixed with ": " and a human-readable representation of
     the current error code stored in
     <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     If the message string is passed as <constant>NULL</constant> or

@@ -19,21 +19,33 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
-#include <sys/inotify.h>
 #include <poll.h>
+#include <string.h>
+#include <sys/inotify.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "cgroup-util.h"
-#include "macro.h"
-#include "strv.h"
-#include "fileio.h"
-#include "login-util.h"
-#include "formats-util.h"
-#include "hostname-util.h"
 #include "sd-login.h"
+
+#include "alloc-util.h"
+#include "cgroup-util.h"
+#include "dirent-util.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "formats-util.h"
+#include "fs-util.h"
+#include "hostname-util.h"
+#include "io-util.h"
+#include "login-util.h"
+#include "macro.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "socket-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "user-util.h"
+#include "util.h"
 
 /* Error codes:
  *
@@ -920,9 +932,7 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
 
                 *(char*) (mempcpy(buf, word, l)) = 0;
 
-                if (safe_atoi(buf, &ifi) < 0)
-                        continue;
-                if (ifi <= 0)
+                if (parse_ifindex(buf, &ifi) < 0)
                         continue;
 
                 if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
@@ -1007,7 +1017,8 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
         int fd;
 
-        assert_return(m, NULL);
+        if (!m)
+                return NULL;
 
         fd = MONITOR_TO_FD(m);
         close_nointr(fd);

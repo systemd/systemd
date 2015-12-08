@@ -21,6 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
+#include "hashmap.h"
+#include "macro.h"
 #include "set.h"
 
 typedef struct FDSet FDSet;
@@ -35,7 +39,7 @@ int fdset_consume(FDSet *s, int fd);
 bool fdset_contains(FDSet *s, int fd);
 int fdset_remove(FDSet *s, int fd);
 
-int fdset_new_array(FDSet **ret, int *fds, unsigned n_fds);
+int fdset_new_array(FDSet **ret, const int *fds, unsigned n_fds);
 int fdset_new_fill(FDSet **ret);
 int fdset_new_listen_fds(FDSet **ret, bool unset);
 

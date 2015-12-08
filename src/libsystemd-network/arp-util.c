@@ -21,8 +21,9 @@
 #include <linux/filter.h>
 #include <arpa/inet.h>
 
-#include "util.h"
 #include "arp-util.h"
+#include "fd-util.h"
+#include "util.h"
 
 int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_addr *eth_mac) {
         struct sock_filter filter[] = {

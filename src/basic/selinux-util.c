@@ -21,17 +21,26 @@
 
 #include <errno.h>
 #include <malloc.h>
+#include <stddef.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/un.h>
+#include <syslog.h>
 
 #ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#include <selinux/label.h>
 #include <selinux/context.h>
+#include <selinux/label.h>
+#include <selinux/selinux.h>
 #endif
 
-#include "strv.h"
+#include "alloc-util.h"
+#include "log.h"
+#include "macro.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "time-util.h"
+#include "util.h"
 
 #ifdef HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC(security_context_t, freecon);
@@ -46,7 +55,7 @@ static struct selabel_handle *label_hnd = NULL;
 #define log_enforcing(...) log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, __VA_ARGS__)
 #endif
 
-bool mac_selinux_use(void) {
+bool mac_selinux_have(void) {
 #ifdef HAVE_SELINUX
         if (cached_use < 0)
                 cached_use = is_selinux_enabled() > 0;
@@ -55,6 +64,16 @@ bool mac_selinux_use(void) {
 #else
         return false;
 #endif
+}
+
+bool mac_selinux_use(void) {
+        if (!mac_selinux_have())
+                return false;
+
+        /* Never try to configure SELinux features if we aren't
+         * root */
+
+        return getuid() == 0;
 }
 
 void mac_selinux_retest(void) {
@@ -171,15 +190,15 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 int mac_selinux_apply(const char *path, const char *label) {
 
 #ifdef HAVE_SELINUX
-        assert(path);
-        assert(label);
-
         if (!mac_selinux_use())
                 return 0;
 
+        assert(path);
+        assert(label);
+
         if (setfilecon(path, (security_context_t) label) < 0) {
                 log_enforcing("Failed to set SELinux security context %s on path %s: %m", label, path);
-                if (security_getenforce() == 1)
+                if (security_getenforce() > 0)
                         return -errno;
         }
 #endif
@@ -196,7 +215,7 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         assert(exe);
         assert(label);
 
-        if (!mac_selinux_use())
+        if (!mac_selinux_have())
                 return -EOPNOTSUPP;
 
         r = getcon_raw(&mycon);
@@ -222,7 +241,7 @@ int mac_selinux_get_our_label(char **label) {
         assert(label);
 
 #ifdef HAVE_SELINUX
-        if (!mac_selinux_use())
+        if (!mac_selinux_have())
                 return -EOPNOTSUPP;
 
         r = getcon_raw(label);
@@ -246,7 +265,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         assert(exe);
         assert(label);
 
-        if (!mac_selinux_use())
+        if (!mac_selinux_have())
                 return -EOPNOTSUPP;
 
         r = getcon_raw(&mycon);
@@ -301,7 +320,7 @@ char* mac_selinux_free(char *label) {
         if (!label)
                 return NULL;
 
-        if (!mac_selinux_use())
+        if (!mac_selinux_have())
                 return NULL;
 
 
@@ -312,10 +331,10 @@ char* mac_selinux_free(char *label) {
 }
 
 int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
-        int r = 0;
 
 #ifdef HAVE_SELINUX
         _cleanup_security_context_free_ security_context_t filecon = NULL;
+        int r;
 
         assert(path);
 
@@ -325,34 +344,33 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &filecon, path, mode);
         else {
-                _cleanup_free_ char *newpath;
+                _cleanup_free_ char *newpath = NULL;
 
-                newpath = path_make_absolute_cwd(path);
-                if (!newpath)
-                        return -ENOMEM;
+                r = path_make_absolute_cwd(path, &newpath);
+                if (r < 0)
+                        return r;
 
                 r = selabel_lookup_raw(label_hnd, &filecon, newpath, mode);
         }
 
-        /* No context specified by the policy? Proceed without setting it. */
-        if (r < 0 && errno == ENOENT)
-                return 0;
+        if (r < 0) {
+                /* No context specified by the policy? Proceed without setting it. */
+                if (errno == ENOENT)
+                        return 0;
 
-        if (r < 0)
-                r = -errno;
-        else {
-                r = setfscreatecon(filecon);
-                if (r < 0) {
-                        log_enforcing("Failed to set SELinux security context %s for %s: %m", filecon, path);
-                        r = -errno;
-                }
+                log_enforcing("Failed to determine SELinux security context for %s: %m", path);
+        } else {
+                if (setfscreatecon(filecon) >= 0)
+                        return 0; /* Success! */
+
+                log_enforcing("Failed to set SELinux security context %s for %s: %m", filecon, path);
         }
 
-        if (r < 0 && security_getenforce() == 0)
-                r = 0;
-#endif
+        if (security_getenforce() > 0)
+                return -errno;
 
-        return r;
+#endif
+        return 0;
 }
 
 void mac_selinux_create_file_clear(void) {
@@ -405,6 +423,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 #ifdef HAVE_SELINUX
         _cleanup_security_context_free_ security_context_t fcon = NULL;
         const struct sockaddr_un *un;
+        bool context_changed = false;
         char *path;
         int r;
 
@@ -420,7 +439,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                 goto skipped;
 
         /* Filter out anonymous sockets */
-        if (addrlen < sizeof(sa_family_t) + 1)
+        if (addrlen < offsetof(struct sockaddr_un, sun_path) + 1)
                 goto skipped;
 
         /* Filter out abstract namespace sockets */
@@ -433,36 +452,44 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);
         else {
-                _cleanup_free_ char *newpath;
+                _cleanup_free_ char *newpath = NULL;
 
-                newpath = path_make_absolute_cwd(path);
-                if (!newpath)
-                        return -ENOMEM;
+                r = path_make_absolute_cwd(path, &newpath);
+                if (r < 0)
+                        return r;
 
                 r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFSOCK);
         }
 
-        if (r == 0)
-                r = setfscreatecon(fcon);
+        if (r < 0) {
+                /* No context specified by the policy? Proceed without setting it */
+                if (errno == ENOENT)
+                        goto skipped;
 
-        if (r < 0 && errno != ENOENT) {
-                log_enforcing("Failed to set SELinux security context %s for %s: %m", fcon, path);
+                log_enforcing("Failed to determine SELinux security context for %s: %m", path);
+                if (security_getenforce() > 0)
+                        return -errno;
 
-                if (security_getenforce() == 1) {
-                        r = -errno;
-                        goto finish;
-                }
+        } else {
+                if (setfscreatecon(fcon) < 0) {
+                        log_enforcing("Failed to set SELinux security context %s for %s: %m", fcon, path);
+                        if (security_getenforce() > 0)
+                                return -errno;
+                } else
+                        context_changed = true;
         }
 
-        r = bind(fd, addr, addrlen);
-        if (r < 0)
-                r = -errno;
+        r = bind(fd, addr, addrlen) < 0 ? -errno : 0;
 
-finish:
-        setfscreatecon(NULL);
+        if (context_changed)
+                setfscreatecon(NULL);
+
         return r;
 
 skipped:
 #endif
-        return bind(fd, addr, addrlen) < 0 ? -errno : 0;
+        if (bind(fd, addr, addrlen) < 0)
+                return -errno;
+
+        return 0;
 }

@@ -37,9 +37,14 @@
 #include <sys/statfs.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "blkid-util.h"
 #include "efivars.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "locale-util.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "util.h"
 
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {

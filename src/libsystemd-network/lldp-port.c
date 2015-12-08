@@ -20,10 +20,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "async.h"
-#include "lldp-port.h"
-#include "lldp-network.h"
 #include "lldp-internal.h"
+#include "lldp-network.h"
+#include "lldp-port.h"
 
 int lldp_port_start(lldp_port *p) {
         int r;

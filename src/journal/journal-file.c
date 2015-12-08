@@ -19,22 +19,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/mman.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <linux/fs.h>
+#include <stddef.h>
+#include <sys/mman.h>
+#include <sys/statvfs.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#include <sys/statvfs.h>
-#include <fcntl.h>
-#include <stddef.h>
-#include <linux/fs.h>
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
+#include "compress.h"
+#include "fd-util.h"
+#include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
-#include "journal-authenticate.h"
 #include "lookup3.h"
-#include "compress.h"
+#include "parse-util.h"
 #include "random-util.h"
+#include "string-util.h"
+#include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
@@ -42,7 +48,7 @@
 #define COMPRESSION_SIZE_THRESHOLD (512ULL)
 
 /* This is the minimum journal file size */
-#define JOURNAL_FILE_SIZE_MIN (4ULL*1024ULL*1024ULL)           /* 4 MiB */
+#define JOURNAL_FILE_SIZE_MIN (512ULL*1024ULL)                 /* 512 KiB */
 
 /* These are the lower and upper bounds if we deduce the max_use value
  * from the file system size */
@@ -1057,7 +1063,7 @@ static int journal_file_append_data(
         r = journal_file_find_data_object_with_hash(f, data, size, hash, &o, &p);
         if (r < 0)
                 return r;
-        else if (r > 0) {
+        if (r > 0) {
 
                 if (ret)
                         *ret = o;
@@ -1076,23 +1082,24 @@ static int journal_file_append_data(
         o->data.hash = htole64(hash);
 
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
-        if (f->compress_xz &&
-            size >= COMPRESSION_SIZE_THRESHOLD) {
+        if (JOURNAL_FILE_COMPRESS(f) && size >= COMPRESSION_SIZE_THRESHOLD) {
                 size_t rsize = 0;
 
                 compression = compress_blob(data, size, o->data.payload, &rsize);
 
-                if (compression) {
+                if (compression >= 0) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
                         o->object.flags |= compression;
 
                         log_debug("Compressed data object %"PRIu64" -> %zu using %s",
                                   size, rsize, object_compressed_to_string(compression));
-                }
+                } else
+                        /* Compression didn't work, we don't really care why, let's continue without compression */
+                        compression = 0;
         }
 #endif
 
-        if (!compression && size > 0)
+        if (compression == 0 && size > 0)
                 memcpy(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
@@ -2698,7 +2705,7 @@ int journal_file_open(
         }
 
         if (f->last_stat.st_size < (off_t) HEADER_SIZE_MIN) {
-                r = -EIO;
+                r = -ENODATA;
                 goto fail;
         }
 

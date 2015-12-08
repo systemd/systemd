@@ -15,27 +15,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stddef.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
-#include <fcntl.h>
 #include <ctype.h>
-#include <unistd.h>
-#include <errno.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <fnmatch.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
+#include <unistd.h>
 
-#include "udev.h"
-#include "path-util.h"
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "glob-util.h"
+#include "path-util.h"
+#include "stat-util.h"
 #include "strbuf.h"
+#include "string-util.h"
 #include "strv.h"
-#include "util.h"
 #include "sysctl-util.h"
+#include "udev.h"
+#include "user-util.h"
+#include "util.h"
 
 #define PREALLOC_TOKEN          2048
 
@@ -51,7 +58,8 @@ static const char* const rules_dirs[] = {
         "/etc/udev/rules.d",
         "/run/udev/rules.d",
         UDEVLIBEXECDIR "/rules.d",
-        NULL};
+        NULL
+};
 
 struct udev_rules {
         struct udev *udev;

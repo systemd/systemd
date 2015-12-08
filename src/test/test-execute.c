@@ -17,14 +17,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <grp.h>
+#include <pwd.h>
 #include <stdio.h>
+#include <sys/types.h>
 
-#include "unit.h"
-#include "manager.h"
-#include "util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "macro.h"
+#include "manager.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
+#include "test-helper.h"
+#include "unit.h"
+#include "util.h"
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -123,17 +130,67 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 }
 
 static void test_exec_user(Manager *m) {
-        test(m, "exec-user.service", 0, CLD_EXITED);
+        if (getpwnam("nobody"))
+                test(m, "exec-user.service", 0, CLD_EXITED);
+        else
+                log_error_errno(errno, "Skipping test_exec_user, could not find nobody user: %m");
 }
 
 static void test_exec_group(Manager *m) {
-        test(m, "exec-group.service", 0, CLD_EXITED);
+        if (getgrnam("nobody"))
+                test(m, "exec-group.service", 0, CLD_EXITED);
+        else
+                log_error_errno(errno, "Skipping test_exec_group, could not find nobody group: %m");
 }
 
 static void test_exec_environment(Manager *m) {
         test(m, "exec-environment.service", 0, CLD_EXITED);
         test(m, "exec-environment-multiple.service", 0, CLD_EXITED);
         test(m, "exec-environment-empty.service", 0, CLD_EXITED);
+}
+
+static void test_exec_environmentfile(Manager *m) {
+        static const char e[] =
+                "VAR1='word1 word2'\n"
+                "VAR2=word3 \n"
+                "# comment1\n"
+                "\n"
+                "; comment2\n"
+                " ; # comment3\n"
+                "line without an equal\n"
+                "VAR3='$word 5 6'\n";
+        int r;
+
+        r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
+        assert_se(r == 0);
+
+        test(m, "exec-environmentfile.service", 0, CLD_EXITED);
+
+        unlink("/tmp/test-exec_environmentfile.conf");
+}
+
+static void test_exec_passenvironment(Manager *m) {
+        /* test-execute runs under MANAGER_USER which, by default, forwards all
+         * variables present in the environment, but only those that are
+         * present _at the time it is created_!
+         *
+         * So these PassEnvironment checks are still expected to work, since we
+         * are ensuring the variables are not present at manager creation (they
+         * are unset explicitly in main) and are only set here.
+         *
+         * This is still a good approximation of how a test for MANAGER_SYSTEM
+         * would work.
+         */
+        assert_se(setenv("VAR1", "word1 word2", 1) == 0);
+        assert_se(setenv("VAR2", "word3", 1) == 0);
+        assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
+        test(m, "exec-passenvironment.service", 0, CLD_EXITED);
+        test(m, "exec-passenvironment-repeated.service", 0, CLD_EXITED);
+        test(m, "exec-passenvironment-empty.service", 0, CLD_EXITED);
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
+        test(m, "exec-passenvironment-absent.service", 0, CLD_EXITED);
 }
 
 static void test_exec_umask(Manager *m) {
@@ -144,7 +201,51 @@ static void test_exec_umask(Manager *m) {
 static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
-        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        if (getgrnam("nobody"))
+                test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        else
+                log_error_errno(errno, "Skipping test_exec_runtimedirectory-owner, could not find nobody group: %m");
+}
+
+static void test_exec_capabilityboundingset(Manager *m) {
+        int r;
+
+        /* We use capsh to test if the capabilities are
+         * properly set, so be sure that it exists */
+        r = find_binary("capsh", NULL);
+        if (r < 0) {
+                log_error_errno(r, "Skipping test_exec_capabilityboundingset, could not find capsh binary: %m");
+                return;
+        }
+
+        test(m, "exec-capabilityboundingset-simple.service", 0, CLD_EXITED);
+        test(m, "exec-capabilityboundingset-reset.service", 0, CLD_EXITED);
+        test(m, "exec-capabilityboundingset-merge.service", 0, CLD_EXITED);
+        test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
+}
+
+static void test_exec_privatenetwork(Manager *m) {
+        int r;
+
+        r = find_binary("ip", NULL);
+        if (r < 0) {
+                log_error_errno(r, "Skipping test_exec_privatenetwork, could not find ip binary: %m");
+                return;
+        }
+
+        test(m, "exec-privatenetwork-yes.service", 0, CLD_EXITED);
+}
+
+static void test_exec_oomscoreadjust(Manager *m) {
+        test(m, "exec-oomscoreadjust-positive.service", 0, CLD_EXITED);
+        test(m, "exec-oomscoreadjust-negative.service", 0, CLD_EXITED);
+}
+
+static void test_exec_ioschedulingclass(Manager *m) {
+        test(m, "exec-ioschedulingclass-none.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-idle.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-realtime.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-best-effort.service", 0, CLD_EXITED);
 }
 
 int main(int argc, char *argv[]) {
@@ -154,13 +255,19 @@ int main(int argc, char *argv[]) {
                 test_exec_ignoresigpipe,
                 test_exec_privatetmp,
                 test_exec_privatedevices,
+                test_exec_privatenetwork,
                 test_exec_systemcallfilter,
                 test_exec_systemcallerrornumber,
                 test_exec_user,
                 test_exec_group,
                 test_exec_environment,
+                test_exec_environmentfile,
+                test_exec_passenvironment,
                 test_exec_umask,
                 test_exec_runtimedirectory,
+                test_exec_capabilityboundingset,
+                test_exec_oomscoreadjust,
+                test_exec_ioschedulingclass,
                 NULL,
         };
         test_function_t *test = NULL;
@@ -177,11 +284,21 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
-        assert_se(set_unit_path(TEST_DIR) >= 0);
+        assert_se(set_unit_path(TEST_DIR "/test-execute/") >= 0);
+
+        /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
+         * cases, otherwise (and if they are present in the environment),
+         * `manager_default_environment` will copy them into the default
+         * environment which is passed to each created job, which will make the
+         * tests that expect those not to be present to fail.
+         */
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
 
         r = manager_new(MANAGER_USER, true, &m);
-        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
-                printf("Skipping test: manager_new: %s", strerror(-r));
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);

@@ -22,11 +22,10 @@
 ***/
 
 #include <assert.h>
-#include <sys/param.h>
-#include <sys/types.h>
-#include <sys/uio.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/param.h>
+#include <sys/types.h>
 
 #define _printf_(a,b) __attribute__ ((format (printf, a, b)))
 #define _alloc_(...) __attribute__ ((alloc_size(__VA_ARGS__)))
@@ -295,110 +294,9 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
 #define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
-/* The following macros add 1 when converting things, since UID 0 is a
- * valid UID, while the pointer NULL is special */
-#define PTR_TO_UID(p) ((uid_t) (((uintptr_t) (p))-1))
-#define UID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
-
-#define PTR_TO_GID(p) ((gid_t) (((uintptr_t) (p))-1))
-#define GID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
-
-#define PTR_TO_PID(p) ((pid_t) ((uintptr_t) p))
-#define PID_TO_PTR(p) ((void*) ((uintptr_t) p))
-
-#define memzero(x,l) (memset((x), 0, (l)))
-#define zero(x) (memzero(&(x), sizeof(x)))
-
 #define CHAR_TO_STR(x) ((char[2]) { x, 0 })
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
-
-#define IOVEC_SET_STRING(i, s)                  \
-        do {                                    \
-                struct iovec *_i = &(i);        \
-                char *_s = (char *)(s);         \
-                _i->iov_base = _s;              \
-                _i->iov_len = strlen(_s);       \
-        } while(false)
-
-static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, unsigned n) {
-        unsigned j;
-        size_t r = 0;
-
-        for (j = 0; j < n; j++)
-                r += i[j].iov_len;
-
-        return r;
-}
-
-static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
-        unsigned j;
-
-        for (j = 0; j < n; j++) {
-                size_t sub;
-
-                if (_unlikely_(k <= 0))
-                        break;
-
-                sub = MIN(i[j].iov_len, k);
-                i[j].iov_len -= sub;
-                i[j].iov_base = (uint8_t*) i[j].iov_base + sub;
-                k -= sub;
-        }
-
-        return k;
-}
-
-#define VA_FORMAT_ADVANCE(format, ap)                                   \
-do {                                                                    \
-        int _argtypes[128];                                             \
-        size_t _i, _k;                                                  \
-        _k = parse_printf_format((format), ELEMENTSOF(_argtypes), _argtypes); \
-        assert(_k < ELEMENTSOF(_argtypes));                             \
-        for (_i = 0; _i < _k; _i++) {                                   \
-                if (_argtypes[_i] & PA_FLAG_PTR)  {                     \
-                        (void) va_arg(ap, void*);                       \
-                        continue;                                       \
-                }                                                       \
-                                                                        \
-                switch (_argtypes[_i]) {                                \
-                case PA_INT:                                            \
-                case PA_INT|PA_FLAG_SHORT:                              \
-                case PA_CHAR:                                           \
-                        (void) va_arg(ap, int);                         \
-                        break;                                          \
-                case PA_INT|PA_FLAG_LONG:                               \
-                        (void) va_arg(ap, long int);                    \
-                        break;                                          \
-                case PA_INT|PA_FLAG_LONG_LONG:                          \
-                        (void) va_arg(ap, long long int);               \
-                        break;                                          \
-                case PA_WCHAR:                                          \
-                        (void) va_arg(ap, wchar_t);                     \
-                        break;                                          \
-                case PA_WSTRING:                                        \
-                case PA_STRING:                                         \
-                case PA_POINTER:                                        \
-                        (void) va_arg(ap, void*);                       \
-                        break;                                          \
-                case PA_FLOAT:                                          \
-                case PA_DOUBLE:                                         \
-                        (void) va_arg(ap, double);                      \
-                        break;                                          \
-                case PA_DOUBLE|PA_FLAG_LONG_DOUBLE:                     \
-                        (void) va_arg(ap, long double);                 \
-                        break;                                          \
-                default:                                                \
-                        assert_not_reached("Unknown format string argument."); \
-                }                                                       \
-        }                                                               \
-} while(false)
-
- /* Because statfs.t_type can be int on some architectures, we have to cast
-  * the const magic to the type, otherwise the compiler warns about
-  * signed/unsigned comparison, because the magic can be 32 bit unsigned.
- */
-#define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
 
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
@@ -409,6 +307,15 @@ do {                                                                    \
             sizeof(type) <= 2 ? 5 :                                     \
             sizeof(type) <= 4 ? 10 :                                    \
             sizeof(type) <= 8 ? 20 : sizeof(int[-2*(sizeof(type) > 8)])))
+
+#define DECIMAL_STR_WIDTH(x)                            \
+        ({                                              \
+                typeof(x) _x_ = (x);                    \
+                unsigned ans = 1;                       \
+                while (_x_ /= 10)                       \
+                        ans++;                          \
+                ans;                                    \
+        })
 
 #define SET_FLAG(v, flag, b) \
         (v) = (b) ? ((v) | (flag)) : ((v) & ~(flag))
@@ -426,21 +333,6 @@ do {                                                                    \
                         }                                               \
                 _found;                                                 \
         })
-
-/* Return a nulstr for a standard cascade of configuration directories,
- * suitable to pass to conf_files_list_nulstr or config_parse_many. */
-#define CONF_DIRS_NULSTR(n) \
-        "/etc/" n ".d\0" \
-        "/run/" n ".d\0" \
-        "/usr/local/lib/" n ".d\0" \
-        "/usr/lib/" n ".d\0" \
-        CONF_DIR_SPLIT_USR(n)
-
-#ifdef HAVE_SPLIT_USR
-#define CONF_DIR_SPLIT_USR(n) "/lib/" n ".d\0"
-#else
-#define CONF_DIR_SPLIT_USR(n)
-#endif
 
 /* Define C11 thread_local attribute even on older gcc compiler
  * version */
@@ -466,18 +358,11 @@ do {                                                                    \
 #endif
 #endif
 
-#define UID_INVALID ((uid_t) -1)
-#define GID_INVALID ((gid_t) -1)
-#define MODE_INVALID ((mode_t) -1)
-
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
         static inline void func##p(type *p) {                   \
                 if (*p)                                         \
                         func(*p);                               \
         }                                                       \
         struct __useless_struct_to_allow_trailing_semicolon__
-
-#define CMSG_FOREACH(cmsg, mh)                                          \
-        for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 
 #include "log.h"

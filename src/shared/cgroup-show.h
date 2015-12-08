@@ -23,7 +23,9 @@
 
 #include <stdbool.h>
 #include <sys/types.h>
+
 #include "logs-show.h"
+#include "output-mode.h"
 
 int show_cgroup_by_path(const char *path, const char *prefix, unsigned columns, bool kernel_threads, OutputFlags flags);
 int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned columns, bool kernel_threads, OutputFlags flags);

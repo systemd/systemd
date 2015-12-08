@@ -19,17 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "process-util.h"
-#include "fileio.h"
-#include "strv.h"
-#include "env-util.h"
-#include "def.h"
+#include "alloc-util.h"
 #include "ctype.h"
+#include "def.h"
+#include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "parse-util.h"
+#include "process-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "util.h"
 
 static void test_parse_env_file(void) {
         char    t[] = "/tmp/test-fileio-in-XXXXXX",
@@ -359,6 +363,26 @@ static void test_write_string_file_no_create(void) {
         unlink(fn);
 }
 
+static void test_write_string_file_verify(void) {
+        _cleanup_free_ char *buf = NULL, *buf2 = NULL;
+        int r;
+
+        assert_se(read_one_line_file("/proc/cmdline", &buf) >= 0);
+        assert_se((buf2 = strjoin(buf, "\n", NULL)));
+
+        r = write_string_file("/proc/cmdline", buf, 0);
+        assert_se(r == -EACCES || r == -EIO);
+        r = write_string_file("/proc/cmdline", buf2, 0);
+        assert_se(r == -EACCES || r == -EIO);
+
+        assert_se(write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
+        assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
+
+        r = write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE);
+        assert_se(r == -EACCES || r == -EIO);
+        assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
+}
+
 static void test_load_env_file_pairs(void) {
         char fn[] = "/tmp/test-load_env_file_pairs-XXXXXX";
         int fd;
@@ -415,6 +439,7 @@ int main(int argc, char *argv[]) {
         test_write_string_stream();
         test_write_string_file();
         test_write_string_file_no_create();
+        test_write_string_file_verify();
         test_load_env_file_pairs();
 
         return 0;

@@ -23,15 +23,18 @@
 
 #include "sd-event.h"
 
-#include "event-util.h"
+#include "alloc-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-image.h"
+#include "parse-util.h"
 #include "pull-dkr.h"
 #include "pull-raw.h"
 #include "pull-tar.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "verbs.h"
+#include "web-util.h"
 
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
@@ -57,7 +60,7 @@ static void on_tar_finished(TarPull *pull, int error, void *userdata) {
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(tar_pull_unrefp) TarPull *pull = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *url, *local;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         int r;
@@ -143,7 +146,7 @@ static void on_raw_finished(RawPull *pull, int error, void *userdata) {
 
 static int pull_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_pull_unrefp) RawPull *pull = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *url, *local;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         int r;
@@ -229,7 +232,7 @@ static void on_dkr_finished(DkrPull *pull, int error, void *userdata) {
 
 static int pull_dkr(int argc, char *argv[], void *userdata) {
         _cleanup_(dkr_pull_unrefp) DkrPull *pull = NULL;
-        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *name, *reference, *local, *digest;
         int r;
 

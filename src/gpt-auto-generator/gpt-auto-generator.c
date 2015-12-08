@@ -19,28 +19,37 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
+#include <blkid/blkid.h>
 #include <stdlib.h>
 #include <sys/statfs.h>
-#include <blkid/blkid.h>
+#include <unistd.h>
 
-#include "sd-id128.h"
 #include "libudev.h"
-#include "path-util.h"
-#include "util.h"
-#include "mkdir.h"
-#include "missing.h"
-#include "udev-util.h"
-#include "special.h"
-#include "unit-name.h"
-#include "virt.h"
-#include "generator.h"
-#include "gpt.h"
-#include "fileio.h"
-#include "efivars.h"
-#include "fstab-util.h"
+#include "sd-id128.h"
+
+#include "alloc-util.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "dirent-util.h"
+#include "efivars.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fstab-util.h"
+#include "generator.h"
+#include "gpt.h"
+#include "missing.h"
+#include "mkdir.h"
+#include "mount-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
+#include "special.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "udev-util.h"
+#include "unit-name.h"
+#include "util.h"
+#include "virt.h"
 
 static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
@@ -293,8 +302,7 @@ static int probe_and_add_mount(
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error_errno(errno, "Failed to allocate prober: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate prober: %m");
         }
 
         blkid_probe_enable_superblocks(b, 1);
@@ -493,8 +501,7 @@ static int add_boot(const char *what) {
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error_errno(errno, "Failed to allocate prober: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to allocate prober: %m");
         }
 
         blkid_probe_enable_partitions(b, 1);

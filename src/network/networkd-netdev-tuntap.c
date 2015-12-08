@@ -19,11 +19,14 @@
     along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/ioctl.h>
 #include <net/if.h>
+#include <sys/ioctl.h>
 #include <linux/if_tun.h>
 
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "networkd-netdev-tuntap.h"
+#include "user-util.h"
 
 #define TUN_DEV "/dev/net/tun"
 

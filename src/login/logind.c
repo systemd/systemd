@@ -20,20 +20,25 @@
 ***/
 
 #include <errno.h>
-#include <libudev.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "libudev.h"
 #include "sd-daemon.h"
-#include "strv.h"
-#include "conf-parser.h"
-#include "bus-util.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
-#include "udev-util.h"
+#include "bus-util.h"
+#include "conf-parser.h"
+#include "def.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "formats-util.h"
-#include "signal-util.h"
 #include "logind.h"
+#include "signal-util.h"
+#include "strv.h"
+#include "udev-util.h"
 
 static void manager_free(Manager *m);
 
@@ -65,6 +70,7 @@ static Manager *manager_new(void) {
         m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
         m->runtime_dir_size = PAGE_ALIGN((size_t) (physical_memory() / 10)); /* 10% */
+        m->user_tasks_max = UINT64_C(4096);
 
         m->devices = hashmap_new(&string_hash_ops);
         m->seats = hashmap_new(&string_hash_ops);
@@ -292,8 +298,7 @@ static int manager_enumerate_seats(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -329,8 +334,7 @@ static int manager_enumerate_linger_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /var/lib/systemd/linger/: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /var/lib/systemd/linger/: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -365,8 +369,7 @@ static int manager_enumerate_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/users: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/users: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -406,8 +409,7 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -453,8 +455,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -578,7 +579,7 @@ static int manager_reserve_vt(Manager *m) {
 }
 
 static int manager_connect_bus(Manager *m) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(m);
@@ -744,8 +745,7 @@ static int manager_connect_console(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
-                return -errno;
+                return log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
         }
 
         r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);
@@ -1103,8 +1103,8 @@ static int manager_run(Manager *m) {
 static int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse_many("/etc/systemd/logind.conf",
-                                 CONF_DIRS_NULSTR("systemd/logind.conf"),
+        return config_parse_many(PKGSYSCONFDIR "/logind.conf",
+                                 CONF_PATHS_NULSTR("systemd/logind.conf.d"),
                                  "Login\0",
                                  config_item_perf_lookup, logind_gperf_lookup,
                                  false, m);

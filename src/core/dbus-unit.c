@@ -20,14 +20,19 @@
 ***/
 
 #include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "bus-common-errors.h"
+#include "cgroup-util.h"
+#include "dbus-unit.h"
+#include "dbus.h"
+#include "locale-util.h"
 #include "log.h"
 #include "selinux-access.h"
-#include "cgroup-util.h"
-#include "strv.h"
-#include "bus-common-errors.h"
 #include "special.h"
-#include "dbus.h"
-#include "dbus-unit.h"
+#include "string-util.h"
+#include "strv.h"
+#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
@@ -111,6 +116,22 @@ static int property_get_dependencies(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int property_get_obsolete_dependencies(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        assert(bus);
+        assert(reply);
+
+        /* For dependency types we don't support anymore always return an empty array */
+        return sd_bus_message_append(reply, "as", 0);
 }
 
 static int property_get_description(
@@ -378,7 +399,7 @@ static int property_get_load_error(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
         Unit *u = userdata;
 
         assert(bus);
@@ -616,16 +637,12 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Names", "as", property_get_names, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Following", "s", property_get_following, 0, 0),
         SD_BUS_PROPERTY("Requires", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRES]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequiresOverridable", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRES_OVERRIDABLE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Requisite", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequisiteOverridable", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE_OVERRIDABLE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Wants", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_WANTS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindsTo", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BINDS_TO]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PartOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_PART_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RequiredBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequiredByOverridable", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRED_BY_OVERRIDABLE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RequisiteOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequisiteOfOverridable", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE_OF_OVERRIDABLE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WantedBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_WANTED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BoundBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BOUND_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConsistsOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_CONSISTS_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -639,6 +656,10 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadPropagatedFrom", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_JOINS_NAMESPACE_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RequiresOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("RequisiteOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("RequiredByOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("RequisiteOfOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("RequiresMountsFor", "as", NULL, offsetof(Unit, requires_mounts_for), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -666,7 +687,6 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("DefaultDependencies", "b", bus_property_get_bool, offsetof(Unit, default_dependencies), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OnFailureJobMode", "s", property_get_job_mode, offsetof(Unit, on_failure_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreOnIsolate", "b", bus_property_get_bool, offsetof(Unit, ignore_on_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("IgnoreOnSnapshot", "b", bus_property_get_bool, offsetof(Unit, ignore_on_snapshot), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutAction", "s", property_get_failure_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -679,7 +699,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NetClass", "u", bus_property_get_unsigned, offsetof(Unit, cgroup_netclass_id), 0),
+        SD_BUS_PROPERTY("NetClass", "u", NULL, offsetof(Unit, cgroup_netclass_id), 0),
 
         SD_BUS_METHOD("Start", "s", "o", method_start, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Stop", "s", "o", method_stop, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -826,7 +846,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         int r;
@@ -903,7 +923,7 @@ void bus_unit_send_change_signal(Unit *u) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         int r;
@@ -984,10 +1004,11 @@ int bus_unit_queue_job(
 
         if ((type == JOB_START && u->refuse_manual_start) ||
             (type == JOB_STOP && u->refuse_manual_stop) ||
-            ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)))
+            ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
+            (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
                 return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
 
-        r = manager_add_job(u->manager, type, u, mode, true, error, &j);
+        r = manager_add_job(u->manager, type, u, mode, error, &j);
         if (r < 0)
                 return r;
 
@@ -1103,9 +1124,15 @@ static int bus_unit_set_transient_property(
                 UnitDependency d;
                 const char *other;
 
-                d = unit_dependency_from_string(name);
-                if (d < 0)
-                        return -EINVAL;
+                if (streq(name, "RequiresOverridable"))
+                        d = UNIT_REQUIRES; /* redirect for obsolete unit dependency type */
+                else if (streq(name, "RequisiteOverridable"))
+                        d = UNIT_REQUISITE; /* same here */
+                else {
+                        d = unit_dependency_from_string(name);
+                        if (d < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit dependency: %s", name);
+                }
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
                 if (r < 0)
@@ -1223,4 +1250,21 @@ int bus_unit_set_properties(
                 UNIT_VTABLE(u)->bus_commit_properties(u);
 
         return n;
+}
+
+int bus_unit_check_load_state(Unit *u, sd_bus_error *error) {
+
+        if (u->load_state == UNIT_LOADED)
+                return 0;
+
+        /* Give a better description of the unit error when
+         * possible. Note that in the case of UNIT_MASKED, load_error
+         * is not set. */
+        if (u->load_state == UNIT_MASKED)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit is masked.");
+
+        if (u->load_state == UNIT_NOT_FOUND)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit not found.");
+
+        return sd_bus_error_set_errnof(error, u->load_error, "Unit is not loaded properly: %m.");
 }

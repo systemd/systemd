@@ -23,6 +23,8 @@
 
 #include <stdbool.h>
 
+#include "hashmap.h"
+#include "macro.h"
 #include "set.h"
 
 typedef enum ExitStatus {

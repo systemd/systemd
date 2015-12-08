@@ -17,18 +17,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "condition.h"
-#include "macro.h"
-#include "util.h"
-#include "log.h"
-#include "architecture.h"
 #include "sd-id128.h"
-#include "selinux-util.h"
-#include "audit.h"
-#include "ima-util.h"
+
+#include "alloc-util.h"
 #include "apparmor-util.h"
-#include "smack-util.h"
+#include "architecture.h"
+#include "audit-util.h"
+#include "condition.h"
 #include "hostname-util.h"
+#include "ima-util.h"
+#include "log.h"
+#include "macro.h"
+#include "selinux-util.h"
+#include "smack-util.h"
+#include "util.h"
 
 static void test_condition_test_path(void) {
         Condition *condition;
@@ -201,7 +203,7 @@ static void test_condition_test_security(void) {
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "selinux", false, true);
-        assert_se(condition_test(condition) != mac_selinux_use());
+        assert_se(condition_test(condition) != mac_selinux_have());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "ima", false, false);

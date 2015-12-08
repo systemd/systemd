@@ -19,8 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "strv.h"
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "network-util.h"
+#include "strv.h"
 
 bool network_is_online(void) {
         _cleanup_free_ char *state = NULL;
