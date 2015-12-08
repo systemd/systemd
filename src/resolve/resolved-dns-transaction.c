@@ -24,6 +24,7 @@
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "random-util.h"
+#include "resolved-dns-cache.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-llmnr.h"
 #include "string-table.h"
@@ -243,7 +244,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         }
 
         if (dns_packet_validate_reply(p) <= 0) {
-                log_debug("Invalid LLMNR TCP packet.");
+                log_debug("Invalid TCP reply packet.");
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return 0;
         }
@@ -384,6 +385,18 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                 break;
 
+        case DNS_PROTOCOL_MDNS:
+                assert(t->scope->link);
+
+                /* For mDNS we will not accept any packets from other interfaces */
+                if (p->ifindex != t->scope->link->ifindex)
+                        return;
+
+                if (p->family != t->scope->family)
+                        return;
+
+                break;
+
         case DNS_PROTOCOL_DNS:
                 break;
 
@@ -446,6 +459,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         if (DNS_PACKET_TC(p)) {
+
+                /* Truncated packets for mDNS are not allowed. Give up immediately. */
+                if (t->scope->protocol == DNS_PROTOCOL_MDNS) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                        return;
+                }
+
                 /* Response was truncated, let's try again with good old TCP */
                 r = dns_transaction_open_tcp(t);
                 if (r == -ESRCH) {
@@ -454,7 +474,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         return;
                 }
                 if (r < 0) {
-                        /* On LLMNR, if we cannot connect to the host,
+                        /* On LLMNR and mDNS, if we cannot connect to the host,
                          * we immediately give up */
                         if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
                                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -481,29 +501,31 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        /* Only consider responses with equivalent query section to the request */
-        if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                return;
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                /* Only consider responses with equivalent query section to the request */
+                if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                        return;
+                }
+
+                /* Install the answer as answer to the transaction */
+                dns_answer_unref(t->answer);
+                t->answer = dns_answer_ref(p->answer);
+                t->answer_rcode = DNS_PACKET_RCODE(p);
+                t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
+
+                /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
+                if (DNS_PACKET_SHALL_CACHE(p))
+                        dns_cache_put(&t->scope->cache,
+                                      t->key,
+                                      DNS_PACKET_RCODE(p),
+                                      p->answer,
+                                      DNS_PACKET_ANCOUNT(p),
+                                      t->answer_authenticated,
+                                      0,
+                                      p->family,
+                                      &p->sender);
         }
-
-        /* Install the answer as answer to the transaction */
-        dns_answer_unref(t->answer);
-        t->answer = dns_answer_ref(p->answer);
-        t->answer_rcode = DNS_PACKET_RCODE(p);
-        t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
-
-        /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
-        if (DNS_PACKET_SHALL_CACHE(p))
-                dns_cache_put(&t->scope->cache,
-                              t->key,
-                              DNS_PACKET_RCODE(p),
-                              p->answer,
-                              DNS_PACKET_ANCOUNT(p),
-                              t->answer_authenticated,
-                              0,
-                              p->family,
-                              &p->sender);
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
@@ -571,21 +593,26 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
-        /* Timeout reached? Increase the timeout for the server used */
-        switch (t->scope->protocol) {
-        case DNS_PROTOCOL_DNS:
-                assert(t->server);
+        if (!t->initial_jitter_scheduled || t->initial_jitter_elapsed) {
+                /* Timeout reached? Increase the timeout for the server used */
+                switch (t->scope->protocol) {
+                case DNS_PROTOCOL_DNS:
+                        assert(t->server);
 
-                dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+                        dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
 
-                break;
-        case DNS_PROTOCOL_LLMNR:
-        case DNS_PROTOCOL_MDNS:
-                dns_scope_packet_lost(t->scope, usec - t->start_usec);
+                        break;
+                case DNS_PROTOCOL_LLMNR:
+                case DNS_PROTOCOL_MDNS:
+                        dns_scope_packet_lost(t->scope, usec - t->start_usec);
 
-                break;
-        default:
-                assert_not_reached("Invalid DNS protocol.");
+                        break;
+                default:
+                        assert_not_reached("Invalid DNS protocol.");
+                }
+
+                if (t->initial_jitter_scheduled)
+                        t->initial_jitter_elapsed = true;
         }
 
         /* ...and try again with a new server */
@@ -594,38 +621,6 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         r = dns_transaction_go(t);
         if (r < 0)
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-
-        return 0;
-}
-
-static int dns_transaction_make_packet(DnsTransaction *t) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        int r;
-
-        assert(t);
-
-        if (t->sent)
-                return 0;
-
-        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode == DNSSEC_YES);
-        if (r < 0)
-                return r;
-
-        r = dns_scope_good_key(t->scope, t->key);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EDOM;
-
-        r = dns_packet_append_key(p, t->key, NULL);
-        if (r < 0)
-                return r;
-
-        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
-        DNS_PACKET_HEADER(p)->id = t->id;
-
-        t->sent = p;
-        p = NULL;
 
         return 0;
 }
@@ -639,17 +634,18 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
                 assert(t->server);
 
                 return t->server->resend_timeout;
-        case DNS_PROTOCOL_LLMNR:
         case DNS_PROTOCOL_MDNS:
+                assert(t->n_attempts > 0);
+                return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+        case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;
         default:
                 assert_not_reached("Invalid DNS protocol.");
         }
 }
 
-int dns_transaction_go(DnsTransaction *t) {
+static int dns_transaction_prepare_next_attempt(DnsTransaction *t, usec_t ts) {
         bool had_stream;
-        usec_t ts;
         int r;
 
         assert(t);
@@ -657,11 +653,6 @@ int dns_transaction_go(DnsTransaction *t) {
         had_stream = !!t->stream;
 
         dns_transaction_stop(t);
-
-        log_debug("Excercising transaction on scope %s on %s/%s",
-                  dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
-                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
 
         if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
@@ -674,8 +665,6 @@ int dns_transaction_go(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
                 return 0;
         }
-
-        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
         t->n_attempts++;
         t->start_usec = ts;
@@ -739,31 +728,203 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
         }
 
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && !t->initial_jitter) {
-                usec_t jitter;
+        return 1;
+}
+
+static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        bool add_known_answers = false;
+        DnsTransaction *other;
+        unsigned qdcount;
+        usec_t ts;
+        int r;
+
+        assert(t);
+        assert(t->scope->protocol == DNS_PROTOCOL_MDNS);
+
+        /* Discard any previously prepared packet, so we can start over and coaleasce again */
+        t->sent = dns_packet_unref(t->sent);
+
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, false);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_append_key(p, t->key, NULL);
+        if (r < 0)
+                return r;
+
+        qdcount = 1;
+
+        if (dns_key_is_shared(t->key))
+                add_known_answers = true;
+
+        /*
+         * For mDNS, we want to coalesce as many open queries in pending transactions into one single
+         * query packet on the wire as possible. To achieve that, we iterate through all pending transactions
+         * in our current scope, and see whether their timing contraints allow them to be sent.
+         */
+
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+
+        LIST_FOREACH(transactions_by_scope, other, t->scope->transactions) {
+
+                /* Skip ourselves */
+                if (other == t)
+                        continue;
+
+                if (other->state != DNS_TRANSACTION_PENDING)
+                        continue;
+
+                if (other->next_attempt_after > ts)
+                        continue;
+
+                if (qdcount >= UINT16_MAX)
+                        break;
+
+                r = dns_packet_append_key(p, other->key, NULL);
+
+                /*
+                 * If we can't stuff more questions into the packet, just give up.
+                 * One of the 'other' transactions will fire later and take care of the rest.
+                 */
+                if (r == -EMSGSIZE)
+                        break;
+
+                if (r < 0)
+                        return r;
+
+                r = dns_transaction_prepare_next_attempt(other, ts);
+                if (r <= 0)
+                        continue;
+
+                ts += transaction_get_resend_timeout(other);
+
+                r = sd_event_add_time(
+                                other->scope->manager->event,
+                                &other->timeout_event_source,
+                                clock_boottime_or_monotonic(),
+                                ts, 0,
+                                on_transaction_timeout, other);
+                if (r < 0)
+                        return r;
+
+                other->state = DNS_TRANSACTION_PENDING;
+                other->next_attempt_after = ts;
+
+                qdcount ++;
+
+                if (dns_key_is_shared(other->key))
+                        add_known_answers = true;
+        }
+
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(qdcount);
+        DNS_PACKET_HEADER(p)->id = t->id;
+
+        /* Append known answer section if we're asking for any shared record */
+        if (add_known_answers) {
+                r = dns_cache_export_shared_to_packet(&t->scope->cache, p);
+                if (r < 0)
+                        return r;
+        }
+
+        t->sent = p;
+        p = NULL;
+
+        return 0;
+}
+
+static int dns_transaction_make_packet(DnsTransaction *t) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+
+        assert(t);
+
+        if (t->scope->protocol == DNS_PROTOCOL_MDNS)
+                return dns_transaction_make_packet_mdns(t);
+
+        if (t->sent)
+                return 0;
+
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode == DNSSEC_YES);
+        if (r < 0)
+                return r;
+
+        r = dns_scope_good_key(t->scope, t->key);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EDOM;
+
+        r = dns_packet_append_key(p, t->key, NULL);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
+        DNS_PACKET_HEADER(p)->id = t->id;
+
+        t->sent = p;
+        p = NULL;
+
+        return 0;
+}
+
+int dns_transaction_go(DnsTransaction *t) {
+        usec_t ts;
+        int r;
+
+        assert(t);
+
+        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+        r = dns_transaction_prepare_next_attempt(t, ts);
+        if (r <= 0)
+                return r;
+
+        log_debug("Excercising transaction on scope %s on %s/%s",
+                  dns_protocol_to_string(t->scope->protocol),
+                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
+
+        if (!t->initial_jitter_scheduled &&
+            (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
+             t->scope->protocol == DNS_PROTOCOL_MDNS)) {
+                usec_t jitter, accuracy;
 
                 /* RFC 4795 Section 2.7 suggests all queries should be
                  * delayed by a random time from 0 to JITTER_INTERVAL. */
 
-                t->initial_jitter = true;
+                t->initial_jitter_scheduled = true;
 
                 random_bytes(&jitter, sizeof(jitter));
-                jitter %= LLMNR_JITTER_INTERVAL_USEC;
+
+                switch (t->scope->protocol) {
+                case DNS_PROTOCOL_LLMNR:
+                        jitter %= LLMNR_JITTER_INTERVAL_USEC;
+                        accuracy = LLMNR_JITTER_INTERVAL_USEC;
+                        break;
+                case DNS_PROTOCOL_MDNS:
+                        jitter %= MDNS_JITTER_RANGE_USEC;
+                        jitter += MDNS_JITTER_MIN_USEC;
+                        accuracy = MDNS_JITTER_RANGE_USEC;
+                        break;
+                default:
+                        assert_not_reached("bad protocol");
+                }
 
                 r = sd_event_add_time(
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 clock_boottime_or_monotonic(),
-                                ts + jitter,
-                                LLMNR_JITTER_INTERVAL_USEC,
+                                ts + jitter, accuracy,
                                 on_transaction_timeout, t);
                 if (r < 0)
                         return r;
 
                 t->n_attempts = 0;
+                t->next_attempt_after = ts;
                 t->state = DNS_TRANSACTION_PENDING;
 
-                log_debug("Delaying LLMNR transaction for " USEC_FMT "us.", jitter);
+                log_debug("Delaying %s transaction for " USEC_FMT "us.", dns_protocol_to_string(t->scope->protocol), jitter);
                 return 0;
         }
 
@@ -810,16 +971,20 @@ int dns_transaction_go(DnsTransaction *t) {
                 return dns_transaction_go(t);
         }
 
+        ts += transaction_get_resend_timeout(t);
+
         r = sd_event_add_time(
                         t->scope->manager->event,
                         &t->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        ts + transaction_get_resend_timeout(t), 0,
+                        ts, 0,
                         on_transaction_timeout, t);
         if (r < 0)
                 return r;
 
         t->state = DNS_TRANSACTION_PENDING;
+        t->next_attempt_after = ts;
+
         return 1;
 }
 

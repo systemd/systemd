@@ -88,6 +88,16 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool
                                                          0 /* ad */,
                                                          0 /* cd */,
                                                          0 /* rcode */));
+        else if (protocol == DNS_PROTOCOL_MDNS)
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                         0 /* opcode */,
+                                                         0 /* aa */,
+                                                         0 /* tc */,
+                                                         0 /* rd (ask for recursion) */,
+                                                         0 /* ra */,
+                                                         0 /* ad */,
+                                                         0 /* cd */,
+                                                         0 /* rcode */));
         else
                 h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
                                                          0 /* opcode */,
@@ -182,6 +192,13 @@ int dns_packet_validate_reply(DnsPacket *p) {
 
                 break;
 
+        case DNS_PROTOCOL_MDNS:
+                /* RFC 6762, Section 18 */
+                if (DNS_PACKET_RCODE(p) != 0)
+                        return -EBADMSG;
+
+                break;
+
         default:
                 break;
         }
@@ -219,6 +236,18 @@ int dns_packet_validate_query(DnsPacket *p) {
 
                 /* RFC 4795, Section 2.1.1. says to discard all queries with NSCOUNT != 0 */
                 if (DNS_PACKET_NSCOUNT(p) > 0)
+                        return -EBADMSG;
+
+                break;
+
+        case DNS_PROTOCOL_MDNS:
+                /* RFC 6762, Section 18 */
+                if (DNS_PACKET_AA(p)    != 0 ||
+                    DNS_PACKET_RD(p)    != 0 ||
+                    DNS_PACKET_RA(p)    != 0 ||
+                    DNS_PACKET_AD(p)    != 0 ||
+                    DNS_PACKET_CD(p)    != 0 ||
+                    DNS_PACKET_RCODE(p) != 0)
                         return -EBADMSG;
 
                 break;
@@ -1392,6 +1421,7 @@ fail:
 
 int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         _cleanup_free_ char *name = NULL;
+        bool cache_flush = false;
         uint16_t class, type;
         DnsResourceKey *key;
         size_t saved_rindex;
@@ -1414,11 +1444,22 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         if (r < 0)
                 goto fail;
 
+        if (p->protocol == DNS_PROTOCOL_MDNS) {
+                /* See RFC6762, Section 10.2 */
+
+                if (class & MDNS_RR_CACHE_FLUSH) {
+                        class &= ~MDNS_RR_CACHE_FLUSH;
+                        cache_flush = true;
+                }
+        }
+
         key = dns_resource_key_new_consume(class, type, name);
         if (!key) {
                 r = -ENOMEM;
                 goto fail;
         }
+
+        key->cache_flush = cache_flush;
 
         name = NULL;
         *ret = key;
@@ -1778,8 +1819,16 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
                 break;
 
-        case DNS_TYPE_NSEC:
-                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, false, NULL);
+        case DNS_TYPE_NSEC: {
+
+                /*
+                 * RFC6762, section 18.14 explicly states mDNS should use name compression.
+                 * This contradicts RFC3845, section 2.1.1
+                 */
+
+                bool allow_compressed = p->protocol == DNS_PROTOCOL_MDNS;
+
+                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, allow_compressed, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -1792,7 +1841,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                  * without the NSEC bit set. */
 
                 break;
-
+        }
         case DNS_TYPE_NSEC3: {
                 uint8_t size;
 

@@ -459,7 +459,12 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                r = dns_cache_put_positive(c, answer->items[i].rr, authenticated, timestamp, owner_family, owner_address);
+                DnsResourceRecord *rr = answer->items[i].rr;
+
+                if (rr->key->cache_flush)
+                        dns_cache_remove(c, rr->key);
+
+                r = dns_cache_put_positive(c, rr, authenticated, timestamp, owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -724,6 +729,39 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
 
         /* There's a conflict */
         return 1;
+}
+
+int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
+        unsigned ancount = 0;
+        Iterator iterator;
+        DnsCacheItem *i;
+        int r;
+
+        assert(cache);
+
+        HASHMAP_FOREACH(i, cache->by_key, iterator) {
+                DnsCacheItem *j;
+
+                LIST_FOREACH(by_key, j, i) {
+                        _cleanup_free_ char *t = NULL;
+
+                        if (!j->rr)
+                                continue;
+
+                        if (!dns_key_is_shared(j->rr->key))
+                                continue;
+
+                        r = dns_packet_append_rr(p, j->rr, NULL, NULL);
+                        if (r < 0)
+                                return r;
+
+                        ancount ++;
+                }
+        }
+
+        DNS_PACKET_HEADER(p)->ancount = htobe16(ancount);
+
+        return 0;
 }
 
 void dns_cache_dump(DnsCache *cache, FILE *f) {

@@ -62,7 +62,8 @@ struct DnsTransaction {
         DnsTransactionState state;
         uint16_t id;
 
-        bool initial_jitter;
+        bool initial_jitter_scheduled;
+        bool initial_jitter_elapsed;
 
         DnsPacket *sent, *received;
 
@@ -72,6 +73,7 @@ struct DnsTransaction {
         bool answer_authenticated;
 
         usec_t start_usec;
+        usec_t next_attempt_after;
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
@@ -118,6 +120,10 @@ DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
 
 /* LLMNR Jitter interval, see RFC 4795 Section 7 */
 #define LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
+
+/* mDNS Jitter interval, see RFC 6762 Section 5.2 */
+#define MDNS_JITTER_MIN_USEC   (20 * USEC_PER_MSEC)
+#define MDNS_JITTER_RANGE_USEC (100 * USEC_PER_MSEC)
 
 /* Maximum attempts to send DNS requests, across all DNS servers */
 #define DNS_TRANSACTION_ATTEMPTS_MAX 16

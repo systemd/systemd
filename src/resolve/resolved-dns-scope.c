@@ -30,6 +30,7 @@
 #include "random-util.h"
 #include "resolved-dns-scope.h"
 #include "resolved-llmnr.h"
+#include "resolved-mdns.h"
 #include "socket-util.h"
 #include "strv.h"
 
@@ -59,6 +60,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
         dns_scope_llmnr_membership(s, true);
+        dns_scope_mdns_membership(s, true);
 
         log_debug("New scope on link %s, protocol %s, family %s", l ? l->name : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
 
@@ -95,6 +97,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->name : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
 
         dns_scope_llmnr_membership(s, false);
+        dns_scope_mdns_membership(s, false);
         dns_scope_abort_transactions(s);
 
         while (s->query_candidates)
@@ -162,7 +165,6 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
-        uint16_t port;
         uint32_t mtu;
         size_t saved_size = 0;
 
@@ -228,7 +230,6 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
                         return -EBUSY;
 
                 family = s->family;
-                port = LLMNR_PORT;
 
                 if (family == AF_INET) {
                         addr.in = LLMNR_MULTICAST_IPV4_ADDRESS;
@@ -241,7 +242,30 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
+                r = manager_send(s->manager, fd, ifindex, family, &addr, LLMNR_PORT, p);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case DNS_PROTOCOL_MDNS:
+                if (!ratelimit_test(&s->ratelimit))
+                        return -EBUSY;
+
+                family = s->family;
+
+                if (family == AF_INET) {
+                        addr.in = MDNS_MULTICAST_IPV4_ADDRESS;
+                        fd = manager_mdns_ipv4_fd(s->manager);
+                } else if (family == AF_INET6) {
+                        addr.in6 = MDNS_MULTICAST_IPV6_ADDRESS;
+                        fd = manager_mdns_ipv6_fd(s->manager);
+                } else
+                        return -EAFNOSUPPORT;
+                if (fd < 0)
+                        return fd;
+
+                r = manager_send(s->manager, fd, ifindex, family, &addr, MDNS_PORT, p);
                 if (r < 0)
                         return r;
 
@@ -477,19 +501,15 @@ int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {
         return true;
 }
 
-int dns_scope_llmnr_membership(DnsScope *s, bool b) {
+static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in, struct in6_addr in6) {
         int fd;
 
         assert(s);
-
-        if (s->protocol != DNS_PROTOCOL_LLMNR)
-                return 0;
-
         assert(s->link);
 
         if (s->family == AF_INET) {
                 struct ip_mreqn mreqn = {
-                        .imr_multiaddr = LLMNR_MULTICAST_IPV4_ADDRESS,
+                        .imr_multiaddr = in,
                         .imr_ifindex = s->link->ifindex,
                 };
 
@@ -508,7 +528,7 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
 
         } else if (s->family == AF_INET6) {
                 struct ipv6_mreq mreq = {
-                        .ipv6mr_multiaddr = LLMNR_MULTICAST_IPV6_ADDRESS,
+                        .ipv6mr_multiaddr = in6,
                         .ipv6mr_interface = s->link->ifindex,
                 };
 
@@ -525,6 +545,22 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
                 return -EAFNOSUPPORT;
 
         return 0;
+}
+
+int dns_scope_llmnr_membership(DnsScope *s, bool b) {
+
+        if (s->protocol != DNS_PROTOCOL_LLMNR)
+                return 0;
+
+        return dns_scope_multicast_membership(s, b, LLMNR_MULTICAST_IPV4_ADDRESS, LLMNR_MULTICAST_IPV6_ADDRESS);
+}
+
+int dns_scope_mdns_membership(DnsScope *s, bool b) {
+
+        if (s->protocol != DNS_PROTOCOL_MDNS)
+                return 0;
+
+        return dns_scope_multicast_membership(s, b, MDNS_MULTICAST_IPV4_ADDRESS, MDNS_MULTICAST_IPV6_ADDRESS);
 }
 
 static int dns_scope_make_reply_packet(

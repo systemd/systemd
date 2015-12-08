@@ -93,6 +93,7 @@ DnsServer *dns_scope_get_dns_server(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
 
 int dns_scope_llmnr_membership(DnsScope *s, bool b);
+int dns_scope_mdns_membership(DnsScope *s, bool b);
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
 

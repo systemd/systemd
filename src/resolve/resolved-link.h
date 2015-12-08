@@ -67,10 +67,13 @@ struct Link {
         unsigned n_search_domains;
 
         Support llmnr_support;
+        Support mdns_support;
 
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;
         DnsScope *llmnr_ipv6_scope;
+        DnsScope *mdns_ipv4_scope;
+        DnsScope *mdns_ipv6_scope;
 
         char name[IF_NAMESIZE];
         uint32_t mtu;
