@@ -249,6 +249,7 @@
 /test-replace-var
 /test-resolve
 /test-ring
+/test-rlimit-util
 /test-sched-prio
 /test-set
 /test-sigbus

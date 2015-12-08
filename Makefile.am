@@ -147,6 +147,7 @@ tests=
 manual_tests =
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
+DISABLE_HARD_ERRORS = yes
 if ENABLE_TESTS
 noinst_PROGRAMS = $(manual_tests) $(tests)
 TESTS = $(tests)
@@ -1496,7 +1497,8 @@ tests += \
 	test-af-list \
 	test-arphrd-list \
 	test-dns-domain \
-	test-install-root
+	test-install-root \
+	test-rlimit-util
 
 if HAVE_ACL
 tests += \
@@ -1858,6 +1860,12 @@ test_acl_util_LDADD = \
 
 test_namespace_LDADD = \
 	libcore.la
+
+test_rlimit_util_SOURCES = \
+	src/test/test-rlimit-util.c
+
+test_rlimit_util_LDADD = \
+	libshared.la
 
 BUILT_SOURCES += \
 	src/test/test-hashmap-ordered.c
