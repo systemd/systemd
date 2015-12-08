@@ -744,8 +744,6 @@ CLEANFILES += \
 	man/systemd.index.xml \
 	man/systemd.directives.xml
 
-EXTRA_DIST += \
-	tools/make-man-rules.py
 
 endif
 
@@ -754,6 +752,7 @@ endif
 EXTRA_DIST += \
 	$(filter-out man/systemd.directives.xml man/systemd.index.xml,$(XML_FILES)) \
 	tools/make-man-index.py \
+	tools/make-man-rules.py \
 	tools/make-directive-index.py \
 	tools/xml_helper.py \
 	man/glib-event-glue.c
@@ -6209,15 +6208,7 @@ DISTCHECK_CONFIGURE_FLAGS += \
 	--disable-split-usr
 endif
 
-#
-# Require python when making dist
-#
-.PHONY: dist-check-python dist-check-help
-dist-check-python:
-if !HAVE_PYTHON
-	@echo "*** python and python-lxml module must be installed and enabled in order to make dist"
-	@false
-endif
+.PHONY: dist-check-help
 
 dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
 	for i in $(abspath $^); do                                             \
@@ -6226,8 +6217,6 @@ dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
 	        $$i  --help | awk 'length > 80' | grep -E --color=yes '.{80}'; \
 	        exit 1;                                                        \
             fi; done
-
-dist: dist-check-python
 
 .PHONY: hwdb-update
 hwdb-update:
