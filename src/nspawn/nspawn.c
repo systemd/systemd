@@ -175,6 +175,7 @@ static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static bool arg_userns = false;
 static int arg_kill_signal = 0;
 static bool arg_unified_cgroup_hierarchy = false;
+static bool arg_cgroup_namespace = false;
 static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
@@ -290,7 +291,7 @@ static int custom_mounts_prepare(void) {
         return 0;
 }
 
-static int detect_unified_cgroup_hierarchy(void) {
+static int detect_cgroup_parameters(void) {
         const char *e;
         int r;
 
@@ -302,15 +303,28 @@ static int detect_unified_cgroup_hierarchy(void) {
                         return log_error_errno(r, "Failed to parse $UNIFIED_CGROUP_HIERARCHY.");
 
                 arg_unified_cgroup_hierarchy = r;
-                return 0;
+        } else {
+                /* Otherwise inherit the default from the host system */
+                r = cg_unified();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+
+                arg_unified_cgroup_hierarchy = r;
         }
 
-        /* Otherwise inherit the default from the host system */
-        r = cg_unified();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+        /* Allow the user to control whether the cgroup namespace is used */
+        e = getenv("CGROUP_NAMESPACE");
+        if (e) {
+                r = parse_boolean(e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $CGROUP_NAMESPACE.");
 
-        arg_unified_cgroup_hierarchy = r;
+                arg_cgroup_namespace = r;
+        }
+
+        if (arg_cgroup_namespace && !arg_unified_cgroup_hierarchy)
+                        return log_error("Cannot use cgroup namespace in a non unified cgroup hierarchy.");
+
         return 0;
 }
 
@@ -920,7 +934,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
-        r = detect_unified_cgroup_hierarchy();
+        r = detect_cgroup_parameters();
         if (r < 0)
                 return r;
 
@@ -2465,9 +2479,23 @@ static int inner_child(
                 return -ESRCH;
         }
 
-        r = mount_systemd_cgroup_writable("", arg_unified_cgroup_hierarchy);
-        if (r < 0)
-                return r;
+        /* Enter the new cgroup namespace *after* being cgroup-ified in order
+         * to setup the new cgroup namespace with the correct root cgroup */
+        if (arg_cgroup_namespace) {
+                r = unshare(CLONE_NEWCGROUP);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to enter the new cgroup namespace: %m");
+
+                /* Mount the unified cgroup after the unshare in order to show
+                 * the correct root */
+                r = mount_cgroups("", arg_unified_cgroup_hierarchy, arg_userns, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
+                if (r < 0)
+                        return r;
+        } else {
+                r = mount_systemd_cgroup_writable("", arg_unified_cgroup_hierarchy);
+                if (r < 0)
+                        return r;
+        }
 
         r = reset_uid_gid();
         if (r < 0)
@@ -2752,9 +2780,13 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = mount_cgroups(directory, arg_unified_cgroup_hierarchy, arg_userns, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
-        if (r < 0)
-                return r;
+        /* With cgroup namespaces, the cgroup filesystem must be mounted after
+         * the inner child has been cgroup-ified */
+        if (!arg_cgroup_namespace) {
+                r = mount_cgroups(directory, arg_unified_cgroup_hierarchy, arg_userns, arg_uid_shift, arg_uid_range, arg_selinux_apifs_context);
+                if (r < 0)
+                        return r;
+        }
 
         r = mount_move_root(directory);
         if (r < 0)
