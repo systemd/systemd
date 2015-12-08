@@ -54,6 +54,7 @@ int chown_cgroup(pid_t pid, uid_t uid_shift) {
                        "tasks",
                        "notify_on_release",
                        "cgroup.procs",
+                       "cgroup.events",
                        "cgroup.clone_children",
                        "cgroup.controllers",
                        "cgroup.subtree_control",
