@@ -246,6 +246,7 @@
 /test-pty
 /test-qcow2
 /test-ratelimit
+/test-rbtree
 /test-replace-var
 /test-resolve
 /test-ring
