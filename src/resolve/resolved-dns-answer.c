@@ -81,6 +81,8 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex) {
 
         if (!a)
                 return -ENOSPC;
+        if (a->n_ref > 1)
+                return -EBUSY;
 
         for (i = 0; i < a->n_rrs; i++) {
                 if (a->items[i].ifindex != ifindex)
