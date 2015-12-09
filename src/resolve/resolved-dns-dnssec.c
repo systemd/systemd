@@ -654,15 +654,13 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         if (dnskey->dnskey.protocol != 3)
                 return -EKEYREJECTED;
 
-        if (!dnssec_algorithm_supported(dnskey->dnskey.algorithm))
-                return -EOPNOTSUPP;
-        if (!dnssec_digest_supported(ds->ds.digest_type))
-                return -EOPNOTSUPP;
-
         if (dnskey->dnskey.algorithm != ds->ds.algorithm)
                 return 0;
         if (dnssec_keytag(dnskey) != ds->ds.key_tag)
                 return 0;
+
+        if (!dnssec_digest_supported(ds->ds.digest_type))
+                return -EOPNOTSUPP;
 
         switch (ds->ds.digest_type) {
 
