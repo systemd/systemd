@@ -428,12 +428,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
         switch (t->scope->protocol) {
+
         case DNS_PROTOCOL_DNS:
                 assert(t->server);
 
                 if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
 
-                        /* request failed, immediately try again with reduced features */
+                        /* Request failed, immediately try again with reduced features */
                         log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
 
                         dns_server_packet_failed(t->server, t->current_features);
@@ -449,13 +450,14 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_server_packet_received(t->server, t->current_features, ts - t->start_usec, p->size);
 
                 break;
+
         case DNS_PROTOCOL_LLMNR:
         case DNS_PROTOCOL_MDNS:
                 dns_scope_packet_received(t->scope, ts - t->start_usec);
+                break;
 
-                break;
         default:
-                break;
+                assert_not_reached("Invalid DNS protocol.");
         }
 
         if (DNS_PACKET_TC(p)) {
@@ -474,7 +476,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         return;
                 }
                 if (r < 0) {
-                        /* On LLMNR and mDNS, if we cannot connect to the host,
+                        /* On LLMNR, if we cannot connect to the host,
                          * we immediately give up */
                         if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
                                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -494,7 +496,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
-        /* Parse and update the cache */
+        /* Parse message, if it isn't parsed yet. */
         r = dns_packet_extract(p);
         if (r < 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
@@ -503,7 +505,12 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
                 /* Only consider responses with equivalent query section to the request */
-                if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
+                r = dns_packet_is_reply_for(p, t->key);
+                if (r < 0) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                        return;
+                }
+                if (r == 0) {
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
                 }
@@ -549,7 +556,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
             DNS_PACKET_ID(p) == t->id)
                 dns_transaction_process_reply(t, p);
         else
-                log_debug("Invalid DNS packet.");
+                log_debug("Invalid DNS packet, ignoring.");
 
         return 0;
 }
