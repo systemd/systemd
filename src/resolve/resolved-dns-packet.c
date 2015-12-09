@@ -1526,7 +1526,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 goto fail;
 
         if (key->class == DNS_CLASS_ANY ||
-            key->type == DNS_TYPE_ANY) {
+            key->type == DNS_TYPE_ANY ||
+            key->type == DNS_TYPE_AXFR ||
+            key->type == DNS_TYPE_IXFR) {
                 r = -EBADMSG;
                 goto fail;
         }
