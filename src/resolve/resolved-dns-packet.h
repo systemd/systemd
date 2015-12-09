@@ -146,6 +146,8 @@ static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
 int dns_packet_new(DnsPacket **p, DnsProtocol protocol, size_t mtu);
 int dns_packet_new_query(DnsPacket **p, DnsProtocol protocol, size_t mtu, bool dnssec_checking_disabled);
 
+void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool truncated);
+
 DnsPacket *dns_packet_ref(DnsPacket *p);
 DnsPacket *dns_packet_unref(DnsPacket *p);
 
