@@ -290,7 +290,7 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
                 /* If there are multiple linked packets, set the TC bit in all but the last of them */
                 if (p->more) {
                         assert(p->protocol == DNS_PROTOCOL_MDNS);
-                        dns_packet_set_truncated_flag(p, true);
+                        dns_packet_set_flags(p, true, true);
                 }
 
                 r = dns_scope_emit_one(s, fd, server, p);
