@@ -153,6 +153,7 @@ static void dns_packet_free(DnsPacket *p) {
 
         dns_question_unref(p->question);
         dns_answer_unref(p->answer);
+        dns_resource_record_unref(p->opt);
 
         while ((s = hashmap_steal_first_key(p->names)))
                 free(s);
@@ -209,6 +210,7 @@ int dns_packet_validate_reply(DnsPacket *p) {
                 return -EBADMSG;
 
         switch (p->protocol) {
+
         case DNS_PROTOCOL_LLMNR:
                 /* RFC 4795, Section 2.1.1. says to discard all replies with QDCOUNT != 1 */
                 if (DNS_PACKET_QDCOUNT(p) != 1)
@@ -249,6 +251,7 @@ int dns_packet_validate_query(DnsPacket *p) {
                 return -EBADMSG;
 
         switch (p->protocol) {
+
         case DNS_PROTOCOL_LLMNR:
                 /* RFC 4795, Section 2.1.1. says to discard all queries with QDCOUNT != 1 */
                 if (DNS_PACKET_QDCOUNT(p) != 1)
@@ -963,6 +966,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                         goto fail;
 
                 break;
+
         case DNS_TYPE_NSEC3:
                 r = dns_packet_append_uint8(p, rr->nsec3.algorithm, NULL);
                 if (r < 0)
@@ -997,6 +1001,8 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                         goto fail;
 
                 break;
+
+        case DNS_TYPE_OPT:
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
@@ -1568,10 +1574,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 r = dns_packet_read_name(p, &rr->ptr.name, true, NULL);
                 break;
 
-        case DNS_TYPE_OPT: /* we only care about the header */
-                r = 0;
-                break;
-
         case DNS_TYPE_HINFO:
                 r = dns_packet_read_string(p, &rr->hinfo.cpu, NULL);
                 if (r < 0)
@@ -1749,6 +1751,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 }
 
                 break;
+
         case DNS_TYPE_SSHFP:
                 r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, NULL);
                 if (r < 0)
@@ -1911,6 +1914,8 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
                 break;
         }
+
+        case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
         default:
         unparseable:
                 r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.size, NULL);
@@ -1986,9 +1991,16 @@ int dns_packet_extract(DnsPacket *p) {
                         if (r < 0)
                                 goto finish;
 
-                        r = dns_answer_add(answer, rr, p->ifindex);
-                        if (r < 0)
-                                goto finish;
+                        if (rr->key->type == DNS_TYPE_OPT) {
+                                if (p->opt)
+                                        return -EBADMSG;
+
+                                p->opt = dns_resource_record_ref(rr);
+                        } else {
+                                r = dns_answer_add(answer, rr, p->ifindex);
+                                if (r < 0)
+                                        goto finish;
+                        }
                 }
         }
 

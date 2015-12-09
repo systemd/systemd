@@ -114,7 +114,7 @@ struct DnsResourceRecord {
                 struct {
                         void *data;
                         size_t size;
-                } generic;
+                } generic, opt;
 
                 struct {
                         uint16_t priority;

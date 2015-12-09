@@ -80,6 +80,7 @@ struct DnsPacket {
         /* Parsed data */
         DnsQuestion *question;
         DnsAnswer *answer;
+        DnsResourceRecord *opt;
 
         /* Packet reception metadata */
         int ifindex;
