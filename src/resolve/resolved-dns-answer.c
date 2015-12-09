@@ -46,6 +46,18 @@ DnsAnswer *dns_answer_ref(DnsAnswer *a) {
         return a;
 }
 
+static void dns_answer_flush(DnsAnswer *a) {
+        DnsResourceRecord *rr;
+
+        if (!a)
+                return;
+
+        DNS_ANSWER_FOREACH(rr, a)
+                dns_resource_record_unref(rr);
+
+        a->n_rrs = 0;
+}
+
 DnsAnswer *dns_answer_unref(DnsAnswer *a) {
         if (!a)
                 return NULL;
@@ -53,11 +65,7 @@ DnsAnswer *dns_answer_unref(DnsAnswer *a) {
         assert(a->n_ref > 0);
 
         if (a->n_ref == 1) {
-                unsigned i;
-
-                for (i = 0; i < a->n_rrs; i++)
-                        dns_resource_record_unref(a->items[i].rr);
-
+                dns_answer_flush(a);
                 free(a);
         } else
                 a->n_ref--;
