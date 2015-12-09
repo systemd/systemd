@@ -327,7 +327,7 @@ int dnssec_verify_rrset(
                 return -ENODATA;
 
         /* Bring the RRs into canonical order */
-        qsort_safe(list, n, sizeof(DnsResourceRecord), rr_compare);
+        qsort_safe(list, n, sizeof(DnsResourceRecord*), rr_compare);
 
         /* OK, the RRs are now in canonical order. Let's calculate the digest */
         switch (rrsig->rrsig.algorithm) {
