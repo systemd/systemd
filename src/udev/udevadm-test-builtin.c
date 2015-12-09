@@ -1,3 +1,5 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
 /*
  * Copyright (C) 2011 Kay Sievers <kay@vrfy.org>
  *
