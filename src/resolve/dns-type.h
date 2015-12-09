@@ -25,7 +25,7 @@
 
 const char *dns_type_to_string(int type);
 int dns_type_from_string(const char *s);
-bool dns_type_is_pseudo(int n);
+bool dns_type_is_pseudo(uint16_t n);
 
 /* DNS record types, taken from
  * http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml.

@@ -45,6 +45,6 @@ int dns_type_from_string(const char *s) {
 }
 
 /* XXX: find an authoritative list of all pseudo types? */
-bool dns_type_is_pseudo(int n) {
+bool dns_type_is_pseudo(uint16_t n) {
         return IN_SET(n, DNS_TYPE_ANY, DNS_TYPE_AXFR, DNS_TYPE_IXFR, DNS_TYPE_OPT);
 }
