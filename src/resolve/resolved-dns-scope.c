@@ -441,6 +441,10 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
             dns_name_equal(domain, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
+        /* Never respond to some of the domains listed in RFC6761 */
+        if (dns_name_endswith(domain, "invalid") > 0)
+                return DNS_SCOPE_NO;
+
         /* Always honour search domains for routing queries. Note that
          * we return DNS_SCOPE_YES here, rather than just
          * DNS_SCOPE_MAYBE, which means wildcard scopes won't be
