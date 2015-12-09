@@ -168,6 +168,9 @@ bool dns_resource_key_is_address(const DnsResourceKey *key) {
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         int r;
 
+        if (a == b)
+                return 1;
+
         r = dns_name_equal(DNS_RESOURCE_KEY_NAME(a), DNS_RESOURCE_KEY_NAME(b));
         if (r <= 0)
                 return r;
@@ -186,6 +189,9 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord
 
         assert(key);
         assert(rr);
+
+        if (key == rr->key)
+                return 1;
 
         /* Checks if an rr matches the specified key. If a search
          * domain is specified, it will also be checked if the key
@@ -502,6 +508,9 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
         assert(a);
         assert(b);
+
+        if (a == b)
+                return 1;
 
         r = dns_resource_key_equal(a->key, b->key);
         if (r <= 0)
@@ -1089,6 +1098,9 @@ DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
 }
 
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
+
+        if (a == b)
+                return true;
 
         if (!a != !b)
                 return false;
