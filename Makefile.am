@@ -2413,6 +2413,11 @@ nodist_sysusers_DATA = \
 	sysusers.d/systemd.conf \
 	sysusers.d/basic.conf
 
+if HAVE_REMOTE
+nodist_sysusers_DATA += \
+	sysusers.d/systemd-remote.conf
+endif
+
 INSTALL_DIRS += \
 	$(sysusersdir)
 endif
@@ -2420,6 +2425,7 @@ endif
 EXTRA_DIST += \
 	units/systemd-sysusers.service.in \
 	sysusers.d/systemd.conf.m4 \
+	sysusers.d/systemd-remote.conf.m4 \
 	sysusers.d/basic.conf.in
 
 # ------------------------------------------------------------------------------
@@ -3923,11 +3929,6 @@ systemd_journal_remote_CFLAGS = \
 
 systemd_journal_remote_LDADD += \
 	$(MICROHTTPD_LIBS)
-
-if ENABLE_SYSUSERS
-dist_sysusers_DATA += \
-	sysusers.d/systemd-remote.conf
-endif
 
 if ENABLE_TMPFILES
 dist_tmpfiles_DATA += \

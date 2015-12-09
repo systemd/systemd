@@ -839,18 +839,6 @@ fi
 AM_CONDITIONAL(HAVE_QRENCODE, [test "$have_qrencode" = "yes"])
 
 # ------------------------------------------------------------------------------
-have_microhttpd=no
-AC_ARG_ENABLE(microhttpd, AS_HELP_STRING([--disable-microhttpd], [disable microhttpd support]))
-if test "x$enable_microhttpd" != "xno"; then
-        PKG_CHECK_MODULES(MICROHTTPD, [libmicrohttpd >= 0.9.33],
-                [AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if microhttpd is available]) have_microhttpd=yes], have_microhttpd=no)
-        if test "x$have_microhttpd" = xno -a "x$enable_microhttpd" = xyes; then
-                AC_MSG_ERROR([*** microhttpd support requested but libraries not found])
-        fi
-fi
-AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
-
-# ------------------------------------------------------------------------------
 have_gnutls=no
 AC_ARG_ENABLE(gnutls, AS_HELP_STRING([--disable-gnutls], [disable gnutls support]))
 if test "x$enable_gnutls" != "xno"; then
@@ -863,16 +851,37 @@ fi
 AM_CONDITIONAL(HAVE_GNUTLS, [test "$have_gnutls" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_microhttpd=no
+AC_ARG_ENABLE(microhttpd, AS_HELP_STRING([--disable-microhttpd], [disable microhttpd support]))
+if test "x$enable_microhttpd" != "xno"; then
+        PKG_CHECK_MODULES(MICROHTTPD, [libmicrohttpd >= 0.9.33],
+                [AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if microhttpd is available])
+                 have_microhttpd=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_MICROHTTPD"],
+                [have_microhttpd=no])
+        if test "x$have_microhttpd" = xno -a "x$enable_microhttpd" = xyes; then
+                AC_MSG_ERROR([*** microhttpd support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_libcurl=no
 AC_ARG_ENABLE(libcurl, AS_HELP_STRING([--disable-libcurl], [disable libcurl support]))
 if test "x$enable_libcurl" != "xno"; then
         PKG_CHECK_MODULES(LIBCURL, [libcurl],
-                [AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available]) have_libcurl=yes], have_libcurl=no)
+                [AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available])
+                 have_libcurl=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_LIBCURL"],
+                [have_libcurl=no])
         if test "x$have_libcurl" = xno -a "x$enable_libcurl" = xyes; then
                 AC_MSG_ERROR([*** libcurl support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_LIBCURL, [test "$have_libcurl" = "yes"])
+
+# ------------------------------------------------------------------------------
+AM_CONDITIONAL(HAVE_REMOTE, [test "$have_microhttpd" = "yes" -o "$have_libcurl" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_libidn=no
