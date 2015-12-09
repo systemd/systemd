@@ -106,6 +106,14 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         assert(s);
         assert(key);
 
+        /* Don't allow looking up invalid or pseudo RRs */
+        if (IN_SET(key->type, DNS_TYPE_OPT, 0, DNS_TYPE_TSIG, DNS_TYPE_TKEY))
+                return -EINVAL;
+
+        /* We only support the IN class */
+        if (key->class != DNS_CLASS_IN)
+                return -EOPNOTSUPP;
+
         r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL);
         if (r < 0)
                 return r;
