@@ -461,10 +461,8 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &m->llmnr_ipv6_tcp_event_source, m->llmnr_ipv6_tcp_fd, EPOLLIN, on_llmnr_stream, m);
-        if (r < 0)  {
-                r = -errno;
+        if (r < 0)
                 goto fail;
-        }
 
         return m->llmnr_ipv6_tcp_fd;
 

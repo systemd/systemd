@@ -275,10 +275,8 @@ int manager_mdns_ipv6_fd(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &m->mdns_ipv6_event_source, m->mdns_ipv6_fd, EPOLLIN, on_mdns_packet, m);
-        if (r < 0)  {
-                r = -errno;
+        if (r < 0)
                 goto fail;
-        }
 
         return m->mdns_ipv6_fd;
 
