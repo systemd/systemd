@@ -157,6 +157,9 @@ static int bus_mount_set_transient_property(
                 if (!p)
                         return -ENOMEM;
 
+                unit_write_drop_in_format(UNIT(m), mode, name, "[Mount]\n%s=%s\n",
+                        name, new_property);
+
                 free(*property);
                 *property = p;
         }
