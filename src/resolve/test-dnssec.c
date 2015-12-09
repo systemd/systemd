@@ -56,6 +56,7 @@ static void test_dnssec_verify_rrset(void) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *rrsig = NULL, *dnskey = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
+        DnssecResult result;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "nAsA.gov");
         assert_se(a);
@@ -106,7 +107,8 @@ static void test_dnssec_verify_rrset(void) {
         assert_se(dns_answer_add(answer, a, 0) >= 0);
 
         /* Validate the RR as it if was 2015-12-2 today */
-        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC) == DNSSEC_VERIFIED);
+        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, &result) >= 0);
+        assert_se(result == DNSSEC_VALIDATED);
 }
 
 static void test_dnssec_verify_dns_key(void) {

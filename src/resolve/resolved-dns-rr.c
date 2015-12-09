@@ -253,7 +253,24 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
         }
 
         return 0;
+}
 
+int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa) {
+        assert(soa);
+        assert(key);
+
+        /* Checks whether 'soa' is a SOA record for the specified key. */
+
+        if (soa->class != DNS_CLASS_IN)
+                return 0;
+
+        if (soa->type != DNS_TYPE_SOA)
+                return 0;
+
+        if (!dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa)))
+                return 0;
+
+        return 1;
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {

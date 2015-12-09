@@ -32,6 +32,7 @@
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQueryCandidate *c;
         DnsZoneItem *i;
+        DnsTransaction *z;
 
         if (!t)
                 return NULL;
@@ -59,14 +60,25 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         dns_resource_key_unref(t->key);
 
-        while ((c = set_steal_first(t->query_candidates)))
+        while ((c = set_steal_first(t->notify_query_candidates)))
                 set_remove(c->transactions, t);
+        set_free(t->notify_query_candidates);
 
-        set_free(t->query_candidates);
-
-        while ((i = set_steal_first(t->zone_items)))
+        while ((i = set_steal_first(t->notify_zone_items)))
                 i->probe_transaction = NULL;
-        set_free(t->zone_items);
+        set_free(t->notify_zone_items);
+
+        while ((z = set_steal_first(t->notify_transactions)))
+                set_remove(z->dnssec_transactions, t);
+        set_free(t->notify_transactions);
+
+        while ((z = set_steal_first(t->dnssec_transactions))) {
+                set_remove(z->notify_transactions, t);
+                dns_transaction_gc(z);
+        }
+        set_free(t->dnssec_transactions);
+
+        dns_answer_unref(t->validated_keys);
 
         free(t);
         return NULL;
@@ -80,7 +92,9 @@ void dns_transaction_gc(DnsTransaction *t) {
         if (t->block_gc > 0)
                 return;
 
-        if (set_isempty(t->query_candidates) && set_isempty(t->zone_items))
+        if (set_isempty(t->notify_query_candidates) &&
+            set_isempty(t->notify_zone_items) &&
+            set_isempty(t->notify_transactions))
                 dns_transaction_free(t);
 }
 
@@ -106,6 +120,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
 
         t->dns_udp_fd = -1;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
+        t->dnssec_result = _DNSSEC_RESULT_INVALID;
         t->key = dns_resource_key_ref(key);
 
         /* Find a fresh, unused transaction id */
@@ -175,7 +190,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         log_debug("We have the lexicographically larger IP address and thus lost in the conflict.");
 
         t->block_gc++;
-        while ((z = set_first(t->zone_items))) {
+        while ((z = set_first(t->notify_zone_items))) {
                 /* First, make sure the zone item drops the reference
                  * to us */
                 dns_zone_item_probe_stop(z);
@@ -192,10 +207,11 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         DnsQueryCandidate *c;
         DnsZoneItem *z;
+        DnsTransaction *d;
         Iterator i;
 
         assert(t);
-        assert(!IN_SET(state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
+        assert(!DNS_TRANSACTION_IS_LIVE(state));
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -215,10 +231,12 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         /* Notify all queries that are interested, but make sure the
          * transaction isn't freed while we are still looking at it */
         t->block_gc++;
-        SET_FOREACH(c, t->query_candidates, i)
-                dns_query_candidate_ready(c);
-        SET_FOREACH(z, t->zone_items, i)
-                dns_zone_item_ready(z);
+        SET_FOREACH(c, t->notify_query_candidates, i)
+                dns_query_candidate_notify(c);
+        SET_FOREACH(z, t->notify_zone_items, i)
+                dns_zone_item_notify(z);
+        SET_FOREACH(d, t->notify_transactions, i)
+                dns_transaction_notify(d, t);
         t->block_gc--;
 
         dns_transaction_gc(t);
@@ -346,6 +364,73 @@ static void dns_transaction_next_dns_server(DnsTransaction *t) {
         t->dns_udp_fd = safe_close(t->dns_udp_fd);
 
         dns_scope_next_dns_server(t->scope);
+}
+
+static void dns_transaction_cache_answer(DnsTransaction *t) {
+        unsigned n_cache;
+
+        assert(t);
+
+        /* For mDNS we cache whenever we get the packet, rather than
+         * in each transaction. */
+        if (!IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR))
+                return;
+
+        /* We never cache if this packet is from the local host, under
+         * the assumption that a locally running DNS server would
+         * cache this anyway, and probably knows better when to flush
+         * the cache then we could. */
+        if (!DNS_PACKET_SHALL_CACHE(t->received))
+                return;
+
+        /* According to RFC 4795, section 2.9. only the RRs from the
+         * answer section shall be cached. However, if we know the
+         * message is authenticated, we might as well cache
+         * everything. */
+        if (t->answer_authenticated)
+                n_cache = dns_answer_size(t->answer);
+        else
+                n_cache = DNS_PACKET_ANCOUNT(t->received);
+
+        dns_cache_put(&t->scope->cache,
+                      t->key,
+                      t->answer_rcode,
+                      t->answer,
+                      n_cache,
+                      t->answer_authenticated,
+                      0,
+                      t->received->family,
+                      &t->received->sender);
+}
+
+static void dns_transaction_process_dnssec(DnsTransaction *t) {
+        int r;
+
+        assert(t);
+
+        /* Are there ongoing DNSSEC transactions? If so, let's wait for them. */
+        if (!set_isempty(t->dnssec_transactions))
+                return;
+
+        /* All our auxiliary DNSSEC transactions are complete now. Try
+         * to validate our RRset now. */
+        r = dns_transaction_validate_dnssec(t);
+        if (r < 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                return;
+        }
+
+        if (!IN_SET(t->dnssec_result, _DNSSEC_RESULT_INVALID, DNSSEC_VALIDATED, DNSSEC_NO_SIGNATURE /* FOR NOW! */)) {
+                dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                return;
+        }
+
+        dns_transaction_cache_answer(t);
+
+        if (t->answer_rcode == DNS_RCODE_SUCCESS)
+                dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+        else
+                dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
@@ -525,23 +610,19 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 t->answer_rcode = DNS_PACKET_RCODE(p);
                 t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
 
-                /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
-                if (DNS_PACKET_SHALL_CACHE(p))
-                        dns_cache_put(&t->scope->cache,
-                                      t->key,
-                                      DNS_PACKET_RCODE(p),
-                                      p->answer,
-                                      DNS_PACKET_ANCOUNT(p),
-                                      t->answer_authenticated,
-                                      0,
-                                      p->family,
-                                      &p->sender);
+                r = dns_transaction_request_dnssec_keys(t);
+                if (r < 0) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                        return;
+                }
+                if (r > 0) {
+                        /* There are DNSSEC transactions pending now. Update the state accordingly. */
+                        t->state = DNS_TRANSACTION_VALIDATING;
+                        return;
+                }
         }
 
-        if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
-                dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
-        else
-                dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
+        dns_transaction_process_dnssec(t);
 }
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -700,7 +781,7 @@ static int dns_transaction_prepare_next_attempt(DnsTransaction *t, usec_t ts) {
 
         /* Check the zone, but only if this transaction is not used
          * for probing or verifying a zone item. */
-        if (set_isempty(t->zone_items)) {
+        if (set_isempty(t->notify_zone_items)) {
 
                 r = dns_zone_lookup(&t->scope->zone, t->key, &t->answer, NULL, NULL);
                 if (r < 0)
@@ -716,7 +797,7 @@ static int dns_transaction_prepare_next_attempt(DnsTransaction *t, usec_t ts) {
 
         /* Check the cache, but only if this transaction is not used
          * for probing or verifying a zone item. */
-        if (set_isempty(t->zone_items)) {
+        if (set_isempty(t->notify_zone_items)) {
 
                 /* Before trying the cache, let's make sure we figured out a
                  * server to use. Should this cause a change of server this
@@ -887,14 +968,22 @@ int dns_transaction_go(DnsTransaction *t) {
         assert(t);
 
         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+
         r = dns_transaction_prepare_next_attempt(t, ts);
         if (r <= 0)
                 return r;
 
-        log_debug("Excercising transaction on scope %s on %s/%s",
-                  dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
-                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
+        if (log_get_max_level() >= LOG_DEBUG) {
+                _cleanup_free_ char *ks = NULL;
+
+                (void) dns_resource_key_to_string(t->key, &ks);
+
+                log_debug("Excercising transaction for <%s> on scope %s on %s/%s",
+                          ks ? strstrip(ks) : "???",
+                          dns_protocol_to_string(t->scope->protocol),
+                          t->scope->link ? t->scope->link->name : "*",
+                          t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
+        }
 
         if (!t->initial_jitter_scheduled &&
             (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
@@ -999,9 +1088,364 @@ int dns_transaction_go(DnsTransaction *t) {
         return 1;
 }
 
+static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
+        DnsTransaction *aux;
+        int r;
+
+        assert(t);
+        assert(ret);
+        assert(key);
+
+        aux = dns_scope_find_transaction(t->scope, key, true);
+        if (!aux) {
+                r = dns_transaction_new(&aux, t->scope, key);
+                if (r < 0)
+                        return r;
+        } else {
+                if (set_contains(t->dnssec_transactions, aux)) {
+                        *ret = aux;
+                        return 0;
+                }
+        }
+
+        r = set_ensure_allocated(&t->dnssec_transactions, NULL);
+        if (r < 0)
+                goto gc;
+
+        r = set_ensure_allocated(&aux->notify_transactions, NULL);
+        if (r < 0)
+                goto gc;
+
+        r = set_put(t->dnssec_transactions, aux);
+        if (r < 0)
+                goto gc;
+
+        r = set_put(aux->notify_transactions, t);
+        if (r < 0) {
+                (void) set_remove(t->dnssec_transactions, aux);
+                goto gc;
+        }
+
+        *ret = aux;
+        return 1;
+
+gc:
+        dns_transaction_gc(aux);
+        return r;
+}
+
+static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *key) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL;
+        DnsTransaction *aux;
+        int r;
+
+        assert(t);
+        assert(key);
+
+        /* Try to get the data from the trust anchor */
+        r = dns_trust_anchor_lookup(&t->scope->manager->trust_anchor, key, &a);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = dns_answer_extend(&t->validated_keys, a);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        /* This didn't work, ask for it via the network/cache then. */
+        r = dns_transaction_add_dnssec_transaction(t, key, &aux);
+        if (r < 0)
+                return r;
+
+        if (aux->state == DNS_TRANSACTION_NULL) {
+                r = dns_transaction_go(aux);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(t);
+
+        if (t->scope->dnssec_mode != DNSSEC_YES)
+                return 0;
+
+        DNS_ANSWER_FOREACH(rr, t->answer) {
+
+                switch (rr->key->type) {
+
+                case DNS_TYPE_RRSIG: {
+                        /* For each RRSIG we request the matching DNSKEY */
+                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dnskey = NULL;
+
+                        /* If this RRSIG is about a DNSKEY RR and the
+                         * signer is the same as the owner, then we
+                         * already have the DNSKEY, and we don't have
+                         * to look for more. */
+                        if (rr->rrsig.type_covered == DNS_TYPE_DNSKEY) {
+                                r = dns_name_equal(rr->rrsig.signer, DNS_RESOURCE_KEY_NAME(rr->key));
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
+
+                        /* If the signer is not a parent of the owner,
+                         * then the signature is bogus, let's ignore
+                         * it. */
+                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), rr->rrsig.signer);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        dnskey = dns_resource_key_new(rr->key->class, DNS_TYPE_DNSKEY, rr->rrsig.signer);
+                        if (!dnskey)
+                                return -ENOMEM;
+
+                        log_debug("Requesting DNSKEY to validate transaction %" PRIu16" (key tag: %" PRIu16 ").", t->id, rr->rrsig.key_tag);
+
+                        r = dns_transaction_request_dnssec_rr(t, dnskey);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case DNS_TYPE_DNSKEY: {
+                        /* For each DNSKEY we request the matching DS */
+                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+
+                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, DNS_RESOURCE_KEY_NAME(rr->key));
+                        if (!ds)
+                                return -ENOMEM;
+
+                        log_debug("Requesting DS to validate transaction %" PRIu16" (key tag: %" PRIu16 ").", t->id, dnssec_keytag(rr));
+
+                        r = dns_transaction_request_dnssec_rr(t, ds);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }}
+        }
+
+        return !set_isempty(t->dnssec_transactions);
+}
+
+void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
+        int r;
+
+        assert(t);
+        assert(IN_SET(t->state, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING));
+        assert(source);
+
+        /* Invoked whenever any of our auxiliary DNSSEC transactions
+           completed its work. We simply copy the answer from that
+           transaction over. */
+
+        if (source->state != DNS_TRANSACTION_SUCCESS) {
+                log_debug("Auxiliary DNSSEC RR query failed.");
+                t->dnssec_result = DNSSEC_FAILED_AUXILIARY;
+        } else {
+                r = dns_answer_extend(&t->validated_keys, source->answer);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to merge validated DNSSEC key data: %m");
+                        t->dnssec_result = DNSSEC_FAILED_AUXILIARY;
+                }
+        }
+
+        /* Detach us from the DNSSEC transaction. */
+        (void) set_remove(t->dnssec_transactions, source);
+        (void) set_remove(source->notify_transactions, t);
+
+        /* If the state is still PENDING, we are still in the loop
+         * that adds further DNSSEC transactions, hence don't check if
+         * we are ready yet. If the state is VALIDATING however, we
+         * should check if we are complete now. */
+        if (t->state == DNS_TRANSACTION_VALIDATING)
+                dns_transaction_process_dnssec(t);
+}
+
+int dns_transaction_validate_dnssec(DnsTransaction *t) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
+        DnsResourceRecord *rr;
+        int ifindex, r;
+
+        assert(t);
+
+        /* We have now collected all DS and DNSKEY RRs in
+         * t->validated_keys, let's see which RRs we can now
+         * authenticate with that. */
+
+        if (t->scope->dnssec_mode != DNSSEC_YES)
+                return 0;
+
+        /* Already validated */
+        if (t->dnssec_result != _DNSSEC_RESULT_INVALID)
+                return 0;
+
+        if (IN_SET(t->answer_source, DNS_TRANSACTION_ZONE, DNS_TRANSACTION_TRUST_ANCHOR)) {
+                t->dnssec_result = DNSSEC_VALIDATED;
+                t->answer_authenticated = true;
+                return 0;
+        }
+
+        if (log_get_max_level() >= LOG_DEBUG) {
+                _cleanup_free_ char *ks = NULL;
+
+                (void) dns_resource_key_to_string(t->key, &ks);
+                log_debug("Validating response from transaction %" PRIu16 " (%s).", t->id, ks ? strstrip(ks) : "???");
+        }
+
+        /* First see if there are DNSKEYs we already known a validated DS for. */
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, t->answer) {
+
+                r = dnssec_verify_dnskey_search(rr, t->validated_keys);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* If so, the DNSKEY is validated too. */
+                r = dns_answer_add_extend(&t->validated_keys, rr, ifindex);
+                if (r < 0)
+                        return r;
+        }
+
+        for (;;) {
+                bool changed = false, missing_key_for_transaction = false;
+
+                DNS_ANSWER_FOREACH(rr, t->answer) {
+                        DnssecResult result;
+
+                        if (rr->key->type == DNS_TYPE_RRSIG)
+                                continue;
+
+                        r = dnssec_verify_rrset_search(t->answer, rr->key, t->validated_keys, USEC_INFINITY, &result);
+                        if (r < 0)
+                                return r;
+
+                        if (log_get_max_level() >= LOG_DEBUG) {
+                                _cleanup_free_ char *rrs = NULL;
+
+                                (void) dns_resource_record_to_string(rr, &rrs);
+                                log_debug("Looking at %s: %s", rrs ? strstrip(rrs) : "???", dnssec_result_to_string(result));
+                        }
+
+                        switch (result) {
+
+                        case DNSSEC_VALIDATED:
+
+                                /* Add the validated RRset to the new list of validated RRsets */
+                                r = dns_answer_copy_by_key(&validated, t->answer, rr->key);
+                                if (r < 0)
+                                        return r;
+
+                                if (rr->key->type == DNS_TYPE_DNSKEY) {
+                                        /* If we just validated a
+                                         * DNSKEY RRset, then let's
+                                         * add these keys to the set
+                                         * of validated keys for this
+                                         * transaction. */
+
+                                        r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                /* Now, remove this RRset from the RRs still to process */
+                                r = dns_answer_remove_by_key(&t->answer, rr->key);
+                                if (r < 0)
+                                        return r;
+
+                                changed = true;
+                                break;
+
+                        case DNSSEC_INVALID:
+                        case DNSSEC_NO_SIGNATURE:
+                        case DNSSEC_SIGNATURE_EXPIRED:
+
+                                /* Is this the RRset that we were looking for? If so, this is fatal for the whole transaction */
+                                r = dns_resource_key_match_rr(t->key, rr, NULL);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0) {
+                                        t->dnssec_result = result;
+                                        return 0;
+                                }
+
+                                /* Is this a CNAME for a record we were looking for? If so, it's also fatal for the whole transaction */
+                                r = dns_resource_key_match_cname(t->key, rr, NULL);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0) {
+                                        t->dnssec_result = result;
+                                        return 0;
+                                }
+
+                                /* This is just something auxiliary. Just remove the RRset and continue. */
+                                r = dns_answer_remove_by_key(&t->answer, rr->key);
+                                if (r < 0)
+                                        return r;
+
+                                changed = true;
+                                break;
+
+                        case DNSSEC_MISSING_KEY:
+                                /* They key is missing? Let's continue
+                                 * with the next iteration, maybe
+                                 * we'll find it in an DNSKEY RRset
+                                 * later on. */
+
+                                r = dns_resource_key_equal(rr->key, t->key);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        missing_key_for_transaction = true;
+
+                                break;
+
+                        default:
+                                assert_not_reached("Unexpected DNSSEC result");
+                        }
+
+                        if (changed)
+                                break;
+                }
+
+                if (changed)
+                        continue;
+
+                /* This didn't work either, there's no point in
+                 * continuing. */
+                if (missing_key_for_transaction) {
+                        t->dnssec_result = DNSSEC_MISSING_KEY;
+                        return 0;
+                }
+
+                break;
+        }
+
+        dns_answer_unref(t->answer);
+        t->answer = validated;
+        validated = NULL;
+
+        t->answer_authenticated = true;
+        t->dnssec_result = DNSSEC_VALIDATED;
+        return 1;
+}
+
 static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
         [DNS_TRANSACTION_NULL] = "null",
         [DNS_TRANSACTION_PENDING] = "pending",
+        [DNS_TRANSACTION_VALIDATING] = "validating",
         [DNS_TRANSACTION_FAILURE] = "failure",
         [DNS_TRANSACTION_SUCCESS] = "success",
         [DNS_TRANSACTION_NO_SERVERS] = "no-servers",
@@ -1010,6 +1454,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_INVALID_REPLY] = "invalid-reply",
         [DNS_TRANSACTION_RESOURCES] = "resources",
         [DNS_TRANSACTION_ABORTED] = "aborted",
+        [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 

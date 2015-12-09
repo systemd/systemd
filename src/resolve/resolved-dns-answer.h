@@ -30,7 +30,9 @@ typedef struct DnsAnswerItem DnsAnswerItem;
 /* A simple array of resource records. We keep track of the
  * originating ifindex for each RR where that makes sense, so that we
  * can qualify A and AAAA RRs referring to a local link with the
- * right ifindex. */
+ * right ifindex.
+ *
+ * Note that we usually encode the empty answer as a simple NULL. */
 
 struct DnsAnswerItem {
         DnsResourceRecord *rr;
@@ -48,15 +50,28 @@ DnsAnswer *dns_answer_ref(DnsAnswer *a);
 DnsAnswer *dns_answer_unref(DnsAnswer *a);
 
 int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex);
+int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex);
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl);
-int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key);
-int dns_answer_match_soa(DnsResourceKey *key, DnsResourceKey *soa);
-int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **ret);
 
-DnsAnswer *dns_answer_merge(DnsAnswer *a, DnsAnswer *b);
+int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key);
+int dns_answer_contains_rr(DnsAnswer *a, DnsResourceRecord *rr);
+
+int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret);
+
+int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret);
+int dns_answer_extend(DnsAnswer **a, DnsAnswer *b);
+
 void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local);
 
 int dns_answer_reserve(DnsAnswer **a, unsigned n_free);
+int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free);
+
+int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key);
+int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKey *key);
+
+static inline unsigned dns_answer_size(DnsAnswer *a) {
+        return a ? a->n_rrs : 0;
+}
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 

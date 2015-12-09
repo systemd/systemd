@@ -60,6 +60,9 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_ABORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
 
+        case DNS_TRANSACTION_DNSSEC_FAILED:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "DNSSEC validation failed");
+
         case DNS_TRANSACTION_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 

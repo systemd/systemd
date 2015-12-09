@@ -73,6 +73,35 @@ DnsAnswer *dns_answer_unref(DnsAnswer *a) {
         return NULL;
 }
 
+static int dns_answer_add_raw(DnsAnswer *a, DnsResourceRecord *rr, int ifindex) {
+        assert(rr);
+
+        if (!a)
+                return -ENOSPC;
+
+        if (a->n_rrs >= a->n_allocated)
+                return -ENOSPC;
+
+        a->items[a->n_rrs].rr = dns_resource_record_ref(rr);
+        a->items[a->n_rrs].ifindex = ifindex;
+        a->n_rrs++;
+
+        return 1;
+}
+
+static int dns_answer_add_raw_all(DnsAnswer *a, DnsAnswer *source) {
+        DnsResourceRecord *rr;
+        int ifindex, r;
+
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, source) {
+                r = dns_answer_add_raw(a, rr, ifindex);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex) {
         unsigned i;
         int r;
@@ -105,14 +134,33 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex) {
                 }
         }
 
-        if (a->n_rrs >= a->n_allocated)
-                return -ENOSPC;
+        return dns_answer_add_raw(a, rr, ifindex);
+}
 
-        a->items[a->n_rrs].rr = dns_resource_record_ref(rr);
-        a->items[a->n_rrs].ifindex = ifindex;
-        a->n_rrs++;
+static int dns_answer_add_all(DnsAnswer *a, DnsAnswer *b) {
+        DnsResourceRecord *rr;
+        int ifindex, r;
 
-        return 1;
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, b) {
+                r = dns_answer_add(a, rr, ifindex);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex) {
+        int r;
+
+        assert(a);
+        assert(rr);
+
+        r = dns_answer_reserve_or_clone(a, 1);
+        if (r < 0)
+                return r;
+
+        return dns_answer_add(*a, rr, ifindex);
 }
 
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl) {
@@ -141,8 +189,8 @@ int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl) {
         return dns_answer_add(a, soa, 0);
 }
 
-int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key) {
-        unsigned i;
+int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key) {
+        DnsResourceRecord *i;
         int r;
 
         assert(key);
@@ -150,8 +198,8 @@ int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key) {
         if (!a)
                 return 0;
 
-        for (i = 0; i < a->n_rrs; i++) {
-                r = dns_resource_key_match_rr(key, a->items[i].rr, NULL);
+        DNS_ANSWER_FOREACH(i, a) {
+                r = dns_resource_key_match_rr(key, i, NULL);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -161,21 +209,25 @@ int dns_answer_contains(DnsAnswer *a, DnsResourceKey *key) {
         return 0;
 }
 
-int dns_answer_match_soa(DnsResourceKey *key, DnsResourceKey *soa) {
-        if (soa->class != DNS_CLASS_IN)
-                return 0;
+int dns_answer_contains_rr(DnsAnswer *a, DnsResourceRecord *rr) {
+        DnsResourceRecord *i;
+        int r;
 
-        if (soa->type != DNS_TYPE_SOA)
-                return 0;
+        assert(rr);
 
-        if (!dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa)))
-                return 0;
+        DNS_ANSWER_FOREACH(i, a) {
+                r = dns_resource_record_equal(i, rr);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
 
-        return 1;
+        return 0;
 }
 
-int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **ret) {
-        unsigned i;
+int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret) {
+        DnsResourceRecord *rr;
 
         assert(key);
         assert(ret);
@@ -187,10 +239,9 @@ int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **r
         if (key->type == DNS_TYPE_SOA)
                 return 0;
 
-        for (i = 0; i < a->n_rrs; i++) {
-
-                if (dns_answer_match_soa(key, a->items[i].rr->key)) {
-                        *ret = a->items[i].rr;
+        DNS_ANSWER_FOREACH(rr, a) {
+                if (dns_resource_key_match_soa(key, rr->key)) {
+                        *ret = rr;
                         return 1;
                 }
         }
@@ -198,41 +249,169 @@ int dns_answer_find_soa(DnsAnswer *a, DnsResourceKey *key, DnsResourceRecord **r
         return 0;
 }
 
-DnsAnswer *dns_answer_merge(DnsAnswer *a, DnsAnswer *b) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret = NULL;
-        DnsAnswer *k;
+int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *k = NULL;
+        int r;
+
+        assert(ret);
+
+        if (dns_answer_size(a) <= 0) {
+                *ret = dns_answer_ref(b);
+                return 0;
+        }
+
+        if (dns_answer_size(b) <= 0) {
+                *ret = dns_answer_ref(a);
+                return 0;
+        }
+
+        k = dns_answer_new(a->n_rrs + b->n_rrs);
+        if (!k)
+                return -ENOMEM;
+
+        r = dns_answer_add_raw_all(k, a);
+        if (r < 0)
+                return r;
+
+        r = dns_answer_add_all(k, b);
+        if (r < 0)
+                return r;
+
+        *ret = k;
+        k = NULL;
+
+        return 0;
+}
+
+int dns_answer_extend(DnsAnswer **a, DnsAnswer *b) {
+        DnsAnswer *merged;
+        int r;
+
+        assert(a);
+
+        r = dns_answer_merge(*a, b, &merged);
+        if (r < 0)
+                return r;
+
+        dns_answer_unref(*a);
+        *a = merged;
+
+        return 0;
+}
+
+int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
+        bool found = false, other = false;
+        DnsResourceRecord *rr;
         unsigned i;
         int r;
 
-        if (a && (!b || b->n_rrs <= 0))
-                return dns_answer_ref(a);
-        if ((!a || a->n_rrs <= 0) && b)
-                return dns_answer_ref(b);
+        assert(a);
+        assert(key);
 
-        ret = dns_answer_new((a ? a->n_rrs : 0) + (b ? b->n_rrs : 0));
-        if (!ret)
-                return NULL;
+        /* Remove all entries matching the specified key from *a */
 
-        if (a) {
-                for (i = 0; i < a->n_rrs; i++) {
-                        r = dns_answer_add(ret, a->items[i].rr, a->items[i].ifindex);
-                        if (r < 0)
-                                return NULL;
-                }
+        DNS_ANSWER_FOREACH(rr, *a) {
+                r = dns_resource_key_equal(rr->key, key);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        found = true;
+                else
+                        other = true;
+
+                if (found && other)
+                        break;
         }
 
-        if (b) {
-                for (i = 0; i < b->n_rrs; i++) {
-                        r = dns_answer_add(ret, b->items[i].rr, b->items[i].ifindex);
-                        if (r < 0)
-                                return NULL;
-                }
+        if (!found)
+                return 0;
+
+        if (!other) {
+                *a = dns_answer_unref(*a); /* Return NULL for the empty answer */
+                return 1;
         }
 
-        k = ret;
-        ret = NULL;
+        if ((*a)->n_ref > 1) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *copy = NULL;
+                int ifindex;
 
-        return k;
+                copy = dns_answer_new((*a)->n_rrs);
+                if (!copy)
+                        return -ENOMEM;
+
+                DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, *a) {
+                        r = dns_resource_key_equal(rr->key, key);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
+                        r = dns_answer_add_raw(copy, rr, ifindex);
+                        if (r < 0)
+                                return r;
+                }
+
+                dns_answer_unref(*a);
+                *a = copy;
+                copy = NULL;
+
+                return 1;
+        }
+
+        /* Only a single reference, edit in-place */
+
+        i = 0;
+        for (;;) {
+                if (i >= (*a)->n_rrs)
+                        break;
+
+                r = dns_resource_key_equal((*a)->items[i].rr->key, key);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* Kill this entry */
+
+                        dns_resource_record_unref((*a)->items[i].rr);
+                        memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
+                        (*a)->n_rrs --;
+                        continue;
+
+                } else
+                        /* Keep this entry */
+                        i++;
+        }
+
+        return 1;
+}
+
+int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKey *key) {
+        DnsResourceRecord *rr_source;
+        int ifindex_source, r;
+
+        assert(a);
+        assert(key);
+
+        /* Copy all RRs matching the specified key from source into *a */
+
+        DNS_ANSWER_FOREACH_IFINDEX(rr_source, ifindex_source, source) {
+
+                r = dns_resource_key_equal(rr_source->key, key);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* Make space for at least one entry */
+                r = dns_answer_reserve_or_clone(a, 1);
+                if (r < 0)
+                        return r;
+
+                r = dns_answer_add(*a, rr_source, ifindex_source);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
@@ -302,5 +481,38 @@ int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
         }
 
         *a = n;
+        return 0;
+}
+
+int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
+        int r;
+
+        assert(a);
+
+        /* Tries to extend the DnsAnswer object. And if that's not
+         * possibly, since we are not the sole owner, then allocate a
+         * new, appropriately sized one. Either way, after this call
+         * the object will only have a single reference, and has room
+         * for at least the specified number of RRs. */
+
+        r = dns_answer_reserve(a, n_free);
+        if (r != -EBUSY)
+                return r;
+
+        assert(*a);
+
+        n = dns_answer_new(((*a)->n_rrs + n_free) * 2);
+        if (!n)
+                return -ENOMEM;
+
+        r = dns_answer_add_raw_all(n, *a);
+        if (r < 0)
+                return r;
+
+        dns_answer_unref(*a);
+        *a = n;
+        n = NULL;
+
         return 0;
 }

@@ -473,15 +473,15 @@ int dns_cache_put(
                 return 0;
 
         /* Third, add in negative entries if the key has no RR */
-        r = dns_answer_contains(answer, key);
+        r = dns_answer_match_key(answer, key);
         if (r < 0)
                 goto fail;
         if (r > 0)
                 return 0;
 
-        /* See https://tools.ietf.org/html/rfc2308, which
-         * say that a matching SOA record in the packet
-         * is used to to enable negative caching. */
+        /* See https://tools.ietf.org/html/rfc2308, which say that a
+         * matching SOA record in the packet is used to to enable
+         * negative caching. */
 
         r = dns_answer_find_soa(answer, key, &soa);
         if (r < 0)

@@ -273,7 +273,8 @@ int dnssec_verify_rrset(
                 DnsResourceKey *key,
                 DnsResourceRecord *rrsig,
                 DnsResourceRecord *dnskey,
-                usec_t realtime) {
+                usec_t realtime,
+                DnssecResult *result) {
 
         uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
         size_t exponent_size, modulus_size, hash_size;
@@ -286,6 +287,7 @@ int dnssec_verify_rrset(
         assert(key);
         assert(rrsig);
         assert(dnskey);
+        assert(result);
         assert(rrsig->key->type == DNS_TYPE_RRSIG);
         assert(dnskey->key->type == DNS_TYPE_DNSKEY);
 
@@ -302,8 +304,10 @@ int dnssec_verify_rrset(
         r = dnssec_rrsig_expired(rrsig, realtime);
         if (r < 0)
                 return r;
-        if (r > 0)
-                return DNSSEC_SIGNATURE_EXPIRED;
+        if (r > 0) {
+                *result = DNSSEC_SIGNATURE_EXPIRED;
+                return 0;
+        }
 
         /* Collect all relevant RRs in a single array, so that we can look at the RRset */
         list = newa(DnsResourceRecord *, a->n_rrs);
@@ -445,7 +449,8 @@ int dnssec_verify_rrset(
         if (r < 0)
                 goto finish;
 
-        r = r ? DNSSEC_VERIFIED : DNSSEC_INVALID;
+        *result = r ? DNSSEC_VALIDATED : DNSSEC_INVALID;
+        r = 0;
 
 finish:
         gcry_md_close(md);
@@ -500,13 +505,15 @@ int dnssec_verify_rrset_search(
                 DnsAnswer *a,
                 DnsResourceKey *key,
                 DnsAnswer *validated_dnskeys,
-                usec_t realtime) {
+                usec_t realtime,
+                DnssecResult *result) {
 
         bool found_rrsig = false, found_dnskey = false;
         DnsResourceRecord *rrsig;
         int r;
 
         assert(key);
+        assert(result);
 
         /* Verifies all RRs from "a" that match the key "key", against DNSKEY and DS RRs in "validated_dnskeys" */
 
@@ -525,7 +532,9 @@ int dnssec_verify_rrset_search(
 
                 found_rrsig = true;
 
+                /* Look for a matching key */
                 DNS_ANSWER_FOREACH(dnskey, validated_dnskeys) {
+                        DnssecResult one_result;
 
                         r = dnssec_rrsig_match_dnskey(rrsig, dnskey);
                         if (r < 0)
@@ -546,11 +555,13 @@ int dnssec_verify_rrset_search(
                          * the RRSet against the RRSIG and DNSKEY
                          * combination. */
 
-                        r = dnssec_verify_rrset(a, key, rrsig, dnskey, realtime);
+                        r = dnssec_verify_rrset(a, key, rrsig, dnskey, realtime, &one_result);
                         if (r < 0 && r != EOPNOTSUPP)
                                 return r;
-                        if (r == DNSSEC_VERIFIED)
-                                return DNSSEC_VERIFIED;
+                        if (one_result == DNSSEC_VALIDATED) {
+                                *result = DNSSEC_VALIDATED;
+                                return 0;
+                        }
 
                         /* If the signature is invalid, or done using
                            an unsupported algorithm, let's try another
@@ -561,12 +572,13 @@ int dnssec_verify_rrset_search(
         }
 
         if (found_dnskey)
-                return DNSSEC_INVALID;
+                *result = DNSSEC_INVALID;
+        else if (found_rrsig)
+                *result = DNSSEC_MISSING_KEY;
+        else
+                *result = DNSSEC_NO_SIGNATURE;
 
-        if (found_rrsig)
-                return DNSSEC_MISSING_KEY;
-
-        return DNSSEC_NO_SIGNATURE;
+        return 0;
 }
 
 int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
@@ -710,9 +722,44 @@ finish:
         return r;
 }
 
+int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
+        DnsResourceRecord *ds;
+        int r;
+
+        assert(dnskey);
+
+        if (dnskey->key->type != DNS_TYPE_DNSKEY)
+                return 0;
+
+        DNS_ANSWER_FOREACH(ds, validated_ds) {
+
+                if (ds->key->type != DNS_TYPE_DS)
+                        continue;
+
+                r = dnssec_verify_dnskey(dnskey, ds);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
+
+        return 0;
+}
+
 static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_NO] = "no",
         [DNSSEC_TRUST] = "trust",
         [DNSSEC_YES] = "yes",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
+
+static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
+        [DNSSEC_VALIDATED] = "validated",
+        [DNSSEC_INVALID] = "invalid",
+        [DNSSEC_UNSIGNED] = "unsigned",
+        [DNSSEC_NO_SIGNATURE] = "no-signature",
+        [DNSSEC_MISSING_KEY] = "missing-key",
+        [DNSSEC_SIGNATURE_EXPIRED] = "signature-expired",
+        [DNSSEC_FAILED_AUXILIARY] = "failed-auxiliary",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);

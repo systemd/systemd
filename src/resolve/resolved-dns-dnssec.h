@@ -22,6 +22,7 @@
 ***/
 
 typedef enum DnssecMode DnssecMode;
+typedef enum DnssecResult DnssecResult;
 
 #include "dns-domain.h"
 #include "resolved-dns-answer.h"
@@ -41,12 +42,16 @@ enum DnssecMode {
         _DNSSEC_MODE_INVALID = -1
 };
 
-enum {
-        DNSSEC_VERIFIED,
+enum DnssecResult {
+        DNSSEC_VALIDATED,
         DNSSEC_INVALID,
+        DNSSEC_UNSIGNED,
         DNSSEC_NO_SIGNATURE,
         DNSSEC_MISSING_KEY,
         DNSSEC_SIGNATURE_EXPIRED,
+        DNSSEC_FAILED_AUXILIARY,
+        _DNSSEC_RESULT_MAX,
+        _DNSSEC_RESULT_INVALID = -1
 };
 
 #define DNSSEC_CANONICAL_HOSTNAME_MAX (DNS_HOSTNAME_MAX + 2)
@@ -54,10 +59,11 @@ enum {
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey);
 int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig);
 
-int dnssec_verify_rrset(DnsAnswer *answer, DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime);
-int dnssec_verify_rrset_search(DnsAnswer *a, DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime);
+int dnssec_verify_rrset(DnsAnswer *answer, DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime, DnssecResult *result);
+int dnssec_verify_rrset_search(DnsAnswer *answer, DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result);
 
 int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds);
+int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey);
 
@@ -65,3 +71,6 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max);
 
 const char* dnssec_mode_to_string(DnssecMode m) _const_;
 DnssecMode dnssec_mode_from_string(const char *s) _pure_;
+
+const char* dnssec_result_to_string(DnssecResult m) _const_;
+DnssecResult dnssec_result_from_string(const char *s) _pure_;
