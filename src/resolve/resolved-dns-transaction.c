@@ -362,7 +362,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
+        log_debug("Processing incoming packet on transaction %" PRIu16".", t->id);
+
         switch (t->scope->protocol) {
+
         case DNS_PROTOCOL_LLMNR:
                 assert(t->scope->link);
 
@@ -503,7 +506,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+        if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR)) {
+
                 /* Only consider responses with equivalent query section to the request */
                 r = dns_packet_is_reply_for(p, t->key);
                 if (r < 0) {
