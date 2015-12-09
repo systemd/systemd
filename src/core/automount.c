@@ -1105,6 +1105,9 @@ const UnitVTable automount_vtable = {
         .reset_failed = automount_reset_failed,
 
         .bus_vtable = bus_automount_vtable,
+        .bus_set_property = bus_automount_set_property,
+
+        .can_transient = true,
 
         .shutdown = automount_shutdown,
         .supported = automount_supported,
