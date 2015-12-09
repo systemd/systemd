@@ -70,13 +70,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 #define DNS_ANSWER_FOREACH(kk, a) _DNS_ANSWER_FOREACH(UNIQ, kk, a)
 
-#define _DNS_ANSWER_FOREACH_IFINDEX(q, kk, ifindex, a)                  \
+#define _DNS_ANSWER_FOREACH_IFINDEX(q, kk, ifi, a)                      \
         for (unsigned UNIQ_T(i, q) = ({                                 \
                                 (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
-                                (ifindex) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].ifindex : 0; \
+                                (ifi) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].ifindex : 0; \
                                 0;                                      \
                         });                                             \
              (a) && (UNIQ_T(i, q) < (a)->n_rrs);                        \
-             UNIQ_T(i, q)++, (kk) = ((UNIQ_T(i, q) < (a)->n_rrs) ? (a)->items[UNIQ_T(i, q)].rr : NULL), (ifindex) = ((UNIQ_T(i, q) < (a)->n_rrs) ? (a)->items[UNIQ_T(i, q)].ifindex : 0))
+             UNIQ_T(i, q)++, (kk) = ((UNIQ_T(i, q) < (a)->n_rrs) ? (a)->items[UNIQ_T(i, q)].rr : NULL), (ifi) = ((UNIQ_T(i, q) < (a)->n_rrs) ? (a)->items[UNIQ_T(i, q)].ifindex : 0))
 
 #define DNS_ANSWER_FOREACH_IFINDEX(kk, ifindex, a) _DNS_ANSWER_FOREACH_IFINDEX(UNIQ, kk, ifindex, a)
