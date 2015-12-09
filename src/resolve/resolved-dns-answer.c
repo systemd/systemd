@@ -271,6 +271,8 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
 int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
         DnsAnswer *n;
 
+        assert(a);
+
         if (n_free <= 0)
                 return 0;
 
@@ -284,6 +286,9 @@ int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
 
                 if ((*a)->n_allocated >= ns)
                         return 0;
+
+                /* Allocate more than we need */
+                ns *= 2;
 
                 n = realloc(*a, offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * ns);
                 if (!n)
