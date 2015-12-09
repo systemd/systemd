@@ -40,7 +40,7 @@
  *   - Make trust anchor store read additional DS+DNSKEY data from disk
  *   - wildcard zones compatibility
  *   - multi-label zone compatibility
- *   - DMSSEC cname/dname compatibility
+ *   - DNSSEC cname/dname compatibility
  *   - per-interface DNSSEC setting
  *   - DSA support
  *   - EC support?
@@ -193,11 +193,12 @@ static int dnssec_rsa_verify(
         }
 
         ge = gcry_pk_verify(signature_sexp, data_sexp, public_key_sexp);
-        if (ge == GPG_ERR_BAD_SIGNATURE)
+        if (gpg_err_code(ge) == GPG_ERR_BAD_SIGNATURE)
                 r = 0;
-        else if (ge != 0)
+        else if (ge != 0) {
+                log_debug("RSA signature check failed: %s", gpg_strerror(ge));
                 r = -EIO;
-        else
+        } else
                 r = 1;
 
 finish:
