@@ -27,6 +27,7 @@
 #include <sys/signalfd.h>
 #include <sys/statvfs.h>
 #include <linux/sockios.h>
+#include <pthread.h>
 
 #include "libudev.h"
 #include "sd-daemon.h"
@@ -244,6 +245,7 @@ static int open_journal(
                 int flags,
                 bool seal,
                 JournalMetrics *metrics,
+                Set *async_closes,
                 JournalFile *template,
                 JournalFile **ret) {
         int r;
@@ -254,9 +256,9 @@ static int open_journal(
         assert(ret);
 
         if (reliably)
-                r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, template, &f);
+                r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, async_closes, template, &f);
         else
-                r = journal_file_open(fname, flags, 0640, s->compress, seal, metrics, s->mmap, template, &f);
+                r = journal_file_open(fname, flags, 0640, s->compress, seal, metrics, s->mmap, async_closes, template, &f);
         if (r < 0)
                 return r;
 
@@ -308,7 +310,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_metrics, NULL, &f);
+        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_metrics, s->async_closes, NULL, &f);
         if (r < 0)
                 return s->system_journal;
 
@@ -336,7 +338,7 @@ static int do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journal_file_rotate(f, s->compress, seal);
+        r = journal_file_rotate(f, s->compress, seal, s->async_closes);
         if (r < 0)
                 if (*f)
                         log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
@@ -355,6 +357,9 @@ void server_rotate(Server *s) {
         int r;
 
         log_debug("Rotating...");
+
+        /* cleanup any finished async closes, but don't wait for ongoing ones. */
+        journal_file_async_closes_collect(s->async_closes, false);
 
         (void) do_rotate(s, &s->runtime_journal, "runtime", false, 0);
         (void) do_rotate(s, &s->system_journal, "system", s->seal, 0);
@@ -1000,7 +1005,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 (void) mkdir(fn, 0755);
 
                 fn = strjoina(fn, "/system.journal");
-                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_metrics, NULL, &s->system_journal);
+                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_metrics, s->async_closes, NULL, &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
                         (void) determine_space_for(s, &s->system_metrics, "/var/log/journal/", "System journal", true, true, NULL, NULL);
@@ -1023,7 +1028,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_metrics, NULL, &s->runtime_journal);
+                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_metrics, s->async_closes, NULL, &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
@@ -1040,7 +1045,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         (void) mkdir("/run/log/journal", 0755);
                         (void) mkdir_parents(fn, 0750);
 
-                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_metrics, NULL, &s->runtime_journal);
+                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_metrics, s->async_closes, NULL, &s->runtime_journal);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
@@ -1768,6 +1773,10 @@ int server_init(Server *s) {
         if (!s->mmap)
                 return log_oom();
 
+        s->async_closes = set_new(NULL);
+        if (!s->async_closes)
+                return log_oom();
+
         r = sd_event_default(&s->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to create event loop: %m");
@@ -1932,6 +1941,9 @@ void server_done(Server *s) {
 
         while ((f = ordered_hashmap_steal_first(s->user_journals)))
                 journal_file_close(f);
+
+        journal_file_async_closes_collect(s->async_closes, true);
+        set_free(s->async_closes);
 
         ordered_hashmap_free(s->user_journals);
 

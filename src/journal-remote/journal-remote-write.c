@@ -56,7 +56,7 @@ void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
  **********************************************************************/
 
 static int do_rotate(JournalFile **f, bool compress, bool seal) {
-        int r = journal_file_rotate(f, compress, seal);
+        int r = journal_file_rotate(f, compress, seal, NULL);
         if (r < 0) {
                 if (*f)
                         log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);

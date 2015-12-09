@@ -132,6 +132,8 @@ struct Server {
 
         MMapCache *mmap;
 
+        Set *async_closes;
+
         struct udev *udev;
 
         uint64_t *kernel_seqnum;
