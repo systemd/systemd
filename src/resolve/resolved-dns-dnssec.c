@@ -477,7 +477,7 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
         if (dnssec_keytag(dnskey) != rrsig->rrsig.key_tag)
                 return 0;
 
-        return dns_name_equal(DNS_RESOURCE_KEY_NAME(dnskey->key), DNS_RESOURCE_KEY_NAME(rrsig->key));
+        return dns_name_equal(DNS_RESOURCE_KEY_NAME(dnskey->key), rrsig->rrsig.signer);
 }
 
 int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig) {
@@ -508,7 +508,7 @@ int dnssec_verify_rrset_search(
 
         assert(key);
 
-        /* Verifies all RRs from "a" that match the key "key", against DNSKEY RRs in "validated_dnskeys" */
+        /* Verifies all RRs from "a" that match the key "key", against DNSKEY and DS RRs in "validated_dnskeys" */
 
         if (!a || a->n_rrs <= 0)
                 return -ENODATA;
