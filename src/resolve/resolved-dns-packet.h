@@ -88,6 +88,9 @@ struct DnsPacket {
         uint16_t sender_port, destination_port;
         uint32_t ttl;
 
+        /* For support of truncated packets */
+        DnsPacket *more;
+
         bool on_stack:1;
         bool extracted:1;
         bool refuse_compression:1;
