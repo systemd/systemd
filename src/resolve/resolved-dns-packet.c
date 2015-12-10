@@ -1993,8 +1993,18 @@ int dns_packet_extract(DnsPacket *p) {
                                 goto finish;
 
                         if (rr->key->type == DNS_TYPE_OPT) {
-                                if (p->opt)
-                                        return -EBADMSG;
+
+                                /* The OPT RR is only valid in the Additional section */
+                                if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
+                                        r = -EBADMSG;
+                                        goto finish;
+                                }
+
+                                /* Two OPT RRs? */
+                                if (p->opt) {
+                                        r = -EBADMSG;
+                                        goto finish;
+                                }
 
                                 p->opt = dns_resource_record_ref(rr);
                         } else {
