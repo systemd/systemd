@@ -460,6 +460,15 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 if (r != PAM_SUCCESS)
                         return r;
         }
+        else {
+                if (pw->pw_uid == 0) {
+                        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", "/run/user/0", 0);
+                        if (r != PAM_SUCCESS) {
+                                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir for UID 0.");
+                                return r;
+                        }
+                }
+        }
 
         if (!isempty(seat)) {
                 r = pam_misc_setenv(handle, "XDG_SEAT", seat, 0);
