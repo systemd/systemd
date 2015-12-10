@@ -21,6 +21,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
 #include "string-util.h"
@@ -431,7 +432,7 @@ int dns_cache_put(
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
-        DnsResourceRecord *soa = NULL;
+        DnsResourceRecord *soa = NULL, *rr;
         unsigned cache_keys, i;
         int r;
 
@@ -455,8 +456,9 @@ int dns_cache_put(
                 return 0;
         }
 
-        for (i = 0; i < answer->n_rrs; i++)
-                dns_cache_remove(c, answer->items[i].rr->key);
+        DNS_ANSWER_FOREACH(rr, answer)
+                if (rr->key->cache_flush)
+                        dns_cache_remove(c, rr->key);
 
         /* We only care for positive replies and NXDOMAINs, on all
          * other replies we will simply flush the respective entries,
@@ -478,10 +480,7 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                DnsResourceRecord *rr = answer->items[i].rr;
-
-                if (rr->key->cache_flush)
-                        dns_cache_remove(c, rr->key);
+                rr = answer->items[i].rr;
 
                 r = dns_cache_put_positive(c, rr, authenticated, timestamp, owner_family, owner_address);
                 if (r < 0)
