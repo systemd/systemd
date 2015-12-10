@@ -276,7 +276,7 @@ static int dns_cache_put_positive(
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         _cleanup_free_ char *key_str = NULL;
         DnsCacheItem *existing;
-        int r;
+        int r, k;
 
         assert(c);
         assert(rr);
@@ -284,14 +284,18 @@ static int dns_cache_put_positive(
 
         /* New TTL is 0? Delete the entry... */
         if (rr->ttl <= 0) {
-                r = dns_resource_key_to_string(rr->key, &key_str);
-                if (r < 0)
-                        return r;
+                k = dns_cache_remove(c, rr->key);
 
-                if (dns_cache_remove(c, rr->key))
-                        log_debug("Removed zero TTL entry from cache: %s", key_str);
-                else
-                        log_debug("Not caching zero TTL cache entry: %s", key_str);
+                if (log_get_max_level() >= LOG_DEBUG) {
+                        r = dns_resource_key_to_string(rr->key, &key_str);
+                        if (r < 0)
+                                return r;
+
+                        if (k > 0)
+                                log_debug("Removed zero TTL entry from cache: %s", key_str);
+                        else
+                                log_debug("Not caching zero TTL cache entry: %s", key_str);
+                }
 
                 return 0;
         }
@@ -332,11 +336,13 @@ static int dns_cache_put_positive(
         if (r < 0)
                 return r;
 
-        r = dns_resource_key_to_string(i->key, &key_str);
-        if (r < 0)
-                return r;
+        if (log_get_max_level() >= LOG_DEBUG) {
+                r = dns_resource_key_to_string(i->key, &key_str);
+                if (r < 0)
+                        return r;
 
-        log_debug("Added cache entry for %s", key_str);
+                log_debug("Added cache entry for %s", key_str);
+        }
 
         i = NULL;
         return 0;
@@ -369,11 +375,13 @@ static int dns_cache_put_negative(
                  * pseudo-type for NXDOMAIN entries */
                 return 0;
         if (soa_ttl <= 0) {
-                r = dns_resource_key_to_string(key, &key_str);
-                if (r < 0)
-                        return r;
+                if (log_get_max_level() >= LOG_DEBUG) {
+                        r = dns_resource_key_to_string(key, &key_str);
+                        if (r < 0)
+                                return r;
 
-                log_debug("Not caching negative entry with zero SOA TTL: %s", key_str);
+                        log_debug("Not caching negative entry with zero SOA TTL: %s", key_str);
+                }
 
                 return 0;
         }
@@ -411,11 +419,13 @@ static int dns_cache_put_negative(
         if (r < 0)
                 return r;
 
-        r = dns_resource_key_to_string(i->key, &key_str);
-        if (r < 0)
-                return r;
+        if (log_get_max_level() >= LOG_DEBUG) {
+                r = dns_resource_key_to_string(i->key, &key_str);
+                if (r < 0)
+                        return r;
 
-        log_debug("Added %s cache entry for %s", i->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN", key_str);
+                log_debug("Added %s cache entry for %s", i->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN", key_str);
+        }
 
         i = NULL;
         return 0;
@@ -445,13 +455,15 @@ int dns_cache_put(
         }
 
         if (!answer) {
-                _cleanup_free_ char *key_str = NULL;
+                if (log_get_max_level() >= LOG_DEBUG) {
+                        _cleanup_free_ char *key_str = NULL;
 
-                r = dns_resource_key_to_string(key, &key_str);
-                if (r < 0)
-                        return r;
+                        r = dns_resource_key_to_string(key, &key_str);
+                        if (r < 0)
+                                return r;
 
-                log_debug("Not caching negative entry without a SOA record: %s", key_str);
+                        log_debug("Not caching negative entry without a SOA record: %s", key_str);
+                }
 
                 return 0;
         }
@@ -617,11 +629,13 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 /* If we have ANY lookups we don't use the cache, so
                  * that the caller refreshes via the network. */
 
-                r = dns_resource_key_to_string(key, &key_str);
-                if (r < 0)
-                        return r;
+                if (log_get_max_level() >= LOG_DEBUG) {
+                        r = dns_resource_key_to_string(key, &key_str);
+                        if (r < 0)
+                                return r;
 
-                log_debug("Ignoring cache for ANY lookup: %s", key_str);
+                        log_debug("Ignoring cache for ANY lookup: %s", key_str);
+                }
 
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
@@ -632,11 +646,13 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         if (!first) {
                 /* If one question cannot be answered we need to refresh */
 
-                r = dns_resource_key_to_string(key, &key_str);
-                if (r < 0)
-                        return r;
+                if (log_get_max_level() >= LOG_DEBUG) {
+                        r = dns_resource_key_to_string(key, &key_str);
+                        if (r < 0)
+                                return r;
 
-                log_debug("Cache miss for %s", key_str);
+                        log_debug("Cache miss for %s", key_str);
+                }
 
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
@@ -658,15 +674,17 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                         have_non_authenticated = true;
         }
 
-        r = dns_resource_key_to_string(key, &key_str);
-        if (r < 0)
-                return r;
-
         if (nsec && key->type != DNS_TYPE_NSEC) {
-                log_debug("NSEC NODATA cache hit for %s", key_str);
+                if (log_get_max_level() >= LOG_DEBUG) {
+                        r = dns_resource_key_to_string(key, &key_str);
+                        if (r < 0)
+                                return r;
+
+                        log_debug("NSEC NODATA cache hit for %s", key_str);
+                }
 
                 /* We only found an NSEC record that matches our name.
-                 * If it says the type doesn't exit report
+                 * If it says the type doesn't exist report
                  * NODATA. Otherwise report a cache miss. */
 
                 *ret = NULL;
@@ -678,10 +696,16 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                        !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_DNAME);
         }
 
-        log_debug("%s cache hit for %s",
-                  n > 0    ? "Positive" :
-                  nxdomain ? "NXDOMAIN" : "NODATA",
-                  key_str);
+        if (log_get_max_level() >= LOG_DEBUG) {
+                r = dns_resource_key_to_string(key, &key_str);
+                if (r < 0)
+                        return r;
+
+                log_debug("%s cache hit for %s",
+                          n > 0    ? "Positive" :
+                          nxdomain ? "NXDOMAIN" : "NODATA",
+                          key_str);
+        }
 
         if (n <= 0) {
                 *ret = NULL;
