@@ -161,7 +161,7 @@ void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
                 s->resend_timeout = MIN(s->resend_timeout * 2, MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
-int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
+static int dns_scope_emit_one(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
@@ -276,6 +276,31 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
         }
 
         return 1;
+}
+
+int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
+        int r;
+
+        assert(s);
+        assert(p);
+        assert(p->protocol == s->protocol);
+        assert((s->protocol == DNS_PROTOCOL_DNS) != (fd < 0));
+
+        do {
+                /* If there are multiple linked packets, set the TC bit in all but the last of them */
+                if (p->more) {
+                        assert(p->protocol == DNS_PROTOCOL_MDNS);
+                        dns_packet_set_flags(p, true, true);
+                }
+
+                r = dns_scope_emit_one(s, fd, server, p);
+                if (r < 0)
+                        return r;
+
+                p = p->more;
+        } while(p);
+
+        return 0;
 }
 
 static int dns_scope_socket(DnsScope *s, int type, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
@@ -433,7 +458,11 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                     dns_name_endswith(domain, "8.e.f.ip6.arpa") == 0 &&
                     dns_name_endswith(domain, "9.e.f.ip6.arpa") == 0 &&
                     dns_name_endswith(domain, "a.e.f.ip6.arpa") == 0 &&
-                    dns_name_endswith(domain, "b.e.f.ip6.arpa") == 0)
+                    dns_name_endswith(domain, "b.e.f.ip6.arpa") == 0 &&
+                    /* If networks use .local in their private setups, they are supposed to also add .local to their search
+                     * domains, which we already checked above. Otherwise, we consider .local specific to mDNS and won't
+                     * send such queries ordinary DNS servers. */
+                    dns_name_endswith(domain, "local") == 0)
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;

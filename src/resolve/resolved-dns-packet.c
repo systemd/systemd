@@ -65,40 +65,44 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         return 0;
 }
 
-int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool dnssec_checking_disabled) {
-        DnsPacket *p;
+void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool truncated) {
+
         DnsPacketHeader *h;
-        int r;
 
-        assert(ret);
-
-        r = dns_packet_new(&p, protocol, mtu);
-        if (r < 0)
-                return r;
+        assert(p);
 
         h = DNS_PACKET_HEADER(p);
 
-        if (protocol == DNS_PROTOCOL_LLMNR)
+        switch(p->protocol) {
+        case DNS_PROTOCOL_LLMNR:
+                assert(!truncated);
+
                 h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
                                                          0 /* opcode */,
                                                          0 /* c */,
-                                                         0 /* tc */,
+                                                         0/* tc */,
                                                          0 /* t */,
                                                          0 /* ra */,
                                                          0 /* ad */,
                                                          0 /* cd */,
                                                          0 /* rcode */));
-        else if (protocol == DNS_PROTOCOL_MDNS)
-                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
-                                                         0 /* opcode */,
-                                                         0 /* aa */,
-                                                         0 /* tc */,
-                                                         0 /* rd (ask for recursion) */,
-                                                         0 /* ra */,
-                                                         0 /* ad */,
-                                                         0 /* cd */,
-                                                         0 /* rcode */));
-        else
+                break;
+
+        case DNS_PROTOCOL_MDNS:
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0         /* qr */,
+                                                         0         /* opcode */,
+                                                         0         /* aa */,
+                                                         truncated /* tc */,
+                                                         0         /* rd (ask for recursion) */,
+                                                         0         /* ra */,
+                                                         0         /* ad */,
+                                                         0         /* cd */,
+                                                         0         /* rcode */));
+                break;
+
+        default:
+                assert(!truncated);
+
                 h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
                                                          0 /* opcode */,
                                                          0 /* aa */,
@@ -108,6 +112,23 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool
                                                          0 /* ad */,
                                                          dnssec_checking_disabled /* cd */,
                                                          0 /* rcode */));
+        }
+}
+
+int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t mtu, bool dnssec_checking_disabled) {
+        DnsPacket *p;
+        int r;
+
+        assert(ret);
+
+        r = dns_packet_new(&p, protocol, mtu);
+        if (r < 0)
+                return r;
+
+        /* Always set the TC bit to 0 initially.
+         * If there are multiple packets later, we'll update the bit shortly before sending.
+         */
+        dns_packet_set_flags(p, dnssec_checking_disabled, false);
 
         *ret = p;
         return 0;
@@ -148,6 +169,9 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
                 return NULL;
 
         assert(p->n_ref > 0);
+
+        if (p->more)
+                dns_packet_unref(p->more);
 
         if (p->n_ref == 1)
                 dns_packet_free(p);

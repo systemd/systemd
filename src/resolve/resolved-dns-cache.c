@@ -738,6 +738,7 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
         int r;
 
         assert(cache);
+        assert(p);
 
         HASHMAP_FOREACH(i, cache->by_key, iterator) {
                 DnsCacheItem *j;
@@ -752,6 +753,23 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
                                 continue;
 
                         r = dns_packet_append_rr(p, j->rr, NULL, NULL);
+                        if (r == -EMSGSIZE && p->protocol == DNS_PROTOCOL_MDNS) {
+                                /* For mDNS, if we're unable to stuff all known answers into the given packet,
+                                 * allocate a new one, push the RR into that one and link it to the current one.
+                                 */
+
+                                DNS_PACKET_HEADER(p)->ancount = htobe16(ancount);
+                                ancount = 0;
+
+                                r = dns_packet_new_query(&p->more, p->protocol, 0, true);
+                                if (r < 0)
+                                        return r;
+
+                                /* continue with new packet */
+                                p = p->more;
+                                r = dns_packet_append_rr(p, j->rr, NULL, NULL);
+                        }
+
                         if (r < 0)
                                 return r;
 
