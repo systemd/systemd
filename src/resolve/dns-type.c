@@ -63,3 +63,25 @@ bool dns_type_is_pseudo(uint16_t type) {
                       DNS_TYPE_TKEY
         );
 }
+
+bool dns_type_is_valid_query(uint16_t type) {
+
+        /* The types valid as questions in packets */
+
+        return !IN_SET(type,
+                       0,
+                       DNS_TYPE_OPT,
+                       DNS_TYPE_TSIG,
+                       DNS_TYPE_TKEY);
+}
+
+bool dns_type_is_valid_rr(uint16_t type) {
+
+        /* The types valid as RR in packets (but not necessarily
+         * stored on servers). */
+
+        return !IN_SET(type,
+                       DNS_TYPE_ANY,
+                       DNS_TYPE_AXFR,
+                       DNS_TYPE_IXFR);
+}

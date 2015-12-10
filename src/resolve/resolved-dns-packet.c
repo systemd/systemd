@@ -1525,9 +1525,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 goto fail;
 
         if (key->class == DNS_CLASS_ANY ||
-            key->type == DNS_TYPE_ANY ||
-            key->type == DNS_TYPE_AXFR ||
-            key->type == DNS_TYPE_IXFR) {
+            !dns_type_is_valid_rr(key->type)) {
                 r = -EBADMSG;
                 goto fail;
         }
@@ -1970,6 +1968,11 @@ int dns_packet_extract(DnsPacket *p) {
                         r = dns_packet_read_key(p, &key, NULL);
                         if (r < 0)
                                 goto finish;
+
+                        if (!dns_type_is_valid_query(key->type)) {
+                                r = -EBADMSG;
+                                goto finish;
+                        }
 
                         r = dns_question_add(question, key);
                         if (r < 0)
