@@ -183,6 +183,7 @@ Features:
     we always process them before we process client requests
   - DNSSEC
         - add display of private key types (http://tools.ietf.org/html/rfc4034#appendix-A.1.1)?
+        - synthesize negative cache entries from NSEC/NSEC3 and drop explicit negative caching of authenticated answers
   - mDNS/DNS-SD
         - mDNS RR resolving
         - service registration
