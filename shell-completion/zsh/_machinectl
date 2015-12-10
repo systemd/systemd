@@ -44,7 +44,6 @@ _available_machines() {
 
     "pull-tar:Download a TAR container image"
     "pull-raw:Download a RAW container or VM image"
-    "pull-dkr:Download a DKR container image"
     "list-transfers:Show list of downloads in progress"
     "cancel-transfer:Cancel a download"
   )
@@ -57,7 +56,7 @@ _available_machines() {
     if (( $#cmd )); then
       if (( CURRENT == 2 )); then
         case $cmd in
-          list*|cancel-transfer|pull-tar|pull-raw|pull-dkr)
+          list*|cancel-transfer|pull-tar|pull-raw)
             msg="no options" ;;
           start)
             _available_machines ;;
@@ -97,5 +96,4 @@ _arguments \
   {-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
   '--verify=[Verification mode for downloaded images.]:verify:(no checksum signature)' \
   '--force[Download image even if already exists.]' \
-  '--dkr-index-url=[Specify the index URL to use for DKR image downloads.]' \
   '*::machinectl command:_machinectl_command'

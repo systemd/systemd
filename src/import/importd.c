@@ -55,7 +55,6 @@ typedef enum TransferType {
         TRANSFER_EXPORT_RAW,
         TRANSFER_PULL_TAR,
         TRANSFER_PULL_RAW,
-        TRANSFER_PULL_DKR,
         _TRANSFER_TYPE_MAX,
         _TRANSFER_TYPE_INVALID = -1,
 } TransferType;
@@ -74,7 +73,6 @@ struct Transfer {
         bool force_local;
         bool read_only;
 
-        char *dkr_index_url;
         char *format;
 
         pid_t pid;
@@ -117,7 +115,6 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_EXPORT_RAW] = "export-raw",
         [TRANSFER_PULL_TAR] = "pull-tar",
         [TRANSFER_PULL_RAW] = "pull-raw",
-        [TRANSFER_PULL_DKR] = "pull-dkr",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
@@ -134,7 +131,6 @@ static Transfer *transfer_unref(Transfer *t) {
 
         free(t->remote);
         free(t->local);
-        free(t->dkr_index_url);
         free(t->format);
         free(t->object_path);
 
@@ -383,12 +379,11 @@ static int transfer_start(Transfer *t) {
         if (t->pid == 0) {
                 const char *cmd[] = {
                         NULL, /* systemd-import, systemd-export or systemd-pull */
-                        NULL, /* tar, raw, dkr */
+                        NULL, /* tar, raw  */
                         NULL, /* --verify= */
                         NULL, /* verify argument */
                         NULL, /* maybe --force */
                         NULL, /* maybe --read-only */
-                        NULL, /* maybe --dkr-index-url */
                         NULL, /* if so: the actual URL */
                         NULL, /* maybe --format= */
                         NULL, /* if so: the actual format */
@@ -471,10 +466,8 @@ static int transfer_start(Transfer *t) {
 
                 if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_EXPORT_TAR, TRANSFER_PULL_TAR))
                         cmd[k++] = "tar";
-                else if (IN_SET(t->type, TRANSFER_IMPORT_RAW, TRANSFER_EXPORT_RAW, TRANSFER_PULL_RAW))
-                        cmd[k++] = "raw";
                 else
-                        cmd[k++] = "dkr";
+                        cmd[k++] = "raw";
 
                 if (t->verify != _IMPORT_VERIFY_INVALID) {
                         cmd[k++] = "--verify";
@@ -485,11 +478,6 @@ static int transfer_start(Transfer *t) {
                         cmd[k++] = "--force";
                 if (t->read_only)
                         cmd[k++] = "--read-only";
-
-                if (t->dkr_index_url) {
-                        cmd[k++] = "--dkr-index-url";
-                        cmd[k++] = t->dkr_index_url;
-                }
 
                 if (t->format) {
                         cmd[k++] = "--format";
@@ -707,7 +695,7 @@ static int manager_new(Manager **ret) {
         return 0;
 }
 
-static Transfer *manager_find(Manager *m, TransferType type, const char *dkr_index_url, const char *remote) {
+static Transfer *manager_find(Manager *m, TransferType type, const char *remote) {
         Transfer *t;
         Iterator i;
 
@@ -718,8 +706,7 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *dkr_ind
         HASHMAP_FOREACH(t, m->transfers, i) {
 
                 if (t->type == type &&
-                    streq_ptr(t->remote, remote) &&
-                    streq_ptr(t->dkr_index_url, dkr_index_url))
+                    streq_ptr(t->remote, remote))
                         return t;
         }
 
@@ -907,7 +894,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ? TRANSFER_PULL_TAR : TRANSFER_PULL_RAW;
 
-        if (manager_find(m, type, NULL, remote))
+        if (manager_find(m, type, remote))
                 return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
 
         r = transfer_new(m, &t);
@@ -919,105 +906,6 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         t->force_local = force;
 
         t->remote = strdup(remote);
-        if (!t->remote)
-                return -ENOMEM;
-
-        if (local) {
-                t->local = strdup(local);
-                if (!t->local)
-                        return -ENOMEM;
-        }
-
-        r = transfer_start(t);
-        if (r < 0)
-                return r;
-
-        object = t->object_path;
-        id = t->id;
-        t = NULL;
-
-        return sd_bus_reply_method_return(msg, "uo", id, object);
-}
-
-static int method_pull_dkr(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(transfer_unrefp) Transfer *t = NULL;
-        const char *index_url, *remote, *tag, *local, *verify, *object;
-        Manager *m = userdata;
-        ImportVerify v;
-        int force, r;
-        uint32_t id;
-
-        assert(msg);
-        assert(m);
-
-        r = bus_verify_polkit_async(
-                        msg,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
-
-        r = sd_bus_message_read(msg, "sssssb", &index_url, &remote, &tag, &local, &verify, &force);
-        if (r < 0)
-                return r;
-
-        if (isempty(index_url))
-                index_url = DEFAULT_DKR_INDEX_URL;
-        if (!index_url)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Index URL must be specified.");
-        if (!http_url_is_valid(index_url))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Index URL %s is invalid", index_url);
-
-        if (!dkr_name_is_valid(remote))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Remote name %s is not valid", remote);
-
-        if (isempty(tag))
-                tag = "latest";
-        else if (!dkr_tag_is_valid(tag))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Tag %s is not valid", tag);
-
-        if (isempty(local))
-                local = NULL;
-        else if (!machine_name_is_valid(local))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
-
-        if (isempty(verify))
-                v = IMPORT_VERIFY_SIGNATURE;
-        else
-                v = import_verify_from_string(verify);
-        if (v < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
-
-        if (v != IMPORT_VERIFY_NO)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "DKR does not support verification.");
-
-        r = setup_machine_directory((uint64_t) -1, error);
-        if (r < 0)
-                return r;
-
-        if (manager_find(m, TRANSFER_PULL_DKR, index_url, remote))
-                return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
-
-        r = transfer_new(m, &t);
-        if (r < 0)
-                return r;
-
-        t->type = TRANSFER_PULL_DKR;
-        t->verify = v;
-        t->force_local = force;
-
-        t->dkr_index_url = strdup(index_url);
-        if (!t->dkr_index_url)
-                return -ENOMEM;
-
-        t->remote = strjoin(remote, ":", tag, NULL);
         if (!t->remote)
                 return -ENOMEM;
 
@@ -1188,7 +1076,6 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("ExportRaw", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullTar", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullRaw", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("PullDkr", "sssssb", "uo", method_pull_dkr, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListTransfers", NULL, "a(usssdo)", method_list_transfers, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CancelTransfer", "u", NULL, method_cancel_transfer, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("TransferNew", "uo", 0),
