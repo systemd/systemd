@@ -5737,6 +5737,9 @@ EXTRA_DIST += \
 	test/TEST-04-JOURNAL/Makefile \
 	test/TEST-04-JOURNAL/test-journal.sh \
 	test/TEST-04-JOURNAL/test.sh \
+	test/TEST-05-RLIMITS/Makefile \
+	test/TEST-05-RLIMITS/test-rlimits.sh \
+	test/TEST-05-RLIMITS/test.sh \
 	test/test-functions
 
 EXTRA_DIST += \

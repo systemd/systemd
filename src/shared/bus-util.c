@@ -2381,23 +2381,28 @@ int bus_property_get_rlimit(
         struct rlimit *rl;
         uint64_t u;
         rlim_t x;
+        const char *is_soft;
 
         assert(bus);
         assert(reply);
         assert(userdata);
 
+        is_soft = endswith(property, "Soft");
         rl = *(struct rlimit**) userdata;
         if (rl)
-                x = rl->rlim_max;
+                x = is_soft ? rl->rlim_cur : rl->rlim_max;
         else {
                 struct rlimit buf = {};
                 int z;
+                const char *s;
 
-                z = rlimit_from_string(strstr(property, "Limit"));
+                s = is_soft ? strndupa(property, is_soft - property) : property;
+
+                z = rlimit_from_string(strstr(s, "Limit"));
                 assert(z >= 0);
 
                 getrlimit(z, &buf);
-                x = buf.rlim_max;
+                x = is_soft ? buf.rlim_cur : buf.rlim_max;
         }
 
         /* rlim_t might have different sizes, let's map
