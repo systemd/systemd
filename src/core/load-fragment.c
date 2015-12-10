@@ -1357,6 +1357,8 @@ int config_parse_exec_mount_flags(const char *unit,
                 flags = MS_SHARED;
         else if (streq(rvalue, "slave"))
                 flags = MS_SLAVE;
+        else if (streq(rvalue, "rslave"))
+                flags = MS_REC | MS_SLAVE;
         else if (streq(rvalue, "private"))
                 flags = MS_PRIVATE;
         else {
