@@ -744,7 +744,7 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         }
 }
 
-static int dns_transaction_prepare_next_attempt(DnsTransaction *t, usec_t ts) {
+static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
         bool had_stream;
         int r;
 
@@ -894,7 +894,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                r = dns_transaction_prepare_next_attempt(other, ts);
+                r = dns_transaction_prepare(other, ts);
                 if (r <= 0)
                         continue;
 
@@ -977,7 +977,7 @@ int dns_transaction_go(DnsTransaction *t) {
 
         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
-        r = dns_transaction_prepare_next_attempt(t, ts);
+        r = dns_transaction_prepare(t, ts);
         if (r <= 0)
                 return r;
 
