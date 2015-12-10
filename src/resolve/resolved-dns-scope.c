@@ -818,7 +818,11 @@ static int dns_scope_make_conflict_packet(
                                                               0 /* (ad) */,
                                                               0 /* (cd) */,
                                                               0));
-        random_bytes(&DNS_PACKET_HEADER(p)->id, sizeof(uint16_t));
+
+        /* For mDNS, the transaction ID should always be 0 */
+        if (s->protocol != DNS_PROTOCOL_MDNS)
+                random_bytes(&DNS_PACKET_HEADER(p)->id, sizeof(uint16_t));
+
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->arcount = htobe16(1);
 
