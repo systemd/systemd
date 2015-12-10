@@ -440,17 +440,10 @@ const char* socket_address_get_path(const SocketAddress *a) {
 }
 
 bool socket_ipv6_is_supported(void) {
-        _cleanup_free_ char *l = NULL;
-
-        if (access("/sys/module/ipv6", F_OK) != 0)
+        if (access("/proc/net/sockstat6", F_OK) != 0)
                 return false;
 
-        /* If we can't check "disable" parameter, assume enabled */
-        if (read_one_line_file("/sys/module/ipv6/parameters/disable", &l) < 0)
-                return true;
-
-        /* If module was loaded with disable=1 no IPv6 available */
-        return l[0] == '0';
+        return true;
 }
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd) {
