@@ -51,7 +51,7 @@ bool dns_type_is_pseudo(uint16_t type) {
          * but apparently entails all RR types that are not actually
          * stored as RRs on the server and should hence also not be
          * cached. We use this list primarily to validate NSEC type
-         * bitfields. */
+         * bitfields, and to verify what to cache. */
 
         return IN_SET(type,
                       0, /* A Pseudo RR type, according to RFC 2931 */
