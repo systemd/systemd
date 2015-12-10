@@ -57,6 +57,7 @@ int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key);
 int dns_answer_contains_rr(DnsAnswer *a, DnsResourceRecord *rr);
 
 int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret);
+int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret);
 
 int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret);
 int dns_answer_extend(DnsAnswer **a, DnsAnswer *b);

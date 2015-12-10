@@ -117,7 +117,7 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr, const char
                 return 0;
 
         for (i = 0; i < q->n_keys; i++) {
-                r = dns_resource_key_match_cname(q->keys[i], rr, search_domain);
+                r = dns_resource_key_match_cname_or_dname(q->keys[i], rr->key, search_domain);
                 if (r != 0)
                         return r;
         }

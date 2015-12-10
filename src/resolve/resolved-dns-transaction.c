@@ -1389,7 +1389,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 }
 
                                 /* Is this a CNAME for a record we were looking for? If so, it's also fatal for the whole transaction */
-                                r = dns_resource_key_match_cname(t->key, rr, NULL);
+                                r = dns_resource_key_match_cname_or_dname(t->key, rr->key, NULL);
                                 if (r < 0)
                                         return r;
                                 if (r > 0) {
