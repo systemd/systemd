@@ -171,8 +171,7 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
 
         assert(p->n_ref > 0);
 
-        if (p->more)
-                dns_packet_unref(p->more);
+        dns_packet_unref(p->more);
 
         if (p->n_ref == 1)
                 dns_packet_free(p);
