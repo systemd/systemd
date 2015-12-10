@@ -1940,10 +1940,14 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 compression = o->object.flags & OBJECT_COMPRESSION_MASK;
                 if (compression) {
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
-                        if (decompress_startswith(compression,
+                        r = decompress_startswith(compression,
                                                   o->data.payload, l,
                                                   &f->compress_buffer, &f->compress_buffer_size,
-                                                  field, field_length, '=')) {
+                                                  field, field_length, '=');
+                        if (r < 0)
+                                log_debug_errno(r, "Cannot decompress %s object of length %zu at offset "OFSfmt": %m",
+                                                object_compressed_to_string(compression), l, p);
+                        else if (r > 0) {
 
                                 size_t rsize;
 
