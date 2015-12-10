@@ -86,7 +86,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         }
 
         if (dns_packet_validate_reply(p) > 0) {
-                unsigned i;
+                DnsResourceRecord *rr;
 
                 log_debug("Got mDNS reply packet");
 
@@ -107,11 +107,15 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                 dns_scope_check_conflicts(scope, p);
 
-                for (i = 0; i < p->answer->n_rrs; i++) {
-                        DnsResourceRecord *rr;
+                DNS_ANSWER_FOREACH(rr, p->answer) {
+                        const char *name = DNS_RESOURCE_KEY_NAME(rr->key);
                         DnsTransaction *t;
 
-                        rr = p->answer->items[i].rr;
+                        /* If the received reply packet contains ANY record that is not .local or .in-addr.arpa,
+                         * we assume someone's playing tricks on us and discard the packet completely. */
+                        if (!(dns_name_endswith(name, "in-addr.arpa") > 0 ||
+                              dns_name_endswith(name, "local") > 0))
+                                return 0;
 
                         t = dns_scope_find_transaction(scope, rr->key, false);
                         if (t)

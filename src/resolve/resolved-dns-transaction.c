@@ -919,7 +919,6 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         }
 
         DNS_PACKET_HEADER(p)->qdcount = htobe16(qdcount);
-        DNS_PACKET_HEADER(p)->id = t->id;
 
         /* Append known answer section if we're asking for any shared record */
         if (add_known_answers) {
