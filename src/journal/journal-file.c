@@ -169,8 +169,7 @@ JournalFile* journal_file_close(JournalFile *f) {
         safe_close(f->fd);
         free(f->path);
 
-        if (f->mmap)
-                mmap_cache_unref(f->mmap);
+        mmap_cache_unref(f->mmap);
 
         ordered_hashmap_free_free(f->chain_cache);
 
