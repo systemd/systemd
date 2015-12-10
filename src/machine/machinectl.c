@@ -2203,14 +2203,9 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                         local = remote;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
-
-        if (local) {
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local name %s is not a suitable machine name.", local);
-                        return -EINVAL;
-                }
+        if (!machine_name_is_valid(local)) {
+                log_error("Local name %s is not a suitable machine name.", local);
+                return -EINVAL;
         }
 
         r = sd_bus_message_new_method_call(
