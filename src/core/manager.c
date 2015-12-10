@@ -1894,12 +1894,12 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                         case 22:
                                 log_set_max_level(LOG_DEBUG);
-                                log_notice("Setting log level to debug.");
+                                log_info("Setting log level to debug.");
                                 break;
 
                         case 23:
                                 log_set_max_level(LOG_INFO);
-                                log_notice("Setting log level to info.");
+                                log_info("Setting log level to info.");
                                 break;
 
                         case 24:
