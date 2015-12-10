@@ -1440,14 +1440,6 @@ AC_ARG_ENABLE([split-usr],
                 enable_split_usr=no
         ])])
 
-AC_ARG_WITH([dkr-index-url],
-        [AS_HELP_STRING([--dkr-index-url=URL], [Specify the default index URL to use for image downloads])],
-        [DEFAULT_DKR_INDEX_URL="\"$withval\""],
-        [DEFAULT_DKR_INDEX_URL="NULL"])
-
-AC_DEFINE_UNQUOTED(DEFAULT_DKR_INDEX_URL, [$DEFAULT_DKR_INDEX_URL], [Default index URL to use for image downloads])
-AC_SUBST(DEFAULT_DKR_INDEX_URL)
-
 AS_IF([test "x${enable_split_usr}" = "xyes"], [
         AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
 ])
@@ -1616,7 +1608,6 @@ AC_MSG_RESULT([
         Maximum System UID:      ${SYSTEM_UID_MAX}
         Maximum System GID:      ${SYSTEM_GID_MAX}
         Certificate root:        ${CERTIFICATEROOT}
-        Default dkr Index        ${DEFAULT_DKR_INDEX_URL}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}

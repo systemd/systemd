@@ -28,7 +28,6 @@
 #include "import-util.h"
 #include "machine-image.h"
 #include "parse-util.h"
-#include "pull-dkr.h"
 #include "pull-raw.h"
 #include "pull-tar.h"
 #include "signal-util.h"
@@ -39,7 +38,6 @@
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
-static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 static bool arg_settings = true;
 
 static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -220,114 +218,6 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static void on_dkr_finished(DkrPull *pull, int error, void *userdata) {
-        sd_event *event = userdata;
-        assert(pull);
-
-        if (error == 0)
-                log_info("Operation completed successfully.");
-
-        sd_event_exit(event, abs(error));
-}
-
-static int pull_dkr(int argc, char *argv[], void *userdata) {
-        _cleanup_(dkr_pull_unrefp) DkrPull *pull = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        const char *name, *reference, *local, *digest;
-        int r;
-
-        if (!arg_dkr_index_url) {
-                log_error("Please specify an index URL with --dkr-index-url=");
-                return -EINVAL;
-        }
-
-        if (arg_verify != IMPORT_VERIFY_NO) {
-                log_error("Pulls from dkr do not support image verification, please pass --verify=no.");
-                return -EINVAL;
-        }
-
-        digest = strchr(argv[1], '@');
-        if (digest) {
-                reference = digest + 1;
-                name = strndupa(argv[1], digest - argv[1]);
-        } else {
-                reference = strchr(argv[1], ':');
-                if (reference) {
-                        name = strndupa(argv[1], reference - argv[1]);
-                        reference++;
-                } else {
-                        name = argv[1];
-                        reference = "latest";
-                }
-        }
-
-        if (!dkr_name_is_valid(name)) {
-                log_error("Remote name '%s' is not valid.", name);
-                return -EINVAL;
-        }
-
-        if (!dkr_ref_is_valid(reference)) {
-                log_error("Tag name '%s' is not valid.", reference);
-                return -EINVAL;
-        }
-
-        if (argc >= 3)
-                local = argv[2];
-        else {
-                local = strchr(name, '/');
-                if (local)
-                        local++;
-                else
-                        local = name;
-        }
-
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
-
-        if (local) {
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local image name '%s' is not valid.", local);
-                        return -EINVAL;
-                }
-
-                if (!arg_force) {
-                        r = image_find(local, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        else if (r > 0) {
-                                log_error_errno(EEXIST, "Image '%s' already exists.", local);
-                                return -EEXIST;
-                        }
-                }
-
-                log_info("Pulling '%s' with reference '%s', saving as '%s'.", name, reference, local);
-        } else
-                log_info("Pulling '%s' with reference '%s'.", name, reference);
-
-        r = sd_event_default(&event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
-
-        r = dkr_pull_new(&pull, event, arg_dkr_index_url, arg_image_root, on_dkr_finished, event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate puller: %m");
-
-        r = dkr_pull_start(pull, name, reference, local, arg_force, DKR_PULL_V2);
-        if (r < 0)
-                return log_error_errno(r, "Failed to pull image: %m");
-
-        r = sd_event_loop(event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to run event loop: %m");
-
-        log_info("Exiting.");
-        return -r;
-}
-
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -338,12 +228,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --verify=MODE            Verify downloaded image, one of: 'no',\n"
                "                              'checksum', 'signature'\n"
                "     --settings=BOOL          Download settings file with image\n"
-               "     --image-root=PATH        Image root directory\n"
-               "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
+               "     --image-root=PATH        Image root directory\n\n"
                "Commands:\n"
                "  tar URL [NAME]              Download a TAR image\n"
-               "  raw URL [NAME]              Download a RAW image\n"
-               "  dkr REMOTE [NAME]           Download a DKR image\n",
+               "  raw URL [NAME]              Download a RAW image\n",
                program_invocation_short_name);
 
         return 0;
@@ -354,7 +242,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_FORCE,
-                ARG_DKR_INDEX_URL,
                 ARG_IMAGE_ROOT,
                 ARG_VERIFY,
                 ARG_SETTINGS,
@@ -364,7 +251,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
                 { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
                 { "settings",        required_argument, NULL, ARG_SETTINGS        },
@@ -388,15 +274,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORCE:
                         arg_force = true;
-                        break;
-
-                case ARG_DKR_INDEX_URL:
-                        if (!http_url_is_valid(optarg)) {
-                                log_error("Index URL is not valid: %s", optarg);
-                                return -EINVAL;
-                        }
-
-                        arg_dkr_index_url = optarg;
                         break;
 
                 case ARG_IMAGE_ROOT:
@@ -436,7 +313,6 @@ static int pull_main(int argc, char *argv[]) {
                 { "help", VERB_ANY, VERB_ANY, 0, help     },
                 { "tar",  2,        3,        0, pull_tar },
                 { "raw",  2,        3,        0, pull_raw },
-                { "dkr",  2,        3,        0, pull_dkr },
                 {}
         };
 

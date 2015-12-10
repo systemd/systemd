@@ -600,8 +600,6 @@ Features:
     removed or added to an existing machine
   - "machinectl migrate" or similar to copy a container from or to a
     difference host, via ssh
-  - man: document how update dkr images works with machinectl
-    http://lists.freedesktop.org/archives/systemd-devel/2015-February/028630.html
   - introduce systemd-nspawn-ephemeral@.service, and hook it into
     "machinectl start" with a new --ephemeral switch
   - "machinectl status" should also show internal logs of the container in
@@ -614,8 +612,6 @@ Features:
     shell in it, and marks it read-only after use
 
 * importd:
-  - dkr: support tarsum checksum verification, if it becomes reality one day...
-  - dkr: convert json bits to nspawn configuration
   - generate a nice warning if mkfs.btrfs is missing
 
 * cryptsetup:
