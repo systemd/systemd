@@ -267,3 +267,8 @@ WARNINGS:
         servers if not specified otherwise at configure time. You
         really should not ship an OS or device with this default
         setting. See DISTRO_PORTING for details.
+
+ENGINEERING AND CONSULTING SERVICES:
+        Kinvolk (https://kinvolk.io) offers professional engineering
+        and consulting services for systemd. Please contact Chris Kühl
+        <chris@kinvolk.io> for more information.
