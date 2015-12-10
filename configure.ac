@@ -708,7 +708,7 @@ AC_ARG_ENABLE([gcrypt],
 
 if test "x${have_gcrypt}" != xno ; then
         m4_define([AM_PATH_LIBGCRYPT_FAIL],
-                [{ test "x$have_gcrypt" != xyes || AC_MSG_ERROR([*** GCRYPT headers not found.]); }]
+                [{ test "x$have_gcrypt" != xyes || AC_MSG_ERROR([*** GCRYPT/GPG-ERROR headers not found.]); }]
         )
         m4_ifdef([AM_PATH_LIBGCRYPT], [AM_PATH_LIBGCRYPT(
                         [1.4.5],
@@ -723,12 +723,22 @@ if test "x${have_gcrypt}" != xno ; then
                 [AM_PATH_LIBGCRYPT_FAIL]
         )
 
-        if test "x$have_gcrypt" = xyes ; then
-                GCRYPT_LIBS="$LIBGCRYPT_LIBS"
-                GCRYPT_CFLAGS="$LIBGCRYPT_CFLAGS"
+        have_gpg_error=no
+        m4_ifdef([AM_PATH_GPG_ERROR], [AM_PATH_GPG_ERROR(
+                        [1.12],
+                        [have_gpg_error=yes],
+                        [AM_PATH_LIBGCRYPT_FAIL]
+                )],
+                [AM_PATH_LIBGCRYPT_FAIL]
+        )
+
+        if test "x$have_gcrypt" = xyes -a "x$have_gpg_error" = xyes ; then
+                GCRYPT_LIBS="$LIBGCRYPT_LIBS $GPG_ERROR_LIBS"
+                GCRYPT_CFLAGS="$LIBGCRYPT_CFLAGS $GPG_ERROR_CFLAGS"
                 AC_DEFINE(HAVE_GCRYPT, 1, [GCRYPT available])
         else
                 have_gcrypt=no
+                have_gpg_error=no
         fi
 else
         GCRYPT_LIBS=

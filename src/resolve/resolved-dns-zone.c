@@ -39,7 +39,7 @@ void dns_zone_item_probe_stop(DnsZoneItem *i) {
         t = i->probe_transaction;
         i->probe_transaction = NULL;
 
-        set_remove(t->zone_items, i);
+        set_remove(t->notify_zone_items, i);
         dns_transaction_gc(t);
 }
 
@@ -184,11 +184,11 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                         return r;
         }
 
-        r = set_ensure_allocated(&t->zone_items, NULL);
+        r = set_ensure_allocated(&t->notify_zone_items, NULL);
         if (r < 0)
                 goto gc;
 
-        r = set_put(t->zone_items, i);
+        r = set_put(t->notify_zone_items, i);
         if (r < 0)
                 goto gc;
 
@@ -206,7 +206,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                 }
         }
 
-        dns_zone_item_ready(i);
+        dns_zone_item_notify(i);
         return 0;
 
 gc:
@@ -491,7 +491,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
                 manager_next_hostname(i->scope->manager);
 }
 
-void dns_zone_item_ready(DnsZoneItem *i) {
+void dns_zone_item_notify(DnsZoneItem *i) {
         _cleanup_free_ char *pretty = NULL;
 
         assert(i);
@@ -500,7 +500,7 @@ void dns_zone_item_ready(DnsZoneItem *i) {
         if (i->block_ready > 0)
                 return;
 
-        if (IN_SET(i->probe_transaction->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING))
+        if (IN_SET(i->probe_transaction->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING))
                 return;
 
         if (i->probe_transaction->state == DNS_TRANSACTION_SUCCESS) {

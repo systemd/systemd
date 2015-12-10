@@ -473,46 +473,21 @@ int dns_cache_put(
                 return 0;
 
         /* Third, add in negative entries if the key has no RR */
-        r = dns_answer_contains(answer, key);
+        r = dns_answer_match_key(answer, key);
         if (r < 0)
                 goto fail;
         if (r > 0)
                 return 0;
 
-        /* See https://tools.ietf.org/html/rfc2308, which
-         * say that a matching SOA record in the packet
-         * is used to to enable negative caching. */
+        /* See https://tools.ietf.org/html/rfc2308, which say that a
+         * matching SOA record in the packet is used to to enable
+         * negative caching. */
 
         r = dns_answer_find_soa(answer, key, &soa);
         if (r < 0)
                 goto fail;
         if (r == 0)
                 return 0;
-
-        /* Also, if the requested key is an alias, the negative response should
-           be cached for each name in the redirect chain. Any CNAME record in
-           the response is from the redirection chain, though only the final one
-           is guaranteed to be included. This means that we cannot verify the
-           chain and that we need to cache them all as it may be incomplete. */
-        for (i = 0; i < answer->n_rrs; i++) {
-                DnsResourceRecord *answer_rr = answer->items[i].rr;
-
-                if (answer_rr->key->type == DNS_TYPE_CNAME) {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *canonical_key = NULL;
-
-                        canonical_key = dns_resource_key_new_redirect(key, answer_rr);
-                        if (!canonical_key)
-                                goto fail;
-
-                        /* Let's not add negative cache entries for records outside the current zone. */
-                        if (!dns_answer_match_soa(canonical_key, soa->key))
-                                continue;
-
-                        r = dns_cache_put_negative(c, canonical_key, rcode, authenticated, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
-                        if (r < 0)
-                                goto fail;
-                }
-        }
 
         r = dns_cache_put_negative(c, key, rcode, authenticated, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
         if (r < 0)

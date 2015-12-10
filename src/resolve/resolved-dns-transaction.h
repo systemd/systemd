@@ -28,6 +28,7 @@ typedef enum DnsTransactionSource DnsTransactionSource;
 enum DnsTransactionState {
         DNS_TRANSACTION_NULL,
         DNS_TRANSACTION_PENDING,
+        DNS_TRANSACTION_VALIDATING,
         DNS_TRANSACTION_FAILURE,
         DNS_TRANSACTION_SUCCESS,
         DNS_TRANSACTION_NO_SERVERS,
@@ -36,9 +37,12 @@ enum DnsTransactionState {
         DNS_TRANSACTION_INVALID_REPLY,
         DNS_TRANSACTION_RESOURCES,
         DNS_TRANSACTION_ABORTED,
+        DNS_TRANSACTION_DNSSEC_FAILED,
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -1
 };
+
+#define DNS_TRANSACTION_IS_LIVE(state) IN_SET((state), DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING)
 
 enum DnsTransactionSource {
         DNS_TRANSACTION_NETWORK,
@@ -60,6 +64,8 @@ struct DnsTransaction {
         DnsResourceKey *key;
 
         DnsTransactionState state;
+        DnssecResult dnssec_result;
+
         uint16_t id;
 
         bool initial_jitter_scheduled;
@@ -72,6 +78,9 @@ struct DnsTransaction {
         DnsTransactionSource answer_source;
         bool answer_authenticated;
 
+        /* Contains DS and DNSKEY RRs we already verified and need to authenticate this reply */
+        DnsAnswer *validated_keys;
+
         usec_t start_usec;
         usec_t next_attempt_after;
         sd_event_source *timeout_event_source;
@@ -83,7 +92,7 @@ struct DnsTransaction {
         /* The active server */
         DnsServer *server;
 
-        /* the features of the DNS server at time of transaction start */
+        /* The features of the DNS server at time of transaction start */
         DnsServerFeatureLevel current_features;
 
         /* TCP connection logic, if we need it */
@@ -92,11 +101,21 @@ struct DnsTransaction {
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction
          * completing. */
-        Set *query_candidates;
+        Set *notify_query_candidates;
 
         /* Zone items this transaction is referenced by and that shall
          * be notified about completion. */
-        Set *zone_items;
+        Set *notify_zone_items;
+
+        /* Other transactions that this transactions is referenced by
+         * and that shall be notified about completion. This is used
+         * when transactions want to validate their RRsets, but need
+         * another DNSKEY or DS RR to do so. */
+        Set *notify_transactions;
+
+        /* The opposite direction: the transactions this transaction
+         * created in order to request DNSKEY or DS RRs. */
+        Set *dnssec_transactions;
 
         unsigned block_gc;
 
@@ -111,6 +130,10 @@ int dns_transaction_go(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p);
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
+
+void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
+int dns_transaction_validate_dnssec(DnsTransaction *t);
+int dns_transaction_request_dnssec_keys(DnsTransaction *t);
 
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;

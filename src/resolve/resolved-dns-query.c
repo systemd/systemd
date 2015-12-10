@@ -59,7 +59,7 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
         assert(c);
 
         while ((t = set_steal_first(c->transactions))) {
-                set_remove(t->query_candidates, c);
+                set_remove(t->notify_query_candidates, c);
                 dns_transaction_gc(t);
         }
 }
@@ -116,32 +116,35 @@ static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResource
         assert(c);
         assert(key);
 
-        r = set_ensure_allocated(&c->transactions, NULL);
-        if (r < 0)
-                return r;
-
         t = dns_scope_find_transaction(c->scope, key, true);
         if (!t) {
                 r = dns_transaction_new(&t, c->scope, key);
                 if (r < 0)
                         return r;
+        } else {
+                if (set_contains(c->transactions, t))
+                        return 0;
         }
 
-        r = set_ensure_allocated(&t->query_candidates, NULL);
+        r = set_ensure_allocated(&c->transactions, NULL);
         if (r < 0)
                 goto gc;
 
-        r = set_put(t->query_candidates, c);
+        r = set_ensure_allocated(&t->notify_query_candidates, NULL);
+        if (r < 0)
+                goto gc;
+
+        r = set_put(t->notify_query_candidates, c);
         if (r < 0)
                 goto gc;
 
         r = set_put(c->transactions, t);
         if (r < 0) {
-                set_remove(t->query_candidates, c);
+                (void) set_remove(t->notify_query_candidates, c);
                 goto gc;
         }
 
-        return 0;
+        return 1;
 
 gc:
         dns_transaction_gc(t);
@@ -183,12 +186,19 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
                 switch (t->state) {
 
                 case DNS_TRANSACTION_PENDING:
-                case DNS_TRANSACTION_NULL:
-                        return t->state;
+                case DNS_TRANSACTION_VALIDATING:
+                        /* If there's one transaction currently in
+                         * VALIDATING state, then this means there's
+                         * also one in PENDING state, hence we can
+                         * return PENDING immediately. */
+                        return DNS_TRANSACTION_PENDING;
 
                 case DNS_TRANSACTION_SUCCESS:
                         state = t->state;
                         break;
+
+                case DNS_TRANSACTION_NULL:
+                        assert_not_reached("Transaction not started?");
 
                 default:
                         if (state != DNS_TRANSACTION_SUCCESS)
@@ -233,7 +243,7 @@ fail:
         return r;
 }
 
-void dns_query_candidate_ready(DnsQueryCandidate *c) {
+void dns_query_candidate_notify(DnsQueryCandidate *c) {
         DnsTransactionState state;
         int r;
 
@@ -241,7 +251,7 @@ void dns_query_candidate_ready(DnsQueryCandidate *c) {
 
         state = dns_query_candidate_state(c);
 
-        if (IN_SET(state, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_NULL))
+        if (DNS_TRANSACTION_IS_LIVE(state))
                 return;
 
         if (state != DNS_TRANSACTION_SUCCESS && c->search_domain) {
@@ -394,8 +404,8 @@ int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for) {
 
 static void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
         assert(q);
-        assert(!IN_SET(state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
-        assert(IN_SET(q->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
+        assert(!DNS_TRANSACTION_IS_LIVE(state));
+        assert(DNS_TRANSACTION_IS_LIVE(q->state));
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -970,9 +980,10 @@ fail:
 
 static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
+        bool has_authenticated = false, has_non_authenticated = false;
         DnsTransaction *t;
         Iterator i;
-        bool has_authenticated = false, has_non_authenticated = false;
+        int r;
 
         assert(q);
 
@@ -988,16 +999,11 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
                 case DNS_TRANSACTION_SUCCESS: {
                         /* We found a successfuly reply, merge it into the answer */
-                        DnsAnswer *merged;
-
-                        merged = dns_answer_merge(q->answer, t->answer);
-                        if (!merged) {
+                        r = dns_answer_extend(&q->answer, t->answer);
+                        if (r < 0) {
                                 dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
                                 return;
                         }
-
-                        dns_answer_unref(q->answer);
-                        q->answer = merged;
                         q->answer_rcode = t->answer_rcode;
 
                         if (t->answer_authenticated)
@@ -1009,8 +1015,9 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         break;
                 }
 
-                case DNS_TRANSACTION_PENDING:
                 case DNS_TRANSACTION_NULL:
+                case DNS_TRANSACTION_PENDING:
+                case DNS_TRANSACTION_VALIDATING:
                 case DNS_TRANSACTION_ABORTED:
                         /* Ignore transactions that didn't complete */
                         continue;
@@ -1049,7 +1056,7 @@ void dns_query_ready(DnsQuery *q) {
         bool pending = false;
 
         assert(q);
-        assert(IN_SET(q->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING));
+        assert(DNS_TRANSACTION_IS_LIVE(q->state));
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -1066,14 +1073,16 @@ void dns_query_ready(DnsQuery *q) {
                 switch (state) {
 
                 case DNS_TRANSACTION_SUCCESS:
-                        /* One of the transactions is successful,
+                        /* One of the candidates is successful,
                          * let's use it, and copy its data out */
                         dns_query_accept(q, c);
                         return;
 
-                case DNS_TRANSACTION_PENDING:
                 case DNS_TRANSACTION_NULL:
-                        /* One of the transactions is still going on, let's maybe wait for it */
+                case DNS_TRANSACTION_PENDING:
+                case DNS_TRANSACTION_VALIDATING:
+                        /* One of the candidates is still going on,
+                         * let's maybe wait for it */
                         pending = true;
                         break;
 
@@ -1095,6 +1104,8 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         int r;
 
         assert(q);
+
+        log_debug("Following CNAME %s → %s", dns_question_first_name(q->question), cname->cname.name);
 
         q->n_cname_redirects ++;
         if (q->n_cname_redirects > CNAME_MAX)

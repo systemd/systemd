@@ -168,6 +168,9 @@ bool dns_resource_key_is_address(const DnsResourceKey *key) {
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         int r;
 
+        if (a == b)
+                return 1;
+
         r = dns_name_equal(DNS_RESOURCE_KEY_NAME(a), DNS_RESOURCE_KEY_NAME(b));
         if (r <= 0)
                 return r;
@@ -186,6 +189,9 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord
 
         assert(key);
         assert(rr);
+
+        if (key == rr->key)
+                return 1;
 
         /* Checks if an rr matches the specified key. If a search
          * domain is specified, it will also be checked if the key
@@ -247,7 +253,24 @@ int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRec
         }
 
         return 0;
+}
 
+int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa) {
+        assert(soa);
+        assert(key);
+
+        /* Checks whether 'soa' is a SOA record for the specified key. */
+
+        if (soa->class != DNS_CLASS_IN)
+                return 0;
+
+        if (soa->type != DNS_TYPE_SOA)
+                return 0;
+
+        if (!dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa)))
+                return 0;
+
+        return 1;
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
@@ -303,7 +326,7 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
                 t = tbuf;
         }
 
-        if (asprintf(&s, "%s %s %-5s", DNS_RESOURCE_KEY_NAME(key), c, t) < 0)
+        if (asprintf(&s, "%s. %s %-5s", DNS_RESOURCE_KEY_NAME(key), c, t) < 0)
                 return -ENOMEM;
 
         *ret = s;
@@ -502,6 +525,9 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
         assert(a);
         assert(b);
+
+        if (a == b)
+                return 1;
 
         r = dns_resource_key_equal(a->key, b->key);
         if (r <= 0)
@@ -1089,6 +1115,9 @@ DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
 }
 
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
+
+        if (a == b)
+                return true;
 
         if (!a != !b)
                 return false;

@@ -348,7 +348,10 @@ static void mmap_cache_free(MMapCache *m) {
 }
 
 MMapCache* mmap_cache_unref(MMapCache *m) {
-        assert(m);
+
+        if (!m)
+                return NULL;
+
         assert(m->n_ref > 0);
 
         m->n_ref --;

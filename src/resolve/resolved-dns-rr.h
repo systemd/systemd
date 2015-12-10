@@ -114,7 +114,7 @@ struct DnsResourceRecord {
                 struct {
                         void *data;
                         size_t size;
-                } generic;
+                } generic, opt;
 
                 struct {
                         uint16_t priority;
@@ -247,6 +247,7 @@ bool dns_resource_key_is_address(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain);
+int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa);
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 

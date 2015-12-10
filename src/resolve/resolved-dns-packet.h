@@ -80,6 +80,7 @@ struct DnsPacket {
         /* Parsed data */
         DnsQuestion *question;
         DnsAnswer *answer;
+        DnsResourceRecord *opt;
 
         /* Packet reception metadata */
         int ifindex;
@@ -159,6 +160,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
 int dns_packet_validate(DnsPacket *p);
 int dns_packet_validate_reply(DnsPacket *p);
 int dns_packet_validate_query(DnsPacket *p);
+
+int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key);
 
 int dns_packet_append_blob(DnsPacket *p, const void *d, size_t sz, size_t *start);
 int dns_packet_append_uint8(DnsPacket *p, uint8_t v, size_t *start);

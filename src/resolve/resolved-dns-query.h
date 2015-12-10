@@ -95,7 +95,7 @@ struct DnsQuery {
 };
 
 DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
-void dns_query_candidate_ready(DnsQueryCandidate *c);
+void dns_query_candidate_notify(DnsQueryCandidate *c);
 
 int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question, int family, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
