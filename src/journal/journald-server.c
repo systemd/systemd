@@ -220,6 +220,20 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
 #endif
 }
 
+static void ftruncate_journal(JournalFile *f, void *arg) {
+        assert(f);
+
+        /* inotify() does not receive IN_MODIFY events from file
+         * accesses done via mmap(). After each access we hence
+         * trigger IN_MODIFY by truncating the journal file to its
+         * current size which triggers IN_MODIFY. */
+
+        __sync_synchronize();
+
+        if (ftruncate(f->fd, f->last_stat.st_size) < 0)
+                log_error_errno(errno, "Failed to truncate file to its own size: %m");
+}
+
 static JournalFile* find_journal(Server *s, uid_t uid) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -258,7 +272,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &f);
+        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, ftruncate_journal, NULL, NULL, &f);
         if (r < 0)
                 return s->system_journal;
 
@@ -930,7 +944,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 (void) mkdir(fn, 0755);
 
                 fn = strjoina(fn, "/system.journal");
-                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
+                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, journal_change_inotify, NULL, NULL, &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
                         (void) determine_space_for(s, &s->system_metrics, "/var/log/journal/", "System journal", true, true, NULL, NULL);
@@ -953,7 +967,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
+                        r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, s->mmap, journal_change_inotify, NULL, NULL, &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
@@ -970,7 +984,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         (void) mkdir("/run/log/journal", 0755);
                         (void) mkdir_parents(fn, 0750);
 
-                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
+                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, journal_change_inotify, NULL, NULL, &s->runtime_journal);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
