@@ -2776,7 +2776,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
+int journal_file_rotate(JournalFile **f, bool compress, bool seal, int (*quiesce_fn)(JournalFile *)) {
         _cleanup_free_ char *p = NULL;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -2815,6 +2815,12 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
          * and fragments heavily. Let's defrag our journal files when
          * we archive them */
         old_file->defrag_on_close = true;
+
+        if (quiesce_fn) {
+                r = quiesce_fn(old_file);
+                if (r < 0)
+                        return r;
+        }
 
         r = journal_file_open(old_file->path, old_file->flags, old_file->mode,
                               compress, seal, NULL, old_file->mmap,
