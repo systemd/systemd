@@ -107,11 +107,11 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         assert(key);
 
         /* Don't allow looking up invalid or pseudo RRs */
-        if (IN_SET(key->type, DNS_TYPE_OPT, 0, DNS_TYPE_TSIG, DNS_TYPE_TKEY))
+        if (!dns_type_is_valid_query(key->type))
                 return -EINVAL;
 
         /* We only support the IN class */
-        if (key->class != DNS_CLASS_IN)
+        if (key->class != DNS_CLASS_IN && key->class != DNS_CLASS_ANY)
                 return -EOPNOTSUPP;
 
         r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL);
@@ -351,6 +351,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         t->server = dns_server_ref(server);
         t->received = dns_packet_unref(t->received);
         t->answer = dns_answer_unref(t->answer);
+        t->n_answer_cacheable = 0;
         t->answer_rcode = 0;
         t->stream->complete = on_stream_complete;
         t->stream->transaction = t;
@@ -375,8 +376,6 @@ static void dns_transaction_next_dns_server(DnsTransaction *t) {
 }
 
 static void dns_transaction_cache_answer(DnsTransaction *t) {
-        unsigned n_cache;
-
         assert(t);
 
         /* For mDNS we cache whenever we get the packet, rather than
@@ -391,20 +390,11 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
         if (!DNS_PACKET_SHALL_CACHE(t->received))
                 return;
 
-        /* According to RFC 4795, section 2.9. only the RRs from the
-         * answer section shall be cached. However, if we know the
-         * message is authenticated, we might as well cache
-         * everything. */
-        if (t->answer_authenticated)
-                n_cache = dns_answer_size(t->answer);
-        else
-                n_cache = DNS_PACKET_ANCOUNT(t->received);
-
         dns_cache_put(&t->scope->cache,
                       t->key,
                       t->answer_rcode,
                       t->answer,
-                      n_cache,
+                      t->n_answer_cacheable,
                       t->answer_authenticated,
                       0,
                       t->received->family,
@@ -618,6 +608,15 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 t->answer_rcode = DNS_PACKET_RCODE(p);
                 t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
 
+                /* According to RFC 4795, section 2.9. only the RRs
+                 * from the answer section shall be cached. However,
+                 * if we know the message is authenticated, we might
+                 * as well cache everything. */
+                if (t->answer_authenticated)
+                        t->n_answer_cacheable = (unsigned) -1; /* everything! */
+                else
+                        t->n_answer_cacheable = DNS_PACKET_ANCOUNT(t->received); /* only the answer section */
+
                 r = dns_transaction_request_dnssec_keys(t);
                 if (r < 0) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -770,6 +769,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
         t->start_usec = ts;
         t->received = dns_packet_unref(t->received);
         t->answer = dns_answer_unref(t->answer);
+        t->n_answer_cacheable = 0;
         t->answer_rcode = 0;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
 
@@ -1280,10 +1280,59 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
                 dns_transaction_process_dnssec(t);
 }
 
-int dns_transaction_validate_dnssec(DnsTransaction *t) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
+static int dns_transaction_is_primary_response(DnsTransaction *t, DnsResourceRecord *rr) {
+        int r;
+
+        assert(t);
+        assert(rr);
+
+        /* Check if the specified RR is the "primary" response,
+         * i.e. either matches the question precisely or is a
+         * CNAME/DNAME for it */
+
+        r = dns_resource_key_match_rr(t->key, rr, NULL);
+        if (r != 0)
+                return r;
+
+        r = dns_resource_key_match_cname_or_dname(t->key, rr->key, NULL);
+        if (r != 0)
+                return r;
+
+        return 0;
+}
+
+static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
         DnsResourceRecord *rr;
         int ifindex, r;
+
+        assert(t);
+
+        /* Add all DNSKEY RRs from the answer that are validated by DS
+         * RRs from the list of validated keys to the lis of validated
+         * keys. */
+
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, t->answer) {
+
+                r = dnssec_verify_dnskey_search(rr, t->validated_keys);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* If so, the DNSKEY is validated too. */
+                r = dns_answer_add_extend(&t->validated_keys, rr, ifindex);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int dns_transaction_validate_dnssec(DnsTransaction *t) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
+        bool dnskeys_finalized = false;
+        DnsResourceRecord *rr;
+        int r;
 
         assert(t);
 
@@ -1312,22 +1361,12 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         }
 
         /* First see if there are DNSKEYs we already known a validated DS for. */
-        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, t->answer) {
-
-                r = dnssec_verify_dnskey_search(rr, t->validated_keys);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                /* If so, the DNSKEY is validated too. */
-                r = dns_answer_add_extend(&t->validated_keys, rr, ifindex);
-                if (r < 0)
-                        return r;
-        }
+        r = dns_transaction_validate_dnskey_by_ds(t);
+        if (r < 0)
+                return r;
 
         for (;;) {
-                bool changed = false, missing_key_for_transaction = false;
+                bool changed = false;
 
                 DNS_ANSWER_FOREACH(rr, t->answer) {
                         DnssecResult result;
@@ -1346,9 +1385,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 log_debug("Looking at %s: %s", rrs ? strstrip(rrs) : "???", dnssec_result_to_string(result));
                         }
 
-                        switch (result) {
-
-                        case DNSSEC_VALIDATED:
+                        if (result == DNSSEC_VALIDATED) {
 
                                 /* Add the validated RRset to the new list of validated RRsets */
                                 r = dns_answer_copy_by_key(&validated, t->answer, rr->key);
@@ -1372,77 +1409,65 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 if (r < 0)
                                         return r;
 
+                                /* Exit the loop, we dropped something from the answer, start from the beginning */
                                 changed = true;
                                 break;
 
-                        case DNSSEC_INVALID:
-                        case DNSSEC_NO_SIGNATURE:
-                        case DNSSEC_SIGNATURE_EXPIRED:
+                        } else if (dnskeys_finalized) {
+                                /* If we haven't read all DNSKEYs yet
+                                 * a negative result of the validation
+                                 * is irrelevant, as there might be
+                                 * more DNSKEYs coming. */
 
-                                /* Is this the RRset that we were looking for? If so, this is fatal for the whole transaction */
-                                r = dns_resource_key_match_rr(t->key, rr, NULL);
+                                r = dns_transaction_is_primary_response(t, rr);
                                 if (r < 0)
                                         return r;
                                 if (r > 0) {
+                                        /* This is a primary response
+                                         * to our question, and it
+                                         * failed validation. That's
+                                         * fatal. */
                                         t->dnssec_result = result;
                                         return 0;
                                 }
 
-                                /* Is this a CNAME for a record we were looking for? If so, it's also fatal for the whole transaction */
-                                r = dns_resource_key_match_cname_or_dname(t->key, rr->key, NULL);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0) {
-                                        t->dnssec_result = result;
-                                        return 0;
-                                }
-
-                                /* This is just something auxiliary. Just remove the RRset and continue. */
+                                /* This is just some auxiliary
+                                 * data. Just remove the RRset and
+                                 * continue. */
                                 r = dns_answer_remove_by_key(&t->answer, rr->key);
                                 if (r < 0)
                                         return r;
 
+                                /* Exit the loop, we dropped something from the answer, start from the beginning */
                                 changed = true;
                                 break;
-
-                        case DNSSEC_MISSING_KEY:
-                                /* They key is missing? Let's continue
-                                 * with the next iteration, maybe
-                                 * we'll find it in an DNSKEY RRset
-                                 * later on. */
-
-                                r = dns_resource_key_equal(rr->key, t->key);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
-                                        missing_key_for_transaction = true;
-
-                                break;
-
-                        default:
-                                assert_not_reached("Unexpected DNSSEC result");
                         }
-
-                        if (changed)
-                                break;
                 }
 
                 if (changed)
                         continue;
 
-                /* This didn't work either, there's no point in
-                 * continuing. */
-                if (missing_key_for_transaction) {
-                        t->dnssec_result = DNSSEC_MISSING_KEY;
-                        return 0;
+                if (!dnskeys_finalized) {
+                        /* OK, now we know we have added all DNSKEYs
+                         * we possibly could to our validated
+                         * list. Now run the whole thing once more,
+                         * and strip everything we still cannot
+                         * validate.
+                         */
+                        dnskeys_finalized = true;
+                        continue;
                 }
 
+                /* We're done */
                 break;
         }
 
         dns_answer_unref(t->answer);
         t->answer = validated;
         validated = NULL;
+
+        /* Everything that's now in t->answer is known to be good, hence cacheable. */
+        t->n_answer_cacheable = (unsigned) -1; /* everything! */
 
         t->answer_authenticated = true;
         t->dnssec_result = DNSSEC_VALIDATED;

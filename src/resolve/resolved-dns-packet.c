@@ -171,8 +171,7 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
 
         assert(p->n_ref > 0);
 
-        if (p->more)
-                dns_packet_unref(p->more);
+        dns_packet_unref(p->more);
 
         if (p->n_ref == 1)
                 dns_packet_free(p);
@@ -1526,9 +1525,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 goto fail;
 
         if (key->class == DNS_CLASS_ANY ||
-            key->type == DNS_TYPE_ANY ||
-            key->type == DNS_TYPE_AXFR ||
-            key->type == DNS_TYPE_IXFR) {
+            !dns_type_is_valid_rr(key->type)) {
                 r = -EBADMSG;
                 goto fail;
         }
@@ -1972,6 +1969,11 @@ int dns_packet_extract(DnsPacket *p) {
                         if (r < 0)
                                 goto finish;
 
+                        if (!dns_type_is_valid_query(key->type)) {
+                                r = -EBADMSG;
+                                goto finish;
+                        }
+
                         r = dns_question_add(question, key);
                         if (r < 0)
                                 goto finish;
@@ -1994,8 +1996,18 @@ int dns_packet_extract(DnsPacket *p) {
                                 goto finish;
 
                         if (rr->key->type == DNS_TYPE_OPT) {
-                                if (p->opt)
-                                        return -EBADMSG;
+
+                                /* The OPT RR is only valid in the Additional section */
+                                if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
+                                        r = -EBADMSG;
+                                        goto finish;
+                                }
+
+                                /* Two OPT RRs? */
+                                if (p->opt) {
+                                        r = -EBADMSG;
+                                        goto finish;
+                                }
 
                                 p->opt = dns_resource_record_ref(rr);
                         } else {

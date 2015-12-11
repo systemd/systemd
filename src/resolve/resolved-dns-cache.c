@@ -302,7 +302,7 @@ static int dns_cache_put_positive(
 
         if (rr->key->class == DNS_CLASS_ANY)
                 return 0;
-        if (rr->key->type == DNS_TYPE_ANY)
+        if (dns_type_is_pseudo(rr->key->type))
                 return 0;
 
         /* Entry exists already? Update TTL and timestamp */
@@ -370,9 +370,9 @@ static int dns_cache_put_negative(
 
         if (key->class == DNS_CLASS_ANY)
                 return 0;
-        if (key->type == DNS_TYPE_ANY)
-                /* This is particularly important to filter out as we use this as a
-                 * pseudo-type for NXDOMAIN entries */
+        if (dns_type_is_pseudo(key->type))
+                /* ANY is particularly important to filter out as we
+                 * use this as a pseudo-type for NXDOMAIN entries */
                 return 0;
         if (soa_ttl <= 0) {
                 if (log_get_max_level() >= LOG_DEBUG) {

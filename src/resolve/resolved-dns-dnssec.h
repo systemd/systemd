@@ -43,12 +43,18 @@ enum DnssecMode {
 };
 
 enum DnssecResult {
+        /* These four are returned by dnssec_verify_rrset() */
         DNSSEC_VALIDATED,
         DNSSEC_INVALID,
-        DNSSEC_UNSIGNED,
+        DNSSEC_SIGNATURE_EXPIRED,
+        DNSSEC_UNSUPPORTED_ALGORITHM,
+
+        /* These two are added by dnssec_verify_rrset_search() */
         DNSSEC_NO_SIGNATURE,
         DNSSEC_MISSING_KEY,
-        DNSSEC_SIGNATURE_EXPIRED,
+
+        /* These two are added by the DnsTransaction logic */
+        DNSSEC_UNSIGNED,
         DNSSEC_FAILED_AUXILIARY,
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -1

@@ -44,7 +44,44 @@ int dns_type_from_string(const char *s) {
         return sc->id;
 }
 
-/* XXX: find an authoritative list of all pseudo types? */
-bool dns_type_is_pseudo(uint16_t n) {
-        return IN_SET(n, DNS_TYPE_ANY, DNS_TYPE_AXFR, DNS_TYPE_IXFR, DNS_TYPE_OPT);
+bool dns_type_is_pseudo(uint16_t type) {
+
+        /* Checks whether the specified type is a "pseudo-type". What
+         * a "pseudo-type" precisely is, is defined only very weakly,
+         * but apparently entails all RR types that are not actually
+         * stored as RRs on the server and should hence also not be
+         * cached. We use this list primarily to validate NSEC type
+         * bitfields, and to verify what to cache. */
+
+        return IN_SET(type,
+                      0, /* A Pseudo RR type, according to RFC 2931 */
+                      DNS_TYPE_ANY,
+                      DNS_TYPE_AXFR,
+                      DNS_TYPE_IXFR,
+                      DNS_TYPE_OPT,
+                      DNS_TYPE_TSIG,
+                      DNS_TYPE_TKEY
+        );
+}
+
+bool dns_type_is_valid_query(uint16_t type) {
+
+        /* The types valid as questions in packets */
+
+        return !IN_SET(type,
+                       0,
+                       DNS_TYPE_OPT,
+                       DNS_TYPE_TSIG,
+                       DNS_TYPE_TKEY);
+}
+
+bool dns_type_is_valid_rr(uint16_t type) {
+
+        /* The types valid as RR in packets (but not necessarily
+         * stored on servers). */
+
+        return !IN_SET(type,
+                       DNS_TYPE_ANY,
+                       DNS_TYPE_AXFR,
+                       DNS_TYPE_IXFR);
 }

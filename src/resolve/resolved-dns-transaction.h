@@ -74,6 +74,7 @@ struct DnsTransaction {
         DnsPacket *sent, *received;
 
         DnsAnswer *answer;
+        unsigned n_answer_cacheable; /* Specifies how many RRs of the answer shall be cached, from the beginning */
         int answer_rcode;
         DnsTransactionSource answer_source;
         bool answer_authenticated;

@@ -553,6 +553,9 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid name '%s'", name);
 
+        if (!dns_type_is_valid_query(type))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid RR type for query %" PRIu16, type);
+
         r = check_ifindex_flags(ifindex, &flags, 0, error);
         if (r < 0)
                 return r;
