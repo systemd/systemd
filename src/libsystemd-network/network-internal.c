@@ -339,7 +339,6 @@ int config_parse_autoll(const char *unit,
         return 0;
 }
 
-
 int config_parse_hwaddr(const char *unit,
                         const char *filename,
                         unsigned line,
