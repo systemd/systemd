@@ -26,6 +26,7 @@
 #include "condition.h"
 #include "udev.h"
 
+/* Keeping the size of AutoLL parameter to string length of "autoip" */
 #define AUTOLLSZ 6
 
 bool net_match_config(const struct ether_addr *match_mac,
