@@ -351,6 +351,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         t->server = dns_server_ref(server);
         t->received = dns_packet_unref(t->received);
         t->answer = dns_answer_unref(t->answer);
+        t->n_answer_cacheable = 0;
         t->answer_rcode = 0;
         t->stream->complete = on_stream_complete;
         t->stream->transaction = t;
@@ -375,8 +376,6 @@ static void dns_transaction_next_dns_server(DnsTransaction *t) {
 }
 
 static void dns_transaction_cache_answer(DnsTransaction *t) {
-        unsigned n_cache;
-
         assert(t);
 
         /* For mDNS we cache whenever we get the packet, rather than
@@ -391,20 +390,11 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
         if (!DNS_PACKET_SHALL_CACHE(t->received))
                 return;
 
-        /* According to RFC 4795, section 2.9. only the RRs from the
-         * answer section shall be cached. However, if we know the
-         * message is authenticated, we might as well cache
-         * everything. */
-        if (t->answer_authenticated)
-                n_cache = dns_answer_size(t->answer);
-        else
-                n_cache = DNS_PACKET_ANCOUNT(t->received);
-
         dns_cache_put(&t->scope->cache,
                       t->key,
                       t->answer_rcode,
                       t->answer,
-                      n_cache,
+                      t->n_answer_cacheable,
                       t->answer_authenticated,
                       0,
                       t->received->family,
@@ -618,6 +608,15 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 t->answer_rcode = DNS_PACKET_RCODE(p);
                 t->answer_authenticated = t->scope->dnssec_mode == DNSSEC_TRUST && DNS_PACKET_AD(p);
 
+                /* According to RFC 4795, section 2.9. only the RRs
+                 * from the answer section shall be cached. However,
+                 * if we know the message is authenticated, we might
+                 * as well cache everything. */
+                if (t->answer_authenticated)
+                        t->n_answer_cacheable = (unsigned) -1; /* everything! */
+                else
+                        t->n_answer_cacheable = DNS_PACKET_ANCOUNT(t->received); /* only the answer section */
+
                 r = dns_transaction_request_dnssec_keys(t);
                 if (r < 0) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -770,6 +769,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
         t->start_usec = ts;
         t->received = dns_packet_unref(t->received);
         t->answer = dns_answer_unref(t->answer);
+        t->n_answer_cacheable = 0;
         t->answer_rcode = 0;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
 
@@ -1443,6 +1443,9 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         dns_answer_unref(t->answer);
         t->answer = validated;
         validated = NULL;
+
+        /* Everything that's now in t->answer is known to be good, hence cacheable. */
+        t->n_answer_cacheable = (unsigned) -1; /* everything! */
 
         t->answer_authenticated = true;
         t->dnssec_result = DNSSEC_VALIDATED;
