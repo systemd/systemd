@@ -576,7 +576,6 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                 /* Add "ID_NET_AUTO_LL" only for USB-NICs */
                 udev_builtin_add_property(dev, test, "ID_NET_AUTO_LL", "");
                 
-
                 if (names.pci_path[0])
                         if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.usb_ports) < (int)sizeof(str))
                                 udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
