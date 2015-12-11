@@ -295,8 +295,10 @@ int dnssec_verify_rrset(
          * using the signature "rrsig" and the key "dnskey". It's
          * assumed the RRSIG and DNSKEY match. */
 
-        if (!dnssec_algorithm_supported(rrsig->rrsig.algorithm))
-                return -EOPNOTSUPP;
+        if (!dnssec_algorithm_supported(rrsig->rrsig.algorithm)) {
+                *result = DNSSEC_UNSUPPORTED_ALGORITHM;
+                return 0;
+        }
 
         if (a->n_rrs > VERIFY_RRS_MAX)
                 return -E2BIG;
@@ -508,7 +510,7 @@ int dnssec_verify_rrset_search(
                 usec_t realtime,
                 DnssecResult *result) {
 
-        bool found_rrsig = false, found_dnskey = false;
+        bool found_rrsig = false, found_invalid = false, found_expired_rrsig = false, found_unsupported_algorithm = false;
         DnsResourceRecord *rrsig;
         int r;
 
@@ -524,6 +526,7 @@ int dnssec_verify_rrset_search(
         DNS_ANSWER_FOREACH(rrsig, a) {
                 DnsResourceRecord *dnskey;
 
+                /* Is this an RRSIG RR that applies to RRs matching our key? */
                 r = dnssec_key_match_rrsig(key, rrsig);
                 if (r < 0)
                         return r;
@@ -536,13 +539,12 @@ int dnssec_verify_rrset_search(
                 DNS_ANSWER_FOREACH(dnskey, validated_dnskeys) {
                         DnssecResult one_result;
 
+                        /* Is this a DNSKEY RR that matches they key of our RRSIG? */
                         r = dnssec_rrsig_match_dnskey(rrsig, dnskey);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
-
-                        found_dnskey = true;
 
                         /* Take the time here, if it isn't set yet, so
                          * that we do all validations with the same
@@ -556,22 +558,53 @@ int dnssec_verify_rrset_search(
                          * combination. */
 
                         r = dnssec_verify_rrset(a, key, rrsig, dnskey, realtime, &one_result);
-                        if (r < 0 && r != EOPNOTSUPP)
+                        if (r < 0)
                                 return r;
-                        if (one_result == DNSSEC_VALIDATED) {
+
+                        switch (one_result) {
+
+                        case DNSSEC_VALIDATED:
+                                /* Yay, the RR has been validated,
+                                 * return immediately. */
                                 *result = DNSSEC_VALIDATED;
                                 return 0;
-                        }
 
-                        /* If the signature is invalid, or done using
-                           an unsupported algorithm, let's try another
-                           key and/or signature. After all they
-                           key_tags and stuff are not unique, and
-                           might be shared by multiple keys. */
+                        case DNSSEC_INVALID:
+                                /* If the signature is invalid, let's try another
+                                   key and/or signature. After all they
+                                   key_tags and stuff are not unique, and
+                                   might be shared by multiple keys. */
+                                found_invalid = true;
+                                continue;
+
+                        case DNSSEC_UNSUPPORTED_ALGORITHM:
+                                /* If the key algorithm is
+                                   unsupported, try another
+                                   RRSIG/DNSKEY pair, but remember we
+                                   encountered this, so that we can
+                                   return a proper error when we
+                                   encounter nothing better. */
+                                found_unsupported_algorithm = true;
+                                continue;
+
+                        case DNSSEC_SIGNATURE_EXPIRED:
+                                /* If the signature is expired, try
+                                   another one, but remember it, so
+                                   that we can return this */
+                                found_expired_rrsig = true;
+                                continue;
+
+                        default:
+                                assert_not_reached("Unexpected DNSSEC validation result");
+                        }
                 }
         }
 
-        if (found_dnskey)
+        if (found_expired_rrsig)
+                *result = DNSSEC_SIGNATURE_EXPIRED;
+        else if (found_unsupported_algorithm)
+                *result = DNSSEC_UNSUPPORTED_ALGORITHM;
+        else if (found_invalid)
                 *result = DNSSEC_INVALID;
         else if (found_rrsig)
                 *result = DNSSEC_MISSING_KEY;
@@ -756,10 +789,11 @@ DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_VALIDATED] = "validated",
         [DNSSEC_INVALID] = "invalid",
-        [DNSSEC_UNSIGNED] = "unsigned",
+        [DNSSEC_SIGNATURE_EXPIRED] = "signature-expired",
+        [DNSSEC_UNSUPPORTED_ALGORITHM] = "unsupported-algorithm",
         [DNSSEC_NO_SIGNATURE] = "no-signature",
         [DNSSEC_MISSING_KEY] = "missing-key",
-        [DNSSEC_SIGNATURE_EXPIRED] = "signature-expired",
+        [DNSSEC_UNSIGNED] = "unsigned",
         [DNSSEC_FAILED_AUXILIARY] = "failed-auxiliary",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
