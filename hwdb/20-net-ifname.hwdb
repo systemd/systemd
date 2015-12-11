@@ -3,3 +3,4 @@
 # Dell iDRAC Virtual USB NIC
 usb:v413CpA102*
  ID_NET_NAME_FROM_DATABASE=idrac
+ ID_NET_AUTO_LL=autoip
