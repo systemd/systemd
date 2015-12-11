@@ -26,11 +26,14 @@
 #include "condition.h"
 #include "udev.h"
 
+#define AUTOLLSZ 6
+
 bool net_match_config(const struct ether_addr *match_mac,
                       char * const *match_path,
                       char * const *match_driver,
                       char * const *match_type,
                       char * const *match_name,
+                      char * const *match_autoll,
                       Condition *match_host,
                       Condition *match_virt,
                       Condition *match_kernel,
@@ -40,7 +43,8 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
-                      const char *dev_name);
+                      const char *dev_name,
+                      const char *dev_autoll);
 
 int config_parse_net_condition(const char *unit, const char *filename, unsigned line,
                                const char *section, unsigned section_line, const char *lvalue,
@@ -61,6 +65,11 @@ int config_parse_ifnames(const char *unit, const char *filename, unsigned line,
 int config_parse_ifalias(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,
                          int ltype, const char *rvalue, void *data, void *userdata);
+                         
+int config_parse_autoll(const char *unit, const char *filename, unsigned line,
+                        const char *section, unsigned section_line, const char *lvalue,
+                        int ltype, const char *rvalue, void *data, void *userdata);
+                         
 
 int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result);
 const char *net_get_name(struct udev_device *device);
