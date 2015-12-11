@@ -57,6 +57,7 @@ struct link_config {
         char **match_driver;
         char **match_type;
         char **match_name;
+        char **match_autoll;
         Condition *match_host;
         Condition *match_virt;
         Condition *match_kernel;
