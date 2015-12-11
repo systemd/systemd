@@ -106,8 +106,8 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_move_to_entry_by_seqnum(f, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
-        journal_file_rotate(&f, true, true);
-        journal_file_rotate(&f, true, true);
+        journal_file_rotate(&f, true, true, NULL);
+        journal_file_rotate(&f, true, true, NULL);
 
         journal_file_close(f);
 

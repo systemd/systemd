@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, NULL, NULL, &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
