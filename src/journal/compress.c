@@ -306,6 +306,7 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
          * prefix */
 
         int r;
+        size_t size;
 
         assert(src);
         assert(src_size > 0);
@@ -322,10 +323,18 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
 
         r = LZ4_decompress_safe_partial(src + 8, *buffer, src_size - 8,
                                         prefix_len + 1, *buffer_size);
+        if (r >= 0)
+                size = (unsigned) r;
+        else {
+                /* lz4 always tries to decode full "sequence", so in
+                 * pathological cases might need to decompress the
+                 * full field. */
+                r = decompress_blob_lz4(src, src_size, buffer, buffer_size, &size, 0);
+                if (r < 0)
+                        return r;
+        }
 
-        if (r < 0)
-                return -EBADMSG;
-        if ((unsigned) r >= prefix_len + 1)
+        if (size >= prefix_len + 1)
                 return memcmp(*buffer, prefix, prefix_len) == 0 &&
                         ((const uint8_t*) *buffer)[prefix_len] == extra;
         else
