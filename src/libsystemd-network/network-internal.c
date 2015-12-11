@@ -135,8 +135,8 @@ bool net_match_config(const struct ether_addr *match_mac,
             (!dev_name || !strv_fnmatch_or_empty(match_names, dev_name, 0)))
                 return false;
         
-        if (!strv_isempty(match_names) &&
-            (!dev_name || !strv_fnmatch_or_empty(match_names, dev_name, 0)))
+        if (!strv_isempty(match_autoll) &&
+            (!dev_autoll || !strv_fnmatch_or_empty(match_autoll, dev_autoll, 0)))
                 return false;
 
         return true;
