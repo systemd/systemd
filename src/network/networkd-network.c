@@ -299,7 +299,7 @@ int network_get(Manager *manager, struct udev_device *device,
                 Network **ret) {
         Network *network;
         struct udev_device *parent;
-        const char *path = NULL, *parent_driver = NULL, *driver = NULL, *devtype = NULL;
+        const char *path = NULL, *parent_driver = NULL, *driver = NULL, *devtype = NULL, *autoll = NULL;
 
         assert(manager);
         assert(ret);
@@ -314,16 +314,18 @@ int network_get(Manager *manager, struct udev_device *device,
                 driver = udev_device_get_property_value(device, "ID_NET_DRIVER");
 
                 devtype = udev_device_get_devtype(device);
+                
+                autoll = udev_device_get_property_value(device, "ID_NET_AUTO_LL");
         }
 
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
                                      network->match_driver, network->match_type,
-                                     network->match_name, network->match_host,
-                                     network->match_virt, network->match_kernel,
-                                     network->match_arch,
+                                     network->match_name, network->match_autoll,
+                                     network->match_host, network->match_virt,
+                                     network->match_kernel, network->match_arch,
                                      address, path, parent_driver, driver,
-                                     devtype, ifname)) {
+                                     devtype, ifname, autoll)) {
                         if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
