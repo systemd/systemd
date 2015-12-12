@@ -221,6 +221,7 @@ void network_free(Network *network) {
         strv_free(network->match_driver);
         strv_free(network->match_type);
         strv_free(network->match_name);
+        strv_free(network->match_autoll);
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
