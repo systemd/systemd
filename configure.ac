@@ -668,7 +668,7 @@ AC_ARG_ENABLE([smack], AS_HELP_STRING([--disable-smack],[Disable optional SMACK 
                 esac],
                 [have_smack=auto])
 
-if test "x${have_smack}" = xauto; then
+if test "x${have_smack}" != xno; then
         M4_DEFINES="$M4_DEFINES -DHAVE_SMACK"
         have_smack=yes
 fi
