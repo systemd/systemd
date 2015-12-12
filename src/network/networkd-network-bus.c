@@ -67,6 +67,7 @@ const sd_bus_vtable network_vtable[] = {
         SD_BUS_PROPERTY("MatchDriver", "as", NULL, offsetof(Network, match_driver), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchType", "as", NULL, offsetof(Network, match_type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchName", "as", NULL, offsetof(Network, match_name), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MatchAutoLL", "as", NULL, offsetof(Network, match_autoll), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_VTABLE_END
 };

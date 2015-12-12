@@ -187,6 +187,28 @@ _public_ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 }
 
 /**
+ * udev_device_get_autoll:
+ * @udev_device: udev device
+ *
+ * Retrieve the autoll string of the udev device.
+ *
+ * Returns: the AutoLL property of the udev device, or #NULL if it can not be determined
+ **/
+_public_ const char *udev_device_get_autoll(struct udev_device *udev_device)
+{
+        const char *autoll = NULL;
+
+        assert_return_errno(udev_device, NULL, EINVAL);
+
+        autoll = udev_device_get_property_value(udev_device, "ID_NET_AUTO_LL");
+        if (!autoll) {
+                return NULL;
+        }
+
+        return autoll;
+}
+
+/**
  * udev_device_get_property_value:
  * @udev_device: udev device
  * @key: property name

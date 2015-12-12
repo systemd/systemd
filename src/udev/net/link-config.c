@@ -256,14 +256,16 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
                 attr_value = udev_device_get_sysattr_value(device, "address");
 
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
-                                     link->match_type, link->match_name, link->match_host,
-                                     link->match_virt, link->match_kernel, link->match_arch,
+                                     link->match_type, link->match_name, link->match_autoll,
+                                     link->match_host, link->match_virt, link->match_kernel,
+                                     link->match_arch,
                                      attr_value ? ether_aton(attr_value) : NULL,
                                      udev_device_get_property_value(device, "ID_PATH"),
                                      udev_device_get_driver(udev_device_get_parent(device)),
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
-                                     udev_device_get_sysname(device))) {
+                                     udev_device_get_sysname(device),
+                                     udev_device_get_property_value(device, "ID_NET_AUTO_LL"))) {
                         if (link->match_name) {
                                 unsigned char name_assign_type = NET_NAME_UNKNOWN;
 

@@ -91,6 +91,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
+                      char * const *match_autoll,
                       Condition *match_host,
                       Condition *match_virt,
                       Condition *match_kernel,
@@ -100,7 +101,8 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
-                      const char *dev_name) {
+                      const char *dev_name,
+                      const char *dev_autoll) {
 
         if (match_host && !condition_test(match_host))
                 return false;
@@ -131,6 +133,10 @@ bool net_match_config(const struct ether_addr *match_mac,
 
         if (!strv_isempty(match_names) &&
             (!dev_name || !strv_fnmatch_or_empty(match_names, dev_name, 0)))
+                return false;
+
+        if (!strv_isempty(match_autoll) &&
+            (!dev_autoll || !strv_fnmatch_or_empty(match_autoll, dev_autoll, 0)))
                 return false;
 
         return true;
@@ -291,6 +297,42 @@ int config_parse_ifalias(const char *unit,
                 n = NULL;
         } else
                 *s = NULL;
+
+        return 0;
+}
+
+int config_parse_autoll(const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
+
+        char ***s = data;
+        char *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        n = strdup(rvalue);
+        if (!n)
+                return log_oom();
+
+        if (!ascii_is_valid(n) || strlen(n) > AUTOLLSZ) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "autoll string is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        r = strv_consume(s, n);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
