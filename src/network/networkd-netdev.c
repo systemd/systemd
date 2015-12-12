@@ -611,10 +611,10 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return -errno;
 
         /* skip out early if configuration does not match the environment */
-        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
+        if (net_match_config(NULL, NULL, NULL, NULL, NULL, NULL,
                              netdev_raw->match_host, netdev_raw->match_virt,
                              netdev_raw->match_kernel, netdev_raw->match_arch,
-                             NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
+                             NULL, NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
                 return 0;
 
         if (!NETDEV_VTABLE(netdev_raw)) {
