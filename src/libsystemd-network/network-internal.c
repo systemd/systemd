@@ -312,8 +312,9 @@ int config_parse_autoll(const char *unit,
                         void *data,
                         void *userdata) {
 
-        char **s = data;
-        _cleanup_free_ char *n = NULL;
+        char ***s = data;
+        char *n = NULL;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -324,17 +325,14 @@ int config_parse_autoll(const char *unit,
         if (!n)
                 return log_oom();
 
-        if (!ascii_is_valid(n) || strlen(n) >= AUTOLLSZ) {
+        if (!ascii_is_valid(n) || strlen(n) > AUTOLLSZ) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "autoll string is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        free(*s);
-        if (*n) {
-                *s = n;
-                n = NULL;
-        } else
-                *s = NULL;
+        r = strv_consume(s, n);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
