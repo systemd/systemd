@@ -1085,7 +1085,7 @@ static int journal_file_append_data(
         if (JOURNAL_FILE_COMPRESS(f) && size >= COMPRESSION_SIZE_THRESHOLD) {
                 size_t rsize = 0;
 
-                compression = compress_blob(data, size, o->data.payload, &rsize);
+                compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
 
                 if (compression >= 0) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);

@@ -58,7 +58,8 @@ static const char* const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(object_compressed, int);
 
-int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_size) {
+int compress_blob_xz(const void *src, uint64_t src_size,
+                     void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #ifdef HAVE_XZ
         static const lzma_options_lzma opt = {
                 1u << 20u, NULL, 0, LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
@@ -74,6 +75,7 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
         assert(src);
         assert(src_size > 0);
         assert(dst);
+        assert(dst_alloc_size > 0);
         assert(dst_size);
 
         /* Returns < 0 if we couldn't compress the data or the
@@ -83,7 +85,7 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
                 return -ENOBUFS;
 
         ret = lzma_stream_buffer_encode((lzma_filter*) filters, LZMA_CHECK_NONE, NULL,
-                                        src, src_size, dst, &out_pos, src_size - 1);
+                                        src, src_size, dst, &out_pos, dst_alloc_size);
         if (ret != LZMA_OK)
                 return -ENOBUFS;
 
@@ -94,13 +96,15 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
 #endif
 }
 
-int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, size_t *dst_size) {
+int compress_blob_lz4(const void *src, uint64_t src_size,
+                      void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #ifdef HAVE_LZ4
         int r;
 
         assert(src);
         assert(src_size > 0);
         assert(dst);
+        assert(dst_alloc_size > 0);
         assert(dst_size);
 
         /* Returns < 0 if we couldn't compress the data or the
@@ -109,7 +113,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, size_t *dst
         if (src_size < 9)
                 return -ENOBUFS;
 
-        r = LZ4_compress_limitedOutput(src, dst + 8, src_size, src_size - 8 - 1);
+        r = LZ4_compress_limitedOutput(src, dst + 8, src_size, (int) dst_alloc_size - 8);
         if (r <= 0)
                 return -ENOBUFS;
 

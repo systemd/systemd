@@ -38,7 +38,7 @@
 #endif
 
 typedef int (compress_blob_t)(const void *src, uint64_t src_size,
-                              void *dst, size_t *dst_size);
+                              void *dst, size_t dst_alloc_size, size_t *dst_size);
 typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
                                 void **dst, size_t *dst_alloc_size,
                                 size_t* dst_size, size_t dst_max);
@@ -57,15 +57,14 @@ static void test_compress_decompress(int compression,
                                      size_t data_len,
                                      bool may_fail) {
         char compressed[512];
-        size_t csize = 512;
-        size_t usize = 0;
+        size_t csize, usize = 0;
         _cleanup_free_ char *decompressed = NULL;
         int r;
 
         log_info("/* testing %s %s blob compression/decompression */",
                  object_compressed_to_string(compression), data);
 
-        r = compress(data, data_len, compressed, &csize);
+        r = compress(data, data_len, compressed, sizeof(compressed), &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
                 assert_se(may_fail);
@@ -102,15 +101,14 @@ static void test_decompress_startswith(int compression,
                                        bool may_fail) {
 
         char compressed[512];
-        size_t csize = 512;
-        size_t usize = 0;
+        size_t csize, usize = 0;
         _cleanup_free_ char *decompressed = NULL;
         int r;
 
         log_info("/* testing decompress_startswith with %s on %s text*/",
                  object_compressed_to_string(compression), data);
 
-        r = compress(data, data_len, compressed, &csize);
+        r = compress(data, data_len, compressed, sizeof(compressed), &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
                 assert_se(may_fail);
