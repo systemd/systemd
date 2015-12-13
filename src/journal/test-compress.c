@@ -17,6 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_LZ4
+#include <lz4.h>
+#endif
+
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
@@ -197,6 +201,42 @@ static void test_compress_stream(int compression,
         assert_se(unlink(pattern2) == 0);
 }
 
+#ifdef HAVE_LZ4
+static void test_lz4_decompress_partial(void) {
+        char buf[20000];
+        size_t buf_size = sizeof(buf), compressed;
+        int r;
+
+        char huge[4096*1024];
+        memset(huge, 'x', sizeof(huge));
+        memcpy(huge, "HUGE=", 5);
+
+        r = LZ4_compress_limitedOutput(huge, buf, sizeof(huge), buf_size);
+        assert_se(r >= 0);
+        compressed = r;
+        log_info("Compressed %zu → %zu", sizeof(huge), compressed);
+
+        r = LZ4_decompress_safe(buf, huge, r, sizeof(huge));
+        assert_se(r >= 0);
+        log_info("Decompressed → %i", r);
+
+        r = LZ4_decompress_safe_partial(buf, huge,
+                                        compressed,
+                                        12, (int) sizeof(huge));
+        assert_se(r >= 0);
+        log_info("Decompressed partial %i/%zu → %i", 12, sizeof(huge), r);
+
+        /* We expect this to fail, because that's how current lz4 works. If this
+         * call succeeds, then lz4 has been fixed, and we need to change our code.
+         */
+        r = LZ4_decompress_safe_partial(buf, huge,
+                                        compressed,
+                                        12, (int) sizeof(huge) - 1);
+        assert_se(r < 0);
+        log_info("Decompressed partial %i/%zu → %i", 12, sizeof(huge), r);
+}
+#endif
+
 int main(int argc, char *argv[]) {
         const char text[] =
                 "text\0foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF"
@@ -239,6 +279,8 @@ int main(int argc, char *argv[]) {
 
         test_compress_stream(OBJECT_COMPRESSED_LZ4, "lz4cat",
                              compress_stream_lz4, decompress_stream_lz4, argv[0]);
+
+        test_lz4_decompress_partial();
 #else
         log_info("/* LZ4 test skipped */");
 #endif
