@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#include <uchar.h>
 #include <unistd.h>
 
 #ifdef HAVE_AUDIT
@@ -1124,4 +1125,14 @@ static inline key_serial_t request_key(const char *type, const char *description
 
 #ifndef KEY_SPEC_USER_KEYRING
 #define KEY_SPEC_USER_KEYRING -4
+#endif
+
+/* C11 */
+#ifndef char32_t
+#define char32_t uint32_t
+#endif
+
+/* C11 */
+#ifndef char16_t
+#define char16_t uint16_t
 #endif
