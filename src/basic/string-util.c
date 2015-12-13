@@ -450,6 +450,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         char *e;
         const char *i, *j;
         unsigned k, len, len2;
+        int r;
 
         assert(s);
         assert(percent <= 100);
@@ -469,10 +470,10 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         k = 0;
         for (i = s; k < x && i < s + old_length; i = utf8_next_char(i)) {
-                int c;
+                char32_t c;
 
-                c = utf8_encoded_to_unichar(i);
-                if (c < 0)
+                r = utf8_encoded_to_unichar(i, &c);
+                if (r < 0)
                         return NULL;
                 k += unichar_iswide(c) ? 2 : 1;
         }
@@ -481,11 +482,11 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 x ++;
 
         for (j = s + old_length; k < new_length && j > i; ) {
-                int c;
+                char32_t c;
 
                 j = utf8_prev_char(j);
-                c = utf8_encoded_to_unichar(j);
-                if (c < 0)
+                r = utf8_encoded_to_unichar(j, &c);
+                if (r < 0)
                         return NULL;
                 k += unichar_iswide(c) ? 2 : 1;
         }
