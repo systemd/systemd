@@ -451,7 +451,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         _cleanup_(LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
         _cleanup_free_ char *buf = NULL;
         char *src = NULL;
-        size_t size, n, total_in = 0, total_out = 0, offset = 0, frame_size;
+        size_t size, n, total_in = 0, total_out, offset = 0, frame_size;
         struct stat st;
         int r;
         static const LZ4F_compressOptions_t options = {
@@ -474,7 +474,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         if (!buf)
                 return -ENOMEM;
 
-        n = offset = LZ4F_compressBegin(ctx, buf, size, &preferences);
+        n = offset = total_out = LZ4F_compressBegin(ctx, buf, size, &preferences);
         if (LZ4F_isError(n))
                 return -EINVAL;
 
