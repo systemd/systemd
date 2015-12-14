@@ -27,6 +27,7 @@
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-rr.h"
 #include "string-util.h"
+#include "hexdecoct.h"
 
 static void test_dnssec_verify_rrset2(void) {
 
@@ -305,12 +306,46 @@ static void test_dnssec_canonicalize(void) {
         test_dnssec_canonicalize_one("FOO..bar.", NULL, -EINVAL);
 }
 
+static void test_dnssec_nsec3_hash(void) {
+        static const uint8_t salt[] = { 0xB0, 0x1D, 0xFA, 0xCE };
+        static const uint8_t next_hashed_name[] = { 0x84, 0x10, 0x26, 0x53, 0xc9, 0xfa, 0x4d, 0x85, 0x6c, 0x97, 0x82, 0xe2, 0x8f, 0xdf, 0x2d, 0x5e, 0x87, 0x69, 0xc4, 0x52 };
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_free_ char *a = NULL, *b = NULL;
+        uint8_t h[DNSSEC_HASH_SIZE_MAX];
+        int k;
+
+        /* The NSEC3 RR for eurid.eu on 2015-12-14. */
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC3, "PJ8S08RR45VIQDAQGE7EN3VHKNROTBMM.eurid.eu.");
+        assert_se(rr);
+
+        rr->nsec3.algorithm = DNSSEC_DIGEST_SHA1;
+        rr->nsec3.flags = 1;
+        rr->nsec3.iterations = 1;
+        rr->nsec3.salt = memdup(salt, sizeof(salt));
+        assert_se(rr->nsec3.salt);
+        rr->nsec3.salt_size = sizeof(salt);
+        rr->nsec3.next_hashed_name = memdup(next_hashed_name, sizeof(next_hashed_name));
+        assert_se(rr->nsec3.next_hashed_name);
+        rr->nsec3.next_hashed_name_size = sizeof(next_hashed_name);
+
+        assert_se(dns_resource_record_to_string(rr, &a) >= 0);
+        log_info("NSEC3: %s", a);
+
+        k = dnssec_nsec3_hash(rr, "eurid.eu", &h);
+        assert_se(k >= 0);
+
+        b = base32hexmem(h, k, false);
+        assert_se(b);
+        assert_se(strcasecmp(b, "PJ8S08RR45VIQDAQGE7EN3VHKNROTBMM") == 0);
+}
+
 int main(int argc, char*argv[]) {
 
         test_dnssec_canonicalize();
         test_dnssec_verify_dns_key();
         test_dnssec_verify_rrset();
         test_dnssec_verify_rrset2();
+        test_dnssec_nsec3_hash();
 
         return 0;
 }

@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-dnssec.h"
 #include "string-util.h"
 
 DnsAnswer *dns_answer_new(unsigned n) {

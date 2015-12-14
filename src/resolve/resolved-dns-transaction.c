@@ -1472,8 +1472,57 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         /* Everything that's now in t->answer is known to be good, hence cacheable. */
         t->n_answer_cacheable = (unsigned) -1; /* everything! */
 
-        t->answer_authenticated = true;
-        t->dnssec_result = DNSSEC_VALIDATED;
+        /* At this point the answer only contains validated
+         * RRsets. Now, let's see if it actually answers the question
+         * we asked. If so, great! If it doesn't, then see if
+         * NSEC/NSEC3 can prove this. */
+        r = dns_answer_match_key(t->answer, t->key);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                /* Yes, it answer the question, everything is authenticated. */
+                t->dnssec_result = DNSSEC_VALIDATED;
+                t->answer_rcode = DNS_RCODE_SUCCESS;
+                t->answer_authenticated = true;
+        } else if (r == 0) {
+                DnssecNsecResult nr;
+
+                /* Bummer! Let's check NSEC/NSEC3 */
+                r = dnssec_test_nsec(t->answer, t->key, &nr);
+                if (r < 0)
+                        return r;
+
+                switch (nr) {
+
+                case DNSSEC_NSEC_NXDOMAIN:
+                        /* NSEC proves the domain doesn't exist. Very good. */
+                        t->dnssec_result = DNSSEC_VALIDATED;
+                        t->answer_rcode = DNS_RCODE_NXDOMAIN;
+                        t->answer_authenticated = true;
+                        break;
+
+                case DNSSEC_NSEC_NODATA:
+                        /* NSEC proves that there's no data here, very good. */
+                        t->dnssec_result = DNSSEC_VALIDATED;
+                        t->answer_rcode = DNS_RCODE_SUCCESS;
+                        t->answer_authenticated = true;
+                        break;
+
+                case DNSSEC_NSEC_NO_RR:
+                        /* No NSEC data? Bummer! */
+                        t->dnssec_result = DNSSEC_UNSIGNED;
+                        break;
+
+                case DNSSEC_NSEC_FOUND:
+                        /* NSEC says it needs to be there, but we couldn't find it? Bummer! */
+                        t->dnssec_result = DNSSEC_NSEC_MISMATCH;
+                        break;
+
+                default:
+                        assert_not_reached("Unexpected NSEC result.");
+                }
+        }
+
         return 1;
 }
 
