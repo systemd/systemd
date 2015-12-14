@@ -3744,6 +3744,7 @@ EXTRA_DIST += \
 	hwdb/sdio.ids
 
 # ------------------------------------------------------------------------------
+if ENABLE_TESTS
 TESTS += \
 	test/udev-test.pl
 
@@ -3754,6 +3755,7 @@ TESTS += \
 if HAVE_SYSV_COMPAT
 TESTS += \
 	test/sysv-generator-test.py
+endif
 endif
 endif
 
@@ -3775,8 +3777,10 @@ test_udev_LDADD = \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
+if ENABLE_TESTS
 check_DATA += \
 	test/sys
+endif
 
 # packed sysfs test tree
 test/sys:
@@ -4014,7 +4018,8 @@ journalctl_LDADD += \
 endif
 
 journalctl_SOURCES += \
-	src/journal/journal-fields.c
+	src/journal/journal-fields.c \
+	src/journal/journal-fields.h
 
 test_journal_SOURCES = \
 	src/journal/test-journal.c
