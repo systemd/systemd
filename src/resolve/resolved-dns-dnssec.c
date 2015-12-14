@@ -64,6 +64,19 @@
  *            Normal RR → RRSIG/DNSKEY+ → DS → RRSIG/DNSKEY+ → DS → ... → DS → RRSIG/DNSKEY+ → DS
  */
 
+static void initialize_libgcrypt(void) {
+        const char *p;
+
+        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
+                return;
+
+        p = gcry_check_version("1.4.5");
+        assert(p);
+
+        gcry_control(GCRYCTL_DISABLE_SECMEM);
+        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+}
+
 static bool dnssec_algorithm_supported(int algorithm) {
         return IN_SET(algorithm,
                       DNSSEC_ALGORITHM_RSASHA1,
@@ -328,6 +341,8 @@ int dnssec_verify_rrset(
 
         /* Bring the RRs into canonical order */
         qsort_safe(list, n, sizeof(DnsResourceRecord*), rr_compare);
+
+        initialize_libgcrypt();
 
         /* OK, the RRs are now in canonical order. Let's calculate the digest */
         switch (rrsig->rrsig.algorithm) {
@@ -716,6 +731,8 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
                 return 0;
         if (dnssec_keytag(dnskey) != ds->ds.key_tag)
                 return 0;
+
+        initialize_libgcrypt();
 
         algorithm = digest_to_gcrypt(ds->ds.digest_type);
         if (algorithm < 0)
