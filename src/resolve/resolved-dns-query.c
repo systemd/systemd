@@ -185,6 +185,14 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
 
                 switch (t->state) {
 
+                case DNS_TRANSACTION_NULL:
+                        /* If there's a NULL transaction pending, then
+                         * this means not all transactions where
+                         * started yet, and we were called from within
+                         * the stackframe that is supposed to start
+                         * remaining transactions. In this case,
+                         * simply claim the candidate is pending. */
+
                 case DNS_TRANSACTION_PENDING:
                 case DNS_TRANSACTION_VALIDATING:
                         /* If there's one transaction currently in
@@ -196,9 +204,6 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
                 case DNS_TRANSACTION_SUCCESS:
                         state = t->state;
                         break;
-
-                case DNS_TRANSACTION_NULL:
-                        assert_not_reached("Transaction not started?");
 
                 default:
                         if (state != DNS_TRANSACTION_SUCCESS)
