@@ -72,12 +72,6 @@ static bool dnssec_algorithm_supported(int algorithm) {
                       DNSSEC_ALGORITHM_RSASHA512);
 }
 
-static bool dnssec_digest_supported(int digest) {
-        return IN_SET(digest,
-                      DNSSEC_DIGEST_SHA1,
-                      DNSSEC_DIGEST_SHA256);
-}
-
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
         const uint8_t *p;
         uint32_t sum;
@@ -679,9 +673,28 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
         return (int) c;
 }
 
+static int digest_to_gcrypt(uint8_t algorithm) {
+
+        /* Translates a DNSSEC digest algorithm into a gcrypt digest iedntifier */
+
+        switch (algorithm) {
+
+        case DNSSEC_DIGEST_SHA1:
+                return GCRY_MD_SHA1;
+
+        case DNSSEC_DIGEST_SHA256:
+                return GCRY_MD_SHA256;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
-        gcry_md_hd_t md = NULL;
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
+        gcry_md_hd_t md = NULL;
+        size_t hash_size;
+        int algorithm;
         void *result;
         int r;
 
@@ -704,37 +717,23 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         if (dnssec_keytag(dnskey) != ds->ds.key_tag)
                 return 0;
 
-        if (!dnssec_digest_supported(ds->ds.digest_type))
-                return -EOPNOTSUPP;
+        algorithm = digest_to_gcrypt(ds->ds.digest_type);
+        if (algorithm < 0)
+                return algorithm;
 
-        switch (ds->ds.digest_type) {
+        hash_size = gcry_md_get_algo_dlen(algorithm);
+        assert(hash_size > 0);
 
-        case DNSSEC_DIGEST_SHA1:
-
-                if (ds->ds.digest_size != 20)
-                        return 0;
-
-                gcry_md_open(&md, GCRY_MD_SHA1, 0);
-                break;
-
-        case DNSSEC_DIGEST_SHA256:
-
-                if (ds->ds.digest_size != 32)
-                        return 0;
-
-                gcry_md_open(&md, GCRY_MD_SHA256, 0);
-                break;
-
-        default:
-                assert_not_reached("Unknown digest");
-        }
-
-        if (!md)
-                return -EIO;
+        if (ds->ds.digest_size != hash_size)
+                return 0;
 
         r = dnssec_canonicalize(DNS_RESOURCE_KEY_NAME(dnskey->key), owner_name, sizeof(owner_name));
         if (r < 0)
-                goto finish;
+                return r;
+
+        gcry_md_open(&md, algorithm, 0);
+        if (!md)
+                return -EIO;
 
         gcry_md_write(md, owner_name, r);
         md_add_uint16(md, dnskey->dnskey.flags);
