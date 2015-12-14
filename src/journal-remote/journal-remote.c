@@ -899,6 +899,7 @@ static int remoteserver_init(RemoteServer *s,
 
         if (arg_url) {
                 const char *url, *hostname;
+                char *p;
 
                 if (!strstr(arg_url, "/entries")) {
                         uint len = strlen(arg_url);
@@ -924,6 +925,12 @@ static int remoteserver_init(RemoteServer *s,
                         startswith(arg_url, "https://") ?:
                         startswith(arg_url, "http://") ?:
                         arg_url;
+
+                if(p = strchr(hostname, '/'))
+                        *p = '\0';
+
+                if(p = strchr(hostname, ':'))
+                        *p = '\0';
 
                 r = add_source(s, fd, (char*) hostname, false);
                 if (r < 0)
