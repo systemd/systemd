@@ -843,7 +843,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         assert(t);
         assert(t->scope->protocol == DNS_PROTOCOL_MDNS);
 
-        /* Discard any previously prepared packet, so we can start over and coaleasce again */
+        /* Discard any previously prepared packet, so we can start over and coalesce again */
         t->sent = dns_packet_unref(t->sent);
 
         r = dns_packet_new_query(&p, t->scope->protocol, 0, false);

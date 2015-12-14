@@ -668,10 +668,13 @@ AC_ARG_ENABLE([smack], AS_HELP_STRING([--disable-smack],[Disable optional SMACK 
                 esac],
                 [have_smack=auto])
 
-if test "x${have_smack}" = xauto; then
+if test "x${have_smack}" != xno; then
+        AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
         M4_DEFINES="$M4_DEFINES -DHAVE_SMACK"
         have_smack=yes
 fi
+
+AM_CONDITIONAL([HAVE_SMACK], [test "x$have_smack" = "xyes"])
 
 have_smack_run_label=no
 AC_ARG_WITH(smack-run-label,
@@ -689,12 +692,6 @@ AS_HELP_STRING([--with-smack-default-process-label=STRING],
         [default SMACK label for executed processes]),
         [AC_DEFINE_UNQUOTED(SMACK_DEFAULT_PROCESS_LABEL, ["$withval"], [Default SMACK label for executed processes])],
         [])
-
-if test "x${have_smack}" = xyes ; then
-        AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
-fi
-
-AM_CONDITIONAL([HAVE_SMACK], [test "x$have_smack" = "xyes"])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gcrypt],

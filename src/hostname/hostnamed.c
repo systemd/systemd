@@ -212,7 +212,7 @@ try_dmi:
            unreliable enough, so let's not do any additional guesswork
            on top of that.
 
-           See the SMBIOS Specification 4.0 section 7.4.1 for
+           See the SMBIOS Specification 3.0 section 7.4.1 for
            details about the values listed here:
 
            https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.0.0.pdf
