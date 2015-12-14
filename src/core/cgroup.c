@@ -48,6 +48,7 @@ void cgroup_context_init(CGroupContext *c) {
         c->cpu_quota_per_sec_usec = USEC_INFINITY;
 
         c->memory_limit = (uint64_t) -1;
+        c->memory_swap_limit = (uint64_t) -1;
 
         c->blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
         c->startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
@@ -119,6 +120,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOWeight=%" PRIu64 "\n"
                 "%sStartupBlockIOWeight=%" PRIu64 "\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
+                "%sMemorySwapLimit=%" PRIu64 "\n"
                 "%sTasksMax=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n"
                 "%sDelegate=%s\n",
@@ -132,6 +134,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
                 prefix, c->memory_limit,
+                prefix, c->memory_swap_limit,
                 prefix, c->tasks_max,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, yes_no(c->delegate));
@@ -398,26 +401,31 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, u
         }
 
         if ((mask & CGROUP_MASK_MEMORY) && !is_root) {
-                if (c->memory_limit != (uint64_t) -1) {
-                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+                char memory[DECIMAL_STR_MAX(uint64_t) + 1];
+                char memory_swap[DECIMAL_STR_MAX(uint64_t) + 1];
 
-                        sprintf(buf, "%" PRIu64 "\n", c->memory_limit);
+                if (c->memory_limit != (uint64_t) -1)
+                        sprintf(memory, "%" PRIu64 "\n", c->memory_limit);
 
-                        if (cg_unified() <= 0)
-                                r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
-                        else
-                                r = cg_set_attribute("memory", path, "memory.max", buf);
+                if (c->memory_swap_limit != (uint64_t) -1)
+                        sprintf(memory_swap, "%" PRIu64 "\n", c->memory_swap_limit);
 
+                if (cg_unified() <= 0) {
+                        r = cg_set_attribute("memory", path, "memory.limit_in_bytes", c->memory_limit != (uint64_t) -1 ? memory : "-1");
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set memory.limit_in_bytes on %s: %m", path);
+
+                        r = cg_set_attribute("memory", path, "memory.memsw.limit_in_bytes", c->memory_swap_limit != (uint64_t) -1 ? memory_swap : "-1");
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set memory.memsw.limit_in_bytes on %s: %m", path);
                 } else {
-                        if (cg_unified() <= 0)
-                                r = cg_set_attribute("memory", path, "memory.limit_in_bytes", "-1");
-                        else
-                                r = cg_set_attribute("memory", path, "memory.max", "max");
+                        r = cg_set_attribute("memory", path, "memory.max", c->memory_limit != (uint64_t) -1 ? memory : "max");
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set memory.max on %s: %m", path);
                 }
-
-                if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set memory.limit_in_bytes/memory.max on %s: %m", path);
         }
 
         if ((mask & CGROUP_MASK_DEVICES) && !is_root) {
@@ -529,7 +537,8 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
                 mask |= CGROUP_MASK_BLKIO;
 
         if (c->memory_accounting ||
-            c->memory_limit != (uint64_t) -1)
+            c->memory_limit != (uint64_t) -1 ||
+            c->memory_swap_limit != (uint64_t) -1)
                 mask |= CGROUP_MASK_MEMORY;
 
         if (c->device_allow ||
