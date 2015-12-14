@@ -659,15 +659,16 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
                 }
 
                 window = n >> 8;
-
                 entry = n & 255;
 
                 bitmaps[entry / 8] |= 1 << (7 - (entry % 8));
         }
 
-        r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
-        if (r < 0)
-                goto fail;
+        if (bitmaps[entry / 8] != 0) {
+                r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
+                if (r < 0)
+                        goto fail;
+        }
 
         if (start)
                 *start = saved_size;
