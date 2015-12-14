@@ -1288,7 +1288,10 @@ static int dns_transaction_is_primary_response(DnsTransaction *t, DnsResourceRec
 
         /* Check if the specified RR is the "primary" response,
          * i.e. either matches the question precisely or is a
-         * CNAME/DNAME for it */
+         * CNAME/DNAME for it, or is any kind of NSEC/NSEC3 RR */
+
+        if (IN_SET(rr->key->type, DNS_TYPE_NSEC, DNS_TYPE_NSEC3))
+                return 1;
 
         r = dns_resource_key_match_rr(t->key, rr, NULL);
         if (r != 0)
