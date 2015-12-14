@@ -43,6 +43,8 @@
  *   - multi-label zone compatibility
  *   - DNSSEC cname/dname compatibility
  *   - per-interface DNSSEC setting
+ *   - retry on failed validation
+ *   - fix TTL for cache entries to match RRSIG TTL
  *   - DSA support
  *   - EC support?
  *
