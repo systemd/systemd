@@ -37,6 +37,7 @@
 #include "util.h"
 
 #ifdef ENABLE_DEBUG_HASHMAP
+#include <pthread.h>
 #include "list.h"
 #endif
 
