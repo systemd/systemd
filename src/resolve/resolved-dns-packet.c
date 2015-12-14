@@ -602,7 +602,7 @@ fail:
         return r;
 }
 
-static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t length, uint8_t *types, size_t *start) {
+static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t length, const uint8_t *types, size_t *start) {
         size_t saved_size;
         int r;
 
