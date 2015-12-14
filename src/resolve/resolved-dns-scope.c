@@ -506,7 +506,7 @@ int dns_scope_good_key(DnsScope *s, DnsResourceKey *key) {
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
 
-                /* On classic DNS, lookin up non-address RRs is always
+                /* On classic DNS, looking up non-address RRs is always
                  * fine. (Specifically, we want to permit looking up
                  * DNSKEY and DS records on the root and top-level
                  * domains.) */
