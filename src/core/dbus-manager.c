@@ -229,7 +229,10 @@ static int property_set_log_level(
         if (r < 0)
                 return r;
 
-        return log_set_max_level_from_string(t);
+        r = log_set_max_level_from_string(t);
+        if (r == 0)
+                log_info("Setting log level to %s.", t);
+        return r;
 }
 
 static int property_get_n_names(

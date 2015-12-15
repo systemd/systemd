@@ -1885,23 +1885,21 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         switch (sfsi.ssi_signo - SIGRTMIN) {
 
                         case 20:
-                                log_debug("Enabling showing of status.");
                                 manager_set_show_status(m, SHOW_STATUS_YES);
                                 break;
 
                         case 21:
-                                log_debug("Disabling showing of status.");
                                 manager_set_show_status(m, SHOW_STATUS_NO);
                                 break;
 
                         case 22:
                                 log_set_max_level(LOG_DEBUG);
-                                log_notice("Setting log level to debug.");
+                                log_info("Setting log level to debug.");
                                 break;
 
                         case 23:
                                 log_set_max_level(LOG_INFO);
-                                log_notice("Setting log level to info.");
+                                log_info("Setting log level to info.");
                                 break;
 
                         case 24:
@@ -2961,6 +2959,9 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
         if (m->running_as != MANAGER_SYSTEM)
                 return;
 
+        if (m->show_status != mode)
+                log_debug("%s showing of status.",
+                          mode == SHOW_STATUS_NO ? "Disabling" : "Enabling");
         m->show_status = mode;
 
         if (mode > 0)
