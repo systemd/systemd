@@ -52,6 +52,7 @@ _journalctl() {
                               -o --output -u --unit --user-unit -p --priority
                               --vacuum-size --vacuum-time'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
+                              -G --fields
                               --after-cursor --verify-key -t --identifier
                               --root -M --machine'
         )
@@ -73,6 +74,9 @@ _journalctl() {
                                 comps='short short-iso short-precise short-monotonic verbose export json json-pretty json-sse cat'
                         ;;
                         --field|-F)
+                                comps=${__journal_fields[*]}
+                        ;;
+                        --fields|-G)
                                 comps=${__journal_fields[*]}
                         ;;
                         --priority|-p)
