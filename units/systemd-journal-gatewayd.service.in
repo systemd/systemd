@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Journal Gateway Service
+Documentation=man:systemd-journal-gatewayd(8)
 Requires=systemd-journal-gatewayd.socket
 
 [Service]

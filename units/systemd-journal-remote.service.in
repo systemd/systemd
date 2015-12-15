@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Journal Remote Sink Service
+Documentation=man:systemd-journal-remote(8) man:journal-remote.conf(5)
 Requires=systemd-journal-remote.socket
 
 [Service]
