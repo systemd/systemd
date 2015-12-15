@@ -56,11 +56,15 @@ enum DnssecResult {
         /* These two are added by the DnsTransaction logic */
         DNSSEC_UNSIGNED,
         DNSSEC_FAILED_AUXILIARY,
+        DNSSEC_NSEC_MISMATCH,
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -1
 };
 
 #define DNSSEC_CANONICAL_HOSTNAME_MAX (DNS_HOSTNAME_MAX + 2)
+
+/* The longest digest we'll ever generate, of all digest algorithms we support */
+#define DNSSEC_HASH_SIZE_MAX (MAX(20, 32))
 
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey);
 int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig);
@@ -74,6 +78,17 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey);
 
 int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max);
+
+int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret);
+
+typedef enum DnssecNsecResult {
+        DNSSEC_NSEC_NO_RR,     /* No suitable NSEC/NSEC3 RR found */
+        DNSSEC_NSEC_NXDOMAIN,
+        DNSSEC_NSEC_NODATA,
+        DNSSEC_NSEC_FOUND,
+} DnssecNsecResult;
+
+int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result);
 
 const char* dnssec_mode_to_string(DnssecMode m) _const_;
 DnssecMode dnssec_mode_from_string(const char *s) _pure_;

@@ -438,9 +438,14 @@ int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_
         return 0;
 }
 
-int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start) {
+int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonical_candidate, size_t *start) {
         uint8_t *w;
         int r;
+
+        /* Append a label to a packet. Optionally, does this in DNSSEC
+         * canonical form, if this label is marked as a candidate for
+         * it, and the canonical form logic is enabled for the
+         * packet */
 
         assert(p);
         assert(d);
@@ -454,7 +459,7 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, size_t *start
 
         *(w++) = (uint8_t) l;
 
-        if (p->canonical_form) {
+        if (p->canonical_form && canonical_candidate) {
                 size_t i;
 
                 /* Generate in canonical form, as defined by DNSSEC
@@ -479,6 +484,7 @@ int dns_packet_append_name(
                 DnsPacket *p,
                 const char *name,
                 bool allow_compression,
+                bool canonical_candidate,
                 size_t *start) {
 
         size_t saved_size;
@@ -533,7 +539,7 @@ int dns_packet_append_name(
                 if (k > 0)
                         r = k;
 
-                r = dns_packet_append_label(p, label, r, &n);
+                r = dns_packet_append_label(p, label, r, canonical_candidate, &n);
                 if (r < 0)
                         goto fail;
 
@@ -574,7 +580,7 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, size_t *start) 
 
         saved_size = p->size;
 
-        r = dns_packet_append_name(p, DNS_RESOURCE_KEY_NAME(k), true, NULL);
+        r = dns_packet_append_name(p, DNS_RESOURCE_KEY_NAME(k), true, true, NULL);
         if (r < 0)
                 goto fail;
 
@@ -596,7 +602,7 @@ fail:
         return r;
 }
 
-static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t length, uint8_t *types, size_t *start) {
+static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t length, const uint8_t *types, size_t *start) {
         size_t saved_size;
         int r;
 
@@ -653,15 +659,16 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
                 }
 
                 window = n >> 8;
-
                 entry = n & 255;
 
                 bitmaps[entry / 8] |= 1 << (7 - (entry % 8));
         }
 
-        r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
-        if (r < 0)
-                goto fail;
+        if (bitmaps[entry / 8] != 0) {
+                r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
+                if (r < 0)
+                        goto fail;
+        }
 
         if (start)
                 *start = saved_size;
@@ -762,14 +769,14 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->srv.name, true, NULL);
+                r = dns_packet_append_name(p, rr->srv.name, true, false, NULL);
                 break;
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME:
-                r = dns_packet_append_name(p, rr->ptr.name, true, NULL);
+                r = dns_packet_append_name(p, rr->ptr.name, true, false, NULL);
                 break;
 
         case DNS_TYPE_HINFO:
@@ -812,11 +819,11 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_SOA:
-                r = dns_packet_append_name(p, rr->soa.mname, true, NULL);
+                r = dns_packet_append_name(p, rr->soa.mname, true, false, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->soa.rname, true, NULL);
+                r = dns_packet_append_name(p, rr->soa.rname, true, false, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -844,7 +851,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->mx.exchange, true, NULL);
+                r = dns_packet_append_name(p, rr->mx.exchange, true, false, NULL);
                 break;
 
         case DNS_TYPE_LOC:
@@ -948,7 +955,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->rrsig.signer, false, NULL);
+                r = dns_packet_append_name(p, rr->rrsig.signer, false, true, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -956,7 +963,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_NSEC:
-                r = dns_packet_append_name(p, rr->nsec.next_domain_name, false, NULL);
+                r = dns_packet_append_name(p, rr->nsec.next_domain_name, false, false, NULL);
                 if (r < 0)
                         goto fail;
 

@@ -23,6 +23,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "hexdecoct.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "string-table.h"
@@ -42,6 +43,8 @@
  *   - multi-label zone compatibility
  *   - DNSSEC cname/dname compatibility
  *   - per-interface DNSSEC setting
+ *   - retry on failed validation
+ *   - fix TTL for cache entries to match RRSIG TTL
  *   - DSA support
  *   - EC support?
  *
@@ -64,18 +67,25 @@
  *            Normal RR → RRSIG/DNSKEY+ → DS → RRSIG/DNSKEY+ → DS → ... → DS → RRSIG/DNSKEY+ → DS
  */
 
+static void initialize_libgcrypt(void) {
+        const char *p;
+
+        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
+                return;
+
+        p = gcry_check_version("1.4.5");
+        assert(p);
+
+        gcry_control(GCRYCTL_DISABLE_SECMEM);
+        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+}
+
 static bool dnssec_algorithm_supported(int algorithm) {
         return IN_SET(algorithm,
                       DNSSEC_ALGORITHM_RSASHA1,
                       DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
                       DNSSEC_ALGORITHM_RSASHA256,
                       DNSSEC_ALGORITHM_RSASHA512);
-}
-
-static bool dnssec_digest_supported(int digest) {
-        return IN_SET(digest,
-                      DNSSEC_DIGEST_SHA1,
-                      DNSSEC_DIGEST_SHA256);
 }
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
@@ -334,6 +344,8 @@ int dnssec_verify_rrset(
 
         /* Bring the RRs into canonical order */
         qsort_safe(list, n, sizeof(DnsResourceRecord*), rr_compare);
+
+        initialize_libgcrypt();
 
         /* OK, the RRs are now in canonical order. Let's calculate the digest */
         switch (rrsig->rrsig.algorithm) {
@@ -679,9 +691,28 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
         return (int) c;
 }
 
+static int digest_to_gcrypt(uint8_t algorithm) {
+
+        /* Translates a DNSSEC digest algorithm into a gcrypt digest iedntifier */
+
+        switch (algorithm) {
+
+        case DNSSEC_DIGEST_SHA1:
+                return GCRY_MD_SHA1;
+
+        case DNSSEC_DIGEST_SHA256:
+                return GCRY_MD_SHA256;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
-        gcry_md_hd_t md = NULL;
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
+        gcry_md_hd_t md = NULL;
+        size_t hash_size;
+        int algorithm;
         void *result;
         int r;
 
@@ -704,37 +735,25 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         if (dnssec_keytag(dnskey) != ds->ds.key_tag)
                 return 0;
 
-        if (!dnssec_digest_supported(ds->ds.digest_type))
-                return -EOPNOTSUPP;
+        initialize_libgcrypt();
 
-        switch (ds->ds.digest_type) {
+        algorithm = digest_to_gcrypt(ds->ds.digest_type);
+        if (algorithm < 0)
+                return algorithm;
 
-        case DNSSEC_DIGEST_SHA1:
+        hash_size = gcry_md_get_algo_dlen(algorithm);
+        assert(hash_size > 0);
 
-                if (ds->ds.digest_size != 20)
-                        return 0;
-
-                gcry_md_open(&md, GCRY_MD_SHA1, 0);
-                break;
-
-        case DNSSEC_DIGEST_SHA256:
-
-                if (ds->ds.digest_size != 32)
-                        return 0;
-
-                gcry_md_open(&md, GCRY_MD_SHA256, 0);
-                break;
-
-        default:
-                assert_not_reached("Unknown digest");
-        }
-
-        if (!md)
-                return -EIO;
+        if (ds->ds.digest_size != hash_size)
+                return 0;
 
         r = dnssec_canonicalize(DNS_RESOURCE_KEY_NAME(dnskey->key), owner_name, sizeof(owner_name));
         if (r < 0)
-                goto finish;
+                return r;
+
+        gcry_md_open(&md, algorithm, 0);
+        if (!md)
+                return -EIO;
 
         gcry_md_write(md, owner_name, r);
         md_add_uint16(md, dnskey->dnskey.flags);
@@ -779,6 +798,187 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
         return 0;
 }
 
+int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
+        uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        gcry_md_hd_t md = NULL;
+        size_t hash_size;
+        int algorithm;
+        void *result;
+        unsigned k;
+        int r;
+
+        assert(nsec3);
+        assert(name);
+        assert(ret);
+
+        if (nsec3->key->type != DNS_TYPE_NSEC3)
+                return -EINVAL;
+
+        algorithm = digest_to_gcrypt(nsec3->nsec3.algorithm);
+        if (algorithm < 0)
+                return algorithm;
+
+        initialize_libgcrypt();
+
+        hash_size = gcry_md_get_algo_dlen(algorithm);
+        assert(hash_size > 0);
+
+        if (nsec3->nsec3.next_hashed_name_size != hash_size)
+                return -EINVAL;
+
+        r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), true);
+        if (r < 0)
+                return r;
+
+        gcry_md_open(&md, algorithm, 0);
+        if (!md)
+                return -EIO;
+
+        gcry_md_write(md, wire_format, r);
+        gcry_md_write(md, nsec3->nsec3.salt, nsec3->nsec3.salt_size);
+
+        result = gcry_md_read(md, 0);
+        if (!result) {
+                r = -EIO;
+                goto finish;
+        }
+
+        for (k = 0; k < nsec3->nsec3.iterations; k++) {
+                uint8_t tmp[hash_size];
+                memcpy(tmp, result, hash_size);
+
+                gcry_md_reset(md);
+                gcry_md_write(md, tmp, hash_size);
+                gcry_md_write(md, nsec3->nsec3.salt, nsec3->nsec3.salt_size);
+
+                result = gcry_md_read(md, 0);
+                if (!result) {
+                        r = -EIO;
+                        goto finish;
+                }
+        }
+
+        memcpy(ret, result, hash_size);
+        r = (int) hash_size;
+
+finish:
+        gcry_md_close(md);
+        return r;
+}
+
+int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(key);
+        assert(result);
+
+        /* Look for any NSEC/NSEC3 RRs that say something about the specified key. */
+
+        DNS_ANSWER_FOREACH(rr, answer) {
+
+                if (rr->key->class != key->class)
+                        continue;
+
+                switch (rr->key->type) {
+
+                case DNS_TYPE_NSEC:
+
+                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                *result = bitmap_isset(rr->nsec.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
+                                return 0;
+                        }
+
+                        r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key), rr->nsec.next_domain_name);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                *result = DNSSEC_NSEC_NXDOMAIN;
+                                return 0;
+                        }
+                        break;
+
+                case DNS_TYPE_NSEC3: {
+                        _cleanup_free_ void *decoded = NULL;
+                        size_t decoded_size;
+                        char label[DNS_LABEL_MAX];
+                        uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
+                        int label_length, c, q;
+                        const char *p;
+                        bool covered;
+
+                        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
+                        if (!IN_SET(rr->nsec3.flags, 0, 1))
+                                continue;
+
+                        p = DNS_RESOURCE_KEY_NAME(rr->key);
+                        label_length = dns_label_unescape(&p, label, sizeof(label));
+                        if (label_length < 0)
+                                return label_length;
+                        if (label_length == 0)
+                                continue;
+
+                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        r = unbase32hexmem(label, label_length, false, &decoded, &decoded_size);
+                        if (r == -EINVAL)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        if (decoded_size != rr->nsec3.next_hashed_name_size)
+                                continue;
+
+                        c = memcmp(decoded, rr->nsec3.next_hashed_name, decoded_size);
+                        if (c == 0)
+                                continue;
+
+                        r = dnssec_nsec3_hash(rr, DNS_RESOURCE_KEY_NAME(key), hashed);
+                        /* RFC 5155, Section 8.1 says we MUST ignore NSEC3 RRs with unknown algorithms */
+                        if (r == -EOPNOTSUPP)
+                                continue;
+                        if (r < 0)
+                                return r;
+                        if ((size_t) r != decoded_size)
+                                continue;
+
+                        r = memcmp(decoded, hashed, decoded_size);
+                        if (r == 0) {
+                                *result = bitmap_isset(rr->nsec3.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
+                                return 0;
+                        }
+
+                        q = memcmp(hashed, rr->nsec3.next_hashed_name, decoded_size);
+
+                        covered = c < 0 ?
+                                r < 0 && q < 0 :
+                                q < 0 || r < 0;
+
+                        if (covered) {
+                                *result = DNSSEC_NSEC_NXDOMAIN;
+                                return 0;
+                        }
+
+                        break;
+                }
+
+                default:
+                        break;
+                }
+        }
+
+        /* No approproate NSEC RR found, report this. */
+        *result = DNSSEC_NSEC_NO_RR;
+        return 0;
+}
+
 static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_NO] = "no",
         [DNSSEC_TRUST] = "trust",
@@ -795,5 +995,6 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_MISSING_KEY] = "missing-key",
         [DNSSEC_UNSIGNED] = "unsigned",
         [DNSSEC_FAILED_AUXILIARY] = "failed-auxiliary",
+        [DNSSEC_NSEC_MISMATCH] = "nsec-mismatch",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
