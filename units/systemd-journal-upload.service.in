@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Journal Remote Upload Service
+Documentation=man:systemd-journal-upload(8)
 After=network.target
 
 [Service]
