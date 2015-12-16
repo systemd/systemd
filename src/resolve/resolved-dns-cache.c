@@ -784,8 +784,6 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
                 DnsCacheItem *j;
 
                 LIST_FOREACH(by_key, j, i) {
-                        _cleanup_free_ char *t = NULL;
-
                         if (!j->rr)
                                 continue;
 
