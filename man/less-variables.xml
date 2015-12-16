@@ -20,10 +20,12 @@
                 <varlistentry id='less'>
                         <term><varname>$SYSTEMD_LESS</varname></term>
 
-                        <listitem><para>Override the default
-                        options passed to
-                        <command>less</command>
-                        (<literal>FRSXMK</literal>).</para></listitem>
+                        <listitem><para>Options to pass to
+                        <command>less</command>. If set override
+                        <varname>$LESS</varname>. If neither
+                        <varname>$LESS</varname> or
+                        <varname>$SYSTEMD_LESS</varname> are set, set it
+                        to <literal>FRSXMK</literal>.</para></listitem>
                 </varlistentry>
         </variablelist>
 </refsect1>
