@@ -659,6 +659,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 if (r > 0) {
                         /* There are DNSSEC transactions pending now. Update the state accordingly. */
                         t->state = DNS_TRANSACTION_VALIDATING;
+                        dns_transaction_stop(t);
                         return;
                 }
         }
@@ -747,6 +748,8 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
                 if (t->initial_jitter_scheduled)
                         t->initial_jitter_elapsed = true;
         }
+
+        log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
 
         /* ...and try again with a new server */
         dns_transaction_next_dns_server(t);
