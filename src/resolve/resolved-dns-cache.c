@@ -424,13 +424,12 @@ static int dns_cache_put_negative(
         assert(key);
         assert(owner_address);
 
-        /* Never cache pseudo RR keys */
+        /* Never cache pseudo RR keys. DNS_TYPE_ANY is particularly
+         * important to filter out as we use this as a pseudo-type for
+         * NXDOMAIN entries */
         if (dns_class_is_pseudo(key->class))
                 return 0;
         if (dns_type_is_pseudo(key->type))
-                /* DNS_TYPE_ANY is particularly important to filter
-                 * out as we use this as a pseudo-type for NXDOMAIN
-                 * entries */
                 return 0;
 
         if (soa_ttl <= 0) {
