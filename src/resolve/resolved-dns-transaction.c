@@ -245,14 +245,42 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         /* Notify all queries that are interested, but make sure the
          * transaction isn't freed while we are still looking at it */
         t->block_gc++;
+
         SET_FOREACH(c, t->notify_query_candidates, i)
                 dns_query_candidate_notify(c);
         SET_FOREACH(z, t->notify_zone_items, i)
                 dns_zone_item_notify(z);
-        SET_FOREACH(d, t->notify_transactions, i)
-                dns_transaction_notify(d, t);
-        t->block_gc--;
 
+        if (!set_isempty(t->notify_transactions)) {
+                DnsTransaction **nt;
+                unsigned j, n = 0;
+
+                /* We need to be careful when notifying other
+                 * transactions, as that might destroy other
+                 * transactions in our list. Hence, in order to be
+                 * able to safely iterate through the list of
+                 * transactions, take a GC lock on all of them
+                 * first. Then, in a second loop, notify them, but
+                 * first unlock that specific transaction. */
+
+                nt = newa(DnsTransaction*, set_size(t->notify_transactions));
+                SET_FOREACH(d, t->notify_transactions, i) {
+                        nt[n++] = d;
+                        d->block_gc++;
+                }
+
+                assert(n == set_size(t->notify_transactions));
+
+                for (j = 0; j < n; j++) {
+                        if (set_contains(t->notify_transactions, nt[j]))
+                                dns_transaction_notify(nt[j], t);
+
+                        nt[j]->block_gc--;
+                        dns_transaction_gc(nt[j]);
+                }
+        }
+
+        t->block_gc--;
         dns_transaction_gc(t);
 }
 
