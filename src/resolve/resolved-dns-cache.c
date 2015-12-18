@@ -85,21 +85,6 @@ static void dns_cache_item_remove_and_free(DnsCache *c, DnsCacheItem *i) {
         dns_cache_item_free(i);
 }
 
-void dns_cache_flush(DnsCache *c) {
-        DnsCacheItem *i;
-
-        assert(c);
-
-        while ((i = hashmap_first(c->by_key)))
-                dns_cache_item_remove_and_free(c, i);
-
-        assert(hashmap_size(c->by_key) == 0);
-        assert(prioq_size(c->by_expiry) == 0);
-
-        c->by_key = hashmap_free(c->by_key);
-        c->by_expiry = prioq_free(c->by_expiry);
-}
-
 static bool dns_cache_remove_by_rr(DnsCache *c, DnsResourceRecord *rr) {
         DnsCacheItem *first, *i;
         int r;
@@ -134,6 +119,21 @@ static bool dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
         }
 
         return true;
+}
+
+void dns_cache_flush(DnsCache *c) {
+        DnsResourceKey *key;
+
+        assert(c);
+
+        while ((key = hashmap_first_key(c->by_key)))
+                dns_cache_remove(c, key);
+
+        assert(hashmap_size(c->by_key) == 0);
+        assert(prioq_size(c->by_expiry) == 0);
+
+        c->by_key = hashmap_free(c->by_key);
+        c->by_expiry = prioq_free(c->by_expiry);
 }
 
 static void dns_cache_make_space(DnsCache *c, unsigned add) {
