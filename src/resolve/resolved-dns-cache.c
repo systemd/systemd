@@ -26,11 +26,11 @@
 #include "resolved-dns-packet.h"
 #include "string-util.h"
 
-/* Never cache more than 1K entries */
-#define CACHE_MAX 1024
+/* Never cache more than 4K entries */
+#define CACHE_MAX 4096
 
-/* We never keep any item longer than 10min in our cache */
-#define CACHE_TTL_MAX_USEC (10 * USEC_PER_MINUTE)
+/* We never keep any item longer than 2h in our cache */
+#define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
 
 typedef enum DnsCacheItemType DnsCacheItemType;
 typedef struct DnsCacheItem DnsCacheItem;
