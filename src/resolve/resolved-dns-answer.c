@@ -639,3 +639,40 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
 
         return 0;
 }
+
+void dns_answer_dump(DnsAnswer *answer, FILE *f) {
+        DnsResourceRecord *rr;
+        DnsAnswerFlags flags;
+        int ifindex, r;
+
+        if (!f)
+                f = stdout;
+
+        DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
+                _cleanup_free_ char *t = NULL;
+
+                fputc('\t', f);
+
+                r = dns_resource_record_to_string(rr, &t);
+                if (r < 0) {
+                        log_oom();
+                        continue;
+                }
+
+                fputs(t, f);
+
+                if (ifindex != 0 || flags & (DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE|DNS_ANSWER_SHARED_OWNER))
+                        fputs("\t;", f);
+
+                if (ifindex != 0)
+                        printf(" ifindex=%i", ifindex);
+                if (flags & DNS_ANSWER_AUTHENTICATED)
+                        fputs(" authenticated", f);
+                if (flags & DNS_ANSWER_CACHEABLE)
+                        fputs(" cachable", f);
+                if (flags & DNS_ANSWER_SHARED_OWNER)
+                        fputs(" shared-owner", f);
+
+                fputc('\n', f);
+        }
+}

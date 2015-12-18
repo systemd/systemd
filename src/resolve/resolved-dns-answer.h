@@ -84,6 +84,8 @@ static inline unsigned dns_answer_size(DnsAnswer *a) {
         return a ? a->n_rrs : 0;
 }
 
+void dns_answer_dump(DnsAnswer *answer, FILE *f);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 #define _DNS_ANSWER_FOREACH(q, kk, a)                                   \
