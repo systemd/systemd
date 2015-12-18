@@ -80,6 +80,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         dns_answer_unref(t->validated_keys);
 
+        free(t->key_string);
         free(t);
         return NULL;
 }
@@ -182,7 +183,9 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 
         in_addr_to_string(p->family, &p->sender, &pretty);
 
-        log_debug("Transaction on scope %s on %s/%s got tentative packet from %s",
+        log_debug("Transaction %" PRIu16 " for <%s> on scope %s on %s/%s got tentative packet from %s.",
+                  t->id,
+                  dns_transaction_key_string(t),
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
                   t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
@@ -225,12 +228,15 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        log_debug("Transaction on scope %s on %s/%s now complete with <%s> from %s",
+        log_debug("Transaction %" PRIu16 " for <%s> on scope %s on %s/%s now complete with <%s> from %s (%s).",
+                  t->id,
+                  dns_transaction_key_string(t),
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
                   t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
                   dns_transaction_state_to_string(state),
-                  t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source));
+                  t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
+                  t->answer_authenticated ? "authenticated" : "unsigned");
 
         t->state = state;
 
@@ -980,17 +986,12 @@ int dns_transaction_go(DnsTransaction *t) {
         if (r <= 0)
                 return r;
 
-        if (log_get_max_level() >= LOG_DEBUG) {
-                _cleanup_free_ char *ks = NULL;
-
-                (void) dns_resource_key_to_string(t->key, &ks);
-
-                log_debug("Excercising transaction for <%s> on scope %s on %s/%s",
-                          ks ? strstrip(ks) : "???",
-                          dns_protocol_to_string(t->scope->protocol),
-                          t->scope->link ? t->scope->link->name : "*",
-                          t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
-        }
+        log_debug("Excercising transaction %" PRIu16 " for <%s> on scope %s on %s/%s.",
+                  t->id,
+                  dns_transaction_key_string(t),
+                  dns_protocol_to_string(t->scope->protocol),
+                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
 
         if (!t->initial_jitter_scheduled &&
             (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
@@ -1356,12 +1357,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 return 0;
         }
 
-        if (log_get_max_level() >= LOG_DEBUG) {
-                _cleanup_free_ char *ks = NULL;
-
-                (void) dns_resource_key_to_string(t->key, &ks);
-                log_debug("Validating response from transaction %" PRIu16 " (%s).", t->id, ks ? strstrip(ks) : "???");
-        }
+        log_debug("Validating response from transaction %" PRIu16 " (%s).", t->id, dns_transaction_key_string(t));
 
         /* First see if there are DNSKEYs we already known a validated DS for. */
         r = dns_transaction_validate_dnskey_by_ds(t);
@@ -1524,6 +1520,17 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         }
 
         return 1;
+}
+
+const char *dns_transaction_key_string(DnsTransaction *t) {
+        assert(t);
+
+        if (!t->key_string) {
+                if (dns_resource_key_to_string(t->key, &t->key_string) < 0)
+                        return "n/a";
+        }
+
+        return strstrip(t->key_string);
 }
 
 static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
