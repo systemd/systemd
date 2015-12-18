@@ -107,7 +107,7 @@ static bool dns_cache_remove_by_rr(DnsCache *c, DnsResourceRecord *rr) {
         return false;
 }
 
-static bool dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
+static bool dns_cache_remove_by_key(DnsCache *c, DnsResourceKey *key) {
         DnsCacheItem *first, *i, *n;
 
         assert(c);
@@ -131,7 +131,7 @@ void dns_cache_flush(DnsCache *c) {
         assert(c);
 
         while ((key = hashmap_first_key(c->by_key)))
-                dns_cache_remove(c, key);
+                dns_cache_remove_by_key(c, key);
 
         assert(hashmap_size(c->by_key) == 0);
         assert(prioq_size(c->by_expiry) == 0);
@@ -167,7 +167,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 /* Take an extra reference to the key so that it
                  * doesn't go away in the middle of the remove call */
                 key = dns_resource_key_ref(i->key);
-                dns_cache_remove(c, key);
+                dns_cache_remove_by_key(c, key);
         }
 }
 
@@ -202,7 +202,7 @@ void dns_cache_prune(DnsCache *c) {
                         /* Take an extra reference to the key so that it
                          * doesn't go away in the middle of the remove call */
                         key = dns_resource_key_ref(i->key);
-                        dns_cache_remove(c, key);
+                        dns_cache_remove_by_key(c, key);
                 }
         }
 }
@@ -504,7 +504,7 @@ static void dns_cache_remove_previous(
          * not on mDNS), delete all matching old RRs, so that we only
          * keep complete by_key in place. */
         if (key)
-                dns_cache_remove(c, key);
+                dns_cache_remove_by_key(c, key);
 
         /* Second, flush all entries matching the answer, unless this
          * is an RR that is explicitly marked to be "shared" between
@@ -516,7 +516,7 @@ static void dns_cache_remove_previous(
                 if (flags & DNS_ANSWER_SHARED_OWNER)
                         continue;
 
-                dns_cache_remove(c, rr->key);
+                dns_cache_remove_by_key(c, rr->key);
         }
 }
 
@@ -638,13 +638,13 @@ fail:
          * added, just in case */
 
         if (key)
-                dns_cache_remove(c, key);
+                dns_cache_remove_by_key(c, key);
 
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 if ((flags & DNS_ANSWER_CACHEABLE) == 0)
                         continue;
 
-                dns_cache_remove(c, rr->key);
+                dns_cache_remove_by_key(c, rr->key);
         }
 
         return r;
