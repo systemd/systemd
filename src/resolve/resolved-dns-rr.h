@@ -71,7 +71,6 @@ struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
-        bool cache_flush:1;
 };
 
 /* Creates a temporary resource key. This is only useful to quickly

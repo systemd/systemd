@@ -35,8 +35,9 @@ typedef struct DnsAnswerItem DnsAnswerItem;
  * Note that we usually encode the the empty DnsAnswer object as a simple NULL. */
 
 typedef enum DnsAnswerFlags {
-        DNS_ANSWER_AUTHENTICATED = 1,
-        DNS_ANSWER_CACHEABLE     = 2,
+        DNS_ANSWER_AUTHENTICATED = 1, /* Item has been authenticated */
+        DNS_ANSWER_CACHEABLE     = 2, /* Item is subject to caching */
+        DNS_ANSWER_SHARED_OWNER  = 4, /* For mDNS: RRset may be owner by multiple peers */
 } DnsAnswerFlags;
 
 struct DnsAnswerItem {

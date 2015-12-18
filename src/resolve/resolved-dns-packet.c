@@ -1455,9 +1455,9 @@ fail:
         return r;
 }
 
-int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
+int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, bool *ret_cache_flush, size_t *start) {
         _cleanup_free_ char *name = NULL;
-        bool cache_flush = true;
+        bool cache_flush = false;
         uint16_t class, type;
         DnsResourceKey *key;
         size_t saved_rindex;
@@ -1483,10 +1483,10 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         if (p->protocol == DNS_PROTOCOL_MDNS) {
                 /* See RFC6762, Section 10.2 */
 
-                if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH))
+                if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH)) {
                         class &= ~MDNS_RR_CACHE_FLUSH;
-                else
-                        cache_flush = false;
+                        cache_flush = true;
+                }
         }
 
         key = dns_resource_key_new_consume(class, type, name);
@@ -1495,11 +1495,11 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
                 goto fail;
         }
 
-        key->cache_flush = cache_flush;
-
         name = NULL;
         *ret = key;
 
+        if (ret_cache_flush)
+                *ret_cache_flush = cache_flush;
         if (start)
                 *start = saved_rindex;
 
@@ -1515,11 +1515,12 @@ static bool loc_size_ok(uint8_t size) {
         return m <= 9 && e <= 9 && (m > 0 || e == 0);
 }
 
-int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
+int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_flush, size_t *start) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         size_t saved_rindex, offset;
         uint16_t rdlength;
+        bool cache_flush;
         int r;
 
         assert(p);
@@ -1527,7 +1528,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
 
         saved_rindex = p->rindex;
 
-        r = dns_packet_read_key(p, &key, NULL);
+        r = dns_packet_read_key(p, &key, &cache_flush, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1939,6 +1940,8 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         *ret = rr;
         rr = NULL;
 
+        if (ret_cache_flush)
+                *ret_cache_flush = cache_flush;
         if (start)
                 *start = saved_rindex;
 
@@ -1971,10 +1974,16 @@ int dns_packet_extract(DnsPacket *p) {
 
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                        bool cache_flush;
 
-                        r = dns_packet_read_key(p, &key, NULL);
+                        r = dns_packet_read_key(p, &key, &cache_flush, NULL);
                         if (r < 0)
                                 goto finish;
+
+                        if (cache_flush) {
+                                r = -EBADMSG;
+                                goto finish;
+                        }
 
                         if (!dns_type_is_valid_query(key->type)) {
                                 r = -EBADMSG;
@@ -2034,7 +2043,8 @@ int dns_packet_extract(DnsPacket *p) {
                                  * sections. */
 
                                 r = dns_answer_add(answer, rr, p->ifindex,
-                                                   i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0);
+                                                   (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
+                                                   (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush ? DNS_ANSWER_SHARED_OWNER : 0));
                                 if (r < 0)
                                         goto finish;
                         }
