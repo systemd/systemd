@@ -81,7 +81,8 @@ static void dns_scope_abort_transactions(DnsScope *s) {
                  * freed while we still look at it */
 
                 t->block_gc++;
-                dns_transaction_complete(t, DNS_TRANSACTION_ABORTED);
+                if (DNS_TRANSACTION_IS_LIVE(t->state))
+                        dns_transaction_complete(t, DNS_TRANSACTION_ABORTED);
                 t->block_gc--;
 
                 dns_transaction_free(t);
