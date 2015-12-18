@@ -529,10 +529,15 @@ int dns_cache_put(
          * matching SOA record in the packet is used to to enable
          * negative caching. */
 
-        r = dns_answer_find_soa(answer, key, &soa);
+        r = dns_answer_find_soa(answer, key, &soa, &flags);
         if (r < 0)
                 goto fail;
         if (r == 0)
+                return 0;
+
+        /* Refuse using the SOA data if it is unsigned, but the key is
+         * signed */
+        if (authenticated && (flags & DNS_ANSWER_AUTHENTICATED) == 0)
                 return 0;
 
         r = dns_cache_put_negative(c, key, rcode, authenticated, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);

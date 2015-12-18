@@ -302,8 +302,9 @@ int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
         return false;
 }
 
-int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret) {
+int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
         DnsResourceRecord *rr;
+        DnsAnswerFlags rr_flags;
         int r;
 
         assert(key);
@@ -312,13 +313,15 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
         if (key->type == DNS_TYPE_SOA)
                 return 0;
 
-        DNS_ANSWER_FOREACH(rr, a) {
+        DNS_ANSWER_FOREACH_FLAGS(rr, rr_flags, a) {
                 r = dns_resource_key_match_soa(key, rr->key);
                 if (r < 0)
                         return r;
                 if (r > 0) {
                         if (ret)
                                 *ret = rr;
+                        if (flags)
+                                *flags = rr_flags;
                         return 1;
                 }
         }
