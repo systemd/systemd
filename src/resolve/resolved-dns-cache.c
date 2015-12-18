@@ -477,7 +477,7 @@ int dns_cache_put(
                 dns_cache_remove(c, key);
         }
 
-        if (!answer) {
+        if (dns_answer_size(answer) <= 0) {
                 if (log_get_max_level() >= LOG_DEBUG) {
                         _cleanup_free_ char *key_str = NULL;
 
@@ -506,7 +506,7 @@ int dns_cache_put(
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
 
-        cache_keys = answer->n_rrs;
+        cache_keys = dns_answer_size(answer);
         if (key)
                 cache_keys ++;
 
