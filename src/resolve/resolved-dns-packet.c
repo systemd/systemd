@@ -1997,12 +1997,18 @@ int dns_packet_extract(DnsPacket *p) {
 
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                        bool cache_flush;
 
-                        r = dns_packet_read_rr(p, &rr, NULL);
+                        r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
                         if (r < 0)
                                 goto finish;
 
                         if (rr->key->type == DNS_TYPE_OPT) {
+
+                                if (!dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key))) {
+                                        r = -EBADMSG;
+                                        goto finish;
+                                }
 
                                 /* The OPT RR is only valid in the Additional section */
                                 if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
