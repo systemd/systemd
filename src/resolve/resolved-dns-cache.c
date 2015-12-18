@@ -68,7 +68,7 @@ static void dns_cache_item_free(DnsCacheItem *i) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsCacheItem*, dns_cache_item_free);
 
-static void dns_cache_item_remove_and_free(DnsCache *c, DnsCacheItem *i) {
+static void dns_cache_item_unlink_and_free(DnsCache *c, DnsCacheItem *i) {
         DnsCacheItem *first;
 
         assert(c);
@@ -99,7 +99,7 @@ static bool dns_cache_remove_by_rr(DnsCache *c, DnsResourceRecord *rr) {
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        dns_cache_item_remove_and_free(c, i);
+                        dns_cache_item_unlink_and_free(c, i);
                         return true;
                 }
         }
@@ -195,7 +195,7 @@ void dns_cache_prune(DnsCache *c) {
                  * either remove only this one RR or the whole
                  * RRset */
                 if (i->shared_owner)
-                        dns_cache_item_remove_and_free(c, i);
+                        dns_cache_item_unlink_and_free(c, i);
                 else {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
