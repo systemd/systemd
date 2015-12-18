@@ -65,7 +65,6 @@ struct DnsTransaction {
         char *key_string;
 
         DnsTransactionState state;
-        DnssecResult dnssec_result;
 
         uint16_t id;
 
@@ -76,6 +75,7 @@ struct DnsTransaction {
 
         DnsAnswer *answer;
         int answer_rcode;
+        DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
 
         /* Indicates whether the primary answer is authenticated,

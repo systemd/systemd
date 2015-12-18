@@ -129,7 +129,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
 
         t->dns_udp_fd = -1;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
-        t->dnssec_result = _DNSSEC_RESULT_INVALID;
+        t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         t->key = dns_resource_key_ref(key);
 
         /* Find a fresh, unused transaction id */
@@ -463,7 +463,7 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 return;
         }
 
-        if (!IN_SET(t->dnssec_result,
+        if (!IN_SET(t->answer_dnssec_result,
                     _DNSSEC_RESULT_INVALID, /* No DNSSEC validation enabled */
                     DNSSEC_VALIDATED,       /* Answer is signed and validated successfully */
                     DNSSEC_UNSIGNED)) {     /* Answer is right-fully unsigned */
@@ -1611,7 +1611,7 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
         return;
 
 fail:
-        t->dnssec_result = DNSSEC_FAILED_AUXILIARY;
+        t->answer_dnssec_result = DNSSEC_FAILED_AUXILIARY;
         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
 }
 
@@ -1852,12 +1852,12 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 return 0;
 
         /* Already validated */
-        if (t->dnssec_result != _DNSSEC_RESULT_INVALID)
+        if (t->answer_dnssec_result != _DNSSEC_RESULT_INVALID)
                 return 0;
 
         /* Our own stuff needs no validation */
         if (IN_SET(t->answer_source, DNS_TRANSACTION_ZONE, DNS_TRANSACTION_TRUST_ANCHOR)) {
-                t->dnssec_result = DNSSEC_VALIDATED;
+                t->answer_dnssec_result = DNSSEC_VALIDATED;
                 t->answer_authenticated = true;
                 return 0;
         }
@@ -1950,7 +1950,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                          * to our question, and it
                                          * failed validation. That's
                                          * fatal. */
-                                        t->dnssec_result = result;
+                                        t->answer_dnssec_result = result;
                                         return 0;
                                 }
 
@@ -1999,12 +1999,12 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                 if (flags & DNS_ANSWER_AUTHENTICATED) {
                         /* The answer is fully authenticated, yay. */
-                        t->dnssec_result = DNSSEC_VALIDATED;
+                        t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_authenticated = true;
                 } else {
                         /* The answer is not fully authenticated. */
-                        t->dnssec_result = DNSSEC_UNSIGNED;
+                        t->answer_dnssec_result = DNSSEC_UNSIGNED;
                         t->answer_authenticated = false;
                 }
 
@@ -2021,7 +2021,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 case DNSSEC_NSEC_NXDOMAIN:
                         /* NSEC proves the domain doesn't exist. Very good. */
                         log_debug("Proved NXDOMAIN via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
-                        t->dnssec_result = DNSSEC_VALIDATED;
+                        t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_NXDOMAIN;
                         t->answer_authenticated = true;
                         break;
@@ -2029,7 +2029,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 case DNSSEC_NSEC_NODATA:
                         /* NSEC proves that there's no data here, very good. */
                         log_debug("Proved NODATA via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
-                        t->dnssec_result = DNSSEC_VALIDATED;
+                        t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_authenticated = true;
                         break;
@@ -2037,7 +2037,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 case DNSSEC_NSEC_OPTOUT:
                         /* NSEC3 says the data might not be signed */
                         log_debug("Data is NSEC3 opt-out via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
-                        t->dnssec_result = DNSSEC_UNSIGNED;
+                        t->answer_dnssec_result = DNSSEC_UNSIGNED;
                         t->answer_authenticated = false;
                         break;
 
@@ -2048,9 +2048,9 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
                         if (r > 0)
-                                t->dnssec_result = DNSSEC_NO_SIGNATURE;
+                                t->answer_dnssec_result = DNSSEC_NO_SIGNATURE;
                         else {
-                                t->dnssec_result = DNSSEC_UNSIGNED;
+                                t->answer_dnssec_result = DNSSEC_UNSIGNED;
                                 t->answer_authenticated = false;
                         }
 
@@ -2058,12 +2058,12 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                 case DNSSEC_NSEC_UNSUPPORTED_ALGORITHM:
                         /* We don't know the NSEC3 algorithm used? */
-                        t->dnssec_result = DNSSEC_UNSUPPORTED_ALGORITHM;
+                        t->answer_dnssec_result = DNSSEC_UNSUPPORTED_ALGORITHM;
                         break;
 
                 case DNSSEC_NSEC_FOUND:
                         /* NSEC says it needs to be there, but we couldn't find it? Bummer! */
-                        t->dnssec_result = DNSSEC_NSEC_MISMATCH;
+                        t->answer_dnssec_result = DNSSEC_NSEC_MISMATCH;
                         break;
 
                 default:

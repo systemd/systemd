@@ -986,6 +986,7 @@ fail:
 static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
         bool has_authenticated = false, has_non_authenticated = false;
+        DnssecResult dnssec_result_authenticated = _DNSSEC_RESULT_INVALID, dnssec_result_non_authenticated = _DNSSEC_RESULT_INVALID;
         DnsTransaction *t;
         Iterator i;
         int r;
@@ -1009,12 +1010,16 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
                                 return;
                         }
+
                         q->answer_rcode = t->answer_rcode;
 
-                        if (t->answer_authenticated)
+                        if (t->answer_authenticated) {
                                 has_authenticated = true;
-                        else
+                                dnssec_result_authenticated = t->answer_dnssec_result;
+                        } else {
                                 has_non_authenticated = true;
+                                dnssec_result_non_authenticated = t->answer_dnssec_result;
+                        }
 
                         state = DNS_TRANSACTION_SUCCESS;
                         break;
@@ -1031,22 +1036,26 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         /* Any kind of failure? Store the data away,
                          * if there's nothing stored yet. */
 
-                        if (state != DNS_TRANSACTION_SUCCESS) {
+                        if (state == DNS_TRANSACTION_SUCCESS)
+                                continue;
 
-                                dns_answer_unref(q->answer);
-                                q->answer = dns_answer_ref(t->answer);
-                                q->answer_rcode = t->answer_rcode;
+                        dns_answer_unref(q->answer);
+                        q->answer = dns_answer_ref(t->answer);
+                        q->answer_rcode = t->answer_rcode;
+                        q->answer_dnssec_result = t->answer_dnssec_result;
 
-                                state = t->state;
-                        }
-
+                        state = t->state;
                         break;
                 }
         }
 
+        if (state == DNS_TRANSACTION_SUCCESS) {
+                q->answer_authenticated = has_authenticated && !has_non_authenticated;
+                q->answer_dnssec_result = q->answer_authenticated ? dnssec_result_authenticated : dnssec_result_non_authenticated;
+        }
+
         q->answer_protocol = c->scope->protocol;
         q->answer_family = c->scope->family;
-        q->answer_authenticated = has_authenticated && !has_non_authenticated;
 
         dns_search_domain_unref(q->answer_search_domain);
         q->answer_search_domain = dns_search_domain_ref(c->search_domain);
