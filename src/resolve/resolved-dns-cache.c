@@ -100,6 +100,24 @@ void dns_cache_flush(DnsCache *c) {
         c->by_expiry = prioq_free(c->by_expiry);
 }
 
+static bool dns_cache_remove_by_rr(DnsCache *c, DnsResourceRecord *rr) {
+        DnsCacheItem *first, *i;
+        int r;
+
+        first = hashmap_get(c->by_key, rr->key);
+        LIST_FOREACH(by_key, i, first) {
+                r = dns_resource_record_equal(i->rr, rr);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        dns_cache_item_remove_and_free(c, i);
+                        return true;
+                }
+        }
+
+        return false;
+}
+
 static bool dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
         DnsCacheItem *first, *i, *n;
 
@@ -291,9 +309,9 @@ static int dns_cache_put_positive(
         if (dns_type_is_pseudo(rr->key->type))
                 return 0;
 
-        /* New TTL is 0? Delete the entry... */
+        /* New TTL is 0? Delete this specific entry... */
         if (rr->ttl <= 0) {
-                k = dns_cache_remove(c, rr->key);
+                k = dns_cache_remove_by_rr(c, rr);
 
                 if (log_get_max_level() >= LOG_DEBUG) {
                         r = dns_resource_key_to_string(rr->key, &key_str);
