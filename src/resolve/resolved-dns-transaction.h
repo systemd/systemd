@@ -69,8 +69,8 @@ struct DnsTransaction {
 
         uint16_t id;
 
-        bool initial_jitter_scheduled;
-        bool initial_jitter_elapsed;
+        bool initial_jitter_scheduled:1;
+        bool initial_jitter_elapsed:1;
 
         DnsPacket *sent, *received;
 
