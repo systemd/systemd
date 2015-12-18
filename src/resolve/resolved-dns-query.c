@@ -554,7 +554,7 @@ static int synthesize_localhost_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer *
 
                 rr->a.in_addr.s_addr = htobe32(INADDR_LOOPBACK);
 
-                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -568,7 +568,7 @@ static int synthesize_localhost_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer *
 
                 rr->aaaa.in6_addr = in6addr_loopback;
 
-                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -576,7 +576,7 @@ static int synthesize_localhost_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer *
         return 0;
 }
 
-static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, int ifindex) {
+static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, int ifindex, DnsAnswerFlags flags) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, from);
@@ -587,7 +587,7 @@ static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, 
         if (!rr->ptr.name)
                 return -ENOMEM;
 
-        return dns_answer_add(*answer, rr, ifindex);
+        return dns_answer_add(*answer, rr, ifindex, flags);
 }
 
 static int synthesize_localhost_ptr(DnsQuery *q, DnsResourceKey *key, DnsAnswer **answer) {
@@ -597,12 +597,12 @@ static int synthesize_localhost_ptr(DnsQuery *q, DnsResourceKey *key, DnsAnswer 
         assert(key);
         assert(answer);
 
-        r = dns_answer_reserve(answer, 1);
-        if (r < 0)
-                return r;
-
         if (IN_SET(key->type, DNS_TYPE_PTR, DNS_TYPE_ANY)) {
-                r = answer_add_ptr(answer, DNS_RESOURCE_KEY_NAME(key), "localhost", SYNTHESIZE_IFINDEX(q->ifindex));
+                r = dns_answer_reserve(answer, 1);
+                if (r < 0)
+                        return r;
+
+                r = answer_add_ptr(answer, DNS_RESOURCE_KEY_NAME(key), "localhost", SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -633,7 +633,7 @@ static int answer_add_addresses_rr(
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex);
+                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -674,7 +674,7 @@ static int answer_add_addresses_ptr(
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex);
+                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -740,15 +740,15 @@ static int synthesize_system_hostname_ptr(DnsQuery *q, int af, const union in_ad
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->llmnr_hostname, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->llmnr_hostname, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->mdns_hostname, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->mdns_hostname, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", SYNTHESIZE_IFINDEX(q->ifindex));
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 

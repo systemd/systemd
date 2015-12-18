@@ -386,7 +386,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         if (k < 0)
                                 return k;
                         if (k > 0) {
-                                r = dns_answer_add(answer, j->rr, 0);
+                                r = dns_answer_add(answer, j->rr, 0, DNS_ANSWER_AUTHENTICATED);
                                 if (r < 0)
                                         return r;
 
@@ -412,7 +412,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         if (j->state != DNS_ZONE_ITEM_PROBING)
                                 tentative = false;
 
-                        r = dns_answer_add(answer, j->rr, 0);
+                        r = dns_answer_add(answer, j->rr, 0, DNS_ANSWER_AUTHENTICATED);
                         if (r < 0)
                                 return r;
                 }

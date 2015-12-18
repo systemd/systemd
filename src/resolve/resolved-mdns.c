@@ -122,8 +122,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 dns_transaction_process_reply(t, p);
                 }
 
-                dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer,
-                              p->answer->n_rrs, false, 0, p->family, &p->sender);
+                dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, 0, p->family, &p->sender);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));

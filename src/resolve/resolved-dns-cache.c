@@ -436,14 +436,14 @@ int dns_cache_put(
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
-                unsigned max_rrs,
                 bool authenticated,
                 usec_t timestamp,
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
         DnsResourceRecord *soa = NULL, *rr;
-        unsigned cache_keys, i;
+        DnsAnswerFlags flags;
+        unsigned cache_keys;
         int r;
 
         assert(c);
@@ -468,9 +468,13 @@ int dns_cache_put(
                 return 0;
         }
 
-        DNS_ANSWER_FOREACH(rr, answer)
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+                        continue;
+
                 if (rr->key->cache_flush)
                         dns_cache_remove(c, rr->key);
+        }
 
         /* We only care for positive replies and NXDOMAINs, on all
          * other replies we will simply flush the respective entries,
@@ -480,7 +484,6 @@ int dns_cache_put(
                 return 0;
 
         cache_keys = answer->n_rrs;
-
         if (key)
                 cache_keys ++;
 
@@ -491,10 +494,12 @@ int dns_cache_put(
                 timestamp = now(clock_boottime_or_monotonic());
 
         /* Second, add in positive entries for all contained RRs */
-        for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                rr = answer->items[i].rr;
 
-                r = dns_cache_put_positive(c, rr, authenticated, timestamp, owner_family, owner_address);
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+                        continue;
+
+                r = dns_cache_put_positive(c, rr, flags & DNS_ANSWER_AUTHENTICATED, timestamp, owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -503,7 +508,7 @@ int dns_cache_put(
                 return 0;
 
         /* Third, add in negative entries if the key has no RR */
-        r = dns_answer_match_key(answer, key);
+        r = dns_answer_match_key(answer, key, NULL);
         if (r < 0)
                 goto fail;
         if (r > 0)
@@ -512,7 +517,7 @@ int dns_cache_put(
         /* But not if it has a matching CNAME/DNAME (the negative
          * caching will be done on the canonical name, not on the
          * alias) */
-        r = dns_answer_find_cname_or_dname(answer, key, NULL);
+        r = dns_answer_find_cname_or_dname(answer, key, NULL, NULL);
         if (r < 0)
                 goto fail;
         if (r > 0)
@@ -541,8 +546,12 @@ fail:
         if (key)
                 dns_cache_remove(c, key);
 
-        for (i = 0; i < answer->n_rrs; i++)
-                dns_cache_remove(c, answer->items[i].rr->key);
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+                        continue;
+
+                dns_cache_remove(c, rr->key);
+        }
 
         return r;
 }
@@ -722,7 +731,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 if (!j->rr)
                         continue;
 
-                r = dns_answer_add(answer, j->rr, 0);
+                r = dns_answer_add(answer, j->rr, 0, have_authenticated && !have_non_authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
                 if (r < 0)
                         return r;
         }

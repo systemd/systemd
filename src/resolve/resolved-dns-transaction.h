@@ -75,12 +75,21 @@ struct DnsTransaction {
         DnsPacket *sent, *received;
 
         DnsAnswer *answer;
-        unsigned n_answer_cacheable; /* Specifies how many RRs of the answer shall be cached, from the beginning */
         int answer_rcode;
         DnsTransactionSource answer_source;
+
+        /* Indicates whether the primary answer is authenticated,
+         * i.e. whether the RRs from answer which directly match the
+         * question are authenticated, or, if there are none, whether
+         * the NODATA or NXDOMAIN case is. It says nothing about
+         * additional RRs listed in the answer, however they have
+         * their own DNS_ANSWER_AUTHORIZED FLAGS. Note that this bit
+         * is defined different than the AD bit in DNS packets, as
+         * that covers more than just the actual primary answer. */
         bool answer_authenticated;
 
-        /* Contains DS and DNSKEY RRs we already verified and need to authenticate this reply */
+        /* Contains DNSKEY, DS, SOA RRs we already verified and need
+         * to authenticate this reply */
         DnsAnswer *validated_keys;
 
         usec_t start_usec;

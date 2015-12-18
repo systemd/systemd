@@ -2018,7 +2018,17 @@ int dns_packet_extract(DnsPacket *p) {
 
                                 p->opt = dns_resource_record_ref(rr);
                         } else {
-                                r = dns_answer_add(answer, rr, p->ifindex);
+
+                                /* According to RFC 4795, section
+                                 * 2.9. only the RRs from the Answer
+                                 * section shall be cached. Hence mark
+                                 * only those RRs as cacheable by
+                                 * default, but not the ones from the
+                                 * Additional or Authority
+                                 * sections. */
+
+                                r = dns_answer_add(answer, rr, p->ifindex,
+                                                   i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0);
                                 if (r < 0)
                                         goto finish;
                         }

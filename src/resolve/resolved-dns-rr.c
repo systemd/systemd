@@ -184,7 +184,7 @@ int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         return 1;
 }
 
-int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain) {
+int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain) {
         int r;
 
         assert(key);
