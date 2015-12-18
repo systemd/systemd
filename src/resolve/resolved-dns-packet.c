@@ -1531,7 +1531,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         if (r < 0)
                 goto fail;
 
-        if (key->class == DNS_CLASS_ANY ||
+        if (!dns_class_is_valid_rr(key->class)||
             !dns_type_is_valid_rr(key->type)) {
                 r = -EBADMSG;
                 goto fail;

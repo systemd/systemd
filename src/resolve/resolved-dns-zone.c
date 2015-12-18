@@ -223,9 +223,9 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         assert(s);
         assert(rr);
 
-        if (rr->key->class == DNS_CLASS_ANY)
+        if (dns_class_is_pseudo(rr->key->class))
                 return -EINVAL;
-        if (rr->key->type == DNS_TYPE_ANY)
+        if (dns_type_is_pseudo(rr->key->type))
                 return -EINVAL;
 
         existing = dns_zone_get(z, rr);

@@ -282,6 +282,12 @@ static int dns_cache_put_positive(
         assert(rr);
         assert(owner_address);
 
+        /* Never cache pseudo RRs */
+        if (dns_class_is_pseudo(rr->key->class))
+                return 0;
+        if (dns_type_is_pseudo(rr->key->type))
+                return 0;
+
         /* New TTL is 0? Delete the entry... */
         if (rr->ttl <= 0) {
                 k = dns_cache_remove(c, rr->key);
@@ -299,11 +305,6 @@ static int dns_cache_put_positive(
 
                 return 0;
         }
-
-        if (rr->key->class == DNS_CLASS_ANY)
-                return 0;
-        if (dns_type_is_pseudo(rr->key->type))
-                return 0;
 
         /* Entry exists already? Update TTL and timestamp */
         existing = dns_cache_get(c, rr);
@@ -368,12 +369,15 @@ static int dns_cache_put_negative(
 
         dns_cache_remove(c, key);
 
-        if (key->class == DNS_CLASS_ANY)
+        /* Never cache pseudo RR keys */
+        if (dns_class_is_pseudo(key->class))
                 return 0;
         if (dns_type_is_pseudo(key->type))
-                /* ANY is particularly important to filter out as we
-                 * use this as a pseudo-type for NXDOMAIN entries */
+                /* DNS_TYPE_ANY is particularly important to filter
+                 * out as we use this as a pseudo-type for NXDOMAIN
+                 * entries */
                 return 0;
+
         if (soa_ttl <= 0) {
                 if (log_get_max_level() >= LOG_DEBUG) {
                         r = dns_resource_key_to_string(key, &key_str);
