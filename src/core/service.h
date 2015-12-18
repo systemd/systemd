@@ -172,6 +172,7 @@ struct Service {
         bool reset_cpu_usage:1;
 
         char *bus_name;
+        char *bus_name_owner; /* unique name of the current owner */
 
         char *status_text;
         int status_errno;
