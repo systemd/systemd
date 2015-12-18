@@ -1181,6 +1181,12 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
         assert(t);
         assert(key);
 
+        r = dns_resource_key_equal(t->key, key);
+        if (r < 0)
+                return r;
+        if (r > 0) /* Don't go in circles */
+                return 0;
+
         /* Try to get the data from the trust anchor */
         r = dns_trust_anchor_lookup(&t->scope->manager->trust_anchor, key, &a);
         if (r < 0)
