@@ -757,7 +757,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 if (!j->rr)
                         continue;
 
-                r = dns_answer_add(answer, j->rr, 0, have_authenticated && !have_non_authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
+                r = dns_answer_add(answer, j->rr, 0, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
                 if (r < 0)
                         return r;
         }
