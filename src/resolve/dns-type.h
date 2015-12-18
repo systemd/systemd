@@ -122,3 +122,17 @@ enum {
 assert_cc(DNS_TYPE_SSHFP == 44);
 assert_cc(DNS_TYPE_TLSA == 52);
 assert_cc(DNS_TYPE_ANY == 255);
+
+/* DNS record classes, see RFC 1035 */
+enum {
+        DNS_CLASS_IN   = 0x01,
+        DNS_CLASS_ANY  = 0xFF,
+        _DNS_CLASS_MAX,
+        _DNS_CLASS_INVALID = -1
+};
+
+bool dns_class_is_pseudo(uint16_t class);
+bool dns_class_is_valid_rr(uint16_t class);
+
+const char *dns_class_to_string(uint16_t type);
+int dns_class_from_string(const char *name);

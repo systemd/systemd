@@ -20,6 +20,7 @@
 ***/
 
 #include "dns-type.h"
+#include "string-util.h"
 
 typedef const struct {
         uint16_t type;
@@ -64,6 +65,10 @@ bool dns_type_is_pseudo(uint16_t type) {
         );
 }
 
+bool dns_class_is_pseudo(uint16_t class) {
+        return class == DNS_TYPE_ANY;
+}
+
 bool dns_type_is_valid_query(uint16_t type) {
 
         /* The types valid as questions in packets */
@@ -84,4 +89,35 @@ bool dns_type_is_valid_rr(uint16_t type) {
                        DNS_TYPE_ANY,
                        DNS_TYPE_AXFR,
                        DNS_TYPE_IXFR);
+}
+
+bool dns_class_is_valid_rr(uint16_t class) {
+        return class != DNS_CLASS_ANY;
+}
+
+const char *dns_class_to_string(uint16_t class) {
+
+        switch (class) {
+
+        case DNS_CLASS_IN:
+                return "IN";
+
+        case DNS_CLASS_ANY:
+                return "ANY";
+        }
+
+        return NULL;
+}
+
+int dns_class_from_string(const char *s) {
+
+        if (!s)
+                return _DNS_CLASS_INVALID;
+
+        if (strcaseeq(s, "IN"))
+                return DNS_CLASS_IN;
+        else if (strcaseeq(s, "ANY"))
+                return DNS_CLASS_ANY;
+
+        return _DNS_CLASS_INVALID;
 }

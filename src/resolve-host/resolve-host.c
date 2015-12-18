@@ -38,7 +38,7 @@
 
 static int arg_family = AF_UNSPEC;
 static int arg_ifindex = 0;
-static int arg_type = 0;
+static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
@@ -347,7 +347,6 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        assert((uint16_t) arg_type == arg_type);
         r = sd_bus_message_append(req, "isqqt", arg_ifindex, name, arg_class, arg_type, arg_flags);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -758,12 +757,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        arg_type = dns_type_from_string(optarg);
-                        if (arg_type < 0) {
+                        r = dns_type_from_string(optarg);
+                        if (r < 0) {
                                 log_error("Failed to parse RR record type %s", optarg);
-                                return arg_type;
+                                return r;
                         }
-                        assert(arg_type > 0 && (uint16_t) arg_type == arg_type);
+                        arg_type = (uint16_t) r;
+                        assert((int) arg_type == r);
 
                         break;
 
@@ -773,11 +773,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        r = dns_class_from_string(optarg, &arg_class);
+                        r = dns_class_from_string(optarg);
                         if (r < 0) {
                                 log_error("Failed to parse RR record class %s", optarg);
                                 return r;
                         }
+                        arg_class = (uint16_t) r;
+                        assert((int) arg_class == r);
 
                         break;
 

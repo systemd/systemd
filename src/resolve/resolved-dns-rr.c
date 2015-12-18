@@ -1074,34 +1074,6 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         return 0;
 }
 
-const char *dns_class_to_string(uint16_t class) {
-
-        switch (class) {
-
-        case DNS_CLASS_IN:
-                return "IN";
-
-        case DNS_CLASS_ANY:
-                return "ANY";
-        }
-
-        return NULL;
-}
-
-int dns_class_from_string(const char *s, uint16_t *class) {
-        assert(s);
-        assert(class);
-
-        if (strcaseeq(s, "IN"))
-                *class = DNS_CLASS_IN;
-        else if (strcaseeq(s, "ANY"))
-                *class = DNS_CLASS_ANY;
-        else
-                return -EINVAL;
-
-        return 0;
-}
-
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
         DnsTxtItem *n;
 
