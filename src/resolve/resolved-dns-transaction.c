@@ -1588,25 +1588,45 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
            some broken DNS servers (Akamai...) will return NXDOMAIN
            for empty non-terminals. */
 
-        if (source->state != DNS_TRANSACTION_SUCCESS &&
-            !(source->state == DNS_TRANSACTION_RCODE_FAILURE && source->answer_rcode == DNS_RCODE_NXDOMAIN)) {
-                log_debug("Auxiliary DNSSEC RR query failed: rcode=%i.", source->answer_rcode);
-                goto fail;
-        } else if (source->answer_authenticated) {
+        switch (source->state) {
 
-                r = dns_answer_extend(&t->validated_keys, source->answer);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to merge validated DNSSEC key data: %m");
+        case DNS_TRANSACTION_DNSSEC_FAILED:
+
+                log_debug("Auxiliary DNSSEC RR query failed validation: %s", dnssec_result_to_string(source->answer_dnssec_result));
+                t->answer_dnssec_result = source->answer_dnssec_result; /* Copy error code over */
+                dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                break;
+
+        case DNS_TRANSACTION_RCODE_FAILURE:
+
+                if (source->answer_rcode != DNS_RCODE_NXDOMAIN) {
+                        log_debug("Auxiliary DNSSEC RR query failed with rcode=%i.", source->answer_rcode);
                         goto fail;
                 }
-        }
 
-        /* If the state is still PENDING, we are still in the loop
-         * that adds further DNSSEC transactions, hence don't check if
-         * we are ready yet. If the state is VALIDATING however, we
-         * should check if we are complete now. */
-        if (t->state == DNS_TRANSACTION_VALIDATING)
-                dns_transaction_process_dnssec(t);
+                /* fall-through: NXDOMAIN is good enough for us */
+
+        case DNS_TRANSACTION_SUCCESS:
+                if (source->answer_authenticated) {
+                        r = dns_answer_extend(&t->validated_keys, source->answer);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to merge validated DNSSEC key data: %m");
+                                goto fail;
+                        }
+                }
+
+                /* If the state is still PENDING, we are still in the loop
+                 * that adds further DNSSEC transactions, hence don't check if
+                 * we are ready yet. If the state is VALIDATING however, we
+                 * should check if we are complete now. */
+                if (t->state == DNS_TRANSACTION_VALIDATING)
+                        dns_transaction_process_dnssec(t);
+                break;
+
+        default:
+                log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(source->state));
+                goto fail;
+        }
 
         return;
 
