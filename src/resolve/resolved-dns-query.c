@@ -810,7 +810,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         /* Tries to synthesize localhost RR replies where appropriate */
 
         if (!IN_SET(*state,
-                    DNS_TRANSACTION_FAILURE,
+                    DNS_TRANSACTION_RCODE_FAILURE,
                     DNS_TRANSACTION_NO_SERVERS,
                     DNS_TRANSACTION_TIMEOUT,
                     DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))

@@ -476,7 +476,7 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
         if (t->answer_rcode == DNS_RCODE_SUCCESS)
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
         else
-                dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
+                dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
@@ -864,7 +864,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                         if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         else
-                                dns_transaction_complete(t, DNS_TRANSACTION_FAILURE);
+                                dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
                         return 0;
                 }
         }
@@ -1589,7 +1589,7 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
            for empty non-terminals. */
 
         if (source->state != DNS_TRANSACTION_SUCCESS &&
-            !(source->state == DNS_TRANSACTION_FAILURE && source->answer_rcode == DNS_RCODE_NXDOMAIN)) {
+            !(source->state == DNS_TRANSACTION_RCODE_FAILURE && source->answer_rcode == DNS_RCODE_NXDOMAIN)) {
                 log_debug("Auxiliary DNSSEC RR query failed: rcode=%i.", source->answer_rcode);
                 goto fail;
         } else if (source->answer_authenticated) {
@@ -2089,7 +2089,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_NULL] = "null",
         [DNS_TRANSACTION_PENDING] = "pending",
         [DNS_TRANSACTION_VALIDATING] = "validating",
-        [DNS_TRANSACTION_FAILURE] = "failure",
+        [DNS_TRANSACTION_RCODE_FAILURE] = "rcode-failure",
         [DNS_TRANSACTION_SUCCESS] = "success",
         [DNS_TRANSACTION_NO_SERVERS] = "no-servers",
         [DNS_TRANSACTION_TIMEOUT] = "timeout",
