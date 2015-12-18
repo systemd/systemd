@@ -35,16 +35,13 @@
  *
  * TODO:
  *
- *   - Iterative validation
- *   - NSEC proof of non-existance
- *   - NSEC3 proof of non-existance
  *   - Make trust anchor store read additional DS+DNSKEY data from disk
  *   - wildcard zones compatibility
  *   - multi-label zone compatibility
- *   - DNSSEC cname/dname compatibility
+ *   - cname/dname compatibility
  *   - per-interface DNSSEC setting
- *   - retry on failed validation
  *   - fix TTL for cache entries to match RRSIG TTL
+ *   - retry on failed validation?
  *   - DSA support
  *   - EC support?
  *
