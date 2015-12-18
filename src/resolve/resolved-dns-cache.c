@@ -367,8 +367,6 @@ static int dns_cache_put_negative(
         assert(key);
         assert(owner_address);
 
-        dns_cache_remove(c, key);
-
         /* Never cache pseudo RR keys */
         if (dns_class_is_pseudo(key->class))
                 return 0;
