@@ -598,8 +598,6 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
 
                 /* OK, let's look for cached DNAME records. */
                 for (;;) {
-                        char label[DNS_LABEL_MAX];
-
                         if (isempty(n))
                                 return NULL;
 
@@ -608,13 +606,13 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
                                 return i;
 
                         /* Jump one label ahead */
-                        r = dns_label_unescape(&n, label, sizeof(label));
+                        r = dns_name_parent(&n);
                         if (r <= 0)
                                 return NULL;
                 }
         }
 
-        if (k-> type != DNS_TYPE_NSEC) {
+        if (k->type != DNS_TYPE_NSEC) {
                 /* Check if we have an NSEC record instead for the name. */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_NSEC, n));
                 if (i)
