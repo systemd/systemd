@@ -101,18 +101,21 @@ void dns_cache_flush(DnsCache *c) {
 }
 
 static bool dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
-        DnsCacheItem *i;
-        bool exist = false;
+        DnsCacheItem *first, *i, *n;
 
         assert(c);
         assert(key);
 
-        while ((i = hashmap_get(c->by_key, key))) {
-                dns_cache_item_remove_and_free(c, i);
-                exist = true;
+        first = hashmap_remove(c->by_key, key);
+        if (!first)
+                return false;
+
+        LIST_FOREACH_SAFE(by_key, i, n, first) {
+                prioq_remove(c->by_expiry, i, &i->prioq_idx);
+                dns_cache_item_free(i);
         }
 
-        return exist;
+        return true;
 }
 
 static void dns_cache_make_space(DnsCache *c, unsigned add) {
