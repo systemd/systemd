@@ -1483,7 +1483,7 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         if (p->protocol == DNS_PROTOCOL_MDNS) {
                 /* See RFC6762, Section 10.2 */
 
-                if (class & MDNS_RR_CACHE_FLUSH)
+                if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH))
                         class &= ~MDNS_RR_CACHE_FLUSH;
                 else
                         cache_flush = false;
