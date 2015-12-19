@@ -1944,9 +1944,9 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 action_multiple_sessions = "org.freedesktop.login1.halt-multiple-sessions";
                 action_ignore_inhibit = "org.freedesktop.login1.halt-ignore-inhibit";
         } else if (streq(type, "poweroff")) {
-                action = "org.freedesktop.login1.poweroff";
-                action_multiple_sessions = "org.freedesktop.login1.poweroff-multiple-sessions";
-                action_ignore_inhibit = "org.freedesktop.login1.poweroff-ignore-inhibit";
+                action = "org.freedesktop.login1.power-off";
+                action_multiple_sessions = "org.freedesktop.login1.power-off-multiple-sessions";
+                action_ignore_inhibit = "org.freedesktop.login1.power-off-ignore-inhibit";
         } else
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
 
