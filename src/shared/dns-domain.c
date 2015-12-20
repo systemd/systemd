@@ -48,7 +48,6 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
 
         assert(name);
         assert(*name);
-        assert(dest);
 
         n = *name;
         d = dest;
@@ -79,9 +78,12 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
 
                         else if (*n == '\\' || *n == '.') {
                                 /* Escaped backslash or dot */
-                                *(d++) = *(n++);
+
+                                if (d)
+                                        *(d++) = *n;
                                 sz--;
                                 r++;
+                                n++;
 
                         } else if (n[0] >= '0' && n[0] <= '9') {
                                 unsigned k;
@@ -100,7 +102,8 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                                 if (k < ' ' || k > 255 || k == 127)
                                         return -EINVAL;
 
-                                *(d++) = (char) k;
+                                if (d)
+                                        *(d++) = (char) k;
                                 sz--;
                                 r++;
 
@@ -111,9 +114,12 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                 } else if ((uint8_t) *n >= (uint8_t) ' ' && *n != 127) {
 
                         /* Normal character */
-                        *(d++) = *(n++);
+
+                        if (d)
+                                *(d++) = *n;
                         sz--;
                         r++;
+                        n++;
                 } else
                         return -EINVAL;
         }
@@ -122,7 +128,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
         if (r == 0 && *n)
                 return -EINVAL;
 
-        if (sz >= 1)
+        if (sz >= 1 && d)
                 *d = 0;
 
         *name = n;

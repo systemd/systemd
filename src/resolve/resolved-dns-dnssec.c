@@ -35,16 +35,13 @@
  *
  * TODO:
  *
- *   - Iterative validation
- *   - NSEC proof of non-existance
- *   - NSEC3 proof of non-existance
  *   - Make trust anchor store read additional DS+DNSKEY data from disk
  *   - wildcard zones compatibility
  *   - multi-label zone compatibility
- *   - DNSSEC cname/dname compatibility
+ *   - cname/dname compatibility
  *   - per-interface DNSSEC setting
- *   - retry on failed validation
  *   - fix TTL for cache entries to match RRSIG TTL
+ *   - retry on failed validation?
  *   - DSA support
  *   - EC support?
  *
@@ -499,7 +496,7 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(dnskey->key), rrsig->rrsig.signer);
 }
 
-int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig) {
+int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) {
         assert(key);
         assert(rrsig);
 
@@ -529,7 +526,7 @@ int dnssec_verify_rrset_search(
         assert(key);
         assert(result);
 
-        /* Verifies all RRs from "a" that match the key "key", against DNSKEY and DS RRs in "validated_dnskeys" */
+        /* Verifies all RRs from "a" that match the key "key" against DNSKEYs in "validated_dnskeys" */
 
         if (!a || a->n_rrs <= 0)
                 return -ENODATA;
@@ -537,6 +534,7 @@ int dnssec_verify_rrset_search(
         /* Iterate through each RRSIG RR. */
         DNS_ANSWER_FOREACH(rrsig, a) {
                 DnsResourceRecord *dnskey;
+                DnsAnswerFlags flags;
 
                 /* Is this an RRSIG RR that applies to RRs matching our key? */
                 r = dnssec_key_match_rrsig(key, rrsig);
@@ -548,8 +546,11 @@ int dnssec_verify_rrset_search(
                 found_rrsig = true;
 
                 /* Look for a matching key */
-                DNS_ANSWER_FOREACH(dnskey, validated_dnskeys) {
+                DNS_ANSWER_FOREACH_FLAGS(dnskey, flags, validated_dnskeys) {
                         DnssecResult one_result;
+
+                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                                continue;
 
                         /* Is this a DNSKEY RR that matches they key of our RRSIG? */
                         r = dnssec_rrsig_match_dnskey(rrsig, dnskey);
@@ -622,6 +623,23 @@ int dnssec_verify_rrset_search(
                 *result = DNSSEC_MISSING_KEY;
         else
                 *result = DNSSEC_NO_SIGNATURE;
+
+        return 0;
+}
+
+int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
+        DnsResourceRecord *rr;
+        int r;
+
+        /* Checks whether there's at least one RRSIG in 'a' that proctects RRs of the specified key */
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                r = dnssec_key_match_rrsig(key, rr);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
 
         return 0;
 }
@@ -776,6 +794,7 @@ finish:
 
 int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
         DnsResourceRecord *ds;
+        DnsAnswerFlags flags;
         int r;
 
         assert(dnskey);
@@ -783,7 +802,10 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
         if (dnskey->key->type != DNS_TYPE_DNSKEY)
                 return 0;
 
-        DNS_ANSWER_FOREACH(ds, validated_ds) {
+        DNS_ANSWER_FOREACH_FLAGS(ds, flags, validated_ds) {
+
+                if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                        continue;
 
                 if (ds->key->type != DNS_TYPE_DS)
                         continue;
@@ -866,8 +888,172 @@ finish:
         return r;
 }
 
+static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result) {
+        _cleanup_free_ char *next_closer_domain = NULL, *l = NULL;
+        uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
+        const char *p, *pp = NULL;
+        DnsResourceRecord *rr;
+        DnsAnswerFlags flags;
+        int hashed_size, r;
+
+        assert(key);
+        assert(result);
+
+        /* First step, look for the closest encloser NSEC3 RR in 'answer' that matches 'key' */
+        p = DNS_RESOURCE_KEY_NAME(key);
+        for (;;) {
+                DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                        _cleanup_free_ char *hashed_domain = NULL, *label = NULL;
+
+                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                                continue;
+
+                        if (rr->key->type != DNS_TYPE_NSEC3)
+                                continue;
+
+                        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
+                        if (!IN_SET(rr->nsec3.flags, 0, 1))
+                                continue;
+
+                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        hashed_size = dnssec_nsec3_hash(rr, p, hashed);
+                        if (hashed_size == -EOPNOTSUPP) {
+                                *result = DNSSEC_NSEC_UNSUPPORTED_ALGORITHM;
+                                return 0;
+                        }
+                        if (hashed_size < 0)
+                                return hashed_size;
+                        if (rr->nsec3.next_hashed_name_size != (size_t) hashed_size)
+                                return -EBADMSG;
+
+                        label = base32hexmem(hashed, hashed_size, false);
+                        if (!label)
+                                return -ENOMEM;
+
+                        hashed_domain = strjoin(label, ".", p, NULL);
+                        if (!hashed_domain)
+                                return -ENOMEM;
+
+                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), hashed_domain);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                goto found;
+                }
+
+                /* We didn't find the closest encloser with this name,
+                 * but let's remember this domain name, it might be
+                 * the next closer name */
+
+                pp = p;
+
+                /* Strip one label from the front */
+                r = dns_name_parent(&p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+        }
+
+        *result = DNSSEC_NSEC_NO_RR;
+        return 0;
+
+found:
+        /* We found a closest encloser in 'p'; next closer is 'pp' */
+
+        /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
+        if (bitmap_isset(rr->nsec3.types, DNS_TYPE_DNAME))
+                return -EBADMSG;
+
+        /* Ensure that this data is from the delegated domain
+         * (i.e. originates from the "lower" DNS server), and isn't
+         * just glue records (i.e. doesn't originate from the "upper"
+         * DNS server). */
+        if (bitmap_isset(rr->nsec3.types, DNS_TYPE_NS) &&
+            !bitmap_isset(rr->nsec3.types, DNS_TYPE_SOA))
+                return -EBADMSG;
+
+        if (!pp) {
+                /* No next closer NSEC3 RR. That means there's a direct NSEC3 RR for our key. */
+                *result = bitmap_isset(rr->nsec3.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
+                return 0;
+        }
+
+        r = dnssec_nsec3_hash(rr, pp, hashed);
+        if (r < 0)
+                return r;
+        if (r != hashed_size)
+                return -EBADMSG;
+
+        l = base32hexmem(hashed, hashed_size, false);
+        if (!l)
+                return -ENOMEM;
+
+        next_closer_domain = strjoin(l, ".", p, NULL);
+        if (!next_closer_domain)
+                return -ENOMEM;
+
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                _cleanup_free_ char *label = NULL, *next_hashed_domain = NULL;
+                const char *nsec3_parent;
+
+                if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                        continue;
+
+                if (rr->key->type != DNS_TYPE_NSEC3)
+                        continue;
+
+                /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
+                if (!IN_SET(rr->nsec3.flags, 0, 1))
+                        continue;
+
+                nsec3_parent = DNS_RESOURCE_KEY_NAME(rr->key);
+                r = dns_name_parent(&nsec3_parent);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = dns_name_equal(p, nsec3_parent);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                label = base32hexmem(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, false);
+                if (!label)
+                        return -ENOMEM;
+
+                next_hashed_domain = strjoin(label, ".", p, NULL);
+                if (!next_hashed_domain)
+                        return -ENOMEM;
+
+                r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), next_closer_domain, next_hashed_domain);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        if (rr->nsec3.flags & 1)
+                                *result = DNSSEC_NSEC_OPTOUT;
+                        else
+                                *result = DNSSEC_NSEC_NXDOMAIN;
+
+                        return 1;
+                }
+        }
+
+        *result = DNSSEC_NSEC_NO_RR;
+        return 0;
+}
+
 int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result) {
         DnsResourceRecord *rr;
+        bool have_nsec3 = false;
+        DnsAnswerFlags flags;
         int r;
 
         assert(key);
@@ -875,9 +1061,12 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
         /* Look for any NSEC/NSEC3 RRs that say something about the specified key. */
 
-        DNS_ANSWER_FOREACH(rr, answer) {
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
 
                 if (rr->key->class != key->class)
+                        continue;
+
+                if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
                         continue;
 
                 switch (rr->key->type) {
@@ -901,78 +1090,15 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                         }
                         break;
 
-                case DNS_TYPE_NSEC3: {
-                        _cleanup_free_ void *decoded = NULL;
-                        size_t decoded_size;
-                        char label[DNS_LABEL_MAX];
-                        uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
-                        int label_length, c, q;
-                        const char *p;
-                        bool covered;
-
-                        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
-                        if (!IN_SET(rr->nsec3.flags, 0, 1))
-                                continue;
-
-                        p = DNS_RESOURCE_KEY_NAME(rr->key);
-                        label_length = dns_label_unescape(&p, label, sizeof(label));
-                        if (label_length < 0)
-                                return label_length;
-                        if (label_length == 0)
-                                continue;
-
-                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), p);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-
-                        r = unbase32hexmem(label, label_length, false, &decoded, &decoded_size);
-                        if (r == -EINVAL)
-                                continue;
-                        if (r < 0)
-                                return r;
-
-                        if (decoded_size != rr->nsec3.next_hashed_name_size)
-                                continue;
-
-                        c = memcmp(decoded, rr->nsec3.next_hashed_name, decoded_size);
-                        if (c == 0)
-                                continue;
-
-                        r = dnssec_nsec3_hash(rr, DNS_RESOURCE_KEY_NAME(key), hashed);
-                        /* RFC 5155, Section 8.1 says we MUST ignore NSEC3 RRs with unknown algorithms */
-                        if (r == -EOPNOTSUPP)
-                                continue;
-                        if (r < 0)
-                                return r;
-                        if ((size_t) r != decoded_size)
-                                continue;
-
-                        r = memcmp(decoded, hashed, decoded_size);
-                        if (r == 0) {
-                                *result = bitmap_isset(rr->nsec3.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
-                                return 0;
-                        }
-
-                        q = memcmp(hashed, rr->nsec3.next_hashed_name, decoded_size);
-
-                        covered = c < 0 ?
-                                r < 0 && q < 0 :
-                                q < 0 || r < 0;
-
-                        if (covered) {
-                                *result = DNSSEC_NSEC_NXDOMAIN;
-                                return 0;
-                        }
-
-                        break;
-                }
-
-                default:
+                case DNS_TYPE_NSEC3:
+                        have_nsec3 = true;
                         break;
                 }
         }
+
+        /* OK, this was not sufficient. Let's see if NSEC3 can help. */
+        if (have_nsec3)
+                return dnssec_test_nsec3(answer, key, result);
 
         /* No approproate NSEC RR found, report this. */
         *result = DNSSEC_NSEC_NO_RR;
@@ -981,7 +1107,6 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
 static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_NO] = "no",
-        [DNSSEC_TRUST] = "trust",
         [DNSSEC_YES] = "yes",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);

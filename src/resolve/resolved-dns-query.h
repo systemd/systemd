@@ -72,10 +72,11 @@ struct DnsQuery {
         /* Discovered data */
         DnsAnswer *answer;
         int answer_rcode;
+        DnssecResult answer_dnssec_result;
+        bool answer_authenticated;
         DnsProtocol answer_protocol;
         int answer_family;
         DnsSearchDomain *answer_search_domain;
-        bool answer_authenticated;
 
         /* Bus client information */
         sd_bus_message *request;

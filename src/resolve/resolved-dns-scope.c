@@ -81,7 +81,8 @@ static void dns_scope_abort_transactions(DnsScope *s) {
                  * freed while we still look at it */
 
                 t->block_gc++;
-                dns_transaction_complete(t, DNS_TRANSACTION_ABORTED);
+                if (DNS_TRANSACTION_IS_LIVE(t->state))
+                        dns_transaction_complete(t, DNS_TRANSACTION_ABORTED);
                 t->block_gc--;
 
                 dns_transaction_free(t);
@@ -789,7 +790,7 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
         /* Refuse reusing transactions that completed based on cached
          * data instead of a real packet, if that's requested. */
         if (!cache_ok &&
-            IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_FAILURE) &&
+            IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_RCODE_FAILURE) &&
             t->answer_source != DNS_TRANSACTION_NETWORK)
                 return NULL;
 

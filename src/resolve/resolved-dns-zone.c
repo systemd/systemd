@@ -223,9 +223,9 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         assert(s);
         assert(rr);
 
-        if (rr->key->class == DNS_CLASS_ANY)
+        if (dns_class_is_pseudo(rr->key->class))
                 return -EINVAL;
-        if (rr->key->type == DNS_TYPE_ANY)
+        if (dns_type_is_pseudo(rr->key->type))
                 return -EINVAL;
 
         existing = dns_zone_get(z, rr);
@@ -386,7 +386,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         if (k < 0)
                                 return k;
                         if (k > 0) {
-                                r = dns_answer_add(answer, j->rr, 0);
+                                r = dns_answer_add(answer, j->rr, 0, DNS_ANSWER_AUTHENTICATED);
                                 if (r < 0)
                                         return r;
 
@@ -412,7 +412,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         if (j->state != DNS_ZONE_ITEM_PROBING)
                                 tentative = false;
 
-                        r = dns_answer_add(answer, j->rr, 0);
+                        r = dns_answer_add(answer, j->rr, 0, DNS_ANSWER_AUTHENTICATED);
                         if (r < 0)
                                 return r;
                 }

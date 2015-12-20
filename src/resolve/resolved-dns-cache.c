@@ -26,11 +26,11 @@
 #include "resolved-dns-packet.h"
 #include "string-util.h"
 
-/* Never cache more than 1K entries */
-#define CACHE_MAX 1024
+/* Never cache more than 4K entries */
+#define CACHE_MAX 4096
 
-/* We never keep any item longer than 10min in our cache */
-#define CACHE_TTL_MAX_USEC (10 * USEC_PER_MINUTE)
+/* We never keep any item longer than 2h in our cache */
+#define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
 
 typedef enum DnsCacheItemType DnsCacheItemType;
 typedef struct DnsCacheItem DnsCacheItem;
@@ -42,14 +42,18 @@ enum DnsCacheItemType {
 };
 
 struct DnsCacheItem {
+        DnsCacheItemType type;
         DnsResourceKey *key;
         DnsResourceRecord *rr;
+
         usec_t until;
-        DnsCacheItemType type;
-        unsigned prioq_idx;
-        bool authenticated;
+        bool authenticated:1;
+        bool shared_owner:1;
+
         int owner_family;
         union in_addr_union owner_address;
+
+        unsigned prioq_idx;
         LIST_FIELDS(DnsCacheItem, by_key);
 };
 
@@ -64,7 +68,7 @@ static void dns_cache_item_free(DnsCacheItem *i) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsCacheItem*, dns_cache_item_free);
 
-static void dns_cache_item_remove_and_free(DnsCache *c, DnsCacheItem *i) {
+static void dns_cache_item_unlink_and_free(DnsCache *c, DnsCacheItem *i) {
         DnsCacheItem *first;
 
         assert(c);
@@ -85,34 +89,55 @@ static void dns_cache_item_remove_and_free(DnsCache *c, DnsCacheItem *i) {
         dns_cache_item_free(i);
 }
 
+static bool dns_cache_remove_by_rr(DnsCache *c, DnsResourceRecord *rr) {
+        DnsCacheItem *first, *i;
+        int r;
+
+        first = hashmap_get(c->by_key, rr->key);
+        LIST_FOREACH(by_key, i, first) {
+                r = dns_resource_record_equal(i->rr, rr);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        dns_cache_item_unlink_and_free(c, i);
+                        return true;
+                }
+        }
+
+        return false;
+}
+
+static bool dns_cache_remove_by_key(DnsCache *c, DnsResourceKey *key) {
+        DnsCacheItem *first, *i, *n;
+
+        assert(c);
+        assert(key);
+
+        first = hashmap_remove(c->by_key, key);
+        if (!first)
+                return false;
+
+        LIST_FOREACH_SAFE(by_key, i, n, first) {
+                prioq_remove(c->by_expiry, i, &i->prioq_idx);
+                dns_cache_item_free(i);
+        }
+
+        return true;
+}
+
 void dns_cache_flush(DnsCache *c) {
-        DnsCacheItem *i;
+        DnsResourceKey *key;
 
         assert(c);
 
-        while ((i = hashmap_first(c->by_key)))
-                dns_cache_item_remove_and_free(c, i);
+        while ((key = hashmap_first_key(c->by_key)))
+                dns_cache_remove_by_key(c, key);
 
         assert(hashmap_size(c->by_key) == 0);
         assert(prioq_size(c->by_expiry) == 0);
 
         c->by_key = hashmap_free(c->by_key);
         c->by_expiry = prioq_free(c->by_expiry);
-}
-
-static bool dns_cache_remove(DnsCache *c, DnsResourceKey *key) {
-        DnsCacheItem *i;
-        bool exist = false;
-
-        assert(c);
-        assert(key);
-
-        while ((i = hashmap_get(c->by_key, key))) {
-                dns_cache_item_remove_and_free(c, i);
-                exist = true;
-        }
-
-        return exist;
 }
 
 static void dns_cache_make_space(DnsCache *c, unsigned add) {
@@ -142,7 +167,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 /* Take an extra reference to the key so that it
                  * doesn't go away in the middle of the remove call */
                 key = dns_resource_key_ref(i->key);
-                dns_cache_remove(c, key);
+                dns_cache_remove_by_key(c, key);
         }
 }
 
@@ -154,7 +179,6 @@ void dns_cache_prune(DnsCache *c) {
         /* Remove all entries that are past their TTL */
 
         for (;;) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 DnsCacheItem *i;
 
                 i = prioq_peek(c->by_expiry);
@@ -167,10 +191,19 @@ void dns_cache_prune(DnsCache *c) {
                 if (i->until > t)
                         break;
 
-                /* Take an extra reference to the key so that it
-                 * doesn't go away in the middle of the remove call */
-                key = dns_resource_key_ref(i->key);
-                dns_cache_remove(c, key);
+                /* Depending whether this is an mDNS shared entry
+                 * either remove only this one RR or the whole
+                 * RRset */
+                if (i->shared_owner)
+                        dns_cache_item_unlink_and_free(c, i);
+                else {
+                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                        /* Take an extra reference to the key so that it
+                         * doesn't go away in the middle of the remove call */
+                        key = dns_resource_key_ref(i->key);
+                        dns_cache_remove_by_key(c, key);
+                }
         }
 }
 
@@ -239,10 +272,20 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         return NULL;
 }
 
-static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsResourceRecord *rr, bool authenticated, usec_t timestamp) {
+static void dns_cache_item_update_positive(
+                DnsCache *c,
+                DnsCacheItem *i,
+                DnsResourceRecord *rr,
+                bool authenticated,
+                bool shared_owner,
+                usec_t timestamp,
+                int owner_family,
+                const union in_addr_union *owner_address) {
+
         assert(c);
         assert(i);
         assert(rr);
+        assert(owner_address);
 
         i->type = DNS_CACHE_POSITIVE;
 
@@ -259,8 +302,12 @@ static void dns_cache_item_update_positive(DnsCache *c, DnsCacheItem *i, DnsReso
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        i->authenticated = authenticated;
         i->until = timestamp + MIN(rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->authenticated = authenticated;
+        i->shared_owner = shared_owner;
+
+        i->owner_family = owner_family;
+        i->owner_address = *owner_address;
 
         prioq_reshuffle(c->by_expiry, i, &i->prioq_idx);
 }
@@ -269,6 +316,7 @@ static int dns_cache_put_positive(
                 DnsCache *c,
                 DnsResourceRecord *rr,
                 bool authenticated,
+                bool shared_owner,
                 usec_t timestamp,
                 int owner_family,
                 const union in_addr_union *owner_address) {
@@ -282,9 +330,15 @@ static int dns_cache_put_positive(
         assert(rr);
         assert(owner_address);
 
-        /* New TTL is 0? Delete the entry... */
+        /* Never cache pseudo RRs */
+        if (dns_class_is_pseudo(rr->key->class))
+                return 0;
+        if (dns_type_is_pseudo(rr->key->type))
+                return 0;
+
+        /* New TTL is 0? Delete this specific entry... */
         if (rr->ttl <= 0) {
-                k = dns_cache_remove(c, rr->key);
+                k = dns_cache_remove_by_rr(c, rr);
 
                 if (log_get_max_level() >= LOG_DEBUG) {
                         r = dns_resource_key_to_string(rr->key, &key_str);
@@ -300,15 +354,18 @@ static int dns_cache_put_positive(
                 return 0;
         }
 
-        if (rr->key->class == DNS_CLASS_ANY)
-                return 0;
-        if (dns_type_is_pseudo(rr->key->type))
-                return 0;
-
-        /* Entry exists already? Update TTL and timestamp */
+        /* Entry exists already? Update TTL, timestamp and owner*/
         existing = dns_cache_get(c, rr);
         if (existing) {
-                dns_cache_item_update_positive(c, existing, rr, authenticated, timestamp);
+                dns_cache_item_update_positive(
+                                c,
+                                existing,
+                                rr,
+                                authenticated,
+                                shared_owner,
+                                timestamp,
+                                owner_family,
+                                owner_address);
                 return 0;
         }
 
@@ -327,10 +384,11 @@ static int dns_cache_put_positive(
         i->key = dns_resource_key_ref(rr->key);
         i->rr = dns_resource_record_ref(rr);
         i->until = timestamp + MIN(i->rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
-        i->prioq_idx = PRIOQ_IDX_NULL;
+        i->authenticated = authenticated;
+        i->shared_owner = shared_owner;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
-        i->authenticated = authenticated;
+        i->prioq_idx = PRIOQ_IDX_NULL;
 
         r = dns_cache_link_item(c, i);
         if (r < 0)
@@ -341,7 +399,7 @@ static int dns_cache_put_positive(
                 if (r < 0)
                         return r;
 
-                log_debug("Added cache entry for %s", key_str);
+                log_debug("Added positive cache entry for %s", key_str);
         }
 
         i = NULL;
@@ -366,14 +424,14 @@ static int dns_cache_put_negative(
         assert(key);
         assert(owner_address);
 
-        dns_cache_remove(c, key);
-
-        if (key->class == DNS_CLASS_ANY)
+        /* Never cache pseudo RR keys. DNS_TYPE_ANY is particularly
+         * important to filter out as we use this as a pseudo-type for
+         * NXDOMAIN entries */
+        if (dns_class_is_pseudo(key->class))
                 return 0;
         if (dns_type_is_pseudo(key->type))
-                /* ANY is particularly important to filter out as we
-                 * use this as a pseudo-type for NXDOMAIN entries */
                 return 0;
+
         if (soa_ttl <= 0) {
                 if (log_get_max_level() >= LOG_DEBUG) {
                         r = dns_resource_key_to_string(key, &key_str);
@@ -401,10 +459,10 @@ static int dns_cache_put_negative(
 
         i->type = rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA : DNS_CACHE_NXDOMAIN;
         i->until = timestamp + MIN(soa_ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
-        i->prioq_idx = PRIOQ_IDX_NULL;
+        i->authenticated = authenticated;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
-        i->authenticated = authenticated;
+        i->prioq_idx = PRIOQ_IDX_NULL;
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
@@ -431,30 +489,57 @@ static int dns_cache_put_negative(
         return 0;
 }
 
+static void dns_cache_remove_previous(
+                DnsCache *c,
+                DnsResourceKey *key,
+                DnsAnswer *answer) {
+
+        DnsResourceRecord *rr;
+        DnsAnswerFlags flags;
+
+        assert(c);
+
+        /* First, if we were passed a key (i.e. on LLMNR/DNS, but
+         * not on mDNS), delete all matching old RRs, so that we only
+         * keep complete by_key in place. */
+        if (key)
+                dns_cache_remove_by_key(c, key);
+
+        /* Second, flush all entries matching the answer, unless this
+         * is an RR that is explicitly marked to be "shared" between
+         * peers (i.e. mDNS RRs without the flush-cache bit set). */
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+                        continue;
+
+                if (flags & DNS_ANSWER_SHARED_OWNER)
+                        continue;
+
+                dns_cache_remove_by_key(c, rr->key);
+        }
+}
+
 int dns_cache_put(
                 DnsCache *c,
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
-                unsigned max_rrs,
                 bool authenticated,
                 usec_t timestamp,
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
         DnsResourceRecord *soa = NULL, *rr;
-        unsigned cache_keys, i;
+        DnsAnswerFlags flags;
+        unsigned cache_keys;
         int r;
 
         assert(c);
+        assert(owner_address);
 
-        if (key) {
-                /* First, if we were passed a key, delete all matching old RRs,
-                 * so that we only keep complete by_key in place. */
-                dns_cache_remove(c, key);
-        }
+        dns_cache_remove_previous(c, key, answer);
 
-        if (!answer) {
+        if (dns_answer_size(answer) <= 0) {
                 if (log_get_max_level() >= LOG_DEBUG) {
                         _cleanup_free_ char *key_str = NULL;
 
@@ -468,19 +553,13 @@ int dns_cache_put(
                 return 0;
         }
 
-        DNS_ANSWER_FOREACH(rr, answer)
-                if (rr->key->cache_flush)
-                        dns_cache_remove(c, rr->key);
-
         /* We only care for positive replies and NXDOMAINs, on all
          * other replies we will simply flush the respective entries,
          * and that's it */
-
         if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 return 0;
 
-        cache_keys = answer->n_rrs;
-
+        cache_keys = dns_answer_size(answer);
         if (key)
                 cache_keys ++;
 
@@ -491,19 +570,26 @@ int dns_cache_put(
                 timestamp = now(clock_boottime_or_monotonic());
 
         /* Second, add in positive entries for all contained RRs */
-        for (i = 0; i < MIN(max_rrs, answer->n_rrs); i++) {
-                rr = answer->items[i].rr;
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+                        continue;
 
-                r = dns_cache_put_positive(c, rr, authenticated, timestamp, owner_family, owner_address);
+                r = dns_cache_put_positive(
+                                c,
+                                rr,
+                                flags & DNS_ANSWER_AUTHENTICATED,
+                                flags & DNS_ANSWER_SHARED_OWNER,
+                                timestamp,
+                                owner_family, owner_address);
                 if (r < 0)
                         goto fail;
         }
 
-        if (!key)
+        if (!key) /* mDNS doesn't know negative caching, really */
                 return 0;
 
         /* Third, add in negative entries if the key has no RR */
-        r = dns_answer_match_key(answer, key);
+        r = dns_answer_match_key(answer, key, NULL);
         if (r < 0)
                 goto fail;
         if (r > 0)
@@ -512,7 +598,7 @@ int dns_cache_put(
         /* But not if it has a matching CNAME/DNAME (the negative
          * caching will be done on the canonical name, not on the
          * alias) */
-        r = dns_answer_find_cname_or_dname(answer, key, NULL);
+        r = dns_answer_find_cname_or_dname(answer, key, NULL, NULL);
         if (r < 0)
                 goto fail;
         if (r > 0)
@@ -522,13 +608,25 @@ int dns_cache_put(
          * matching SOA record in the packet is used to to enable
          * negative caching. */
 
-        r = dns_answer_find_soa(answer, key, &soa);
+        r = dns_answer_find_soa(answer, key, &soa, &flags);
         if (r < 0)
                 goto fail;
         if (r == 0)
                 return 0;
 
-        r = dns_cache_put_negative(c, key, rcode, authenticated, timestamp, MIN(soa->soa.minimum, soa->ttl), owner_family, owner_address);
+        /* Refuse using the SOA data if it is unsigned, but the key is
+         * signed */
+        if (authenticated && (flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                return 0;
+
+        r = dns_cache_put_negative(
+                        c,
+                        key,
+                        rcode,
+                        authenticated,
+                        timestamp,
+                        MIN(soa->soa.minimum, soa->ttl),
+                        owner_family, owner_address);
         if (r < 0)
                 goto fail;
 
@@ -539,10 +637,14 @@ fail:
          * added, just in case */
 
         if (key)
-                dns_cache_remove(c, key);
+                dns_cache_remove_by_key(c, key);
 
-        for (i = 0; i < answer->n_rrs; i++)
-                dns_cache_remove(c, answer->items[i].rr->key);
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+                        continue;
+
+                dns_cache_remove_by_key(c, rr->key);
+        }
 
         return r;
 }
@@ -582,8 +684,6 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
 
                 /* OK, let's look for cached DNAME records. */
                 for (;;) {
-                        char label[DNS_LABEL_MAX];
-
                         if (isempty(n))
                                 return NULL;
 
@@ -592,13 +692,13 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
                                 return i;
 
                         /* Jump one label ahead */
-                        r = dns_label_unescape(&n, label, sizeof(label));
+                        r = dns_name_parent(&n);
                         if (r <= 0)
                                 return NULL;
                 }
         }
 
-        if (k-> type != DNS_TYPE_NSEC) {
+        if (k->type != DNS_TYPE_NSEC) {
                 /* Check if we have an NSEC record instead for the name. */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_NSEC, n));
                 if (i)
@@ -722,7 +822,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 if (!j->rr)
                         continue;
 
-                r = dns_answer_add(answer, j->rr, 0);
+                r = dns_answer_add(answer, j->rr, 0, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
                 if (r < 0)
                         return r;
         }
@@ -787,7 +887,7 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
                         if (!j->rr)
                                 continue;
 
-                        if (!dns_key_is_shared(j->rr->key))
+                        if (!j->shared_owner)
                                 continue;
 
                         r = dns_packet_append_rr(p, j->rr, NULL, NULL);

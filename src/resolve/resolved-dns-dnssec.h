@@ -32,9 +32,6 @@ enum DnssecMode {
         /* No DNSSEC validation is done */
         DNSSEC_NO,
 
-        /* Trust the AD bit sent by the server. UNSAFE! */
-        DNSSEC_TRUST,
-
         /* Validate locally, if the server knows DO, but if not, don't. Don't trust the AD bit */
         DNSSEC_YES,
 
@@ -67,13 +64,15 @@ enum DnssecResult {
 #define DNSSEC_HASH_SIZE_MAX (MAX(20, 32))
 
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey);
-int dnssec_key_match_rrsig(DnsResourceKey *key, DnsResourceRecord *rrsig);
+int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig);
 
 int dnssec_verify_rrset(DnsAnswer *answer, DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime, DnssecResult *result);
 int dnssec_verify_rrset_search(DnsAnswer *answer, DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result);
 
 int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds);
 int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
+
+int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key);
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey);
 
@@ -83,9 +82,11 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret);
 
 typedef enum DnssecNsecResult {
         DNSSEC_NSEC_NO_RR,     /* No suitable NSEC/NSEC3 RR found */
+        DNSSEC_NSEC_UNSUPPORTED_ALGORITHM,
         DNSSEC_NSEC_NXDOMAIN,
         DNSSEC_NSEC_NODATA,
         DNSSEC_NSEC_FOUND,
+        DNSSEC_NSEC_OPTOUT,
 } DnssecNsecResult;
 
 int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result);

@@ -61,9 +61,10 @@ static int reply_query_state(DnsQuery *q) {
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
 
         case DNS_TRANSACTION_DNSSEC_FAILED:
-                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "DNSSEC validation failed");
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "DNSSEC validation failed: %s",
+                                                  dnssec_result_to_string(q->answer_dnssec_result));
 
-        case DNS_TRANSACTION_FAILURE: {
+        case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (q->answer_rcode == DNS_RCODE_NXDOMAIN)

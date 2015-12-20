@@ -118,7 +118,7 @@ static void test_dnssec_verify_rrset2(void) {
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, nsec, 0) >= 0);
+        assert_se(dns_answer_add(answer, nsec, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
 
         /* Validate the RR as it if was 2015-12-11 today */
         assert_se(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, &result) >= 0);
@@ -201,7 +201,7 @@ static void test_dnssec_verify_rrset(void) {
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, a, 0) >= 0);
+        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
 
         /* Validate the RR as it if was 2015-12-2 today */
         assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, &result) >= 0);

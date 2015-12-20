@@ -184,7 +184,7 @@ int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         return 1;
 }
 
-int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain) {
+int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain) {
         int r;
 
         assert(key);
@@ -1070,34 +1070,6 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
 
         packet._data = NULL;
         dns_packet_unref(&packet);
-
-        return 0;
-}
-
-const char *dns_class_to_string(uint16_t class) {
-
-        switch (class) {
-
-        case DNS_CLASS_IN:
-                return "IN";
-
-        case DNS_CLASS_ANY:
-                return "ANY";
-        }
-
-        return NULL;
-}
-
-int dns_class_from_string(const char *s, uint16_t *class) {
-        assert(s);
-        assert(class);
-
-        if (strcaseeq(s, "IN"))
-                *class = DNS_CLASS_IN;
-        else if (strcaseeq(s, "ANY"))
-                *class = DNS_CLASS_ANY;
-        else
-                return -EINVAL;
 
         return 0;
 }
