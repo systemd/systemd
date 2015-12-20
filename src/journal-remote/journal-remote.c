@@ -1181,6 +1181,7 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode,
 
 static int parse_config(void) {
         const ConfigTableItem items[] = {
+                { "Remote",  "Seal",                   config_parse_bool,             0, &arg_seal       },
                 { "Remote",  "SplitMode",              config_parse_write_split_mode, 0, &arg_split_mode },
                 { "Remote",  "ServerKeyFile",          config_parse_path,             0, &arg_key        },
                 { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert       },
