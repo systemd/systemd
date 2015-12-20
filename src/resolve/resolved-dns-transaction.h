@@ -29,7 +29,7 @@ enum DnsTransactionState {
         DNS_TRANSACTION_NULL,
         DNS_TRANSACTION_PENDING,
         DNS_TRANSACTION_VALIDATING,
-        DNS_TRANSACTION_FAILURE,
+        DNS_TRANSACTION_RCODE_FAILURE,
         DNS_TRANSACTION_SUCCESS,
         DNS_TRANSACTION_NO_SERVERS,
         DNS_TRANSACTION_TIMEOUT,
@@ -62,24 +62,34 @@ struct DnsTransaction {
         DnsScope *scope;
 
         DnsResourceKey *key;
+        char *key_string;
 
         DnsTransactionState state;
-        DnssecResult dnssec_result;
 
         uint16_t id;
 
-        bool initial_jitter_scheduled;
-        bool initial_jitter_elapsed;
+        bool initial_jitter_scheduled:1;
+        bool initial_jitter_elapsed:1;
 
         DnsPacket *sent, *received;
 
         DnsAnswer *answer;
-        unsigned n_answer_cacheable; /* Specifies how many RRs of the answer shall be cached, from the beginning */
         int answer_rcode;
+        DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
+
+        /* Indicates whether the primary answer is authenticated,
+         * i.e. whether the RRs from answer which directly match the
+         * question are authenticated, or, if there are none, whether
+         * the NODATA or NXDOMAIN case is. It says nothing about
+         * additional RRs listed in the answer, however they have
+         * their own DNS_ANSWER_AUTHORIZED FLAGS. Note that this bit
+         * is defined different than the AD bit in DNS packets, as
+         * that covers more than just the actual primary answer. */
         bool answer_authenticated;
 
-        /* Contains DS and DNSKEY RRs we already verified and need to authenticate this reply */
+        /* Contains DNSKEY, DS, SOA RRs we already verified and need
+         * to authenticate this reply */
         DnsAnswer *validated_keys;
 
         usec_t start_usec;
@@ -135,6 +145,8 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
 int dns_transaction_validate_dnssec(DnsTransaction *t);
 int dns_transaction_request_dnssec_keys(DnsTransaction *t);
+
+const char *dns_transaction_key_string(DnsTransaction *t);
 
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;

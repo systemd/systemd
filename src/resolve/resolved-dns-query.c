@@ -554,7 +554,7 @@ static int synthesize_localhost_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer *
 
                 rr->a.in_addr.s_addr = htobe32(INADDR_LOOPBACK);
 
-                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -568,7 +568,7 @@ static int synthesize_localhost_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer *
 
                 rr->aaaa.in6_addr = in6addr_loopback;
 
-                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -576,7 +576,7 @@ static int synthesize_localhost_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer *
         return 0;
 }
 
-static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, int ifindex) {
+static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, int ifindex, DnsAnswerFlags flags) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, from);
@@ -587,7 +587,7 @@ static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, 
         if (!rr->ptr.name)
                 return -ENOMEM;
 
-        return dns_answer_add(*answer, rr, ifindex);
+        return dns_answer_add(*answer, rr, ifindex, flags);
 }
 
 static int synthesize_localhost_ptr(DnsQuery *q, DnsResourceKey *key, DnsAnswer **answer) {
@@ -597,12 +597,12 @@ static int synthesize_localhost_ptr(DnsQuery *q, DnsResourceKey *key, DnsAnswer 
         assert(key);
         assert(answer);
 
-        r = dns_answer_reserve(answer, 1);
-        if (r < 0)
-                return r;
-
         if (IN_SET(key->type, DNS_TYPE_PTR, DNS_TYPE_ANY)) {
-                r = answer_add_ptr(answer, DNS_RESOURCE_KEY_NAME(key), "localhost", SYNTHESIZE_IFINDEX(q->ifindex));
+                r = dns_answer_reserve(answer, 1);
+                if (r < 0)
+                        return r;
+
+                r = answer_add_ptr(answer, DNS_RESOURCE_KEY_NAME(key), "localhost", SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -633,7 +633,7 @@ static int answer_add_addresses_rr(
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex);
+                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -674,7 +674,7 @@ static int answer_add_addresses_ptr(
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex);
+                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -740,15 +740,15 @@ static int synthesize_system_hostname_ptr(DnsQuery *q, int af, const union in_ad
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->llmnr_hostname, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->llmnr_hostname, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->mdns_hostname, SYNTHESIZE_IFINDEX(q->ifindex));
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->mdns_hostname, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", SYNTHESIZE_IFINDEX(q->ifindex));
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
@@ -810,7 +810,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         /* Tries to synthesize localhost RR replies where appropriate */
 
         if (!IN_SET(*state,
-                    DNS_TRANSACTION_FAILURE,
+                    DNS_TRANSACTION_RCODE_FAILURE,
                     DNS_TRANSACTION_NO_SERVERS,
                     DNS_TRANSACTION_TIMEOUT,
                     DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))
@@ -986,6 +986,7 @@ fail:
 static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
         bool has_authenticated = false, has_non_authenticated = false;
+        DnssecResult dnssec_result_authenticated = _DNSSEC_RESULT_INVALID, dnssec_result_non_authenticated = _DNSSEC_RESULT_INVALID;
         DnsTransaction *t;
         Iterator i;
         int r;
@@ -1009,12 +1010,16 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
                                 return;
                         }
+
                         q->answer_rcode = t->answer_rcode;
 
-                        if (t->answer_authenticated)
+                        if (t->answer_authenticated) {
                                 has_authenticated = true;
-                        else
+                                dnssec_result_authenticated = t->answer_dnssec_result;
+                        } else {
                                 has_non_authenticated = true;
+                                dnssec_result_non_authenticated = t->answer_dnssec_result;
+                        }
 
                         state = DNS_TRANSACTION_SUCCESS;
                         break;
@@ -1031,22 +1036,26 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         /* Any kind of failure? Store the data away,
                          * if there's nothing stored yet. */
 
-                        if (state != DNS_TRANSACTION_SUCCESS) {
+                        if (state == DNS_TRANSACTION_SUCCESS)
+                                continue;
 
-                                dns_answer_unref(q->answer);
-                                q->answer = dns_answer_ref(t->answer);
-                                q->answer_rcode = t->answer_rcode;
+                        dns_answer_unref(q->answer);
+                        q->answer = dns_answer_ref(t->answer);
+                        q->answer_rcode = t->answer_rcode;
+                        q->answer_dnssec_result = t->answer_dnssec_result;
 
-                                state = t->state;
-                        }
-
+                        state = t->state;
                         break;
                 }
         }
 
+        if (state == DNS_TRANSACTION_SUCCESS) {
+                q->answer_authenticated = has_authenticated && !has_non_authenticated;
+                q->answer_dnssec_result = q->answer_authenticated ? dnssec_result_authenticated : dnssec_result_non_authenticated;
+        }
+
         q->answer_protocol = c->scope->protocol;
         q->answer_family = c->scope->family;
-        q->answer_authenticated = has_authenticated && !has_non_authenticated;
 
         dns_search_domain_unref(q->answer_search_domain);
         q->answer_search_domain = dns_search_domain_ref(c->search_domain);

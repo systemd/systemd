@@ -183,6 +183,10 @@ static int link_update_dns_servers(Link *l) {
         assert(l);
 
         r = sd_network_link_get_dns(l->ifindex, &nameservers);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
         if (r < 0)
                 goto clear;
 
@@ -222,6 +226,10 @@ static int link_update_llmnr_support(Link *l) {
         assert(l);
 
         r = sd_network_link_get_llmnr(l->ifindex, &b);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
         if (r < 0)
                 goto clear;
 
@@ -252,6 +260,11 @@ static int link_update_search_domains(Link *l) {
         assert(l);
 
         r = sd_network_link_get_domains(l->ifindex, &domains);
+        if (r == -ENODATA) {
+                /* networkd knows nothing about this interface, and that's fine. */
+                r = 0;
+                goto clear;
+        }
         if (r < 0)
                 goto clear;
 

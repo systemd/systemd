@@ -58,7 +58,7 @@ int dns_trust_anchor_load(DnsTrustAnchor *d) {
         if (!answer)
                 return -ENOMEM;
 
-        r = dns_answer_add(answer, rr, 0);
+        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
         if (r < 0)
                 return r;
 

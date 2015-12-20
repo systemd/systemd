@@ -772,7 +772,7 @@ static int write_loop(int fd, void *message, size_t length) {
 int manager_write(Manager *m, int fd, DnsPacket *p) {
         int r;
 
-        log_debug("Sending %s packet with id %u", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p));
+        log_debug("Sending %s packet with id %" PRIu16 ".", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p));
 
         r = write_loop(fd, DNS_PACKET_DATA(p), p->size);
         if (r < 0)
@@ -887,7 +887,7 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
         assert(port > 0);
         assert(p);
 
-        log_debug("Sending %s packet with id %u on interface %i/%s", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
+        log_debug("Sending %s packet with id %" PRIu16 " on interface %i/%s.", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &addr->in, port, p);

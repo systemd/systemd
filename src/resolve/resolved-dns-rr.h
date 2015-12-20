@@ -33,14 +33,6 @@ typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsTxtItem DnsTxtItem;
 
-/* DNS record classes, see RFC 1035 */
-enum {
-        DNS_CLASS_IN   = 0x01,
-        DNS_CLASS_ANY  = 0xFF,
-        _DNS_CLASS_MAX,
-        _DNS_CLASS_INVALID = -1
-};
-
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
 #define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
@@ -79,7 +71,6 @@ struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
-        bool cache_flush:1;
 };
 
 /* Creates a temporary resource key. This is only useful to quickly
@@ -245,7 +236,7 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
-int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord *rr, const char *search_domain);
+int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
 int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa);
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
@@ -269,9 +260,6 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
-
-const char *dns_class_to_string(uint16_t type);
-int dns_class_from_string(const char *name, uint16_t *class);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 
