@@ -1714,10 +1714,10 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                          * RRs we are looking at. If it discovered signed DS
                          * RRs, then we need to be signed, too. */
 
-                         if (!dt->answer_authenticated)
-                                 return false;
+                        if (!dt->answer_authenticated)
+                                return false;
 
-                         return dns_answer_match_key(dt->answer, dt->key, NULL);
+                        return dns_answer_match_key(dt->answer, dt->key, NULL);
                 }
 
                 /* We found nothing that proves this is safe to leave
