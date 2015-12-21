@@ -304,13 +304,18 @@ int mount_cgroup_controllers(char ***join_controllers) {
                                         return log_oom();
 
                                 r = symlink(options, t);
-                                if (r < 0 && errno != EEXIST)
-                                        return log_error_errno(errno, "Failed to create symlink %s: %m", t);
+                                if (r >= 0) {
 #ifdef SMACK_RUN_LABEL
-                                r = mac_smack_copy(t, options);
-                                if (r < 0 && r != -EOPNOTSUPP)
-                                        return log_error_errno(r, "Failed to copy smack label from %s to %s: %m", options, t);
+                                        _cleanup_free_ char *src;
+                                        src = strappend("/sys/fs/cgroup/", options);
+                                        if (!src)
+                                                return log_oom();
+                                        r = mac_smack_copy(t, src);
+                                        if (r < 0 && r != -EOPNOTSUPP)
+                                                return log_error_errno(r, "Failed to copy smack label from %s to %s: %m", src, t);
 #endif
+                                } else if (errno != EEXIST)
+                                        return log_error_errno(errno, "Failed to create symlink %s: %m", t);
                         }
                 }
         }
