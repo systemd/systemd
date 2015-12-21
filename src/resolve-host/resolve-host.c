@@ -399,10 +399,8 @@ static int resolve_record(sd_bus *bus, const char *name) {
                         return log_oom();
 
                 r = dns_packet_read_rr(p, &rr, NULL, NULL);
-                if (r < 0) {
-                        log_error("Failed to parse RR.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse RR.");
 
                 r = dns_resource_record_to_string(rr, &s);
                 if (r < 0) {
