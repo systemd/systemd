@@ -832,7 +832,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             output. If you are looking for computer-parsable output,
             use <command>show</command> instead. By default, this
             function only shows 10 lines of output and ellipsizes
-            lines to fit in the terminal window. This can be changes
+            lines to fit in the terminal window. This can be changed
             with <option>--lines</option> and <option>--full</option>,
             see above. In addition, <command>journalctl
             --unit=<replaceable>NAME</replaceable></command> or
