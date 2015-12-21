@@ -200,7 +200,10 @@ bool bitmap_equal(Bitmap *a, Bitmap *b) {
         Bitmap *c;
         unsigned i;
 
-        if (!a ^ !b)
+        if (a == b)
+                return true;
+
+        if (!a != !b)
                 return false;
 
         if (!a)
