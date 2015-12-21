@@ -643,7 +643,6 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
         int r;
 
         assert(p);
-        assert(types);
 
         saved_size = p->size;
 
