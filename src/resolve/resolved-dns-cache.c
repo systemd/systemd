@@ -672,11 +672,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (i && i->type == DNS_CACHE_NXDOMAIN)
                 return i;
 
-        /* The following record types should never be redirected. See
-         * <https://tools.ietf.org/html/rfc4035#section-2.5>. */
-        if (!IN_SET(k->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME,
-                            DNS_TYPE_NSEC3, DNS_TYPE_NSEC, DNS_TYPE_RRSIG,
-                            DNS_TYPE_NXT, DNS_TYPE_SIG, DNS_TYPE_KEY)) {
+        if (dns_type_may_redirect(k->type)) {
                 /* Check if we have a CNAME record instead */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
                 if (i)
