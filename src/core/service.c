@@ -323,6 +323,8 @@ static void service_done(Unit *u) {
                 s->bus_name = mfree(s->bus_name);
         }
 
+        s->bus_name_owner = mfree(s->bus_name_owner);
+
         s->bus_endpoint_fd = safe_close(s->bus_endpoint_fd);
         service_close_socket_fd(s);
         service_connection_unref(s);
@@ -2122,6 +2124,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
         unit_serialize_item(u, f, "bus-name-good", yes_no(s->bus_name_good));
+        unit_serialize_item(u, f, "bus-name-owner", s->bus_name_owner);
 
         r = unit_serialize_item_escaped(u, f, "status-text", s->status_text);
         if (r < 0)
@@ -2249,6 +2252,10 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse bus-name-good value: %s", value);
                 else
                         s->bus_name_good = b;
+        } else if (streq(key, "bus-name-owner")) {
+                r = free_and_strdup(&s->bus_name_owner, value);
+                if (r < 0)
+                        log_unit_error_errno(u, r, "Unable to deserialize current bus owner %s: %m", value);
         } else if (streq(key, "status-text")) {
                 char *t;
 
@@ -3133,6 +3140,13 @@ static void service_bus_name_owner_change(
                 log_unit_debug(u, "D-Bus name %s now registered by %s", name, new_owner);
 
         s->bus_name_good = !!new_owner;
+
+        /* Track the current owner, so we can reconstruct changes after a daemon reload */
+        r = free_and_strdup(&s->bus_name_owner, new_owner);
+        if (r < 0) {
+                log_unit_error_errno(u, r, "Unable to set new bus name owner %s: %m", new_owner);
+                return;
+        }
 
         if (s->type == SERVICE_DBUS) {
 

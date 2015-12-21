@@ -736,7 +736,9 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
 static int bus_list_names(Manager *m, sd_bus *bus) {
         _cleanup_strv_free_ char **names = NULL;
-        char **i;
+        const char *name;
+        Iterator i;
+        Unit *u;
         int r;
 
         assert(m);
@@ -746,15 +748,55 @@ static int bus_list_names(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get initial list of names: %m");
 
-        /* This is a bit hacky, we say the owner of the name is the
-         * name itself, because we don't want the extra traffic to
-         * figure out the real owner. */
-        STRV_FOREACH(i, names) {
-                Unit *u;
+        /* We have to synchronize the current bus names with the
+         * list of active services. To do this, walk the list of
+         * all units with bus names. */
+        HASHMAP_FOREACH_KEY(u, name, m->watch_bus, i) {
+                Service *s = SERVICE(u);
 
-                u = hashmap_get(m->watch_bus, *i);
-                if (u)
-                        UNIT_VTABLE(u)->bus_name_owner_change(u, *i, NULL, *i);
+                assert(s);
+
+                if (!streq_ptr(s->bus_name, name)) {
+                        log_unit_warning(u, "Bus name has changed from %s → %s, ignoring.", s->bus_name, name);
+                        continue;
+                }
+
+                /* Check if a service's bus name is in the list of currently
+                 * active names */
+                if (strv_contains(names, name)) {
+                        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                        const char *unique;
+
+                        /* If it is, determine its current owner */
+                        r = sd_bus_get_name_creds(bus, name, SD_BUS_CREDS_UNIQUE_NAME, &creds);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to get bus name owner %s: %m", name);
+                                continue;
+                        }
+
+                        r = sd_bus_creds_get_unique_name(creds, &unique);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to get unique name for %s: %m", name);
+                                continue;
+                        }
+
+                        /* Now, let's compare that to the previous bus owner, and
+                         * if it's still the same, all is fine, so just don't
+                         * bother the service. Otherwise, the name has apparently
+                         * changed, so synthesize a name owner changed signal. */
+
+                        if (!streq_ptr(unique, s->bus_name_owner))
+                                UNIT_VTABLE(u)->bus_name_owner_change(u, name, s->bus_name_owner, unique);
+                } else {
+                        /* So, the name we're watching is not on the bus.
+                         * This either means it simply hasn't appeared yet,
+                         * or it was lost during the daemon reload.
+                         * Check if the service has a stored name owner,
+                         * and synthesize a name loss signal in this case. */
+
+                        if (s->bus_name_owner)
+                                UNIT_VTABLE(u)->bus_name_owner_change(u, name, s->bus_name_owner, NULL);
+                }
         }
 
         return 0;
@@ -808,7 +850,9 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register name: %m");
 
-        bus_list_names(m, bus);
+        r = bus_list_names(m, bus);
+        if (r < 0)
+                return r;
 
         log_debug("Successfully connected to API bus.");
         return 0;
