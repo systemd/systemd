@@ -102,3 +102,5 @@ int dns_service_split(const char *joined, char **name, char **type, char **domai
 
 int dns_name_suffix(const char *name, unsigned n_labels, const char **ret);
 int dns_name_count_labels(const char *name);
+
+int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b);

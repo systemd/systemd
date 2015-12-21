@@ -909,11 +909,63 @@ finish:
         return r;
 }
 
+static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourceRecord *nsec3) {
+        const char *a, *b;
+        int r;
+
+        assert(rr);
+
+        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                return 0;
+
+        if (rr->key->type != DNS_TYPE_NSEC3)
+                return 0;
+
+        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
+        if (!IN_SET(rr->nsec3.flags, 0, 1))
+                return 0;
+
+        if (!nsec3)
+                return 1;
+
+        /* If a second NSEC3 RR is specified, also check if they are from the same zone. */
+
+        if (nsec3 == rr) /* Shortcut */
+                return 1;
+
+        if (rr->key->class != nsec3->key->class)
+                return 0;
+        if (rr->nsec3.algorithm != nsec3->nsec3.algorithm)
+                return 0;
+        if (rr->nsec3.iterations != nsec3->nsec3.iterations)
+                return 0;
+        if (rr->nsec3.salt_size != nsec3->nsec3.salt_size)
+                return 0;
+        if (memcmp(rr->nsec3.salt, nsec3->nsec3.salt, rr->nsec3.salt_size) != 0)
+                return 0;
+
+        a = DNS_RESOURCE_KEY_NAME(rr->key);
+        r = dns_name_parent(&a); /* strip off hash */
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0;
+
+        b = DNS_RESOURCE_KEY_NAME(nsec3->key);
+        r = dns_name_parent(&b); /* strip off hash */
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0;
+
+        return dns_name_equal(a, b);
+}
+
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result) {
         _cleanup_free_ char *next_closer_domain = NULL, *l = NULL;
         uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
         const char *suffix, *p, *pp = NULL;
-        DnsResourceRecord *rr;
+        DnsResourceRecord *rr, *suffix_rr;
         DnsAnswerFlags flags;
         int hashed_size, r;
 
@@ -923,20 +975,16 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         /* First step, look for the longest common suffix we find with any NSEC3 RR in the response. */
         suffix = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
-                DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                DNS_ANSWER_FOREACH_FLAGS(suffix_rr, flags, answer) {
                         _cleanup_free_ char *hashed_domain = NULL, *label = NULL;
 
-                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                        r = nsec3_is_good(suffix_rr, flags, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
                                 continue;
 
-                        if (rr->key->type != DNS_TYPE_NSEC3)
-                                continue;
-
-                        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
-                        if (!IN_SET(rr->nsec3.flags, 0, 1))
-                                continue;
-
-                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), suffix);
+                        r = dns_name_equal_skip(DNS_RESOURCE_KEY_NAME(suffix_rr->key), 1, suffix);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -958,42 +1006,34 @@ found_suffix:
         /* Second step, find the closest encloser NSEC3 RR in 'answer' that matches 'key' */
         p = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
+                _cleanup_free_ char *hashed_domain = NULL, *label = NULL;
+
+                hashed_size = dnssec_nsec3_hash(suffix_rr, p, hashed);
+                if (hashed_size == -EOPNOTSUPP) {
+                        *result = DNSSEC_NSEC_UNSUPPORTED_ALGORITHM;
+                        return 0;
+                }
+                if (hashed_size < 0)
+                        return hashed_size;
+
+                label = base32hexmem(hashed, hashed_size, false);
+                if (!label)
+                        return -ENOMEM;
+
+                hashed_domain = strjoin(label, ".", suffix, NULL);
+                if (!hashed_domain)
+                        return -ENOMEM;
+
                 DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
-                        _cleanup_free_ char *hashed_domain = NULL, *label = NULL;
 
-                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
-                                continue;
-
-                        if (rr->key->type != DNS_TYPE_NSEC3)
-                                continue;
-
-                        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
-                        if (!IN_SET(rr->nsec3.flags, 0, 1))
-                                continue;
-
-                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), suffix);
+                        r = nsec3_is_good(rr, flags, suffix_rr);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
 
-                        hashed_size = dnssec_nsec3_hash(rr, p, hashed);
-                        if (hashed_size == -EOPNOTSUPP) {
-                                *result = DNSSEC_NSEC_UNSUPPORTED_ALGORITHM;
-                                return 0;
-                        }
-                        if (hashed_size < 0)
-                                return hashed_size;
                         if (rr->nsec3.next_hashed_name_size != (size_t) hashed_size)
-                                return -EBADMSG;
-
-                        label = base32hexmem(hashed, hashed_size, false);
-                        if (!label)
-                                return -ENOMEM;
-
-                        hashed_domain = strjoin(label, ".", suffix, NULL);
-                        if (!hashed_domain)
-                                return -ENOMEM;
+                                continue;
 
                         r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), hashed_domain);
                         if (r < 0)
@@ -1056,26 +1096,8 @@ found_closest_encloser:
 
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 _cleanup_free_ char *label = NULL, *next_hashed_domain = NULL;
-                const char *nsec3_parent;
 
-                if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
-                        continue;
-
-                if (rr->key->type != DNS_TYPE_NSEC3)
-                        continue;
-
-                /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
-                if (!IN_SET(rr->nsec3.flags, 0, 1))
-                        continue;
-
-                nsec3_parent = DNS_RESOURCE_KEY_NAME(rr->key);
-                r = dns_name_parent(&nsec3_parent);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                r = dns_name_equal(p, nsec3_parent);
+                r = nsec3_is_good(rr, flags, suffix_rr);
                 if (r < 0)
                         return r;
                 if (r == 0)

@@ -1215,3 +1215,21 @@ int dns_name_count_labels(const char *name) {
 
         return (int) n;
 }
+
+int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        while (n_labels > 0) {
+
+                r = dns_name_parent(&a);
+                if (r <= 0)
+                        return r;
+
+                n_labels --;
+        }
+
+        return dns_name_equal(a, b);
+}
