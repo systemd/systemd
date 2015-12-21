@@ -470,6 +470,14 @@ static int dns_cache_put_negative(
                 i->key = dns_resource_key_new(key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(key));
                 if (!i->key)
                         return -ENOMEM;
+
+                /* Make sure to remove any previous entry for this
+                 * specific ANY key. (For non-ANY keys the cache data
+                 * is already cleared by the caller.) Note that we
+                 * don't bother removing positive or NODATA cache
+                 * items in this case, because it would either be slow
+                 * or require explicit indexing by name */
+                dns_cache_remove_by_key(c, key);
         } else
                 i->key = dns_resource_key_ref(key);
 
@@ -607,7 +615,6 @@ int dns_cache_put(
         /* See https://tools.ietf.org/html/rfc2308, which say that a
          * matching SOA record in the packet is used to to enable
          * negative caching. */
-
         r = dns_answer_find_soa(answer, key, &soa, &flags);
         if (r < 0)
                 goto fail;
