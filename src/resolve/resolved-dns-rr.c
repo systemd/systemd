@@ -267,10 +267,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
         if (soa->type != DNS_TYPE_SOA)
                 return 0;
 
-        if (!dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa)))
-                return 0;
-
-        return 1;
+        return dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa));
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
