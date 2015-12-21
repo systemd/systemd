@@ -1159,3 +1159,59 @@ finish:
 
         return 0;
 }
+
+int dns_name_suffix(const char *name, unsigned n_labels, const char **ret) {
+        const char* labels[DNS_N_LABELS_MAX+1];
+        unsigned n = 0;
+        const char *p;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        p = name;
+        for (;;) {
+                if (n > DNS_N_LABELS_MAX)
+                        return -EINVAL;
+
+                labels[n] = p;
+
+                r = dns_name_parent(&p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                n++;
+        }
+
+        if (n < n_labels)
+                return -EINVAL;
+
+        *ret = labels[n - n_labels];
+        return (int) (n - n_labels);
+}
+
+int dns_name_count_labels(const char *name) {
+        unsigned n = 0;
+        const char *p;
+        int r;
+
+        assert(name);
+
+        p = name;
+        for (;;) {
+                r = dns_name_parent(&p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (n >= DNS_N_LABELS_MAX)
+                        return -EINVAL;
+
+                n++;
+        }
+
+        return (int) n;
+}

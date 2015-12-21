@@ -384,10 +384,17 @@ int dnssec_verify_rrset(
         gcry_md_write(md, wire_format_name, r);
 
         for (k = 0; k < n; k++) {
+                const char *suffix;
                 size_t l;
                 rr = list[k];
 
-                r = dns_name_to_wire_format(DNS_RESOURCE_KEY_NAME(rr->key), wire_format_name, sizeof(wire_format_name), true);
+                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &suffix);
+                if (r < 0)
+                        goto finish;
+                if (r > 0) /* This is a wildcard! */
+                        gcry_md_write(md, (uint8_t[]) { 1, '*'}, 2);
+
+                r = dns_name_to_wire_format(suffix, wire_format_name, sizeof(wire_format_name), true);
                 if (r < 0)
                         goto finish;
                 gcry_md_write(md, wire_format_name, r);
@@ -497,6 +504,8 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
 }
 
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) {
+        int r;
+
         assert(key);
         assert(rrsig);
 
@@ -507,6 +516,18 @@ int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) 
         if (rrsig->key->class != key->class)
                 return 0;
         if (rrsig->rrsig.type_covered != key->type)
+                return 0;
+
+        /* Make sure signer is a parent of the RRset */
+        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rrsig->key), rrsig->rrsig.signer);
+        if (r <= 0)
+                return r;
+
+        /* Make sure the owner name has at least as many labels as the "label" fields indicates. */
+        r = dns_name_count_labels(DNS_RESOURCE_KEY_NAME(rrsig->key));
+        if (r < 0)
+                return r;
+        if (r < rrsig->rrsig.labels)
                 return 0;
 
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rrsig->key), DNS_RESOURCE_KEY_NAME(key));

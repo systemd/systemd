@@ -475,6 +475,46 @@ static void test_dns_name_change_suffix(void) {
         test_dns_name_change_suffix_one("a", "b", "c", 0, NULL);
 }
 
+static void test_dns_name_suffix_one(const char *name, unsigned n_labels, const char *result, int ret) {
+        const char *p = NULL;
+
+        assert_se(ret == dns_name_suffix(name, n_labels, &p));
+        assert_se(streq_ptr(p, result));
+}
+
+static void test_dns_name_suffix(void) {
+        test_dns_name_suffix_one("foo.bar", 2, "foo.bar", 0);
+        test_dns_name_suffix_one("foo.bar", 1, "bar", 1);
+        test_dns_name_suffix_one("foo.bar", 0, "", 2);
+        test_dns_name_suffix_one("foo.bar", 3, NULL, -EINVAL);
+        test_dns_name_suffix_one("foo.bar", 4, NULL, -EINVAL);
+
+        test_dns_name_suffix_one("bar", 1, "bar", 0);
+        test_dns_name_suffix_one("bar", 0, "", 1);
+        test_dns_name_suffix_one("bar", 2, NULL, -EINVAL);
+        test_dns_name_suffix_one("bar", 3, NULL, -EINVAL);
+
+        test_dns_name_suffix_one("", 0, "", 0);
+        test_dns_name_suffix_one("", 1, NULL, -EINVAL);
+        test_dns_name_suffix_one("", 2, NULL, -EINVAL);
+}
+
+static void test_dns_name_count_labels_one(const char *name, int n) {
+        assert_se(dns_name_count_labels(name) == n);
+}
+
+static void test_dns_name_count_labels(void) {
+        test_dns_name_count_labels_one("foo.bar.quux.", 3);
+        test_dns_name_count_labels_one("foo.bar.quux", 3);
+        test_dns_name_count_labels_one("foo.bar.", 2);
+        test_dns_name_count_labels_one("foo.bar", 2);
+        test_dns_name_count_labels_one("foo.", 1);
+        test_dns_name_count_labels_one("foo", 1);
+        test_dns_name_count_labels_one("", 0);
+        test_dns_name_count_labels_one(".", 0);
+        test_dns_name_count_labels_one("..", -EINVAL);
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -495,6 +535,8 @@ int main(int argc, char *argv[]) {
         test_dns_service_join();
         test_dns_service_split();
         test_dns_name_change_suffix();
+        test_dns_name_suffix();
+        test_dns_name_count_labels();
 
         return 0;
 }
