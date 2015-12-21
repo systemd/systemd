@@ -1906,12 +1906,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
 
-                        if (log_get_max_level() >= LOG_DEBUG) {
-                                _cleanup_free_ char *rrs = NULL;
-
-                                (void) dns_resource_record_to_string(rr, &rrs);
-                                log_debug("Looking at %s: %s", rrs ? strstrip(rrs) : "???", dnssec_result_to_string(result));
-                        }
+                        log_debug("Looking at %s: %s", strna(dns_resource_record_to_string(rr)), dnssec_result_to_string(result));
 
                         if (result == DNSSEC_VALIDATED) {
 

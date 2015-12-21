@@ -368,7 +368,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
         while ((r = sd_bus_message_enter_container(reply, 'r', "iqqay")) > 0) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-                _cleanup_free_ char *s = NULL;
+                const char *s;
                 uint16_t c, t;
                 int ifindex;
                 const void *d;
@@ -402,10 +402,10 @@ static int resolve_record(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse RR.");
 
-                r = dns_resource_record_to_string(rr, &s);
-                if (r < 0) {
+                s = dns_resource_record_to_string(rr);
+                if (!s) {
                         log_error("Failed to format RR.");
-                        return r;
+                        return -ENOMEM;
                 }
 
                 ifname[0] = 0;

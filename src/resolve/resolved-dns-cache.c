@@ -938,13 +938,13 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
                 DnsCacheItem *j;
 
                 LIST_FOREACH(by_key, j, i) {
-                        _cleanup_free_ char *t = NULL;
 
                         fputc('\t', f);
 
                         if (j->rr) {
-                                r = dns_resource_record_to_string(j->rr, &t);
-                                if (r < 0) {
+                                const char *t;
+                                t = dns_resource_record_to_string(j->rr);
+                                if (!t) {
                                         log_oom();
                                         continue;
                                 }
@@ -952,13 +952,14 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
                                 fputs(t, f);
                                 fputc('\n', f);
                         } else {
-                                r = dns_resource_key_to_string(j->key, &t);
+                                _cleanup_free_ char *z = NULL;
+                                r = dns_resource_key_to_string(j->key, &z);
                                 if (r < 0) {
                                         log_oom();
                                         continue;
                                 }
 
-                                fputs(t, f);
+                                fputs(z, f);
                                 fputs(" -- ", f);
                                 fputs(j->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN", f);
                                 fputc('\n', f);

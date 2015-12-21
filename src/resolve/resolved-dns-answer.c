@@ -657,18 +657,18 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
 void dns_answer_dump(DnsAnswer *answer, FILE *f) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
-        int ifindex, r;
+        int ifindex;
 
         if (!f)
                 f = stdout;
 
         DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
-                _cleanup_free_ char *t = NULL;
+                const char *t;
 
                 fputc('\t', f);
 
-                r = dns_resource_record_to_string(rr, &t);
-                if (r < 0) {
+                t = dns_resource_record_to_string(rr);
+                if (!t) {
                         log_oom();
                         continue;
                 }
