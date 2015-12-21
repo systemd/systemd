@@ -140,7 +140,8 @@ bool bitmap_isset(Bitmap *b, unsigned n) {
 bool bitmap_isclear(Bitmap *b) {
         unsigned i;
 
-        assert(b);
+        if (!b)
+                return true;
 
         for (i = 0; i < b->n_bitmaps; i++)
                 if (b->bitmaps[i] != 0)
@@ -150,7 +151,9 @@ bool bitmap_isclear(Bitmap *b) {
 }
 
 void bitmap_clear(Bitmap *b) {
-        assert(b);
+
+        if (!b)
+                return;
 
         b->bitmaps = mfree(b->bitmaps);
         b->n_bitmaps = 0;
