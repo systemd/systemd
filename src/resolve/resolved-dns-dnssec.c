@@ -912,7 +912,7 @@ finish:
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result) {
         _cleanup_free_ char *next_closer_domain = NULL, *l = NULL;
         uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
-        const char *p, *pp = NULL;
+        const char *suffix, *p, *pp = NULL;
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
         int hashed_size, r;
@@ -920,7 +920,42 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         assert(key);
         assert(result);
 
-        /* First step, look for the closest encloser NSEC3 RR in 'answer' that matches 'key' */
+        /* First step, look for the longest common suffix we find with any NSEC3 RR in the response. */
+        suffix = DNS_RESOURCE_KEY_NAME(key);
+        for (;;) {
+                DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                        _cleanup_free_ char *hashed_domain = NULL, *label = NULL;
+
+                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                                continue;
+
+                        if (rr->key->type != DNS_TYPE_NSEC3)
+                                continue;
+
+                        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
+                        if (!IN_SET(rr->nsec3.flags, 0, 1))
+                                continue;
+
+                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), suffix);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                goto found_suffix;
+                }
+
+                /* Strip one label from the front */
+                r = dns_name_parent(&suffix);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+        }
+
+        *result = DNSSEC_NSEC_NO_RR;
+        return 0;
+
+found_suffix:
+        /* Second step, find the closest encloser NSEC3 RR in 'answer' that matches 'key' */
         p = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
                 DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
@@ -936,7 +971,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
                         if (!IN_SET(rr->nsec3.flags, 0, 1))
                                 continue;
 
-                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), p);
+                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), suffix);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -956,7 +991,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
                         if (!label)
                                 return -ENOMEM;
 
-                        hashed_domain = strjoin(label, ".", p, NULL);
+                        hashed_domain = strjoin(label, ".", suffix, NULL);
                         if (!hashed_domain)
                                 return -ENOMEM;
 
@@ -964,7 +999,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
                         if (r < 0)
                                 return r;
                         if (r > 0)
-                                goto found;
+                                goto found_closest_encloser;
                 }
 
                 /* We didn't find the closest encloser with this name,
@@ -984,7 +1019,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         *result = DNSSEC_NSEC_NO_RR;
         return 0;
 
-found:
+found_closest_encloser:
         /* We found a closest encloser in 'p'; next closer is 'pp' */
 
         /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
