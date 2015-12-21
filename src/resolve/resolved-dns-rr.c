@@ -261,7 +261,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
 
         /* Checks whether 'soa' is a SOA record for the specified key. */
 
-        if (soa->class != DNS_CLASS_IN)
+        if (soa->class != key->class)
                 return 0;
 
         if (soa->type != DNS_TYPE_SOA)
