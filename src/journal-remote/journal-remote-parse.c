@@ -441,9 +441,46 @@ static int process_data(RemoteSource *source) {
         }
 }
 
+/*
+ * Returns true if field _SOURCE_MONOTONIC_TIMESTAMP already exists in the log entry,
+ * false if it does not.*/
+static bool source_monotonic_timestamp_exists(RemoteSource *source) {
+        size_t i;
+        size_t tag_len = sizeof("_SOURCE_MONOTONIC_TIMESTAMP=") - 1;
+        int ret = -1;
+
+        for (i=0; i<source->iovw.count; i++) {
+                if (source->iovw.iovec[i].iov_len >= tag_len) {
+                        ret = memcmp(source->iovw.iovec[i].iov_base, "_SOURCE_MONOTONIC_TIMESTAMP=", tag_len);
+                        if (ret==0)
+                                break;
+                }
+        }
+        return ret==0 ? true : false;
+}
+
+static int append_source_monotonic_timestamp(RemoteSource *source, char** psource_monotonic_time) {
+        int r;
+        size_t n;
+        char *source_monotonic_time;
+
+        source_monotonic_time = calloc(sizeof("_SOURCE_MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t), 1);
+        if (source_monotonic_time == NULL) {
+                return log_oom();
+        }
+        n = sprintf(source_monotonic_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", (unsigned long long)source->ts.monotonic);
+        r = iovw_put(&source->iovw, source_monotonic_time, n);
+        if (r < 0)
+                log_warning("Failed to put line in iovect. _SOURCE_MONOTONIC_TIMESTAMP field will not be available.");
+
+        *psource_monotonic_time = source_monotonic_time;
+        return 0;
+}
+
 int process_source(RemoteSource *source, bool compress, bool seal) {
         size_t remain, target;
         int r;
+        char *source_monotonic_time = NULL;
 
         assert(source);
         assert(source->writer);
@@ -464,6 +501,13 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
         assert(source->iovw.iovec);
         assert(source->iovw.count);
 
+        if (!source_monotonic_timestamp_exists(source)) {
+                r = append_source_monotonic_timestamp(source, &source_monotonic_time);
+                if (r < 0)
+                        goto freeing;
+        }
+        source->ts.monotonic = now(CLOCK_MONOTONIC);
+
         r = writer_write(source->writer, &source->iovw, &source->ts, compress, seal);
         if (r < 0)
                 log_error_errno(r, "Failed to write entry of %zu bytes: %m",
@@ -473,6 +517,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
 
  freeing:
         iovw_free_contents(&source->iovw);
+        free(source_monotonic_time);
 
         /* possibly reset buffer position */
         remain = source->filled - source->offset;

@@ -225,6 +225,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>_SOURCE_MONOTONIC_TIMESTAMP=</varname></term>
+        <listitem>
+          <para>The original monotonic timestamp of the log entry.
+          systemd-journal-remote stores the monotonic timestamp of
+          the sender machine here. The units are microseconds. The
+          field is formatted as a decimal string.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>_BOOT_ID=</varname></term>
         <listitem>
           <para>The kernel boot ID for the boot the message was
