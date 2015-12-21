@@ -37,6 +37,7 @@
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "util.h"
@@ -59,6 +60,23 @@ typedef enum EventSourceType {
         _SOURCE_EVENT_SOURCE_TYPE_MAX,
         _SOURCE_EVENT_SOURCE_TYPE_INVALID = -1
 } EventSourceType;
+
+static const char* const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] = {
+        [SOURCE_IO] = "io",
+        [SOURCE_TIME_REALTIME] = "realtime",
+        [SOURCE_TIME_BOOTTIME] = "bootime",
+        [SOURCE_TIME_MONOTONIC] = "monotonic",
+        [SOURCE_TIME_REALTIME_ALARM] = "realtime-alarm",
+        [SOURCE_TIME_BOOTTIME_ALARM] = "boottime-alarm",
+        [SOURCE_SIGNAL] = "signal",
+        [SOURCE_CHILD] = "child",
+        [SOURCE_DEFER] = "defer",
+        [SOURCE_POST] = "post",
+        [SOURCE_EXIT] = "exit",
+        [SOURCE_WATCHDOG] = "watchdog",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
 
 /* All objects we use in epoll events start with this value, so that
  * we know how to dispatch it */
@@ -482,7 +500,8 @@ static void source_io_unregister(sd_event_source *s) {
 
         r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL);
         if (r < 0)
-                log_debug_errno(errno, "Failed to remove source %s from epoll: %m", strna(s->description));
+                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll: %m",
+                                strna(s->description), event_source_type_to_string(s->type));
 
         s->io.registered = false;
 }
@@ -2281,12 +2300,9 @@ static int source_dispatch(sd_event_source *s) {
 
         s->dispatching = false;
 
-        if (r < 0) {
-                if (s->description)
-                        log_debug_errno(r, "Event source '%s' returned error, disabling: %m", s->description);
-                else
-                        log_debug_errno(r, "Event source %p returned error, disabling: %m", s);
-        }
+        if (r < 0)
+                log_debug_errno(r, "Event source %s (type %s) returned error, disabling: %m",
+                                strna(s->description), event_source_type_to_string(s->type));
 
         if (s->n_ref == 0)
                 source_free(s);
@@ -2319,12 +2335,9 @@ static int event_prepare(sd_event *e) {
                 r = s->prepare(s, s->userdata);
                 s->dispatching = false;
 
-                if (r < 0) {
-                        if (s->description)
-                                log_debug_errno(r, "Prepare callback of event source '%s' returned error, disabling: %m", s->description);
-                        else
-                                log_debug_errno(r, "Prepare callback of event source %p returned error, disabling: %m", s);
-                }
+                if (r < 0)
+                        log_debug_errno(r, "Prepare callback of event source %s (type %s) returned error, disabling: %m",
+                                        strna(s->description), event_source_type_to_string(s->type));
 
                 if (s->n_ref == 0)
                         source_free(s);
