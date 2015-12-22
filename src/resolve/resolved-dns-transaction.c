@@ -1855,6 +1855,71 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         return true;
 }
 
+static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRecord *rr) {
+        DnsResourceRecord *rrsig;
+        bool found = false;
+        int r;
+
+        /* Checks whether any of the DNSKEYs used for the RRSIGs for
+         * the specified RRset is authenticated (i.e. has a matching
+         * DS RR). */
+
+        DNS_ANSWER_FOREACH(rrsig, t->answer) {
+                DnsTransaction *dt;
+                Iterator i;
+
+                r = dnssec_key_match_rrsig(rr->key, rrsig);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                SET_FOREACH(dt, t->dnssec_transactions, i) {
+
+                        if (dt->key->class != rr->key->class)
+                                continue;
+
+                        if (dt->key->type == DNS_TYPE_DNSKEY) {
+
+                                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), rrsig->rrsig.signer);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
+
+                                /* OK, we found an auxiliary DNSKEY
+                                 * lookup. If that lookup is
+                                 * authenticated, report this. */
+
+                                if (dt->answer_authenticated)
+                                        return true;
+
+                                found = true;
+
+                        } else if (dt->key->type == DNS_TYPE_DS) {
+
+                                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), rrsig->rrsig.signer);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
+
+                                /* OK, we found an auxiliary DS
+                                 * lookup. If that lookup is
+                                 * authenticated and non-zero, we
+                                 * won! */
+
+                                if (!dt->answer_authenticated)
+                                        return false;
+
+                                return dns_answer_match_key(dt->answer, dt->key, NULL);
+                        }
+                }
+        }
+
+        return found ? false : -ENXIO;
+}
+
 int dns_transaction_validate_dnssec(DnsTransaction *t) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
         bool dnskeys_finalized = false;
@@ -1936,6 +2001,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 break;
 
                         } else if (dnskeys_finalized) {
+
                                 /* If we haven't read all DNSKEYs yet
                                  * a negative result of the validation
                                  * is irrelevant, as there might be
@@ -1948,6 +2014,27 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         if (r == 0) {
                                                 /* Data does not require signing. In that case, just copy it over,
                                                  * but remember that this is by no means authenticated.*/
+                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                                if (r < 0)
+                                                        return r;
+
+                                                changed = true;
+                                                break;
+                                        }
+                                }
+
+                                if (IN_SET(result,
+                                           DNSSEC_MISSING_KEY,
+                                           DNSSEC_SIGNATURE_EXPIRED,
+                                           DNSSEC_UNSUPPORTED_ALGORITHM)) {
+
+                                        r = dns_transaction_dnskey_authenticated(t, rr);
+                                        if (r < 0 && r != -ENXIO)
+                                                return r;
+                                        if (r == 0) {
+                                                /* The DNSKEY transaction was not authenticated, this means there's
+                                                 * no DS for this, which means it's OK if no keys are found for this signature. */
+
                                                 r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
                                                 if (r < 0)
                                                         return r;
