@@ -2112,9 +2112,10 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
         } else if (r == 0) {
                 DnssecNsecResult nr;
+                bool authenticated = false;
 
                 /* Bummer! Let's check NSEC/NSEC3 */
-                r = dnssec_test_nsec(t->answer, t->key, &nr);
+                r = dnssec_test_nsec(t->answer, t->key, &nr, &authenticated);
                 if (r < 0)
                         return r;
 
@@ -2125,7 +2126,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         log_debug("Proved NXDOMAIN via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_NXDOMAIN;
-                        t->answer_authenticated = true;
+                        t->answer_authenticated = authenticated;
                         break;
 
                 case DNSSEC_NSEC_NODATA:
@@ -2133,7 +2134,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         log_debug("Proved NODATA via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
-                        t->answer_authenticated = true;
+                        t->answer_authenticated = authenticated;
                         break;
 
                 case DNSSEC_NSEC_OPTOUT:
