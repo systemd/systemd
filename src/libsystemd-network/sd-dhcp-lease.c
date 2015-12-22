@@ -205,14 +205,22 @@ int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr) {
         return 0;
 }
 
-int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routes) {
+int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, sd_dhcp_route ***routes) {
+        unsigned i;
+
         assert_return(lease, -EINVAL);
         assert_return(routes, -EINVAL);
 
         if (lease->static_route_size <= 0)
                 return -ENODATA;
 
-        *routes = lease->static_route;
+        *routes = new(sd_dhcp_route *, lease->static_route_size);
+        if (!*routes)
+                return -ENOMEM;
+
+        for (i = 0; i < lease->static_route_size; i++)
+                (*routes)[i] = &lease->static_route[i];
+
         return (int) lease->static_route_size;
 }
 
@@ -722,7 +730,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         size_t client_id_len, data_len;
         const char *string;
         uint16_t mtu;
-        struct sd_dhcp_route *routes;
+        _cleanup_free_ sd_dhcp_route **routes = NULL;
         uint32_t t1, t2, lifetime;
         int r;
 
@@ -1139,5 +1147,29 @@ int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **tz) {
                 return -ENODATA;
 
         *tz = lease->timezone;
+        return 0;
+}
+
+int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *destination) {
+        assert_return(route, -EINVAL);
+        assert_return(destination, -EINVAL);
+
+        *destination = route->dst_addr;
+        return 0;
+}
+
+int sd_dhcp_route_get_destination_prefix_length(sd_dhcp_route *route, uint8_t *length) {
+        assert_return(route, -EINVAL);
+        assert_return(length, -EINVAL);
+
+        *length = route->dst_prefixlen;
+        return 0;
+}
+
+int sd_dhcp_route_get_gateway(sd_dhcp_route *route, struct in_addr *gateway) {
+        assert_return(route, -EINVAL);
+        assert_return(gateway, -EINVAL);
+
+        *gateway = route->gw_addr;
         return 0;
 }
