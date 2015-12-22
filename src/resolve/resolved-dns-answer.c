@@ -351,7 +351,7 @@ int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsR
         assert(key);
 
         /* For a {C,D}NAME record we can never find a matching {C,D}NAME record */
-        if (key->type == DNS_TYPE_CNAME || key->type == DNS_TYPE_DNAME)
+        if (!dns_type_may_redirect(key->type))
                 return 0;
 
         DNS_ANSWER_FOREACH_FLAGS(rr, rr_flags, a) {
