@@ -831,6 +831,15 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
                 if (ds->key->type != DNS_TYPE_DS)
                         continue;
 
+                if (ds->key->class != dnskey->key->class)
+                        continue;
+
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dnskey->key), DNS_RESOURCE_KEY_NAME(ds->key));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
                 r = dnssec_verify_dnskey(dnskey, ds);
                 if (r < 0)
                         return r;
