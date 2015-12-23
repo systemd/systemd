@@ -156,14 +156,16 @@ static void socket_done(Unit *u) {
         s->tcp_congestion = mfree(s->tcp_congestion);
         s->bind_to_device = mfree(s->bind_to_device);
 
-        free(s->smack);
-        free(s->smack_ip_in);
-        free(s->smack_ip_out);
+        s->smack = mfree(s->smack);
+        s->smack_ip_in = mfree(s->smack_ip_in);
+        s->smack_ip_out = mfree(s->smack_ip_out);
 
         strv_free(s->symlinks);
 
-        free(s->user);
-        free(s->group);
+        s->user = mfree(s->user);
+        s->group = mfree(s->group);
+
+        s->fdname = mfree(s->fdname);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
