@@ -2574,6 +2574,10 @@ int manager_reload(Manager *m) {
         /* Third, fire things up! */
         manager_coldplug(m);
 
+        /* Sync current state of bus names with our set of listening units */
+        if (m->api_bus)
+                manager_sync_bus_names(m, m->api_bus);
+
         assert(m->n_reloading > 0);
         m->n_reloading--;
 

@@ -734,7 +734,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         return 0;
 }
 
-static int bus_list_names(Manager *m, sd_bus *bus) {
+int manager_sync_bus_names(Manager *m, sd_bus *bus) {
         _cleanup_strv_free_ char **names = NULL;
         const char *name;
         Iterator i;
@@ -850,7 +850,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register name: %m");
 
-        r = bus_list_names(m, bus);
+        r = manager_sync_bus_names(m, bus);
         if (r < 0)
                 return r;
 
