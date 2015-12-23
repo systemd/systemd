@@ -226,6 +226,14 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         assert(t);
         assert(!DNS_TRANSACTION_IS_LIVE(state));
 
+        if (state == DNS_TRANSACTION_DNSSEC_FAILED)
+                log_struct(LOG_NOTICE,
+                           LOG_MESSAGE("DNSSEC validation failed for question %s: %s", dns_transaction_key_string(t), dnssec_result_to_string(t->answer_dnssec_result)),
+                           "DNS_TRANSACTION=%" PRIu16, t->id,
+                           "DNS_QUESTION=%s", dns_transaction_key_string(t),
+                           "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
+                           NULL);
+
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
          * after calling this function. */
