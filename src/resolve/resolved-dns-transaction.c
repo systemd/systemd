@@ -153,6 +153,8 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         LIST_PREPEND(transactions_by_scope, s->transactions, t);
         t->scope = s;
 
+        s->manager->n_transactions_total ++;
+
         if (ret)
                 *ret = t;
 
@@ -1996,6 +1998,8 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 if (r < 0)
                                         return r;
 
+                                t->scope->manager->n_dnssec_secure++;
+
                                 /* Exit the loop, we dropped something from the answer, start from the beginning */
                                 changed = true;
                                 break;
@@ -2018,6 +2022,8 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                                 if (r < 0)
                                                         return r;
 
+                                                t->scope->manager->n_dnssec_insecure++;
+
                                                 changed = true;
                                                 break;
                                         }
@@ -2039,10 +2045,21 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                                 if (r < 0)
                                                         return r;
 
+                                                t->scope->manager->n_dnssec_insecure++;
+
                                                 changed = true;
                                                 break;
                                         }
                                 }
+
+                                if (IN_SET(result,
+                                           DNSSEC_INVALID,
+                                           DNSSEC_SIGNATURE_EXPIRED,
+                                           DNSSEC_NO_SIGNATURE,
+                                           DNSSEC_UNSUPPORTED_ALGORITHM))
+                                        t->scope->manager->n_dnssec_bogus++;
+                                else
+                                        t->scope->manager->n_dnssec_indeterminate++;
 
                                 r = dns_transaction_is_primary_response(t, rr);
                                 if (r < 0)

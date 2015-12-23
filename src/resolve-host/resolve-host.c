@@ -33,6 +33,7 @@
 #include "parse-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "terminal-util.h"
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
@@ -42,7 +43,14 @@ static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
-static bool arg_resolve_service = false;
+
+static enum {
+        MODE_RESOLVE_HOST,
+        MODE_RESOLVE_RECORD,
+        MODE_RESOLVE_SERVICE,
+        MODE_STATISTICS,
+        MODE_RESET_STATISTICS,
+} arg_mode = MODE_RESOLVE_HOST;
 
 static void print_source(uint64_t flags, usec_t rtt) {
         char rtt_str[FORMAT_TIMESTAMP_MAX];
@@ -637,6 +645,121 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         return 0;
 }
 
+static int show_statistics(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint64_t n_current_transactions, n_total_transactions,
+                cache_size, n_cache_hit, n_cache_miss,
+                n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "TransactionStatistics",
+                                &error,
+                                &reply,
+                                "(tt)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get transaction statistics: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "(tt)",
+                                &n_current_transactions,
+                                &n_total_transactions);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        printf("%sTransactions%s\n"
+               "Current Transactions: %" PRIu64 "\n"
+               "  Total Transactions: %" PRIu64 "\n",
+               ansi_highlight(),
+               ansi_normal(),
+               n_current_transactions,
+               n_total_transactions);
+
+        reply = sd_bus_message_unref(reply);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "CacheStatistics",
+                                &error,
+                                &reply,
+                                "(ttt)");
+
+        r = sd_bus_message_read(reply, "(ttt)",
+                                &cache_size,
+                                &n_cache_hit,
+                                &n_cache_miss);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        printf("\n%sCache%s\n"
+               "  Current Cache Size: %" PRIu64 "\n"
+               "          Cache Hits: %" PRIu64 "\n"
+               "        Cache Misses: %" PRIu64 "\n",
+               ansi_highlight(),
+               ansi_normal(),
+               cache_size,
+               n_cache_hit,
+               n_cache_miss);
+
+        reply = sd_bus_message_unref(reply);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "DNSSECStatistics",
+                                &error,
+                                &reply,
+                                "(tttt)");
+
+        r = sd_bus_message_read(reply, "(tttt)",
+                                &n_dnssec_secure,
+                                &n_dnssec_insecure,
+                                &n_dnssec_bogus,
+                                &n_dnssec_indeterminate);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        printf("\n%sDNSSEC%s\n"
+               "       Secure RRsets: %" PRIu64 "\n"
+               "     Insecure RRsets: %" PRIu64 "\n"
+               "        Bogus RRsets: %" PRIu64 "\n"
+               "Indeterminate RRsets: %" PRIu64 "\n",
+               ansi_highlight(),
+               ansi_normal(),
+               n_dnssec_secure,
+               n_dnssec_insecure,
+               n_dnssec_bogus,
+               n_dnssec_indeterminate);
+
+        return 0;
+}
+
+static int reset_statistics(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.resolve1",
+                               "/org/freedesktop/resolve1",
+                               "org.freedesktop.resolve1.Manager",
+                               "ResetStatistics",
+                               &error,
+                               NULL,
+                               NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset statistics: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static void help_dns_types(void) {
         int i;
         const char *t;
@@ -681,6 +804,8 @@ static void help(void) {
                "     --cname=BOOL           Do [not] follow CNAME redirects\n"
                "     --search=BOOL          Do [not] use search domains\n"
                "     --legend=BOOL          Do [not] print column headers\n"
+               "     --statistics           Show resolver statistics\n"
+               "     --reset-statistics     Reset resolver statistics\n"
                , program_invocation_short_name, program_invocation_short_name);
 }
 
@@ -693,20 +818,24 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
                 ARG_SEARCH,
+                ARG_STATISTICS,
+                ARG_RESET_STATISTICS,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "type",            required_argument, NULL, 't'                 },
-                { "class",           required_argument, NULL, 'c'                 },
-                { "legend",          required_argument, NULL, ARG_LEGEND          },
-                { "protocol",        required_argument, NULL, 'p'                 },
-                { "cname",           required_argument, NULL, ARG_CNAME           },
-                { "service",         no_argument,       NULL, ARG_SERVICE         },
-                { "service-address", required_argument, NULL, ARG_SERVICE_ADDRESS },
-                { "service-txt",     required_argument, NULL, ARG_SERVICE_TXT     },
-                { "search",          required_argument, NULL, ARG_SEARCH          },
+                { "help",             no_argument,       NULL, 'h'                  },
+                { "version",          no_argument,       NULL, ARG_VERSION          },
+                { "type",             required_argument, NULL, 't'                  },
+                { "class",            required_argument, NULL, 'c'                  },
+                { "legend",           required_argument, NULL, ARG_LEGEND           },
+                { "protocol",         required_argument, NULL, 'p'                  },
+                { "cname",            required_argument, NULL, ARG_CNAME            },
+                { "service",          no_argument,       NULL, ARG_SERVICE          },
+                { "service-address",  required_argument, NULL, ARG_SERVICE_ADDRESS  },
+                { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
+                { "search",           required_argument, NULL, ARG_SEARCH           },
+                { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
+                { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
                 {}
         };
 
@@ -763,6 +892,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_type = (uint16_t) r;
                         assert((int) arg_type == r);
 
+                        arg_mode = MODE_RESOLVE_RECORD;
                         break;
 
                 case 'c':
@@ -806,7 +936,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SERVICE:
-                        arg_resolve_service = true;
+                        arg_mode = MODE_RESOLVE_SERVICE;
                         break;
 
                 case ARG_CNAME:
@@ -849,6 +979,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_flags &= ~SD_RESOLVED_NO_SEARCH;
                         break;
 
+                case ARG_STATISTICS:
+                        arg_mode = MODE_STATISTICS;
+                        break;
+
+                case ARG_RESET_STATISTICS:
+                        arg_mode = MODE_RESET_STATISTICS;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -861,7 +999,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_type != 0 && arg_resolve_service) {
+        if (arg_type != 0 && arg_mode != MODE_RESOLVE_RECORD) {
                 log_error("--service and --type= may not be combined.");
                 return -EINVAL;
         }
@@ -883,20 +1021,57 @@ int main(int argc, char **argv) {
         if (r <= 0)
                 goto finish;
 
-        if (optind >= argc) {
-                log_error("No arguments passed");
-                r = -EINVAL;
-                goto finish;
-        }
-
         r = sd_bus_open_system(&bus);
         if (r < 0) {
                 log_error_errno(r, "sd_bus_open_system: %m");
                 goto finish;
         }
 
-        if (arg_resolve_service) {
+        switch (arg_mode) {
 
+        case MODE_RESOLVE_HOST:
+                if (optind >= argc) {
+                        log_error("No arguments passed");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                while (argv[optind]) {
+                        int family, ifindex, k;
+                        union in_addr_union a;
+
+                        k = parse_address(argv[optind], &family, &a, &ifindex);
+                        if (k >= 0)
+                                k = resolve_address(bus, family, &a, ifindex);
+                        else
+                                k = resolve_host(bus, argv[optind]);
+
+                        if (r == 0)
+                                r = k;
+
+                        optind++;
+                }
+                break;
+
+        case MODE_RESOLVE_RECORD:
+                if (optind >= argc) {
+                        log_error("No arguments passed");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                while (argv[optind]) {
+                        int k;
+
+                        k = resolve_record(bus, argv[optind]);
+                        if (r == 0)
+                                r = k;
+
+                        optind++;
+                }
+                break;
+
+        case MODE_RESOLVE_SERVICE:
                 if (argc < optind + 1) {
                         log_error("Domain specification required.");
                         r = -EINVAL;
@@ -914,27 +1089,27 @@ int main(int argc, char **argv) {
                         goto finish;
                 }
 
-                goto finish;
-        }
+                break;
 
-        while (argv[optind]) {
-                int family, ifindex, k;
-                union in_addr_union a;
-
-                if (arg_type != 0)
-                        k = resolve_record(bus, argv[optind]);
-                else {
-                        k = parse_address(argv[optind], &family, &a, &ifindex);
-                        if (k >= 0)
-                                k = resolve_address(bus, family, &a, ifindex);
-                        else
-                                k = resolve_host(bus, argv[optind]);
+        case MODE_STATISTICS:
+                if (argc > optind) {
+                        log_error("Too many arguments.");
+                        r = -EINVAL;
+                        goto finish;
                 }
 
-                if (r == 0)
-                        r = k;
+                r = show_statistics(bus);
+                break;
 
-                optind++;
+        case MODE_RESET_STATISTICS:
+                if (argc > optind) {
+                        log_error("Too many arguments.");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                r = reset_statistics(bus);
+                break;
         }
 
 finish:

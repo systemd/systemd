@@ -128,6 +128,9 @@ struct Manager {
         sd_bus_slot *prepare_for_sleep_slot;
 
         sd_event_source *sigusr1_event_source;
+
+        unsigned n_transactions_total;
+        unsigned n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
 };
 
 /* Manager */

@@ -29,6 +29,8 @@
 typedef struct DnsCache {
         Hashmap *by_key;
         Prioq *by_expiry;
+        unsigned n_hit;
+        unsigned n_miss;
 } DnsCache;
 
 #include "resolved-dns-answer.h"
@@ -46,5 +48,7 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
 
 void dns_cache_dump(DnsCache *cache, FILE *f);
 bool dns_cache_is_empty(DnsCache *cache);
+
+unsigned dns_cache_size(DnsCache *cache);
 
 int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p);

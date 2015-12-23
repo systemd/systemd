@@ -740,6 +740,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                         log_debug("Ignoring cache for ANY lookup: %s", key_str);
                 }
 
+                c->n_miss++;
+
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
                 return 0;
@@ -756,6 +758,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
 
                         log_debug("Cache miss for %s", key_str);
                 }
+
+                c->n_miss++;
 
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
@@ -794,9 +798,15 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 *rcode = DNS_RCODE_SUCCESS;
                 *authenticated = nsec->authenticated;
 
-                return !bitmap_isset(nsec->rr->nsec.types, key->type) &&
-                       !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
-                       !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_DNAME);
+                if (!bitmap_isset(nsec->rr->nsec.types, key->type) &&
+                    !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
+                    !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_DNAME)) {
+                        c->n_hit++;
+                        return 1;
+                }
+
+                c->n_miss++;
+                return 0;
         }
 
         if (log_get_max_level() >= LOG_DEBUG) {
@@ -811,6 +821,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         }
 
         if (n <= 0) {
+                c->n_hit++;
+
                 *ret = NULL;
                 *rcode = nxdomain ? DNS_RCODE_NXDOMAIN : DNS_RCODE_SUCCESS;
                 *authenticated = have_authenticated && !have_non_authenticated;
@@ -829,6 +841,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 if (r < 0)
                         return r;
         }
+
+        c->n_hit++;
 
         *ret = answer;
         *rcode = DNS_RCODE_SUCCESS;
@@ -973,4 +987,11 @@ bool dns_cache_is_empty(DnsCache *cache) {
                 return true;
 
         return hashmap_isempty(cache->by_key);
+}
+
+unsigned dns_cache_size(DnsCache *cache) {
+        if (!cache)
+                return 0;
+
+        return hashmap_size(cache->by_key);
 }
