@@ -435,8 +435,9 @@ static int output_verbose(
 
                 r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", &value, &size);
                 if (r < 0)
-                        log_debug_errno(r, "_SOURCE_REALTIME_TIMESTAMP invalid: %m");
+                        return r;
                 else {
+                        assert(r > 0);
                         r = safe_atou64(value, &realtime);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to parse realtime timestamp: %m");

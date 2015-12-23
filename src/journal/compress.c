@@ -58,7 +58,8 @@ static const char* const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(object_compressed, int);
 
-int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_size) {
+int compress_blob_xz(const void *src, uint64_t src_size,
+                     void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #ifdef HAVE_XZ
         static const lzma_options_lzma opt = {
                 1u << 20u, NULL, 0, LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
@@ -74,6 +75,7 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
         assert(src);
         assert(src_size > 0);
         assert(dst);
+        assert(dst_alloc_size > 0);
         assert(dst_size);
 
         /* Returns < 0 if we couldn't compress the data or the
@@ -83,7 +85,7 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
                 return -ENOBUFS;
 
         ret = lzma_stream_buffer_encode((lzma_filter*) filters, LZMA_CHECK_NONE, NULL,
-                                        src, src_size, dst, &out_pos, src_size - 1);
+                                        src, src_size, dst, &out_pos, dst_alloc_size);
         if (ret != LZMA_OK)
                 return -ENOBUFS;
 
@@ -94,13 +96,15 @@ int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_
 #endif
 }
 
-int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, size_t *dst_size) {
+int compress_blob_lz4(const void *src, uint64_t src_size,
+                      void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #ifdef HAVE_LZ4
         int r;
 
         assert(src);
         assert(src_size > 0);
         assert(dst);
+        assert(dst_alloc_size > 0);
         assert(dst_size);
 
         /* Returns < 0 if we couldn't compress the data or the
@@ -109,7 +113,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, size_t *dst
         if (src_size < 9)
                 return -ENOBUFS;
 
-        r = LZ4_compress_limitedOutput(src, dst + 8, src_size, src_size - 8 - 1);
+        r = LZ4_compress_limitedOutput(src, dst + 8, src_size, (int) dst_alloc_size - 8);
         if (r <= 0)
                 return -ENOBUFS;
 
@@ -306,6 +310,7 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
          * prefix */
 
         int r;
+        size_t size;
 
         assert(src);
         assert(src_size > 0);
@@ -322,10 +327,18 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
 
         r = LZ4_decompress_safe_partial(src + 8, *buffer, src_size - 8,
                                         prefix_len + 1, *buffer_size);
+        if (r >= 0)
+                size = (unsigned) r;
+        else {
+                /* lz4 always tries to decode full "sequence", so in
+                 * pathological cases might need to decompress the
+                 * full field. */
+                r = decompress_blob_lz4(src, src_size, buffer, buffer_size, &size, 0);
+                if (r < 0)
+                        return r;
+        }
 
-        if (r < 0)
-                return -EBADMSG;
-        if ((unsigned) r >= prefix_len + 1)
+        if (size >= prefix_len + 1)
                 return memcmp(*buffer, prefix, prefix_len) == 0 &&
                         ((const uint8_t*) *buffer)[prefix_len] == extra;
         else
@@ -438,7 +451,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         _cleanup_(LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
         _cleanup_free_ char *buf = NULL;
         char *src = NULL;
-        size_t size, n, total_in = 0, total_out = 0, offset = 0, frame_size;
+        size_t size, n, total_in = 0, total_out, offset = 0, frame_size;
         struct stat st;
         int r;
         static const LZ4F_compressOptions_t options = {
@@ -461,7 +474,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         if (!buf)
                 return -ENOMEM;
 
-        n = offset = LZ4F_compressBegin(ctx, buf, size, &preferences);
+        n = offset = total_out = LZ4F_compressBegin(ctx, buf, size, &preferences);
         if (LZ4F_isError(n))
                 return -EINVAL;
 
