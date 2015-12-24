@@ -1325,7 +1325,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
          * - For RRSIG we get the matching DNSKEY
          * - For DNSKEY we get the matching DS
          * - For unsigned SOA/NS we get the matching DS
-         * - For unsigned CNAME/DNAME we get the parent SOA RR
+         * - For unsigned CNAME/DNAME/DS we get the parent SOA RR
          * - For other unsigned RRs we get the matching SOA RR
          * - For SOA/NS/DS queries with no matching response RRs, and no NSEC/NSEC3, the parent's SOA RR
          * - For other queries with no matching response RRs, and no NSEC/NSEC3, the SOA RR
@@ -1414,15 +1414,6 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         break;
                 }
 
-                case DNS_TYPE_DS:
-                case DNS_TYPE_NSEC:
-                case DNS_TYPE_NSEC3:
-                        /* Don't acquire anything for
-                         * DS/NSEC/NSEC3. We require they come with an
-                         * RRSIG without us asking for anything, and
-                         * that's sufficient. */
-                        break;
-
                 case DNS_TYPE_SOA:
                 case DNS_TYPE_NS: {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
@@ -1458,6 +1449,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         break;
                 }
 
+                case DNS_TYPE_DS:
                 case DNS_TYPE_CNAME:
                 case DNS_TYPE_DNAME: {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
@@ -1468,7 +1460,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * unsigned CNAME/DNAME RRs, maybe that's the
                          * apex. But do all that only if this is
                          * actually a response to our original
-                         * question. */
+                         * question.
+                         *
+                         * Similar for DS RRs, which are signed when
+                         * the parent SOA is signed. */
 
                         r = dns_transaction_is_primary_response(t, rr);
                         if (r < 0)
@@ -1493,7 +1488,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!soa)
                                 return -ENOMEM;
 
-                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
+                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME/DS RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -1504,10 +1499,11 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 default: {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
 
-                        /* For other unsigned RRsets, look for proof
-                         * the zone is unsigned, by requesting the SOA
-                         * RR of the zone. However, do so only if they
-                         * are directly relevant to our original
+                        /* For other unsigned RRsets (including
+                         * NSEC/NSEC3!), look for proof the zone is
+                         * unsigned, by requesting the SOA RR of the
+                         * zone. However, do so only if they are
+                         * directly relevant to our original
                          * question. */
 
                         r = dns_transaction_is_primary_response(t, rr);
@@ -1689,13 +1685,6 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
 
         switch (rr->key->type) {
 
-        case DNS_TYPE_DNSKEY:
-        case DNS_TYPE_DS:
-        case DNS_TYPE_NSEC:
-        case DNS_TYPE_NSEC3:
-                /* We never consider DNSKEY, DS, NSEC, NSEC3 RRs if they aren't signed. */
-                return true;
-
         case DNS_TYPE_RRSIG:
                 /* RRSIGs are the signatures themselves, they need no signing. */
                 return false;
@@ -1705,7 +1694,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 DnsTransaction *dt;
                 Iterator i;
 
-                /* For SOA or NS RRs we look for a matching DS transaction, or a SOA transaction of the parent */
+                /* For SOA or NS RRs we look for a matching DS transaction */
 
                 SET_FOREACH(dt, t->dnssec_transactions, i) {
 
@@ -1736,13 +1725,18 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 return true;
         }
 
+        case DNS_TYPE_DS:
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME: {
                 const char *parent = NULL;
                 DnsTransaction *dt;
                 Iterator i;
 
-                /* CNAME/DNAME RRs cannot be located at a zone apex, hence look directly for the parent SOA. */
+                /*
+                 * CNAME/DNAME RRs cannot be located at a zone apex, hence look directly for the parent SOA.
+                 *
+                 * DS RRs are signed if the parent is signed, hence also look at the parent SOA
+                 */
 
                 SET_FOREACH(dt, t->dnssec_transactions, i) {
 
@@ -1757,6 +1751,9 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                                 if (r < 0)
                                         return r;
                                 if (r == 0) {
+                                        if (rr->key->type == DNS_TYPE_DS)
+                                                return true;
+
                                         /* A CNAME/DNAME without a parent? That's sooo weird. */
                                         log_debug("Transaction %" PRIu16 " claims CNAME/DNAME at root. Refusing.", t->id);
                                         return -EBADMSG;
@@ -1779,7 +1776,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 DnsTransaction *dt;
                 Iterator i;
 
-                /* Any other kind of RR. Let's see if our SOA lookup was authenticated */
+                /* Any other kind of RR (including DNSKEY/NSEC/NSEC3). Let's see if our SOA lookup was authenticated */
 
                 SET_FOREACH(dt, t->dnssec_transactions, i) {
 
