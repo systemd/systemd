@@ -1197,6 +1197,7 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
 static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_NO] = "no",
+        [DNSSEC_DOWNGRADE_OK] = "downgrade-ok",
         [DNSSEC_YES] = "yes",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
@@ -1211,5 +1212,6 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_UNSIGNED] = "unsigned",
         [DNSSEC_FAILED_AUXILIARY] = "failed-auxiliary",
         [DNSSEC_NSEC_MISMATCH] = "nsec-mismatch",
+        [DNSSEC_INCOMPATIBLE_SERVER] = "incompatible-server",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);

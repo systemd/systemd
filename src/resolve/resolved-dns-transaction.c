@@ -478,10 +478,19 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 return;
         }
 
+        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
+            t->scope->dnssec_mode == DNSSEC_YES) {
+                /*  We are not in automatic downgrade mode, and the
+                 *  server is bad, refuse operation. */
+                dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                return;
+        }
+
         if (!IN_SET(t->answer_dnssec_result,
-                    _DNSSEC_RESULT_INVALID, /* No DNSSEC validation enabled */
-                    DNSSEC_VALIDATED,       /* Answer is signed and validated successfully */
-                    DNSSEC_UNSIGNED)) {     /* Answer is right-fully unsigned */
+                    _DNSSEC_RESULT_INVALID,        /* No DNSSEC validation enabled */
+                    DNSSEC_VALIDATED,              /* Answer is signed and validated successfully */
+                    DNSSEC_UNSIGNED,               /* Answer is right-fully unsigned */
+                    DNSSEC_INCOMPATIBLE_SERVER)) { /* Server does not do DNSSEC (Yay, we are downgrade attack vulnerable!) */
                 dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                 return;
         }
@@ -1001,7 +1010,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (t->sent)
                 return 0;
 
-        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode == DNSSEC_YES);
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode != DNSSEC_NO);
         if (r < 0)
                 return r;
 
@@ -1336,8 +1345,13 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
          * - For other queries with no matching response RRs, and no NSEC/NSEC3, the SOA RR
          */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return 0;
+
+        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO)
+                return 0; /* Server doesn't do DNSSEC, there's no point in requesting any RRs then. */
+        if (t->server && t->server->rrsig_missing)
+                return 0; /* Server handles DNSSEC requests, but isn't augmenting responses with RRSIGs. No point in trying DNSSEC then. */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
 
@@ -1682,7 +1696,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         /* Checks if the RR we are looking for must be signed with an
          * RRSIG. This is used for positive responses. */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return false;
 
         if (dns_type_is_pseudo(rr->key->type))
@@ -1819,7 +1833,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         /* Checks if we need to insist on NSEC/NSEC3 RRs for proving
          * this negative reply */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return false;
 
         if (dns_type_is_pseudo(t->key->type))
@@ -1932,6 +1946,17 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
         return found ? false : -ENXIO;
 }
 
+static int dns_transaction_known_signed(DnsTransaction *t, DnsResourceRecord *rr) {
+        assert(t);
+        assert(rr);
+
+        /* We know that the root domain is signed, hence if it appears
+         * not to be signed, there's a problem with the DNS server */
+
+        return rr->key->class == DNS_CLASS_IN &&
+                dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key));
+}
+
 int dns_transaction_validate_dnssec(DnsTransaction *t) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
         bool dnskeys_finalized = false;
@@ -1945,7 +1970,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
          * t->validated_keys, let's see which RRs we can now
          * authenticate with that. */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return 0;
 
         /* Already validated */
@@ -1962,6 +1987,13 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         /* Cached stuff is not affected by validation. */
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0;
+
+        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO ||
+            (t->server && t->server->rrsig_missing)) {
+                /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
+                t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
+                return 0;
+        }
 
         log_debug("Validating response from transaction %" PRIu16 " (%s).", t->id, dns_transaction_key_string(t));
 
@@ -2036,6 +2068,33 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                                                 changed = true;
                                                 break;
+                                        }
+
+                                        r = dns_transaction_known_signed(t, rr);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0) {
+                                                /* This is an RR we know has to be signed. If it isn't this means
+                                                 * the server is not attaching RRSIGs, hence complain. */
+
+                                                dns_server_packet_rrsig_missing(t->server);
+
+                                                if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+
+                                                        /* Downgrading is OK? If so, just consider the information unsigned */
+
+                                                        r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                                        if (r < 0)
+                                                                return r;
+
+                                                        t->scope->manager->n_dnssec_insecure++;
+                                                        changed = true;
+                                                        break;
+                                                }
+
+                                                /* Otherwise, fail */
+                                                t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
+                                                return 0;
                                         }
                                 }
 

@@ -228,9 +228,11 @@ void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, us
         assert(s);
 
         if (features == DNS_SERVER_FEATURE_LEVEL_LARGE) {
-                /* even if we successfully receive a reply to a request announcing
-                   support for large packets, that does not mean we can necessarily
-                   receive large packets. */
+                /* Even if we successfully receive a reply to a
+                   request announcing support for large packets, that
+                   does not mean we can necessarily receive large
+                   packets. */
+
                 if (s->verified_features < DNS_SERVER_FEATURE_LEVEL_LARGE - 1) {
                         s->verified_features = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
                         assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
@@ -278,6 +280,17 @@ void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features) {
         s->n_failed_attempts  = (unsigned) -1;
 }
 
+void dns_server_packet_rrsig_missing(DnsServer *s) {
+        _cleanup_free_ char *ip = NULL;
+        assert(s);
+        assert(s->manager);
+
+        in_addr_to_string(s->family, &s->address, &ip);
+        log_warning("DNS server %s does not augment replies with RRSIG records, DNSSEC not available.", strna(ip));
+
+        s->rrsig_missing = true;
+}
+
 static bool dns_server_grace_period_expired(DnsServer *s) {
         usec_t ts;
 
@@ -307,6 +320,7 @@ DnsServerFeatureLevel dns_server_possible_features(DnsServer *s) {
                 s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
                 s->n_failed_attempts = 0;
                 s->verified_usec = 0;
+                s->rrsig_missing = false;
 
                 in_addr_to_string(s->family, &s->address, &ip);
                 log_info("Grace period over, resuming full feature set for DNS server %s", strna(ip));

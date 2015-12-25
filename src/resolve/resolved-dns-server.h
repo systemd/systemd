@@ -61,8 +61,6 @@ struct DnsServer {
         int family;
         union in_addr_union address;
 
-        bool marked:1;
-
         usec_t resend_timeout;
         usec_t max_rtt;
 
@@ -72,6 +70,15 @@ struct DnsServer {
         unsigned n_failed_attempts;
         usec_t verified_usec;
         usec_t features_grace_period_usec;
+
+        /* Indicates whether responses are augmented with RRSIG by
+         * server or not. Note that this is orthogonal to the feature
+         * level stuff, as it's only information describing responses,
+         * and has no effect on how the questions are asked. */
+        bool rrsig_missing:1;
+
+        /* Used when GC'ing old DNS servers when configuration changes. */
+        bool marked:1;
 
         /* If linked is set, then this server appears in the servers linked list */
         bool linked:1;
@@ -95,6 +102,7 @@ void dns_server_move_back_and_unmark(DnsServer *s);
 void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt, size_t size);
 void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec);
 void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features);
+void dns_server_packet_rrsig_missing(DnsServer *s);
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 
