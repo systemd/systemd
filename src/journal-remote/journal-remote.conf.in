@@ -1,4 +1,5 @@
 [Remote]
+# Seal=false
 # SplitMode=host
 # ServerKeyFile=@CERTIFICATEROOT@/private/journal-remote.pem
 # ServerCertificateFile=@CERTIFICATEROOT@/certs/journal-remote.pem

@@ -72,6 +72,13 @@
     <literal>[Remote]</literal> section:</para>
 
     <variablelist>
+      <varlistentry>
+        <term><varname>Seal=</varname></term>
+
+        <listitem><para>Periodically sign the data in the journal using Forward Secure Sealing.
+        </para></listitem>
+      </varlistentry>
+
 
       <varlistentry>
         <term><varname>SplitMode=</varname></term>
