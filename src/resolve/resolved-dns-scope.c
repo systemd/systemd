@@ -279,7 +279,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsServer *server, DnsPacket 
         return 1;
 }
 
-int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
+int dns_scope_emit_udp(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
         int r;
 
         assert(s);
@@ -405,11 +405,11 @@ static int dns_scope_socket(DnsScope *s, int type, int family, const union in_ad
         return ret;
 }
 
-int dns_scope_udp_dns_socket(DnsScope *s, DnsServer **server) {
+int dns_scope_socket_udp(DnsScope *s, DnsServer **server) {
         return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, 53, server);
 }
 
-int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
+int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
         return dns_scope_socket(s, SOCK_STREAM, family, address, port, server);
 }
 
@@ -869,7 +869,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, -1, NULL, p);
+                r = dns_scope_emit_udp(scope, -1, NULL, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }

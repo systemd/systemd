@@ -349,13 +349,13 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
 
         switch (t->scope->protocol) {
         case DNS_PROTOCOL_DNS:
-                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &server);
+                fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, 53, &server);
                 break;
 
         case DNS_PROTOCOL_LLMNR:
                 /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
-                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
+                        fd = dns_scope_socket_tcp(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
                 else {
                         union in_addr_union address;
                         int family = AF_UNSPEC;
@@ -372,7 +372,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         if (family != t->scope->family)
                                 return -ESRCH;
 
-                        fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
+                        fd = dns_scope_socket_tcp(t->scope, family, &address, LLMNR_PORT, NULL);
                 }
 
                 break;
@@ -717,7 +717,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         return 0;
 }
 
-static int dns_transaction_emit(DnsTransaction *t) {
+static int dns_transaction_emit_udp(DnsTransaction *t) {
         int r;
 
         assert(t);
@@ -726,7 +726,7 @@ static int dns_transaction_emit(DnsTransaction *t) {
                 DnsServer *server = NULL;
                 _cleanup_close_ int fd = -1;
 
-                fd = dns_scope_udp_dns_socket(t->scope, &server);
+                fd = dns_scope_socket_udp(t->scope, &server);
                 if (fd < 0)
                         return fd;
 
@@ -739,7 +739,7 @@ static int dns_transaction_emit(DnsTransaction *t) {
                 t->server = dns_server_ref(server);
         }
 
-        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->server, t->sent);
+        r = dns_scope_emit_udp(t->scope, t->dns_udp_fd, t->server, t->sent);
         if (r < 0)
                 return r;
 
@@ -759,17 +759,17 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         if (!t->initial_jitter_scheduled || t->initial_jitter_elapsed) {
                 /* Timeout reached? Increase the timeout for the server used */
                 switch (t->scope->protocol) {
+
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-
                         dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
-
                         break;
+
                 case DNS_PROTOCOL_LLMNR:
                 case DNS_PROTOCOL_MDNS:
                         dns_scope_packet_lost(t->scope, usec - t->start_usec);
-
                         break;
+
                 default:
                         assert_not_reached("Invalid DNS protocol.");
                 }
@@ -795,15 +795,18 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t->scope);
 
         switch (t->scope->protocol) {
+
         case DNS_PROTOCOL_DNS:
                 assert(t->server);
-
                 return t->server->resend_timeout;
+
         case DNS_PROTOCOL_MDNS:
                 assert(t->n_attempts > 0);
                 return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+
         case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;
+
         default:
                 assert_not_reached("Invalid DNS protocol.");
         }
@@ -1117,7 +1120,7 @@ int dns_transaction_go(DnsTransaction *t) {
         } else {
                 /* Try via UDP, and if that fails due to large size or lack of
                  * support try via TCP */
-                r = dns_transaction_emit(t);
+                r = dns_transaction_emit_udp(t);
                 if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
