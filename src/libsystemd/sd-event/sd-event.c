@@ -661,8 +661,10 @@ static int event_make_signal_data(
                 d->priority = priority;
 
                 r = hashmap_put(e->signal_data, &d->priority, d);
-                if (r < 0)
+                if (r < 0) {
+                        free(d);
                         return r;
+                }
 
                 added = true;
         }
