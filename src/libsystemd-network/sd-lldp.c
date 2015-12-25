@@ -145,12 +145,9 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
 
 /* 10.3.2 LLDPDU validation: rxProcessFrame() */
 int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
+        bool system_description = false, system_name = false, chassis_id = false;
+        bool malformed = false, port_id = false, ttl = false, end = false;
         uint16_t type, len, i, l, t;
-        bool chassis_id = false;
-        bool malformed = false;
-        bool port_id = false;
-        bool ttl = false;
-        bool end = false;
         lldp_port *port;
         uint8_t *p, *q;
         sd_lldp *lldp;
@@ -231,8 +228,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         }
 
                         /* Look what subtype it has */
-                        if (*q == LLDP_CHASSIS_SUBTYPE_RESERVED ||
-                            *q > LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED) {
+                        if (*q == LLDP_CHASSIS_SUBTYPE_RESERVED || *q > LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED) {
                                 log_lldp("Unknown subtype: %d found in Chassis ID TLV. Dropping.", *q);
 
                                 malformed = true;
@@ -260,8 +256,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         }
 
                         /* Look what subtype it has */
-                        if (*q == LLDP_PORT_SUBTYPE_RESERVED ||
-                            *q > LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED) {
+                        if (*q == LLDP_PORT_SUBTYPE_RESERVED || *q > LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED) {
                                 log_lldp("Unknown subtype: %d found in Port ID TLV. Dropping.", *q);
 
                                 malformed = true;
@@ -290,6 +285,41 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
 
                         ttl = true;
 
+                        break;
+                case LLDP_TYPE_SYSTEM_NAME:
+
+                        /* According to RFC 1035 the length of a FQDN is limited to 255 characters */
+                        if (len > 255) {
+                                log_lldp("Received invalid systemd name length: %d. Dropping.", len);
+                                malformed = true;
+                                goto out;
+                        }
+
+                        if (system_name) {
+                                log_lldp("Duplicate system name found. Dropping.");
+                                malformed = true;
+                                goto out;
+                        }
+
+                        system_name = true;
+
+                        break;
+                case LLDP_TYPE_SYSTEM_DESCRIPTION:
+
+                        /* 0 <= n <= 255 octets */
+                        if (len > 255) {
+                                log_lldp("Received invalid system description length: %d. Dropping.", len);
+                                malformed = true;
+                                goto out;
+                        }
+
+                        if (system_description) {
+                                log_lldp("Duplicate system description found. Dropping.");
+                                malformed = true;
+                                goto out;
+                        }
+
+                        system_description = true;
                         break;
                 default:
 
