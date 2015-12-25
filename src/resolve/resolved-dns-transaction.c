@@ -308,6 +308,11 @@ static int on_stream_complete(DnsStream *s, int error) {
 
         t->stream = dns_stream_free(t->stream);
 
+        if (IN_SET(error, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE)) {
+                dns_transaction_complete(t, DNS_TRANSACTION_CONNECTION_FAILURE);
+                return 0;
+        }
+
         if (error != 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                 return 0;
@@ -2221,6 +2226,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_ATTEMPTS_MAX_REACHED] = "attempts-max-reached",
         [DNS_TRANSACTION_INVALID_REPLY] = "invalid-reply",
         [DNS_TRANSACTION_RESOURCES] = "resources",
+        [DNS_TRANSACTION_CONNECTION_FAILURE] = "connection-failure",
         [DNS_TRANSACTION_ABORTED] = "aborted",
         [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
 };

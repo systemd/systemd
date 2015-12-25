@@ -57,6 +57,9 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_RESOURCES:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
 
+        case DNS_TRANSACTION_CONNECTION_FAILURE:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_CONNECTION_FAILURE, "DNS server connection failure");
+
         case DNS_TRANSACTION_ABORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
 
