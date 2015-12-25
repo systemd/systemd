@@ -320,7 +320,8 @@ static int dns_scope_socket(DnsScope *s, int type, int family, const union in_ad
                 if (!srv)
                         return -ESRCH;
 
-                srv->possible_features = dns_server_possible_features(srv);
+                /* Determine current feature level to use */
+                (void) dns_server_possible_features(srv);
 
                 if (type == SOCK_DGRAM && srv->possible_features < DNS_SERVER_FEATURE_LEVEL_UDP)
                         return -EAGAIN;
