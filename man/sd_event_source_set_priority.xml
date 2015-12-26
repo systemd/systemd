@@ -111,7 +111,7 @@
     dispatched is undefined, but the event loop generally tries to
     dispatch them in the order it learnt about events on them. As the
     backing kernel primitives do not provide accurate information
-    about the order in which events occured this is not necessarily
+    about the order in which events occurred this is not necessarily
     reliable. However, it is guaranteed that if events are seen on
     multiple same-priority event sources at the same time, each one is
     not dispatched again until all others have been dispatched

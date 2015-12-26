@@ -247,7 +247,7 @@
         <literal>checksum</literal> is specified, the download is
         checked for integrity after the transfer is complete, but no
         signatures are verified. If <literal>signature</literal> is
-        specified, the checksum is verified and the images's signature
+        specified, the checksum is verified and the image's signature
         is checked against a local keyring of trustable vendors. It is
         strongly recommended to set this option to
         <literal>signature</literal> if the server and protocol

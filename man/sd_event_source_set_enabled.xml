@@ -105,7 +105,7 @@
     with calls such as
     <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>. However,
-    depending on the event source type they are enabled continously
+    depending on the event source type they are enabled continuously
     (<constant>SD_EVENT_ON</constant>) or only for a single invocation
     of the event source handler
     (<constant>SD_EVENT_ONESHOT</constant>). For details see the

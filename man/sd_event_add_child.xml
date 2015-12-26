@@ -127,7 +127,7 @@
     <constant>SD_EVENT_OFF</constant> with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>If the the second parameter of
+    <para>If the second parameter of
     <function>sd_event_add_child()</function> is passed as NULL no
     reference to the event source object is returned. In this case the
     event source is considered "floating", and will be destroyed

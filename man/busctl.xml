@@ -448,7 +448,7 @@ ARRAY "s" {
     <example>
       <title>Invoking a Method</title>
 
-      <para>The following command invokes a the
+      <para>The following command invokes the
       <literal>StartUnit</literal> method on the
       <literal>org.freedesktop.systemd1.Manager</literal>
       interface of the

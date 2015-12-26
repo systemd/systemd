@@ -107,7 +107,7 @@
     and
     <citerefentry><refentrytitle>sd_event_loop</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for higher-level functions that execute individual but complete
-    iterations of an event loop or run it continously.</para>
+    iterations of an event loop or run it continuously.</para>
 
     <para><function>sd_event_prepare()</function> checks for pending
     events and arms necessary timers. If any events are ready to be
@@ -169,7 +169,7 @@
         <term><constant>SD_EVENT_PREPARING</constant></term>
 
         <listitem><para>An event source is currently being prepared,
-        i.e. the preparation handler is currently being excuted, as
+        i.e. the preparation handler is currently being executed, as
         set with
         <citerefentry><refentrytitle>sd_event_set_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
         state is only seen in the event source preparation handler

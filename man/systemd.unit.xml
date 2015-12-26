@@ -918,7 +918,7 @@
         <filename>/var</filename> on the next following boot. Units
         making use of this condition should order themselves before
         <citerefentry><refentrytitle>systemd-update-done.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        to make sure they run before the stamp files's modification
+        to make sure they run before the stamp file's modification
         time gets reset indicating a completed update.</para>
 
         <para><varname>ConditionFirstBoot=</varname> takes a boolean
