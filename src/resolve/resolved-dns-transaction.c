@@ -664,9 +664,9 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                                 return;
                         }
-
-                        return;
                 }
+
+                return;
         }
 
         /* Parse message, if it isn't parsed yet. */
