@@ -342,6 +342,34 @@ DnsServerFeatureLevel dns_server_possible_features(DnsServer *s) {
         return s->possible_features;
 }
 
+int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level) {
+        size_t packet_size;
+        bool edns_do;
+        int r;
+
+        assert(server);
+        assert(packet);
+        assert(packet->protocol == DNS_PROTOCOL_DNS);
+
+        /* Fix the OPT field in the packet to match our current feature level. */
+
+        r = dns_packet_truncate_opt(packet);
+        if (r < 0)
+                return r;
+
+        if (level < DNS_SERVER_FEATURE_LEVEL_EDNS0)
+                return 0;
+
+        edns_do = level >= DNS_SERVER_FEATURE_LEVEL_DO;
+
+        if (level >= DNS_SERVER_FEATURE_LEVEL_LARGE)
+                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
+        else
+                packet_size = server->received_udp_packet_max;
+
+        return dns_packet_append_opt(packet, packet_size, edns_do, NULL);
+}
+
 static void dns_server_hash_func(const void *p, struct siphash *state) {
         const DnsServer *s = p;
 

@@ -58,6 +58,7 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         p->size = p->rindex = DNS_PACKET_HEADER_SIZE;
         p->allocated = a;
         p->protocol = protocol;
+        p->opt_start = p->opt_size = (size_t) -1;
         p->n_ref = 1;
 
         *ret = p;
@@ -681,13 +682,18 @@ fail:
 }
 
 /* Append the OPT pseudo-RR described in RFC6891 */
-int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
         size_t saved_size;
         int r;
 
         assert(p);
         /* we must never advertise supported packet size smaller than the legacy max */
         assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+
+        if (p->opt_start != (size_t) -1)
+                return -EBUSY;
+
+        assert(p->opt_size == (size_t) -1);
 
         saved_size = p->size;
 
@@ -721,6 +727,11 @@ int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do,
         if (r < 0)
                 goto fail;
 
+        DNS_PACKET_HEADER(p)->arcount = htobe16(DNS_PACKET_ARCOUNT(p) + 1);
+
+        p->opt_start = saved_size;
+        p->opt_size = p->size - saved_size;
+
         if (start)
                 *start = saved_size;
 
@@ -729,6 +740,27 @@ int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do,
 fail:
         dns_packet_truncate(p, saved_size);
         return r;
+}
+
+int dns_packet_truncate_opt(DnsPacket *p) {
+        assert(p);
+
+        if (p->opt_start == (size_t) -1) {
+                assert(p->opt_size == (size_t) -1);
+                return 0;
+        }
+
+        assert(p->opt_size != (size_t) -1);
+        assert(DNS_PACKET_ARCOUNT(p) > 0);
+
+        if (p->opt_start + p->opt_size != p->size)
+                return -EBUSY;
+
+        dns_packet_truncate(p, p->opt_start);
+        DNS_PACKET_HEADER(p)->arcount = htobe16(DNS_PACKET_ARCOUNT(p) - 1);
+        p->opt_start = p->opt_size = (size_t) -1;
+
+        return 1;
 }
 
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start) {
@@ -1045,7 +1077,6 @@ fail:
         dns_packet_truncate(p, saved_size);
         return r;
 }
-
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {
         assert(p);

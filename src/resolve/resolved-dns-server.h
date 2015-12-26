@@ -104,6 +104,8 @@ void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t
 void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features);
 void dns_server_packet_rrsig_missing(DnsServer *s);
 
+int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
+
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 
 void dns_server_unlink_all(DnsServer *first);

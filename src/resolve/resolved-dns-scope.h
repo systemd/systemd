@@ -82,9 +82,9 @@ DnsScope* dns_scope_free(DnsScope *s);
 void dns_scope_packet_received(DnsScope *s, usec_t rtt);
 void dns_scope_packet_lost(DnsScope *s, usec_t usec);
 
-int dns_scope_emit_udp(DnsScope *s, int fd, DnsServer *server, DnsPacket *p);
-int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server);
-int dns_scope_socket_udp(DnsScope *s, DnsServer **server);
+int dns_scope_emit_udp(DnsScope *s, int fd, DnsPacket *p);
+int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port);
+int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
 int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);
