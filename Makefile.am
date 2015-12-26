@@ -694,29 +694,27 @@ man_MANS = \
 
 noinst_DATA += \
 	$(HTML_FILES) \
-	$(HTML_ALIAS)
+	$(HTML_ALIAS) \
+	docs/html/man
+endif
 
 CLEANFILES += \
 	$(man_MANS) \
 	$(HTML_FILES) \
-	$(HTML_ALIAS)
+	$(HTML_ALIAS) \
+	docs/html/man
 
 docs/html/man:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_LN)$(LN_S) -f ../../man $@
 
-noinst_DATA += \
-	docs/html/man
-
-CLEANFILES += \
-	docs/html/man
-
-if HAVE_PYTHON
 man/index.html: man/systemd.index.html
 	$(AM_V_LN)$(LN_S) -f systemd.index.html $@
 
+if HAVE_PYTHON
 noinst_DATA += \
 	man/index.html
+endif
 
 CLEANFILES += \
 	man/index.html
@@ -744,11 +742,6 @@ man/systemd.directives.xml: $(top_srcdir)/tools/make-directive-index.py man/cust
 CLEANFILES += \
 	man/systemd.index.xml \
 	man/systemd.directives.xml
-
-
-endif
-
-endif
 
 EXTRA_DIST += \
 	$(filter-out man/systemd.directives.xml man/systemd.index.xml,$(XML_FILES)) \
@@ -6014,7 +6007,6 @@ EXTRA_DIST += \
 	$(polkitpolicy_in_in_files)
 
 # ------------------------------------------------------------------------------
-if ENABLE_MANPAGES
 man/custom-entities.ent: configure.ac
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
@@ -6061,8 +6053,6 @@ man/%.html: man/%.xml man/custom-html.xsl man/custom-entities.ent
 define html-alias
 	$(AM_V_LN)$(LN_S) -f $(notdir $<) $@
 endef
-
-endif
 
 EXTRA_DIST += \
 	man/custom-html.xsl \
