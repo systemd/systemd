@@ -727,7 +727,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
             DNS_PACKET_ID(p) == t->id)
                 dns_transaction_process_reply(t, p);
         else
-                log_debug("Invalid DNS packet, ignoring.");
+                log_debug("Invalid DNS UDP packet, ignoring.");
 
         return 0;
 }
