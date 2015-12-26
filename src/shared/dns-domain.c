@@ -154,20 +154,24 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                 return 0;
         }
 
-        assert(**label_terminal == '.' || **label_terminal == 0);
+        terminal = *label_terminal;
+        assert(*terminal == '.' || *terminal == 0);
 
-        /* skip current terminal character */
-        terminal = *label_terminal - 1;
+        /* Skip current terminal character (and accept domain names ending it ".") */
+        if (*terminal == 0)
+                terminal--;
+        if (terminal >= name && *terminal == '.')
+                terminal--;
 
-        /* point name to the last label, and terminal to the preceding terminal symbol (or make it a NULL pointer) */
+        /* Point name to the last label, and terminal to the preceding terminal symbol (or make it a NULL pointer) */
         for (;;) {
                 if (terminal < name) {
-                        /* reached the first label, so indicate that there are no more */
+                        /* Reached the first label, so indicate that there are no more */
                         terminal = NULL;
                         break;
                 }
 
-                /* find the start of the last label */
+                /* Find the start of the last label */
                 if (*terminal == '.') {
                         const char *y;
                         unsigned slashes = 0;
@@ -176,7 +180,7 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                                 slashes ++;
 
                         if (slashes % 2 == 0) {
-                                /* the '.' was not escaped */
+                                /* The '.' was not escaped */
                                 name = terminal + 1;
                                 break;
                         } else {
