@@ -342,6 +342,8 @@ static int on_stream_complete(DnsStream *s, int error) {
         /* If the response wasn't useful, then complete the transition now */
         if (t->state == DNS_TRANSACTION_PENDING)
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+        else
+                dns_transaction_gc(t);
 
         return 0;
 }
