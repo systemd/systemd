@@ -533,7 +533,7 @@ int dns_name_compare_func(const void *a, const void *b) {
                 if (k > 0)
                         r = k;
                 if (w > 0)
-                        r = w;
+                        q = w;
 
                 la[r] = lb[q] = 0;
                 r = strcasecmp(la, lb);
