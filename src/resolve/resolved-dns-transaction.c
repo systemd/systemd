@@ -518,9 +518,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
         assert(t);
         assert(p);
-        assert(t->state == DNS_TRANSACTION_PENDING);
         assert(t->scope);
         assert(t->scope->manager);
+
+        if (t->state != DNS_TRANSACTION_PENDING)
+                return;
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
