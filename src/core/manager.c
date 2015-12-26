@@ -410,6 +410,9 @@ static int manager_setup_signals(Manager *m) {
 
         assert(m);
 
+        if (m->test_run)
+                return 0;
+
         assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
         /* We make liberal use of realtime signals here. On
