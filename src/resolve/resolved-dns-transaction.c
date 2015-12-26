@@ -48,6 +48,16 @@ static void dns_transaction_close_connection(DnsTransaction *t) {
         t->dns_udp_fd = safe_close(t->dns_udp_fd);
 }
 
+static void dns_transaction_stop(DnsTransaction *t) {
+        assert(t);
+
+        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
+        t->stream = dns_stream_free(t->stream);
+
+        /* Note that we do not drop the UDP socket here, as we want to
+         * reuse it to repeat the interaction. */
+}
+
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQueryCandidate *c;
         DnsZoneItem *i;
@@ -56,8 +66,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         if (!t)
                 return NULL;
 
-        sd_event_source_unref(t->timeout_event_source);
         dns_transaction_close_connection(t);
+        dns_transaction_stop(t);
 
         dns_packet_unref(t->sent);
         dns_transaction_reset_answer(t);
@@ -71,8 +81,6 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 if (t->id != 0)
                         hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
         }
-
-        dns_resource_key_unref(t->key);
 
         while ((c = set_steal_first(t->notify_query_candidates)))
                 set_remove(c->transactions, t);
@@ -93,8 +101,9 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         set_free(t->dnssec_transactions);
 
         dns_answer_unref(t->validated_keys);
-
+        dns_resource_key_unref(t->key);
         free(t->key_string);
+
         free(t);
         return NULL;
 }
@@ -175,16 +184,6 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t = NULL;
 
         return 0;
-}
-
-static void dns_transaction_stop(DnsTransaction *t) {
-        assert(t);
-
-        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
-        t->stream = dns_stream_free(t->stream);
-
-        /* Note that we do not drop the UDP socket here, as we want to
-         * reuse it to repeat the interaction. */
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
