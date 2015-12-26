@@ -69,6 +69,8 @@ struct DnsTransaction {
 
         uint16_t id;
 
+        bool tried_stream:1;
+
         bool initial_jitter_scheduled:1;
         bool initial_jitter_elapsed:1;
 

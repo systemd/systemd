@@ -421,6 +421,8 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         if (t->scope->link)
                 t->stream->ifindex = t->scope->link->ifindex;
 
+        t->tried_stream = true;
+
         return 0;
 }
 
@@ -826,12 +828,9 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
 }
 
 static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
-        bool had_stream;
         int r;
 
         assert(t);
-
-        had_stream = !!t->stream;
 
         dns_transaction_stop(t);
 
@@ -840,7 +839,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 return 0;
         }
 
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && had_stream) {
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && t->tried_stream) {
                 /* If we already tried via a stream, then we don't
                  * retry on LLMNR. See RFC 4795, Section 2.7. */
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
