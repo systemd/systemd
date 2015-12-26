@@ -40,6 +40,14 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_authenticated = false;
 }
 
+static void dns_transaction_close_connection(DnsTransaction *t) {
+        assert(t);
+
+        t->stream = dns_stream_free(t->stream);
+        t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
+        t->dns_udp_fd = safe_close(t->dns_udp_fd);
+}
+
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQueryCandidate *c;
         DnsZoneItem *i;
@@ -49,15 +57,12 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 return NULL;
 
         sd_event_source_unref(t->timeout_event_source);
+        dns_transaction_close_connection(t);
 
         dns_packet_unref(t->sent);
         dns_transaction_reset_answer(t);
 
-        sd_event_source_unref(t->dns_udp_event_source);
-        safe_close(t->dns_udp_fd);
-
         dns_server_unref(t->server);
-        dns_stream_free(t->stream);
 
         if (t->scope) {
                 hashmap_remove_value(t->scope->transactions_by_key, t->key, t);
@@ -259,6 +264,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         t->state = state;
 
+        dns_transaction_close_connection(t);
         dns_transaction_stop(t);
 
         /* Notify all queries that are interested, but make sure the

@@ -100,17 +100,18 @@ struct DnsTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
+        /* UDP connection logic, if we need it */
         int dns_udp_fd;
         sd_event_source *dns_udp_event_source;
+
+        /* TCP connection logic, if we need it */
+        DnsStream *stream;
 
         /* The active server */
         DnsServer *server;
 
         /* The features of the DNS server at time of transaction start */
         DnsServerFeatureLevel current_features;
-
-        /* TCP connection logic, if we need it */
-        DnsStream *stream;
 
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction
