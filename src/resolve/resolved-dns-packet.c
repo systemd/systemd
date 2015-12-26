@@ -499,7 +499,7 @@ int dns_packet_append_name(
         saved_size = p->size;
 
         while (*name) {
-                _cleanup_free_ char *s = NULL;
+                const char *z = name;
                 char label[DNS_LABEL_MAX];
                 size_t n = 0;
                 int k;
@@ -516,12 +516,6 @@ int dns_packet_append_name(
 
                                 goto done;
                         }
-                }
-
-                s = strdup(name);
-                if (!s) {
-                        r = -ENOMEM;
-                        goto fail;
                 }
 
                 r = dns_label_unescape(&name, label, sizeof(label));
@@ -544,6 +538,14 @@ int dns_packet_append_name(
                         goto fail;
 
                 if (allow_compression) {
+                        _cleanup_free_ char *s = NULL;
+
+                        s = strdup(z);
+                        if (!s) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
                         r = hashmap_ensure_allocated(&p->names, &dns_name_hash_ops);
                         if (r < 0)
                                 goto fail;
