@@ -29,6 +29,17 @@
 #include "resolved-llmnr.h"
 #include "string-table.h"
 
+static void dns_transaction_reset_answer(DnsTransaction *t) {
+        assert(t);
+
+        t->received = dns_packet_unref(t->received);
+        t->answer = dns_answer_unref(t->answer);
+        t->answer_rcode = 0;
+        t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
+        t->answer_authenticated = false;
+}
+
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQueryCandidate *c;
         DnsZoneItem *i;
@@ -40,9 +51,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         sd_event_source_unref(t->timeout_event_source);
 
         dns_packet_unref(t->sent);
-        dns_packet_unref(t->received);
-
-        dns_answer_unref(t->answer);
+        dns_transaction_reset_answer(t);
 
         sd_event_source_unref(t->dns_udp_event_source);
         safe_close(t->dns_udp_fd);
@@ -398,9 +407,9 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
 
         dns_server_unref(t->server);
         t->server = dns_server_ref(server);
-        t->received = dns_packet_unref(t->received);
-        t->answer = dns_answer_unref(t->answer);
-        t->answer_rcode = 0;
+
+        dns_transaction_reset_answer(t);
+
         t->stream->complete = on_stream_complete;
         t->stream->transaction = t;
 
@@ -836,10 +845,8 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
         t->n_attempts++;
         t->start_usec = ts;
-        t->received = dns_packet_unref(t->received);
-        t->answer = dns_answer_unref(t->answer);
-        t->answer_rcode = 0;
-        t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
+
+        dns_transaction_reset_answer(t);
 
         /* Check the trust anchor. Do so only on classic DNS, since DNSSEC does not apply otherwise. */
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
