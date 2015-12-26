@@ -693,6 +693,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 dns_answer_unref(t->answer);
                 t->answer = dns_answer_ref(p->answer);
                 t->answer_rcode = DNS_PACKET_RCODE(p);
+                t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 t->answer_authenticated = false;
 
                 r = dns_transaction_request_dnssec_keys(t);
