@@ -408,13 +408,11 @@ static int resolve_record(sd_bus *bus, const char *name) {
 
                 r = dns_packet_read_rr(p, &rr, NULL, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse RR.");
+                        return log_error_errno(r, "Failed to parse RR: %m");
 
                 s = dns_resource_record_to_string(rr);
-                if (!s) {
-                        log_error("Failed to format RR.");
-                        return -ENOMEM;
-                }
+                if (!s)
+                        return log_oom();
 
                 ifname[0] = 0;
                 if (ifindex > 0 && !if_indextoname(ifindex, ifname))
