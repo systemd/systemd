@@ -136,7 +136,7 @@ static int rr_compare(const void *a, const void *b) {
         return 0;
 }
 
-static int dnssec_rsa_verify(
+static int dnssec_rsa_verify_raw(
                 const char *hash_algorithm,
                 const void *signature, size_t signature_size,
                 const void *data, size_t data_size,
@@ -226,6 +226,62 @@ finish:
         return r;
 }
 
+static int dnssec_rsa_verify(
+                const char *hash_algorithm,
+                const void *hash, size_t hash_size,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey) {
+
+        size_t exponent_size, modulus_size;
+        void *exponent, *modulus;
+
+        assert(hash_algorithm);
+        assert(hash);
+        assert(hash_size > 0);
+        assert(rrsig);
+        assert(dnskey);
+
+        if (*(uint8_t*) dnskey->dnskey.key == 0) {
+                /* exponent is > 255 bytes long */
+
+                exponent = (uint8_t*) dnskey->dnskey.key + 3;
+                exponent_size =
+                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[0]) << 8) |
+                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[1]);
+
+                if (exponent_size < 256)
+                        return -EINVAL;
+
+                if (3 + exponent_size >= dnskey->dnskey.key_size)
+                        return -EINVAL;
+
+                modulus = (uint8_t*) dnskey->dnskey.key + 3 + exponent_size;
+                modulus_size = dnskey->dnskey.key_size - 3 - exponent_size;
+
+        } else {
+                /* exponent is <= 255 bytes long */
+
+                exponent = (uint8_t*) dnskey->dnskey.key + 1;
+                exponent_size = (size_t) ((uint8_t*) dnskey->dnskey.key)[0];
+
+                if (exponent_size <= 0)
+                        return -EINVAL;
+
+                if (1 + exponent_size >= dnskey->dnskey.key_size)
+                        return -EINVAL;
+
+                modulus = (uint8_t*) dnskey->dnskey.key + 1 + exponent_size;
+                modulus_size = dnskey->dnskey.key_size - 1 - exponent_size;
+        }
+
+        return dnssec_rsa_verify_raw(
+                        hash_algorithm,
+                        rrsig->rrsig.signature, rrsig->rrsig.signature_size,
+                        hash, hash_size,
+                        exponent, exponent_size,
+                        modulus, modulus_size);
+}
+
 static void md_add_uint8(gcry_md_hd_t md, uint8_t v) {
         gcry_md_write(md, &v, sizeof(v));
 }
@@ -305,8 +361,8 @@ int dnssec_verify_rrset(
                 DnssecResult *result) {
 
         uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
-        size_t exponent_size, modulus_size, hash_size;
-        void *exponent, *modulus, *hash;
+        size_t hash_size;
+        void *hash;
         DnsResourceRecord **list, *rr;
         gcry_md_hd_t md = NULL;
         int r, algorithm;
@@ -424,53 +480,11 @@ int dnssec_verify_rrset(
                 goto finish;
         }
 
-        if (*(uint8_t*) dnskey->dnskey.key == 0) {
-                /* exponent is > 255 bytes long */
-
-                exponent = (uint8_t*) dnskey->dnskey.key + 3;
-                exponent_size =
-                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[0]) << 8) |
-                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[1]);
-
-                if (exponent_size < 256) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                if (3 + exponent_size >= dnskey->dnskey.key_size) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                modulus = (uint8_t*) dnskey->dnskey.key + 3 + exponent_size;
-                modulus_size = dnskey->dnskey.key_size - 3 - exponent_size;
-
-        } else {
-                /* exponent is <= 255 bytes long */
-
-                exponent = (uint8_t*) dnskey->dnskey.key + 1;
-                exponent_size = (size_t) ((uint8_t*) dnskey->dnskey.key)[0];
-
-                if (exponent_size <= 0) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                if (1 + exponent_size >= dnskey->dnskey.key_size) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                modulus = (uint8_t*) dnskey->dnskey.key + 1 + exponent_size;
-                modulus_size = dnskey->dnskey.key_size - 1 - exponent_size;
-        }
-
         r = dnssec_rsa_verify(
-                        gcry_md_algo_name(gcry_md_get_algo(md)),
-                        rrsig->rrsig.signature, rrsig->rrsig.signature_size,
+                        gcry_md_algo_name(algorithm),
                         hash, hash_size,
-                        exponent, exponent_size,
-                        modulus, modulus_size);
+                        rrsig,
+                        dnskey);
         if (r < 0)
                 goto finish;
 
