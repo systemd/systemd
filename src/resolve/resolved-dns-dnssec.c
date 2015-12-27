@@ -42,8 +42,7 @@
  *   - per-interface DNSSEC setting
  *   - fix TTL for cache entries to match RRSIG TTL
  *   - retry on failed validation?
- *   - DSA support
- *   - EC support?
+ *   - DSA support?
  *
  * */
 
@@ -82,7 +81,9 @@ static bool dnssec_algorithm_supported(int algorithm) {
                       DNSSEC_ALGORITHM_RSASHA1,
                       DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
                       DNSSEC_ALGORITHM_RSASHA256,
-                      DNSSEC_ALGORITHM_RSASHA512);
+                      DNSSEC_ALGORITHM_RSASHA512,
+                      DNSSEC_ALGORITHM_ECDSAP256SHA256,
+                      DNSSEC_ALGORITHM_ECDSAP384SHA384);
 }
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
@@ -282,6 +283,140 @@ static int dnssec_rsa_verify(
                         modulus, modulus_size);
 }
 
+static int dnssec_ecdsa_verify_raw(
+                const char *hash_algorithm,
+                const char *curve,
+                const void *signature_r, size_t signature_r_size,
+                const void *signature_s, size_t signature_s_size,
+                const void *data, size_t data_size,
+                const void *key, size_t key_size) {
+
+        gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
+        gcry_mpi_t q = NULL, r = NULL, s = NULL;
+        gcry_error_t ge;
+        int k;
+
+        assert(hash_algorithm);
+
+        ge = gcry_mpi_scan(&r, GCRYMPI_FMT_USG, signature_r, signature_r_size, NULL);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_mpi_scan(&s, GCRYMPI_FMT_USG, signature_s, signature_s_size, NULL);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_mpi_scan(&q, GCRYMPI_FMT_USG, key, key_size, NULL);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_sexp_build(&signature_sexp,
+                             NULL,
+                             "(sig-val (ecdsa (r %m) (s %m)))",
+                             r,
+                             s);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_sexp_build(&data_sexp,
+                             NULL,
+                             "(data (flags rfc6979) (hash %s %b))",
+                             hash_algorithm,
+                             (int) data_size,
+                             data);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_sexp_build(&public_key_sexp,
+                             NULL,
+                             "(public-key (ecc (curve %s) (q %m)))",
+                             curve,
+                             q);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_pk_verify(signature_sexp, data_sexp, public_key_sexp);
+        if (gpg_err_code(ge) == GPG_ERR_BAD_SIGNATURE)
+                k = 0;
+        else if (ge != 0) {
+                log_debug("ECDSA signature check failed: %s", gpg_strerror(ge));
+                k = -EIO;
+        } else
+                k = 1;
+finish:
+        if (r)
+                gcry_mpi_release(r);
+        if (s)
+                gcry_mpi_release(s);
+        if (q)
+                gcry_mpi_release(q);
+
+        if (public_key_sexp)
+                gcry_sexp_release(public_key_sexp);
+        if (signature_sexp)
+                gcry_sexp_release(signature_sexp);
+        if (data_sexp)
+                gcry_sexp_release(data_sexp);
+
+        return k;
+}
+
+static int dnssec_ecdsa_verify(
+                const char *hash_algorithm,
+                int algorithm,
+                const void *hash, size_t hash_size,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey) {
+
+        const char *curve;
+        size_t key_size;
+        uint8_t *q;
+
+        assert(hash);
+        assert(hash_size);
+        assert(rrsig);
+        assert(dnskey);
+
+        if (algorithm == DNSSEC_ALGORITHM_ECDSAP256SHA256) {
+                key_size = 32;
+                curve = "NIST P-256";
+        } else if (algorithm == DNSSEC_ALGORITHM_ECDSAP384SHA384) {
+                key_size = 48;
+                curve = "NIST P-384";
+        } else
+                return -EOPNOTSUPP;
+
+        if (dnskey->dnskey.key_size != key_size * 2)
+                return -EINVAL;
+
+        if (rrsig->rrsig.signature_size != key_size * 2)
+                return -EINVAL;
+
+        q = alloca(key_size*2 + 1);
+        q[0] = 0x04; /* Prepend 0x04 to indicate an uncompressed key */
+        memcpy(q+1, dnskey->dnskey.key, key_size*2);
+
+        return dnssec_ecdsa_verify_raw(
+                        hash_algorithm,
+                        curve,
+                        rrsig->rrsig.signature, key_size,
+                        (uint8_t*) rrsig->rrsig.signature + key_size, key_size,
+                        hash, hash_size,
+                        q, key_size*2+1);
+}
+
 static void md_add_uint8(gcry_md_hd_t md, uint8_t v) {
         gcry_md_write(md, &v, sizeof(v));
 }
@@ -342,7 +477,11 @@ static int algorithm_to_gcrypt(uint8_t algorithm) {
                 return GCRY_MD_SHA1;
 
         case DNSSEC_ALGORITHM_RSASHA256:
+        case DNSSEC_ALGORITHM_ECDSAP256SHA256:
                 return GCRY_MD_SHA256;
+
+        case DNSSEC_ALGORITHM_ECDSAP384SHA384:
+                return GCRY_MD_SHA384;
 
         case DNSSEC_ALGORITHM_RSASHA512:
                 return GCRY_MD_SHA512;
@@ -480,11 +619,30 @@ int dnssec_verify_rrset(
                 goto finish;
         }
 
-        r = dnssec_rsa_verify(
-                        gcry_md_algo_name(algorithm),
-                        hash, hash_size,
-                        rrsig,
-                        dnskey);
+        switch (rrsig->rrsig.algorithm) {
+
+        case DNSSEC_ALGORITHM_RSASHA1:
+        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
+        case DNSSEC_ALGORITHM_RSASHA256:
+        case DNSSEC_ALGORITHM_RSASHA512:
+                r = dnssec_rsa_verify(
+                                gcry_md_algo_name(algorithm),
+                                hash, hash_size,
+                                rrsig,
+                                dnskey);
+                break;
+
+        case DNSSEC_ALGORITHM_ECDSAP256SHA256:
+        case DNSSEC_ALGORITHM_ECDSAP384SHA384:
+                r = dnssec_ecdsa_verify(
+                                gcry_md_algo_name(algorithm),
+                                rrsig->rrsig.algorithm,
+                                hash, hash_size,
+                                rrsig,
+                                dnskey);
+                break;
+        }
+
         if (r < 0)
                 goto finish;
 
