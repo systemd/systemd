@@ -275,6 +275,27 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         return realtime < inception || realtime > expiration;
 }
 
+static int algorithm_to_gcrypt(uint8_t algorithm) {
+
+        /* Translates a DNSSEC signature algorithm into a gcrypt digest identifier */
+
+        switch (algorithm) {
+
+        case DNSSEC_ALGORITHM_RSASHA1:
+        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
+                return GCRY_MD_SHA1;
+
+        case DNSSEC_ALGORITHM_RSASHA256:
+                return GCRY_MD_SHA256;
+
+        case DNSSEC_ALGORITHM_RSASHA512:
+                return GCRY_MD_SHA512;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 int dnssec_verify_rrset(
                 DnsAnswer *a,
                 DnsResourceKey *key,
@@ -288,8 +309,8 @@ int dnssec_verify_rrset(
         void *exponent, *modulus, *hash;
         DnsResourceRecord **list, *rr;
         gcry_md_hd_t md = NULL;
+        int r, algorithm;
         size_t k, n = 0;
-        int r;
 
         assert(key);
         assert(rrsig);
@@ -342,31 +363,17 @@ int dnssec_verify_rrset(
         /* Bring the RRs into canonical order */
         qsort_safe(list, n, sizeof(DnsResourceRecord*), rr_compare);
 
+        /* OK, the RRs are now in canonical order. Let's calculate the digest */
         initialize_libgcrypt();
 
-        /* OK, the RRs are now in canonical order. Let's calculate the digest */
-        switch (rrsig->rrsig.algorithm) {
+        algorithm = algorithm_to_gcrypt(rrsig->rrsig.algorithm);
+        if (algorithm < 0)
+                return algorithm;
 
-        case DNSSEC_ALGORITHM_RSASHA1:
-        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
-                gcry_md_open(&md, GCRY_MD_SHA1, 0);
-                hash_size = 20;
-                break;
+        hash_size = gcry_md_get_algo_dlen(algorithm);
+        assert(hash_size > 0);
 
-        case DNSSEC_ALGORITHM_RSASHA256:
-                gcry_md_open(&md, GCRY_MD_SHA256, 0);
-                hash_size = 32;
-                break;
-
-        case DNSSEC_ALGORITHM_RSASHA512:
-                gcry_md_open(&md, GCRY_MD_SHA512, 0);
-                hash_size = 64;
-                break;
-
-        default:
-                assert_not_reached("Unknown digest");
-        }
-
+        gcry_md_open(&md, algorithm, 0);
         if (!md)
                 return -EIO;
 
@@ -732,7 +739,7 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
 
 static int digest_to_gcrypt(uint8_t algorithm) {
 
-        /* Translates a DNSSEC digest algorithm into a gcrypt digest iedntifier */
+        /* Translates a DNSSEC digest algorithm into a gcrypt digest identifier */
 
         switch (algorithm) {
 
@@ -754,9 +761,8 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
-        int algorithm;
+        int algorithm, r;
         void *result;
-        int r;
 
         assert(dnskey);
         assert(ds);
