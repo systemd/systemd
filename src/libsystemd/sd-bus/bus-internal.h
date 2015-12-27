@@ -399,3 +399,13 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
                 if (!assert_log(expr, #expr))                           \
                         return sd_bus_error_set_errno(error, r);        \
         } while (false)
+
+#define BUS_VTABLE_FOREACH(i, vt) \
+        for (size_t i##_size = (i = vt, vt->x.start.element_size); \
+            i->type != _SD_BUS_VTABLE_END; \
+            i = (sd_bus_vtable*)((char*)i + i##_size))
+
+#define BUS_VTABLE_FOREACH_SKIP_START(i, vt) \
+        for (size_t i##_size = (i = (sd_bus_vtable*)((char*)vt + vt->x.start.element_size), vt->x.start.element_size); \
+            i->type != _SD_BUS_VTABLE_END; \
+            i = (sd_bus_vtable*)((char*)i + i##_size))

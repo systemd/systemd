@@ -129,7 +129,7 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
         assert(i);
         assert(v);
 
-        for (; v->type != _SD_BUS_VTABLE_END; v++) {
+        BUS_VTABLE_FOREACH(v, v) {
 
                 /* Ignore methods, signals and properties that are
                  * marked "hidden", but do show the interface

@@ -142,7 +142,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                 if (slot->node_vtable.node && slot->node_vtable.interface && slot->node_vtable.vtable) {
                         const sd_bus_vtable *v;
 
-                        for (v = slot->node_vtable.vtable; v->type != _SD_BUS_VTABLE_END; v++) {
+                        BUS_VTABLE_FOREACH(v, slot->node_vtable.vtable) {
                                 struct vtable_member *x = NULL;
 
                                 switch (v->type) {

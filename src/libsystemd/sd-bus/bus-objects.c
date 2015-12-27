@@ -753,7 +753,7 @@ static int vtable_append_all_properties(
         if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
                 return 1;
 
-        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        BUS_VTABLE_FOREACH_SKIP_START(v, c->vtable) {
                 if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
                         continue;
 
@@ -1634,7 +1634,7 @@ static int add_object_vtable_internal(
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
-        assert_return(vtable[0].x.start.element_size == sizeof(struct sd_bus_vtable), -EINVAL);
+        assert_return(vtable[0].x.start.element_size <= sizeof(struct sd_bus_vtable), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&
                       !streq(interface, "org.freedesktop.DBus.Introspectable") &&
@@ -1686,7 +1686,7 @@ static int add_object_vtable_internal(
                 goto fail;
         }
 
-        for (v = s->node_vtable.vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        BUS_VTABLE_FOREACH_SKIP_START(v, s->node_vtable.vtable) {
 
                 switch (v->type) {
 
@@ -1979,7 +1979,7 @@ static int emit_properties_changed_on_interface(
                          * we include all properties that are marked
                          * as changing in the message. */
 
-                        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                        BUS_VTABLE_FOREACH_SKIP_START(v, c->vtable) {
                                 if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
                                         continue;
 
@@ -2050,7 +2050,7 @@ static int emit_properties_changed_on_interface(
                         } else {
                                 const sd_bus_vtable *v;
 
-                                for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                                BUS_VTABLE_FOREACH_SKIP_START(v, c->vtable) {
                                         if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
                                                 continue;
 
