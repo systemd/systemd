@@ -742,6 +742,9 @@ static int digest_to_gcrypt(uint8_t algorithm) {
         case DNSSEC_DIGEST_SHA256:
                 return GCRY_MD_SHA256;
 
+        case DNSSEC_DIGEST_SHA384:
+                return GCRY_MD_SHA384;
+
         default:
                 return -EOPNOTSUPP;
         }

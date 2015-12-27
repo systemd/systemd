@@ -64,6 +64,7 @@ enum {
 enum {
         DNSSEC_DIGEST_SHA1 = 1,
         DNSSEC_DIGEST_SHA256 = 2,
+        DNSSEC_DIGEST_SHA384 = 4,
         _DNSSEC_DIGEST_MAX_DEFINED
 };
 
