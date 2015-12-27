@@ -701,6 +701,30 @@ int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) 
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rrsig->key), DNS_RESOURCE_KEY_NAME(key));
 }
 
+static int dnssec_fix_rrset_ttl(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord *rrsig, usec_t realtime) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(key);
+        assert(rrsig);
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                r = dns_resource_key_equal(key, rr->key);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* Pick the TTL as the minimum of the RR's TTL, the
+                 * RR's original TTL according to the RRSIG and the
+                 * RRSIG's own TTL, see RFC 4035, Section 5.3.3 */
+                rr->ttl = MIN3(rr->ttl, rrsig->rrsig.original_ttl, rrsig->ttl);
+                rr->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
+        }
+
+        return 0;
+}
+
 int dnssec_verify_rrset_search(
                 DnsAnswer *a,
                 DnsResourceKey *key,
@@ -767,7 +791,11 @@ int dnssec_verify_rrset_search(
 
                         case DNSSEC_VALIDATED:
                                 /* Yay, the RR has been validated,
-                                 * return immediately. */
+                                 * return immediately, but fix up the expiry */
+                                r = dnssec_fix_rrset_ttl(a, key, rrsig, realtime);
+                                if (r < 0)
+                                        return r;
+
                                 *result = DNSSEC_VALIDATED;
                                 return 0;
 

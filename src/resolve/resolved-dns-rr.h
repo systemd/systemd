@@ -100,6 +100,7 @@ struct DnsResourceRecord {
         DnsResourceKey *key;
         char *to_string;
         uint32_t ttl;
+        usec_t expiry; /* RRSIG signature expiry */
         bool unparseable:1;
         bool wire_format_canonical:1;
         void *wire_format;

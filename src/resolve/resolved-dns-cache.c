@@ -272,6 +272,30 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         return NULL;
 }
 
+static usec_t calculate_until(DnsResourceRecord *rr, usec_t timestamp) {
+        usec_t ttl;
+
+        assert(rr);
+
+        ttl = rr->ttl * USEC_PER_SEC;
+
+        if (ttl > CACHE_TTL_MAX_USEC)
+                ttl = CACHE_TTL_MAX_USEC;
+
+        if (rr->expiry != USEC_INFINITY) {
+                usec_t left;
+
+                /* Make use of the DNSSEC RRSIG expiry info, if we have it */
+
+                left = LESS_BY(rr->expiry, now(CLOCK_REALTIME));
+
+                if (ttl > left)
+                        ttl = left;
+        }
+
+        return timestamp + ttl;
+}
+
 static void dns_cache_item_update_positive(
                 DnsCache *c,
                 DnsCacheItem *i,
@@ -302,7 +326,7 @@ static void dns_cache_item_update_positive(
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        i->until = timestamp + MIN(rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->until = calculate_until(rr, timestamp);
         i->authenticated = authenticated;
         i->shared_owner = shared_owner;
 
@@ -383,7 +407,7 @@ static int dns_cache_put_positive(
         i->type = DNS_CACHE_POSITIVE;
         i->key = dns_resource_key_ref(rr->key);
         i->rr = dns_resource_record_ref(rr);
-        i->until = timestamp + MIN(i->rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->until = calculate_until(rr, timestamp);
         i->authenticated = authenticated;
         i->shared_owner = shared_owner;
         i->owner_family = owner_family;

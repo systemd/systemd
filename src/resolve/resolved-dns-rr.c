@@ -339,6 +339,7 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
 
         rr->n_ref = 1;
         rr->key = dns_resource_key_ref(key);
+        rr->expiry = USEC_INFINITY;
 
         return rr;
 }
