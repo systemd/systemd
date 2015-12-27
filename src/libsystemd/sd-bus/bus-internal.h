@@ -409,3 +409,5 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
         for (size_t i##_size = (i = (sd_bus_vtable*)((char*)vt + vt->x.start.element_size), vt->x.start.element_size); \
             i->type != _SD_BUS_VTABLE_END; \
             i = (sd_bus_vtable*)((char*)i + i##_size))
+
+#define BUS_VTABLE_VERSION(x) (((x->flags) >> __builtin_ctzll(_SD_BUS_VTABLE_VERSION_MASK)) & 0xFF)

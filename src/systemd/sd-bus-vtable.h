@@ -48,6 +48,7 @@ enum {
         SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE        = 1ULL << 5,
         SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION  = 1ULL << 6,
         SD_BUS_VTABLE_PROPERTY_EXPLICIT            = 1ULL << 7,
+        _SD_BUS_VTABLE_VERSION_MASK                = 0xFFULL << 32,
         _SD_BUS_VTABLE_CAPABILITY_MASK             = 0xFFFFULL << 40
 };
 
