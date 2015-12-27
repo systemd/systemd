@@ -1654,7 +1654,7 @@ bluetooth:v0224*
  ID_VENDOR_FROM_DATABASE=Comarch SA
 
 bluetooth:v0225*
- ID_VENDOR_FROM_DATABASE=Nestl Nespresso S.A.
+ ID_VENDOR_FROM_DATABASE=Nestlé Nespresso S.A.
 
 bluetooth:v0226*
  ID_VENDOR_FROM_DATABASE=Merlinia A/S
@@ -1780,7 +1780,7 @@ bluetooth:v024E*
  ID_VENDOR_FROM_DATABASE=Microtronics Engineering GmbH
 
 bluetooth:v024F*
- ID_VENDOR_FROM_DATABASE=Schneider Schreibgerte GmbH
+ ID_VENDOR_FROM_DATABASE=Schneider Schreibgeräte GmbH
 
 bluetooth:v0250*
  ID_VENDOR_FROM_DATABASE=Sapphire Circuits LLC
@@ -1897,7 +1897,7 @@ bluetooth:v0275*
  ID_VENDOR_FROM_DATABASE=Geotab
 
 bluetooth:v0276*
- ID_VENDOR_FROM_DATABASE=E.G.O. Elektro-Gertebau GmbH
+ ID_VENDOR_FROM_DATABASE=E.G.O. Elektro-Gerätebau GmbH
 
 bluetooth:v0277*
  ID_VENDOR_FROM_DATABASE=bewhere inc
@@ -2066,3 +2066,168 @@ bluetooth:v02AD*
 
 bluetooth:v02AE*
  ID_VENDOR_FROM_DATABASE=WeatherFlow, Inc.
+
+bluetooth:v02AF*
+ ID_VENDOR_FROM_DATABASE=Technicolor USA Inc.
+
+bluetooth:v02B0*
+ ID_VENDOR_FROM_DATABASE=Bestechnic(Shanghai),Ltd
+
+bluetooth:v02B1*
+ ID_VENDOR_FROM_DATABASE=Raden Inc
+
+bluetooth:v02B2*
+ ID_VENDOR_FROM_DATABASE=JouZen Oy
+
+bluetooth:v02B3*
+ ID_VENDOR_FROM_DATABASE=CLABER S.P.A.
+
+bluetooth:v02B4*
+ ID_VENDOR_FROM_DATABASE=Hyginex, Inc.
+
+bluetooth:v02B5*
+ ID_VENDOR_FROM_DATABASE=HANSHIN ELECTRIC RAILWAY CO.,LTD.
+
+bluetooth:v02B6*
+ ID_VENDOR_FROM_DATABASE=Schneider Electric
+
+bluetooth:v02B7*
+ ID_VENDOR_FROM_DATABASE=Oort Technologies LLC
+
+bluetooth:v02B8*
+ ID_VENDOR_FROM_DATABASE=Chrono Therapeutics
+
+bluetooth:v02B9*
+ ID_VENDOR_FROM_DATABASE=Rinnai Corporation
+
+bluetooth:v02BA*
+ ID_VENDOR_FROM_DATABASE=Swissprime Technologies AG
+
+bluetooth:v02BB*
+ ID_VENDOR_FROM_DATABASE=Koha.,Co.Ltd
+
+bluetooth:v02BC*
+ ID_VENDOR_FROM_DATABASE=Genevac Ltd
+
+bluetooth:v02BD*
+ ID_VENDOR_FROM_DATABASE=Chemtronics
+
+bluetooth:v02BE*
+ ID_VENDOR_FROM_DATABASE=Seguro Technology Sp. z o.o.
+
+bluetooth:v02BF*
+ ID_VENDOR_FROM_DATABASE=Redbird Flight Simulations
+
+bluetooth:v02C0*
+ ID_VENDOR_FROM_DATABASE=Dash Robotics
+
+bluetooth:v02C1*
+ ID_VENDOR_FROM_DATABASE=LINE Corporation
+
+bluetooth:v02C2*
+ ID_VENDOR_FROM_DATABASE=Guillemot Corporation
+
+bluetooth:v02C3*
+ ID_VENDOR_FROM_DATABASE=Techtronic Power Tools Technology Limited
+
+bluetooth:v02C4*
+ ID_VENDOR_FROM_DATABASE=Wilson Sporting Goods
+
+bluetooth:v02C5*
+ ID_VENDOR_FROM_DATABASE=Lenovo (Singapore) Pte Ltd. ( 联想（新加坡） )
+
+bluetooth:v02C6*
+ ID_VENDOR_FROM_DATABASE=Ayatan Sensors
+
+bluetooth:v02C7*
+ ID_VENDOR_FROM_DATABASE=Electronics Tomorrow Limited
+
+bluetooth:v02C8*
+ ID_VENDOR_FROM_DATABASE=VASCO Data Security International, Inc.
+
+bluetooth:v02C9*
+ ID_VENDOR_FROM_DATABASE=PayRange Inc.
+
+bluetooth:v02CA*
+ ID_VENDOR_FROM_DATABASE=ABOV Semiconductor
+
+bluetooth:v02CB*
+ ID_VENDOR_FROM_DATABASE=AINA-Wireless Inc.
+
+bluetooth:v02CC*
+ ID_VENDOR_FROM_DATABASE=Eijkelkamp Soil & Water
+
+bluetooth:v02CD*
+ ID_VENDOR_FROM_DATABASE=BMA ergonomics b.v.
+
+bluetooth:v02CE*
+ ID_VENDOR_FROM_DATABASE=Teva Branded Pharmaceutical Products R&D, Inc.
+
+bluetooth:v02CF*
+ ID_VENDOR_FROM_DATABASE=Anima
+
+bluetooth:v02D0*
+ ID_VENDOR_FROM_DATABASE=3M
+
+bluetooth:v02D1*
+ ID_VENDOR_FROM_DATABASE=Empatica Srl
+
+bluetooth:v02D2*
+ ID_VENDOR_FROM_DATABASE=Afero, Inc.
+
+bluetooth:v02D3*
+ ID_VENDOR_FROM_DATABASE=Powercast Corporation
+
+bluetooth:v02D4*
+ ID_VENDOR_FROM_DATABASE=Secuyou ApS
+
+bluetooth:v02D5*
+ ID_VENDOR_FROM_DATABASE=OMRON Corporation
+
+bluetooth:v02D6*
+ ID_VENDOR_FROM_DATABASE=Send Solutions
+
+bluetooth:v02D7*
+ ID_VENDOR_FROM_DATABASE=NIPPON SYSTEMWARE CO.,LTD.
+
+bluetooth:v02D8*
+ ID_VENDOR_FROM_DATABASE=Neosfar
+
+bluetooth:v02D9*
+ ID_VENDOR_FROM_DATABASE=Fliegl Agrartechnik GmbH
+
+bluetooth:v02DA*
+ ID_VENDOR_FROM_DATABASE=Gilvader
+
+bluetooth:v02DB*
+ ID_VENDOR_FROM_DATABASE=Digi International Inc (R)
+
+bluetooth:v02DC*
+ ID_VENDOR_FROM_DATABASE=DeWalch Technologies, Inc.
+
+bluetooth:v02DD*
+ ID_VENDOR_FROM_DATABASE=Flint Rehabilitation Devices, LLC
+
+bluetooth:v02DE*
+ ID_VENDOR_FROM_DATABASE=Samsung SDS Co., Ltd.
+
+bluetooth:v02DF*
+ ID_VENDOR_FROM_DATABASE=Blur Product Development
+
+bluetooth:v02E0*
+ ID_VENDOR_FROM_DATABASE=University of Michigan
+
+bluetooth:v02E1*
+ ID_VENDOR_FROM_DATABASE=Victron Energy BV
+
+bluetooth:v02E2*
+ ID_VENDOR_FROM_DATABASE=NTT docomo
+
+bluetooth:v02E3*
+ ID_VENDOR_FROM_DATABASE=Carmanah Technologies Corp.
+
+bluetooth:v02E4*
+ ID_VENDOR_FROM_DATABASE=Bytestorm Ltd.
+
+bluetooth:v02E5*
+ ID_VENDOR_FROM_DATABASE=Espressif Incorporated ( 乐鑫信息科技(上海)有限公司 )
