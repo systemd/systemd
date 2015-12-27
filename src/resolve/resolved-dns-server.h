@@ -64,8 +64,8 @@ struct DnsServer {
         usec_t resend_timeout;
         usec_t max_rtt;
 
-        DnsServerFeatureLevel verified_features;
-        DnsServerFeatureLevel possible_features;
+        DnsServerFeatureLevel verified_feature_level;
+        DnsServerFeatureLevel possible_feature_level;
         size_t received_udp_packet_max;
         unsigned n_failed_attempts;
         usec_t verified_usec;
@@ -99,10 +99,12 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt, size_t size);
-void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec);
-void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features);
+void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel level, usec_t rtt, size_t size);
+void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel level, usec_t usec);
+void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s);
+
+DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
 
@@ -119,7 +121,5 @@ DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
-
-DnsServerFeatureLevel dns_server_possible_features(DnsServer *s);
 
 extern const struct hash_ops dns_server_hash_ops;

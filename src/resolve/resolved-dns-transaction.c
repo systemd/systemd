@@ -318,7 +318,7 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         if (!server)
                 return -ESRCH;
 
-        t->current_features = dns_server_possible_features(server);
+        t->current_features = dns_server_possible_feature_level(server);
 
         if (server == t->server)
                 return 0;
