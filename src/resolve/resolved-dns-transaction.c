@@ -29,6 +29,35 @@
 #include "resolved-llmnr.h"
 #include "string-table.h"
 
+static void dns_transaction_reset_answer(DnsTransaction *t) {
+        assert(t);
+
+        t->received = dns_packet_unref(t->received);
+        t->answer = dns_answer_unref(t->answer);
+        t->answer_rcode = 0;
+        t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
+        t->answer_authenticated = false;
+}
+
+static void dns_transaction_close_connection(DnsTransaction *t) {
+        assert(t);
+
+        t->stream = dns_stream_free(t->stream);
+        t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
+        t->dns_udp_fd = safe_close(t->dns_udp_fd);
+}
+
+static void dns_transaction_stop(DnsTransaction *t) {
+        assert(t);
+
+        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
+        t->stream = dns_stream_free(t->stream);
+
+        /* Note that we do not drop the UDP socket here, as we want to
+         * reuse it to repeat the interaction. */
+}
+
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQueryCandidate *c;
         DnsZoneItem *i;
@@ -37,18 +66,13 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         if (!t)
                 return NULL;
 
-        sd_event_source_unref(t->timeout_event_source);
+        dns_transaction_close_connection(t);
+        dns_transaction_stop(t);
 
         dns_packet_unref(t->sent);
-        dns_packet_unref(t->received);
-
-        dns_answer_unref(t->answer);
-
-        sd_event_source_unref(t->dns_udp_event_source);
-        safe_close(t->dns_udp_fd);
+        dns_transaction_reset_answer(t);
 
         dns_server_unref(t->server);
-        dns_stream_free(t->stream);
 
         if (t->scope) {
                 hashmap_remove_value(t->scope->transactions_by_key, t->key, t);
@@ -57,8 +81,6 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 if (t->id != 0)
                         hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
         }
-
-        dns_resource_key_unref(t->key);
 
         while ((c = set_steal_first(t->notify_query_candidates)))
                 set_remove(c->transactions, t);
@@ -79,8 +101,9 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         set_free(t->dnssec_transactions);
 
         dns_answer_unref(t->validated_keys);
-
+        dns_resource_key_unref(t->key);
         free(t->key_string);
+
         free(t);
         return NULL;
 }
@@ -153,22 +176,14 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         LIST_PREPEND(transactions_by_scope, s->transactions, t);
         t->scope = s;
 
+        s->manager->n_transactions_total ++;
+
         if (ret)
                 *ret = t;
 
         t = NULL;
 
         return 0;
-}
-
-static void dns_transaction_stop(DnsTransaction *t) {
-        assert(t);
-
-        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
-        t->stream = dns_stream_free(t->stream);
-
-        /* Note that we do not drop the UDP socket here, as we want to
-         * reuse it to repeat the interaction. */
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
@@ -224,6 +239,14 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         assert(t);
         assert(!DNS_TRANSACTION_IS_LIVE(state));
 
+        if (state == DNS_TRANSACTION_DNSSEC_FAILED)
+                log_struct(LOG_NOTICE,
+                           LOG_MESSAGE("DNSSEC validation failed for question %s: %s", dns_transaction_key_string(t), dnssec_result_to_string(t->answer_dnssec_result)),
+                           "DNS_TRANSACTION=%" PRIu16, t->id,
+                           "DNS_QUESTION=%s", dns_transaction_key_string(t),
+                           "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
+                           NULL);
+
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
          * after calling this function. */
@@ -240,6 +263,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         t->state = state;
 
+        dns_transaction_close_connection(t);
         dns_transaction_stop(t);
 
         /* Notify all queries that are interested, but make sure the
@@ -284,6 +308,27 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         dns_transaction_gc(t);
 }
 
+static int dns_transaction_pick_server(DnsTransaction *t) {
+        DnsServer *server;
+
+        assert(t);
+        assert(t->scope->protocol == DNS_PROTOCOL_DNS);
+
+        server = dns_scope_get_dns_server(t->scope);
+        if (!server)
+                return -ESRCH;
+
+        t->current_features = dns_server_possible_feature_level(server);
+
+        if (server == t->server)
+                return 0;
+
+        dns_server_unref(t->server);
+        t->server = dns_server_ref(server);
+
+        return 1;
+}
+
 static int on_stream_complete(DnsStream *s, int error) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsTransaction *t;
@@ -297,6 +342,11 @@ static int on_stream_complete(DnsStream *s, int error) {
         p = dns_packet_ref(s->read_packet);
 
         t->stream = dns_stream_free(t->stream);
+
+        if (IN_SET(error, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE)) {
+                dns_transaction_complete(t, DNS_TRANSACTION_CONNECTION_FAILURE);
+                return 0;
+        }
 
         if (error != 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -315,32 +365,43 @@ static int on_stream_complete(DnsStream *s, int error) {
         dns_transaction_process_reply(t, p);
         t->block_gc--;
 
-        /* If the response wasn't useful, then complete the transition now */
+        /* If the response wasn't useful, then complete the transition
+         * now. After all, we are the worst feature set now with TCP
+         * sockets, and there's really no point in retrying. */
         if (t->state == DNS_TRANSACTION_PENDING)
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+        else
+                dns_transaction_gc(t);
 
         return 0;
 }
 
 static int dns_transaction_open_tcp(DnsTransaction *t) {
-        DnsServer *server = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
         assert(t);
 
-        if (t->stream)
-                return 0;
+        dns_transaction_close_connection(t);
 
         switch (t->scope->protocol) {
+
         case DNS_PROTOCOL_DNS:
-                fd = dns_scope_tcp_socket(t->scope, AF_UNSPEC, NULL, 53, &server);
+                r = dns_transaction_pick_server(t);
+                if (r < 0)
+                        return r;
+
+                r = dns_server_adjust_opt(t->server, t->sent, t->current_features);
+                if (r < 0)
+                        return r;
+
+                fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, 53);
                 break;
 
         case DNS_PROTOCOL_LLMNR:
                 /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
-                        fd = dns_scope_tcp_socket(t->scope, t->received->family, &t->received->sender, t->received->sender_port, NULL);
+                        fd = dns_scope_socket_tcp(t->scope, t->received->family, &t->received->sender, NULL, t->received->sender_port);
                 else {
                         union in_addr_union address;
                         int family = AF_UNSPEC;
@@ -357,7 +418,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                         if (family != t->scope->family)
                                 return -ESRCH;
 
-                        fd = dns_scope_tcp_socket(t->scope, family, &address, LLMNR_PORT, NULL);
+                        fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT);
                 }
 
                 break;
@@ -372,7 +433,6 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         r = dns_stream_new(t->scope->manager, &t->stream, t->scope->protocol, fd);
         if (r < 0)
                 return r;
-
         fd = -1;
 
         r = dns_stream_write_packet(t->stream, t->sent);
@@ -381,11 +441,6 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 return r;
         }
 
-        dns_server_unref(t->server);
-        t->server = dns_server_ref(server);
-        t->received = dns_packet_unref(t->received);
-        t->answer = dns_answer_unref(t->answer);
-        t->answer_rcode = 0;
         t->stream->complete = on_stream_complete;
         t->stream->transaction = t;
 
@@ -395,17 +450,11 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         if (t->scope->link)
                 t->stream->ifindex = t->scope->link->ifindex;
 
+        dns_transaction_reset_answer(t);
+
+        t->tried_stream = true;
+
         return 0;
-}
-
-static void dns_transaction_next_dns_server(DnsTransaction *t) {
-        assert(t);
-
-        t->server = dns_server_unref(t->server);
-        t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
-        t->dns_udp_fd = safe_close(t->dns_udp_fd);
-
-        dns_scope_next_dns_server(t->scope);
 }
 
 static void dns_transaction_cache_answer(DnsTransaction *t) {
@@ -463,10 +512,19 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 return;
         }
 
+        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
+            t->scope->dnssec_mode == DNSSEC_YES) {
+                /*  We are not in automatic downgrade mode, and the
+                 *  server is bad, refuse operation. */
+                dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                return;
+        }
+
         if (!IN_SET(t->answer_dnssec_result,
-                    _DNSSEC_RESULT_INVALID, /* No DNSSEC validation enabled */
-                    DNSSEC_VALIDATED,       /* Answer is signed and validated successfully */
-                    DNSSEC_UNSIGNED)) {     /* Answer is right-fully unsigned */
+                    _DNSSEC_RESULT_INVALID,        /* No DNSSEC validation enabled */
+                    DNSSEC_VALIDATED,              /* Answer is signed and validated successfully */
+                    DNSSEC_UNSIGNED,               /* Answer is right-fully unsigned */
+                    DNSSEC_INCOMPATIBLE_SERVER)) { /* Server does not do DNSSEC (Yay, we are downgrade attack vulnerable!) */
                 dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                 return;
         }
@@ -485,9 +543,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
         assert(t);
         assert(p);
-        assert(t->state == DNS_TRANSACTION_PENDING);
         assert(t->scope);
         assert(t->scope->manager);
+
+        if (t->state != DNS_TRANSACTION_PENDING)
+                return;
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -618,16 +678,16 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         }
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
-                        dns_transaction_next_dns_server(t);
+                        dns_scope_next_dns_server(t->scope);
 
                         r = dns_transaction_go(t);
                         if (r < 0) {
                                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                                 return;
                         }
-
-                        return;
                 }
+
+                return;
         }
 
         /* Parse message, if it isn't parsed yet. */
@@ -654,6 +714,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 dns_answer_unref(t->answer);
                 t->answer = dns_answer_ref(p->answer);
                 t->answer_rcode = DNS_PACKET_RCODE(p);
+                t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 t->answer_authenticated = false;
 
                 r = dns_transaction_request_dnssec_keys(t);
@@ -688,39 +749,54 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
             DNS_PACKET_ID(p) == t->id)
                 dns_transaction_process_reply(t, p);
         else
-                log_debug("Invalid DNS packet, ignoring.");
+                log_debug("Invalid DNS UDP packet, ignoring.");
 
         return 0;
 }
 
-static int dns_transaction_emit(DnsTransaction *t) {
+static int dns_transaction_emit_udp(DnsTransaction *t) {
         int r;
 
         assert(t);
 
-        if (t->scope->protocol == DNS_PROTOCOL_DNS && !t->server) {
-                DnsServer *server = NULL;
-                _cleanup_close_ int fd = -1;
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
 
-                fd = dns_scope_udp_dns_socket(t->scope, &server);
-                if (fd < 0)
-                        return fd;
-
-                r = sd_event_add_io(t->scope->manager->event, &t->dns_udp_event_source, fd, EPOLLIN, on_dns_packet, t);
+                r = dns_transaction_pick_server(t);
                 if (r < 0)
                         return r;
 
-                t->dns_udp_fd = fd;
-                fd = -1;
-                t->server = dns_server_ref(server);
-        }
+                if (t->current_features < DNS_SERVER_FEATURE_LEVEL_UDP)
+                        return -EAGAIN;
 
-        r = dns_scope_emit(t->scope, t->dns_udp_fd, t->server, t->sent);
+                if (r > 0 || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
+                        int fd;
+
+                        dns_transaction_close_connection(t);
+
+                        fd = dns_scope_socket_udp(t->scope, t->server, 53);
+                        if (fd < 0)
+                                return fd;
+
+                        r = sd_event_add_io(t->scope->manager->event, &t->dns_udp_event_source, fd, EPOLLIN, on_dns_packet, t);
+                        if (r < 0) {
+                                safe_close(fd);
+                                return r;
+                        }
+
+                        t->dns_udp_fd = fd;
+                }
+
+                r = dns_server_adjust_opt(t->server, t->sent, t->current_features);
+                if (r < 0)
+                        return r;
+        } else
+                dns_transaction_close_connection(t);
+
+        r = dns_scope_emit_udp(t->scope, t->dns_udp_fd, t->sent);
         if (r < 0)
                 return r;
 
-        if (t->server)
-                t->current_features = t->server->possible_features;
+        dns_transaction_reset_answer(t);
 
         return 0;
 }
@@ -735,17 +811,17 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         if (!t->initial_jitter_scheduled || t->initial_jitter_elapsed) {
                 /* Timeout reached? Increase the timeout for the server used */
                 switch (t->scope->protocol) {
+
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-
                         dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
-
                         break;
+
                 case DNS_PROTOCOL_LLMNR:
                 case DNS_PROTOCOL_MDNS:
                         dns_scope_packet_lost(t->scope, usec - t->start_usec);
-
                         break;
+
                 default:
                         assert_not_reached("Invalid DNS protocol.");
                 }
@@ -757,7 +833,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
 
         /* ...and try again with a new server */
-        dns_transaction_next_dns_server(t);
+        dns_scope_next_dns_server(t->scope);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -771,27 +847,27 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t->scope);
 
         switch (t->scope->protocol) {
+
         case DNS_PROTOCOL_DNS:
                 assert(t->server);
-
                 return t->server->resend_timeout;
+
         case DNS_PROTOCOL_MDNS:
                 assert(t->n_attempts > 0);
                 return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+
         case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;
+
         default:
                 assert_not_reached("Invalid DNS protocol.");
         }
 }
 
 static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
-        bool had_stream;
         int r;
 
         assert(t);
-
-        had_stream = !!t->stream;
 
         dns_transaction_stop(t);
 
@@ -800,7 +876,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 return 0;
         }
 
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && had_stream) {
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && t->tried_stream) {
                 /* If we already tried via a stream, then we don't
                  * retry on LLMNR. See RFC 4795, Section 2.7. */
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
@@ -809,10 +885,8 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
         t->n_attempts++;
         t->start_usec = ts;
-        t->received = dns_packet_unref(t->received);
-        t->answer = dns_answer_unref(t->answer);
-        t->answer_rcode = 0;
-        t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
+
+        dns_transaction_reset_answer(t);
 
         /* Check the trust anchor. Do so only on classic DNS, since DNSSEC does not apply otherwise. */
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
@@ -986,7 +1060,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (t->sent)
                 return 0;
 
-        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode == DNSSEC_YES);
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode != DNSSEC_NO);
         if (r < 0)
                 return r;
 
@@ -1041,10 +1115,12 @@ int dns_transaction_go(DnsTransaction *t) {
                 random_bytes(&jitter, sizeof(jitter));
 
                 switch (t->scope->protocol) {
+
                 case DNS_PROTOCOL_LLMNR:
                         jitter %= LLMNR_JITTER_INTERVAL_USEC;
                         accuracy = LLMNR_JITTER_INTERVAL_USEC;
                         break;
+
                 case DNS_PROTOCOL_MDNS:
                         jitter %= MDNS_JITTER_RANGE_USEC;
                         jitter += MDNS_JITTER_MIN_USEC;
@@ -1093,7 +1169,7 @@ int dns_transaction_go(DnsTransaction *t) {
         } else {
                 /* Try via UDP, and if that fails due to large size or lack of
                  * support try via TCP */
-                r = dns_transaction_emit(t);
+                r = dns_transaction_emit_udp(t);
                 if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
@@ -1109,7 +1185,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
 
                 /* Couldn't send? Try immediately again, with a new server */
-                dns_transaction_next_dns_server(t);
+                dns_scope_next_dns_server(t->scope);
 
                 return dns_transaction_go(t);
         }
@@ -1315,14 +1391,19 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
          * - For RRSIG we get the matching DNSKEY
          * - For DNSKEY we get the matching DS
          * - For unsigned SOA/NS we get the matching DS
-         * - For unsigned CNAME/DNAME we get the parent SOA RR
+         * - For unsigned CNAME/DNAME/DS we get the parent SOA RR
          * - For other unsigned RRs we get the matching SOA RR
          * - For SOA/NS/DS queries with no matching response RRs, and no NSEC/NSEC3, the parent's SOA RR
          * - For other queries with no matching response RRs, and no NSEC/NSEC3, the SOA RR
          */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return 0;
+
+        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO)
+                return 0; /* Server doesn't do DNSSEC, there's no point in requesting any RRs then. */
+        if (t->server && t->server->rrsig_missing)
+                return 0; /* Server handles DNSSEC requests, but isn't augmenting responses with RRSIGs. No point in trying DNSSEC then. */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
 
@@ -1404,15 +1485,6 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         break;
                 }
 
-                case DNS_TYPE_DS:
-                case DNS_TYPE_NSEC:
-                case DNS_TYPE_NSEC3:
-                        /* Don't acquire anything for
-                         * DS/NSEC/NSEC3. We require they come with an
-                         * RRSIG without us asking for anything, and
-                         * that's sufficient. */
-                        break;
-
                 case DNS_TYPE_SOA:
                 case DNS_TYPE_NS: {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
@@ -1448,6 +1520,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         break;
                 }
 
+                case DNS_TYPE_DS:
                 case DNS_TYPE_CNAME:
                 case DNS_TYPE_DNAME: {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
@@ -1458,7 +1531,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * unsigned CNAME/DNAME RRs, maybe that's the
                          * apex. But do all that only if this is
                          * actually a response to our original
-                         * question. */
+                         * question.
+                         *
+                         * Similar for DS RRs, which are signed when
+                         * the parent SOA is signed. */
 
                         r = dns_transaction_is_primary_response(t, rr);
                         if (r < 0)
@@ -1483,7 +1559,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!soa)
                                 return -ENOMEM;
 
-                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
+                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME/DS RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -1494,10 +1570,11 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 default: {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
 
-                        /* For other unsigned RRsets, look for proof
-                         * the zone is unsigned, by requesting the SOA
-                         * RR of the zone. However, do so only if they
-                         * are directly relevant to our original
+                        /* For other unsigned RRsets (including
+                         * NSEC/NSEC3!), look for proof the zone is
+                         * unsigned, by requesting the SOA RR of the
+                         * zone. However, do so only if they are
+                         * directly relevant to our original
                          * question. */
 
                         r = dns_transaction_is_primary_response(t, rr);
@@ -1516,7 +1593,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!soa)
                                 return -ENOMEM;
 
-                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
+                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dns_resource_record_to_string(rr));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -1671,20 +1748,13 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         /* Checks if the RR we are looking for must be signed with an
          * RRSIG. This is used for positive responses. */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return false;
 
         if (dns_type_is_pseudo(rr->key->type))
                 return -EINVAL;
 
         switch (rr->key->type) {
-
-        case DNS_TYPE_DNSKEY:
-        case DNS_TYPE_DS:
-        case DNS_TYPE_NSEC:
-        case DNS_TYPE_NSEC3:
-                /* We never consider DNSKEY, DS, NSEC, NSEC3 RRs if they aren't signed. */
-                return true;
 
         case DNS_TYPE_RRSIG:
                 /* RRSIGs are the signatures themselves, they need no signing. */
@@ -1695,7 +1765,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 DnsTransaction *dt;
                 Iterator i;
 
-                /* For SOA or NS RRs we look for a matching DS transaction, or a SOA transaction of the parent */
+                /* For SOA or NS RRs we look for a matching DS transaction */
 
                 SET_FOREACH(dt, t->dnssec_transactions, i) {
 
@@ -1726,13 +1796,18 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 return true;
         }
 
+        case DNS_TYPE_DS:
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME: {
                 const char *parent = NULL;
                 DnsTransaction *dt;
                 Iterator i;
 
-                /* CNAME/DNAME RRs cannot be located at a zone apex, hence look directly for the parent SOA. */
+                /*
+                 * CNAME/DNAME RRs cannot be located at a zone apex, hence look directly for the parent SOA.
+                 *
+                 * DS RRs are signed if the parent is signed, hence also look at the parent SOA
+                 */
 
                 SET_FOREACH(dt, t->dnssec_transactions, i) {
 
@@ -1747,6 +1822,9 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                                 if (r < 0)
                                         return r;
                                 if (r == 0) {
+                                        if (rr->key->type == DNS_TYPE_DS)
+                                                return true;
+
                                         /* A CNAME/DNAME without a parent? That's sooo weird. */
                                         log_debug("Transaction %" PRIu16 " claims CNAME/DNAME at root. Refusing.", t->id);
                                         return -EBADMSG;
@@ -1769,7 +1847,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 DnsTransaction *dt;
                 Iterator i;
 
-                /* Any other kind of RR. Let's see if our SOA lookup was authenticated */
+                /* Any other kind of RR (including DNSKEY/NSEC/NSEC3). Let's see if our SOA lookup was authenticated */
 
                 SET_FOREACH(dt, t->dnssec_transactions, i) {
 
@@ -1807,7 +1885,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         /* Checks if we need to insist on NSEC/NSEC3 RRs for proving
          * this negative reply */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return false;
 
         if (dns_type_is_pseudo(t->key->type))
@@ -1855,6 +1933,82 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         return true;
 }
 
+static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRecord *rr) {
+        DnsResourceRecord *rrsig;
+        bool found = false;
+        int r;
+
+        /* Checks whether any of the DNSKEYs used for the RRSIGs for
+         * the specified RRset is authenticated (i.e. has a matching
+         * DS RR). */
+
+        DNS_ANSWER_FOREACH(rrsig, t->answer) {
+                DnsTransaction *dt;
+                Iterator i;
+
+                r = dnssec_key_match_rrsig(rr->key, rrsig);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                SET_FOREACH(dt, t->dnssec_transactions, i) {
+
+                        if (dt->key->class != rr->key->class)
+                                continue;
+
+                        if (dt->key->type == DNS_TYPE_DNSKEY) {
+
+                                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), rrsig->rrsig.signer);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
+
+                                /* OK, we found an auxiliary DNSKEY
+                                 * lookup. If that lookup is
+                                 * authenticated, report this. */
+
+                                if (dt->answer_authenticated)
+                                        return true;
+
+                                found = true;
+
+                        } else if (dt->key->type == DNS_TYPE_DS) {
+
+                                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), rrsig->rrsig.signer);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
+
+                                /* OK, we found an auxiliary DS
+                                 * lookup. If that lookup is
+                                 * authenticated and non-zero, we
+                                 * won! */
+
+                                if (!dt->answer_authenticated)
+                                        return false;
+
+                                return dns_answer_match_key(dt->answer, dt->key, NULL);
+                        }
+                }
+        }
+
+        return found ? false : -ENXIO;
+}
+
+static int dns_transaction_known_signed(DnsTransaction *t, DnsResourceRecord *rr) {
+        assert(t);
+        assert(rr);
+
+        /* We know that the root domain is signed, hence if it appears
+         * not to be signed, there's a problem with the DNS server */
+
+        return rr->key->class == DNS_CLASS_IN &&
+                dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key));
+}
+
 int dns_transaction_validate_dnssec(DnsTransaction *t) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
         bool dnskeys_finalized = false;
@@ -1868,7 +2022,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
          * t->validated_keys, let's see which RRs we can now
          * authenticate with that. */
 
-        if (t->scope->dnssec_mode != DNSSEC_YES)
+        if (t->scope->dnssec_mode == DNSSEC_NO)
                 return 0;
 
         /* Already validated */
@@ -1885,6 +2039,13 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         /* Cached stuff is not affected by validation. */
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0;
+
+        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO ||
+            (t->server && t->server->rrsig_missing)) {
+                /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
+                t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
+                return 0;
+        }
 
         log_debug("Validating response from transaction %" PRIu16 " (%s).", t->id, dns_transaction_key_string(t));
 
@@ -1906,12 +2067,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
 
-                        if (log_get_max_level() >= LOG_DEBUG) {
-                                _cleanup_free_ char *rrs = NULL;
-
-                                (void) dns_resource_record_to_string(rr, &rrs);
-                                log_debug("Looking at %s: %s", rrs ? strstrip(rrs) : "???", dnssec_result_to_string(result));
-                        }
+                        log_debug("Looking at %s: %s", strna(dns_resource_record_to_string(rr)), dnssec_result_to_string(result));
 
                         if (result == DNSSEC_VALIDATED) {
 
@@ -1936,11 +2092,14 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 if (r < 0)
                                         return r;
 
+                                t->scope->manager->n_dnssec_secure++;
+
                                 /* Exit the loop, we dropped something from the answer, start from the beginning */
                                 changed = true;
                                 break;
 
                         } else if (dnskeys_finalized) {
+
                                 /* If we haven't read all DNSKEYs yet
                                  * a negative result of the validation
                                  * is irrelevant, as there might be
@@ -1957,10 +2116,71 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                                 if (r < 0)
                                                         return r;
 
+                                                t->scope->manager->n_dnssec_insecure++;
+
+                                                changed = true;
+                                                break;
+                                        }
+
+                                        r = dns_transaction_known_signed(t, rr);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0) {
+                                                /* This is an RR we know has to be signed. If it isn't this means
+                                                 * the server is not attaching RRSIGs, hence complain. */
+
+                                                dns_server_packet_rrsig_missing(t->server);
+
+                                                if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+
+                                                        /* Downgrading is OK? If so, just consider the information unsigned */
+
+                                                        r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                                        if (r < 0)
+                                                                return r;
+
+                                                        t->scope->manager->n_dnssec_insecure++;
+                                                        changed = true;
+                                                        break;
+                                                }
+
+                                                /* Otherwise, fail */
+                                                t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
+                                                return 0;
+                                        }
+                                }
+
+                                if (IN_SET(result,
+                                           DNSSEC_MISSING_KEY,
+                                           DNSSEC_SIGNATURE_EXPIRED,
+                                           DNSSEC_UNSUPPORTED_ALGORITHM)) {
+
+                                        r = dns_transaction_dnskey_authenticated(t, rr);
+                                        if (r < 0 && r != -ENXIO)
+                                                return r;
+                                        if (r == 0) {
+                                                /* The DNSKEY transaction was not authenticated, this means there's
+                                                 * no DS for this, which means it's OK if no keys are found for this signature. */
+
+                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                                if (r < 0)
+                                                        return r;
+
+                                                t->scope->manager->n_dnssec_insecure++;
+
                                                 changed = true;
                                                 break;
                                         }
                                 }
+
+                                if (IN_SET(result,
+                                           DNSSEC_INVALID,
+                                           DNSSEC_SIGNATURE_EXPIRED,
+                                           DNSSEC_NO_SIGNATURE,
+                                           DNSSEC_UNSUPPORTED_ALGORITHM))
+                                        t->scope->manager->n_dnssec_bogus++;
+                                else
+                                        t->scope->manager->n_dnssec_indeterminate++;
 
                                 r = dns_transaction_is_primary_response(t, rr);
                                 if (r < 0)
@@ -2030,9 +2250,10 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
         } else if (r == 0) {
                 DnssecNsecResult nr;
+                bool authenticated = false;
 
                 /* Bummer! Let's check NSEC/NSEC3 */
-                r = dnssec_test_nsec(t->answer, t->key, &nr);
+                r = dnssec_test_nsec(t->answer, t->key, &nr, &authenticated);
                 if (r < 0)
                         return r;
 
@@ -2043,7 +2264,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         log_debug("Proved NXDOMAIN via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_NXDOMAIN;
-                        t->answer_authenticated = true;
+                        t->answer_authenticated = authenticated;
                         break;
 
                 case DNSSEC_NSEC_NODATA:
@@ -2051,7 +2272,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         log_debug("Proved NODATA via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
-                        t->answer_authenticated = true;
+                        t->answer_authenticated = authenticated;
                         break;
 
                 case DNSSEC_NSEC_OPTOUT:
@@ -2116,6 +2337,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_ATTEMPTS_MAX_REACHED] = "attempts-max-reached",
         [DNS_TRANSACTION_INVALID_REPLY] = "invalid-reply",
         [DNS_TRANSACTION_RESOURCES] = "resources",
+        [DNS_TRANSACTION_CONNECTION_FAILURE] = "connection-failure",
         [DNS_TRANSACTION_ABORTED] = "aborted",
         [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
 };

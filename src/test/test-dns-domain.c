@@ -140,9 +140,9 @@ static void test_dns_label_unescape_suffix(void) {
         test_dns_label_unescape_suffix_one("hallo\\", "hallo", "hallo", 20, -EINVAL, -EINVAL);
         test_dns_label_unescape_suffix_one("hallo\\032 ", "hallo  ", "", 20, 7, 0);
         test_dns_label_unescape_suffix_one(".", "", "", 20, 0, 0);
-        test_dns_label_unescape_suffix_one("..", "", "", 20, 0, 0);
+        test_dns_label_unescape_suffix_one("..", "", "", 20, 0, -EINVAL);
         test_dns_label_unescape_suffix_one(".foobar", "foobar", "", 20, 6, -EINVAL);
-        test_dns_label_unescape_suffix_one("foobar.", "", "foobar", 20, 0, 6);
+        test_dns_label_unescape_suffix_one("foobar.", "foobar", "", 20, 6, 0);
         test_dns_label_unescape_suffix_one("foo\\\\bar", "foo\\bar", "", 20, 7, 0);
         test_dns_label_unescape_suffix_one("foo.bar", "bar", "foo", 20, 3, 3);
         test_dns_label_unescape_suffix_one("foo..bar", "bar", "", 20, 3, -EINVAL);
@@ -475,6 +475,90 @@ static void test_dns_name_change_suffix(void) {
         test_dns_name_change_suffix_one("a", "b", "c", 0, NULL);
 }
 
+static void test_dns_name_suffix_one(const char *name, unsigned n_labels, const char *result, int ret) {
+        const char *p = NULL;
+
+        assert_se(ret == dns_name_suffix(name, n_labels, &p));
+        assert_se(streq_ptr(p, result));
+}
+
+static void test_dns_name_suffix(void) {
+        test_dns_name_suffix_one("foo.bar", 2, "foo.bar", 0);
+        test_dns_name_suffix_one("foo.bar", 1, "bar", 1);
+        test_dns_name_suffix_one("foo.bar", 0, "", 2);
+        test_dns_name_suffix_one("foo.bar", 3, NULL, -EINVAL);
+        test_dns_name_suffix_one("foo.bar", 4, NULL, -EINVAL);
+
+        test_dns_name_suffix_one("bar", 1, "bar", 0);
+        test_dns_name_suffix_one("bar", 0, "", 1);
+        test_dns_name_suffix_one("bar", 2, NULL, -EINVAL);
+        test_dns_name_suffix_one("bar", 3, NULL, -EINVAL);
+
+        test_dns_name_suffix_one("", 0, "", 0);
+        test_dns_name_suffix_one("", 1, NULL, -EINVAL);
+        test_dns_name_suffix_one("", 2, NULL, -EINVAL);
+}
+
+static void test_dns_name_count_labels_one(const char *name, int n) {
+        assert_se(dns_name_count_labels(name) == n);
+}
+
+static void test_dns_name_count_labels(void) {
+        test_dns_name_count_labels_one("foo.bar.quux.", 3);
+        test_dns_name_count_labels_one("foo.bar.quux", 3);
+        test_dns_name_count_labels_one("foo.bar.", 2);
+        test_dns_name_count_labels_one("foo.bar", 2);
+        test_dns_name_count_labels_one("foo.", 1);
+        test_dns_name_count_labels_one("foo", 1);
+        test_dns_name_count_labels_one("", 0);
+        test_dns_name_count_labels_one(".", 0);
+        test_dns_name_count_labels_one("..", -EINVAL);
+}
+
+static void test_dns_name_equal_skip_one(const char *a, unsigned n_labels, const char *b, int ret) {
+        assert_se(dns_name_equal_skip(a, n_labels, b) == ret);
+}
+
+static void test_dns_name_equal_skip(void) {
+        test_dns_name_equal_skip_one("foo", 0, "bar", 0);
+        test_dns_name_equal_skip_one("foo", 0, "foo", 1);
+        test_dns_name_equal_skip_one("foo", 1, "foo", 0);
+        test_dns_name_equal_skip_one("foo", 2, "foo", 0);
+
+        test_dns_name_equal_skip_one("foo.bar", 0, "foo.bar", 1);
+        test_dns_name_equal_skip_one("foo.bar", 1, "foo.bar", 0);
+        test_dns_name_equal_skip_one("foo.bar", 2, "foo.bar", 0);
+        test_dns_name_equal_skip_one("foo.bar", 3, "foo.bar", 0);
+
+        test_dns_name_equal_skip_one("foo.bar", 0, "bar", 0);
+        test_dns_name_equal_skip_one("foo.bar", 1, "bar", 1);
+        test_dns_name_equal_skip_one("foo.bar", 2, "bar", 0);
+        test_dns_name_equal_skip_one("foo.bar", 3, "bar", 0);
+
+        test_dns_name_equal_skip_one("foo.bar", 0, "", 0);
+        test_dns_name_equal_skip_one("foo.bar", 1, "", 0);
+        test_dns_name_equal_skip_one("foo.bar", 2, "", 1);
+        test_dns_name_equal_skip_one("foo.bar", 3, "", 0);
+
+        test_dns_name_equal_skip_one("", 0, "", 1);
+        test_dns_name_equal_skip_one("", 1, "", 0);
+        test_dns_name_equal_skip_one("", 1, "foo", 0);
+        test_dns_name_equal_skip_one("", 2, "foo", 0);
+}
+
+static void test_dns_name_compare_func(void) {
+        assert_se(dns_name_compare_func("", "") == 0);
+        assert_se(dns_name_compare_func("", ".") == 0);
+        assert_se(dns_name_compare_func(".", "") == 0);
+        assert_se(dns_name_compare_func("foo", "foo.") == 0);
+        assert_se(dns_name_compare_func("foo.", "foo") == 0);
+        assert_se(dns_name_compare_func("foo", "foo") == 0);
+        assert_se(dns_name_compare_func("foo.", "foo.") == 0);
+        assert_se(dns_name_compare_func("heise.de", "HEISE.DE.") == 0);
+
+        assert_se(dns_name_compare_func("de.", "heise.de") != 0);
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -495,6 +579,10 @@ int main(int argc, char *argv[]) {
         test_dns_service_join();
         test_dns_service_split();
         test_dns_name_change_suffix();
+        test_dns_name_suffix();
+        test_dns_name_count_labels();
+        test_dns_name_equal_skip();
+        test_dns_name_compare_func();
 
         return 0;
 }

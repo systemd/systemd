@@ -470,6 +470,14 @@ static int dns_cache_put_negative(
                 i->key = dns_resource_key_new(key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(key));
                 if (!i->key)
                         return -ENOMEM;
+
+                /* Make sure to remove any previous entry for this
+                 * specific ANY key. (For non-ANY keys the cache data
+                 * is already cleared by the caller.) Note that we
+                 * don't bother removing positive or NODATA cache
+                 * items in this case, because it would either be slow
+                 * or require explicit indexing by name */
+                dns_cache_remove_by_key(c, key);
         } else
                 i->key = dns_resource_key_ref(key);
 
@@ -607,7 +615,6 @@ int dns_cache_put(
         /* See https://tools.ietf.org/html/rfc2308, which say that a
          * matching SOA record in the packet is used to to enable
          * negative caching. */
-
         r = dns_answer_find_soa(answer, key, &soa, &flags);
         if (r < 0)
                 goto fail;
@@ -672,11 +679,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (i && i->type == DNS_CACHE_NXDOMAIN)
                 return i;
 
-        /* The following record types should never be redirected. See
-         * <https://tools.ietf.org/html/rfc4035#section-2.5>. */
-        if (!IN_SET(k->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME,
-                            DNS_TYPE_NSEC3, DNS_TYPE_NSEC, DNS_TYPE_RRSIG,
-                            DNS_TYPE_NXT, DNS_TYPE_SIG, DNS_TYPE_KEY)) {
+        if (dns_type_may_redirect(k->type)) {
                 /* Check if we have a CNAME record instead */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
                 if (i)
@@ -737,6 +740,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                         log_debug("Ignoring cache for ANY lookup: %s", key_str);
                 }
 
+                c->n_miss++;
+
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
                 return 0;
@@ -753,6 +758,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
 
                         log_debug("Cache miss for %s", key_str);
                 }
+
+                c->n_miss++;
 
                 *ret = NULL;
                 *rcode = DNS_RCODE_SUCCESS;
@@ -791,9 +798,15 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 *rcode = DNS_RCODE_SUCCESS;
                 *authenticated = nsec->authenticated;
 
-                return !bitmap_isset(nsec->rr->nsec.types, key->type) &&
-                       !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
-                       !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_DNAME);
+                if (!bitmap_isset(nsec->rr->nsec.types, key->type) &&
+                    !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
+                    !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_DNAME)) {
+                        c->n_hit++;
+                        return 1;
+                }
+
+                c->n_miss++;
+                return 0;
         }
 
         if (log_get_max_level() >= LOG_DEBUG) {
@@ -808,6 +821,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
         }
 
         if (n <= 0) {
+                c->n_hit++;
+
                 *ret = NULL;
                 *rcode = nxdomain ? DNS_RCODE_NXDOMAIN : DNS_RCODE_SUCCESS;
                 *authenticated = have_authenticated && !have_non_authenticated;
@@ -826,6 +841,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 if (r < 0)
                         return r;
         }
+
+        c->n_hit++;
 
         *ret = answer;
         *rcode = DNS_RCODE_SUCCESS;
@@ -935,13 +952,13 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
                 DnsCacheItem *j;
 
                 LIST_FOREACH(by_key, j, i) {
-                        _cleanup_free_ char *t = NULL;
 
                         fputc('\t', f);
 
                         if (j->rr) {
-                                r = dns_resource_record_to_string(j->rr, &t);
-                                if (r < 0) {
+                                const char *t;
+                                t = dns_resource_record_to_string(j->rr);
+                                if (!t) {
                                         log_oom();
                                         continue;
                                 }
@@ -949,13 +966,14 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
                                 fputs(t, f);
                                 fputc('\n', f);
                         } else {
-                                r = dns_resource_key_to_string(j->key, &t);
+                                _cleanup_free_ char *z = NULL;
+                                r = dns_resource_key_to_string(j->key, &z);
                                 if (r < 0) {
                                         log_oom();
                                         continue;
                                 }
 
-                                fputs(t, f);
+                                fputs(z, f);
                                 fputs(" -- ", f);
                                 fputs(j->type == DNS_CACHE_NODATA ? "NODATA" : "NXDOMAIN", f);
                                 fputc('\n', f);
@@ -969,4 +987,11 @@ bool dns_cache_is_empty(DnsCache *cache) {
                 return true;
 
         return hashmap_isempty(cache->by_key);
+}
+
+unsigned dns_cache_size(DnsCache *cache) {
+        if (!cache)
+                return 0;
+
+        return hashmap_size(cache->by_key);
 }

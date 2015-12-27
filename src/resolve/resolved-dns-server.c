@@ -68,8 +68,8 @@ int dns_server_new(
 
         s->n_ref = 1;
         s->manager = m;
-        s->verified_features = _DNS_SERVER_FEATURE_LEVEL_INVALID;
-        s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+        s->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
         s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
         s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
         s->type = type;
@@ -224,23 +224,25 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
         }
 }
 
-void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt, size_t size) {
+void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel level, usec_t rtt, size_t size) {
         assert(s);
 
-        if (features == DNS_SERVER_FEATURE_LEVEL_LARGE) {
-                /* even if we successfully receive a reply to a request announcing
-                   support for large packets, that does not mean we can necessarily
-                   receive large packets. */
-                if (s->verified_features < DNS_SERVER_FEATURE_LEVEL_LARGE - 1) {
-                        s->verified_features = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
+        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE) {
+                /* Even if we successfully receive a reply to a
+                   request announcing support for large packets, that
+                   does not mean we can necessarily receive large
+                   packets. */
+
+                if (s->verified_feature_level < DNS_SERVER_FEATURE_LEVEL_LARGE - 1) {
+                        s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
                         assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
                 }
-        } else if (s->verified_features < features) {
-                s->verified_features = features;
+        } else if (s->verified_feature_level < level) {
+                s->verified_feature_level = level;
                 assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
         }
 
-        if (s->possible_features == features)
+        if (s->possible_feature_level == level)
                 s->n_failed_attempts = 0;
 
         /* Remember the size of the largest UDP packet we received from a server,
@@ -255,11 +257,11 @@ void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, us
         }
 }
 
-void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec) {
+void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel level, usec_t usec) {
         assert(s);
         assert(s->manager);
 
-        if (s->possible_features == features)
+        if (s->possible_feature_level == level)
                 s->n_failed_attempts ++;
 
         if (s->resend_timeout > usec)
@@ -268,14 +270,25 @@ void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t
         s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
-void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features) {
+void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
         assert(s->manager);
 
-        if (s->possible_features != features)
+        if (s->possible_feature_level != level)
                 return;
 
         s->n_failed_attempts  = (unsigned) -1;
+}
+
+void dns_server_packet_rrsig_missing(DnsServer *s) {
+        _cleanup_free_ char *ip = NULL;
+        assert(s);
+        assert(s->manager);
+
+        in_addr_to_string(s->family, &s->address, &ip);
+        log_warning("DNS server %s does not augment replies with RRSIG records, DNSSEC not available.", strna(ip));
+
+        s->rrsig_missing = true;
 }
 
 static bool dns_server_grace_period_expired(DnsServer *s) {
@@ -297,35 +310,64 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
         return true;
 }
 
-DnsServerFeatureLevel dns_server_possible_features(DnsServer *s) {
+DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
         assert(s);
 
-        if (s->possible_features != DNS_SERVER_FEATURE_LEVEL_BEST &&
+        if (s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_BEST &&
             dns_server_grace_period_expired(s)) {
                 _cleanup_free_ char *ip = NULL;
 
-                s->possible_features = DNS_SERVER_FEATURE_LEVEL_BEST;
+                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
                 s->n_failed_attempts = 0;
                 s->verified_usec = 0;
+                s->rrsig_missing = false;
 
                 in_addr_to_string(s->family, &s->address, &ip);
                 log_info("Grace period over, resuming full feature set for DNS server %s", strna(ip));
-        } else if (s->possible_features <= s->verified_features)
-                s->possible_features = s->verified_features;
+        } else if (s->possible_feature_level <= s->verified_feature_level)
+                s->possible_feature_level = s->verified_feature_level;
         else if (s->n_failed_attempts >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                 s->possible_features > DNS_SERVER_FEATURE_LEVEL_WORST) {
+                 s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_WORST) {
                 _cleanup_free_ char *ip = NULL;
 
-                s->possible_features --;
+                s->possible_feature_level --;
                 s->n_failed_attempts = 0;
                 s->verified_usec = 0;
 
                 in_addr_to_string(s->family, &s->address, &ip);
                 log_warning("Using degraded feature set (%s) for DNS server %s",
-                            dns_server_feature_level_to_string(s->possible_features), strna(ip));
+                            dns_server_feature_level_to_string(s->possible_feature_level), strna(ip));
         }
 
-        return s->possible_features;
+        return s->possible_feature_level;
+}
+
+int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level) {
+        size_t packet_size;
+        bool edns_do;
+        int r;
+
+        assert(server);
+        assert(packet);
+        assert(packet->protocol == DNS_PROTOCOL_DNS);
+
+        /* Fix the OPT field in the packet to match our current feature level. */
+
+        r = dns_packet_truncate_opt(packet);
+        if (r < 0)
+                return r;
+
+        if (level < DNS_SERVER_FEATURE_LEVEL_EDNS0)
+                return 0;
+
+        edns_do = level >= DNS_SERVER_FEATURE_LEVEL_DO;
+
+        if (level >= DNS_SERVER_FEATURE_LEVEL_LARGE)
+                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
+        else
+                packet_size = server->received_udp_packet_max;
+
+        return dns_packet_append_opt(packet, packet_size, edns_do, NULL);
 }
 
 static void dns_server_hash_func(const void *p, struct siphash *state) {

@@ -32,7 +32,14 @@ enum DnssecMode {
         /* No DNSSEC validation is done */
         DNSSEC_NO,
 
-        /* Validate locally, if the server knows DO, but if not, don't. Don't trust the AD bit */
+        /* Validate locally, if the server knows DO, but if not,
+         * don't. Don't trust the AD bit. If the server doesn't do
+         * DNSSEC properly, downgrade to non-DNSSEC operation. Of
+         * course, we then are vulnerable to a downgrade attack, but
+         * that's life and what is configured. */
+        DNSSEC_DOWNGRADE_OK,
+
+        /* Insist on DNSSEC server support, and rather fail than downgrading. */
         DNSSEC_YES,
 
         _DNSSEC_MODE_MAX,
@@ -54,6 +61,8 @@ enum DnssecResult {
         DNSSEC_UNSIGNED,
         DNSSEC_FAILED_AUXILIARY,
         DNSSEC_NSEC_MISMATCH,
+        DNSSEC_INCOMPATIBLE_SERVER,
+
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -1
 };
@@ -89,7 +98,7 @@ typedef enum DnssecNsecResult {
         DNSSEC_NSEC_OPTOUT,
 } DnssecNsecResult;
 
-int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result);
+int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated);
 
 const char* dnssec_mode_to_string(DnssecMode m) _const_;
 DnssecMode dnssec_mode_from_string(const char *s) _pure_;

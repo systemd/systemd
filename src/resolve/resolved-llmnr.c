@@ -117,7 +117,7 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 dns_scope_process_query(scope, NULL, p);
         } else
-                log_debug("Invalid LLMNR UDP packet.");
+                log_debug("Invalid LLMNR UDP packet, ignoring.");
 
         return 0;
 }

@@ -57,6 +57,9 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_RESOURCES:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
 
+        case DNS_TRANSACTION_CONNECTION_FAILURE:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_CONNECTION_FAILURE, "DNS server connection failure");
+
         case DNS_TRANSACTION_ABORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
 
@@ -1214,16 +1217,101 @@ static int bus_property_get_search_domains(
         return sd_bus_message_close_container(reply);
 }
 
+static int bus_property_get_transaction_statistics(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(reply);
+        assert(m);
+
+        return sd_bus_message_append(reply, "(tt)",
+                                     (uint64_t) hashmap_size(m->dns_transactions),
+                                     (uint64_t) m->n_transactions_total);
+}
+
+static int bus_property_get_cache_statistics(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t size = 0, hit = 0, miss = 0;
+        Manager *m = userdata;
+        DnsScope *s;
+
+        assert(reply);
+        assert(m);
+
+        LIST_FOREACH(scopes, s, m->dns_scopes) {
+                size += dns_cache_size(&s->cache);
+                hit += s->cache.n_hit;
+                miss += s->cache.n_miss;
+        }
+
+        return sd_bus_message_append(reply, "(ttt)", size, hit, miss);
+}
+
+static int bus_property_get_dnssec_statistics(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(reply);
+        assert(m);
+
+        return sd_bus_message_append(reply, "(tttt)",
+                                     (uint64_t) m->n_dnssec_secure,
+                                     (uint64_t) m->n_dnssec_insecure,
+                                     (uint64_t) m->n_dnssec_bogus,
+                                     (uint64_t) m->n_dnssec_indeterminate);
+}
+
+static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        DnsScope *s;
+
+        assert(message);
+        assert(m);
+
+        LIST_FOREACH(scopes, s, m->dns_scopes)
+                s->cache.n_hit = s->cache.n_miss = 0;
+
+        m->n_transactions_total = 0;
+        m->n_dnssec_secure = m->n_dnssec_insecure = m->n_dnssec_bogus = m->n_dnssec_indeterminate = 0;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
         SD_BUS_PROPERTY("DNSServers", "a(iiay)", bus_property_get_dns_servers, 0, 0),
         SD_BUS_PROPERTY("SearchDomains", "a(is)", bus_property_get_search_domains, 0, 0),
+        SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
+        SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
+        SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
 
         SD_BUS_METHOD("ResolveHostname", "isit", "a(iiay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveRecord", "isqqt", "a(iqqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveService", "isssit", "a(qqqsa(iiay)s)aayssst", bus_method_resolve_service, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, 0),
         SD_BUS_VTABLE_END,
 };
 

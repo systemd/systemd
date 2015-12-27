@@ -261,16 +261,13 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
 
         /* Checks whether 'soa' is a SOA record for the specified key. */
 
-        if (soa->class != DNS_CLASS_IN)
+        if (soa->class != key->class)
                 return 0;
 
         if (soa->type != DNS_TYPE_SOA)
                 return 0;
 
-        if (!dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa)))
-                return 0;
-
-        return 1;
+        return dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa));
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
@@ -451,6 +448,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 dns_resource_key_unref(rr->key);
         }
 
+        free(rr->to_string);
         free(rr);
 
         return NULL;
@@ -766,16 +764,19 @@ static char *format_txt(DnsTxtItem *first) {
         return s;
 }
 
-int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
+const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         _cleanup_free_ char *k = NULL, *t = NULL;
         char *s;
         int r;
 
         assert(rr);
 
+        if (rr->to_string)
+                return rr->to_string;
+
         r = dns_resource_key_to_string(rr->key, &k);
         if (r < 0)
-                return r;
+                return NULL;
 
         switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
@@ -787,7 +788,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->srv.port,
                              strna(rr->srv.name));
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_PTR:
@@ -796,25 +797,25 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         case DNS_TYPE_DNAME:
                 s = strjoin(k, " ", rr->ptr.name, NULL);
                 if (!s)
-                        return -ENOMEM;
+                        return NULL;
 
                 break;
 
         case DNS_TYPE_HINFO:
                 s = strjoin(k, " ", rr->hinfo.cpu, " ", rr->hinfo.os, NULL);
                 if (!s)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
                 t = format_txt(rr->txt.items);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 s = strjoin(k, " ", t, NULL);
                 if (!s)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_A: {
@@ -822,22 +823,22 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
                 r = in_addr_to_string(AF_INET, (const union in_addr_union*) &rr->a.in_addr, &x);
                 if (r < 0)
-                        return r;
+                        return NULL;
 
                 s = strjoin(k, " ", x, NULL);
                 if (!s)
-                        return -ENOMEM;
+                        return NULL;
                 break;
         }
 
         case DNS_TYPE_AAAA:
                 r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &rr->aaaa.in6_addr, &t);
                 if (r < 0)
-                        return r;
+                        return NULL;
 
                 s = strjoin(k, " ", t, NULL);
                 if (!s)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_SOA:
@@ -851,7 +852,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->soa.expire,
                              rr->soa.minimum);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_MX:
@@ -860,7 +861,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->mx.priority,
                              rr->mx.exchange);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_LOC:
@@ -873,17 +874,17 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                                     rr->loc.horiz_pre,
                                     rr->loc.vert_pre);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 s = strjoin(k, " ", t, NULL);
                 if (!s)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_DS:
                 t = hexmem(rr->ds.digest, rr->ds.digest_size);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 r = asprintf(&s, "%s %u %u %u %s",
                              k,
@@ -892,13 +893,13 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->ds.digest_type,
                              t);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_SSHFP:
                 t = hexmem(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 r = asprintf(&s, "%s %u %u %s",
                              k,
@@ -906,7 +907,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->sshfp.fptype,
                              t);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_DNSKEY: {
@@ -916,7 +917,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
                 t = base64mem(rr->dnskey.key, rr->dnskey.key_size);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 r = asprintf(&s, "%s %u %u %.*s%.*u %s",
                              k,
@@ -926,7 +927,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              alg ? 0 : 1, alg ? 0u : (unsigned) rr->dnskey.algorithm,
                              t);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
         }
 
@@ -939,15 +940,15 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
 
                 t = base64mem(rr->rrsig.signature, rr->rrsig.signature_size);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 r = format_timestamp_dns(expiration, sizeof(expiration), rr->rrsig.expiration);
                 if (r < 0)
-                        return r;
+                        return NULL;
 
                 r = format_timestamp_dns(inception, sizeof(inception), rr->rrsig.inception);
                 if (r < 0)
-                        return r;
+                        return NULL;
 
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
@@ -966,21 +967,21 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              rr->rrsig.signer,
                              t);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
         }
 
         case DNS_TYPE_NSEC:
                 t = format_types(rr->nsec.types);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 r = asprintf(&s, "%s %s %s",
                              k,
                              rr->nsec.next_domain_name,
                              t);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
 
         case DNS_TYPE_NSEC3: {
@@ -989,16 +990,16 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                 if (rr->nsec3.salt_size > 0) {
                         salt = hexmem(rr->nsec3.salt, rr->nsec3.salt_size);
                         if (!salt)
-                                return -ENOMEM;
+                                return NULL;
                 }
 
                 hash = base32hexmem(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, false);
                 if (!hash)
-                        return -ENOMEM;
+                        return NULL;
 
                 t = format_types(rr->nsec3.types);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 r = asprintf(&s, "%s %"PRIu8" %"PRIu8" %"PRIu16" %s %s %s",
                              k,
@@ -1009,7 +1010,7 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
                              hash,
                              t);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
 
                 break;
         }
@@ -1017,16 +1018,16 @@ int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret) {
         default:
                 t = hexmem(rr->generic.data, rr->generic.size);
                 if (!t)
-                        return -ENOMEM;
+                        return NULL;
 
                 r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.size, t);
                 if (r < 0)
-                        return -ENOMEM;
+                        return NULL;
                 break;
         }
 
-        *ret = s;
-        return 0;
+        rr->to_string = s;
+        return s;
 }
 
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {

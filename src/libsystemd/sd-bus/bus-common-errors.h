@@ -72,6 +72,7 @@
 #define BUS_ERROR_NO_RESOURCES "org.freedesktop.resolve1.NoResources"
 #define BUS_ERROR_CNAME_LOOP "org.freedesktop.resolve1.CNameLoop"
 #define BUS_ERROR_ABORTED "org.freedesktop.resolve1.Aborted"
+#define BUS_ERROR_CONNECTION_FAILURE "org.freedesktop.resolve1.ConnectionFailure"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
 
 #define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"

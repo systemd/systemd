@@ -303,8 +303,8 @@ int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
 }
 
 int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
-        DnsResourceRecord *rr;
-        DnsAnswerFlags rr_flags;
+        DnsResourceRecord *rr, *soa = NULL;
+        DnsAnswerFlags rr_flags, soa_flags = 0;
         int r;
 
         assert(key);
@@ -318,15 +318,29 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        if (ret)
-                                *ret = rr;
-                        if (flags)
-                                *flags = rr_flags;
-                        return 1;
+
+                        if (soa) {
+                                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(soa->key));
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
+
+                        soa = rr;
+                        soa_flags = rr_flags;
                 }
         }
 
-        return 0;
+        if (!soa)
+                return 0;
+
+        if (ret)
+                *ret = soa;
+        if (flags)
+                *flags = soa_flags;
+
+        return 1;
 }
 
 int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
@@ -337,7 +351,7 @@ int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsR
         assert(key);
 
         /* For a {C,D}NAME record we can never find a matching {C,D}NAME record */
-        if (key->type == DNS_TYPE_CNAME || key->type == DNS_TYPE_DNAME)
+        if (!dns_type_may_redirect(key->type))
                 return 0;
 
         DNS_ANSWER_FOREACH_FLAGS(rr, rr_flags, a) {
@@ -643,18 +657,18 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
 void dns_answer_dump(DnsAnswer *answer, FILE *f) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
-        int ifindex, r;
+        int ifindex;
 
         if (!f)
                 f = stdout;
 
         DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
-                _cleanup_free_ char *t = NULL;
+                const char *t;
 
                 fputc('\t', f);
 
-                r = dns_resource_record_to_string(rr, &t);
-                if (r < 0) {
+                t = dns_resource_record_to_string(rr);
+                if (!t) {
                         log_oom();
                         continue;
                 }

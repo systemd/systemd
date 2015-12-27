@@ -1039,8 +1039,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         if (state == DNS_TRANSACTION_SUCCESS)
                                 continue;
 
-                        dns_answer_unref(q->answer);
-                        q->answer = dns_answer_ref(t->answer);
+                        q->answer = dns_answer_unref(q->answer);
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
 

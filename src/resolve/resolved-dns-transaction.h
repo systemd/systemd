@@ -36,6 +36,7 @@ enum DnsTransactionState {
         DNS_TRANSACTION_ATTEMPTS_MAX_REACHED,
         DNS_TRANSACTION_INVALID_REPLY,
         DNS_TRANSACTION_RESOURCES,
+        DNS_TRANSACTION_CONNECTION_FAILURE,
         DNS_TRANSACTION_ABORTED,
         DNS_TRANSACTION_DNSSEC_FAILED,
         _DNS_TRANSACTION_STATE_MAX,
@@ -68,6 +69,8 @@ struct DnsTransaction {
 
         uint16_t id;
 
+        bool tried_stream:1;
+
         bool initial_jitter_scheduled:1;
         bool initial_jitter_elapsed:1;
 
@@ -97,17 +100,18 @@ struct DnsTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
+        /* UDP connection logic, if we need it */
         int dns_udp_fd;
         sd_event_source *dns_udp_event_source;
+
+        /* TCP connection logic, if we need it */
+        DnsStream *stream;
 
         /* The active server */
         DnsServer *server;
 
         /* The features of the DNS server at time of transaction start */
         DnsServerFeatureLevel current_features;
-
-        /* TCP connection logic, if we need it */
-        DnsStream *stream;
 
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction

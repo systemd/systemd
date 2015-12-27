@@ -76,6 +76,7 @@ struct DnsPacket {
         size_t size, allocated, rindex;
         void *_data; /* don't access directly, use DNS_PACKET_DATA()! */
         Hashmap *names; /* For name compression */
+        size_t opt_start, opt_size;
 
         /* Parsed data */
         DnsQuestion *question;
@@ -173,9 +174,10 @@ int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, bool canonica
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start);
-int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
+int dns_packet_truncate_opt(DnsPacket *p);
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start);
 int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start);

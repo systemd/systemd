@@ -154,20 +154,24 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                 return 0;
         }
 
-        assert(**label_terminal == '.' || **label_terminal == 0);
+        terminal = *label_terminal;
+        assert(*terminal == '.' || *terminal == 0);
 
-        /* skip current terminal character */
-        terminal = *label_terminal - 1;
+        /* Skip current terminal character (and accept domain names ending it ".") */
+        if (*terminal == 0)
+                terminal--;
+        if (terminal >= name && *terminal == '.')
+                terminal--;
 
-        /* point name to the last label, and terminal to the preceding terminal symbol (or make it a NULL pointer) */
+        /* Point name to the last label, and terminal to the preceding terminal symbol (or make it a NULL pointer) */
         for (;;) {
                 if (terminal < name) {
-                        /* reached the first label, so indicate that there are no more */
+                        /* Reached the first label, so indicate that there are no more */
                         terminal = NULL;
                         break;
                 }
 
-                /* find the start of the last label */
+                /* Find the start of the last label */
                 if (*terminal == '.') {
                         const char *y;
                         unsigned slashes = 0;
@@ -176,7 +180,7 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                                 slashes ++;
 
                         if (slashes % 2 == 0) {
-                                /* the '.' was not escaped */
+                                /* The '.' was not escaped */
                                 name = terminal + 1;
                                 break;
                         } else {
@@ -533,7 +537,7 @@ int dns_name_compare_func(const void *a, const void *b) {
                 if (k > 0)
                         r = k;
                 if (w > 0)
-                        r = w;
+                        q = w;
 
                 la[r] = lb[q] = 0;
                 r = strcasecmp(la, lb);
@@ -1158,4 +1162,78 @@ finish:
         }
 
         return 0;
+}
+
+int dns_name_suffix(const char *name, unsigned n_labels, const char **ret) {
+        const char* labels[DNS_N_LABELS_MAX+1];
+        unsigned n = 0;
+        const char *p;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        p = name;
+        for (;;) {
+                if (n > DNS_N_LABELS_MAX)
+                        return -EINVAL;
+
+                labels[n] = p;
+
+                r = dns_name_parent(&p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                n++;
+        }
+
+        if (n < n_labels)
+                return -EINVAL;
+
+        *ret = labels[n - n_labels];
+        return (int) (n - n_labels);
+}
+
+int dns_name_count_labels(const char *name) {
+        unsigned n = 0;
+        const char *p;
+        int r;
+
+        assert(name);
+
+        p = name;
+        for (;;) {
+                r = dns_name_parent(&p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (n >= DNS_N_LABELS_MAX)
+                        return -EINVAL;
+
+                n++;
+        }
+
+        return (int) n;
+}
+
+int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        while (n_labels > 0) {
+
+                r = dns_name_parent(&a);
+                if (r <= 0)
+                        return r;
+
+                n_labels --;
+        }
+
+        return dns_name_equal(a, b);
 }

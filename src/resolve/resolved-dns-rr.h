@@ -95,6 +95,7 @@ struct DnsTxtItem {
 struct DnsResourceRecord {
         unsigned n_ref;
         DnsResourceKey *key;
+        char *to_string;
         uint32_t ttl;
         bool unparseable:1;
         bool wire_format_canonical:1;
@@ -253,7 +254,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
-int dns_resource_record_to_string(const DnsResourceRecord *rr, char **ret);
+const char* dns_resource_record_to_string(DnsResourceRecord *rr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);

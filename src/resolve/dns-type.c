@@ -95,6 +95,25 @@ bool dns_class_is_valid_rr(uint16_t class) {
         return class != DNS_CLASS_ANY;
 }
 
+bool dns_type_may_redirect(uint16_t type) {
+        /* The following record types should never be redirected using
+         * CNAME/DNAME RRs. See
+         * <https://tools.ietf.org/html/rfc4035#section-2.5>. */
+
+        if (dns_type_is_pseudo(type))
+                return false;
+
+        return !IN_SET(type,
+                       DNS_TYPE_CNAME,
+                       DNS_TYPE_DNAME,
+                       DNS_TYPE_NSEC3,
+                       DNS_TYPE_NSEC,
+                       DNS_TYPE_RRSIG,
+                       DNS_TYPE_NXT,
+                       DNS_TYPE_SIG,
+                       DNS_TYPE_KEY);
+}
+
 const char *dns_class_to_string(uint16_t class) {
 
         switch (class) {

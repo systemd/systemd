@@ -471,15 +471,12 @@ return_empty:
 }
 
 void dns_zone_item_conflict(DnsZoneItem *i) {
-        _cleanup_free_ char *pretty = NULL;
-
         assert(i);
 
         if (!IN_SET(i->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_VERIFYING, DNS_ZONE_ITEM_ESTABLISHED))
                 return;
 
-        dns_resource_record_to_string(i->rr, &pretty);
-        log_info("Detected conflict on %s", strna(pretty));
+        log_info("Detected conflict on %s", strna(dns_resource_record_to_string(i->rr)));
 
         dns_zone_item_probe_stop(i);
 
@@ -492,8 +489,6 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
 }
 
 void dns_zone_item_notify(DnsZoneItem *i) {
-        _cleanup_free_ char *pretty = NULL;
-
         assert(i);
         assert(i->probe_transaction);
 
@@ -530,15 +525,13 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                 log_debug("Got a successful probe reply, but peer has lexicographically lower IP address and thus lost.");
         }
 
-        dns_resource_record_to_string(i->rr, &pretty);
-        log_debug("Record %s successfully probed.", strna(pretty));
+        log_debug("Record %s successfully probed.", strna(dns_resource_record_to_string(i->rr)));
 
         dns_zone_item_probe_stop(i);
         i->state = DNS_ZONE_ITEM_ESTABLISHED;
 }
 
 static int dns_zone_item_verify(DnsZoneItem *i) {
-        _cleanup_free_ char *pretty = NULL;
         int r;
 
         assert(i);
@@ -546,8 +539,7 @@ static int dns_zone_item_verify(DnsZoneItem *i) {
         if (i->state != DNS_ZONE_ITEM_ESTABLISHED)
                 return 0;
 
-        dns_resource_record_to_string(i->rr, &pretty);
-        log_debug("Verifying RR %s", strna(pretty));
+        log_debug("Verifying RR %s", strna(dns_resource_record_to_string(i->rr)));
 
         i->state = DNS_ZONE_ITEM_VERIFYING;
         r = dns_zone_item_probe_start(i);
@@ -632,7 +624,6 @@ void dns_zone_verify_all(DnsZone *zone) {
 void dns_zone_dump(DnsZone *zone, FILE *f) {
         Iterator iterator;
         DnsZoneItem *i;
-        int r;
 
         if (!zone)
                 return;
@@ -644,10 +635,10 @@ void dns_zone_dump(DnsZone *zone, FILE *f) {
                 DnsZoneItem *j;
 
                 LIST_FOREACH(by_key, j, i) {
-                        _cleanup_free_ char *t = NULL;
+                        const char *t;
 
-                        r = dns_resource_record_to_string(j->rr, &t);
-                        if (r < 0) {
+                        t = dns_resource_record_to_string(j->rr);
+                        if (!t) {
                                 log_oom();
                                 continue;
                         }
