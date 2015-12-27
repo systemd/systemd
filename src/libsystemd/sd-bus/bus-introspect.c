@@ -101,7 +101,7 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
                 fputs("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }
 
-static int introspect_write_arguments(struct introspect *i, const char *signature, const char *direction) {
+static int introspect_write_arguments(struct introspect *i, const char *signature, const char *const **names, const char *direction) {
         int r;
 
         for (;;) {
@@ -115,6 +115,11 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
                         return r;
 
                 fprintf(i->f, "   <arg type=\"%.*s\"", (int) l, signature);
+
+                if (*names) {
+                        fprintf(i->f, " name=\"%s\"", **names);
+                        ++*names;
+                }
 
                 if (direction)
                         fprintf(i->f, " direction=\"%s\"/>\n", direction);
@@ -145,13 +150,20 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
                                 fputs("  <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n", i->f);
                         break;
 
-                case _SD_BUS_VTABLE_METHOD:
+                case _SD_BUS_VTABLE_METHOD: {
+                        const char *const *names = NULL;
+
+                        if (BUS_VTABLE_VERSION(v) >= 1)
+                                names = v->x.method.names;
+
                         fprintf(i->f, "  <method name=\"%s\">\n", v->x.method.member);
-                        introspect_write_arguments(i, strempty(v->x.method.signature), "in");
-                        introspect_write_arguments(i, strempty(v->x.method.result), "out");
+
+                        introspect_write_arguments(i, strempty(v->x.method.signature), &names, "in");
+                        introspect_write_arguments(i, strempty(v->x.method.result), &names, "out");
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </method>\n", i->f);
                         break;
+                }
 
                 case _SD_BUS_VTABLE_PROPERTY:
                 case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
@@ -163,12 +175,19 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
                         fputs("  </property>\n", i->f);
                         break;
 
-                case _SD_BUS_VTABLE_SIGNAL:
+                case _SD_BUS_VTABLE_SIGNAL: {
+                        const char *const *names = NULL;
+
+                        if (BUS_VTABLE_VERSION(v) >= 1)
+                                names = v->x.signal.names;
+
                         fprintf(i->f, "  <signal name=\"%s\">\n", v->x.signal.member);
-                        introspect_write_arguments(i, strempty(v->x.signal.signature), NULL);
+                        introspect_write_arguments(i, strempty(v->x.signal.signature), &names, NULL);
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </signal>\n", i->f);
                         break;
+                }
+
                 }
 
         }
