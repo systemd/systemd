@@ -984,8 +984,6 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         suffix = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
                 DNS_ANSWER_FOREACH_FLAGS(suffix_rr, flags, answer) {
-                        _cleanup_free_ char *hashed_domain = NULL, *label = NULL;
-
                         r = nsec3_is_good(suffix_rr, flags, NULL);
                         if (r < 0)
                                 return r;
