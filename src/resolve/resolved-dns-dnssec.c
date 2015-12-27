@@ -76,16 +76,6 @@ static void initialize_libgcrypt(void) {
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
-static bool dnssec_algorithm_supported(int algorithm) {
-        return IN_SET(algorithm,
-                      DNSSEC_ALGORITHM_RSASHA1,
-                      DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
-                      DNSSEC_ALGORITHM_RSASHA256,
-                      DNSSEC_ALGORITHM_RSASHA512,
-                      DNSSEC_ALGORITHM_ECDSAP256SHA256,
-                      DNSSEC_ALGORITHM_ECDSAP384SHA384);
-}
-
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
         const uint8_t *p;
         uint32_t sum;
@@ -466,7 +456,7 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         return realtime < inception || realtime > expiration;
 }
 
-static int algorithm_to_gcrypt(uint8_t algorithm) {
+static int algorithm_to_gcrypt_md(uint8_t algorithm) {
 
         /* Translates a DNSSEC signature algorithm into a gcrypt digest identifier */
 
@@ -504,7 +494,7 @@ int dnssec_verify_rrset(
         void *hash;
         DnsResourceRecord **list, *rr;
         gcry_md_hd_t md = NULL;
-        int r, algorithm;
+        int r, md_algorithm;
         size_t k, n = 0;
 
         assert(key);
@@ -518,10 +508,13 @@ int dnssec_verify_rrset(
          * using the signature "rrsig" and the key "dnskey". It's
          * assumed the RRSIG and DNSKEY match. */
 
-        if (!dnssec_algorithm_supported(rrsig->rrsig.algorithm)) {
+        md_algorithm = algorithm_to_gcrypt_md(rrsig->rrsig.algorithm);
+        if (md_algorithm == -EOPNOTSUPP) {
                 *result = DNSSEC_UNSUPPORTED_ALGORITHM;
                 return 0;
         }
+        if (md_algorithm < 0)
+                return md_algorithm;
 
         if (a->n_rrs > VERIFY_RRS_MAX)
                 return -E2BIG;
@@ -561,14 +554,10 @@ int dnssec_verify_rrset(
         /* OK, the RRs are now in canonical order. Let's calculate the digest */
         initialize_libgcrypt();
 
-        algorithm = algorithm_to_gcrypt(rrsig->rrsig.algorithm);
-        if (algorithm < 0)
-                return algorithm;
-
-        hash_size = gcry_md_get_algo_dlen(algorithm);
+        hash_size = gcry_md_get_algo_dlen(md_algorithm);
         assert(hash_size > 0);
 
-        gcry_md_open(&md, algorithm, 0);
+        gcry_md_open(&md, md_algorithm, 0);
         if (!md)
                 return -EIO;
 
@@ -626,7 +615,7 @@ int dnssec_verify_rrset(
         case DNSSEC_ALGORITHM_RSASHA256:
         case DNSSEC_ALGORITHM_RSASHA512:
                 r = dnssec_rsa_verify(
-                                gcry_md_algo_name(algorithm),
+                                gcry_md_algo_name(md_algorithm),
                                 hash, hash_size,
                                 rrsig,
                                 dnskey);
@@ -635,7 +624,7 @@ int dnssec_verify_rrset(
         case DNSSEC_ALGORITHM_ECDSAP256SHA256:
         case DNSSEC_ALGORITHM_ECDSAP384SHA384:
                 r = dnssec_ecdsa_verify(
-                                gcry_md_algo_name(algorithm),
+                                gcry_md_algo_name(md_algorithm),
                                 rrsig->rrsig.algorithm,
                                 hash, hash_size,
                                 rrsig,
@@ -909,7 +898,7 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
         return (int) c;
 }
 
-static int digest_to_gcrypt(uint8_t algorithm) {
+static int digest_to_gcrypt_md(uint8_t algorithm) {
 
         /* Translates a DNSSEC digest algorithm into a gcrypt digest identifier */
 
@@ -933,7 +922,7 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
-        int algorithm, r;
+        int md_algorithm, r;
         void *result;
 
         assert(dnskey);
@@ -957,11 +946,11 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
 
         initialize_libgcrypt();
 
-        algorithm = digest_to_gcrypt(ds->ds.digest_type);
-        if (algorithm < 0)
-                return algorithm;
+        md_algorithm = digest_to_gcrypt_md(ds->ds.digest_type);
+        if (md_algorithm < 0)
+                return md_algorithm;
 
-        hash_size = gcry_md_get_algo_dlen(algorithm);
+        hash_size = gcry_md_get_algo_dlen(md_algorithm);
         assert(hash_size > 0);
 
         if (ds->ds.digest_size != hash_size)
@@ -971,7 +960,7 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         if (r < 0)
                 return r;
 
-        gcry_md_open(&md, algorithm, 0);
+        gcry_md_open(&md, md_algorithm, 0);
         if (!md)
                 return -EIO;
 
@@ -1047,7 +1036,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
-        algorithm = digest_to_gcrypt(nsec3->nsec3.algorithm);
+        algorithm = digest_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)
                 return algorithm;
 
