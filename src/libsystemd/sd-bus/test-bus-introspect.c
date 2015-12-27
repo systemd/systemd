@@ -30,13 +30,23 @@ static int prop_set(sd_bus *bus, const char *path, const char *interface, const 
         return -EINVAL;
 }
 
+const char *hello_names[] = {
+       "arg1",
+       "arg2",
+       "arg3array",
+       "return_value"
+};
+const char *wowza_names[] = {
+       "part1",
+       "part2",
+};
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("Hello", "ssas", "a(uu)", NULL, 0),
+        SD_BUS_METHOD_WITH_NAMES("Hello", "ssas", "a(uu)", NULL, hello_names, 0),
         SD_BUS_METHOD("DeprecatedHello", "", "", NULL, SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_METHOD("DeprecatedHelloNoReply", "", "", NULL, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_METHOD_NO_REPLY),
         SD_BUS_SIGNAL("Wowza", "sss", 0),
-        SD_BUS_SIGNAL("DeprecatedWowza", "ut", SD_BUS_VTABLE_DEPRECATED),
+        SD_BUS_SIGNAL_WITH_NAMES("DeprecatedWowza", "ut", wowza_names, SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_WRITABLE_PROPERTY("AProperty", "s", prop_get, prop_set, 0, 0),
         SD_BUS_PROPERTY("AReadOnlyDeprecatedProperty", "(ut)", prop_get, 0, SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_PROPERTY("ChangingProperty", "t", prop_get, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
