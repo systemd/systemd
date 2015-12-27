@@ -98,8 +98,13 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                                         ((unsigned) (n[1] - '0') * 10) +
                                         ((unsigned) (n[2] - '0'));
 
-                                /* Don't allow CC characters or anything that doesn't fit in 8bit */
-                                if (k < ' ' || k > 255 || k == 127)
+                                /* Don't allow anything that doesn't
+                                 * fit in 8bit. Note that we do allow
+                                 * control characters, as some servers
+                                 * (e.g. cloudflare) are happy to
+                                 * generate labels with them
+                                 * inside. */
+                                if (k > 255)
                                         return -EINVAL;
 
                                 if (d)
@@ -245,7 +250,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
                         *(q++) = *p;
                         sz -= 1;
 
-                } else if ((uint8_t) *p >= (uint8_t) ' ' && *p != 127) {
+                } else {
 
                         /* Everything else */
 
@@ -259,8 +264,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
 
                         sz -= 4;
 
-                } else
-                        return -EINVAL;
+                }
 
                 p++;
                 l--;
