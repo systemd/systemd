@@ -690,6 +690,8 @@ static int show_statistics(sd_bus *bus) {
                                 &error,
                                 &reply,
                                 "(ttt)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cache statistics: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "(ttt)",
                                 &cache_size,
@@ -718,6 +720,8 @@ static int show_statistics(sd_bus *bus) {
                                 &error,
                                 &reply,
                                 "(tttt)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get DNSSEC statistics: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "(tttt)",
                                 &n_dnssec_secure,
