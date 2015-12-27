@@ -48,14 +48,10 @@ static void dns_transaction_close_connection(DnsTransaction *t) {
         t->dns_udp_fd = safe_close(t->dns_udp_fd);
 }
 
-static void dns_transaction_stop(DnsTransaction *t) {
+static void dns_transaction_stop_timeout(DnsTransaction *t) {
         assert(t);
 
         t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
-        t->stream = dns_stream_free(t->stream);
-
-        /* Note that we do not drop the UDP socket here, as we want to
-         * reuse it to repeat the interaction. */
 }
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
@@ -67,7 +63,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 return NULL;
 
         dns_transaction_close_connection(t);
-        dns_transaction_stop(t);
+        dns_transaction_stop_timeout(t);
 
         dns_packet_unref(t->sent);
         dns_transaction_reset_answer(t);
@@ -264,7 +260,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         t->state = state;
 
         dns_transaction_close_connection(t);
-        dns_transaction_stop(t);
+        dns_transaction_stop_timeout(t);
 
         /* Notify all queries that are interested, but make sure the
          * transaction isn't freed while we are still looking at it */
@@ -725,7 +721,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 if (r > 0) {
                         /* There are DNSSEC transactions pending now. Update the state accordingly. */
                         t->state = DNS_TRANSACTION_VALIDATING;
-                        dns_transaction_stop(t);
+                        dns_transaction_close_connection(t);
+                        dns_transaction_stop_timeout(t);
                         return;
                 }
         }
@@ -869,7 +866,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
         assert(t);
 
-        dns_transaction_stop(t);
+        dns_transaction_stop_timeout(t);
 
         if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
