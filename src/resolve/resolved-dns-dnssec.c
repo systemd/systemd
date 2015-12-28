@@ -238,8 +238,8 @@ static int dnssec_rsa_verify(
 
                 exponent = (uint8_t*) dnskey->dnskey.key + 3;
                 exponent_size =
-                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[0]) << 8) |
-                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[1]);
+                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[1]) << 8) |
+                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[2]);
 
                 if (exponent_size < 256)
                         return -EINVAL;
