@@ -2415,6 +2415,10 @@ int unit_set_default_slice(Unit *u) {
         r = manager_load_unit(u->manager, slice_name, NULL, NULL, &slice);
         if (r < 0)
                 return r;
+        /* if the unit does not have default dependencies, the slice must not
+         * have them either; otherwise the unit will get stopped during
+         * shutdown as it Requires the slice. */
+        slice->default_dependencies = u->default_dependencies;
 
         return unit_set_slice(u, slice);
 }
