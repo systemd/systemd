@@ -40,7 +40,7 @@
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
  *   - per-interface DNSSEC setting
- *   - fix TTL for cache entries to match RRSIG TTL
+ *   - nxdomain on qname
  *   - retry on failed validation?
  *   - DSA support?
  *
