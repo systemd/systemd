@@ -108,7 +108,7 @@
     handler will be called once
     (<constant>SD_EVENT_ONESHOT</constant>). Note that if the event
     source is set to <constant>SD_EVENT_ON</constant> the event loop
-    will never go to sleep again, but continously call the handler,
+    will never go to sleep again, but continuously call the handler,
     possibly interleaved with other event sources.</para>
 
     <para><function>sd_event_add_post()</function> adds a new event

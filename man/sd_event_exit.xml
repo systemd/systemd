@@ -76,7 +76,7 @@
     exit. The <parameter>code</parameter> parameter may be any integer
     value and is returned as-is by
     <citerefentry><refentrytitle>sd_event_loop</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    after the last event loop iteration. It may also be be queried
+    after the last event loop iteration. It may also be queried
     using <function>sd_event_get_exit_code()</function>, see
     below. </para>
 

@@ -71,7 +71,7 @@
     <title>Description</title>
 
     <para><function>sd_event_source_set_prepare()</function> may be
-    used to set a prepartion callback for the event source object
+    used to set a preparation callback for the event source object
     specified as <parameter>source</parameter>. The callback function
     specified as <parameter>callback</parameter> will be invoked
     immediately before the event loop goes to sleep to wait for

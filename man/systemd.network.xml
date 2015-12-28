@@ -228,7 +228,7 @@
             <literal>ipv4</literal>, or <literal>ipv6</literal>.</para>
 
             <para>Note that DHCPv6 will by default be triggered by Router
-            Advertisment, if that is enabled, regardless of this parameter.
+            Advertisement, if that is enabled, regardless of this parameter.
             By enabling DHCPv6 support explicitly, the DHCPv6 client will
             be started regardless of the presence of routers on the link,
             or what flags the routers pass. See
@@ -673,7 +673,7 @@
           <term><varname>UseTimezone=</varname></term>
 
           <listitem><para>When true, the timezone received from the
-          DHCP server will be set as as timezone of the local
+          DHCP server will be set as timezone of the local
           system. Defaults to <literal>no</literal>.</para></listitem>
         </varlistentry>
 

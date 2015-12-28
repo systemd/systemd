@@ -136,7 +136,7 @@
 
       <listitem><para>Event sources may be assigned a 64bit priority
       value, that controls the order in which event sources are
-      dispatched if multiple are pending simultanously. See
+      dispatched if multiple are pending simultaneously. See
       <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
 
       <listitem><para>The event loop may automatically send watchdog

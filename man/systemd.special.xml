@@ -587,7 +587,7 @@
       <varlistentry>
         <term><filename>umount.target</filename></term>
         <listitem>
-          <para>A special target unit that umounts all mount and
+          <para>A special target unit that unmounts all mount and
           automount points on system shutdown.</para>
 
           <para>Mounts that shall be unmounted on system shutdown

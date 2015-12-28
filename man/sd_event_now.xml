@@ -67,7 +67,7 @@
 
     <para><function>sd_event_now()</function> returns the timestamp
     the most recent event loop iteration began. This timestamp is
-    taken right after after returning from the event sleep, and before
+    taken right after returning from the event sleep, and before
     dispatching any event sources. The <parameter>event</parameter>
     parameter takes the even loop object to retrieve the timestamp
     from. The <parameter>clock</parameter> parameter specifies the clock to

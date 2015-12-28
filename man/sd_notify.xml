@@ -242,7 +242,7 @@
         multiple file descriptors are submitted at once, the specified
         name will be assigned to all of them. In order to assign
         different names to submitted file descriptors, submit them in
-        seperate invocations of
+        separate invocations of
         <function>sd_pid_notify_with_fds()</function>. The name may
         consist of any ASCII character, but must not contain control
         characters or <literal>:</literal>. It may not be longer than
