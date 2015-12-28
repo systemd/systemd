@@ -525,9 +525,6 @@ int dnssec_verify_rrset(
         if (md_algorithm < 0)
                 return md_algorithm;
 
-        if (a->n_rrs > VERIFY_RRS_MAX)
-                return -E2BIG;
-
         r = dnssec_rrsig_expired(rrsig, realtime);
         if (r < 0)
                 return r;
@@ -552,6 +549,9 @@ int dnssec_verify_rrset(
                         return r;
 
                 list[n++] = rr;
+
+                if (n > VERIFY_RRS_MAX)
+                        return -E2BIG;
         }
 
         if (n <= 0)
