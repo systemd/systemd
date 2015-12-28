@@ -168,7 +168,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
 static void test_dns_label_escape(void) {
         test_dns_label_escape_one("", 0, NULL, -EINVAL);
         test_dns_label_escape_one("hallo", 5, "hallo", 5);
-        test_dns_label_escape_one("hallo", 6, NULL, -EINVAL);
+        test_dns_label_escape_one("hallo", 6, "hallo\\000", 9);
         test_dns_label_escape_one("hallo hallo.foobar,waldi", 24, "hallo\\032hallo\\.foobar\\044waldi", 31);
 }
 
@@ -190,7 +190,7 @@ static void test_dns_name_normalize(void) {
         test_dns_name_normalize_one("f", "f", 0);
         test_dns_name_normalize_one("f.waldi", "f.waldi", 0);
         test_dns_name_normalize_one("f \\032.waldi", "f\\032\\032.waldi", 0);
-        test_dns_name_normalize_one("\\000", NULL, -EINVAL);
+        test_dns_name_normalize_one("\\000", "\\000", 0);
         test_dns_name_normalize_one("..", NULL, -EINVAL);
         test_dns_name_normalize_one(".foobar", NULL, -EINVAL);
         test_dns_name_normalize_one("foobar.", "foobar", 0);
@@ -216,7 +216,7 @@ static void test_dns_name_equal(void) {
         test_dns_name_equal_one("abc.def", "CBA.def", false);
         test_dns_name_equal_one("", "xxx", false);
         test_dns_name_equal_one("ab", "a", false);
-        test_dns_name_equal_one("\\000", "xxxx", -EINVAL);
+        test_dns_name_equal_one("\\000", "\\000", true);
         test_dns_name_equal_one(".", "", true);
         test_dns_name_equal_one(".", ".", true);
         test_dns_name_equal_one("..", "..", -EINVAL);

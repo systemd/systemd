@@ -53,6 +53,8 @@ enum {
         DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
         DNSSEC_ALGORITHM_RSASHA256 = 8,  /* RFC 5702 */
         DNSSEC_ALGORITHM_RSASHA512 = 10, /* RFC 5702 */
+        DNSSEC_ALGORITHM_ECDSAP256SHA256 = 13, /* RFC 6605 */
+        DNSSEC_ALGORITHM_ECDSAP384SHA384 = 14, /* RFC 6605 */
         DNSSEC_ALGORITHM_INDIRECT = 252,
         DNSSEC_ALGORITHM_PRIVATEDNS,
         DNSSEC_ALGORITHM_PRIVATEOID,
@@ -64,6 +66,7 @@ enum {
 enum {
         DNSSEC_DIGEST_SHA1 = 1,
         DNSSEC_DIGEST_SHA256 = 2,
+        DNSSEC_DIGEST_SHA384 = 4,
         _DNSSEC_DIGEST_MAX_DEFINED
 };
 
@@ -97,6 +100,7 @@ struct DnsResourceRecord {
         DnsResourceKey *key;
         char *to_string;
         uint32_t ttl;
+        usec_t expiry; /* RRSIG signature expiry */
         bool unparseable:1;
         bool wire_format_canonical:1;
         void *wire_format;

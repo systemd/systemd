@@ -272,6 +272,42 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         return NULL;
 }
 
+static usec_t calculate_until(DnsResourceRecord *rr, usec_t timestamp, bool use_soa_minimum) {
+        uint32_t ttl;
+        usec_t u;
+
+        assert(rr);
+
+        ttl = rr->ttl;
+        if (rr->key->type == DNS_TYPE_SOA && use_soa_minimum) {
+                /* If this is a SOA RR, and it is requested, clamp to
+                 * the SOA's minimum field. This is used when we do
+                 * negative caching, to determine the TTL for the
+                 * negative caching entry.  See RFC 2308, Section
+                 * 5. */
+
+                if (ttl > rr->soa.minimum)
+                        ttl = rr->soa.minimum;
+        }
+
+        u = ttl * USEC_PER_SEC;
+        if (u > CACHE_TTL_MAX_USEC)
+                u = CACHE_TTL_MAX_USEC;
+
+        if (rr->expiry != USEC_INFINITY) {
+                usec_t left;
+
+                /* Make use of the DNSSEC RRSIG expiry info, if we
+                 * have it */
+
+                left = LESS_BY(rr->expiry, now(CLOCK_REALTIME));
+                if (u > left)
+                        u = left;
+        }
+
+        return timestamp + u;
+}
+
 static void dns_cache_item_update_positive(
                 DnsCache *c,
                 DnsCacheItem *i,
@@ -302,7 +338,7 @@ static void dns_cache_item_update_positive(
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        i->until = timestamp + MIN(rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->until = calculate_until(rr, timestamp, false);
         i->authenticated = authenticated;
         i->shared_owner = shared_owner;
 
@@ -383,7 +419,7 @@ static int dns_cache_put_positive(
         i->type = DNS_CACHE_POSITIVE;
         i->key = dns_resource_key_ref(rr->key);
         i->rr = dns_resource_record_ref(rr);
-        i->until = timestamp + MIN(i->rr->ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->until = calculate_until(rr, timestamp, false);
         i->authenticated = authenticated;
         i->shared_owner = shared_owner;
         i->owner_family = owner_family;
@@ -412,7 +448,7 @@ static int dns_cache_put_negative(
                 int rcode,
                 bool authenticated,
                 usec_t timestamp,
-                uint32_t soa_ttl,
+                DnsResourceRecord *soa,
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
@@ -422,6 +458,7 @@ static int dns_cache_put_negative(
 
         assert(c);
         assert(key);
+        assert(soa);
         assert(owner_address);
 
         /* Never cache pseudo RR keys. DNS_TYPE_ANY is particularly
@@ -432,7 +469,7 @@ static int dns_cache_put_negative(
         if (dns_type_is_pseudo(key->type))
                 return 0;
 
-        if (soa_ttl <= 0) {
+        if (soa->soa.minimum <= 0 || soa->ttl <= 0) {
                 if (log_get_max_level() >= LOG_DEBUG) {
                         r = dns_resource_key_to_string(key, &key_str);
                         if (r < 0)
@@ -458,7 +495,7 @@ static int dns_cache_put_negative(
                 return -ENOMEM;
 
         i->type = rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA : DNS_CACHE_NXDOMAIN;
-        i->until = timestamp + MIN(soa_ttl * USEC_PER_SEC, CACHE_TTL_MAX_USEC);
+        i->until = calculate_until(soa, timestamp, true);
         i->authenticated = authenticated;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
@@ -632,7 +669,7 @@ int dns_cache_put(
                         rcode,
                         authenticated,
                         timestamp,
-                        MIN(soa->soa.minimum, soa->ttl),
+                        soa,
                         owner_family, owner_address);
         if (r < 0)
                 goto fail;

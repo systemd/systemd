@@ -40,10 +40,9 @@
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
  *   - per-interface DNSSEC setting
- *   - fix TTL for cache entries to match RRSIG TTL
+ *   - nxdomain on qname
  *   - retry on failed validation?
- *   - DSA support
- *   - EC support?
+ *   - DSA support?
  *
  * */
 
@@ -75,14 +74,6 @@ static void initialize_libgcrypt(void) {
 
         gcry_control(GCRYCTL_DISABLE_SECMEM);
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-}
-
-static bool dnssec_algorithm_supported(int algorithm) {
-        return IN_SET(algorithm,
-                      DNSSEC_ALGORITHM_RSASHA1,
-                      DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
-                      DNSSEC_ALGORITHM_RSASHA256,
-                      DNSSEC_ALGORITHM_RSASHA512);
 }
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
@@ -136,7 +127,7 @@ static int rr_compare(const void *a, const void *b) {
         return 0;
 }
 
-static int dnssec_rsa_verify(
+static int dnssec_rsa_verify_raw(
                 const char *hash_algorithm,
                 const void *signature, size_t signature_size,
                 const void *data, size_t data_size,
@@ -226,6 +217,196 @@ finish:
         return r;
 }
 
+static int dnssec_rsa_verify(
+                const char *hash_algorithm,
+                const void *hash, size_t hash_size,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey) {
+
+        size_t exponent_size, modulus_size;
+        void *exponent, *modulus;
+
+        assert(hash_algorithm);
+        assert(hash);
+        assert(hash_size > 0);
+        assert(rrsig);
+        assert(dnskey);
+
+        if (*(uint8_t*) dnskey->dnskey.key == 0) {
+                /* exponent is > 255 bytes long */
+
+                exponent = (uint8_t*) dnskey->dnskey.key + 3;
+                exponent_size =
+                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[0]) << 8) |
+                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[1]);
+
+                if (exponent_size < 256)
+                        return -EINVAL;
+
+                if (3 + exponent_size >= dnskey->dnskey.key_size)
+                        return -EINVAL;
+
+                modulus = (uint8_t*) dnskey->dnskey.key + 3 + exponent_size;
+                modulus_size = dnskey->dnskey.key_size - 3 - exponent_size;
+
+        } else {
+                /* exponent is <= 255 bytes long */
+
+                exponent = (uint8_t*) dnskey->dnskey.key + 1;
+                exponent_size = (size_t) ((uint8_t*) dnskey->dnskey.key)[0];
+
+                if (exponent_size <= 0)
+                        return -EINVAL;
+
+                if (1 + exponent_size >= dnskey->dnskey.key_size)
+                        return -EINVAL;
+
+                modulus = (uint8_t*) dnskey->dnskey.key + 1 + exponent_size;
+                modulus_size = dnskey->dnskey.key_size - 1 - exponent_size;
+        }
+
+        return dnssec_rsa_verify_raw(
+                        hash_algorithm,
+                        rrsig->rrsig.signature, rrsig->rrsig.signature_size,
+                        hash, hash_size,
+                        exponent, exponent_size,
+                        modulus, modulus_size);
+}
+
+static int dnssec_ecdsa_verify_raw(
+                const char *hash_algorithm,
+                const char *curve,
+                const void *signature_r, size_t signature_r_size,
+                const void *signature_s, size_t signature_s_size,
+                const void *data, size_t data_size,
+                const void *key, size_t key_size) {
+
+        gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
+        gcry_mpi_t q = NULL, r = NULL, s = NULL;
+        gcry_error_t ge;
+        int k;
+
+        assert(hash_algorithm);
+
+        ge = gcry_mpi_scan(&r, GCRYMPI_FMT_USG, signature_r, signature_r_size, NULL);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_mpi_scan(&s, GCRYMPI_FMT_USG, signature_s, signature_s_size, NULL);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_mpi_scan(&q, GCRYMPI_FMT_USG, key, key_size, NULL);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_sexp_build(&signature_sexp,
+                             NULL,
+                             "(sig-val (ecdsa (r %m) (s %m)))",
+                             r,
+                             s);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_sexp_build(&data_sexp,
+                             NULL,
+                             "(data (flags rfc6979) (hash %s %b))",
+                             hash_algorithm,
+                             (int) data_size,
+                             data);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_sexp_build(&public_key_sexp,
+                             NULL,
+                             "(public-key (ecc (curve %s) (q %m)))",
+                             curve,
+                             q);
+        if (ge != 0) {
+                k = -EIO;
+                goto finish;
+        }
+
+        ge = gcry_pk_verify(signature_sexp, data_sexp, public_key_sexp);
+        if (gpg_err_code(ge) == GPG_ERR_BAD_SIGNATURE)
+                k = 0;
+        else if (ge != 0) {
+                log_debug("ECDSA signature check failed: %s", gpg_strerror(ge));
+                k = -EIO;
+        } else
+                k = 1;
+finish:
+        if (r)
+                gcry_mpi_release(r);
+        if (s)
+                gcry_mpi_release(s);
+        if (q)
+                gcry_mpi_release(q);
+
+        if (public_key_sexp)
+                gcry_sexp_release(public_key_sexp);
+        if (signature_sexp)
+                gcry_sexp_release(signature_sexp);
+        if (data_sexp)
+                gcry_sexp_release(data_sexp);
+
+        return k;
+}
+
+static int dnssec_ecdsa_verify(
+                const char *hash_algorithm,
+                int algorithm,
+                const void *hash, size_t hash_size,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey) {
+
+        const char *curve;
+        size_t key_size;
+        uint8_t *q;
+
+        assert(hash);
+        assert(hash_size);
+        assert(rrsig);
+        assert(dnskey);
+
+        if (algorithm == DNSSEC_ALGORITHM_ECDSAP256SHA256) {
+                key_size = 32;
+                curve = "NIST P-256";
+        } else if (algorithm == DNSSEC_ALGORITHM_ECDSAP384SHA384) {
+                key_size = 48;
+                curve = "NIST P-384";
+        } else
+                return -EOPNOTSUPP;
+
+        if (dnskey->dnskey.key_size != key_size * 2)
+                return -EINVAL;
+
+        if (rrsig->rrsig.signature_size != key_size * 2)
+                return -EINVAL;
+
+        q = alloca(key_size*2 + 1);
+        q[0] = 0x04; /* Prepend 0x04 to indicate an uncompressed key */
+        memcpy(q+1, dnskey->dnskey.key, key_size*2);
+
+        return dnssec_ecdsa_verify_raw(
+                        hash_algorithm,
+                        curve,
+                        rrsig->rrsig.signature, key_size,
+                        (uint8_t*) rrsig->rrsig.signature + key_size, key_size,
+                        hash, hash_size,
+                        q, key_size*2+1);
+}
+
 static void md_add_uint8(gcry_md_hd_t md, uint8_t v) {
         gcry_md_write(md, &v, sizeof(v));
 }
@@ -275,6 +456,31 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         return realtime < inception || realtime > expiration;
 }
 
+static int algorithm_to_gcrypt_md(uint8_t algorithm) {
+
+        /* Translates a DNSSEC signature algorithm into a gcrypt digest identifier */
+
+        switch (algorithm) {
+
+        case DNSSEC_ALGORITHM_RSASHA1:
+        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
+                return GCRY_MD_SHA1;
+
+        case DNSSEC_ALGORITHM_RSASHA256:
+        case DNSSEC_ALGORITHM_ECDSAP256SHA256:
+                return GCRY_MD_SHA256;
+
+        case DNSSEC_ALGORITHM_ECDSAP384SHA384:
+                return GCRY_MD_SHA384;
+
+        case DNSSEC_ALGORITHM_RSASHA512:
+                return GCRY_MD_SHA512;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 int dnssec_verify_rrset(
                 DnsAnswer *a,
                 DnsResourceKey *key,
@@ -284,12 +490,12 @@ int dnssec_verify_rrset(
                 DnssecResult *result) {
 
         uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
-        size_t exponent_size, modulus_size, hash_size;
-        void *exponent, *modulus, *hash;
+        size_t hash_size;
+        void *hash;
         DnsResourceRecord **list, *rr;
         gcry_md_hd_t md = NULL;
+        int r, md_algorithm;
         size_t k, n = 0;
-        int r;
 
         assert(key);
         assert(rrsig);
@@ -302,10 +508,13 @@ int dnssec_verify_rrset(
          * using the signature "rrsig" and the key "dnskey". It's
          * assumed the RRSIG and DNSKEY match. */
 
-        if (!dnssec_algorithm_supported(rrsig->rrsig.algorithm)) {
+        md_algorithm = algorithm_to_gcrypt_md(rrsig->rrsig.algorithm);
+        if (md_algorithm == -EOPNOTSUPP) {
                 *result = DNSSEC_UNSUPPORTED_ALGORITHM;
                 return 0;
         }
+        if (md_algorithm < 0)
+                return md_algorithm;
 
         if (a->n_rrs > VERIFY_RRS_MAX)
                 return -E2BIG;
@@ -342,31 +551,13 @@ int dnssec_verify_rrset(
         /* Bring the RRs into canonical order */
         qsort_safe(list, n, sizeof(DnsResourceRecord*), rr_compare);
 
+        /* OK, the RRs are now in canonical order. Let's calculate the digest */
         initialize_libgcrypt();
 
-        /* OK, the RRs are now in canonical order. Let's calculate the digest */
-        switch (rrsig->rrsig.algorithm) {
+        hash_size = gcry_md_get_algo_dlen(md_algorithm);
+        assert(hash_size > 0);
 
-        case DNSSEC_ALGORITHM_RSASHA1:
-        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
-                gcry_md_open(&md, GCRY_MD_SHA1, 0);
-                hash_size = 20;
-                break;
-
-        case DNSSEC_ALGORITHM_RSASHA256:
-                gcry_md_open(&md, GCRY_MD_SHA256, 0);
-                hash_size = 32;
-                break;
-
-        case DNSSEC_ALGORITHM_RSASHA512:
-                gcry_md_open(&md, GCRY_MD_SHA512, 0);
-                hash_size = 64;
-                break;
-
-        default:
-                assert_not_reached("Unknown digest");
-        }
-
+        gcry_md_open(&md, md_algorithm, 0);
         if (!md)
                 return -EIO;
 
@@ -417,53 +608,30 @@ int dnssec_verify_rrset(
                 goto finish;
         }
 
-        if (*(uint8_t*) dnskey->dnskey.key == 0) {
-                /* exponent is > 255 bytes long */
+        switch (rrsig->rrsig.algorithm) {
 
-                exponent = (uint8_t*) dnskey->dnskey.key + 3;
-                exponent_size =
-                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[0]) << 8) |
-                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[1]);
+        case DNSSEC_ALGORITHM_RSASHA1:
+        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
+        case DNSSEC_ALGORITHM_RSASHA256:
+        case DNSSEC_ALGORITHM_RSASHA512:
+                r = dnssec_rsa_verify(
+                                gcry_md_algo_name(md_algorithm),
+                                hash, hash_size,
+                                rrsig,
+                                dnskey);
+                break;
 
-                if (exponent_size < 256) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                if (3 + exponent_size >= dnskey->dnskey.key_size) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                modulus = (uint8_t*) dnskey->dnskey.key + 3 + exponent_size;
-                modulus_size = dnskey->dnskey.key_size - 3 - exponent_size;
-
-        } else {
-                /* exponent is <= 255 bytes long */
-
-                exponent = (uint8_t*) dnskey->dnskey.key + 1;
-                exponent_size = (size_t) ((uint8_t*) dnskey->dnskey.key)[0];
-
-                if (exponent_size <= 0) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                if (1 + exponent_size >= dnskey->dnskey.key_size) {
-                        r = -EINVAL;
-                        goto finish;
-                }
-
-                modulus = (uint8_t*) dnskey->dnskey.key + 1 + exponent_size;
-                modulus_size = dnskey->dnskey.key_size - 1 - exponent_size;
+        case DNSSEC_ALGORITHM_ECDSAP256SHA256:
+        case DNSSEC_ALGORITHM_ECDSAP384SHA384:
+                r = dnssec_ecdsa_verify(
+                                gcry_md_algo_name(md_algorithm),
+                                rrsig->rrsig.algorithm,
+                                hash, hash_size,
+                                rrsig,
+                                dnskey);
+                break;
         }
 
-        r = dnssec_rsa_verify(
-                        gcry_md_algo_name(gcry_md_get_algo(md)),
-                        rrsig->rrsig.signature, rrsig->rrsig.signature_size,
-                        hash, hash_size,
-                        exponent, exponent_size,
-                        modulus, modulus_size);
         if (r < 0)
                 goto finish;
 
@@ -533,6 +701,30 @@ int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) 
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rrsig->key), DNS_RESOURCE_KEY_NAME(key));
 }
 
+static int dnssec_fix_rrset_ttl(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord *rrsig, usec_t realtime) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(key);
+        assert(rrsig);
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                r = dns_resource_key_equal(key, rr->key);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* Pick the TTL as the minimum of the RR's TTL, the
+                 * RR's original TTL according to the RRSIG and the
+                 * RRSIG's own TTL, see RFC 4035, Section 5.3.3 */
+                rr->ttl = MIN3(rr->ttl, rrsig->rrsig.original_ttl, rrsig->ttl);
+                rr->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
+        }
+
+        return 0;
+}
+
 int dnssec_verify_rrset_search(
                 DnsAnswer *a,
                 DnsResourceKey *key,
@@ -599,7 +791,11 @@ int dnssec_verify_rrset_search(
 
                         case DNSSEC_VALIDATED:
                                 /* Yay, the RR has been validated,
-                                 * return immediately. */
+                                 * return immediately, but fix up the expiry */
+                                r = dnssec_fix_rrset_ttl(a, key, rrsig, realtime);
+                                if (r < 0)
+                                        return r;
+
                                 *result = DNSSEC_VALIDATED;
                                 return 0;
 
@@ -730,9 +926,9 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
         return (int) c;
 }
 
-static int digest_to_gcrypt(uint8_t algorithm) {
+static int digest_to_gcrypt_md(uint8_t algorithm) {
 
-        /* Translates a DNSSEC digest algorithm into a gcrypt digest iedntifier */
+        /* Translates a DNSSEC digest algorithm into a gcrypt digest identifier */
 
         switch (algorithm) {
 
@@ -741,6 +937,9 @@ static int digest_to_gcrypt(uint8_t algorithm) {
 
         case DNSSEC_DIGEST_SHA256:
                 return GCRY_MD_SHA256;
+
+        case DNSSEC_DIGEST_SHA384:
+                return GCRY_MD_SHA384;
 
         default:
                 return -EOPNOTSUPP;
@@ -751,9 +950,8 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
-        int algorithm;
+        int md_algorithm, r;
         void *result;
-        int r;
 
         assert(dnskey);
         assert(ds);
@@ -776,11 +974,11 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
 
         initialize_libgcrypt();
 
-        algorithm = digest_to_gcrypt(ds->ds.digest_type);
-        if (algorithm < 0)
-                return algorithm;
+        md_algorithm = digest_to_gcrypt_md(ds->ds.digest_type);
+        if (md_algorithm < 0)
+                return md_algorithm;
 
-        hash_size = gcry_md_get_algo_dlen(algorithm);
+        hash_size = gcry_md_get_algo_dlen(md_algorithm);
         assert(hash_size > 0);
 
         if (ds->ds.digest_size != hash_size)
@@ -790,7 +988,7 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
         if (r < 0)
                 return r;
 
-        gcry_md_open(&md, algorithm, 0);
+        gcry_md_open(&md, md_algorithm, 0);
         if (!md)
                 return -EIO;
 
@@ -866,7 +1064,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
-        algorithm = digest_to_gcrypt(nsec3->nsec3.algorithm);
+        algorithm = digest_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)
                 return algorithm;
 
