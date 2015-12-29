@@ -51,8 +51,9 @@ enum {
         DNSSEC_ALGORITHM_RSASHA1,
         DNSSEC_ALGORITHM_DSA_NSEC3_SHA1,
         DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
-        DNSSEC_ALGORITHM_RSASHA256 = 8,  /* RFC 5702 */
-        DNSSEC_ALGORITHM_RSASHA512 = 10, /* RFC 5702 */
+        DNSSEC_ALGORITHM_RSASHA256 = 8,        /* RFC 5702 */
+        DNSSEC_ALGORITHM_RSASHA512 = 10,       /* RFC 5702 */
+        DNSSEC_ALGORITHM_ECC_GOST = 12,        /* RFC 5933 */
         DNSSEC_ALGORITHM_ECDSAP256SHA256 = 13, /* RFC 6605 */
         DNSSEC_ALGORITHM_ECDSAP384SHA384 = 14, /* RFC 6605 */
         DNSSEC_ALGORITHM_INDIRECT = 252,
@@ -65,8 +66,9 @@ enum {
  * https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
 enum {
         DNSSEC_DIGEST_SHA1 = 1,
-        DNSSEC_DIGEST_SHA256 = 2,
-        DNSSEC_DIGEST_SHA384 = 4,
+        DNSSEC_DIGEST_SHA256 = 2,              /* RFC 4509 */
+        DNSSEC_DIGEST_GOST_R_34_11_94 = 3,     /* RFC 5933 */
+        DNSSEC_DIGEST_SHA384 = 4,              /* RFC 6605 */
         _DNSSEC_DIGEST_MAX_DEFINED
 };
 
