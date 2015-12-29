@@ -1580,6 +1580,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         if (r < 0)
                 goto fail;
 
+        /* RFC 2181, Section 8, suggests to
+         * treat a TTL with the MSB set as a zero TTL. */
+        if (rr->ttl & UINT32_C(0x80000000))
+                rr->ttl = 0;
+
         r = dns_packet_read_uint16(p, &rdlength, NULL);
         if (r < 0)
                 goto fail;
