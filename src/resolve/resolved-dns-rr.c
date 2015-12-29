@@ -311,6 +311,9 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
         const char *c, *t;
         char *s;
 
+        /* If we cannot convert the CLASS/TYPE into a known string,
+           use the format recommended by RFC 3597, Section 5. */
+
         c = dns_class_to_string(key->class);
         if (!c) {
                 sprintf(cbuf, "CLASS%u", key->class);
@@ -1021,6 +1024,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
+                /* Format as documented in RFC 3597, Section 5 */
                 r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.size, t);
                 if (r < 0)
                         return NULL;

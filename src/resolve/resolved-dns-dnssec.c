@@ -458,7 +458,15 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
 
 static int algorithm_to_gcrypt_md(uint8_t algorithm) {
 
-        /* Translates a DNSSEC signature algorithm into a gcrypt digest identifier */
+        /* Translates a DNSSEC signature algorithm into a gcrypt
+         * digest identifier.
+         *
+         * Note that we implement all algorithms listed as "Must
+         * implement" and "Recommended to Implement" in RFC6944. We
+         * don't implement any algorithms that are listed as
+         * "Optional" or "Must Not Implement". Specifically, we do not
+         * implement RSAMD5, DSASHA1, DH, DSA-NSEC3-SHA1, and
+         * GOST-ECC. */
 
         switch (algorithm) {
 

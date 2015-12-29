@@ -157,6 +157,7 @@ struct DnsResourceRecord {
                         char *exchange;
                 } mx;
 
+                /* https://tools.ietf.org/html/rfc1876 */
                 struct {
                         uint8_t version;
                         uint8_t size;
@@ -166,14 +167,6 @@ struct DnsResourceRecord {
                         uint32_t longitude;
                         uint32_t altitude;
                 } loc;
-
-                struct {
-                        uint16_t key_tag;
-                        uint8_t algorithm;
-                        uint8_t digest_type;
-                        void *digest;
-                        size_t digest_size;
-                } ds;
 
                 /* https://tools.ietf.org/html/rfc4255#section-3.1 */
                 struct {
@@ -211,6 +204,15 @@ struct DnsResourceRecord {
                         char *next_domain_name;
                         Bitmap *types;
                 } nsec;
+
+                /* https://tools.ietf.org/html/rfc4034#section-5.1 */
+                struct {
+                        uint16_t key_tag;
+                        uint8_t algorithm;
+                        uint8_t digest_type;
+                        void *digest;
+                        size_t digest_size;
+                } ds;
 
                 struct {
                         uint8_t algorithm;
