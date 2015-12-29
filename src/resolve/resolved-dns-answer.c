@@ -125,10 +125,13 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFl
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        /* Entry already exists, keep the entry with
-                         * the higher RR, or the one with TTL 0 */
+                        /* Don't mix contradicting TTLs (see below) */
+                        if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
+                                return -EINVAL;
 
-                        if (rr->ttl == 0 || (rr->ttl > a->items[i].rr->ttl && a->items[i].rr->ttl != 0)) {
+                        /* Entry already exists, keep the entry with
+                         * the higher RR. */
+                        if (rr->ttl > a->items[i].rr->ttl) {
                                 dns_resource_record_ref(rr);
                                 dns_resource_record_unref(a->items[i].rr);
                                 a->items[i].rr = rr;
@@ -136,6 +139,21 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFl
 
                         a->items[i].flags |= flags;
                         return 0;
+                }
+
+                r = dns_resource_key_equal(a->items[i].rr->key, rr->key);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* There's already an RR of the same RRset in
+                         * place! Let's see if the TTLs more or less
+                         * match. We don't really care if they match
+                         * precisely, but we do care whether one is 0
+                         * and the other is not. See RFC 2181, Section
+                         * 5.2.*/
+
+                        if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
+                                return -EINVAL;
                 }
         }
 
