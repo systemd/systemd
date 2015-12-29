@@ -119,7 +119,17 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
 #define DNS_PACKET_RA(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 7) & 1)
 #define DNS_PACKET_AD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 5) & 1)
 #define DNS_PACKET_CD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 4) & 1)
-#define DNS_PACKET_RCODE(p) (be16toh(DNS_PACKET_HEADER(p)->flags) & 15)
+
+static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
+        uint16_t rcode;
+
+        if (p->opt)
+                rcode = (uint16_t) (p->opt->ttl >> 24);
+        else
+                rcode = 0;
+
+        return rcode | (be16toh(DNS_PACKET_HEADER(p)->flags) & 15);
+}
 
 /* LLMNR defines some bits differently */
 #define DNS_PACKET_LLMNR_C(p) DNS_PACKET_AA(p)
@@ -203,6 +213,7 @@ static inline bool DNS_PACKET_SHALL_CACHE(DnsPacket *p) {
         return in_addr_is_localhost(p->family, &p->sender) == 0;
 }
 
+/* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
 enum {
         DNS_RCODE_SUCCESS = 0,
         DNS_RCODE_FORMERR = 1,
