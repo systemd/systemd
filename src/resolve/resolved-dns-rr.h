@@ -72,6 +72,13 @@ enum {
         _DNSSEC_DIGEST_MAX_DEFINED
 };
 
+/* DNSSEC NSEC3 hash algorithms, see
+ * https://www.iana.org/assignments/dnssec-nsec3-parameters/dnssec-nsec3-parameters.xhtml */
+enum {
+        NSEC3_ALGORITHM_SHA1 = 1,
+        _NSEC3_ALGORITHM_MAX_DEFINED
+};
+
 struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
