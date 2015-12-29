@@ -2041,7 +2041,7 @@ static const struct {
         { "start-limit", "start of the service was attempted too often" }
 };
 
-static void log_job_error_with_service_result(const char* service, const char *result) {
+static void log_job_error_with_service_result(const char* service, const char *result, bool is_system) {
         _cleanup_free_ char *service_shell_quoted = NULL;
 
         assert(service);
@@ -2056,23 +2056,27 @@ static void log_job_error_with_service_result(const char* service, const char *r
                                 break;
 
                 if (i < ELEMENTSOF(explanations)) {
-                        log_error("Job for %s failed because %s. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+                        log_error("Job for %s failed because %s. See \"%s %s\" and \"journalctl -xe\" for details.\n",
                                   service,
                                   explanations[i].explanation,
+                                  is_system ? "systemctl status" : "systemctl --user status",
                                   strna(service_shell_quoted));
 
                         goto finish;
                 }
         }
 
-        log_error("Job for %s failed. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+        log_error("Job for %s failed. See \"%s %s\" and \"journalctl -xe\" for details.\n",
                   service,
+                  is_system ? "systemctl status" : "systemctl --user status",
                   strna(service_shell_quoted));
 
 finish:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
-                log_info("To force a start use \"systemctl reset-failed %1$s\" followed by \"systemctl start %1$s\" again.",
+                log_info("To force a start use \"%1$s %3$s\" followed by \"%2$s %3$s\" again.",
+                         is_system ? "systemctl reset-failed" : "systemctl --user reset-failed",
+                         is_system ? "systemctl start" : "systemctl --user start",
                          strna(service_shell_quoted));
 }
 
@@ -2103,7 +2107,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
                                 if (q < 0)
                                         log_debug_errno(q, "Failed to get Result property of service %s: %m", d->name);
 
-                                log_job_error_with_service_result(d->name, result);
+                                log_job_error_with_service_result(d->name, result, d->bus->is_system);
                         } else
                                 log_error("Job failed. See \"journalctl -xe\" for details.");
                 }
