@@ -976,6 +976,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                 return;
 
         if (q->answer) {
+                bool has_root_domain = false;
                 DnsResourceRecord *rr;
                 int ifindex;
 
@@ -989,6 +990,11 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                         if (rr->key->type != DNS_TYPE_SRV)
                                 continue;
 
+                        if (dns_name_is_root(rr->srv.name)) {
+                                has_root_domain = true;
+                                continue;
+                        }
+
                         if ((q->flags & SD_RESOLVED_NO_ADDRESS) == 0) {
                                 q->block_all_complete ++;
                                 r = resolve_service_hostname(q, rr, ifindex);
@@ -1000,6 +1006,18 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
 
                         found++;
                 }
+
+                if (has_root_domain && found == 0) {
+                        /* If there's exactly one SRV RR and it uses
+                         * the root domain as host name, then the
+                         * service is explicitly not offered on the
+                         * domain. Report this as a recognizable
+                         * error. See RFC 2782, Section "Usage
+                         * Rules". */
+                        r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_SERVICE, "'%s' does not provide the requested service", dns_question_first_name(q->question));
+                        goto finish;
+                }
+
         }
 
         if (found <= 0) {
