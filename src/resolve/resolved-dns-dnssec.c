@@ -42,7 +42,8 @@
  *   - per-interface DNSSEC setting
  *   - nxdomain on qname
  *   - retry on failed validation?
- *   - DSA support?
+ *   - DNSSEC key revocation support? https://tools.ietf.org/html/rfc5011
+ *   - when doing negative caching, use NSEC/NSEC3 RR instead of SOA for TTL
  *
  * */
 
