@@ -2794,7 +2794,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         if (!arg_no_block) {
                 int q;
 
-                q = bus_wait_for_jobs(w, arg_quiet);
+                q = bus_wait_for_jobs(w, arg_quiet, arg_scope != UNIT_FILE_SYSTEM ? "--user" : NULL);
                 if (q < 0)
                         return q;
 
