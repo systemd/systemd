@@ -51,5 +51,13 @@ journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
+# Don't lose streams on restart
+systemctl start forever-print-hola
+sleep 3
+systemctl restart systemd-journald
+sleep 3
+systemctl stop forever-print-hola
+[[ ! -f "/i-lose-my-logs" ]]
+
 touch /testok
 exit 0
