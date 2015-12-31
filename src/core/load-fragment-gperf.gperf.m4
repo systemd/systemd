@@ -48,6 +48,7 @@ $1.SyslogLevelPrefix,            config_parse_bool,                  0,         
 $1.Capabilities,                 config_parse_exec_capabilities,     0,                             offsetof($1, exec_context)
 $1.SecureBits,                   config_parse_exec_secure_bits,      0,                             offsetof($1, exec_context)
 $1.CapabilityBoundingSet,        config_parse_capability_set,        0,                             offsetof($1, exec_context.capability_bounding_set)
+$1.AmbientCapabilities,          config_parse_capability_set,        0,                             offsetof($1, exec_context.capability_ambient_set)
 $1.TimerSlackNSec,               config_parse_nsec,                  0,                             offsetof($1, exec_context.timer_slack_nsec)
 $1.NoNewPrivileges,              config_parse_no_new_privileges,     0,                             offsetof($1, exec_context)
 m4_ifdef(`HAVE_SECCOMP',

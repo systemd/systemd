@@ -96,6 +96,61 @@ unsigned long cap_last_cap(void) {
         return p;
 }
 
+int capability_update_inherited_set(cap_t caps, uint64_t set) {
+        unsigned long i;
+
+        /* Add capabilities in the set to the inherited caps. Do not apply
+         * them yet. */
+
+        for (i = 0; i < cap_last_cap(); i++) {
+
+                if (set & (UINT64_C(1) << i)) {
+                        cap_value_t v;
+
+                        v = (cap_value_t) i;
+
+                        /* Make the capability inheritable. */
+                        if (cap_set_flag(caps, CAP_INHERITABLE, 1, &v, CAP_SET) < 0)
+                                return -errno;
+                }
+        }
+
+        return 0;
+}
+
+int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
+        unsigned long i;
+        _cleanup_cap_free_ cap_t caps = NULL;
+
+        /* Add the capabilities to the ambient set. */
+
+        if (also_inherit) {
+                int r;
+                caps = cap_get_proc();
+                if (!caps)
+                        return -errno;
+
+                r = capability_update_inherited_set(caps, set);
+                if (r < 0)
+                        return -errno;
+
+                if (cap_set_proc(caps) < 0)
+                        return -errno;
+        }
+
+        for (i = 0; i < cap_last_cap(); i++) {
+
+                if (set & (UINT64_C(1) << i)) {
+
+                        /* Add the capability to the ambient set. */
+                        if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0) < 0)
+                                return -errno;
+                }
+        }
+
+        return 0;
+}
+
 int capability_bounding_set_drop(uint64_t keep, bool right_now) {
         _cleanup_cap_free_ cap_t after_cap = NULL;
         cap_flag_value_t fv;

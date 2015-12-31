@@ -36,6 +36,9 @@ int have_effective_cap(int value);
 int capability_bounding_set_drop(uint64_t keep, bool right_now);
 int capability_bounding_set_drop_usermode(uint64_t keep);
 
+int capability_ambient_set_apply(uint64_t set, bool also_inherit);
+int capability_update_inherited_set(cap_t caps, uint64_t ambient_set);
+
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities);
 
 int drop_capability(cap_value_t cv);

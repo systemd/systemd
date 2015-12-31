@@ -1054,6 +1054,7 @@ int config_parse_capability_set(
 
         if (strcmp(lvalue, "CapabilityBoundingSet") == 0)
                 initial = CAP_ALL; /* initialized to all bits on */
+        /* else "AmbientCapabilities" initialized to all bits off */
 
         p = rvalue;
         for (;;) {
@@ -1072,7 +1073,7 @@ int config_parse_capability_set(
 
                 cap = capability_from_name(word);
                 if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding set, ignoring: %s", word);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding/ambient set, ignoring: %s", word);
                         continue;
                 }
 
