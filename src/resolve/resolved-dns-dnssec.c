@@ -238,8 +238,8 @@ static int dnssec_rsa_verify(
 
                 exponent = (uint8_t*) dnskey->dnskey.key + 3;
                 exponent_size =
-                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[0]) << 8) |
-                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[1]);
+                        ((size_t) (((uint8_t*) dnskey->dnskey.key)[1]) << 8) |
+                        ((size_t) ((uint8_t*) dnskey->dnskey.key)[2]);
 
                 if (exponent_size < 256)
                         return -EINVAL;
@@ -525,9 +525,6 @@ int dnssec_verify_rrset(
         if (md_algorithm < 0)
                 return md_algorithm;
 
-        if (a->n_rrs > VERIFY_RRS_MAX)
-                return -E2BIG;
-
         r = dnssec_rrsig_expired(rrsig, realtime);
         if (r < 0)
                 return r;
@@ -552,6 +549,9 @@ int dnssec_verify_rrset(
                         return r;
 
                 list[n++] = rr;
+
+                if (n > VERIFY_RRS_MAX)
+                        return -E2BIG;
         }
 
         if (n <= 0)
@@ -1192,21 +1192,26 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
         return dns_name_equal(a, b);
 }
 
+/* See RFC 5155, Section 8 */
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
-        _cleanup_free_ char *next_closer_domain = NULL, *l = NULL;
+        _cleanup_free_ char *next_closer_domain = NULL, *l = NULL, *wildcard = NULL, *wl = NULL, *wildcard_domain;
         uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
-        const char *suffix, *p, *pp = NULL;
-        DnsResourceRecord *rr, *suffix_rr;
+        const char *zone, *p, *pp = NULL;
+        DnsResourceRecord *rr, *enclosure_rr, *suffix_rr;
         DnsAnswerFlags flags;
         int hashed_size, r;
-        bool a;
+        bool a, no_closer, no_wildcard, optout = false;
 
         assert(key);
         assert(result);
         assert(authenticated);
 
-        /* First step, look for the longest common suffix we find with any NSEC3 RR in the response. */
-        suffix = DNS_RESOURCE_KEY_NAME(key);
+        /* First step, find the zone name and the NSEC3 parameters of the zone.
+         * it is sufficient to look for the longest common suffix we find with
+         * any NSEC3 RR in the response. Any NSEC3 record will do as all NSEC3
+         * records from a given zone in a response must use the same
+         * parameters. */
+        zone = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
                 DNS_ANSWER_FOREACH_FLAGS(suffix_rr, flags, answer) {
                         r = nsec3_is_good(suffix_rr, flags, NULL);
@@ -1215,15 +1220,15 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
                         if (r == 0)
                                 continue;
 
-                        r = dns_name_equal_skip(DNS_RESOURCE_KEY_NAME(suffix_rr->key), 1, suffix);
+                        r = dns_name_equal_skip(DNS_RESOURCE_KEY_NAME(suffix_rr->key), 1, zone);
                         if (r < 0)
                                 return r;
                         if (r > 0)
-                                goto found_suffix;
+                                goto found_zone;
                 }
 
                 /* Strip one label from the front */
-                r = dns_name_parent(&suffix);
+                r = dns_name_parent(&zone);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1233,7 +1238,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         *result = DNSSEC_NSEC_NO_RR;
         return 0;
 
-found_suffix:
+found_zone:
         /* Second step, find the closest encloser NSEC3 RR in 'answer' that matches 'key' */
         p = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
@@ -1251,22 +1256,22 @@ found_suffix:
                 if (!label)
                         return -ENOMEM;
 
-                hashed_domain = strjoin(label, ".", suffix, NULL);
+                hashed_domain = strjoin(label, ".", zone, NULL);
                 if (!hashed_domain)
                         return -ENOMEM;
 
-                DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                DNS_ANSWER_FOREACH_FLAGS(enclosure_rr, flags, answer) {
 
-                        r = nsec3_is_good(rr, flags, suffix_rr);
+                        r = nsec3_is_good(enclosure_rr, flags, suffix_rr);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
 
-                        if (rr->nsec3.next_hashed_name_size != (size_t) hashed_size)
+                        if (enclosure_rr->nsec3.next_hashed_name_size != (size_t) hashed_size)
                                 continue;
 
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), hashed_domain);
+                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(enclosure_rr->key), hashed_domain);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -1296,25 +1301,52 @@ found_closest_encloser:
         /* We found a closest encloser in 'p'; next closer is 'pp' */
 
         /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
-        if (bitmap_isset(rr->nsec3.types, DNS_TYPE_DNAME))
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_DNAME))
                 return -EBADMSG;
 
         /* Ensure that this data is from the delegated domain
          * (i.e. originates from the "lower" DNS server), and isn't
          * just glue records (i.e. doesn't originate from the "upper"
          * DNS server). */
-        if (bitmap_isset(rr->nsec3.types, DNS_TYPE_NS) &&
-            !bitmap_isset(rr->nsec3.types, DNS_TYPE_SOA))
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
+            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
                 return -EBADMSG;
 
         if (!pp) {
                 /* No next closer NSEC3 RR. That means there's a direct NSEC3 RR for our key. */
-                *result = bitmap_isset(rr->nsec3.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
+                if (bitmap_isset(enclosure_rr->nsec3.types, key->type))
+                        *result = DNSSEC_NSEC_FOUND;
+                else if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_CNAME))
+                        *result = DNSSEC_NSEC_NO_RR;
+                else
+                        *result = DNSSEC_NSEC_NODATA;
+
                 *authenticated = a;
+
                 return 0;
         }
 
-        r = dnssec_nsec3_hash(rr, pp, hashed);
+        /* Prove that there is no next closer and no wildcard domain, in order to conclude NXDOMAIN */
+
+        wildcard = strappend("*.", p);
+        if (!wildcard)
+                return -ENOMEM;
+
+        r = dnssec_nsec3_hash(enclosure_rr, wildcard, hashed);
+        if (r < 0)
+                return r;
+        if (r != hashed_size)
+                return -EBADMSG;
+
+        wl = base32hexmem(hashed, hashed_size, false);
+        if (!wl)
+                return -ENOMEM;
+
+        wildcard_domain = strjoin(wl, ".", zone, NULL);
+        if (!wildcard_domain)
+                return -ENOMEM;
+
+        r = dnssec_nsec3_hash(enclosure_rr, pp, hashed);
         if (r < 0)
                 return r;
         if (r != hashed_size)
@@ -1324,7 +1356,7 @@ found_closest_encloser:
         if (!l)
                 return -ENOMEM;
 
-        next_closer_domain = strjoin(l, ".", p, NULL);
+        next_closer_domain = strjoin(l, ".", zone, NULL);
         if (!next_closer_domain)
                 return -ENOMEM;
 
@@ -1341,7 +1373,7 @@ found_closest_encloser:
                 if (!label)
                         return -ENOMEM;
 
-                next_hashed_domain = strjoin(label, ".", p, NULL);
+                next_hashed_domain = strjoin(label, ".", zone, NULL);
                 if (!next_hashed_domain)
                         return -ENOMEM;
 
@@ -1350,16 +1382,43 @@ found_closest_encloser:
                         return r;
                 if (r > 0) {
                         if (rr->nsec3.flags & 1)
-                                *result = DNSSEC_NSEC_OPTOUT;
-                        else
-                                *result = DNSSEC_NSEC_NXDOMAIN;
+                                optout = true;
 
-                        *authenticated = a && (flags & DNS_ANSWER_AUTHENTICATED);
-                        return 1;
+                        a = a && (flags & DNS_ANSWER_AUTHENTICATED);
+
+                        no_closer = true;
+                }
+
+                r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), wildcard_domain, next_hashed_domain);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        if (rr->nsec3.flags & 1)
+                                /* This only makes sense if we have a wildcard delegation, which is
+                                 * very unlikely, see RFC 4592, Section 4.2, but we cannot rely on
+                                 * this not happening, so hence cannot simply conclude NXDOMAIN as
+                                 * we would wish */
+                                optout = true;
+
+                        a = a && (flags & DNS_ANSWER_AUTHENTICATED);
+
+                        no_wildcard = true;
                 }
         }
 
-        *result = DNSSEC_NSEC_NO_RR;
+        if (no_closer && no_wildcard) {
+                if (optout)
+                        /* The RFC only specifies that we have to care for optout for NODATA for
+                         * DS records. However, children of an insecure opt-out delegation should
+                         * also be considered opt-out, rather than verified NXDOMAIN. */
+                        *result = DNSSEC_NSEC_OPTOUT;
+                else
+                        *result = DNSSEC_NSEC_NXDOMAIN;
+
+                *authenticated = a;
+        } else
+                *result = DNSSEC_NSEC_NO_RR;
+
         return 0;
 }
 
