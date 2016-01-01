@@ -1314,8 +1314,15 @@ found_closest_encloser:
 
         if (!pp) {
                 /* No next closer NSEC3 RR. That means there's a direct NSEC3 RR for our key. */
-                *result = bitmap_isset(enclosure_rr->nsec3.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
+                if (bitmap_isset(enclosure_rr->nsec3.types, key->type))
+                        *result = DNSSEC_NSEC_FOUND;
+                else if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_CNAME))
+                        *result = DNSSEC_NSEC_CNAME;
+                else
+                        *result = DNSSEC_NSEC_NODATA;
+
                 *authenticated = a;
+
                 return 0;
         }
 
@@ -1393,7 +1400,12 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                         if (r < 0)
                                 return r;
                         if (r > 0) {
-                                *result = bitmap_isset(rr->nsec.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
+                                if (bitmap_isset(rr->nsec.types, key->type))
+                                        *result = DNSSEC_NSEC_FOUND;
+                                else if (bitmap_isset(rr->nsec.types, DNS_TYPE_CNAME))
+                                        *result = DNSSEC_NSEC_CNAME;
+                                else
+                                        *result = DNSSEC_NSEC_NODATA;
                                 *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
                                 return 0;
                         }

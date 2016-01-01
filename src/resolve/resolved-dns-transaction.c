@@ -2300,6 +2300,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         break;
 
                 case DNSSEC_NSEC_FOUND:
+                case DNSSEC_NSEC_CNAME:
                         /* NSEC says it needs to be there, but we couldn't find it? Bummer! */
                         t->answer_dnssec_result = DNSSEC_NSEC_MISMATCH;
                         break;
