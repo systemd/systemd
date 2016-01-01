@@ -1195,8 +1195,8 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
         _cleanup_free_ char *next_closer_domain = NULL, *l = NULL;
         uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
-        const char *suffix, *p, *pp = NULL;
-        DnsResourceRecord *rr, *suffix_rr;
+        const char *zone, *p, *pp = NULL;
+        DnsResourceRecord *rr, *enclosure_rr, *suffix_rr;
         DnsAnswerFlags flags;
         int hashed_size, r;
         bool a;
@@ -1205,8 +1205,12 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         assert(result);
         assert(authenticated);
 
-        /* First step, look for the longest common suffix we find with any NSEC3 RR in the response. */
-        suffix = DNS_RESOURCE_KEY_NAME(key);
+        /* First step, find the zone name and the NSEC3 parameters of the zone.
+         * it is sufficient to look for the longest common suffix we find with
+         * any NSEC3 RR in the response. Any NSEC3 record will do as all NSEC3
+         * records from a given zone in a response must use the same
+         * parameters. */
+        zone = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
                 DNS_ANSWER_FOREACH_FLAGS(suffix_rr, flags, answer) {
                         r = nsec3_is_good(suffix_rr, flags, NULL);
@@ -1215,15 +1219,15 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
                         if (r == 0)
                                 continue;
 
-                        r = dns_name_equal_skip(DNS_RESOURCE_KEY_NAME(suffix_rr->key), 1, suffix);
+                        r = dns_name_equal_skip(DNS_RESOURCE_KEY_NAME(suffix_rr->key), 1, zone);
                         if (r < 0)
                                 return r;
                         if (r > 0)
-                                goto found_suffix;
+                                goto found_zone;
                 }
 
                 /* Strip one label from the front */
-                r = dns_name_parent(&suffix);
+                r = dns_name_parent(&zone);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1233,7 +1237,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         *result = DNSSEC_NSEC_NO_RR;
         return 0;
 
-found_suffix:
+found_zone:
         /* Second step, find the closest encloser NSEC3 RR in 'answer' that matches 'key' */
         p = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
@@ -1251,22 +1255,22 @@ found_suffix:
                 if (!label)
                         return -ENOMEM;
 
-                hashed_domain = strjoin(label, ".", suffix, NULL);
+                hashed_domain = strjoin(label, ".", zone, NULL);
                 if (!hashed_domain)
                         return -ENOMEM;
 
-                DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                DNS_ANSWER_FOREACH_FLAGS(enclosure_rr, flags, answer) {
 
-                        r = nsec3_is_good(rr, flags, suffix_rr);
+                        r = nsec3_is_good(enclosure_rr, flags, suffix_rr);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
 
-                        if (rr->nsec3.next_hashed_name_size != (size_t) hashed_size)
+                        if (enclosure_rr->nsec3.next_hashed_name_size != (size_t) hashed_size)
                                 continue;
 
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), hashed_domain);
+                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(enclosure_rr->key), hashed_domain);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -1296,25 +1300,25 @@ found_closest_encloser:
         /* We found a closest encloser in 'p'; next closer is 'pp' */
 
         /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
-        if (bitmap_isset(rr->nsec3.types, DNS_TYPE_DNAME))
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_DNAME))
                 return -EBADMSG;
 
         /* Ensure that this data is from the delegated domain
          * (i.e. originates from the "lower" DNS server), and isn't
          * just glue records (i.e. doesn't originate from the "upper"
          * DNS server). */
-        if (bitmap_isset(rr->nsec3.types, DNS_TYPE_NS) &&
-            !bitmap_isset(rr->nsec3.types, DNS_TYPE_SOA))
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
+            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
                 return -EBADMSG;
 
         if (!pp) {
                 /* No next closer NSEC3 RR. That means there's a direct NSEC3 RR for our key. */
-                *result = bitmap_isset(rr->nsec3.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
+                *result = bitmap_isset(enclosure_rr->nsec3.types, key->type) ? DNSSEC_NSEC_FOUND : DNSSEC_NSEC_NODATA;
                 *authenticated = a;
                 return 0;
         }
 
-        r = dnssec_nsec3_hash(rr, pp, hashed);
+        r = dnssec_nsec3_hash(enclosure_rr, pp, hashed);
         if (r < 0)
                 return r;
         if (r != hashed_size)
