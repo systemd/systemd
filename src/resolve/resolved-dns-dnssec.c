@@ -1220,14 +1220,23 @@ static int nsec3_hashed_domain(const DnsResourceRecord *nsec3, const char *domai
         return hashed_size;
 }
 
-/* See RFC 5155, Section 8 */
+/* See RFC 5155, Section 8
+ * First try to find a NSEC3 record that matches our query precisely, if that fails, find the closest
+ * enclosure. Secondly, find a proof that there is no closer enclosure and either a proof that there
+ * is no wildcard domain as a direct descendant of the closest enclosure, or find an NSEC3 record that
+ * matches the wildcard domain.
+ *
+ * Based on this we can prove either the existence of the record in @key, or NXDOMAIN or NODATA, or
+ * that there is no proof either way. The latter is the case if a the proof of non-existence of a given
+ * name uses an NSEC3 record with the opt-out bit set. Lastly, if we are given insufficient NSEC3 records
+ * to conclude anything we indicate this by returning NO_RR. */
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
-        _cleanup_free_ char *next_closer_domain = NULL;
+        _cleanup_free_ char *next_closer_domain = NULL, *wildcard = NULL, *wildcard_domain = NULL;
         const char *zone, *p, *pp = NULL;
-        DnsResourceRecord *rr, *enclosure_rr, *suffix_rr;
+        DnsResourceRecord *rr, *enclosure_rr, *suffix_rr, *wildcard_rr = NULL;
         DnsAnswerFlags flags;
         int hashed_size, r;
-        bool a;
+        bool a, no_closer = false, no_wildcard = false, optout = false;
 
         assert(key);
         assert(result);
@@ -1345,6 +1354,18 @@ found_closest_encloser:
                 return 0;
         }
 
+        /* Prove that there is no next closer and whether or not there is a wildcard domain. */
+
+        wildcard = strappend("*.", p);
+        if (!wildcard)
+                return -ENOMEM;
+
+        r = nsec3_hashed_domain(enclosure_rr, wildcard, zone, &wildcard_domain);
+        if (r < 0)
+                return r;
+        if (r != hashed_size)
+                return -EBADMSG;
+
         r = nsec3_hashed_domain(enclosure_rr, pp, zone, &next_closer_domain);
         if (r < 0)
                 return r;
@@ -1373,16 +1394,82 @@ found_closest_encloser:
                         return r;
                 if (r > 0) {
                         if (rr->nsec3.flags & 1)
-                                *result = DNSSEC_NSEC_OPTOUT;
-                        else
-                                *result = DNSSEC_NSEC_NXDOMAIN;
+                                optout = true;
 
-                        *authenticated = a && (flags & DNS_ANSWER_AUTHENTICATED);
-                        return 1;
+                        a = a && (flags & DNS_ANSWER_AUTHENTICATED);
+
+                        no_closer = true;
+                }
+
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), wildcard_domain);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        a = a && (flags & DNS_ANSWER_AUTHENTICATED);
+
+                        wildcard_rr = rr;
+                }
+
+                r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), wildcard_domain, next_hashed_domain);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        if (rr->nsec3.flags & 1)
+                                /* This only makes sense if we have a wildcard delegation, which is
+                                 * very unlikely, see RFC 4592, Section 4.2, but we cannot rely on
+                                 * this not happening, so hence cannot simply conclude NXDOMAIN as
+                                 * we would wish */
+                                optout = true;
+
+                        a = a && (flags & DNS_ANSWER_AUTHENTICATED);
+
+                        no_wildcard = true;
                 }
         }
 
-        *result = DNSSEC_NSEC_NO_RR;
+        if (wildcard_rr && no_wildcard)
+                return -EBADMSG;
+
+        if (!no_closer) {
+                *result = DNSSEC_NSEC_NO_RR;
+
+                return 0;
+        }
+
+        if (wildcard_rr) {
+                /* A wildcard exists that matches our query. */
+                if (optout)
+                        /* This is not specified in any RFC to the best of my knowledge, but
+                         * if the next closer enclosure is covered by an opt-out NSEC3 RR
+                         * it means that we cannot prove that the source of synthesis is
+                         * correct, as there may be a closer match. */
+                        *result = DNSSEC_NSEC_OPTOUT;
+                else if (bitmap_isset(wildcard_rr->nsec3.types, key->type))
+                        *result = DNSSEC_NSEC_FOUND;
+                else if (bitmap_isset(wildcard_rr->nsec3.types, DNS_TYPE_CNAME))
+                        *result = DNSSEC_NSEC_CNAME;
+                else
+                        *result = DNSSEC_NSEC_NODATA;
+        } else {
+                if (optout)
+                        /* The RFC only specifies that we have to care for optout for NODATA for
+                         * DS records. However, children of an insecure opt-out delegation should
+                         * also be considered opt-out, rather than verified NXDOMAIN.
+                         * Note that we do not require a proof of wildcard non-existence if the
+                         * next closer domain is covered by an opt-out, as that would not provide
+                         * any additional information. */
+                        *result = DNSSEC_NSEC_OPTOUT;
+                else if (no_wildcard)
+                        *result = DNSSEC_NSEC_NXDOMAIN;
+                else {
+                        *result = DNSSEC_NSEC_NO_RR;
+
+                        return 0;
+                }
+        }
+
+        *authenticated = a;
+
         return 0;
 }
 
