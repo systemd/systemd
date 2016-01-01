@@ -1192,6 +1192,7 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
         return dns_name_equal(a, b);
 }
 
+/* See RFC 5155, Section 8 */
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
         _cleanup_free_ char *next_closer_domain = NULL, *l = NULL;
         uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
