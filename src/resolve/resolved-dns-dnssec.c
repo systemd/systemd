@@ -1328,7 +1328,7 @@ found_closest_encloser:
         if (!l)
                 return -ENOMEM;
 
-        next_closer_domain = strjoin(l, ".", p, NULL);
+        next_closer_domain = strjoin(l, ".", zone, NULL);
         if (!next_closer_domain)
                 return -ENOMEM;
 
@@ -1345,7 +1345,7 @@ found_closest_encloser:
                 if (!label)
                         return -ENOMEM;
 
-                next_hashed_domain = strjoin(label, ".", p, NULL);
+                next_hashed_domain = strjoin(label, ".", zone, NULL);
                 if (!next_hashed_domain)
                         return -ENOMEM;
 
