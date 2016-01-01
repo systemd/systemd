@@ -311,6 +311,9 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
         const char *c, *t;
         char *s;
 
+        /* If we cannot convert the CLASS/TYPE into a known string,
+           use the format recommended by RFC 3597, Section 5. */
+
         c = dns_class_to_string(key->class);
         if (!c) {
                 sprintf(cbuf, "CLASS%u", key->class);
@@ -1021,6 +1024,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
+                /* Format as documented in RFC 3597, Section 5 */
                 r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.size, t);
                 if (r < 0)
                         return NULL;
@@ -1109,6 +1113,7 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
 }
 
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
+        /* Mnemonics as listed on https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
         [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
         [DNSSEC_ALGORITHM_DH]                 = "DH",
         [DNSSEC_ALGORITHM_DSA]                = "DSA",
@@ -1118,6 +1123,9 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1] = "RSASHA1-NSEC3-SHA1",
         [DNSSEC_ALGORITHM_RSASHA256]          = "RSASHA256",
         [DNSSEC_ALGORITHM_RSASHA512]          = "RSASHA512",
+        [DNSSEC_ALGORITHM_ECC_GOST]           = "ECC-GOST",
+        [DNSSEC_ALGORITHM_ECDSAP256SHA256]    = "ECDSAP256SHA256",
+        [DNSSEC_ALGORITHM_ECDSAP384SHA384]    = "ECDSAP384SHA384",
         [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
         [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
@@ -1125,7 +1133,10 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
 DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);
 
 static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
-        [DNSSEC_DIGEST_SHA1] = "SHA1",
-        [DNSSEC_DIGEST_SHA256] = "SHA256",
+        /* Names as listed on https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
+        [DNSSEC_DIGEST_SHA1] = "SHA-1",
+        [DNSSEC_DIGEST_SHA256] = "SHA-256",
+        [DNSSEC_DIGEST_GOST_R_34_11_94] = "GOST_R_34.11-94",
+        [DNSSEC_DIGEST_SHA384] = "SHA-384",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_digest, int);

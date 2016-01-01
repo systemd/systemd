@@ -253,7 +253,7 @@ void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel level, usec_
 
         if (s->max_rtt < rtt) {
                 s->max_rtt = rtt;
-                s->resend_timeout = MIN(MAX(DNS_TIMEOUT_MIN_USEC, s->max_rtt * 2), DNS_TIMEOUT_MAX_USEC);
+                s->resend_timeout = CLAMP(s->max_rtt * 2, DNS_TIMEOUT_MIN_USEC, DNS_TIMEOUT_MAX_USEC);
         }
 }
 

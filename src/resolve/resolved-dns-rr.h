@@ -51,8 +51,9 @@ enum {
         DNSSEC_ALGORITHM_RSASHA1,
         DNSSEC_ALGORITHM_DSA_NSEC3_SHA1,
         DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
-        DNSSEC_ALGORITHM_RSASHA256 = 8,  /* RFC 5702 */
-        DNSSEC_ALGORITHM_RSASHA512 = 10, /* RFC 5702 */
+        DNSSEC_ALGORITHM_RSASHA256 = 8,        /* RFC 5702 */
+        DNSSEC_ALGORITHM_RSASHA512 = 10,       /* RFC 5702 */
+        DNSSEC_ALGORITHM_ECC_GOST = 12,        /* RFC 5933 */
         DNSSEC_ALGORITHM_ECDSAP256SHA256 = 13, /* RFC 6605 */
         DNSSEC_ALGORITHM_ECDSAP384SHA384 = 14, /* RFC 6605 */
         DNSSEC_ALGORITHM_INDIRECT = 252,
@@ -65,9 +66,17 @@ enum {
  * https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
 enum {
         DNSSEC_DIGEST_SHA1 = 1,
-        DNSSEC_DIGEST_SHA256 = 2,
-        DNSSEC_DIGEST_SHA384 = 4,
+        DNSSEC_DIGEST_SHA256 = 2,              /* RFC 4509 */
+        DNSSEC_DIGEST_GOST_R_34_11_94 = 3,     /* RFC 5933 */
+        DNSSEC_DIGEST_SHA384 = 4,              /* RFC 6605 */
         _DNSSEC_DIGEST_MAX_DEFINED
+};
+
+/* DNSSEC NSEC3 hash algorithms, see
+ * https://www.iana.org/assignments/dnssec-nsec3-parameters/dnssec-nsec3-parameters.xhtml */
+enum {
+        NSEC3_ALGORITHM_SHA1 = 1,
+        _NSEC3_ALGORITHM_MAX_DEFINED
 };
 
 struct DnsResourceKey {
@@ -155,6 +164,7 @@ struct DnsResourceRecord {
                         char *exchange;
                 } mx;
 
+                /* https://tools.ietf.org/html/rfc1876 */
                 struct {
                         uint8_t version;
                         uint8_t size;
@@ -164,14 +174,6 @@ struct DnsResourceRecord {
                         uint32_t longitude;
                         uint32_t altitude;
                 } loc;
-
-                struct {
-                        uint16_t key_tag;
-                        uint8_t algorithm;
-                        uint8_t digest_type;
-                        void *digest;
-                        size_t digest_size;
-                } ds;
 
                 /* https://tools.ietf.org/html/rfc4255#section-3.1 */
                 struct {
@@ -209,6 +211,15 @@ struct DnsResourceRecord {
                         char *next_domain_name;
                         Bitmap *types;
                 } nsec;
+
+                /* https://tools.ietf.org/html/rfc4034#section-5.1 */
+                struct {
+                        uint16_t key_tag;
+                        uint8_t algorithm;
+                        uint8_t digest_type;
+                        void *digest;
+                        size_t digest_size;
+                } ds;
 
                 struct {
                         uint8_t algorithm;

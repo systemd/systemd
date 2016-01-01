@@ -42,7 +42,8 @@
  *   - per-interface DNSSEC setting
  *   - nxdomain on qname
  *   - retry on failed validation?
- *   - DSA support?
+ *   - DNSSEC key revocation support? https://tools.ietf.org/html/rfc5011
+ *   - when doing negative caching, use NSEC/NSEC3 RR instead of SOA for TTL
  *
  * */
 
@@ -458,7 +459,15 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
 
 static int algorithm_to_gcrypt_md(uint8_t algorithm) {
 
-        /* Translates a DNSSEC signature algorithm into a gcrypt digest identifier */
+        /* Translates a DNSSEC signature algorithm into a gcrypt
+         * digest identifier.
+         *
+         * Note that we implement all algorithms listed as "Must
+         * implement" and "Recommended to Implement" in RFC6944. We
+         * don't implement any algorithms that are listed as
+         * "Optional" or "Must Not Implement". Specifically, we do not
+         * implement RSAMD5, DSASHA1, DH, DSA-NSEC3-SHA1, and
+         * GOST-ECC. */
 
         switch (algorithm) {
 
@@ -1048,6 +1057,20 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
         return 0;
 }
 
+static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
+
+        /* Translates a DNSSEC NSEC3 hash algorithm into a gcrypt digest identifier */
+
+        switch (algorithm) {
+
+        case NSEC3_ALGORITHM_SHA1:
+                return GCRY_MD_SHA1;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
@@ -1064,7 +1087,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
-        algorithm = digest_to_gcrypt_md(nsec3->nsec3.algorithm);
+        algorithm = nsec3_hash_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)
                 return algorithm;
 
@@ -1127,6 +1150,10 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
 
         /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
         if (!IN_SET(rr->nsec3.flags, 0, 1))
+                return 0;
+
+        /* Ignore NSEC3 RRs whose algorithm we don't know */
+        if (nsec3_hash_to_gcrypt_md(rr->nsec3.algorithm) < 0)
                 return 0;
 
         if (!nsec3)

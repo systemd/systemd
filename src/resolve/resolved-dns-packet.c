@@ -723,7 +723,40 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, si
                 goto fail;
 
         /* RDLENGTH */
-        r = dns_packet_append_uint16(p, 0, NULL);
+
+        if (edns0_do) {
+                /* If DO is on, also append RFC6975 Algorithm data */
+
+                static const uint8_t rfc6975[] = {
+
+                        0, 5, /* OPTION_CODE: DAU */
+                        0, 6, /* LIST_LENGTH */
+                        DNSSEC_ALGORITHM_RSASHA1,
+                        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
+                        DNSSEC_ALGORITHM_RSASHA256,
+                        DNSSEC_ALGORITHM_RSASHA512,
+                        DNSSEC_ALGORITHM_ECDSAP256SHA256,
+                        DNSSEC_ALGORITHM_ECDSAP384SHA384,
+
+                        0, 6, /* OPTION_CODE: DHU */
+                        0, 3, /* LIST_LENGTH */
+                        DNSSEC_DIGEST_SHA1,
+                        DNSSEC_DIGEST_SHA256,
+                        DNSSEC_DIGEST_SHA384,
+
+                        0, 7, /* OPTION_CODE: N3U */
+                        0, 1, /* LIST_LENGTH */
+                        NSEC3_ALGORITHM_SHA1,
+                };
+
+                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL);
+        } else
+                r = dns_packet_append_uint16(p, 0, NULL);
+
         if (r < 0)
                 goto fail;
 
@@ -1579,6 +1612,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         r = dns_packet_read_uint32(p, &rr->ttl, NULL);
         if (r < 0)
                 goto fail;
+
+        /* RFC 2181, Section 8, suggests to
+         * treat a TTL with the MSB set as a zero TTL. */
+        if (rr->ttl & UINT32_C(0x80000000))
+                rr->ttl = 0;
 
         r = dns_packet_read_uint16(p, &rdlength, NULL);
         if (r < 0)

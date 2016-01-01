@@ -26,7 +26,8 @@
 #include "resolved-dns-packet.h"
 #include "string-util.h"
 
-/* Never cache more than 4K entries */
+/* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
+ * leave DNS caches unbounded, but that's crazy. */
 #define CACHE_MAX 4096
 
 /* We never keep any item longer than 2h in our cache */
