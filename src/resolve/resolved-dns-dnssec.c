@@ -35,7 +35,6 @@
  *
  * TODO:
  *
- *   - Make trust anchor store read additional DS+DNSKEY data from disk
  *   - wildcard zones compatibility (NSEC/NSEC3 wildcard check is missing)
  *   - multi-label zone compatibility
  *   - cname/dname compatibility

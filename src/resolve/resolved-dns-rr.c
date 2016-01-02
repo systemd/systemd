@@ -916,20 +916,21 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
 
         case DNS_TYPE_DNSKEY: {
-                const char *alg;
+                _cleanup_free_ char *alg = NULL;
 
-                alg = dnssec_algorithm_to_string(rr->dnskey.algorithm);
+                r = dnssec_algorithm_to_string_alloc(rr->dnskey.algorithm, &alg);
+                if (r < 0)
+                        return NULL;
 
                 t = base64mem(rr->dnskey.key, rr->dnskey.key_size);
                 if (!t)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %.*s%.*u %s",
+                r = asprintf(&s, "%s %u %u %s %s",
                              k,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
-                             alg ? -1 : 0, alg,
-                             alg ? 0 : 1, alg ? 0u : (unsigned) rr->dnskey.algorithm,
+                             alg,
                              t);
                 if (r < 0)
                         return NULL;
@@ -937,11 +938,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         }
 
         case DNS_TYPE_RRSIG: {
-                const char *type, *alg;
+                _cleanup_free_ char *alg = NULL;
                 char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
+                const char *type;
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
-                alg = dnssec_algorithm_to_string(rr->rrsig.algorithm);
+
+                r = dnssec_algorithm_to_string_alloc(rr->rrsig.algorithm, &alg);
+                if (r < 0)
+                        return NULL;
 
                 t = base64mem(rr->rrsig.signature, rr->rrsig.signature_size);
                 if (!t)
@@ -958,12 +963,11 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %.*s%.*u %u %u %s %s %u %s %s",
+                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s %s",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
-                             alg ? -1 : 0, alg,
-                             alg ? 0 : 1, alg ? 0u : (unsigned) rr->rrsig.algorithm,
+                             alg,
                              rr->rrsig.labels,
                              rr->rrsig.original_ttl,
                              expiration,
@@ -1131,7 +1135,7 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
 };
-DEFINE_STRING_TABLE_LOOKUP(dnssec_algorithm, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int, 255);
 
 static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         /* Names as listed on https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
@@ -1140,4 +1144,4 @@ static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         [DNSSEC_DIGEST_GOST_R_34_11_94] = "GOST_R_34.11-94",
         [DNSSEC_DIGEST_SHA384] = "SHA-384",
 };
-DEFINE_STRING_TABLE_LOOKUP(dnssec_digest, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int, 255);

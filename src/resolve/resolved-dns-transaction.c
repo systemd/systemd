@@ -892,7 +892,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
         /* Check the trust anchor. Do so only on classic DNS, since DNSSEC does not apply otherwise. */
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
-                r = dns_trust_anchor_lookup(&t->scope->manager->trust_anchor, t->key, &t->answer);
+                r = dns_trust_anchor_lookup_positive(&t->scope->manager->trust_anchor, t->key, &t->answer);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -1270,7 +1270,7 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
                 return 0;
 
         /* Try to get the data from the trust anchor */
-        r = dns_trust_anchor_lookup(&t->scope->manager->trust_anchor, key, &a);
+        r = dns_trust_anchor_lookup_positive(&t->scope->manager->trust_anchor, key, &a);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -1323,6 +1323,14 @@ static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
          * RRs to prove it */
 
         r = dns_transaction_has_positive_answer(t, NULL);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return false;
+
+        /* Is this key explicitly listed as a negative trust anchor?
+         * If so, it's nothing we need to care about */
+        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(t->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1410,6 +1418,13 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         DNS_ANSWER_FOREACH(rr, t->answer) {
 
                 if (dns_type_is_pseudo(rr->key->type))
+                        continue;
+
+                /* If this RR is in the negative trust anchor, we don't need to validate it. */
+                r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+                if (r < 0)
+                        return r;
+                if (r > 0)
                         continue;
 
                 switch (rr->key->type) {
@@ -1756,6 +1771,12 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         if (dns_type_is_pseudo(rr->key->type))
                 return -EINVAL;
 
+        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return false;
+
         switch (rr->key->type) {
 
         case DNS_TYPE_RRSIG:
@@ -1893,6 +1914,12 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         if (dns_type_is_pseudo(t->key->type))
                 return -EINVAL;
 
+        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(t->key));
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return false;
+
         name = DNS_RESOURCE_KEY_NAME(t->key);
 
         if (IN_SET(t->key->type, DNS_TYPE_SOA, DNS_TYPE_NS, DNS_TYPE_DS)) {
@@ -1943,6 +1970,12 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
         /* Checks whether any of the DNSKEYs used for the RRSIGs for
          * the specified RRset is authenticated (i.e. has a matching
          * DS RR). */
+
+        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return false;
 
         DNS_ANSWER_FOREACH(rrsig, t->answer) {
                 DnsTransaction *dt;

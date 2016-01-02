@@ -30,10 +30,12 @@ typedef struct DnsTrustAnchor DnsTrustAnchor;
 /* This contains a fixed database mapping domain names to DS or DNSKEY records. */
 
 struct DnsTrustAnchor {
-        Hashmap *by_key;
+        Hashmap *positive_by_key;
+        Set *negative_by_name;
 };
 
 int dns_trust_anchor_load(DnsTrustAnchor *d);
 void dns_trust_anchor_flush(DnsTrustAnchor *d);
 
-int dns_trust_anchor_lookup(DnsTrustAnchor *d, DnsResourceKey* key, DnsAnswer **answer);
+int dns_trust_anchor_lookup_positive(DnsTrustAnchor *d, const DnsResourceKey* key, DnsAnswer **answer);
+int dns_trust_anchor_lookup_negative(DnsTrustAnchor *d, const char *name);
