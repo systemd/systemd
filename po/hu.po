@@ -1,14 +1,14 @@
 # Hungarian translation of systemd
-# Copyright (C) 2015. Free Software Foundation, Inc.
+# Copyright (C) 2015, 2016. Free Software Foundation, Inc.
 # This file is distributed under the same license as the systemd package.
 #
-# Gabor Kelemen <kelemeng at gnome dot hu>, 2015.
+# Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-11-22 16:37+0100\n"
-"PO-Revision-Date: 2015-01-02 22:58+0100\n"
+"POT-Creation-Date: 2016-01-02 13:41+0100\n"
+"PO-Revision-Date: 2016-01-02 13:45+0100\n"
 "Last-Translator: Gabor Kelemen <kelemeng at ubuntu dot com>\n"
 "Language-Team: Hungarian <openscope at googlegroups dot com>\n"
 "Language: hu\n"
@@ -29,15 +29,13 @@ msgstr ""
 "Hitelesítés szükséges a bevitt jelmondat visszaküldéséhez a rendszernek."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-#, fuzzy
 msgid "Manage system services or other units"
-msgstr "Rendszerszolgáltatások vagy -egységek kezelése"
+msgstr "Rendszerszolgáltatások vagy más egységek kezelése"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-#, fuzzy
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Hitelesítés szükséges a rendszerszolgáltatások vagy -egységek kezeléséhez."
+"Hitelesítés szükséges a rendszerszolgáltatások vagy más egységek kezeléséhez."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
 msgid "Manage system service or unit files"
@@ -51,14 +49,16 @@ msgstr ""
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
 msgid "Set or unset system and service manager environment variables"
 msgstr ""
+"Rendszer- és szolgáltatáskezelő környezeti változóinak beállítása vagy "
+"törlése"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-#, fuzzy
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
-"Hitelesítés szükséges a rendszerszolgáltatás- vagy egységfájlok kezeléséhez."
+"Hitelesítés szükséges a rendszer- és szolgáltatáskezelő környezeti "
+"változóinak beállításához vagy törléséhez."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
 msgid "Reload the systemd state"
@@ -98,30 +98,27 @@ msgstr "Hitelesítés szükséges a helyi gép információinak beállításáho
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:1
 msgid "Import a VM or container image"
-msgstr ""
+msgstr "VM vagy konténer lemezkép importálása"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:2
-#, fuzzy
 msgid "Authentication is required to import a VM or container image"
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr "Hitelesítés szükséges a VM vagy konténer lemezkép importálásához."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:3
 msgid "Export a VM or container image"
-msgstr ""
+msgstr "VM vagy konténer lemezkép exportálása"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:4
-#, fuzzy
 msgid "Authentication is required to export a VM or container image"
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr "Hitelesítés szükséges a VM vagy konténer lemezkép exportálásához."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:5
 msgid "Download a VM or container image"
-msgstr ""
+msgstr "VM vagy konténer lemezkép letöltése"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:6
-#, fuzzy
 msgid "Authentication is required to download a VM or container image"
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr "Hitelesítés szükséges a VM vagy konténer lemezkép letöltéséhez."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -409,123 +406,113 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Manage active sessions, users and seats"
-msgstr ""
+msgstr "Aktív munkamenetek, felhasználók és munkaállomások kezelése"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
-#, fuzzy
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
-"Hitelesítés szükséges eszköz csatolásának engedélyezéséhez egy "
-"munkaállomáshoz"
+"Hitelesítés szükséges az aktív munkamenetek, felhasználók és munkaállomások "
+"kezeléséhez."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "Aktív munkamenetek zárolása vagy feloldása"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
-#, fuzzy
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr ""
+"Hitelesítés szükséges az aktív munkamenetek zárolásához vagy feloldásához."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Allow indication to the firmware to boot to setup interface"
-msgstr ""
+msgstr "A firmware-nek jelezhető, hogy a beállítófelületet bootolja"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:54
-#, fuzzy
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
-msgstr "Hitelesítés szükséges a helyi gépnév beállításához."
+msgstr ""
+"Hitelesítés szükséges a firmware-nek jelzéshez, hogy a beállítófelületet "
+"bootolja"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Set a wall message"
-msgstr ""
+msgstr "Falüzenet beállítása"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:56
-#, fuzzy
 msgid "Authentication is required to set a wall message"
-msgstr "Hitelesítés szükséges a helyi gépnév beállításához."
+msgstr "Hitelesítés szükséges a falüzenet beállításához"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Bejelentkezés helyi konténerbe"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-#, fuzzy
 msgid "Authentication is required to log into a local container."
 msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
-#, fuzzy
 msgid "Log into the local host"
-msgstr "Bejelentkezés helyi konténerbe"
+msgstr "Bejelentkezés a helyi gépre"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:4
-#, fuzzy
 msgid "Authentication is required to log into the local host."
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr "Hitelesítés szükséges a bejelentkezéshez a helyi gépre."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:5
-#, fuzzy
 msgid "Acquire a shell in a local container"
-msgstr "Bejelentkezés helyi konténerbe"
+msgstr "Parancsértelmező elérése helyi konténerben"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:6
-#, fuzzy
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr "Hitelesítés szükséges a parancsértelmező eléréséhez helyi konténerben."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:7
 msgid "Acquire a shell on the local host"
-msgstr ""
+msgstr "Parancsértelmező elérése a helyi gépen"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:8
-#, fuzzy
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "Hitelesítés szükséges a helyi gépnév beállításához."
+msgstr "Hitelesítés szükséges a parancsértelmező eléréséhez a helyi gépen."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:9
-#, fuzzy
 msgid "Acquire a pseudo TTY in a local container"
-msgstr "Bejelentkezés helyi konténerbe"
+msgstr "Pszeudoterminál elérése helyi konténerben"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:10
-#, fuzzy
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr "Hitelesítés szükséges a pszeudoterminál eléréséhez helyi konténerben."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:11
 msgid "Acquire a pseudo TTY on the local host"
-msgstr ""
+msgstr "Pszeudoterminál elérése helyi gépen"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:12
-#, fuzzy
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Hitelesítés szükséges a helyi gépnév beállításához."
+msgstr "Hitelesítés szükséges a pszeudoterminál eléréséhez a helyi gépen."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
-msgstr ""
+msgstr "Virtuális gépek és konténerek kezelése"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:14
-#, fuzzy
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
-msgstr "Hitelesítés szükséges a helyi gép információinak beállításához."
+msgstr "Hitelesítés szükséges helyi virtuális gépek és konténerek kezeléséhez."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
-msgstr ""
+msgstr "Helyi virtuális gép és konténer lemezképek kezelése"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:16
-#, fuzzy
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "Hitelesítés szükséges a helyi gép információinak beállításához."
+msgstr ""
+"Hitelesítés szükséges a helyi virtuális gép és konténer lemezképek "
+"kezeléséhez."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -565,37 +552,33 @@ msgid ""
 "shall be enabled."
 msgstr "Hitelesítés szükséges a hálózati időszinkronizáció engedélyezéséhez."
 
-#: ../src/core/dbus-unit.c:428
-#, fuzzy
+#: ../src/core/dbus-unit.c:449
 msgid "Authentication is required to start '$(unit)'."
-msgstr "Hitelesítés szükséges a rendszeridő beállításához."
+msgstr "Hitelesítés szükséges a következő elindításához: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:429
-#, fuzzy
+#: ../src/core/dbus-unit.c:450
 msgid "Authentication is required to stop '$(unit)'."
-msgstr "Hitelesítés szükséges a rendszeridő beállításához."
+msgstr "Hitelesítés szükséges a következő leállításához: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:430
-#, fuzzy
+#: ../src/core/dbus-unit.c:451
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
+msgstr "Hitelesítés szükséges a következő újratöltéséhez: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
-#, fuzzy
+#: ../src/core/dbus-unit.c:452 ../src/core/dbus-unit.c:453
 msgid "Authentication is required to restart '$(unit)'."
-msgstr "Hitelesítés szükséges a rendszeridő beállításához."
+msgstr "Hitelesítés szükséges a következő újraindításához: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:535
-#, fuzzy
+#: ../src/core/dbus-unit.c:556
 msgid "Authentication is required to kill '$(unit)'."
-msgstr "Hitelesítés szükséges a bejelentkezéshez egy helyi konténerbe."
+msgstr "Hitelesítés szükséges a következő kilövéséhez: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:565
-#, fuzzy
+#: ../src/core/dbus-unit.c:586
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "Hitelesítés szükséges a helyi gépnév beállításához."
+msgstr ""
+"Hitelesítés szükséges a következő „sikertelen” állapotának törléséhez: "
+"„$(unit)”."
 
-#: ../src/core/dbus-unit.c:597
-#, fuzzy
+#: ../src/core/dbus-unit.c:618
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Hitelesítés szükséges a rendszeridő beállításához."
+msgstr ""
+"Hitelesítés szükséges a következő tulajdonságainak beállításához: „$(unit)”."
