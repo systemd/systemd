@@ -308,7 +308,7 @@ const struct hash_ops dns_resource_key_hash_ops = {
 
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
         char cbuf[strlen("CLASS") + DECIMAL_STR_MAX(uint16_t)], tbuf[strlen("TYPE") + DECIMAL_STR_MAX(uint16_t)];
-        const char *c, *t;
+        const char *c, *t, *n;
         char *s;
 
         /* If we cannot convert the CLASS/TYPE into a known string,
@@ -326,7 +326,8 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
                 t = tbuf;
         }
 
-        if (asprintf(&s, "%s. %s %-5s", DNS_RESOURCE_KEY_NAME(key), c, t) < 0)
+        n = DNS_RESOURCE_KEY_NAME(key);
+        if (asprintf(&s, "%s%s %s %-5s", n, endswith(n, ".") ? "" : ".", c, t) < 0)
                 return -ENOMEM;
 
         *ret = s;
