@@ -1,0 +1,262 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#  Copyright 2016 Gabor Kelemen
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+
+# The catalog format is documented on
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# For an explanation why we do all this, see https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: A napló elindult
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A rendszernapló folyamat elindult, megnyitotta írásra a naplófájlokat,
+és most készen áll kérések feldolgozására.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: A napló leállt
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A rendszernapló folyamat leállt, és bezárt minden jelenleg aktív naplófájlt.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Egy szolgáltatás üzenetei elnémítva
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+Egy szolgáltatás túl sok üzenetet naplózott adott idő alatt. A 
+szolgáltatástól származó üzenetek eldobásra kerültek.
+
+Ne feledje, hogy csak a kérdéses szolgáltatás üzenetei kerültek eldobásra,
+ más szolgáltatások üzeneteit ez nem befolyásolja. 
+
+Az üzenetek eldobását vezérlő korlátok az /etc/systemd/journald.conf
+RateLimitInterval= és RateLimitBurst= beállításaival adhatók meg.
+Részletekért lásd a journald.conf(5) man oldalt.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Naplóüzenetek vesztek el
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Kernelüzenetek vesztek el, mert a naplózó rendszer nem tudta elég gyorsan
+feldolgozni azokat.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Egy folyamat összeomlott: @COREDUMP_PID@ (@COREDUMP_COMM@)
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+Ez a folyamat: @COREDUMP_PID@ (@COREDUMP_COMM@) összeomlott, és core fájlt
+ írt ki.
+
+Ez általában programozási hibát jelez az összeomló programban, és 
+a szállítója felé kell bejelenteni.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: Új munkamenet (@SESSION_ID@) létrehozva, felhasználója: @USER_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Létrejött egy új munkamenet @SESSION_ID@ azonosítóval ezen felhasználóhoz:
+@USER_ID@.
+
+A munkamenet vezető folyamata: @LEADER@.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: Munkamenet (@SESSION_ID@) befejezve
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+A következő azonosítójú munkamenet befejeződött: @SESSION_ID@.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: Elérhető egy új munkaállomás: @SEAT_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Beállításra kerül és használható egy új munkaállomás: @SEAT_ID@.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: A munkaállomás eltávolítva: @SEAT_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+A munkaállomás el lett távolítva, és már nem érhető el: @SEAT_ID@
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Időmódosítás
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A rendszeróra beállítva @REALTIME@ ezredmásodpercre 1970. január 1. után.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Időzóna-módosítás erre: @TIMEZONE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A rendszer időzónája módosítva lett erre: @TIMEZONE@.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: A rendszer indítása kész
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A rendszerindításkor szükséges indításhoz sorba állított összes 
+rendszerszolgáltatás elindult. Ne feledje, hogy ez nem jelenti, hogy a 
+gép üresjáratban van, mivel egyes szolgáltatások még az indítás 
+befejezésével lehetnek elfoglalva.
+
+A kernel indítása @KERNEL_USEC@ ezredmásodpercet igényelt.
+
+A kiinduló RAM lemez indítása @INITRD_USEC@ ezredmásodpercet igényelt.
+
+A felhasználói programok indítása @USERSPACE_USEC@ ezredmásodpercet igényelt.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: A rendszer „@SLEEP@” alvási állapotba lépett
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A rendszer belépett ebbe az alvási állapotba: @SLEEP@.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: A rendszer „@SLEEP@” alvási állapotból kilépett
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A rendszer kilépett ebből az alvási állapotból: @SLEEP@.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: Rendszer leállítása kezdeményezve
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A systemd leállítása kezdeményezve. A leállítás megkezdődött, minden
+rendszerszolgáltatás befejeződik, minden fájlrendszer leválasztásra kerül.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: A(z) @UNIT@ egység indítása megkezdődött
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @UNIT@ egység megkezdte az indulást.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: A(z) @UNIT@ egység befejezte az indulást
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @UNIT@ egység befejezte az indulást
+
+Az indítás eredménye: @RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: A(z) @UNIT@ egység megkezdte a leállást
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @UNIT@ egység megkezdte a leállást.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: A(z) @UNIT@ egység befejezte a leállást
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @UNIT@ egység befejezte a leállást.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: A(z) @UNIT@ egység hibát jelzett
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @UNIT@ egység hibát jelzett.
+
+Az eredmény: @RESULT@.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: A(z) @UNIT@ egység megkezdte a beállításainak újratöltését
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @UNIT@ egység megkezdte a beállításainak újratöltését.
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: A(z) @UNIT@ egység befejezte a beállításainak újratöltését
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @UNIT@ egység befejezte a beállításainak újratöltését.
+
+Az eredmény: @RESULT@.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: A folyamat végrehajtása sikertelen: @EXECUTABLE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A folyamat végrehajtása sikertelen volt, és hibát jelzett: @EXECUTABLE@.
+
+A folyamat által visszaadott hibaszám: @ERRNO@.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: Legalább egy üzenet nem továbbítható a rendszernaplónak
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Legalább egy üzenet nem volt továbbítható a journald-vel párhuzamosan futó
+syslog szolgáltatásnak. Ez általában azt jelenti, hogy a syslog
+megvalósítás nem volt képes lépést tartani a sorba állított
+üzenetek sebességével.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: A csatolási pont nem üres
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A csatolási pontként megadott @WHERE@ könyvtár (második mező az /etc/fstab
+fájlban, vagy a Where= sor a systemd egységfájlban) nem üres. Ez nem
+akadályozza meg a csatolást, de a könyvtárban már meglévő fájlok
+elérhetetlenné válnak. A fájlok láthatóvá tételéhez csatolja
+az azokat tartalmazó fájlrendszert egy másodlagos helyre. 
+
+-- 24d8d4452573402496068381a6312df2
+Subject: Egy virtuális gép vagy konténer elindult
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @NAME@ nevű virtuális gép (vezető PID: @LEADER@) elindult, és 
+használatra kész.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: Egy virtuális gép vagy konténer befejeződött
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+A(z) @NAME@ nevű virtuális gép (vezető PID: @LEADER@) leállt.
