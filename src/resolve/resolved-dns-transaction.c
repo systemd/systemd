@@ -588,6 +588,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 break;
 
         case DNS_PROTOCOL_DNS:
+                /* Note that we do not need to verify the
+                 * addresses/port numbers of incoming traffic, as we
+                 * invoked connect() on our UDP socket in which case
+                 * the kernel already does the needed verification for
+                 * us. */
                 break;
 
         default:
