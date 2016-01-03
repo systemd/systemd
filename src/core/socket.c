@@ -28,9 +28,9 @@
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <linux/sctp.h>
 
 #include "sd-event.h"
-
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -877,8 +877,14 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
         if (s->no_delay) {
                 int b = s->no_delay;
-                if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
+
+                if (s->socket_protocol == IPPROTO_SCTP) {
+                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &b, sizeof(b)) < 0)
+                                log_unit_warning_errno(UNIT(s), errno, "SCTP_NODELAY failed: %m");
+                } else {
+                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
+                                log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
+                }
         }
 
         if (s->broadcast) {
