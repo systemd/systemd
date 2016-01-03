@@ -671,6 +671,8 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
                 return 0;
         if ((dnskey->dnskey.flags & DNSKEY_FLAG_ZONE_KEY) == 0)
                 return 0;
+        if ((dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE))
+                return 0;
         if (dnskey->dnskey.protocol != 3)
                 return 0;
         if (dnskey->dnskey.algorithm != rrsig->rrsig.algorithm)

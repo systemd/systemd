@@ -34,8 +34,9 @@ typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsTxtItem DnsTxtItem;
 
 /* DNSKEY RR flags */
-#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
 #define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
+#define DNSKEY_FLAG_REVOKE   (UINT16_C(1) << 7)
+#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
 
 /* mDNS RR flags */
 #define MDNS_RR_CACHE_FLUSH  (UINT16_C(1) << 15)
