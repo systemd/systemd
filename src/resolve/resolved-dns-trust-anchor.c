@@ -188,6 +188,14 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 r = safe_atou16(flags, &f);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse DNSKEY flags field %s on line %s:%u", flags, path, line);
+                if ((f & DNSKEY_FLAG_ZONE_KEY) == 0) {
+                        log_warning("DNSKEY lacks zone key bit set on line %s:%u", path, line);
+                        return -EINVAL;
+                }
+                if ((f & DNSKEY_FLAG_REVOKE)) {
+                        log_warning("DNSKEY is already revoked on line %s:%u", path, line);
+                        return -EINVAL;
+                }
 
                 a = dnssec_algorithm_from_string(algorithm);
                 if (a < 0) {
