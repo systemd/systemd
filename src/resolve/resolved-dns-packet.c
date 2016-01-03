@@ -499,7 +499,7 @@ int dns_packet_append_name(
 
         saved_size = p->size;
 
-        while (*name) {
+        while (!dns_name_is_root(name)) {
                 const char *z = name;
                 char label[DNS_LABEL_MAX];
                 size_t n = 0;

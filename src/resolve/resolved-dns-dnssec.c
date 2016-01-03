@@ -35,7 +35,6 @@
  *
  * TODO:
  *
- *   - Make trust anchor store read additional DS+DNSKEY data from disk
  *   - wildcard zones compatibility (NSEC/NSEC3 wildcard check is missing)
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
@@ -52,6 +51,9 @@
 
 /* Permit a maximum clock skew of 1h 10min. This should be enough to deal with DST confusion */
 #define SKEW_MAX (1*USEC_PER_HOUR + 10*USEC_PER_MINUTE)
+
+/* Maximum number of NSEC3 iterations we'll do. */
+#define NSEC3_ITERATIONS_MAX 2048
 
 /*
  * The DNSSEC Chain of trust:
@@ -1087,6 +1089,9 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
+        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX)
+                return -EOPNOTSUPP;
+
         algorithm = nsec3_hash_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)
                 return algorithm;
@@ -1154,6 +1159,9 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
 
         /* Ignore NSEC3 RRs whose algorithm we don't know */
         if (nsec3_hash_to_gcrypt_md(rr->nsec3.algorithm) < 0)
+                return 0;
+        /* Ignore NSEC3 RRs with an excessive number of required iterations */
+        if (rr->nsec3.iterations > NSEC3_ITERATIONS_MAX)
                 return 0;
 
         if (!nsec3)

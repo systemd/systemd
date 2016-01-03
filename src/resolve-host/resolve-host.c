@@ -328,8 +328,7 @@ static int parse_address(const char *s, int *family, union in_addr_union *addres
         return 0;
 }
 
-static int resolve_record(sd_bus *bus, const char *name) {
-
+static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_t type) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char ifname[IF_NAMESIZE] = "";
@@ -343,7 +342,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (arg_ifindex > 0 && !if_indextoname(arg_ifindex, ifname))
                 return log_error_errno(errno, "Failed to resolve interface name for index %i: %m", arg_ifindex);
 
-        log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(arg_class), dns_type_to_string(arg_type), isempty(ifname) ? "*" : ifname);
+        log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(ifname) ? "*" : ifname);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -355,7 +354,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "isqqt", arg_ifindex, name, arg_class, arg_type, arg_flags);
+        r = sd_bus_message_append(req, "isqqt", arg_ifindex, name, class, type, arg_flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -440,6 +439,127 @@ static int resolve_record(sd_bus *bus, const char *name) {
         print_source(flags, ts);
 
         return 0;
+}
+
+static int resolve_rfc4501(sd_bus *bus, const char *name) {
+        uint16_t type = 0, class = 0;
+        const char *p, *q, *n;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(startswith(name, "dns:"));
+
+        /* Parse RFC 4501 dns: URIs */
+
+        p = name + 4;
+
+        if (p[0] == '/') {
+                const char *e;
+
+                if (p[1] != '/')
+                        goto invalid;
+
+                e = strchr(p + 2, '/');
+                if (!e)
+                        goto invalid;
+
+                if (e != p + 2)
+                        log_warning("DNS authority specification not supported; ignoring specified authority.");
+
+                p = e + 1;
+        }
+
+        q = strchr(p, '?');
+        if (q) {
+                n = strndupa(p, q - p);
+                q++;
+
+                for (;;) {
+                        const char *f;
+
+                        f = startswith_no_case(q, "class=");
+                        if (f) {
+                                _cleanup_free_ char *t = NULL;
+                                const char *e;
+
+                                if (class != 0) {
+                                        log_error("DNS class specified twice.");
+                                        return -EINVAL;
+                                }
+
+                                e = strchrnul(f, ';');
+                                t = strndup(f, e - f);
+                                if (!t)
+                                        return log_oom();
+
+                                r = dns_class_from_string(t);
+                                if (r < 0) {
+                                        log_error("Unknown DNS class %s.", t);
+                                        return -EINVAL;
+                                }
+
+                                class = r;
+
+                                if (*e == ';') {
+                                        q = e + 1;
+                                        continue;
+                                }
+
+                                break;
+                        }
+
+                        f = startswith_no_case(q, "type=");
+                        if (f) {
+                                _cleanup_free_ char *t = NULL;
+                                const char *e;
+
+                                if (type != 0) {
+                                        log_error("DNS type specified twice.");
+                                        return -EINVAL;
+                                }
+
+                                e = strchrnul(f, ';');
+                                t = strndup(f, e - f);
+                                if (!t)
+                                        return log_oom();
+
+                                r = dns_type_from_string(t);
+                                if (r < 0) {
+                                        log_error("Unknown DNS type %s.", t);
+                                        return -EINVAL;
+                                }
+
+                                type = r;
+
+                                if (*e == ';') {
+                                        q = e + 1;
+                                        continue;
+                                }
+
+                                break;
+                        }
+
+                        goto invalid;
+                }
+        } else
+                n = p;
+
+        if (type == 0)
+                type = arg_type;
+        if (type == 0)
+                type = DNS_TYPE_A;
+
+        if (class == 0)
+                class = arg_class;
+        if (class == 0)
+                class = DNS_CLASS_IN;
+
+        return resolve_record(bus, n, class, type);
+
+invalid:
+        log_error("Invalid DNS URI: %s", name);
+        return -EINVAL;
 }
 
 static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
@@ -1009,6 +1129,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_type != 0 && arg_class == 0)
                 arg_class = DNS_CLASS_IN;
 
+        if (arg_class != 0 && arg_type == 0)
+                arg_type = DNS_TYPE_A;
+
         return 1 /* work to do */;
 }
 
@@ -1042,11 +1165,15 @@ int main(int argc, char **argv) {
                         int family, ifindex, k;
                         union in_addr_union a;
 
-                        k = parse_address(argv[optind], &family, &a, &ifindex);
-                        if (k >= 0)
-                                k = resolve_address(bus, family, &a, ifindex);
-                        else
-                                k = resolve_host(bus, argv[optind]);
+                        if (startswith(argv[optind], "dns:"))
+                                k = resolve_rfc4501(bus, argv[optind]);
+                        else {
+                                k = parse_address(argv[optind], &family, &a, &ifindex);
+                                if (k >= 0)
+                                        k = resolve_address(bus, family, &a, ifindex);
+                                else
+                                        k = resolve_host(bus, argv[optind]);
+                        }
 
                         if (r == 0)
                                 r = k;
@@ -1065,7 +1192,7 @@ int main(int argc, char **argv) {
                 while (argv[optind]) {
                         int k;
 
-                        k = resolve_record(bus, argv[optind]);
+                        k = resolve_record(bus, argv[optind], arg_class, arg_type);
                         if (r == 0)
                                 r = k;
 

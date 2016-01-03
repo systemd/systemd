@@ -279,8 +279,8 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 
-const char* dnssec_algorithm_to_string(int i) _const_;
+int dnssec_algorithm_to_string_alloc(int i, char **ret);
 int dnssec_algorithm_from_string(const char *s) _pure_;
 
-const char *dnssec_digest_to_string(int i) _const_;
+int dnssec_digest_to_string_alloc(int i, char **ret);
 int dnssec_digest_from_string(const char *s) _pure_;
