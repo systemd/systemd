@@ -1071,7 +1071,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
+int dnssec_nsec3_hash(const DnsResourceRecord *nsec3, const char *name, void *ret) {
         uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
@@ -1192,10 +1192,37 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
         return dns_name_equal(a, b);
 }
 
+static int nsec3_hashed_domain(const DnsResourceRecord *nsec3, const char *domain, const char *zone, char **ret) {
+        _cleanup_free_ char *l = NULL, *hashed_domain = NULL;
+        uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
+        int hashed_size;
+
+        assert(nsec3);
+        assert(domain);
+        assert(zone);
+        assert(ret);
+
+        hashed_size = dnssec_nsec3_hash(nsec3, domain, hashed);
+        if (hashed_size < 0)
+                return hashed_size;
+
+        l = base32hexmem(hashed, hashed_size, false);
+        if (!l)
+                return -ENOMEM;
+
+        hashed_domain = strjoin(l, ".", zone, NULL);
+        if (!hashed_domain)
+                return -ENOMEM;
+
+        *ret = hashed_domain;
+        hashed_domain = NULL;
+
+        return hashed_size;
+}
+
 /* See RFC 5155, Section 8 */
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
-        _cleanup_free_ char *next_closer_domain = NULL, *l = NULL;
-        uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
+        _cleanup_free_ char *next_closer_domain = NULL;
         const char *zone, *p, *pp = NULL;
         DnsResourceRecord *rr, *enclosure_rr, *suffix_rr;
         DnsAnswerFlags flags;
@@ -1242,23 +1269,15 @@ found_zone:
         /* Second step, find the closest encloser NSEC3 RR in 'answer' that matches 'key' */
         p = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
-                _cleanup_free_ char *hashed_domain = NULL, *label = NULL;
+                _cleanup_free_ char *hashed_domain = NULL;
 
-                hashed_size = dnssec_nsec3_hash(suffix_rr, p, hashed);
+                hashed_size = nsec3_hashed_domain(suffix_rr, p, zone, &hashed_domain);
                 if (hashed_size == -EOPNOTSUPP) {
                         *result = DNSSEC_NSEC_UNSUPPORTED_ALGORITHM;
                         return 0;
                 }
                 if (hashed_size < 0)
                         return hashed_size;
-
-                label = base32hexmem(hashed, hashed_size, false);
-                if (!label)
-                        return -ENOMEM;
-
-                hashed_domain = strjoin(label, ".", zone, NULL);
-                if (!hashed_domain)
-                        return -ENOMEM;
 
                 DNS_ANSWER_FOREACH_FLAGS(enclosure_rr, flags, answer) {
 
@@ -1326,19 +1345,11 @@ found_closest_encloser:
                 return 0;
         }
 
-        r = dnssec_nsec3_hash(enclosure_rr, pp, hashed);
+        r = nsec3_hashed_domain(enclosure_rr, pp, zone, &next_closer_domain);
         if (r < 0)
                 return r;
         if (r != hashed_size)
                 return -EBADMSG;
-
-        l = base32hexmem(hashed, hashed_size, false);
-        if (!l)
-                return -ENOMEM;
-
-        next_closer_domain = strjoin(l, ".", zone, NULL);
-        if (!next_closer_domain)
-                return -ENOMEM;
 
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 _cleanup_free_ char *label = NULL, *next_hashed_domain = NULL;
