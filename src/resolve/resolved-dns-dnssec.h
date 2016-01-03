@@ -87,7 +87,7 @@ uint16_t dnssec_keytag(DnsResourceRecord *dnskey);
 
 int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max);
 
-int dnssec_nsec3_hash(const DnsResourceRecord *nsec3, const char *name, void *ret);
+int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret);
 
 typedef enum DnssecNsecResult {
         DNSSEC_NSEC_NO_RR,     /* No suitable NSEC/NSEC3 RR found */

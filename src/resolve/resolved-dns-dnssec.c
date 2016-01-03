@@ -1073,7 +1073,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_nsec3_hash(const DnsResourceRecord *nsec3, const char *name, void *ret) {
+int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
@@ -1089,8 +1089,10 @@ int dnssec_nsec3_hash(const DnsResourceRecord *nsec3, const char *name, void *re
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
-        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX)
+        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX) {
+                log_debug("Ignoring NSEC3 RR %s with excessive number of iterations.", dns_resource_record_to_string(nsec3));
                 return -EOPNOTSUPP;
+        }
 
         algorithm = nsec3_hash_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)
@@ -1200,7 +1202,7 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
         return dns_name_equal(a, b);
 }
 
-static int nsec3_hashed_domain(const DnsResourceRecord *nsec3, const char *domain, const char *zone, char **ret) {
+static int nsec3_hashed_domain(DnsResourceRecord *nsec3, const char *domain, const char *zone, char **ret) {
         _cleanup_free_ char *l = NULL, *hashed_domain = NULL;
         uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
         int hashed_size;
