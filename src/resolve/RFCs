@@ -25,7 +25,7 @@ Y https://tools.ietf.org/html/rfc3597 → Handling of Unknown DNS Resource Recor
 Y https://tools.ietf.org/html/rfc4255 → Using DNS to Securely Publish Secure Shell (SSH) Key Fingerprints
 Y https://tools.ietf.org/html/rfc4343 → Domain Name System (DNS) Case Insensitivity Clarification
 ~ https://tools.ietf.org/html/rfc4470 → Minimally Covering NSEC Records and DNSSEC On-line Signing
-  https://tools.ietf.org/html/rfc4501 → Domain Name System Uniform Resource Identifiers
+Y https://tools.ietf.org/html/rfc4501 → Domain Name System Uniform Resource Identifiers
 Y https://tools.ietf.org/html/rfc4509 → Use of SHA-256 in DNSSEC Delegation Signer (DS) Resource Records (RRs)
 ~ https://tools.ietf.org/html/rfc4592 → The Role of Wildcards in the Domain Name System
 ~ https://tools.ietf.org/html/rfc4697 → Observed DNS Resolution Misbehavior
