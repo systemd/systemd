@@ -1497,7 +1497,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dnssec_keytag(rr));
+                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dnssec_keytag(rr, false));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -2117,6 +2117,14 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                          * transaction. */
 
                                         r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key, DNS_ANSWER_AUTHENTICATED);
+                                        if (r < 0)
+                                                return r;
+
+                                        /* Maybe warn the user that we
+                                         * encountered a revoked
+                                         * DNSKEY for a key from our
+                                         * trust anchor */
+                                        r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor, t->answer, rr->key);
                                         if (r < 0)
                                                 return r;
                                 }

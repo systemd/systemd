@@ -107,10 +107,10 @@ static void test_dnssec_verify_rrset2(void) {
         assert_se(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
         assert_se(dnssec_key_match_rrsig(nsec->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
@@ -186,10 +186,10 @@ static void test_dnssec_verify_rrset(void) {
         assert_se(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
@@ -268,10 +268,10 @@ static void test_dnssec_verify_dns_key(void) {
         assert_se(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
-        assert_se(dnssec_verify_dnskey(dnskey, ds1) > 0);
-        assert_se(dnssec_verify_dnskey(dnskey, ds2) > 0);
+        assert_se(dnssec_verify_dnskey(dnskey, ds1, false) > 0);
+        assert_se(dnssec_verify_dnskey(dnskey, ds2, false) > 0);
 }
 
 static void test_dnssec_canonicalize_one(const char *original, const char *canonical, int r) {

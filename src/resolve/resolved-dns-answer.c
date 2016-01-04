@@ -524,6 +524,92 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
         return 1;
 }
 
+int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
+        bool found = false, other = false;
+        DnsResourceRecord *rr;
+        unsigned i;
+        int r;
+
+        assert(a);
+        assert(rm);
+
+        /* Remove all entries matching the specified RR from *a */
+
+        DNS_ANSWER_FOREACH(rr, *a) {
+                r = dns_resource_record_equal(rr, rm);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        found = true;
+                else
+                        other = true;
+
+                if (found && other)
+                        break;
+        }
+
+        if (!found)
+                return 0;
+
+        if (!other) {
+                *a = dns_answer_unref(*a); /* Return NULL for the empty answer */
+                return 1;
+        }
+
+        if ((*a)->n_ref > 1) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *copy = NULL;
+                DnsAnswerFlags flags;
+                int ifindex;
+
+                copy = dns_answer_new((*a)->n_rrs);
+                if (!copy)
+                        return -ENOMEM;
+
+                DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, *a) {
+                        r = dns_resource_record_equal(rr, rm);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
+                        r = dns_answer_add_raw(copy, rr, ifindex, flags);
+                        if (r < 0)
+                                return r;
+                }
+
+                dns_answer_unref(*a);
+                *a = copy;
+                copy = NULL;
+
+                return 1;
+        }
+
+        /* Only a single reference, edit in-place */
+
+        i = 0;
+        for (;;) {
+                if (i >= (*a)->n_rrs)
+                        break;
+
+                r = dns_resource_record_equal((*a)->items[i].rr, rm);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* Kill this entry */
+
+                        dns_resource_record_unref((*a)->items[i].rr);
+                        memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
+                        (*a)->n_rrs --;
+                        continue;
+
+                } else
+                        /* Keep this entry */
+                        i++;
+        }
+
+        return 1;
+}
+
 int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKey *key, DnsAnswerFlags or_flags) {
         DnsResourceRecord *rr_source;
         int ifindex_source, r;

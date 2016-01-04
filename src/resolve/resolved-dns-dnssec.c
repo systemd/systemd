@@ -79,9 +79,9 @@ static void initialize_libgcrypt(void) {
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
-uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
+uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         const uint8_t *p;
-        uint32_t sum;
+        uint32_t sum, f;
         size_t i;
 
         /* The algorithm from RFC 4034, Appendix B. */
@@ -89,8 +89,12 @@ uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
         assert(dnskey);
         assert(dnskey->key->type == DNS_TYPE_DNSKEY);
 
-        sum = (uint32_t) dnskey->dnskey.flags +
-                ((((uint32_t) dnskey->dnskey.protocol) << 8) + (uint32_t) dnskey->dnskey.algorithm);
+        f = (uint32_t) dnskey->dnskey.flags;
+
+        if (mask_revoke)
+                f &= ~DNSKEY_FLAG_REVOKE;
+
+        sum = f + ((((uint32_t) dnskey->dnskey.protocol) << 8) + (uint32_t) dnskey->dnskey.algorithm);
 
         p = dnskey->dnskey.key;
 
@@ -494,7 +498,7 @@ static int algorithm_to_gcrypt_md(uint8_t algorithm) {
 
 int dnssec_verify_rrset(
                 DnsAnswer *a,
-                DnsResourceKey *key,
+                const DnsResourceKey *key,
                 DnsResourceRecord *rrsig,
                 DnsResourceRecord *dnskey,
                 usec_t realtime,
@@ -653,7 +657,7 @@ finish:
         return r;
 }
 
-int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey) {
+int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok) {
 
         assert(rrsig);
         assert(dnskey);
@@ -670,14 +674,14 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
                 return 0;
         if ((dnskey->dnskey.flags & DNSKEY_FLAG_ZONE_KEY) == 0)
                 return 0;
-        if ((dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE))
+        if (!revoked_ok && (dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE))
                 return 0;
         if (dnskey->dnskey.protocol != 3)
                 return 0;
         if (dnskey->dnskey.algorithm != rrsig->rrsig.algorithm)
                 return 0;
 
-        if (dnssec_keytag(dnskey) != rrsig->rrsig.key_tag)
+        if (dnssec_keytag(dnskey, false) != rrsig->rrsig.key_tag)
                 return 0;
 
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(dnskey->key), rrsig->rrsig.signer);
@@ -739,7 +743,7 @@ static int dnssec_fix_rrset_ttl(DnsAnswer *a, const DnsResourceKey *key, DnsReso
 
 int dnssec_verify_rrset_search(
                 DnsAnswer *a,
-                DnsResourceKey *key,
+                const DnsResourceKey *key,
                 DnsAnswer *validated_dnskeys,
                 usec_t realtime,
                 DnssecResult *result) {
@@ -778,7 +782,7 @@ int dnssec_verify_rrset_search(
                                 continue;
 
                         /* Is this a DNSKEY RR that matches they key of our RRSIG? */
-                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey);
+                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey, false);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -958,7 +962,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
+int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
@@ -976,12 +980,14 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
                 return -EINVAL;
         if ((dnskey->dnskey.flags & DNSKEY_FLAG_ZONE_KEY) == 0)
                 return -EKEYREJECTED;
+        if (!mask_revoke && (dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE))
+                return -EKEYREJECTED;
         if (dnskey->dnskey.protocol != 3)
                 return -EKEYREJECTED;
 
         if (dnskey->dnskey.algorithm != ds->ds.algorithm)
                 return 0;
-        if (dnssec_keytag(dnskey) != ds->ds.key_tag)
+        if (dnssec_keytag(dnskey, mask_revoke) != ds->ds.key_tag)
                 return 0;
 
         initialize_libgcrypt();
@@ -1005,7 +1011,10 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
                 return -EIO;
 
         gcry_md_write(md, owner_name, r);
-        md_add_uint16(md, dnskey->dnskey.flags);
+        if (mask_revoke)
+                md_add_uint16(md, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
+        else
+                md_add_uint16(md, dnskey->dnskey.flags);
         md_add_uint8(md, dnskey->dnskey.protocol);
         md_add_uint8(md, dnskey->dnskey.algorithm);
         gcry_md_write(md, dnskey->dnskey.key, dnskey->dnskey.key_size);
@@ -1050,7 +1059,9 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
                 if (r == 0)
                         continue;
 
-                r = dnssec_verify_dnskey(dnskey, ds);
+                r = dnssec_verify_dnskey(dnskey, ds, false);
+                if (r == -EKEYREJECTED)
+                        return 0; /* The DNSKEY is revoked or otherwise invalid, we won't bless it */
                 if (r < 0)
                         return r;
                 if (r > 0)
