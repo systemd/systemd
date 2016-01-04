@@ -64,6 +64,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         if (!t)
                 return NULL;
 
+        log_debug("Freeing transaction %" PRIu16 ".", t->id);
+
         dns_transaction_close_connection(t);
         dns_transaction_stop_timeout(t);
 
@@ -108,16 +110,20 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_free);
 
-void dns_transaction_gc(DnsTransaction *t) {
+bool dns_transaction_gc(DnsTransaction *t) {
         assert(t);
 
         if (t->block_gc > 0)
-                return;
+                return true;
 
         if (set_isempty(t->notify_query_candidates) &&
             set_isempty(t->notify_zone_items) &&
-            set_isempty(t->notify_transactions))
+            set_isempty(t->notify_transactions)) {
                 dns_transaction_free(t);
+                return false;
+        }
+
+        return true;
 }
 
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) {
@@ -721,7 +727,22 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 t->answer_authenticated = false;
 
+                /* Block GC while starting requests for additional DNSSEC RRs */
+                t->block_gc++;
                 r = dns_transaction_request_dnssec_keys(t);
+                t->block_gc--;
+
+                /* Maybe the transaction is ready for GC'ing now? If so, free it and return. */
+                if (!dns_transaction_gc(t))
+                        return;
+
+                /* Requesting additional keys might have resulted in
+                 * this transaction to fail, since the auxiliary
+                 * request failed for some reason. If so, we are not
+                 * in pending state anymore, and we should exit
+                 * quickly. */
+                if (t->state != DNS_TRANSACTION_PENDING)
+                        return;
                 if (r < 0) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                         return;
