@@ -38,10 +38,8 @@
  *   - wildcard zones compatibility (NSEC/NSEC3 wildcard check is missing)
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
- *   - per-interface DNSSEC setting
  *   - nxdomain on qname
- *   - retry on failed validation?
- *   - DNSSEC key revocation support? https://tools.ietf.org/html/rfc5011
+ *   - per-interface DNSSEC setting
  *   - when doing negative caching, use NSEC/NSEC3 RR instead of SOA for TTL
  *
  * */
