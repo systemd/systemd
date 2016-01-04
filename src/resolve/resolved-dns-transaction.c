@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sd-messages.h>
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -237,6 +239,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         if (state == DNS_TRANSACTION_DNSSEC_FAILED)
                 log_struct(LOG_NOTICE,
+                           LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_FAILURE),
                            LOG_MESSAGE("DNSSEC validation failed for question %s: %s", dns_transaction_key_string(t), dnssec_result_to_string(t->answer_dnssec_result)),
                            "DNS_TRANSACTION=%" PRIu16, t->id,
                            "DNS_QUESTION=%s", dns_transaction_key_string(t),
