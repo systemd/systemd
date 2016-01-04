@@ -116,15 +116,15 @@ static int rr_compare(const void *a, const void *b) {
         assert(*y);
         assert((*y)->wire_format);
 
-        m = MIN((*x)->wire_format_size, (*y)->wire_format_size);
+        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(*x), DNS_RESOURCE_RECORD_RDATA_SIZE(*y));
 
-        r = memcmp((*x)->wire_format, (*y)->wire_format, m);
+        r = memcmp(DNS_RESOURCE_RECORD_RDATA(*x), DNS_RESOURCE_RECORD_RDATA(*y), m);
         if (r != 0)
                 return r;
 
-        if ((*x)->wire_format_size < (*y)->wire_format_size)
+        if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) < DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
                 return -1;
-        else if ((*x)->wire_format_size > (*y)->wire_format_size)
+        else if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) > DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
                 return 1;
 
         return 0;
@@ -605,12 +605,11 @@ int dnssec_verify_rrset(
                 md_add_uint16(md, rr->key->class);
                 md_add_uint32(md, rrsig->rrsig.original_ttl);
 
-                assert(rr->wire_format_rdata_offset <= rr->wire_format_size);
-                l = rr->wire_format_size - rr->wire_format_rdata_offset;
+                l = DNS_RESOURCE_RECORD_RDATA_SIZE(rr);
                 assert(l <= 0xFFFF);
 
                 md_add_uint16(md, (uint16_t) l);
-                gcry_md_write(md, (uint8_t*) rr->wire_format + rr->wire_format_rdata_offset, l);
+                gcry_md_write(md, DNS_RESOURCE_RECORD_RDATA(rr), l);
         }
 
         hash = gcry_md_read(md, 0);
