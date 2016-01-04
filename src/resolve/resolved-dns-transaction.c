@@ -926,6 +926,41 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         return 0;
                 }
+
+                if (dns_name_is_root(DNS_RESOURCE_KEY_NAME(t->key)) &&
+                    t->key->type == DNS_TYPE_DS) {
+
+                        /* Hmm, this is a request for the root DS? A
+                         * DS RR doesn't exist in the root zone, and
+                         * if our trust anchor didn't know it either,
+                         * this means we cannot do any DNSSEC logic
+                         * anymore. */
+
+                        if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+                                /* We are in downgrade mode. In this
+                                 * case, synthesize an unsigned empty
+                                 * response, so that the any lookup
+                                 * depending on this one can continue
+                                 * assuming there was no DS, and hence
+                                 * the root zone was unsigned. */
+
+                                t->answer_rcode = DNS_RCODE_SUCCESS;
+                                t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
+                                t->answer_authenticated = false;
+                                dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                        } else
+                                /* If we are not in downgrade mode,
+                                 * then fail the lookup, because we
+                                 * cannot reasonably answer it. There
+                                 * might be DS RRs, but we don't know
+                                 * them, and the DNS server won't tell
+                                 * them to us (and even if it would,
+                                 * we couldn't validate it and trust
+                                 * it). */
+                                dns_transaction_complete(t, DNS_TRANSACTION_NO_TRUST_ANCHOR);
+
+                        return 0;
+                }
         }
 
         /* Check the zone, but only if this transaction is not used
@@ -2438,6 +2473,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_CONNECTION_FAILURE] = "connection-failure",
         [DNS_TRANSACTION_ABORTED] = "aborted",
         [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
+        [DNS_TRANSACTION_NO_TRUST_ANCHOR] = "no-trust-anchor",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 

@@ -75,6 +75,7 @@
 #define BUS_ERROR_CONNECTION_FAILURE "org.freedesktop.resolve1.ConnectionFailure"
 #define BUS_ERROR_NO_SUCH_SERVICE "org.freedesktop.resolve1.NoSuchService"
 #define BUS_ERROR_DNSSEC_FAILED "org.freedesktop.resolve1.DnssecFailed"
+#define BUS_ERROR_NO_TRUST_ANCHOR "org.freedesktop.resolve1.NoTrustAnchor"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
 
 #define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"

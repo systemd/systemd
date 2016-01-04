@@ -67,6 +67,9 @@ static int reply_query_state(DnsQuery *q) {
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_DNSSEC_FAILED, "DNSSEC validation failed: %s",
                                                   dnssec_result_to_string(q->answer_dnssec_result));
 
+        case DNS_TRANSACTION_NO_TRUST_ANCHOR:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_TRUST_ANCHOR, "No suitable trust anchor known");
+
         case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
