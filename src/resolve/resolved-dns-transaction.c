@@ -1233,6 +1233,28 @@ int dns_transaction_go(DnsTransaction *t) {
         return 1;
 }
 
+static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
+        DnsTransaction *n;
+        Iterator i;
+        int r;
+
+        assert(t);
+        assert(aux);
+
+        /* Try to find cyclic dependencies between transaction objects */
+
+        if (t == aux)
+                return 1;
+
+        SET_FOREACH(n, aux->notify_transactions, i) {
+                r = dns_transaction_find_cyclic(t, n);
+                if (r != 0)
+                        return r;
+        }
+
+        return r;
+}
+
 static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
         DnsTransaction *aux;
         int r;
@@ -1250,6 +1272,18 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
                 if (set_contains(t->dnssec_transactions, aux)) {
                         *ret = aux;
                         return 0;
+                }
+
+                r = dns_transaction_find_cyclic(t, aux);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_debug("Detected potential cyclic dependency, refusing to add transaction %" PRIu16 " (%s) as dependency for %" PRIu16 " (%s).",
+                                  aux->id,
+                                  strna(dns_transaction_key_string(aux)),
+                                  t->id,
+                                  strna(dns_transaction_key_string(t)));
+                        return -ELOOP;
                 }
         }
 
@@ -1287,12 +1321,6 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
         assert(t);
         assert(key);
 
-        r = dns_resource_key_equal(t->key, key);
-        if (r < 0)
-                return r;
-        if (r > 0) /* Don't go in circles */
-                return 0;
-
         /* Try to get the data from the trust anchor */
         r = dns_trust_anchor_lookup_positive(&t->scope->manager->trust_anchor, key, &a);
         if (r < 0)
@@ -1307,6 +1335,8 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
 
         /* This didn't work, ask for it via the network/cache then. */
         r = dns_transaction_add_dnssec_transaction(t, key, &aux);
+        if (r == -ELOOP) /* This would result in a cyclic dependency */
+                return 0;
         if (r < 0)
                 return r;
 
@@ -1316,7 +1346,7 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
                         return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags *flags) {
