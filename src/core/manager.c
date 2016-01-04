@@ -380,6 +380,9 @@ static int enable_special_signals(Manager *m) {
 
         assert(m);
 
+        if (m->test_run)
+                return 0;
+
         /* Enable that we get SIGINT on control-alt-del. In containers
          * this will fail with EPERM (older) or EINVAL (newer), so
          * ignore that. */
@@ -409,9 +412,6 @@ static int manager_setup_signals(Manager *m) {
         int r;
 
         assert(m);
-
-        if (m->test_run)
-                return 0;
 
         assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
