@@ -1284,13 +1284,13 @@ static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
         if (t == aux)
                 return 1;
 
-        SET_FOREACH(n, aux->notify_transactions, i) {
+        SET_FOREACH(n, aux->dnssec_transactions, i) {
                 r = dns_transaction_find_cyclic(t, n);
                 if (r != 0)
                         return r;
         }
 
-        return r;
+        return 0;
 }
 
 static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
