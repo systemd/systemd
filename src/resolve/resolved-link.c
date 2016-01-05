@@ -65,7 +65,7 @@ Link *link_free(Link *l) {
         if (!l)
                 return NULL;
 
-        dns_server_unlink_marked(l->dns_servers);
+        dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
 
         while (l->addresses)
