@@ -56,6 +56,9 @@ static int dns_trust_anchor_add_builtin(DnsTrustAnchor *d) {
         if (hashmap_get(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, ".")))
                 return 0;
 
+        if (hashmap_get(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DNSKEY, ".")))
+                return 0;
+
         /* Add the RR from https://data.iana.org/root-anchors/root-anchors.xml */
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "");
         if (!rr)
