@@ -39,7 +39,8 @@
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
  *   - nxdomain on qname
- *   - per-interface DNSSEC setting
+ *   - workable hack for the .corp, .home, .box case
+ *   - bus calls to override DNSEC setting per interface
  *
  * */
 
