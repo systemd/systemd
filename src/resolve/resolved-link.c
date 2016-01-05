@@ -320,9 +320,18 @@ int link_update_monitor(Link *l) {
 
         assert(l);
 
-        link_update_dns_servers(l);
-        link_update_llmnr_support(l);
-        link_update_mdns_support(l);
+        r = link_update_dns_servers(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
+
+        r = link_update_llmnr_support(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->name);
+
+        r = link_update_mdns_support(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
+
         link_allocate_scopes(l);
 
         r = link_update_search_domains(l);
