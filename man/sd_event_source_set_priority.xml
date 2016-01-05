@@ -70,7 +70,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_priority</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>int64_t *<parameter>priority</parameter></paramdef>
       </funcprototype>
 
