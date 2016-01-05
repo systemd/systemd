@@ -1145,7 +1145,7 @@ int dns_query_process_cname(DnsQuery *q) {
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS)
+        if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
                 return 0;
 
         DNS_ANSWER_FOREACH(rr, q->answer) {
@@ -1176,13 +1176,9 @@ int dns_query_process_cname(DnsQuery *q) {
 
         /* Let's see if the answer can already answer the new
          * redirected question */
-        DNS_ANSWER_FOREACH(rr, q->answer) {
-                r = dns_question_matches_rr(q->question, rr, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return 1; /* It can answer it, yay! */
-        }
+        r = dns_query_process_cname(q);
+        if (r != 0)
+                return r;
 
         /* OK, it cannot, let's begin with the new query */
         r = dns_query_go(q);
