@@ -248,7 +248,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
 
         r = hashmap_ensure_allocated(&d->positive_by_key, &dns_resource_key_hash_ops);
         if (r < 0)
-                return r;
+                return log_oom();
 
         old_answer = hashmap_get(d->positive_by_key, rr->key);
         answer = dns_answer_ref(old_answer);
@@ -291,7 +291,7 @@ static int dns_trust_anchor_load_negative(DnsTrustAnchor *d, const char *path, u
 
         r = set_ensure_allocated(&d->negative_by_name, &dns_name_hash_ops);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = set_put(d->negative_by_name, domain);
         if (r < 0)
