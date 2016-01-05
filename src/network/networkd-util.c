@@ -108,47 +108,6 @@ static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
         [RESOLVE_SUPPORT_RESOLVE] = "resolve",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(resolve_support, ResolveSupport);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolve_support, ResolveSupport, RESOLVE_SUPPORT_YES);
 
-int config_parse_resolve(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ResolveSupport *resolve = data;
-        int k;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(resolve);
-
-        /* Our enum shall be a superset of booleans, hence first try
-         * to parse as boolean, and then as enum */
-
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                *resolve = RESOLVE_SUPPORT_YES;
-        else if (k == 0)
-                *resolve = RESOLVE_SUPPORT_NO;
-        else {
-                ResolveSupport s;
-
-                s = resolve_support_from_string(rvalue);
-                if (s < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse %s= option, ignoring: %s", lvalue, rvalue);
-                        return 0;
-                }
-
-                *resolve = s;
-        }
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve, resolve_support, ResolveSupport, "Failed to parse resolve support");

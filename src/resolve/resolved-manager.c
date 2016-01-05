@@ -1169,4 +1169,4 @@ static const char* const support_table[_SUPPORT_MAX] = {
         [SUPPORT_YES] = "yes",
         [SUPPORT_RESOLVE] = "resolve",
 };
-DEFINE_STRING_TABLE_LOOKUP(support, Support);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(support, Support, SUPPORT_YES);
