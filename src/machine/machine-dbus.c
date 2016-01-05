@@ -922,7 +922,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
            First, we start by creating a private playground in /tmp,
            that we can mount MS_SLAVE. (Which is necessary, since
-           MS_MOUNT cannot be applied to mounts with MS_SHARED parent
+           MS_MOVE cannot be applied to mounts with MS_SHARED parent
            mounts.) */
 
         if (!mkdtemp(mount_slave))
