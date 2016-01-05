@@ -115,6 +115,13 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnInsp
  EVDEV_ABS_35=25:2000:22
  EVDEV_ABS_36=0:1351:28
 
+# Dell Latitude E6220
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6220*
+ EVDEV_ABS_00=76:1815:22
+ EVDEV_ABS_01=131:1330:30
+ EVDEV_ABS_35=76:1815:22
+ EVDEV_ABS_36=131:1330:30
+
 #########################################
 # Google
 #########################################
