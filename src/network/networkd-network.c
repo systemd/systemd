@@ -121,6 +121,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->unicast_flood = true;
 
         network->llmnr = RESOLVE_SUPPORT_YES;
+        network->mdns = RESOLVE_SUPPORT_NO;
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 

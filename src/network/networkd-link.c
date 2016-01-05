@@ -2868,6 +2868,8 @@ int link_save(Link *link) {
 
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
+                fprintf(f, "MDNS=%s\n",
+                        resolve_support_to_string(link->network->mdns));
 
                 fputs("ADDRESSES=", f);
                 space = false;

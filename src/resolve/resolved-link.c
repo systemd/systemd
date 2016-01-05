@@ -246,6 +246,33 @@ clear:
         return r;
 }
 
+static int link_update_mdns_support(Link *l) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_mdns(l->ifindex, &b);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->mdns_support = resolve_support_from_string(b);
+        if (l->mdns_support < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
+
+        return 0;
+
+clear:
+        l->mdns_support = RESOLVE_SUPPORT_NO;
+        return r;
+}
+
 static int link_update_search_domains(Link *l) {
         _cleanup_strv_free_ char **domains = NULL;
         char **i;
@@ -295,6 +322,7 @@ int link_update_monitor(Link *l) {
 
         link_update_dns_servers(l);
         link_update_llmnr_support(l);
+        link_update_mdns_support(l);
         link_allocate_scopes(l);
 
         r = link_update_search_domains(l);

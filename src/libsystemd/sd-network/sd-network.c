@@ -139,6 +139,10 @@ _public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
         return network_link_get_string(ifindex, "LLMNR", llmnr);
 }
 
+_public_ int sd_network_link_get_mdns(int ifindex, char **mdns) {
+        return network_link_get_string(ifindex, "MDNS", mdns);
+}
+
 _public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         size_t size;

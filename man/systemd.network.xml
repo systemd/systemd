@@ -277,10 +277,27 @@
         <varlistentry>
           <term><varname>LLMNR=</varname></term>
           <listitem>
-            <para>A boolean or <literal>resolve</literal>. When true, enables
-            Link-Local Multicast Name Resolution on the link. When set to
-            <literal>resolve</literal>, only resolution is enabled, but not
-            announcement. Defaults to true.</para>
+            <para>A boolean or <literal>resolve</literal>. When true,
+            enables <ulink
+            url="https://tools.ietf.org/html/rfc4795">Link-Local
+            Multicast Name Resolution</ulink> on the link. When set to
+            <literal>resolve</literal>, only resolution is enabled,
+            but not host registration and announcement. Defaults to
+            true. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastDNS=</varname></term>
+          <listitem>
+            <para>A boolean or <literal>resolve</literal>. When true,
+            enables <ulink
+            url="https://tools.ietf.org/html/rfc6762">Multicast
+            DNS</ulink> support on the link. When set to
+            <literal>resolve</literal>, only resolution is enabled,
+            but not host or service registration and
+            announcement. Defaults to false. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1013,7 +1030,8 @@ DHCP=yes
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
