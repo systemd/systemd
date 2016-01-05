@@ -35,7 +35,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-static const char trust_anchor_dirs[] = CONF_PATHS_NULSTR("systemd/dnssec-trust-anchors.d");
+static const char trust_anchor_dirs[] = CONF_PATHS_NULSTR("dnssec-trust-anchors.d");
 
 /* The DS RR from https://data.iana.org/root-anchors/root-anchors.xml, retrieved December 2015 */
 static const uint8_t root_digest[] =
