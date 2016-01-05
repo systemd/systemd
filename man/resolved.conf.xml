@@ -161,7 +161,7 @@
         lookups are correctly signed, or validly unsigned. If
         <varname>DNSSEC=</varname> is set to
         <literal>downgrade-ok</literal> the resolver will
-        automatically turn of DNSSEC validation in such a case.</para>
+        automatically turn off DNSSEC validation in such a case.</para>
 
         <para>Client programs looking up DNS data will be informed
         whether lookups could be verified using DNSSEC, or whether the
@@ -173,11 +173,11 @@
         this be required.</para>
 
         <para>It is recommended to set <varname>DNSSEC=</varname> to
-        true on systems where it is kown that the DNS server supports
+        true on systems where it is known that the DNS server supports
         DNSSEC correctly, and where software or trust anchor updates
         happen regularly. On other systems it is recommended to set
         <varname>DNSSEC=</varname> to
-        <literal>missing-ok</literal>.</para>
+        <literal>downgrade-ok</literal>.</para>
         </listitem>
       </varlistentry>
 
