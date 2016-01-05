@@ -2871,6 +2871,10 @@ int link_save(Link *link) {
                 fprintf(f, "MDNS=%s\n",
                         resolve_support_to_string(link->network->mdns));
 
+                if (link->network->dnssec_mode != _DNSSEC_MODE_INVALID)
+                        fprintf(f, "DNSSEC=%s\n",
+                                dnssec_mode_to_string(link->network->dnssec_mode));
+
                 fputs("ADDRESSES=", f);
                 space = false;
                 SET_FOREACH(a, link->addresses, i) {

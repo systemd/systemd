@@ -146,6 +146,7 @@ struct Network {
 
         ResolveSupport llmnr;
         ResolveSupport mdns;
+        DnssecMode dnssec_mode;
 
         LIST_FIELDS(Network, networks);
 };

@@ -301,6 +301,24 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DNSSEC=</varname></term>
+          <listitem>
+            <para>A boolean or
+            <literal>allow-downgrade</literal>. When true, enables
+            <ulink
+            url="https://tools.ietf.org/html/rfc4033">DNSSEC</ulink>
+            DNS validation support on the link. When set to
+            <literal>allow-downgrade</literal>, compatibility with
+            non-DNSSEC capable networks is increased, by automatically
+            turning off DNSEC in this case. This option defines a
+            per-interface setting for
+            <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+            global <varname>DNSSEC=</varname> option. Defaults to
+            false. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>LLDP=</varname></term>
           <listitem>
             <para>A boolean. When true, enables LLDP link receive support.

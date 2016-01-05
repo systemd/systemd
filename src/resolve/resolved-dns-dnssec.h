@@ -28,24 +28,6 @@ typedef enum DnssecResult DnssecResult;
 #include "resolved-dns-answer.h"
 #include "resolved-dns-rr.h"
 
-enum DnssecMode {
-        /* No DNSSEC validation is done */
-        DNSSEC_NO,
-
-        /* Validate locally, if the server knows DO, but if not,
-         * don't. Don't trust the AD bit. If the server doesn't do
-         * DNSSEC properly, downgrade to non-DNSSEC operation. Of
-         * course, we then are vulnerable to a downgrade attack, but
-         * that's life and what is configured. */
-        DNSSEC_ALLOW_DOWNGRADE,
-
-        /* Insist on DNSSEC server support, and rather fail than downgrading. */
-        DNSSEC_YES,
-
-        _DNSSEC_MODE_MAX,
-        _DNSSEC_MODE_INVALID = -1
-};
-
 enum DnssecResult {
         /* These four are returned by dnssec_verify_rrset() */
         DNSSEC_VALIDATED,
@@ -100,9 +82,6 @@ typedef enum DnssecNsecResult {
 } DnssecNsecResult;
 
 int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl);
-
-const char* dnssec_mode_to_string(DnssecMode m) _const_;
-DnssecMode dnssec_mode_from_string(const char *s) _pure_;
 
 const char* dnssec_result_to_string(DnssecResult m) _const_;
 DnssecResult dnssec_result_from_string(const char *s) _pure_;

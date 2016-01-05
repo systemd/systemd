@@ -111,12 +111,20 @@ int sd_network_link_get_ntp(int ifindex, char ***addr);
  */
 int sd_network_link_get_llmnr(int ifindex, char **llmnr);
 
-/* Indicates whether or not MDNS should be enabled for the link
+/* Indicates whether or not MulticastDNS should be enabled for the
+ * link.
  * Possible levels of support: yes, no, resolve
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
 int sd_network_link_get_mdns(int ifindex, char **mdns);
+
+/* Indicates whether or not DNSSEC should be enabled for the link
+ * Possible levels of support: yes, no, allow-downgrade
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_dnssec(int ifindex, char **dnssec);
 
 int sd_network_link_get_lldp(int ifindex, char **lldp);
 

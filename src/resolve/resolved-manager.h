@@ -47,6 +47,7 @@ struct Manager {
 
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
+        DnssecMode dnssec_mode;
 
         /* Network */
         Hashmap *links;

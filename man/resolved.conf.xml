@@ -194,6 +194,16 @@
         happen regularly. On other systems it is recommended to set
         <varname>DNSSEC=</varname> to
         <literal>allow-downgrade</literal>.</para>
+
+        <para>In addition to this global DNSSEC setting
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-interface DNSSEC settings. For system DNS
+        servers (see above), only the global DNSSEC setting is in
+        effect. For per-interface DNS servers the per-interface
+        setting is in effect, unless it is unset in which case the
+        global setting is used instead.</para>
+
+        <para>Defaults to off.</para>
         </listitem>
       </varlistentry>
 

@@ -69,6 +69,7 @@ struct Link {
 
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
+        DnssecMode dnssec_mode;
 
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;

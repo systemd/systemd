@@ -57,6 +57,23 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         s->family = family;
         s->resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC;
 
+        s->dnssec_mode = _DNSSEC_MODE_INVALID;
+
+        if (protocol == DNS_PROTOCOL_DNS) {
+                /* Copy DNSSEC mode from the link if it is set there,
+                 * otherwise take the manager's DNSSEC mode. Note that
+                 * we copy this only at scope creation time, and do
+                 * not update it from the on, even if the setting
+                 * changes. */
+
+                if (l)
+                        s->dnssec_mode = l->dnssec_mode;
+                if (s->dnssec_mode == _DNSSEC_MODE_INVALID)
+                        s->dnssec_mode = m->dnssec_mode;
+                if (s->dnssec_mode == _DNSSEC_MODE_INVALID)
+                        s->dnssec_mode = DNSSEC_NO;
+        }
+
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
         dns_scope_llmnr_membership(s, true);

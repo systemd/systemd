@@ -47,6 +47,8 @@ int link_new(Manager *m, Link **ret, int ifindex) {
 
         l->ifindex = ifindex;
         l->llmnr_support = RESOLVE_SUPPORT_YES;
+        l->mdns_support = RESOLVE_SUPPORT_NO;
+        l->dnssec_mode = _DNSSEC_MODE_INVALID;
 
         r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
         if (r < 0)
@@ -273,6 +275,33 @@ clear:
         return r;
 }
 
+static int link_update_dnssec_mode(Link *l) {
+        _cleanup_free_ char *m = NULL;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dnssec(l->ifindex, &m);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->dnssec_mode = dnssec_mode_from_string(m);
+        if (l->dnssec_mode < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
+
+        return 0;
+
+clear:
+        l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        return r;
+}
+
 static int link_update_search_domains(Link *l) {
         _cleanup_strv_free_ char **domains = NULL;
         char **i;
@@ -332,12 +361,15 @@ int link_update_monitor(Link *l) {
         if (r < 0)
                 log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
 
-        link_allocate_scopes(l);
+        r = link_update_dnssec_mode(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
 
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
 
+        link_allocate_scopes(l);
         link_add_rrs(l, false);
 
         return 0;

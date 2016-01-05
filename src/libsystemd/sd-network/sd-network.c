@@ -143,6 +143,10 @@ _public_ int sd_network_link_get_mdns(int ifindex, char **mdns) {
         return network_link_get_string(ifindex, "MDNS", mdns);
 }
 
+_public_ int sd_network_link_get_dnssec(int ifindex, char **dnssec) {
+        return network_link_get_string(ifindex, "DNSSEC", dnssec);
+}
+
 _public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         size_t size;
