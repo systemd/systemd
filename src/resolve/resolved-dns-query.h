@@ -95,6 +95,12 @@ struct DnsQuery {
         LIST_FIELDS(DnsQuery, auxiliary_queries);
 };
 
+enum {
+        DNS_QUERY_MATCH,
+        DNS_QUERY_NOMATCH,
+        DNS_QUERY_RESTARTED,
+};
+
 DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 

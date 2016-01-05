@@ -160,7 +160,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         }
         if (r < 0)
                 goto finish;
-        if (r > 0) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
                 return;
 
         r = sd_bus_message_new_method_return(q->request, &reply);
@@ -315,7 +315,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         }
         if (r < 0)
                 goto finish;
-        if (r > 0) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
                 return;
 
         r = sd_bus_message_new_method_return(q->request, &reply);
@@ -481,7 +481,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         }
         if (r < 0)
                 goto finish;
-        if (r > 0) /* Following a CNAME */
+        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
                 return;
 
         r = sd_bus_message_new_method_return(q->request, &reply);
@@ -899,7 +899,7 @@ static void resolve_service_hostname_complete(DnsQuery *q) {
         }
 
         r = dns_query_process_cname(q);
-        if (r > 0) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
                 return;
 
         /* This auxiliary lookup is finished or failed, let's see if all are finished now. */
@@ -975,7 +975,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
         }
         if (r < 0)
                 goto finish;
-        if (r > 0) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
                 return;
 
         if (q->answer) {
