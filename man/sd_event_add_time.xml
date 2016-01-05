@@ -80,7 +80,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_time</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
       </funcprototype>
 
@@ -92,7 +92,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_time_accuracy</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
       </funcprototype>
 
@@ -104,7 +104,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_time_clock</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>clockid_t *<parameter>clock</parameter></paramdef>
       </funcprototype>
 
