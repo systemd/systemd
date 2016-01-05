@@ -363,19 +363,22 @@
             <para>A DNS server address, which must be in the format
             described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
+            This option may be specified more than once. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Domains=</varname></term>
           <listitem>
-            <para>The domains used for DNS resolution over this link.</para>
+            <para>The domains used for DNS resolution over this link. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>NTP=</varname></term>
           <listitem>
-            <para>An NTP server address. This option may be specified more than once.</para>
+            <para>An NTP server address. This option may be specified more than once. This setting is read by
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1028,7 +1031,7 @@ DHCP=yes
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
