@@ -175,6 +175,10 @@
 
     <para><ulink url="https://tools.ietf.org/html/rfc7646">RFC
     7646</ulink> for details on negative trust anchors.</para>
+
+    <para>If no negative trust anchor files are configured a built-in
+    set of well-known private DNS zone domains is used as negative
+    trust anchors.</para>
   </refsect1>
 
   <refsect1>

@@ -53,7 +53,7 @@ static bool dns_trust_anchor_knows_domain_positive(DnsTrustAnchor *d, const char
                 hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, name));
 }
 
-static int dns_trust_anchor_add_builtin(DnsTrustAnchor *d) {
+static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         int r;
@@ -97,6 +97,95 @@ static int dns_trust_anchor_add_builtin(DnsTrustAnchor *d) {
                 return r;
 
         answer = NULL;
+        return 0;
+}
+
+static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
+
+        static const char private_domains[] =
+                /* RFC 6761 says that .test is a special domain for
+                 * testing and not to be installed in the root zone */
+                "test\0"
+
+                /* RFC 6761 says that these reverse IP lookup ranges
+                 * are for private addresses, and hence should not
+                 * show up in the root zone */
+                "10.in-addr.arpa\0"
+                "16.172.in-addr.arpa\0"
+                "17.172.in-addr.arpa\0"
+                "18.172.in-addr.arpa\0"
+                "19.172.in-addr.arpa\0"
+                "20.172.in-addr.arpa\0"
+                "21.172.in-addr.arpa\0"
+                "22.172.in-addr.arpa\0"
+                "23.172.in-addr.arpa\0"
+                "24.172.in-addr.arpa\0"
+                "25.172.in-addr.arpa\0"
+                "26.172.in-addr.arpa\0"
+                "27.172.in-addr.arpa\0"
+                "28.172.in-addr.arpa\0"
+                "29.172.in-addr.arpa\0"
+                "30.172.in-addr.arpa\0"
+                "31.172.in-addr.arpa\0"
+                "168.192.in-addr.arpa\0"
+
+                /* RFC 6762 reserves the .local domain for Multicast
+                 * DNS, it hence cannot appear in the root zone. (Note
+                 * that we by default do not route .local traffic to
+                 * DNS anyway, except when a configured search domain
+                 * suggests so.) */
+                "local\0"
+
+                /* These two are well known, popular private zone
+                 * TLDs, that are blocked from delegation, according
+                 * to:
+                 * http://icannwiki.com/Name_Collision#NGPC_Resolution
+                 *
+                 * There's also ongoing work on making this official
+                 * in an RRC:
+                 * https://www.ietf.org/archive/id/draft-chapin-additional-reserved-tlds-02.txt */
+                "home\0"
+                "corp\0"
+
+                /* The following four TLDs are suggested for private
+                 * zones in RFC 6762, Appendix G, and are hence very
+                 * unlikely to be made official TLDs any day soon */
+                "lan\0"
+                "intranet\0"
+                "internal\0"
+                "private\0";
+
+        const char *name;
+        int r;
+
+        assert(d);
+
+        /* Only add the built-in trust anchor if there's no negative
+         * trust anchor defined at all. This enables easy overriding
+         * of negative trust anchors. */
+
+        if (set_size(d->negative_by_name) > 0)
+                return 0;
+
+        r = set_ensure_allocated(&d->negative_by_name, &dns_name_hash_ops);
+        if (r < 0)
+                return r;
+
+        /* We add a couple of domains as default negative trust
+         * anchors, where it's very unlikely they will be installed in
+         * the root zone. If they exist they must be private, and thus
+         * unsigned. */
+
+        NULSTR_FOREACH(name, private_domains) {
+
+                if (dns_trust_anchor_knows_domain_positive(d, name))
+                        continue;
+
+                r = set_put_strdup(d->negative_by_name, name);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -391,9 +480,13 @@ int dns_trust_anchor_load(DnsTrustAnchor *d) {
         (void) dns_trust_anchor_load_files(d, ".negative", dns_trust_anchor_load_negative);
 
         /* However, if the built-in DS fails, then we have a problem. */
-        r = dns_trust_anchor_add_builtin(d);
+        r = dns_trust_anchor_add_builtin_positive(d);
         if (r < 0)
-                return log_error_errno(r, "Failed to add trust anchor built-in: %m");
+                return log_error_errno(r, "Failed to add built-in positive trust anchor: %m");
+
+        r = dns_trust_anchor_add_builtin_negative(d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add built-in negative trust anchor: %m");
 
         dns_trust_anchor_dump(d);
 
