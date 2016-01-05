@@ -40,7 +40,6 @@
  *   - cname/dname compatibility
  *   - nxdomain on qname
  *   - per-interface DNSSEC setting
- *   - when doing negative caching, use NSEC/NSEC3 RR instead of SOA for TTL
  *
  * */
 
@@ -1250,7 +1249,7 @@ static int nsec3_hashed_domain(DnsResourceRecord *nsec3, const char *domain, con
  * that there is no proof either way. The latter is the case if a the proof of non-existence of a given
  * name uses an NSEC3 record with the opt-out bit set. Lastly, if we are given insufficient NSEC3 records
  * to conclude anything we indicate this by returning NO_RR. */
-static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
+static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
         _cleanup_free_ char *next_closer_domain = NULL, *wildcard = NULL, *wildcard_domain = NULL;
         const char *zone, *p, *pp = NULL;
         DnsResourceRecord *rr, *enclosure_rr, *suffix_rr, *wildcard_rr = NULL;
@@ -1260,7 +1259,6 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
 
         assert(key);
         assert(result);
-        assert(authenticated);
 
         /* First step, find the zone name and the NSEC3 parameters of the zone.
          * it is sufficient to look for the longest common suffix we find with
@@ -1369,7 +1367,10 @@ found_closest_encloser:
                 else
                         *result = DNSSEC_NSEC_NODATA;
 
-                *authenticated = a;
+                if (authenticated)
+                        *authenticated = a;
+                if (ttl)
+                        *ttl = enclosure_rr->ttl;
 
                 return 0;
         }
@@ -1452,7 +1453,6 @@ found_closest_encloser:
 
         if (!no_closer) {
                 *result = DNSSEC_NSEC_NO_RR;
-
                 return 0;
         }
 
@@ -1488,12 +1488,16 @@ found_closest_encloser:
                 }
         }
 
-        *authenticated = a;
+        if (authenticated)
+                *authenticated = a;
+
+        if (ttl)
+                *ttl = enclosure_rr->ttl;
 
         return 0;
 }
 
-int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
+int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
         DnsResourceRecord *rr;
         bool have_nsec3 = false;
         DnsAnswerFlags flags;
@@ -1501,7 +1505,6 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
         assert(key);
         assert(result);
-        assert(authenticated);
 
         /* Look for any NSEC/NSEC3 RRs that say something about the specified key. */
 
@@ -1524,7 +1527,12 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                                         *result = DNSSEC_NSEC_CNAME;
                                 else
                                         *result = DNSSEC_NSEC_NODATA;
-                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+
+                                if (authenticated)
+                                        *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                                if (ttl)
+                                        *ttl = rr->ttl;
+
                                 return 0;
                         }
 
@@ -1533,7 +1541,12 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                                 return r;
                         if (r > 0) {
                                 *result = DNSSEC_NSEC_NXDOMAIN;
-                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+
+                                if (authenticated)
+                                        *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                                if (ttl)
+                                        *ttl = rr->ttl;
+
                                 return 0;
                         }
                         break;
@@ -1546,7 +1559,7 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
         /* OK, this was not sufficient. Let's see if NSEC3 can help. */
         if (have_nsec3)
-                return dnssec_test_nsec3(answer, key, result, authenticated);
+                return dnssec_test_nsec3(answer, key, result, authenticated, ttl);
 
         /* No approproate NSEC RR found, report this. */
         *result = DNSSEC_NSEC_NO_RR;

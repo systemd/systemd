@@ -99,7 +99,7 @@ typedef enum DnssecNsecResult {
         DNSSEC_NSEC_OPTOUT,
 } DnssecNsecResult;
 
-int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated);
+int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl);
 
 const char* dnssec_mode_to_string(DnssecMode m) _const_;
 DnssecMode dnssec_mode_from_string(const char *s) _pure_;

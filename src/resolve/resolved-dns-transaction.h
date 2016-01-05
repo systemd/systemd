@@ -81,6 +81,7 @@ struct DnsTransaction {
         int answer_rcode;
         DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
+        uint32_t answer_nsec_ttl;
 
         /* Indicates whether the primary answer is authenticated,
          * i.e. whether the RRs from answer which directly match the

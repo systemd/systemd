@@ -40,6 +40,7 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_authenticated = false;
+        t->answer_nsec_ttl = (uint32_t) -1;
 }
 
 static void dns_transaction_close_connection(DnsTransaction *t) {
@@ -157,6 +158,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t->dns_udp_fd = -1;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        t->answer_nsec_ttl = (uint32_t) -1;
         t->key = dns_resource_key_ref(key);
 
         /* Find a fresh, unused transaction id */
@@ -482,6 +484,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_rcode,
                       t->answer,
                       t->answer_authenticated,
+                      t->answer_nsec_ttl,
                       0,
                       t->received->family,
                       &t->received->sender);
@@ -2385,7 +2388,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 bool authenticated = false;
 
                 /* Bummer! Let's check NSEC/NSEC3 */
-                r = dnssec_test_nsec(t->answer, t->key, &nr, &authenticated);
+                r = dnssec_test_nsec(t->answer, t->key, &nr, &authenticated, &t->answer_nsec_ttl);
                 if (r < 0)
                         return r;
 
