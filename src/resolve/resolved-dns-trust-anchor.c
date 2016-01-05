@@ -346,15 +346,21 @@ static void dns_trust_anchor_dump(DnsTrustAnchor *d) {
 
         assert(d);
 
-        log_info("Positive Trust Anchors:");
-        HASHMAP_FOREACH(a, d->positive_by_key, i) {
-                DnsResourceRecord *rr;
+        if (hashmap_isempty(d->positive_by_key))
+                log_info("No positive trust anchors defined.");
+        else {
+                log_info("Positive Trust Anchors:");
+                HASHMAP_FOREACH(a, d->positive_by_key, i) {
+                        DnsResourceRecord *rr;
 
-                DNS_ANSWER_FOREACH(rr, a)
-                        log_info("%s", dns_resource_record_to_string(rr));
+                        DNS_ANSWER_FOREACH(rr, a)
+                                log_info("%s", dns_resource_record_to_string(rr));
+                }
         }
 
-        if (!set_isempty(d->negative_by_name)) {
+        if (set_isempty(d->negative_by_name))
+                log_info("No negative trust anchors defined.");
+        else {
                 char *n;
                 log_info("Negative trust anchors:");
 
