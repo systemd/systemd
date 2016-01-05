@@ -1154,7 +1154,7 @@ int dns_query_process_cname(DnsQuery *q) {
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        return 0; /* The answer matches directly, no need to follow cnames */
+                        return 1; /* The answer matches directly, no need to follow cnames */
 
                 r = dns_question_matches_cname(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
@@ -1181,7 +1181,7 @@ int dns_query_process_cname(DnsQuery *q) {
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        return 0; /* It can answer it, yay! */
+                        return 1; /* It can answer it, yay! */
         }
 
         /* OK, it cannot, let's begin with the new query */
@@ -1189,7 +1189,7 @@ int dns_query_process_cname(DnsQuery *q) {
         if (r < 0)
                 return r;
 
-        return 1; /* We return > 0, if we restarted the query for a new cname */
+        return 2; /* We return > 1, if we restarted the query for a new cname */
 }
 
 static int on_bus_track(sd_bus_track *t, void *userdata) {
