@@ -125,22 +125,38 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MulticastDNS=</varname></term>
+        <listitem><para>Takes a boolean argument or
+        <literal>resolve</literal>. Controls Multicast DNS support
+        (<ulink url="https://tools.ietf.org/html/rfc6762">RFC
+        6762</ulink>) on the local host. If true, enables full
+        Multicast DNS responder and resolver support. If false,
+        disables both. If set to <literal>resolve</literal>, only
+        resolution support is enabled, but responding is
+        disabled. Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-interface Multicast DNS settings. Multicast
+        DNS will be enabled on an interface only if the per-interface
+        and the global setting is on.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSSEC=</varname></term>
         <listitem><para>Takes a boolean argument or
         <literal>downgrade-ok</literal>. If true all DNS lookups are
-        DNSSEC-validated locally. If a response for a lookup request
-        is detected invalid this is returned as lookup failure to
-        applications. Note that this mode requires a DNS server that
-        supports DNSSEC. If the DNS server does not properly support
-        DNSSEC all validations will fail. If set to
-        <literal>downgrade-ok</literal> DNSSEC validation is
-        attempted, but if the server does not support DNSSEC properly,
-        DNSSEC mode is automatically disabled. Note that this mode
-        makes DNSSEC validation vulnerable to "downgrade" attacks,
-        where an attacker might be able to trigger a downgrade to
-        non-DNSSEC mode by synthesizing a DNS response that suggests
-        DNSSEC was not supported. If set to false, DNS lookups are not
-        DNSSEC validated.</para>
+        DNSSEC-validated locally (excluding LLMNR and Multicast
+        DNS). If a response for a lookup request is detected invalid
+        this is returned as lookup failure to applications. Note that
+        this mode requires a DNS server that supports DNSSEC. If the
+        DNS server does not properly support DNSSEC all validations
+        will fail. If set to <literal>downgrade-ok</literal> DNSSEC
+        validation is attempted, but if the server does not support
+        DNSSEC properly, DNSSEC mode is automatically disabled. Note
+        that this mode makes DNSSEC validation vulnerable to
+        "downgrade" attacks, where an attacker might be able to
+        trigger a downgrade to non-DNSSEC mode by synthesizing a DNS
+        response that suggests DNSSEC was not supported. If set to
+        false, DNS lookups are not DNSSEC validated.</para>
 
         <para>Note that DNSSEC validation requires retrieval of
         additional DNS data, and thus results in a small DNS look-up
