@@ -42,6 +42,17 @@ static const uint8_t root_digest[] =
         { 0x49, 0xAA, 0xC1, 0x1D, 0x7B, 0x6F, 0x64, 0x46, 0x70, 0x2E, 0x54, 0xA1, 0x60, 0x73, 0x71, 0x60,
           0x7A, 0x1A, 0x41, 0x85, 0x52, 0x00, 0xFD, 0x2C, 0xE1, 0xCD, 0xDE, 0x32, 0xF2, 0x4E, 0x8F, 0xB5 };
 
+static bool dns_trust_anchor_knows_domain_positive(DnsTrustAnchor *d, const char *name) {
+        assert(d);
+
+        /* Returns true if there's an entry for the specified domain
+         * name in our trust anchor */
+
+        return
+                hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DNSKEY, name)) ||
+                hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, name));
+}
+
 static int dns_trust_anchor_add_builtin(DnsTrustAnchor *d) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
@@ -53,10 +64,11 @@ static int dns_trust_anchor_add_builtin(DnsTrustAnchor *d) {
         if (r < 0)
                 return r;
 
-        if (hashmap_get(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, ".")))
-                return 0;
-
-        if (hashmap_get(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DNSKEY, ".")))
+        /* Only add the built-in trust anchor if there's neither a DS
+         * nor a DNSKEY defined for the root domain. That way users
+         * have an easy way to override the root domain DS/DNSKEY
+         * data. */
+        if (dns_trust_anchor_knows_domain_positive(d, "."))
                 return 0;
 
         /* Add the RR from https://data.iana.org/root-anchors/root-anchors.xml */
@@ -522,17 +534,6 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
         return 0;
 }
 
-static bool dns_trust_anchor_knows_domain(DnsTrustAnchor *d, const char *name) {
-        assert(d);
-
-        /* Returns true if there's an entry for the specified domain
-         * name in our trust anchor */
-
-        return
-                hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DNSKEY, name)) ||
-                hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, name));
-}
-
 int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsAnswer *rrs, const DnsResourceKey *key) {
         DnsResourceRecord *dnskey;
         int r;
@@ -562,7 +563,7 @@ int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsAnswer *rrs, const DnsR
                 /* Could this be interesting to us at all? If not,
                  * there's no point in looking for and verifying a
                  * self-signed RRSIG. */
-                if (!dns_trust_anchor_knows_domain(d, DNS_RESOURCE_KEY_NAME(dnskey->key)))
+                if (!dns_trust_anchor_knows_domain_positive(d, DNS_RESOURCE_KEY_NAME(dnskey->key)))
                         continue;
 
                 /* Look for a self-signed RRSIG */
