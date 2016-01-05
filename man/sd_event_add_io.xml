@@ -120,36 +120,35 @@
     returned in the <parameter>source</parameter> parameter. The
     <parameter>fd</parameter> parameter takes the UNIX file descriptor
     to watch, which may refer to a socket, a FIFO, a message queue, a
-    serial connection, a character device or any other file descriptor
-    compatible with Linux <citerefentry
-    project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
-    <parameter>events</parameter> parameter takes a bit mask of I/O
-    events to watch the file descriptor for, a combination of the
-    following event flags: <constant>EPOLLIN</constant>,
-    <constant>EPOLLOUT</constant>, <constant>EPOLLRDHUP</constant>,
-    <constant>EPOLLPRI</constant> and <constant>EPOLLET</constant>,
-    see <citerefentry
-    project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    serial connection, a character device, or any other file descriptor
+    compatible with Linux
+    <citerefentry project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+    <parameter>events</parameter> parameter takes a bit mask of events
+    to watch for, a combination of the following event flags:
+    <constant>EPOLLIN</constant>, <constant>EPOLLOUT</constant>,
+    <constant>EPOLLRDHUP</constant>, <constant>EPOLLPRI</constant>,
+    and <constant>EPOLLET</constant>, see
+    <citerefentry project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for details. The <parameter>handler</parameter> shall reference a
-    function to call when the I/O event source is triggered. The
-    handler function will be passed the
-    <parameter>userdata</parameter> pointer, which may be chosen
-    freely by the caller. The handler will also be passed the file
-    descriptor the event was seen on as well as the actual event flags
-    seen. It's generally a subset of the events watched, however may
-    additionally have <constant>EPOLLERR</constant> and
-    <constant>EPOLLHUP</constant> set.</para>
+    function to call when the event source is triggered. The
+    <parameter>userdata</parameter> pointer will be passed to the
+    handler function, and may be chosen freely by the caller. The
+    handler will also be passed the file descriptor the event was seen
+    on, as well as the actual event flags. It's generally a subset of
+    the events watched, however may additionally include
+    <constant>EPOLLERR</constant> and <constant>EPOLLHUP</constant>.
+    </para>
 
-    <para>By default, the I/O event source will stay enabled
+    <para>By default, an event source will stay enabled
     continuously (<constant>SD_EVENT_ON</constant>), but this may be
     changed with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     If the handler function returns a negative error code, it will be
     disabled after the invocation, even if the
     <constant>SD_EVENT_ON</constant> mode was requested before. Note
-    that an I/O event source set to <constant>SD_EVENT_ON</constant> will
-    fire continuously unless data is read or written to the file
-    descriptor in order to reset the mask of events seen.
+    that an event source set to <constant>SD_EVENT_ON</constant> will
+    fire continuously unless data is read from or written to the file
+    descriptor to reset the mask of events seen.
     </para>
 
     <para>Setting the I/O event mask to watch for to 0 does not mean
@@ -164,16 +163,17 @@
     <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     but note that the event source is only removed from the event loop
     when all references to the event source are dropped. To make sure
-    an event source does not fire anymore, even when there's still a
-    reference to it kept, consider setting the event source to
-    <constant>SD_EVENT_OFF</constant> with
-    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    an event source does not fire anymore, even if it is still referenced,
+    disable the event source using
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    with <constant>SD_EVENT_OFF</constant>.</para>
 
     <para>If the second parameter of
-    <function>sd_event_add_io()</function> is passed as NULL no
-    reference to the event source object is returned. In this case the
-    event source is considered "floating", and will be destroyed
-    implicitly when the event loop itself is destroyed.</para>
+    <function>sd_event_add_io()</function> is
+    <constant>NULL</constant> no reference to the event source object
+    is returned. In this case the event source is considered
+    "floating", and will be destroyed implicitly when the event loop
+    itself is destroyed.</para>
 
     <para>It is recommended to use
     <function>sd_event_add_io()</function> only in conjunction with
@@ -181,24 +181,24 @@
     ensure that all I/O operations from invoked handlers are properly
     asynchronous and non-blocking. Using file descriptors without
     <constant>O_NONBLOCK</constant> might result in unexpected
-    starving of other event sources. See <citerefentry
-    project='man-pages'><refentrytitle>fcntl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    starvation of other event sources. See
+    <citerefentry project='man-pages'><refentrytitle>fcntl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for details on enabling <constant>O_NONBLOCK</constant> mode.</para>
 
     <para><function>sd_event_source_get_io_events()</function> retrieves
-    the configured I/O event mask to watch of an I/O event source created
+    the configured mask of watched I/O events of an event source created
     previously with <function>sd_event_add_io()</function>. It takes
     the event source object and a pointer to a variable to store the
-    event mask in.</para>
+    mask in.</para>
 
-    <para><function>sd_event_source_set_io_events()</function> changes the
-    configured I/O event mask to watch of an I/O event source created previously
-    with <function>sd_event_add_io()</function>. It takes the event
-    source object and the new event mask to set.</para>
+    <para><function>sd_event_source_set_io_events()</function>
+    configures the mask of watched I/O events of an event source created
+    previously with <function>sd_event_add_io()</function>. It takes the
+    event source object and the new event mask.</para>
 
     <para><function>sd_event_source_get_io_revents()</function>
     retrieves the I/O event mask of currently seen but undispatched
-    events from an I/O event source created previously with
+    events from an event source created previously with
     <function>sd_event_add_io()</function>. It takes the event source
     object and a pointer to a variable to store the event mask
     in. When called from a handler function on the handler's event
@@ -214,15 +214,15 @@
     source types, the latter only to I/O event sources.</para>
 
     <para><function>sd_event_source_get_io_fd()</function> retrieves
-    the UNIX file descriptor of an I/O event source created previously
+    the UNIX file descriptor of an event source created previously
     with <function>sd_event_add_io()</function>. It takes the event
-    source object and returns the positive file descriptor in the return
-    value, or a negative error number on error (see below).</para>
+    source object and returns the non-negative file descriptor
+    or a negative error number on error (see below).</para>
 
     <para><function>sd_event_source_set_io_fd()</function>
     changes the UNIX file descriptor of an I/O event source created
     previously with <function>sd_event_add_io()</function>. It takes
-    the event source object and the new file descriptor to set.</para>
+    the event source object and the new file descriptor.</para>
   </refsect1>
 
   <refsect1>
@@ -230,13 +230,13 @@
 
     <para>On success, these functions return 0 or a positive
     integer. On failure, they return a negative errno-style error
-    code. </para>
+    code.</para>
   </refsect1>
 
   <refsect1>
     <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+    <para>Returned values may indicate the following problems:</para>
 
     <variablelist>
       <varlistentry>
