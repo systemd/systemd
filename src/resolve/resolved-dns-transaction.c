@@ -1989,6 +1989,66 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         }}
 }
 
+static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKey *key) {
+        DnsTransaction *dt;
+        const char *tld;
+        Iterator i;
+        int r;
+
+        /* If DNSSEC downgrade mode is on, checks whether the
+         * specified RR is one level below a TLD we have proven not to
+         * exist. In such a case we assume that this is a private
+         * domain, and permit it.
+         *
+         * This detects cases like the Fritz!Box router networks. Each
+         * Fritz!Box router serves a private "fritz.box" zone, in the
+         * non-existing TLD "box". Requests for the "fritz.box" domain
+         * are served by the router itself, while requests for the
+         * "box" domain will result in NXDOMAIN.
+         *
+         * Note that this logic is unable to detect cases where a
+         * router serves a private DNS zone directly under
+         * non-existing TLD. In such a case we cannot detect whether
+         * the TLD is supposed to exist or not, as all requests we
+         * make for it will be answered by the router's zone, and not
+         * by the root zone. */
+
+        assert(t);
+
+        if (t->scope->dnssec_mode != DNSSEC_ALLOW_DOWNGRADE)
+                return false; /* In strict DNSSEC mode what doesn't exist, doesn't exist */
+
+        tld = DNS_RESOURCE_KEY_NAME(key);
+        r = dns_name_parent(&tld);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return false; /* Already the root domain */
+
+        if (!dns_name_is_single_label(tld))
+                return false;
+
+        SET_FOREACH(dt, t->dnssec_transactions, i) {
+
+                if (dt->key->class != key->class)
+                        continue;
+
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), tld);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* We found an auxiliary lookup we did for the TLD. If
+                 * that returned with NXDOMAIN, we know the TLD didn't
+                 * exist, and hence this might be a private zone. */
+
+                return dt->answer_rcode == DNS_RCODE_NXDOMAIN;
+        }
+
+        return false;
+}
+
 static int dns_transaction_requires_nsec(DnsTransaction *t) {
         DnsTransaction *dt;
         const char *name;
@@ -2011,6 +2071,18 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
                 return r;
         if (r > 0)
                 return false;
+
+        r = dns_transaction_in_private_tld(t, t->key);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                /* The lookup is from a TLD that is proven not to
+                 * exist, and we are in downgrade mode, hence ignore
+                 * that fact that we didn't get any NSEC RRs.*/
+
+                log_info("Detected a negative query %s in a private DNS zone, permitting unsigned response.", dns_transaction_key_string(t));
+                return false;
+        }
 
         name = DNS_RESOURCE_KEY_NAME(t->key);
 
@@ -2282,6 +2354,27 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                                 /* Otherwise, fail */
                                                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
                                                 return 0;
+                                        }
+
+                                        r = dns_transaction_in_private_tld(t, rr->key);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0) {
+                                                _cleanup_free_ char *s = NULL;
+
+                                                /* The data is from a TLD that is proven not to exist, and we are in downgrade
+                                                 * mode, hence ignore the fact that this was not signed. */
+
+                                                (void) dns_resource_key_to_string(rr->key, &s);
+                                                log_info("Detected RRset %s is in a private DNS zone, permitting unsigned RRs.", strna(s ? strstrip(s) : NULL));
+
+                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                                if (r < 0)
+                                                        return r;
+
+                                                t->scope->manager->n_dnssec_insecure++;
+                                                changed = true;
+                                                break;
                                         }
                                 }
 

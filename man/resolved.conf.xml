@@ -203,6 +203,15 @@
         setting is in effect, unless it is unset in which case the
         global setting is used instead.</para>
 
+        <para>Site-private DNS zones generally conflict with DNSSEC
+        operation, unless a negative (if the private zone is not
+        signed) or positive (if the private zone is signed) trust
+        anchor is configured for them. If
+        <literal>allow-downgrade</literal> mode is selected, it is
+        attempted to detect site-private DNS zones using top-level
+        domains (TLDs) that are not known by the DNS root server. This
+        logic does not work in all private zone setups.</para>
+
         <para>Defaults to off.</para>
         </listitem>
       </varlistentry>
