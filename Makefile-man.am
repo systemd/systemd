@@ -1990,16 +1990,21 @@ endif
 
 if ENABLE_RESOLVED
 MANPAGES += \
+	man/dnssec-trust-anchors.d.5 \
 	man/nss-resolve.8 \
 	man/resolved.conf.5 \
 	man/systemd-resolved.service.8
 MANPAGES_ALIAS += \
 	man/libnss_resolve.so.2.8 \
 	man/resolved.conf.d.5 \
-	man/systemd-resolved.8
+	man/systemd-resolved.8 \
+	man/systemd.negative.5 \
+	man/systemd.positive.5
 man/libnss_resolve.so.2.8: man/nss-resolve.8
 man/resolved.conf.d.5: man/resolved.conf.5
 man/systemd-resolved.8: man/systemd-resolved.service.8
+man/systemd.negative.5: man/dnssec-trust-anchors.d.5
+man/systemd.positive.5: man/dnssec-trust-anchors.d.5
 man/libnss_resolve.so.2.html: man/nss-resolve.html
 	$(html-alias)
 
@@ -2007,6 +2012,12 @@ man/resolved.conf.d.html: man/resolved.conf.html
 	$(html-alias)
 
 man/systemd-resolved.html: man/systemd-resolved.service.html
+	$(html-alias)
+
+man/systemd.negative.html: man/dnssec-trust-anchors.d.html
+	$(html-alias)
+
+man/systemd.positive.html: man/dnssec-trust-anchors.d.html
 	$(html-alias)
 
 endif
@@ -2434,6 +2445,7 @@ EXTRA_DIST += \
 	man/coredumpctl.xml \
 	man/crypttab.xml \
 	man/daemon.xml \
+	man/dnssec-trust-anchors.d.xml \
 	man/file-hierarchy.xml \
 	man/halt.xml \
 	man/hostname.xml \

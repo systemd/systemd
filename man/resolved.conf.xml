@@ -148,15 +148,17 @@
 
         <para>DNSSEC requires knowledge of "trust anchors" to prove
         data integrity. The trust anchor for the Internet root domain
-        is built into the resolver. However, trust anchors may change
-        in regular intervals, and old trust anchors may be revoked. In
-        such a case DNSSEC validation is not possible until new trust
-        anchors are configured locally or the resolver software
-        package is updated with the new root trust anchor. In effect,
-        when the built-in trust anchor is revoked and
-        <varname>DNSSEC=</varname> is true, all further lookups will
-        fail, as it cannot be proved anymore whether lookups are
-        correctly signed, or validly unsigned. If
+        is built into the resolver, additional trust anchors may be
+        defined with
+        <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Trust anchors may change in regular intervals, and old trust
+        anchors may be revoked. In such a case DNSSEC validation is
+        not possible until new trust anchors are configured locally or
+        the resolver software package is updated with the new root
+        trust anchor. In effect, when the built-in trust anchor is
+        revoked and <varname>DNSSEC=</varname> is true, all further
+        lookups will fail, as it cannot be proved anymore whether
+        lookups are correctly signed, or validly unsigned. If
         <varname>DNSSEC=</varname> is set to
         <literal>downgrade-ok</literal> the resolver will
         automatically turn of DNSSEC validation in such a case.</para>
@@ -188,6 +190,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>4</manvolnum></citerefentry>
       </para>
   </refsect1>
