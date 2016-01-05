@@ -38,11 +38,8 @@
  *   - wildcard zones compatibility (NSEC/NSEC3 wildcard check is missing)
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
- *   - per-interface DNSSEC setting
  *   - nxdomain on qname
- *   - retry on failed validation?
- *   - DNSSEC key revocation support? https://tools.ietf.org/html/rfc5011
- *   - when doing negative caching, use NSEC/NSEC3 RR instead of SOA for TTL
+ *   - per-interface DNSSEC setting
  *
  * */
 
@@ -79,9 +76,9 @@ static void initialize_libgcrypt(void) {
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
-uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
+uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         const uint8_t *p;
-        uint32_t sum;
+        uint32_t sum, f;
         size_t i;
 
         /* The algorithm from RFC 4034, Appendix B. */
@@ -89,8 +86,12 @@ uint16_t dnssec_keytag(DnsResourceRecord *dnskey) {
         assert(dnskey);
         assert(dnskey->key->type == DNS_TYPE_DNSKEY);
 
-        sum = (uint32_t) dnskey->dnskey.flags +
-                ((((uint32_t) dnskey->dnskey.protocol) << 8) + (uint32_t) dnskey->dnskey.algorithm);
+        f = (uint32_t) dnskey->dnskey.flags;
+
+        if (mask_revoke)
+                f &= ~DNSKEY_FLAG_REVOKE;
+
+        sum = f + ((((uint32_t) dnskey->dnskey.protocol) << 8) + (uint32_t) dnskey->dnskey.algorithm);
 
         p = dnskey->dnskey.key;
 
@@ -116,15 +117,15 @@ static int rr_compare(const void *a, const void *b) {
         assert(*y);
         assert((*y)->wire_format);
 
-        m = MIN((*x)->wire_format_size, (*y)->wire_format_size);
+        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(*x), DNS_RESOURCE_RECORD_RDATA_SIZE(*y));
 
-        r = memcmp((*x)->wire_format, (*y)->wire_format, m);
+        r = memcmp(DNS_RESOURCE_RECORD_RDATA(*x), DNS_RESOURCE_RECORD_RDATA(*y), m);
         if (r != 0)
                 return r;
 
-        if ((*x)->wire_format_size < (*y)->wire_format_size)
+        if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) < DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
                 return -1;
-        else if ((*x)->wire_format_size > (*y)->wire_format_size)
+        else if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) > DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
                 return 1;
 
         return 0;
@@ -494,7 +495,7 @@ static int algorithm_to_gcrypt_md(uint8_t algorithm) {
 
 int dnssec_verify_rrset(
                 DnsAnswer *a,
-                DnsResourceKey *key,
+                const DnsResourceKey *key,
                 DnsResourceRecord *rrsig,
                 DnsResourceRecord *dnskey,
                 usec_t realtime,
@@ -605,12 +606,11 @@ int dnssec_verify_rrset(
                 md_add_uint16(md, rr->key->class);
                 md_add_uint32(md, rrsig->rrsig.original_ttl);
 
-                assert(rr->wire_format_rdata_offset <= rr->wire_format_size);
-                l = rr->wire_format_size - rr->wire_format_rdata_offset;
+                l = DNS_RESOURCE_RECORD_RDATA_SIZE(rr);
                 assert(l <= 0xFFFF);
 
                 md_add_uint16(md, (uint16_t) l);
-                gcry_md_write(md, (uint8_t*) rr->wire_format + rr->wire_format_rdata_offset, l);
+                gcry_md_write(md, DNS_RESOURCE_RECORD_RDATA(rr), l);
         }
 
         hash = gcry_md_read(md, 0);
@@ -654,7 +654,7 @@ finish:
         return r;
 }
 
-int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey) {
+int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok) {
 
         assert(rrsig);
         assert(dnskey);
@@ -671,12 +671,14 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
                 return 0;
         if ((dnskey->dnskey.flags & DNSKEY_FLAG_ZONE_KEY) == 0)
                 return 0;
+        if (!revoked_ok && (dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE))
+                return 0;
         if (dnskey->dnskey.protocol != 3)
                 return 0;
         if (dnskey->dnskey.algorithm != rrsig->rrsig.algorithm)
                 return 0;
 
-        if (dnssec_keytag(dnskey) != rrsig->rrsig.key_tag)
+        if (dnssec_keytag(dnskey, false) != rrsig->rrsig.key_tag)
                 return 0;
 
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(dnskey->key), rrsig->rrsig.signer);
@@ -738,7 +740,7 @@ static int dnssec_fix_rrset_ttl(DnsAnswer *a, const DnsResourceKey *key, DnsReso
 
 int dnssec_verify_rrset_search(
                 DnsAnswer *a,
-                DnsResourceKey *key,
+                const DnsResourceKey *key,
                 DnsAnswer *validated_dnskeys,
                 usec_t realtime,
                 DnssecResult *result) {
@@ -777,7 +779,7 @@ int dnssec_verify_rrset_search(
                                 continue;
 
                         /* Is this a DNSKEY RR that matches they key of our RRSIG? */
-                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey);
+                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey, false);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -957,7 +959,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
+int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
@@ -975,12 +977,14 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
                 return -EINVAL;
         if ((dnskey->dnskey.flags & DNSKEY_FLAG_ZONE_KEY) == 0)
                 return -EKEYREJECTED;
+        if (!mask_revoke && (dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE))
+                return -EKEYREJECTED;
         if (dnskey->dnskey.protocol != 3)
                 return -EKEYREJECTED;
 
         if (dnskey->dnskey.algorithm != ds->ds.algorithm)
                 return 0;
-        if (dnssec_keytag(dnskey) != ds->ds.key_tag)
+        if (dnssec_keytag(dnskey, mask_revoke) != ds->ds.key_tag)
                 return 0;
 
         initialize_libgcrypt();
@@ -1004,7 +1008,10 @@ int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds) {
                 return -EIO;
 
         gcry_md_write(md, owner_name, r);
-        md_add_uint16(md, dnskey->dnskey.flags);
+        if (mask_revoke)
+                md_add_uint16(md, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
+        else
+                md_add_uint16(md, dnskey->dnskey.flags);
         md_add_uint8(md, dnskey->dnskey.protocol);
         md_add_uint8(md, dnskey->dnskey.algorithm);
         gcry_md_write(md, dnskey->dnskey.key, dnskey->dnskey.key_size);
@@ -1049,7 +1056,9 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
                 if (r == 0)
                         continue;
 
-                r = dnssec_verify_dnskey(dnskey, ds);
+                r = dnssec_verify_dnskey(dnskey, ds, false);
+                if (r == -EKEYREJECTED)
+                        return 0; /* The DNSKEY is revoked or otherwise invalid, we won't bless it */
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1073,7 +1082,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_nsec3_hash(const DnsResourceRecord *nsec3, const char *name, void *ret) {
+int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
@@ -1089,8 +1098,10 @@ int dnssec_nsec3_hash(const DnsResourceRecord *nsec3, const char *name, void *re
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
-        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX)
+        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX) {
+                log_debug("Ignoring NSEC3 RR %s with excessive number of iterations.", dns_resource_record_to_string(nsec3));
                 return -EOPNOTSUPP;
+        }
 
         algorithm = nsec3_hash_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)
@@ -1200,7 +1211,7 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourc
         return dns_name_equal(a, b);
 }
 
-static int nsec3_hashed_domain(const DnsResourceRecord *nsec3, const char *domain, const char *zone, char **ret) {
+static int nsec3_hashed_domain(DnsResourceRecord *nsec3, const char *domain, const char *zone, char **ret) {
         _cleanup_free_ char *l = NULL, *hashed_domain = NULL;
         uint8_t hashed[DNSSEC_HASH_SIZE_MAX];
         int hashed_size;
@@ -1238,7 +1249,7 @@ static int nsec3_hashed_domain(const DnsResourceRecord *nsec3, const char *domai
  * that there is no proof either way. The latter is the case if a the proof of non-existence of a given
  * name uses an NSEC3 record with the opt-out bit set. Lastly, if we are given insufficient NSEC3 records
  * to conclude anything we indicate this by returning NO_RR. */
-static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
+static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
         _cleanup_free_ char *next_closer_domain = NULL, *wildcard = NULL, *wildcard_domain = NULL;
         const char *zone, *p, *pp = NULL;
         DnsResourceRecord *rr, *enclosure_rr, *suffix_rr, *wildcard_rr = NULL;
@@ -1248,7 +1259,6 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
 
         assert(key);
         assert(result);
-        assert(authenticated);
 
         /* First step, find the zone name and the NSEC3 parameters of the zone.
          * it is sufficient to look for the longest common suffix we find with
@@ -1357,7 +1367,10 @@ found_closest_encloser:
                 else
                         *result = DNSSEC_NSEC_NODATA;
 
-                *authenticated = a;
+                if (authenticated)
+                        *authenticated = a;
+                if (ttl)
+                        *ttl = enclosure_rr->ttl;
 
                 return 0;
         }
@@ -1440,7 +1453,6 @@ found_closest_encloser:
 
         if (!no_closer) {
                 *result = DNSSEC_NSEC_NO_RR;
-
                 return 0;
         }
 
@@ -1476,12 +1488,16 @@ found_closest_encloser:
                 }
         }
 
-        *authenticated = a;
+        if (authenticated)
+                *authenticated = a;
+
+        if (ttl)
+                *ttl = enclosure_rr->ttl;
 
         return 0;
 }
 
-int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated) {
+int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
         DnsResourceRecord *rr;
         bool have_nsec3 = false;
         DnsAnswerFlags flags;
@@ -1489,7 +1505,6 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
         assert(key);
         assert(result);
-        assert(authenticated);
 
         /* Look for any NSEC/NSEC3 RRs that say something about the specified key. */
 
@@ -1512,7 +1527,12 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                                         *result = DNSSEC_NSEC_CNAME;
                                 else
                                         *result = DNSSEC_NSEC_NODATA;
-                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+
+                                if (authenticated)
+                                        *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                                if (ttl)
+                                        *ttl = rr->ttl;
+
                                 return 0;
                         }
 
@@ -1521,7 +1541,12 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                                 return r;
                         if (r > 0) {
                                 *result = DNSSEC_NSEC_NXDOMAIN;
-                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+
+                                if (authenticated)
+                                        *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                                if (ttl)
+                                        *ttl = rr->ttl;
+
                                 return 0;
                         }
                         break;
@@ -1534,7 +1559,7 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
         /* OK, this was not sufficient. Let's see if NSEC3 can help. */
         if (have_nsec3)
-                return dnssec_test_nsec3(answer, key, result, authenticated);
+                return dnssec_test_nsec3(answer, key, result, authenticated, ttl);
 
         /* No approproate NSEC RR found, report this. */
         *result = DNSSEC_NSEC_NO_RR;

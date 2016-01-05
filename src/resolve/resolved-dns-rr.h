@@ -34,8 +34,9 @@ typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsTxtItem DnsTxtItem;
 
 /* DNSKEY RR flags */
-#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
 #define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
+#define DNSKEY_FLAG_REVOKE   (UINT16_C(1) << 7)
+#define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
 
 /* mDNS RR flags */
 #define MDNS_RR_CACHE_FLUSH  (UINT16_C(1) << 15)
@@ -235,13 +236,34 @@ struct DnsResourceRecord {
 };
 
 static inline const char* DNS_RESOURCE_KEY_NAME(const DnsResourceKey *key) {
-        if (_unlikely_(!key))
+        if (!key)
                 return NULL;
 
         if (key->_name)
                 return key->_name;
 
         return (char*) key + sizeof(DnsResourceKey);
+}
+
+static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
+        if (!rr)
+                return NULL;
+
+        if (!rr->wire_format)
+                return NULL;
+
+        assert(rr->wire_format_rdata_offset <= rr->wire_format_size);
+        return (uint8_t*) rr->wire_format + rr->wire_format_rdata_offset;
+}
+
+static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
+        if (!rr)
+                return 0;
+        if (!rr->wire_format)
+                return 0;
+
+        assert(rr->wire_format_rdata_offset <= rr->wire_format_size);
+        return rr->wire_format_size - rr->wire_format_rdata_offset;
 }
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);

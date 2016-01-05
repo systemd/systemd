@@ -39,6 +39,7 @@ enum DnsTransactionState {
         DNS_TRANSACTION_CONNECTION_FAILURE,
         DNS_TRANSACTION_ABORTED,
         DNS_TRANSACTION_DNSSEC_FAILED,
+        DNS_TRANSACTION_NO_TRUST_ANCHOR,
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -1
 };
@@ -80,6 +81,7 @@ struct DnsTransaction {
         int answer_rcode;
         DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
+        uint32_t answer_nsec_ttl;
 
         /* Indicates whether the primary answer is authenticated,
          * i.e. whether the RRs from answer which directly match the
@@ -140,7 +142,7 @@ struct DnsTransaction {
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);
 
-void dns_transaction_gc(DnsTransaction *t);
+bool dns_transaction_gc(DnsTransaction *t);
 int dns_transaction_go(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p);

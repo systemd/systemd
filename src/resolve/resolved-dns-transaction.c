@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sd-messages.h>
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -38,6 +40,7 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_authenticated = false;
+        t->answer_nsec_ttl = (uint32_t) -1;
 }
 
 static void dns_transaction_close_connection(DnsTransaction *t) {
@@ -61,6 +64,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         if (!t)
                 return NULL;
+
+        log_debug("Freeing transaction %" PRIu16 ".", t->id);
 
         dns_transaction_close_connection(t);
         dns_transaction_stop_timeout(t);
@@ -106,16 +111,20 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_free);
 
-void dns_transaction_gc(DnsTransaction *t) {
+bool dns_transaction_gc(DnsTransaction *t) {
         assert(t);
 
         if (t->block_gc > 0)
-                return;
+                return true;
 
         if (set_isempty(t->notify_query_candidates) &&
             set_isempty(t->notify_zone_items) &&
-            set_isempty(t->notify_transactions))
+            set_isempty(t->notify_transactions)) {
                 dns_transaction_free(t);
+                return false;
+        }
+
+        return true;
 }
 
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) {
@@ -149,6 +158,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t->dns_udp_fd = -1;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        t->answer_nsec_ttl = (uint32_t) -1;
         t->key = dns_resource_key_ref(key);
 
         /* Find a fresh, unused transaction id */
@@ -237,6 +247,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         if (state == DNS_TRANSACTION_DNSSEC_FAILED)
                 log_struct(LOG_NOTICE,
+                           LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_FAILURE),
                            LOG_MESSAGE("DNSSEC validation failed for question %s: %s", dns_transaction_key_string(t), dnssec_result_to_string(t->answer_dnssec_result)),
                            "DNS_TRANSACTION=%" PRIu16, t->id,
                            "DNS_QUESTION=%s", dns_transaction_key_string(t),
@@ -473,6 +484,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_rcode,
                       t->answer,
                       t->answer_authenticated,
+                      t->answer_nsec_ttl,
                       0,
                       t->received->family,
                       &t->received->sender);
@@ -718,7 +730,22 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 t->answer_authenticated = false;
 
+                /* Block GC while starting requests for additional DNSSEC RRs */
+                t->block_gc++;
                 r = dns_transaction_request_dnssec_keys(t);
+                t->block_gc--;
+
+                /* Maybe the transaction is ready for GC'ing now? If so, free it and return. */
+                if (!dns_transaction_gc(t))
+                        return;
+
+                /* Requesting additional keys might have resulted in
+                 * this transaction to fail, since the auxiliary
+                 * request failed for some reason. If so, we are not
+                 * in pending state anymore, and we should exit
+                 * quickly. */
+                if (t->state != DNS_TRANSACTION_PENDING)
+                        return;
                 if (r < 0) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                         return;
@@ -900,6 +927,41 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                         t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
                         t->answer_authenticated = true;
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                        return 0;
+                }
+
+                if (dns_name_is_root(DNS_RESOURCE_KEY_NAME(t->key)) &&
+                    t->key->type == DNS_TYPE_DS) {
+
+                        /* Hmm, this is a request for the root DS? A
+                         * DS RR doesn't exist in the root zone, and
+                         * if our trust anchor didn't know it either,
+                         * this means we cannot do any DNSSEC logic
+                         * anymore. */
+
+                        if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+                                /* We are in downgrade mode. In this
+                                 * case, synthesize an unsigned empty
+                                 * response, so that the any lookup
+                                 * depending on this one can continue
+                                 * assuming there was no DS, and hence
+                                 * the root zone was unsigned. */
+
+                                t->answer_rcode = DNS_RCODE_SUCCESS;
+                                t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
+                                t->answer_authenticated = false;
+                                dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                        } else
+                                /* If we are not in downgrade mode,
+                                 * then fail the lookup, because we
+                                 * cannot reasonably answer it. There
+                                 * might be DS RRs, but we don't know
+                                 * them, and the DNS server won't tell
+                                 * them to us (and even if it would,
+                                 * we couldn't validate it and trust
+                                 * it). */
+                                dns_transaction_complete(t, DNS_TRANSACTION_NO_TRUST_ANCHOR);
+
                         return 0;
                 }
         }
@@ -1209,6 +1271,28 @@ int dns_transaction_go(DnsTransaction *t) {
         return 1;
 }
 
+static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
+        DnsTransaction *n;
+        Iterator i;
+        int r;
+
+        assert(t);
+        assert(aux);
+
+        /* Try to find cyclic dependencies between transaction objects */
+
+        if (t == aux)
+                return 1;
+
+        SET_FOREACH(n, aux->notify_transactions, i) {
+                r = dns_transaction_find_cyclic(t, n);
+                if (r != 0)
+                        return r;
+        }
+
+        return r;
+}
+
 static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
         DnsTransaction *aux;
         int r;
@@ -1226,6 +1310,18 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
                 if (set_contains(t->dnssec_transactions, aux)) {
                         *ret = aux;
                         return 0;
+                }
+
+                r = dns_transaction_find_cyclic(t, aux);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_debug("Detected potential cyclic dependency, refusing to add transaction %" PRIu16 " (%s) as dependency for %" PRIu16 " (%s).",
+                                  aux->id,
+                                  strna(dns_transaction_key_string(aux)),
+                                  t->id,
+                                  strna(dns_transaction_key_string(t)));
+                        return -ELOOP;
                 }
         }
 
@@ -1263,12 +1359,6 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
         assert(t);
         assert(key);
 
-        r = dns_resource_key_equal(t->key, key);
-        if (r < 0)
-                return r;
-        if (r > 0) /* Don't go in circles */
-                return 0;
-
         /* Try to get the data from the trust anchor */
         r = dns_trust_anchor_lookup_positive(&t->scope->manager->trust_anchor, key, &a);
         if (r < 0)
@@ -1283,6 +1373,8 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
 
         /* This didn't work, ask for it via the network/cache then. */
         r = dns_transaction_add_dnssec_transaction(t, key, &aux);
+        if (r == -ELOOP) /* This would result in a cyclic dependency */
+                return 0;
         if (r < 0)
                 return r;
 
@@ -1292,7 +1384,7 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
                         return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags *flags) {
@@ -1494,7 +1586,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dnssec_keytag(rr));
+                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dnssec_keytag(rr, false));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -2116,6 +2208,14 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key, DNS_ANSWER_AUTHENTICATED);
                                         if (r < 0)
                                                 return r;
+
+                                        /* Maybe warn the user that we
+                                         * encountered a revoked
+                                         * DNSKEY for a key from our
+                                         * trust anchor */
+                                        r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor, t->answer, rr->key);
+                                        if (r < 0)
+                                                return r;
                                 }
 
                                 /* Add the validated RRset to the new
@@ -2288,7 +2388,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 bool authenticated = false;
 
                 /* Bummer! Let's check NSEC/NSEC3 */
-                r = dnssec_test_nsec(t->answer, t->key, &nr, &authenticated);
+                r = dnssec_test_nsec(t->answer, t->key, &nr, &authenticated, &t->answer_nsec_ttl);
                 if (r < 0)
                         return r;
 
@@ -2376,6 +2476,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_CONNECTION_FAILURE] = "connection-failure",
         [DNS_TRANSACTION_ABORTED] = "aborted",
         [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
+        [DNS_TRANSACTION_NO_TRUST_ANCHOR] = "no-trust-anchor",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
