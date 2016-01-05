@@ -44,6 +44,7 @@
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "conf-parser.h"
 #include "copy.h"
 #include "dropin.h"
 #include "efivars.h"
@@ -6113,6 +6114,134 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         return 0;
 }
 
+/* This allows for tracking of existing warnings so that they aren't repeated
+ * for each line in a file.
+ */
+struct CheckSanityWarnings {
+        bool warn_about_install;
+};
+
+static int edit_check_parse(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+
+        assert(unit);
+        assert(strcmp(unit,"CheckSanity") == 0);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        /* TODO: There should be particular checks in here. */
+
+        return 0;
+}
+
+extern const char load_fragment_gperf_nulstr[];
+
+static int edit_check_dummy_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata) {
+
+        const char * scan;
+        const char * comparison;
+
+        struct CheckSanityWarnings * warnings = NULL;
+
+        assert(section);
+        assert(userdata);
+        assert(table == NULL);
+        warnings = (struct CheckSanityWarnings*)userdata;
+
+        /* There should be no install section in a drop-in override. */
+        if (!arg_full && strcmp(section,"Install") == 0 && !warnings->warn_about_install) {
+                warnings->warn_about_install = true;
+        }
+
+        /* Check the real lookup function first to see if the lvalue makes sense. */
+#if 0
+        p = config_item_perf_lookup(table, section, lvalue, func, ltype, data, NULL);
+        /* Lookup failed - pass this back. */
+        if (p == 0) {
+                return 0;
+        }
+#endif
+        
+        /* Can't use the real lookup function because of library issues.
+         * Instead, use the nulstr output to manually parse the available
+         * options.
+         */
+        comparison = strjoin(section, ".", lvalue, NULL);
+        scan = load_fragment_gperf_nulstr;
+        while(*scan != '\0') {
+                if (strcmp(scan, comparison) == 0)
+                        break;
+                scan += strlen(scan)+1;
+        }
+        if (*scan == '\0') {
+                /* Didn't find anything. Return to let the caller warn the user
+                 * since we don't know the line number/filename in here.
+                 */
+                return 0;
+        }
+
+        /* Otherwise do the real parameter check itself. Clear the returns from the perf lookup for safety. */
+        *func = edit_check_parse;
+        *ltype = 0;
+        *data = NULL;
+
+        return 1;
+}
+
+static int edit_check_sanity(char * path) {
+        _cleanup_fclose_ FILE * file = NULL;
+        int r = 0;
+
+        /* Including the sections here manually. I tried to take them from
+         * service.c:service_vtable but that requires including libmount and
+         * woe ensued...
+         */
+        const char * sections = 
+                "Unit\0"
+                "Service\0"
+                "Install\0";
+
+        struct CheckSanityWarnings warnings = { .warn_about_install = false};
+
+        assert(path);
+
+        file = fopen(path,"r");
+
+        if (!file) {
+                log_error("Unable to open file '%s' to check sanity.", path);
+                return -errno;
+        }
+
+        r = config_parse("CheckSanity",
+                         path,
+                         file,
+                         sections,
+                         edit_check_dummy_lookup,
+                         NULL,
+                         false, 
+                         false,
+                         true,
+                         &warnings);
+
+        if (warnings.warn_about_install) {
+                log_syntax("CheckSanity", LOG_ERR, path, 0, 0, "'Install' sections are not allowed in drop-in overrides. Make a full replacement using 'systemctl edit -l ...' instead.");
+        }
+
+        /* TODO: Try a test load of the unit to catch other errors. Need to
+         * make sure this doesn't affect the system.
+         * 
+         * This might not be possible if it requires loading libmount.
+         */
+
+        /* TODO: Look to see if the unit was already running. If so remind the
+         * user to reload.
+         */
+
+        return r;
+}
+
 static int edit(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_strv_free_ char **paths = NULL;
@@ -6161,6 +6290,15 @@ static int edit(int argc, char *argv[], void *userdata) {
                 r = rename(*tmp, *original);
                 if (r < 0) {
                         r = log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", *tmp, *original);
+                        goto end;
+                }
+
+                r = edit_check_sanity(*original);
+                if (r < 0) {
+                        /* Only a warning here because sanity checking is
+                         * optional anyway.
+                         */
+                        r = log_warning("Error while checking new unit file for sanity: \"%s\"", *original);
                         goto end;
                 }
         }
