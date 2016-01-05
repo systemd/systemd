@@ -476,7 +476,7 @@ int manager_new(Manager **ret) {
         m->mdns_ipv4_fd = m->mdns_ipv6_fd = -1;
         m->hostname_fd = -1;
 
-        m->llmnr_support = SUPPORT_YES;
+        m->llmnr_support = RESOLVE_SUPPORT_YES;
         m->read_resolv_conf = true;
         m->need_builtin_fallbacks = true;
 
@@ -1163,10 +1163,3 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
 
         return 0;
 }
-
-static const char* const support_table[_SUPPORT_MAX] = {
-        [SUPPORT_NO] = "no",
-        [SUPPORT_YES] = "yes",
-        [SUPPORT_RESOLVE] = "resolve",
-};
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(support, Support, SUPPORT_YES);

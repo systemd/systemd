@@ -22,6 +22,7 @@
 ***/
 
 #include "condition.h"
+#include "resolve-util.h"
 
 typedef struct Network Network;
 

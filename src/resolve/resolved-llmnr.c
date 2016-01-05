@@ -47,7 +47,7 @@ int manager_llmnr_start(Manager *m) {
 
         assert(m);
 
-        if (m->llmnr_support == SUPPORT_NO)
+        if (m->llmnr_support == RESOLVE_SUPPORT_NO)
                 return 0;
 
         r = manager_llmnr_ipv4_udp_fd(m);
@@ -80,7 +80,7 @@ int manager_llmnr_start(Manager *m) {
 
 eaddrinuse:
         log_warning("There appears to be another LLMNR responder running. Turning off LLMNR support.");
-        m->llmnr_support = SUPPORT_NO;
+        m->llmnr_support = RESOLVE_SUPPORT_NO;
         manager_llmnr_stop(m);
 
         return 0;

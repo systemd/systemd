@@ -42,7 +42,7 @@ int manager_mdns_start(Manager *m) {
 
         assert(m);
 
-        if (m->mdns_support == SUPPORT_NO)
+        if (m->mdns_support == RESOLVE_SUPPORT_NO)
                 return 0;
 
         r = manager_mdns_ipv4_fd(m);
@@ -63,7 +63,7 @@ int manager_mdns_start(Manager *m) {
 
 eaddrinuse:
         log_warning("There appears to be another mDNS responder running. Turning off mDNS support.");
-        m->mdns_support = SUPPORT_NO;
+        m->mdns_support = RESOLVE_SUPPORT_NO;
         manager_mdns_stop(m);
 
         return 0;

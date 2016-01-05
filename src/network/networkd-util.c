@@ -101,13 +101,3 @@ int config_parse_address_family_boolean_with_kernel(
 
         return 0;
 }
-
-static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
-        [RESOLVE_SUPPORT_NO] = "no",
-        [RESOLVE_SUPPORT_YES] = "yes",
-        [RESOLVE_SUPPORT_RESOLVE] = "resolve",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolve_support, ResolveSupport, RESOLVE_SUPPORT_YES);
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve, resolve_support, ResolveSupport, "Failed to parse resolve support");

@@ -200,40 +200,6 @@ int config_parse_search_domains(
         return 0;
 }
 
-int config_parse_support(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Support support, *v = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        support = support_from_string(rvalue);
-        if (support < 0) {
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse support level '%s'. Ignoring.", rvalue);
-                        return 0;
-                }
-
-                support = r ? SUPPORT_YES : SUPPORT_NO;
-        }
-
-        *v = support;
-        return 0;
-}
-
 int config_parse_dnssec(
                 const char *unit,
                 const char *filename,
