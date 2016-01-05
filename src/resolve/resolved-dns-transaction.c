@@ -2404,10 +2404,9 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 if (IN_SET(result,
                                            DNSSEC_INVALID,
                                            DNSSEC_SIGNATURE_EXPIRED,
-                                           DNSSEC_NO_SIGNATURE,
-                                           DNSSEC_UNSUPPORTED_ALGORITHM))
+                                           DNSSEC_NO_SIGNATURE))
                                         t->scope->manager->n_dnssec_bogus++;
-                                else
+                                else /* DNSSEC_MISSING_KEY or DNSSEC_UNSUPPORTED_ALGORITHM */
                                         t->scope->manager->n_dnssec_indeterminate++;
 
                                 r = dns_transaction_is_primary_response(t, rr);
