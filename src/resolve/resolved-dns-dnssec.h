@@ -37,7 +37,7 @@ enum DnssecMode {
          * DNSSEC properly, downgrade to non-DNSSEC operation. Of
          * course, we then are vulnerable to a downgrade attack, but
          * that's life and what is configured. */
-        DNSSEC_DOWNGRADE_OK,
+        DNSSEC_ALLOW_DOWNGRADE,
 
         /* Insist on DNSSEC server support, and rather fail than downgrading. */
         DNSSEC_YES,

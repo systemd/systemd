@@ -143,13 +143,13 @@
       <varlistentry>
         <term><varname>DNSSEC=</varname></term>
         <listitem><para>Takes a boolean argument or
-        <literal>downgrade-ok</literal>. If true all DNS lookups are
+        <literal>allow-downgrade</literal>. If true all DNS lookups are
         DNSSEC-validated locally (excluding LLMNR and Multicast
         DNS). If a response for a lookup request is detected invalid
         this is returned as lookup failure to applications. Note that
         this mode requires a DNS server that supports DNSSEC. If the
         DNS server does not properly support DNSSEC all validations
-        will fail. If set to <literal>downgrade-ok</literal> DNSSEC
+        will fail. If set to <literal>allow-downgrade</literal> DNSSEC
         validation is attempted, but if the server does not support
         DNSSEC properly, DNSSEC mode is automatically disabled. Note
         that this mode makes DNSSEC validation vulnerable to
@@ -176,7 +176,7 @@
         lookups will fail, as it cannot be proved anymore whether
         lookups are correctly signed, or validly unsigned. If
         <varname>DNSSEC=</varname> is set to
-        <literal>downgrade-ok</literal> the resolver will
+        <literal>allow-downgrade</literal> the resolver will
         automatically turn off DNSSEC validation in such a case.</para>
 
         <para>Client programs looking up DNS data will be informed
@@ -193,7 +193,7 @@
         DNSSEC correctly, and where software or trust anchor updates
         happen regularly. On other systems it is recommended to set
         <varname>DNSSEC=</varname> to
-        <literal>downgrade-ok</literal>.</para>
+        <literal>allow-downgrade</literal>.</para>
         </listitem>
       </varlistentry>
 

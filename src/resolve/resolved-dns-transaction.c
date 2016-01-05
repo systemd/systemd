@@ -939,7 +939,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                          * this means we cannot do any DNSSEC logic
                          * anymore. */
 
-                        if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+                        if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
                                 /* We are in downgrade mode. In this
                                  * case, synthesize an unsigned empty
                                  * response, so that the any lookup
@@ -2266,7 +2266,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                                                 dns_server_packet_rrsig_missing(t->server);
 
-                                                if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+                                                if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
 
                                                         /* Downgrading is OK? If so, just consider the information unsigned */
 

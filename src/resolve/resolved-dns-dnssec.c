@@ -1568,7 +1568,7 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
 static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_NO] = "no",
-        [DNSSEC_DOWNGRADE_OK] = "downgrade-ok",
+        [DNSSEC_ALLOW_DOWNGRADE] = "allow-downgrade",
         [DNSSEC_YES] = "yes",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
