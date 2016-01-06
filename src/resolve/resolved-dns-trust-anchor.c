@@ -441,7 +441,13 @@ static int dns_trust_anchor_load_files(
         return 0;
 }
 
-static void dns_trust_anchor_dump(DnsTrustAnchor *d) {
+static int domain_name_cmp(const void *a, const void *b) {
+        char **x = (char**) a, **y = (char**) b;
+
+        return dns_name_compare_func(*x, *y);
+}
+
+static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         DnsAnswer *a;
         Iterator i;
 
@@ -462,12 +468,22 @@ static void dns_trust_anchor_dump(DnsTrustAnchor *d) {
         if (set_isempty(d->negative_by_name))
                 log_info("No negative trust anchors defined.");
         else {
-                char *n;
-                log_info("Negative trust anchors:");
+                _cleanup_free_ char **l = NULL, *j = NULL;
 
-                SET_FOREACH(n, d->negative_by_name, i)
-                        log_info("%s%s", n, endswith(n, ".") ? "" : ".");
+                l = set_get_strv(d->negative_by_name);
+                if (!l)
+                        return log_oom();
+
+                qsort_safe(l, set_size(d->negative_by_name), sizeof(char*), domain_name_cmp);
+
+                j = strv_join(l, " ");
+                if (!j)
+                        return log_oom();
+
+                log_info("Negative trust anchors: %s", j);
         }
+
+        return 0;
 }
 
 int dns_trust_anchor_load(DnsTrustAnchor *d) {
