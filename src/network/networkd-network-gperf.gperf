@@ -48,6 +48,7 @@ Network.DNS,                            config_parse_strv,                      
 Network.LLMNR,                          config_parse_resolve_support,                   0,                             offsetof(Network, llmnr)
 Network.MulticastDNS,                   config_parse_resolve_support,                   0,                             offsetof(Network, mdns)
 Network.DNSSEC,                         config_parse_dnssec_mode,                       0,                             offsetof(Network, dnssec_mode)
+Network.DNSSECNegativeTrustAnchors,     config_parse_dnssec_negative_trust_anchors,     0,                             offsetof(Network, dnssec_negative_trust_anchors)
 Network.NTP,                            config_parse_strv,                              0,                             offsetof(Network, ntp)
 Network.IPForward,                      config_parse_address_family_boolean_with_kernel,0,                             offsetof(Network, ip_forward)
 Network.IPMasquerade,                   config_parse_bool,                              0,                             offsetof(Network, ip_masquerade)

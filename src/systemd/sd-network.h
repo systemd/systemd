@@ -126,6 +126,12 @@ int sd_network_link_get_mdns(int ifindex, char **mdns);
  */
 int sd_network_link_get_dnssec(int ifindex, char **dnssec);
 
+/* Returns the list of per-interface DNSSEC negative trust anchors
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link, or has no such data
+ */
+int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***nta);
+
 int sd_network_link_get_lldp(int ifindex, char **lldp);
 
 /* Get the DNS domain names for a given link. */

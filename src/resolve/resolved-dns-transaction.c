@@ -1406,6 +1406,25 @@ static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags
         return false;
 }
 
+static int dns_transaction_negative_trust_anchor_lookup(DnsTransaction *t, const char *name) {
+        int r;
+
+        assert(t);
+
+        /* Check whether the specified name is in the the NTA
+         * database, either in the global one, or the link-local
+         * one. */
+
+        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, name);
+        if (r != 0)
+                return r;
+
+        if (!t->scope->link)
+                return 0;
+
+        return set_contains(t->scope->link->dnssec_negative_trust_anchors, name);
+}
+
 static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
         int r;
 
@@ -1422,7 +1441,7 @@ static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
 
         /* Is this key explicitly listed as a negative trust anchor?
          * If so, it's nothing we need to care about */
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(t->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(t->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1513,7 +1532,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         continue;
 
                 /* If this RR is in the negative trust anchor, we don't need to validate it. */
-                r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+                r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1863,7 +1882,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         if (dns_type_is_pseudo(rr->key->type))
                 return -EINVAL;
 
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -2066,7 +2085,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         if (dns_type_is_pseudo(t->key->type))
                 return -EINVAL;
 
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(t->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(t->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -2135,7 +2154,7 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
          * the specified RRset is authenticated (i.e. has a matching
          * DS RR). */
 
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
         if (r < 0)
                 return r;
         if (r > 0)

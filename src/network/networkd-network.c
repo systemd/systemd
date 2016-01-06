@@ -32,6 +32,7 @@
 #include "networkd-network.h"
 #include "networkd.h"
 #include "parse-util.h"
+#include "set.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -276,6 +277,8 @@ void network_free(Network *network) {
         free(network->dhcp_server_timezone);
         free(network->dhcp_server_dns);
         free(network->dhcp_server_ntp);
+
+        set_free_free(network->dnssec_negative_trust_anchors);
 
         free(network);
 }
@@ -909,4 +912,56 @@ int config_parse_dhcp_server_ntp(
                 m[n->n_dhcp_server_ntp++] = a;
                 n->dhcp_server_ntp = m;
         }
+}
+
+int config_parse_dnssec_negative_trust_anchors(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p = rvalue;
+        Network *n = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                n->dnssec_negative_trust_anchors = set_free_free(n->dnssec_negative_trust_anchors);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract negative trust anchor domain, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                r = dns_name_is_valid(w);
+                if (r <= 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "%s is not a valid domain name, ignoring.", w);
+                        continue;
+                }
+
+                r = set_put(n->dnssec_negative_trust_anchors, w);
+                if (r < 0)
+                        return log_oom();
+                if (r > 0)
+                        w = NULL;
+        }
+
+        return 0;
 }

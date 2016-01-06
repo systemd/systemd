@@ -82,6 +82,8 @@ Link *link_free(Link *l) {
         dns_scope_free(l->mdns_ipv4_scope);
         dns_scope_free(l->mdns_ipv6_scope);
 
+        set_free_free(l->dnssec_negative_trust_anchors);
+
         free(l);
         return NULL;
 }
@@ -302,6 +304,43 @@ clear:
         return r;
 }
 
+static int link_update_dnssec_negative_trust_anchors(Link *l) {
+        _cleanup_strv_free_ char **ntas = NULL;
+        _cleanup_set_free_free_ Set *ns = NULL;
+        char **i;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dnssec_negative_trust_anchors(l->ifindex, &ntas);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        ns = set_new(&dns_name_hash_ops);
+        if (!ns)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, ntas) {
+                r = set_put_strdup(ns, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        set_free_free(l->dnssec_negative_trust_anchors);
+        l->dnssec_negative_trust_anchors = ns;
+        ns = NULL;
+
+        return 0;
+
+clear:
+        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
+        return r;
+}
+
 static int link_update_search_domains(Link *l) {
         _cleanup_strv_free_ char **domains = NULL;
         char **i;
@@ -364,6 +403,10 @@ int link_update_monitor(Link *l) {
         r = link_update_dnssec_mode(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
+
+        r = link_update_dnssec_negative_trust_anchors(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->name);
 
         r = link_update_search_domains(l);
         if (r < 0)
