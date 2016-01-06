@@ -36,7 +36,7 @@ static void test_bus_new(void) {
 }
 
 static int test_bus_open(void) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         r = sd_bus_open_system(&bus);
@@ -59,8 +59,8 @@ static void test_bus_new_method_call(void) {
 
         printf("after message_new_method_call: refcount %u\n", REFCNT_GET(bus->n_ref));
 
-        sd_bus_unref(bus);
-        printf("after bus_unref: refcount %u\n", m->n_ref);
+        sd_bus_flush_close_unref(bus);
+        printf("after bus_flush_close_unref: refcount %u\n", m->n_ref);
 }
 
 static void test_bus_new_signal(void) {
@@ -73,8 +73,8 @@ static void test_bus_new_signal(void) {
 
         printf("after message_new_signal: refcount %u\n", REFCNT_GET(bus->n_ref));
 
-        sd_bus_unref(bus);
-        printf("after bus_unref: refcount %u\n", m->n_ref);
+        sd_bus_flush_close_unref(bus);
+        printf("after bus_flush_close_unref: refcount %u\n", m->n_ref);
 }
 
 int main(int argc, char **argv) {
