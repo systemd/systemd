@@ -6155,15 +6155,6 @@ static int edit_check_dummy_lookup(const void *table, const char *section, const
                 warnings->warn_about_install = true;
         }
 
-        /* Check the real lookup function first to see if the lvalue makes sense. */
-#if 0
-        p = config_item_perf_lookup(table, section, lvalue, func, ltype, data, NULL);
-        /* Lookup failed - pass this back. */
-        if (p == 0) {
-                return 0;
-        }
-#endif
-        
         /* Can't use the real lookup function because of library issues.
          * Instead, use the nulstr output to manually parse the available
          * options.
