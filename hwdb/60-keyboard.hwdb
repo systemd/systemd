@@ -652,6 +652,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
+# Lenovo Thinkcentre M800z AIO machine
+# key_scancode 00 is KEY_MICMUTE
+keyboard:name:Microphone Mute Button:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
+ KEYBOARD_KEY_00=f20
+
 # enhanced USB keyboard
 evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90001=prog1 # ThinkVantage
