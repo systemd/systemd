@@ -86,7 +86,7 @@ void server_process_native_message(
                 const void *buffer, size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const JournalMeta *meta) {
 
         struct iovec *iovec = NULL;
         unsigned n = 0, j, tn = (unsigned) -1;
@@ -121,7 +121,7 @@ void server_process_native_message(
                                 continue;
                         }
 
-                        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
+                        server_dispatch_message(s, iovec, n, m, ucred, tv, meta, priority, object_pid);
                         n = 0;
                         priority = LOG_INFO;
                         entry_size = 0;
@@ -292,7 +292,7 @@ void server_process_native_message(
                         server_forward_wall(s, priority, identifier, message, ucred);
         }
 
-        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
+        server_dispatch_message(s, iovec, n, m, ucred, tv, meta, priority, object_pid);
 
 finish:
         for (j = 0; j < n; j++)  {
@@ -314,7 +314,7 @@ void server_process_native_file(
                 int fd,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const JournalMeta *meta) {
 
         struct stat st;
         bool sealed;
@@ -396,7 +396,7 @@ void server_process_native_file(
                         return;
                 }
 
-                server_process_native_message(s, p, st.st_size, ucred, tv, label, label_len);
+                server_process_native_message(s, p, st.st_size, ucred, tv, meta);
                 assert_se(munmap(p, ps) >= 0);
         } else {
                 _cleanup_free_ void *p = NULL;
@@ -445,7 +445,7 @@ void server_process_native_file(
                 if (n < 0)
                         log_error_errno(errno, "Failed to read file, ignoring: %m");
                 else if (n > 0)
-                        server_process_native_message(s, p, n, ucred, tv, label, label_len);
+                        server_process_native_message(s, p, n, ucred, tv, meta);
         }
 }
 

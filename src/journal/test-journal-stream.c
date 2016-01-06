@@ -102,6 +102,8 @@ int main(int argc, char *argv[]) {
                 char *p, *q;
                 dual_timestamp ts;
                 struct iovec iovec[2];
+                JournalEntryItem items[2] = { { .iov_base = &iovec[0], .iov_len = 1},
+                                              { .iov_base = &iovec[1], .iov_len = 1} };
 
                 dual_timestamp_get(&ts);
 
@@ -123,12 +125,12 @@ int main(int argc, char *argv[]) {
                 iovec[1].iov_len = strlen(q);
 
                 if (i % 10 == 0)
-                        assert_se(journal_file_append_entry(three, &ts, iovec, 2, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(three, &ts, items, 2, NULL, NULL, NULL) == 0);
                 else {
                         if (i % 3 == 0)
-                                assert_se(journal_file_append_entry(two, &ts, iovec, 2, NULL, NULL, NULL) == 0);
+                                assert_se(journal_file_append_entry(two, &ts, items, 2, NULL, NULL, NULL) == 0);
 
-                        assert_se(journal_file_append_entry(one, &ts, iovec, 2, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(one, &ts, items, 2, NULL, NULL, NULL) == 0);
                 }
 
                 free(p);

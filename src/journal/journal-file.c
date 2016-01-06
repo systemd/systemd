@@ -33,6 +33,7 @@
 #include "chattr-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -805,16 +806,81 @@ static int journal_file_link_data(
         return 0;
 }
 
+static int memcmpv(const struct iovec *iovec, unsigned n_iovec, void *data, uint64_t len) {
+        while (len && n_iovec--) {
+                int r;
+                uint64_t n = MIN(len, iovec->iov_len);
+
+                r = memcmp(iovec->iov_base, data, n);
+                if (r)
+                        return r;
+
+                iovec++;
+                data += n;
+                len -= n;
+        }
+
+        return 0;
+}
+
+static void * memcpyv(void *dest, const struct iovec *iovec, unsigned n_iovec, uint64_t len) {
+        while (len && n_iovec--) {
+                uint64_t n = MIN(len, iovec->iov_len);
+
+                memcpy(dest, iovec->iov_base, n);
+
+                iovec++;
+                dest += n;
+                len -= n;
+        }
+
+        return dest;
+}
+
+static void * memchrv(const struct iovec *iovec, unsigned n_iovec, uint64_t len, int c, uint64_t *idx) {
+        uint64_t i = 0;
+        void *p = NULL;
+
+        while (len && n_iovec--) {
+                uint64_t n = MIN(len, iovec->iov_len);
+
+                p = memchr(iovec->iov_base, c, n);
+                if (p) {
+                        i += p - iovec->iov_base;
+                        break;
+                }
+
+                iovec++;
+                len -= n;
+                i += n;
+        }
+
+        if (idx)
+                *idx = i;
+
+        return p;
+}
+
 int journal_file_find_field_object_with_hash(
+                JournalFile *f, const void *field, uint64_t size,
+                uint64_t hash, Object **ret, uint64_t *offset) {
+        const struct iovec iovec = { .iov_base = (void *)field, .iov_len = size };
+
+        return journal_file_find_field_object_with_hashv(f,
+                                                         &iovec, 1, size, hash,
+                                                         ret, offset);
+}
+
+int journal_file_find_field_object_with_hashv(
                 JournalFile *f,
-                const void *field, uint64_t size, uint64_t hash,
-                Object **ret, uint64_t *offset) {
+                const struct iovec *iovec, unsigned n_iovec, uint64_t size,
+                uint64_t hash, Object **ret, uint64_t *offset) {
 
         uint64_t p, osize, h, m;
         int r;
 
         assert(f);
-        assert(field && size > 0);
+        assert(iovec && (n_iovec > 0 && size > 0));
 
         /* If the field hash table is empty, we can't find anything */
         if (le64toh(f->header->field_hash_table_size) <= 0)
@@ -843,7 +909,7 @@ int journal_file_find_field_object_with_hash(
 
                 if (le64toh(o->field.hash) == hash &&
                     le64toh(o->object.size) == osize &&
-                    memcmp(o->field.payload, field, size) == 0) {
+                    memcmpv(iovec, n_iovec, o->field.payload, size) == 0) {
 
                         if (ret)
                                 *ret = o;
@@ -880,12 +946,23 @@ int journal_file_find_data_object_with_hash(
                 JournalFile *f,
                 const void *data, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *offset) {
+        const struct iovec iovec = { .iov_base = (void *)data, .iov_len = size };
+
+        return journal_file_find_data_object_with_hashv(f,
+                                                        &iovec, 1, size, hash,
+                                                        ret, offset);
+}
+
+int journal_file_find_data_object_with_hashv(
+                JournalFile *f,
+                const struct iovec *iovec, unsigned n_iovec, uint64_t size, uint64_t hash,
+                Object **ret, uint64_t *offset) {
 
         uint64_t p, osize, h, m;
         int r;
 
         assert(f);
-        assert(data || size == 0);
+        assert(iovec || (n_iovec == 0 && size == 0));
 
         /* If there's no data hash table, then there's no entry. */
         if (le64toh(f->header->data_hash_table_size) <= 0)
@@ -932,7 +1009,7 @@ int journal_file_find_data_object_with_hash(
                                 return r;
 
                         if (rsize == size &&
-                            memcmp(f->compress_buffer, data, size) == 0) {
+                            memcmpv(iovec, n_iovec, f->compress_buffer, size) == 0) {
 
                                 if (ret)
                                         *ret = o;
@@ -946,7 +1023,7 @@ int journal_file_find_data_object_with_hash(
                         return -EPROTONOSUPPORT;
 #endif
                 } else if (le64toh(o->object.size) == osize &&
-                           memcmp(o->data.payload, data, size) == 0) {
+                           memcmpv(iovec, n_iovec, o->data.payload, size) == 0) {
 
                         if (ret)
                                 *ret = o;
@@ -968,22 +1045,33 @@ int journal_file_find_data_object(
                 JournalFile *f,
                 const void *data, uint64_t size,
                 Object **ret, uint64_t *offset) {
+        const struct iovec iovec = { .iov_base = (void *)data, .iov_len = size };
+
+        return journal_file_find_data_objectv(f,
+                                              &iovec, 1, size,
+                                              ret, offset);
+}
+
+int journal_file_find_data_objectv(
+                JournalFile *f,
+                const struct iovec *iovec, unsigned n_iovec, uint64_t size,
+                Object **ret, uint64_t *offset) {
 
         uint64_t hash;
 
         assert(f);
-        assert(data || size == 0);
+        assert(iovec || (n_iovec == 0 && size == 0));
 
-        hash = hash64(data, size);
+        hash = hash64v(iovec, n_iovec, size);
 
-        return journal_file_find_data_object_with_hash(f,
-                                                       data, size, hash,
+        return journal_file_find_data_object_with_hashv(f,
+                                                       iovec, n_iovec, size, hash,
                                                        ret, offset);
 }
 
-static int journal_file_append_field(
+static int journal_file_append_fieldv(
                 JournalFile *f,
-                const void *field, uint64_t size,
+                const struct iovec *iovec, unsigned n_iovec, uint64_t size,
                 Object **ret, uint64_t *offset) {
 
         uint64_t hash, p;
@@ -992,11 +1080,11 @@ static int journal_file_append_field(
         int r;
 
         assert(f);
-        assert(field && size > 0);
+        assert(iovec && (n_iovec > 0 && size > 0));
 
-        hash = hash64(field, size);
+        hash = hash64v(iovec, n_iovec, size);
 
-        r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
+        r = journal_file_find_field_object_with_hashv(f, iovec, n_iovec, size, hash, &o, &p);
         if (r < 0)
                 return r;
         else if (r > 0) {
@@ -1016,7 +1104,7 @@ static int journal_file_append_field(
                 return r;
 
         o->field.hash = htole64(hash);
-        memcpy(o->field.payload, field, size);
+        memcpyv(o->field.payload, iovec, n_iovec, size);
 
         r = journal_file_link_field(f, o, p, hash);
         if (r < 0)
@@ -1043,23 +1131,24 @@ static int journal_file_append_field(
         return 0;
 }
 
-static int journal_file_append_data(
+static int journal_file_append_datav(
                 JournalFile *f,
-                const void *data, uint64_t size,
+                const struct iovec *iovec, unsigned n_iovec, uint64_t size,
                 Object **ret, uint64_t *offset) {
 
         uint64_t hash, p;
         uint64_t osize;
         Object *o;
         int r, compression = 0;
-        const void *eq;
+        void *eq;
+        uint64_t eq_pos;
 
         assert(f);
-        assert(data || size == 0);
+        assert(iovec || (n_iovec == 0 && size == 0));
 
-        hash = hash64(data, size);
+        hash = hash64v(iovec, n_iovec, size);
 
-        r = journal_file_find_data_object_with_hash(f, data, size, hash, &o, &p);
+        r = journal_file_find_data_object_with_hashv(f, iovec, n_iovec, size, hash, &o, &p);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -1084,7 +1173,7 @@ static int journal_file_append_data(
         if (JOURNAL_FILE_COMPRESS(f) && size >= COMPRESSION_SIZE_THRESHOLD) {
                 size_t rsize = 0;
 
-                compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
+                compression = compress_blobv(iovec, n_iovec, size, o->data.payload, size - 1, &rsize);
 
                 if (compression >= 0) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
@@ -1098,8 +1187,8 @@ static int journal_file_append_data(
         }
 #endif
 
-        if (compression == 0 && size > 0)
-                memcpy(o->data.payload, data, size);
+        if (!compression && size > 0)
+                memcpyv(o->data.payload, iovec, n_iovec, size);
 
         r = journal_file_link_data(f, o, p, hash);
         if (r < 0)
@@ -1111,16 +1200,17 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-        if (!data)
+        if (!iovec)
                 eq = NULL;
         else
-                eq = memchr(data, '=', size);
-        if (eq && eq > data) {
+                eq = memchrv(iovec, n_iovec, size, '=', &eq_pos);
+
+        if (eq) {
                 Object *fo = NULL;
                 uint64_t fp;
 
                 /* Create field object ... */
-                r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
+                r = journal_file_append_fieldv(f, iovec, n_iovec, eq_pos, &fo, &fp);
                 if (r < 0)
                         return r;
 
@@ -1410,15 +1500,15 @@ static int entry_item_cmp(const void *_a, const void *_b) {
         return 0;
 }
 
-int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {
+int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const JournalEntryItem items[], unsigned n_items, uint64_t *seqnum, Object **ret, uint64_t *offset) {
         unsigned i;
-        EntryItem *items;
+        EntryItem *appended_items;
         int r;
         uint64_t xor_hash = 0;
         struct dual_timestamp _ts;
 
         assert(f);
-        assert(iovec || n_iovec == 0);
+        assert(items || n_items == 0);
 
         if (!ts) {
                 dual_timestamp_get(&_ts);
@@ -1436,26 +1526,26 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 #endif
 
         /* alloca() can't take 0, hence let's allocate at least one */
-        items = alloca(sizeof(EntryItem) * MAX(1u, n_iovec));
+        appended_items = alloca(sizeof(EntryItem) * MAX(1u, n_items));
 
-        for (i = 0; i < n_iovec; i++) {
+        for (i = 0; i < n_items; i++) {
                 uint64_t p;
                 Object *o;
 
-                r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, &p);
+                r = journal_file_append_datav(f, items[i].iov_base, items[i].iov_len, IOVEC_TOTAL_SIZE(items[i].iov_base, items[i].iov_len), &o, &p);
                 if (r < 0)
                         return r;
 
                 xor_hash ^= le64toh(o->data.hash);
-                items[i].object_offset = htole64(p);
-                items[i].hash = o->data.hash;
+                appended_items[i].object_offset = htole64(p);
+                appended_items[i].hash = o->data.hash;
         }
 
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
-        qsort_safe(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
+        qsort_safe(appended_items, n_items, sizeof(EntryItem), entry_item_cmp);
 
-        r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
+        r = journal_file_append_entry_internal(f, ts, xor_hash, appended_items, n_items, seqnum, ret, offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -1999,7 +2089,6 @@ static int find_data_object_by_boot_id(
                 sd_id128_t boot_id,
                 Object **o,
                 uint64_t *b) {
-
         char t[sizeof("_BOOT_ID=")-1 + 32 + 1] = "_BOOT_ID=";
 
         sd_id128_to_string(boot_id, t + 9);
@@ -2911,7 +3000,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 uint64_t l, h;
                 le64_t le_hash;
                 size_t t;
-                void *data;
+                struct iovec iovec = {};
                 Object *u;
 
                 q = le64toh(o->entry.items[i].object_offset);
@@ -2940,15 +3029,16 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         if (r < 0)
                                 return r;
 
-                        data = from->compress_buffer;
+                        iovec.iov_base = from->compress_buffer;
                         l = rsize;
 #else
                         return -EPROTONOSUPPORT;
 #endif
                 } else
-                        data = o->data.payload;
+                        iovec.iov_base = o->data.payload;
 
-                r = journal_file_append_data(to, data, l, &u, &h);
+                iovec.iov_len = l;
+                r = journal_file_append_datav(to, &iovec, 1, l, &u, &h);
                 if (r < 0)
                         return r;
 

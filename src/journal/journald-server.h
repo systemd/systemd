@@ -153,12 +153,43 @@ struct Server {
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
 
-#define N_IOVEC_META_FIELDS 20
+typedef struct JournalMeta {
+        pid_t                   ipid;
+        const struct ucred      *ucred;
+
+        char                    *pid;
+        char                    *uid;
+        char                    *gid;
+        char                    *comm;
+        char                    *exe;
+        char                    *cmdline;
+        char                    *capeff;
+#ifdef HAVE_AUDIT
+        char                    *audit_session;
+        char                    *audit_loginuid;
+#endif
+        char                    *cgroup;
+        char                    *session;
+        char                    *owner_uid;
+        char                    *unit;
+        char                    *user_unit;
+        char                    *slice;
+#ifdef HAVE_SELINUX
+        char                    *selinux_context;
+#endif
+} JournalMeta;
+
+void journal_meta_init(Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, JournalMeta *meta);
+void journal_meta_refresh(Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, JournalMeta *meta);
+void journal_meta_destroy(JournalMeta *meta);
+
+
+#define N_IOVEC_META_FIELDS (20*2) // now that they're split into {"key=","value"}
 #define N_IOVEC_KERNEL_FIELDS 64
 #define N_IOVEC_UDEV_FIELDS 32
-#define N_IOVEC_OBJECT_FIELDS 12
+#define N_IOVEC_OBJECT_FIELDS (12*2) // also due to being split into {"key=","value"}
 
-void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority, pid_t object_pid);
+void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, const struct ucred *ucred, const struct timeval *tv, const JournalMeta *meta, int priority, pid_t object_pid);
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) _printf_(3,4);
 
 /* gperf lookup function */

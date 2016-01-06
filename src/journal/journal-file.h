@@ -126,6 +126,34 @@ typedef struct JournalFile {
 #endif
 } JournalFile;
 
+/* In appending a journal entry, one JournalEntryItem is used per key=value pair,
+ * supplied as an array.
+ *
+ * Each JournalEntryItem contains a struct iovec for supporting scattered items.
+ *
+ * This is especially useful for leaving static single-instance KEY= components
+ * in-place by simply referencing them as the first iovec entry of an item,
+ * with the VALUE component as the next iovec entry in the same item.
+ *
+ * This also facilitates the reuse of shared VALUE components within the same
+ * journal entry, useful for when OBJECT_PID equals _PID.
+ */
+typedef struct JournalEntryItem {
+        struct iovec *iov_base;
+        size_t iov_len;
+} JournalEntryItem;
+
+static inline uint64_t journal_entry_size(const JournalEntryItem *items, unsigned n_items) {
+        uint64_t size = 0;
+
+        while (n_items--) {
+                size += items->iov_base->iov_len;
+                items++;
+        }
+
+        return size;
+}
+
 int journal_file_open(
                 const char *fname,
                 int flags,
@@ -192,13 +220,17 @@ uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset);
-int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqno, Object **ret, uint64_t *offset);
+int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const JournalEntryItem items[], unsigned n_items, uint64_t *seqno, Object **ret, uint64_t *offset);
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
+int journal_file_find_data_objectv(JournalFile *f, const struct iovec *iovec, unsigned n_iovec, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
+int journal_file_find_data_object_with_hashv(JournalFile *f, const struct iovec *iovec, unsigned n_iovec, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
 
 int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret, uint64_t *offset);
+int journal_file_find_field_objectv(JournalFile *f, const struct iovec *iovec, unsigned n_iovec, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
+int journal_file_find_field_object_with_hashv(JournalFile *f, const struct iovec *iovec, unsigned n_iovec, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);

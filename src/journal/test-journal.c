@@ -34,6 +34,7 @@ static void test_non_empty(void) {
         dual_timestamp ts;
         JournalFile *f;
         struct iovec iovec;
+        JournalEntryItem items = { .iov_base = &iovec, .iov_len = 1 };
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
         Object *o;
         uint64_t p;
@@ -50,15 +51,15 @@ static void test_non_empty(void) {
 
         iovec.iov_base = (void*) test;
         iovec.iov_len = strlen(test);
-        assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f, &ts, &items, 1, NULL, NULL, NULL) == 0);
 
         iovec.iov_base = (void*) test2;
         iovec.iov_len = strlen(test2);
-        assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f, &ts, &items, 1, NULL, NULL, NULL) == 0);
 
         iovec.iov_base = (void*) test;
         iovec.iov_len = strlen(test);
-        assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f, &ts, &items, 1, NULL, NULL, NULL) == 0);
 
 #ifdef HAVE_GCRYPT
         journal_file_append_tag(f);

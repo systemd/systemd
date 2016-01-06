@@ -322,8 +322,7 @@ void server_process_syslog_message(
         const char *buf,
         const struct ucred *ucred,
         const struct timeval *tv,
-        const char *label,
-        size_t label_len) {
+        const JournalMeta *meta) {
 
         char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
              syslog_facility[sizeof("SYSLOG_FACILITY") + DECIMAL_STR_MAX(int)];
@@ -381,7 +380,7 @@ void server_process_syslog_message(
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, NULL, priority, 0);
+        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, meta, priority, 0);
 }
 
 int server_open_syslog_socket(Server *s) {

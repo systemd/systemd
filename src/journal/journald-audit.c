@@ -415,7 +415,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
                 goto finish;
         }
 
-        server_dispatch_message(s, iov, n_iov, n_iov_allocated, NULL, NULL, NULL, 0, NULL, LOG_NOTICE, 0);
+        server_dispatch_message(s, iov, n_iov, n_iov_allocated, NULL, NULL, NULL, LOG_NOTICE, 0);
 
 finish:
         /* free() all entries that map_all_fields() added. All others
