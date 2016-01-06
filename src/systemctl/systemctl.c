@@ -6173,10 +6173,8 @@ static int edit_check_dummy_lookup(const void *table, const char *section, const
                 return 0;
         }
 
-        /* Otherwise do the real parameter check itself. Clear the returns from the perf lookup for safety. */
+        /* Otherwise do the real parameter check itself. */
         *func = edit_check_parse;
-        *ltype = 0;
-        *data = NULL;
 
         return 1;
 }
