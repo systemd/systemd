@@ -6141,7 +6141,7 @@ extern const char load_fragment_gperf_nulstr[];
 static int edit_check_dummy_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata) {
 
         const char * scan;
-        const char * comparison;
+        _cleanup_free_ const char * comparison;
 
         struct CheckSanityWarnings * warnings = NULL;
 
