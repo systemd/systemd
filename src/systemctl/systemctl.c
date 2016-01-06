@@ -6124,7 +6124,7 @@ struct CheckSanityWarnings {
 static int edit_check_parse(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
 
         assert(unit);
-        assert(strcmp(unit,"CheckSanity") == 0);
+        assert(streq(unit,"CheckSanity"));
 
         assert(filename);
         assert(lvalue);
@@ -6151,7 +6151,7 @@ static int edit_check_dummy_lookup(const void *table, const char *section, const
         warnings = (struct CheckSanityWarnings*)userdata;
 
         /* There should be no install section in a drop-in override. */
-        if (!arg_full && strcmp(section,"Install") == 0 && !warnings->warn_about_install) {
+        if (!arg_full && streq(section,"Install") && !warnings->warn_about_install) {
                 warnings->warn_about_install = true;
         }
 
@@ -6162,7 +6162,7 @@ static int edit_check_dummy_lookup(const void *table, const char *section, const
         comparison = strjoin(section, ".", lvalue, NULL);
         scan = load_fragment_gperf_nulstr;
         while(*scan != '\0') {
-                if (strcmp(scan, comparison) == 0)
+                if (streq(scan, comparison))
                         break;
                 scan += strlen(scan)+1;
         }
