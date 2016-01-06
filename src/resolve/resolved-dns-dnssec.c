@@ -41,6 +41,8 @@
  *   - nxdomain on qname
  *   - workable hack for the .corp, .home, .box case
  *   - bus calls to override DNSEC setting per interface
+ *   - log all DNSSEC downgrades
+ *   - enable by default
  *
  * */
 
