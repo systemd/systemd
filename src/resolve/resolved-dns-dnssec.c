@@ -542,7 +542,7 @@ int dnssec_verify_rrset(
         }
 
         /* Collect all relevant RRs in a single array, so that we can look at the RRset */
-        list = newa(DnsResourceRecord *, a->n_rrs);
+        list = newa(DnsResourceRecord *, dns_answer_size(a));
 
         DNS_ANSWER_FOREACH(rr, a) {
                 r = dns_resource_key_equal(key, rr->key);
