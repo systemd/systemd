@@ -6285,10 +6285,10 @@ install-tree: all
 	tree $(abs_srcdir)/install-tree
 
 # Let's run all tests of the test suite, but under valgrind. Let's
-# exclude the one perl script we have in there
+# exclude perl/python/shell scripts we have in there
 .PHONY: valgrind-tests
 valgrind-tests: $(TESTS)
-	$(AM_V_GEN)for f in $(filter-out %.pl, $^); do \
+	$(AM_V_GEN)for f in $(filter-out %.pl %.py, $^); do \
 		if file $$f | grep -q shell; then \
 		echo -e "$${x}Skipping non-binary $$f"; else \
 		echo -e "$${x}Running $$f"; \
