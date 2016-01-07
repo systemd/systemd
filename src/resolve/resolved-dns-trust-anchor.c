@@ -643,61 +643,57 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
         return 0;
 }
 
-int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsAnswer *rrs, const DnsResourceKey *key) {
-        DnsResourceRecord *dnskey;
+int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey, DnsAnswer *rrs) {
+        DnsResourceRecord *rrsig;
         int r;
 
         assert(d);
-        assert(key);
+        assert(dnskey);
 
-        /* Looks for self-signed DNSKEY RRs in "rrs" that have been revoked. */
+        /* Looks if "dnskey" is a self-signed RR that has been revoked
+         * and matches one of our trust anchor entries. If so, removes
+         * it from the trust anchor and returns > 0. */
 
-        if (key->type != DNS_TYPE_DNSKEY)
+        if (dnskey->key->type != DNS_TYPE_DNSKEY)
                 return 0;
 
-        DNS_ANSWER_FOREACH(dnskey, rrs) {
-                DnsResourceRecord *rrsig;
+        /* Is this DNSKEY revoked? */
+        if ((dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE) == 0)
+                return 0;
+
+        /* Could this be interesting to us at all? If not,
+         * there's no point in looking for and verifying a
+         * self-signed RRSIG. */
+        if (!dns_trust_anchor_knows_domain_positive(d, DNS_RESOURCE_KEY_NAME(dnskey->key)))
+                return 0;
+
+        /* Look for a self-signed RRSIG in the other rrs belonging to this DNSKEY */
+        DNS_ANSWER_FOREACH(rrsig, rrs) {
                 DnssecResult result;
 
-                r = dns_resource_key_equal(key, dnskey->key);
+                if (rrsig->key->type != DNS_TYPE_RRSIG)
+                        continue;
+
+                r = dnssec_rrsig_match_dnskey(rrsig, dnskey, true);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                /* Is this DNSKEY revoked? */
-                if ((dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE) == 0)
+                r = dnssec_verify_rrset(rrs, dnskey->key, rrsig, dnskey, USEC_INFINITY, &result);
+                if (r < 0)
+                        return r;
+                if (result != DNSSEC_VALIDATED)
                         continue;
 
-                /* Could this be interesting to us at all? If not,
-                 * there's no point in looking for and verifying a
-                 * self-signed RRSIG. */
-                if (!dns_trust_anchor_knows_domain_positive(d, DNS_RESOURCE_KEY_NAME(dnskey->key)))
-                        continue;
+                /* Bingo! This is a revoked self-signed DNSKEY. Let's
+                 * see if this precise one exists in our trust anchor
+                 * database, too. */
+                r = dns_trust_anchor_check_revoked_one(d, dnskey);
+                if (r < 0)
+                        return r;
 
-                /* Look for a self-signed RRSIG */
-                DNS_ANSWER_FOREACH(rrsig, rrs) {
-
-                        if (rrsig->key->type != DNS_TYPE_RRSIG)
-                                continue;
-
-                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey, true);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-
-                        r = dnssec_verify_rrset(rrs, key, rrsig, dnskey, USEC_INFINITY, &result);
-                        if (r < 0)
-                                return r;
-                        if (result != DNSSEC_VALIDATED)
-                                continue;
-
-                        /* Bingo! Now, act! */
-                        r = dns_trust_anchor_check_revoked_one(d, dnskey);
-                        if (r < 0)
-                                return r;
-                }
+                return 1;
         }
 
         return 0;

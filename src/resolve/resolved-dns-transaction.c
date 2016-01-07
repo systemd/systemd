@@ -2239,10 +2239,7 @@ static int dns_transaction_check_revoked_trust_anchors(DnsTransaction *t) {
          * sufficient if it is self-signed. */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
-                if (rr->key->type != DNS_TYPE_DNSKEY)
-                        continue;
-
-                r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor, t->answer, rr->key);
+                r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor, rr, t->answer);
                 if (r < 0)
                         return r;
         }
