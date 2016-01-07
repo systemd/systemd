@@ -1085,6 +1085,156 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         return 0;
 }
 
+static void dns_resource_record_hash_func(const void *i, struct siphash *state) {
+        const DnsResourceRecord *rr = i;
+
+        assert(rr);
+
+        dns_resource_key_hash_func(rr->key, state);
+
+        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+
+        case DNS_TYPE_SRV:
+                siphash24_compress(&rr->srv.priority, sizeof(rr->srv.priority), state);
+                siphash24_compress(&rr->srv.weight, sizeof(rr->srv.weight), state);
+                siphash24_compress(&rr->srv.port, sizeof(rr->srv.port), state);
+                dns_name_hash_func(rr->srv.name, state);
+                break;
+
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME:
+                dns_name_hash_func(rr->ptr.name, state);
+                break;
+
+        case DNS_TYPE_HINFO:
+                string_hash_func(rr->hinfo.cpu, state);
+                string_hash_func(rr->hinfo.os, state);
+                break;
+
+        case DNS_TYPE_TXT:
+        case DNS_TYPE_SPF: {
+                DnsTxtItem *j;
+
+                LIST_FOREACH(items, j, rr->txt.items) {
+                        siphash24_compress(j->data, j->length, state);
+
+                        /* Add an extra NUL byte, so that "a" followed by "b" doesn't result in the same hash as "ab" followed by "". */
+                        siphash24_compress((const uint8_t[]) { 0 }, 1, state);
+                }
+                break;
+        }
+
+        case DNS_TYPE_A:
+                siphash24_compress(&rr->a.in_addr, sizeof(rr->a.in_addr), state);
+                break;
+
+        case DNS_TYPE_AAAA:
+                siphash24_compress(&rr->aaaa.in6_addr, sizeof(rr->aaaa.in6_addr), state);
+                break;
+
+        case DNS_TYPE_SOA:
+                dns_name_hash_func(rr->soa.mname, state);
+                dns_name_hash_func(rr->soa.rname, state);
+                siphash24_compress(&rr->soa.serial, sizeof(rr->soa.serial), state);
+                siphash24_compress(&rr->soa.refresh, sizeof(rr->soa.refresh), state);
+                siphash24_compress(&rr->soa.retry, sizeof(rr->soa.retry), state);
+                siphash24_compress(&rr->soa.expire, sizeof(rr->soa.expire), state);
+                siphash24_compress(&rr->soa.minimum, sizeof(rr->soa.minimum), state);
+                break;
+
+        case DNS_TYPE_MX:
+                siphash24_compress(&rr->mx.priority, sizeof(rr->mx.priority), state);
+                dns_name_hash_func(rr->mx.exchange, state);
+                break;
+
+        case DNS_TYPE_LOC:
+                siphash24_compress(&rr->loc.version, sizeof(rr->loc.version), state);
+                siphash24_compress(&rr->loc.size, sizeof(rr->loc.size), state);
+                siphash24_compress(&rr->loc.horiz_pre, sizeof(rr->loc.horiz_pre), state);
+                siphash24_compress(&rr->loc.vert_pre, sizeof(rr->loc.vert_pre), state);
+                siphash24_compress(&rr->loc.latitude, sizeof(rr->loc.latitude), state);
+                siphash24_compress(&rr->loc.longitude, sizeof(rr->loc.longitude), state);
+                siphash24_compress(&rr->loc.altitude, sizeof(rr->loc.altitude), state);
+                break;
+
+        case DNS_TYPE_SSHFP:
+                siphash24_compress(&rr->sshfp.algorithm, sizeof(rr->sshfp.algorithm), state);
+                siphash24_compress(&rr->sshfp.fptype, sizeof(rr->sshfp.fptype), state);
+                siphash24_compress(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, state);
+                break;
+
+        case DNS_TYPE_DNSKEY:
+                siphash24_compress(&rr->dnskey.flags, sizeof(rr->dnskey.flags), state);
+                siphash24_compress(&rr->dnskey.protocol, sizeof(rr->dnskey.protocol), state);
+                siphash24_compress(&rr->dnskey.algorithm, sizeof(rr->dnskey.algorithm), state);
+                siphash24_compress(rr->dnskey.key, rr->dnskey.key_size, state);
+                break;
+
+        case DNS_TYPE_RRSIG:
+                siphash24_compress(&rr->rrsig.type_covered, sizeof(rr->rrsig.type_covered), state);
+                siphash24_compress(&rr->rrsig.algorithm, sizeof(rr->rrsig.algorithm), state);
+                siphash24_compress(&rr->rrsig.labels, sizeof(rr->rrsig.labels), state);
+                siphash24_compress(&rr->rrsig.original_ttl, sizeof(rr->rrsig.original_ttl), state);
+                siphash24_compress(&rr->rrsig.expiration, sizeof(rr->rrsig.expiration), state);
+                siphash24_compress(&rr->rrsig.inception, sizeof(rr->rrsig.inception), state);
+                siphash24_compress(&rr->rrsig.key_tag, sizeof(rr->rrsig.key_tag), state);
+                dns_name_hash_func(rr->rrsig.signer, state);
+                siphash24_compress(rr->rrsig.signature, rr->rrsig.signature_size, state);
+                break;
+
+        case DNS_TYPE_NSEC:
+                dns_name_hash_func(rr->nsec.next_domain_name, state);
+                /* FIXME: we leave out the type bitmap here. Hash
+                 * would be better if we'd take it into account
+                 * too. */
+                break;
+
+        case DNS_TYPE_DS:
+                siphash24_compress(&rr->ds.key_tag, sizeof(rr->ds.key_tag), state);
+                siphash24_compress(&rr->ds.algorithm, sizeof(rr->ds.algorithm), state);
+                siphash24_compress(&rr->ds.digest_type, sizeof(rr->ds.digest_type), state);
+                siphash24_compress(rr->ds.digest, rr->ds.digest_size, state);
+                break;
+
+        case DNS_TYPE_NSEC3:
+                siphash24_compress(&rr->nsec3.algorithm, sizeof(rr->nsec3.algorithm), state);
+                siphash24_compress(&rr->nsec3.flags, sizeof(rr->nsec3.flags), state);
+                siphash24_compress(&rr->nsec3.iterations, sizeof(rr->nsec3.iterations), state);
+                siphash24_compress(rr->nsec3.salt, rr->nsec3.salt_size, state);
+                siphash24_compress(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, state);
+                /* FIXME: We leave the bitmaps out */
+                break;
+
+        default:
+                siphash24_compress(rr->generic.data, rr->generic.size, state);
+                break;
+        }
+}
+
+static int dns_resource_record_compare_func(const void *a, const void *b) {
+        const DnsResourceRecord *x = a, *y = b;
+        int ret;
+
+        ret = dns_resource_key_compare_func(x->key, y->key);
+        if (ret != 0)
+                return ret;
+
+        if (dns_resource_record_equal(x, y))
+                return 0;
+
+        /* This is a bit dirty, we don't implement proper odering, but
+         * the hashtable doesn't need ordering anyway, hence we don't
+         * care. */
+        return x < y ? -1 : 1;
+}
+
+const struct hash_ops dns_resource_record_hash_ops = {
+        .hash = dns_resource_record_hash_func,
+        .compare = dns_resource_record_compare_func,
+};
+
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
         DnsTxtItem *n;
 
