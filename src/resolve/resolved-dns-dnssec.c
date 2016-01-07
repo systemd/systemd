@@ -1257,7 +1257,7 @@ static int nsec3_hashed_domain(DnsResourceRecord *nsec3, const char *domain, con
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
         _cleanup_free_ char *next_closer_domain = NULL, *wildcard = NULL, *wildcard_domain = NULL;
         const char *zone, *p, *pp = NULL;
-        DnsResourceRecord *rr, *enclosure_rr, *suffix_rr, *wildcard_rr = NULL;
+        DnsResourceRecord *rr, *enclosure_rr, *zone_rr, *wildcard_rr = NULL;
         DnsAnswerFlags flags;
         int hashed_size, r;
         bool a, no_closer = false, no_wildcard = false, optout = false;
@@ -1272,14 +1272,14 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
          * parameters. */
         zone = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
-                DNS_ANSWER_FOREACH_FLAGS(suffix_rr, flags, answer) {
-                        r = nsec3_is_good(suffix_rr, flags, NULL);
+                DNS_ANSWER_FOREACH_FLAGS(zone_rr, flags, answer) {
+                        r = nsec3_is_good(zone_rr, flags, NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
 
-                        r = dns_name_equal_skip(DNS_RESOURCE_KEY_NAME(suffix_rr->key), 1, zone);
+                        r = dns_name_equal_skip(DNS_RESOURCE_KEY_NAME(zone_rr->key), 1, zone);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -1303,7 +1303,7 @@ found_zone:
         for (;;) {
                 _cleanup_free_ char *hashed_domain = NULL;
 
-                hashed_size = nsec3_hashed_domain(suffix_rr, p, zone, &hashed_domain);
+                hashed_size = nsec3_hashed_domain(zone_rr, p, zone, &hashed_domain);
                 if (hashed_size == -EOPNOTSUPP) {
                         *result = DNSSEC_NSEC_UNSUPPORTED_ALGORITHM;
                         return 0;
@@ -1313,7 +1313,7 @@ found_zone:
 
                 DNS_ANSWER_FOREACH_FLAGS(enclosure_rr, flags, answer) {
 
-                        r = nsec3_is_good(enclosure_rr, flags, suffix_rr);
+                        r = nsec3_is_good(enclosure_rr, flags, zone_rr);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -1401,7 +1401,7 @@ found_closest_encloser:
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 _cleanup_free_ char *label = NULL, *next_hashed_domain = NULL;
 
-                r = nsec3_is_good(rr, flags, suffix_rr);
+                r = nsec3_is_good(rr, flags, zone_rr);
                 if (r < 0)
                         return r;
                 if (r == 0)
