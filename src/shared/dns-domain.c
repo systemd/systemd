@@ -486,12 +486,14 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
 
         assert(p);
 
-        while (*p) {
+        for (;;) {
                 char label[DNS_LABEL_MAX+1];
                 int k;
 
                 r = dns_label_unescape(&p, label, sizeof(label));
                 if (r < 0)
+                        break;
+                if (r == 0)
                         break;
 
                 k = dns_label_undo_idna(label, r, label, sizeof(label));
@@ -499,9 +501,6 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
                         break;
                 if (k > 0)
                         r = k;
-
-                if (r == 0)
-                        break;
 
                 ascii_strlower_n(label, r);
                 siphash24_compress(label, r, state);
