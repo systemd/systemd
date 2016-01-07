@@ -1145,7 +1145,7 @@ int dns_query_process_cname(DnsQuery *q) {
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS)
+        if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
                 return 0;
 
         DNS_ANSWER_FOREACH(rr, q->answer) {
@@ -1154,7 +1154,7 @@ int dns_query_process_cname(DnsQuery *q) {
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        return 0; /* The answer matches directly, no need to follow cnames */
+                        return 1; /* The answer matches directly, no need to follow cnames */
 
                 r = dns_question_matches_cname(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
@@ -1176,20 +1176,16 @@ int dns_query_process_cname(DnsQuery *q) {
 
         /* Let's see if the answer can already answer the new
          * redirected question */
-        DNS_ANSWER_FOREACH(rr, q->answer) {
-                r = dns_question_matches_rr(q->question, rr, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return 0; /* It can answer it, yay! */
-        }
+        r = dns_query_process_cname(q);
+        if (r != 0)
+                return r;
 
         /* OK, it cannot, let's begin with the new query */
         r = dns_query_go(q);
         if (r < 0)
                 return r;
 
-        return 1; /* We return > 0, if we restarted the query for a new cname */
+        return 2; /* We return > 1, if we restarted the query for a new cname */
 }
 
 static int on_bus_track(sd_bus_track *t, void *userdata) {
