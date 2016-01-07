@@ -2282,7 +2282,11 @@ static int dns_transaction_invalidate_revoked_keys(DnsTransaction *t) {
 
 int dns_transaction_validate_dnssec(DnsTransaction *t) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
-        bool dnskeys_finalized = false;
+        enum {
+                PHASE_DNSKEY,   /* Phase #1, only validate DNSKEYs */
+                PHASE_NSEC,     /* Phase #2, only validate NSEC+NSEC3 */
+                PHASE_ALL,      /* Phase #3, validate everything else */
+        } phase;
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
         int r;
@@ -2340,16 +2344,44 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
+        phase = PHASE_DNSKEY;
         for (;;) {
-                bool changed = false;
+                bool changed = false, have_nsec = false;
 
                 DNS_ANSWER_FOREACH(rr, t->answer) {
+                        DnsResourceRecord *rrsig = NULL;
                         DnssecResult result;
 
-                        if (rr->key->type == DNS_TYPE_RRSIG)
+                        switch (rr->key->type) {
+
+                        case DNS_TYPE_RRSIG:
                                 continue;
 
-                        r = dnssec_verify_rrset_search(t->answer, rr->key, t->validated_keys, USEC_INFINITY, &result);
+                        case DNS_TYPE_DNSKEY:
+                                /* We validate DNSKEYs only in the DNSKEY and ALL phases */
+                                if (phase == PHASE_NSEC)
+                                        continue;
+                                break;
+
+                        case DNS_TYPE_NSEC:
+                        case DNS_TYPE_NSEC3:
+                                have_nsec = true;
+
+                                /* We validate NSEC/NSEC3 only in the NSEC and ALL phases */
+                                if (phase == PHASE_DNSKEY)
+                                        continue;
+
+                                break;
+
+                        default:
+                                /* We validate all other RRs only in the ALL phases */
+                                if (phase != PHASE_ALL)
+                                        continue;
+
+                                break;
+                        }
+
+                        r = dnssec_verify_rrset_search(t->answer, rr->key, t->validated_keys, USEC_INFINITY, &result, &rrsig);
                         if (r < 0)
                                 return r;
 
@@ -2393,12 +2425,51 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 break;
                         }
 
-                        /* If we haven't read all DNSKEYs yet a
-                         * negative result of the validation is
-                         * irrelevant, as there might be more DNSKEYs
-                         * coming. */
-                        if (!dnskeys_finalized)
+                        /* If we haven't read all DNSKEYs yet a negative result of the validation is irrelevant, as
+                         * there might be more DNSKEYs coming. Similar, if we haven't read all NSEC/NSEC3 RRs yet, we
+                         * cannot do positive wildcard proofs yet, as those require the NSEC/NSEC3 RRs. */
+                        if (phase != PHASE_ALL)
                                 continue;
+
+                        if (result == DNSSEC_VALIDATED_WILDCARD) {
+                                bool authenticated = false;
+                                const char *suffix;
+
+                                /* This RRset validated, but as a wildcard. This means we need to proof via NSEC/NSEC3
+                                 * that no matching non-wildcard RR exists.
+                                 *
+                                 * See RFC 5155, Section 8.8 and RFC 4035, Section 5.3.4*/
+
+                                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &suffix);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -EBADMSG;
+
+                                r = dns_name_parent(&suffix);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -EBADMSG;
+
+                                r = dnssec_nsec_test_between(validated, DNS_RESOURCE_KEY_NAME(rr->key), suffix, &authenticated);
+                                if (r < 0)
+                                        return r;
+
+                                /* Unless the NSEC proof showed that the key really doesn't exist something is off. */
+                                if (r == 0 || !authenticated)
+                                        result = DNSSEC_INVALID;
+
+                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE);
+                                if (r < 0)
+                                        return r;
+
+                                t->scope->manager->n_dnssec_secure++;
+
+                                /* Exit the loop, we dropped something from the answer, start from the beginning */
+                                changed = true;
+                                break;
+                        }
 
                         if (result == DNSSEC_NO_SIGNATURE) {
                                 r = dns_transaction_requires_rrsig(t, rr);
@@ -2519,17 +2590,20 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         break;
                 }
 
+                /* Restart the inner loop as long as we managed to achieve something */
                 if (changed)
                         continue;
 
-                if (!dnskeys_finalized) {
-                        /* OK, now we know we have added all DNSKEYs
-                         * we possibly could to our validated
-                         * list. Now run the whole thing once more,
-                         * and strip everything we still cannot
-                         * validate.
-                         */
-                        dnskeys_finalized = true;
+                if (phase == PHASE_DNSKEY && have_nsec) {
+                        /* OK, we processed all DNSKEYs, and there are NSEC/NSEC3 RRs, look at those now. */
+                        phase = PHASE_NSEC;
+                        continue;
+                }
+
+                if (phase != PHASE_ALL) {
+                        /* OK, we processed all DNSKEYs and NSEC/NSEC3 RRs, look at all the rest now. Note that in this
+                         * third phase we start to remove RRs we couldn't validate. */
+                        phase = PHASE_ALL;
                         continue;
                 }
 
@@ -2565,7 +2639,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 bool authenticated = false;
 
                 /* Bummer! Let's check NSEC/NSEC3 */
-                r = dnssec_test_nsec(t->answer, t->key, &nr, &authenticated, &t->answer_nsec_ttl);
+                r = dnssec_nsec_test(t->answer, t->key, &nr, &authenticated, &t->answer_nsec_ttl);
                 if (r < 0)
                         return r;
 

@@ -512,6 +512,7 @@ int dnssec_verify_rrset(
         DnsResourceRecord **list, *rr;
         gcry_md_hd_t md = NULL;
         int r, md_algorithm;
+        bool wildcard = false;
         size_t k, n = 0;
 
         assert(key);
@@ -599,8 +600,10 @@ int dnssec_verify_rrset(
                 r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &suffix);
                 if (r < 0)
                         goto finish;
-                if (r > 0) /* This is a wildcard! */
+                if (r > 0) /* This is a wildcard! */ {
                         gcry_md_write(md, (uint8_t[]) { 1, '*'}, 2);
+                        wildcard = true;
+                }
 
                 r = dns_name_to_wire_format(suffix, wire_format_name, sizeof(wire_format_name), true);
                 if (r < 0)
@@ -651,7 +654,12 @@ int dnssec_verify_rrset(
         if (r < 0)
                 goto finish;
 
-        *result = r ? DNSSEC_VALIDATED : DNSSEC_INVALID;
+        if (!r)
+                *result = DNSSEC_INVALID;
+        else if (wildcard)
+                *result = DNSSEC_VALIDATED_WILDCARD;
+        else
+                *result = DNSSEC_VALIDATED;
         r = 0;
 
 finish:
@@ -748,7 +756,8 @@ int dnssec_verify_rrset_search(
                 const DnsResourceKey *key,
                 DnsAnswer *validated_dnskeys,
                 usec_t realtime,
-                DnssecResult *result) {
+                DnssecResult *result,
+                DnsResourceRecord **ret_rrsig) {
 
         bool found_rrsig = false, found_invalid = false, found_expired_rrsig = false, found_unsupported_algorithm = false;
         DnsResourceRecord *rrsig;
@@ -808,13 +817,17 @@ int dnssec_verify_rrset_search(
                         switch (one_result) {
 
                         case DNSSEC_VALIDATED:
+                        case DNSSEC_VALIDATED_WILDCARD:
                                 /* Yay, the RR has been validated,
                                  * return immediately, but fix up the expiry */
                                 r = dnssec_fix_rrset_ttl(a, key, rrsig, realtime);
                                 if (r < 0)
                                         return r;
 
-                                *result = DNSSEC_VALIDATED;
+                                if (ret_rrsig)
+                                        *ret_rrsig = rrsig;
+
+                                *result = one_result;
                                 return 0;
 
                         case DNSSEC_INVALID:
@@ -858,6 +871,9 @@ int dnssec_verify_rrset_search(
                 *result = DNSSEC_MISSING_KEY;
         else
                 *result = DNSSEC_NO_SIGNATURE;
+
+        if (ret_rrsig)
+                *ret_rrsig = NULL;
 
         return 0;
 }
@@ -1501,7 +1517,7 @@ found_closest_encloser:
         return 0;
 }
 
-int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
+int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
         DnsResourceRecord *rr;
         bool have_nsec3 = false;
         DnsAnswerFlags flags;
@@ -1570,8 +1586,90 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
         return 0;
 }
 
+int dnssec_nsec_test_between(DnsAnswer *answer, const char *name, const char *zone, bool *authenticated) {
+        DnsResourceRecord *rr;
+        DnsAnswerFlags flags;
+        int r;
+
+        assert(name);
+        assert(zone);
+
+        /* Checks whether there's an NSEC/NSEC3 that proves that the specified 'name' is non-existing in the specified
+         * 'zone'. The 'zone' must be a suffix of the 'name'. */
+
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+                bool found = false;
+
+                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), zone);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                switch (rr->key->type) {
+
+                case DNS_TYPE_NSEC:
+                        r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), name, rr->nsec.next_domain_name);
+                        if (r < 0)
+                                return r;
+
+                        found = r > 0;
+                        break;
+
+                case DNS_TYPE_NSEC3: {
+                        _cleanup_free_ char *hashed_domain = NULL, *next_hashed_domain = NULL;
+
+                        r = nsec3_is_good(rr, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        /* Format the domain we are testing with the NSEC3 RR's hash function */
+                        r = nsec3_hashed_domain_make(
+                                        rr,
+                                        name,
+                                        zone,
+                                        &hashed_domain);
+                        if (r < 0)
+                                return r;
+                        if ((size_t) r != rr->nsec3.next_hashed_name_size)
+                                break;
+
+                        /* Format the NSEC3's next hashed name as proper domain name */
+                        r = nsec3_hashed_domain_format(
+                                        rr->nsec3.next_hashed_name,
+                                        rr->nsec3.next_hashed_name_size,
+                                        zone,
+                                        &next_hashed_domain);
+                        if (r < 0)
+                                return r;
+
+                        r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), hashed_domain, next_hashed_domain);
+                        if (r < 0)
+                                return r;
+
+                        found = r > 0;
+                        break;
+                }
+
+                default:
+                        continue;
+                }
+
+                if (found) {
+                        if (authenticated)
+                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_VALIDATED] = "validated",
+        [DNSSEC_VALIDATED_WILDCARD] = "validated-wildcard",
         [DNSSEC_INVALID] = "invalid",
         [DNSSEC_SIGNATURE_EXPIRED] = "signature-expired",
         [DNSSEC_UNSUPPORTED_ALGORITHM] = "unsupported-algorithm",
