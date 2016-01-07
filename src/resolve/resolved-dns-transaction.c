@@ -2227,6 +2227,29 @@ static int dns_transaction_known_signed(DnsTransaction *t, DnsResourceRecord *rr
                 dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key));
 }
 
+static int dns_transaction_check_revoked_trust_anchors(DnsTransaction *t) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(t);
+
+        /* Maybe warn the user that we encountered a revoked DNSKEY
+         * for a key from our trust anchor. Note that we don't care
+         * whether the DNSKEY can be authenticated or not. It's
+         * sufficient if it is self-signed. */
+
+        DNS_ANSWER_FOREACH(rr, t->answer) {
+                if (rr->key->type != DNS_TYPE_DNSKEY)
+                        continue;
+
+                r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor, t->answer, rr->key);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int dns_transaction_validate_dnssec(DnsTransaction *t) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
         bool dnskeys_finalized = false;
@@ -2267,7 +2290,12 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
         log_debug("Validating response from transaction %" PRIu16 " (%s).", t->id, dns_transaction_key_string(t));
 
-        /* First see if there are DNSKEYs we already known a validated DS for. */
+        /* First, see if this response contains any revoked trust anchors we care about */
+        r = dns_transaction_check_revoked_trust_anchors(t);
+        if (r < 0)
+                return r;
+
+        /* Second see if there are DNSKEYs we already know a validated DS for. */
         r = dns_transaction_validate_dnskey_by_ds(t);
         if (r < 0)
                 return r;
@@ -2297,14 +2325,6 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                          * transaction. */
 
                                         r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key, DNS_ANSWER_AUTHENTICATED);
-                                        if (r < 0)
-                                                return r;
-
-                                        /* Maybe warn the user that we
-                                         * encountered a revoked
-                                         * DNSKEY for a key from our
-                                         * trust anchor */
-                                        r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor, t->answer, rr->key);
                                         if (r < 0)
                                                 return r;
                                 }
