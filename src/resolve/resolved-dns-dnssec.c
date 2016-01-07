@@ -39,11 +39,13 @@
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
  *   - nxdomain on qname
- *   - workable hack for the .corp, .home, .box case
  *   - bus calls to override DNSEC setting per interface
  *   - log all DNSSEC downgrades
  *   - enable by default
  *
+ *   - RFC 4035, Section 5.3.4 (When receiving a positive wildcard reply, use NSEC to ensure it actually really applies)
+ *   - RFC 6840, Section 4.1 (ensure we don't get fed a glue NSEC from the parent zone)
+ *   - RFC 6840, Section 4.3 (check for CNAME on NSEC too)
  * */
 
 #define VERIFY_RRS_MAX 256
@@ -52,8 +54,8 @@
 /* Permit a maximum clock skew of 1h 10min. This should be enough to deal with DST confusion */
 #define SKEW_MAX (1*USEC_PER_HOUR + 10*USEC_PER_MINUTE)
 
-/* Maximum number of NSEC3 iterations we'll do. */
-#define NSEC3_ITERATIONS_MAX 2048
+/* Maximum number of NSEC3 iterations we'll do. RFC5155 says 2500 shall be the maximum useful value */
+#define NSEC3_ITERATIONS_MAX 2500
 
 /*
  * The DNSSEC Chain of trust:
