@@ -466,12 +466,8 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonica
                 /* Generate in canonical form, as defined by DNSSEC
                  * RFC 4034, Section 6.2, i.e. all lower-case. */
 
-                for (i = 0; i < l; i++) {
-                        if (d[i] >= 'A' && d[i] <= 'Z')
-                                w[i] = (uint8_t) (d[i] - 'A' + 'a');
-                        else
-                                w[i] = (uint8_t) d[i];
-                }
+                for (i = 0; i < l; i++)
+                        w[i] = (uint8_t) ascii_tolower(d[i]);
         } else
                 /* Otherwise, just copy the string unaltered. This is
                  * essential for DNS-SD, where the casing of labels

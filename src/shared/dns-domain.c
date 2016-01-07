@@ -913,19 +913,11 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
                 if (r < 0)
                         return r;
 
-                if (canonical) {
-                        size_t i;
-
-                        /* Optionally, output the name in DNSSEC
-                         * canonical format, as described in RFC 4034,
-                         * section 6.2. Or in other words: in
-                         * lower-case. */
-
-                        for (i = 0; i < (size_t) r; i++) {
-                                if (out[i] >= 'A' && out[i] <= 'Z')
-                                        out[i] = out[i] - 'A' + 'a';
-                        }
-                }
+                /* Optionally, output the name in DNSSEC canonical
+                 * format, as described in RFC 4034, section 6.2. Or
+                 * in other words: in lower-case. */
+                if (canonical)
+                        ascii_strlower_n((char*) out, (size_t) r);
 
                 /* Fill label length, move forward */
                 *label_length = r;

@@ -890,8 +890,6 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
                 return -ENOBUFS;
 
         for (;;) {
-                size_t i;
-
                 r = dns_label_unescape(&n, buffer, buffer_max);
                 if (r < 0)
                         return r;
@@ -918,11 +916,7 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
                 if (memchr(buffer, '.', r))
                         return -EINVAL;
 
-                for (i = 0; i < (size_t) r; i ++) {
-                        if (buffer[i] >= 'A' && buffer[i] <= 'Z')
-                                buffer[i] = buffer[i] - 'A' + 'a';
-                }
-
+                ascii_strlower_n(buffer, (size_t) r);
                 buffer[r] = '.';
 
                 buffer += r + 1;
