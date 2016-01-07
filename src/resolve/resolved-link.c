@@ -46,7 +46,9 @@ int link_new(Manager *m, Link **ret, int ifindex) {
                 return -ENOMEM;
 
         l->ifindex = ifindex;
-        l->llmnr_support = SUPPORT_YES;
+        l->llmnr_support = RESOLVE_SUPPORT_YES;
+        l->mdns_support = RESOLVE_SUPPORT_NO;
+        l->dnssec_mode = _DNSSEC_MODE_INVALID;
 
         r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
         if (r < 0)
@@ -65,7 +67,7 @@ Link *link_free(Link *l) {
         if (!l)
                 return NULL;
 
-        dns_server_unlink_marked(l->dns_servers);
+        dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
 
         while (l->addresses)
@@ -79,6 +81,8 @@ Link *link_free(Link *l) {
         dns_scope_free(l->llmnr_ipv6_scope);
         dns_scope_free(l->mdns_ipv4_scope);
         dns_scope_free(l->mdns_ipv6_scope);
+
+        set_free_free(l->dnssec_negative_trust_anchors);
 
         free(l);
         return NULL;
@@ -99,8 +103,8 @@ static void link_allocate_scopes(Link *l) {
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
         if (link_relevant(l, AF_INET) &&
-            l->llmnr_support != SUPPORT_NO &&
-            l->manager->llmnr_support != SUPPORT_NO) {
+            l->llmnr_support != RESOLVE_SUPPORT_NO &&
+            l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -110,8 +114,8 @@ static void link_allocate_scopes(Link *l) {
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
         if (link_relevant(l, AF_INET6) &&
-            l->llmnr_support != SUPPORT_NO &&
-            l->manager->llmnr_support != SUPPORT_NO &&
+            l->llmnr_support != RESOLVE_SUPPORT_NO &&
+            l->manager->llmnr_support != RESOLVE_SUPPORT_NO &&
             socket_ipv6_is_supported()) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
@@ -122,8 +126,8 @@ static void link_allocate_scopes(Link *l) {
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
 
         if (link_relevant(l, AF_INET) &&
-            l->mdns_support != SUPPORT_NO &&
-            l->manager->mdns_support != SUPPORT_NO) {
+            l->mdns_support != RESOLVE_SUPPORT_NO &&
+            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
@@ -133,8 +137,8 @@ static void link_allocate_scopes(Link *l) {
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
 
         if (link_relevant(l, AF_INET6) &&
-            l->mdns_support != SUPPORT_NO &&
-            l->manager->mdns_support != SUPPORT_NO) {
+            l->mdns_support != RESOLVE_SUPPORT_NO &&
+            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
@@ -233,22 +237,107 @@ static int link_update_llmnr_support(Link *l) {
         if (r < 0)
                 goto clear;
 
-        r = parse_boolean(b);
-        if (r < 0) {
-                if (streq(b, "resolve"))
-                        l->llmnr_support = SUPPORT_RESOLVE;
-                else
-                        goto clear;
-
-        } else if (r > 0)
-                l->llmnr_support = SUPPORT_YES;
-        else
-                l->llmnr_support = SUPPORT_NO;
+        l->llmnr_support = resolve_support_from_string(b);
+        if (l->llmnr_support < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
 
         return 0;
 
 clear:
-        l->llmnr_support = SUPPORT_YES;
+        l->llmnr_support = RESOLVE_SUPPORT_YES;
+        return r;
+}
+
+static int link_update_mdns_support(Link *l) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_mdns(l->ifindex, &b);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->mdns_support = resolve_support_from_string(b);
+        if (l->mdns_support < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
+
+        return 0;
+
+clear:
+        l->mdns_support = RESOLVE_SUPPORT_NO;
+        return r;
+}
+
+static int link_update_dnssec_mode(Link *l) {
+        _cleanup_free_ char *m = NULL;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dnssec(l->ifindex, &m);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->dnssec_mode = dnssec_mode_from_string(m);
+        if (l->dnssec_mode < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
+
+        return 0;
+
+clear:
+        l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        return r;
+}
+
+static int link_update_dnssec_negative_trust_anchors(Link *l) {
+        _cleanup_strv_free_ char **ntas = NULL;
+        _cleanup_set_free_free_ Set *ns = NULL;
+        char **i;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dnssec_negative_trust_anchors(l->ifindex, &ntas);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        ns = set_new(&dns_name_hash_ops);
+        if (!ns)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, ntas) {
+                r = set_put_strdup(ns, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        set_free_free(l->dnssec_negative_trust_anchors);
+        l->dnssec_negative_trust_anchors = ns;
+        ns = NULL;
+
+        return 0;
+
+clear:
+        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
         return r;
 }
 
@@ -299,14 +388,31 @@ int link_update_monitor(Link *l) {
 
         assert(l);
 
-        link_update_dns_servers(l);
-        link_update_llmnr_support(l);
-        link_allocate_scopes(l);
+        r = link_update_dns_servers(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
+
+        r = link_update_llmnr_support(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->name);
+
+        r = link_update_mdns_support(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
+
+        r = link_update_dnssec_mode(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
+
+        r = link_update_dnssec_negative_trust_anchors(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->name);
 
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
 
+        link_allocate_scopes(l);
         link_add_rrs(l, false);
 
         return 0;
@@ -459,8 +565,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 if (!force_remove &&
                     link_address_relevant(a) &&
                     a->link->llmnr_ipv4_scope &&
-                    a->link->llmnr_support == SUPPORT_YES &&
-                    a->link->manager->llmnr_support == SUPPORT_YES) {
+                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
+                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv4_key) {
                                 a->link->manager->llmnr_host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->llmnr_hostname);
@@ -516,8 +622,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 if (!force_remove &&
                     link_address_relevant(a) &&
                     a->link->llmnr_ipv6_scope &&
-                    a->link->llmnr_support == SUPPORT_YES &&
-                    a->link->manager->llmnr_support == SUPPORT_YES) {
+                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
+                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv6_key) {
                                 a->link->manager->llmnr_host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->llmnr_hostname);

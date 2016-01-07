@@ -39,7 +39,10 @@
  *   - multi-label zone compatibility
  *   - cname/dname compatibility
  *   - nxdomain on qname
- *   - per-interface DNSSEC setting
+ *   - workable hack for the .corp, .home, .box case
+ *   - bus calls to override DNSEC setting per interface
+ *   - log all DNSSEC downgrades
+ *   - enable by default
  *
  * */
 
@@ -1565,13 +1568,6 @@ int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
         *result = DNSSEC_NSEC_NO_RR;
         return 0;
 }
-
-static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
-        [DNSSEC_NO] = "no",
-        [DNSSEC_DOWNGRADE_OK] = "downgrade-ok",
-        [DNSSEC_YES] = "yes",
-};
-DEFINE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
 
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_VALIDATED] = "validated",

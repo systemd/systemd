@@ -81,12 +81,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = manager_parse_config_file(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse configuration file: %m");
-                goto finish;
-        }
-
         r = manager_start(m);
         if (r < 0) {
                 log_error_errno(r, "Failed to start manager: %m");

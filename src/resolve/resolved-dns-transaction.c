@@ -939,7 +939,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                          * this means we cannot do any DNSSEC logic
                          * anymore. */
 
-                        if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+                        if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
                                 /* We are in downgrade mode. In this
                                  * case, synthesize an unsigned empty
                                  * response, so that the any lookup
@@ -1284,13 +1284,13 @@ static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
         if (t == aux)
                 return 1;
 
-        SET_FOREACH(n, aux->notify_transactions, i) {
+        SET_FOREACH(n, aux->dnssec_transactions, i) {
                 r = dns_transaction_find_cyclic(t, n);
                 if (r != 0)
                         return r;
         }
 
-        return r;
+        return 0;
 }
 
 static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
@@ -1406,6 +1406,25 @@ static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags
         return false;
 }
 
+static int dns_transaction_negative_trust_anchor_lookup(DnsTransaction *t, const char *name) {
+        int r;
+
+        assert(t);
+
+        /* Check whether the specified name is in the the NTA
+         * database, either in the global one, or the link-local
+         * one. */
+
+        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, name);
+        if (r != 0)
+                return r;
+
+        if (!t->scope->link)
+                return 0;
+
+        return set_contains(t->scope->link->dnssec_negative_trust_anchors, name);
+}
+
 static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
         int r;
 
@@ -1422,7 +1441,7 @@ static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
 
         /* Is this key explicitly listed as a negative trust anchor?
          * If so, it's nothing we need to care about */
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(t->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(t->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1513,7 +1532,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         continue;
 
                 /* If this RR is in the negative trust anchor, we don't need to validate it. */
-                r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+                r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1863,7 +1882,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         if (dns_type_is_pseudo(rr->key->type))
                 return -EINVAL;
 
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1989,6 +2008,66 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         }}
 }
 
+static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKey *key) {
+        DnsTransaction *dt;
+        const char *tld;
+        Iterator i;
+        int r;
+
+        /* If DNSSEC downgrade mode is on, checks whether the
+         * specified RR is one level below a TLD we have proven not to
+         * exist. In such a case we assume that this is a private
+         * domain, and permit it.
+         *
+         * This detects cases like the Fritz!Box router networks. Each
+         * Fritz!Box router serves a private "fritz.box" zone, in the
+         * non-existing TLD "box". Requests for the "fritz.box" domain
+         * are served by the router itself, while requests for the
+         * "box" domain will result in NXDOMAIN.
+         *
+         * Note that this logic is unable to detect cases where a
+         * router serves a private DNS zone directly under
+         * non-existing TLD. In such a case we cannot detect whether
+         * the TLD is supposed to exist or not, as all requests we
+         * make for it will be answered by the router's zone, and not
+         * by the root zone. */
+
+        assert(t);
+
+        if (t->scope->dnssec_mode != DNSSEC_ALLOW_DOWNGRADE)
+                return false; /* In strict DNSSEC mode what doesn't exist, doesn't exist */
+
+        tld = DNS_RESOURCE_KEY_NAME(key);
+        r = dns_name_parent(&tld);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return false; /* Already the root domain */
+
+        if (!dns_name_is_single_label(tld))
+                return false;
+
+        SET_FOREACH(dt, t->dnssec_transactions, i) {
+
+                if (dt->key->class != key->class)
+                        continue;
+
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), tld);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* We found an auxiliary lookup we did for the TLD. If
+                 * that returned with NXDOMAIN, we know the TLD didn't
+                 * exist, and hence this might be a private zone. */
+
+                return dt->answer_rcode == DNS_RCODE_NXDOMAIN;
+        }
+
+        return false;
+}
+
 static int dns_transaction_requires_nsec(DnsTransaction *t) {
         DnsTransaction *dt;
         const char *name;
@@ -2006,11 +2085,23 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         if (dns_type_is_pseudo(t->key->type))
                 return -EINVAL;
 
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(t->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(t->key));
         if (r < 0)
                 return r;
         if (r > 0)
                 return false;
+
+        r = dns_transaction_in_private_tld(t, t->key);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                /* The lookup is from a TLD that is proven not to
+                 * exist, and we are in downgrade mode, hence ignore
+                 * that fact that we didn't get any NSEC RRs.*/
+
+                log_info("Detected a negative query %s in a private DNS zone, permitting unsigned response.", dns_transaction_key_string(t));
+                return false;
+        }
 
         name = DNS_RESOURCE_KEY_NAME(t->key);
 
@@ -2063,7 +2154,7 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
          * the specified RRset is authenticated (i.e. has a matching
          * DS RR). */
 
-        r = dns_trust_anchor_lookup_negative(&t->scope->manager->trust_anchor, DNS_RESOURCE_KEY_NAME(rr->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -2266,7 +2357,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                                                 dns_server_packet_rrsig_missing(t->server);
 
-                                                if (t->scope->dnssec_mode == DNSSEC_DOWNGRADE_OK) {
+                                                if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
 
                                                         /* Downgrading is OK? If so, just consider the information unsigned */
 
@@ -2282,6 +2373,27 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                                 /* Otherwise, fail */
                                                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
                                                 return 0;
+                                        }
+
+                                        r = dns_transaction_in_private_tld(t, rr->key);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0) {
+                                                _cleanup_free_ char *s = NULL;
+
+                                                /* The data is from a TLD that is proven not to exist, and we are in downgrade
+                                                 * mode, hence ignore the fact that this was not signed. */
+
+                                                (void) dns_resource_key_to_string(rr->key, &s);
+                                                log_info("Detected RRset %s is in a private DNS zone, permitting unsigned RRs.", strna(s ? strstrip(s) : NULL));
+
+                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                                if (r < 0)
+                                                        return r;
+
+                                                t->scope->manager->n_dnssec_insecure++;
+                                                changed = true;
+                                                break;
                                         }
                                 }
 
@@ -2311,10 +2423,9 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 if (IN_SET(result,
                                            DNSSEC_INVALID,
                                            DNSSEC_SIGNATURE_EXPIRED,
-                                           DNSSEC_NO_SIGNATURE,
-                                           DNSSEC_UNSUPPORTED_ALGORITHM))
+                                           DNSSEC_NO_SIGNATURE))
                                         t->scope->manager->n_dnssec_bogus++;
-                                else
+                                else /* DNSSEC_MISSING_KEY or DNSSEC_UNSUPPORTED_ALGORITHM */
                                         t->scope->manager->n_dnssec_indeterminate++;
 
                                 r = dns_transaction_is_primary_response(t, rr);

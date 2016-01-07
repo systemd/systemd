@@ -111,6 +111,27 @@ int sd_network_link_get_ntp(int ifindex, char ***addr);
  */
 int sd_network_link_get_llmnr(int ifindex, char **llmnr);
 
+/* Indicates whether or not MulticastDNS should be enabled for the
+ * link.
+ * Possible levels of support: yes, no, resolve
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_mdns(int ifindex, char **mdns);
+
+/* Indicates whether or not DNSSEC should be enabled for the link
+ * Possible levels of support: yes, no, allow-downgrade
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_dnssec(int ifindex, char **dnssec);
+
+/* Returns the list of per-interface DNSSEC negative trust anchors
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link, or has no such data
+ */
+int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***nta);
+
 int sd_network_link_get_lldp(int ifindex, char **lldp);
 
 /* Get the DNS domain names for a given link. */

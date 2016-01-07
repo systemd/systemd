@@ -175,6 +175,16 @@
 
     <para><ulink url="https://tools.ietf.org/html/rfc7646">RFC
     7646</ulink> for details on negative trust anchors.</para>
+
+    <para>If no negative trust anchor files are configured a built-in
+    set of well-known private DNS zone domains is used as negative
+    trust anchors.</para>
+
+    <para>It is also possibly to define per-interface negative trust
+    anchors using the <varname>DNSSECNegativeTrustAnchors=</varname>
+    setting in
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    files.</para>
   </refsect1>
 
   <refsect1>
@@ -182,7 +192,8 @@
       <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       </para>
   </refsect1>
 

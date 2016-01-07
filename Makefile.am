@@ -1054,7 +1054,9 @@ libshared_la_SOURCES = \
 	src/shared/machine-image.c \
 	src/shared/machine-image.h \
 	src/shared/machine-pool.c \
-	src/shared/machine-pool.h
+	src/shared/machine-pool.h \
+	src/shared/resolve-util.c \
+	src/shared/resolve-util.h
 
 if HAVE_UTMP
 libshared_la_SOURCES += \

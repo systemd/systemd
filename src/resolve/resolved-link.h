@@ -25,6 +25,7 @@
 
 #include "in-addr-util.h"
 #include "ratelimit.h"
+#include "resolve-util.h"
 
 typedef struct Link Link;
 typedef struct LinkAddress LinkAddress;
@@ -66,8 +67,10 @@ struct Link {
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
 
-        Support llmnr_support;
-        Support mdns_support;
+        ResolveSupport llmnr_support;
+        ResolveSupport mdns_support;
+        DnssecMode dnssec_mode;
+        Set *dnssec_negative_trust_anchors;
 
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;

@@ -2868,6 +2868,26 @@ int link_save(Link *link) {
 
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
+                fprintf(f, "MDNS=%s\n",
+                        resolve_support_to_string(link->network->mdns));
+
+                if (link->network->dnssec_mode != _DNSSEC_MODE_INVALID)
+                        fprintf(f, "DNSSEC=%s\n",
+                                dnssec_mode_to_string(link->network->dnssec_mode));
+
+                if (!set_isempty(link->network->dnssec_negative_trust_anchors)) {
+                        const char *n;
+
+                        fputs("DNSSEC_NTA=", f);
+                        space = false;
+                        SET_FOREACH(n, link->network->dnssec_negative_trust_anchors, i) {
+                                if (space)
+                                        fputc(' ', f);
+                                fputs(n, f);
+                                space = true;
+                        }
+                        fputc('\n', f);
+                }
 
                 fputs("ADDRESSES=", f);
                 space = false;
@@ -2881,7 +2901,6 @@ int link_save(Link *link) {
                         fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
                         space = true;
                 }
-
                 fputc('\n', f);
 
                 fputs("ROUTES=", f);

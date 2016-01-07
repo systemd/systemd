@@ -22,6 +22,7 @@
 ***/
 
 #include "condition.h"
+#include "resolve-util.h"
 
 typedef struct Network Network;
 
@@ -144,6 +145,9 @@ struct Network {
         char **domains, **dns, **ntp, **bind_carrier;
 
         ResolveSupport llmnr;
+        ResolveSupport mdns;
+        DnssecMode dnssec_mode;
+        Set *dnssec_negative_trust_anchors;
 
         LIST_FIELDS(Network, networks);
 };
@@ -170,6 +174,7 @@ int config_parse_hostname(const char *unit, const char *filename, unsigned line,
 int config_parse_timezone(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dhcp_server_dns(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dhcp_server_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_dnssec_negative_trust_anchors(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Legacy IPv4LL support */
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

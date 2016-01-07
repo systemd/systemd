@@ -99,138 +99,17 @@ _public_ int sd_network_get_domains(char ***ret) {
         return network_get_strv("DOMAINS", ret);
 }
 
-_public_ int sd_network_link_get_setup_state(int ifindex, char **state) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(state, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, "ADMIN_STATE", &s, NULL);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
-
-        *state = s;
-        s = NULL;
-
-        return 0;
-}
-
-_public_ int sd_network_link_get_network_file(int ifindex, char **filename) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(filename, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, "NETWORK_FILE", &s, NULL);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
-
-        *filename = s;
-        s = NULL;
-
-        return 0;
-}
-
-_public_ int sd_network_link_get_operational_state(int ifindex, char **state) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(state, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, "OPER_STATE", &s, NULL);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
-
-        *state = s;
-        s = NULL;
-
-        return 0;
-}
-
-_public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(llmnr, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, "LLMNR", &s, NULL);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
-
-        *llmnr = s;
-        s = NULL;
-
-        return 0;
-}
-
-_public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
-        size_t size;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(lldp, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/lldp/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = read_full_file(p, &s, &size);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (size <= 0)
-                return -ENODATA;
-
-        *lldp = s;
-        s = NULL;
-
-        return 0;
-}
-
-int sd_network_link_get_timezone(int ifindex, char **ret) {
+static int network_link_get_string(int ifindex, const char *field, char **ret) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;
 
         assert_return(ifindex > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+        if (asprintf(&p, "/run/systemd/netif/links/%i", ifindex) < 0)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, "TIMEZONE", &s, NULL);
+        r = parse_env_file(p, NEWLINE, field, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -240,10 +119,11 @@ int sd_network_link_get_timezone(int ifindex, char **ret) {
 
         *ret = s;
         s = NULL;
+
         return 0;
 }
 
-static int network_get_link_strv(const char *key, int ifindex, char ***ret) {
+static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         _cleanup_strv_free_ char **a = NULL;
         int r;
@@ -277,29 +157,86 @@ static int network_get_link_strv(const char *key, int ifindex, char ***ret) {
         return r;
 }
 
+_public_ int sd_network_link_get_setup_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "ADMIN_STATE", state);
+}
+
+_public_ int sd_network_link_get_network_file(int ifindex, char **filename) {
+        return network_link_get_string(ifindex, "NETWORK_FILE", filename);
+}
+
+_public_ int sd_network_link_get_operational_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "OPER_STATE", state);
+}
+
+_public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
+        return network_link_get_string(ifindex, "LLMNR", llmnr);
+}
+
+_public_ int sd_network_link_get_mdns(int ifindex, char **mdns) {
+        return network_link_get_string(ifindex, "MDNS", mdns);
+}
+
+_public_ int sd_network_link_get_dnssec(int ifindex, char **dnssec) {
+        return network_link_get_string(ifindex, "DNSSEC", dnssec);
+}
+
+_public_ int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***nta) {
+        return network_link_get_strv(ifindex, "DNSSEC_NTA", nta);
+}
+
+_public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        size_t size;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(lldp, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/netif/lldp/%d", ifindex) < 0)
+                return -ENOMEM;
+
+        r = read_full_file(p, &s, &size);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (size <= 0)
+                return -ENODATA;
+
+        *lldp = s;
+        s = NULL;
+
+        return 0;
+}
+
+int sd_network_link_get_timezone(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "TIMEZONE", ret);
+}
+
 _public_ int sd_network_link_get_dns(int ifindex, char ***ret) {
-        return network_get_link_strv("DNS", ifindex, ret);
+        return network_link_get_strv(ifindex, "DNS", ret);
 }
 
 _public_ int sd_network_link_get_ntp(int ifindex, char ***ret) {
-        return network_get_link_strv("NTP", ifindex, ret);
+        return network_link_get_strv(ifindex, "NTP", ret);
 }
 
 _public_ int sd_network_link_get_domains(int ifindex, char ***ret) {
-        return network_get_link_strv("DOMAINS", ifindex, ret);
+        return network_link_get_strv(ifindex, "DOMAINS", ret);
 }
 
 _public_ int sd_network_link_get_carrier_bound_to(int ifindex, char ***ret) {
-        return network_get_link_strv("CARRIER_BOUND_TO", ifindex, ret);
+        return network_link_get_strv(ifindex, "CARRIER_BOUND_TO", ret);
 }
 
 _public_ int sd_network_link_get_carrier_bound_by(int ifindex, char ***ret) {
-        return network_get_link_strv("CARRIER_BOUND_BY", ifindex, ret);
+        return network_link_get_strv(ifindex, "CARRIER_BOUND_BY", ret);
 }
 
 _public_ int sd_network_link_get_wildcard_domain(int ifindex) {
-        int r;
         _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
 
         assert_return(ifindex > 0, -EINVAL);
 

@@ -277,10 +277,59 @@
         <varlistentry>
           <term><varname>LLMNR=</varname></term>
           <listitem>
-            <para>A boolean or <literal>resolve</literal>. When true, enables
-            Link-Local Multicast Name Resolution on the link. When set to
-            <literal>resolve</literal>, only resolution is enabled, but not
-            announcement. Defaults to true.</para>
+            <para>A boolean or <literal>resolve</literal>. When true,
+            enables <ulink
+            url="https://tools.ietf.org/html/rfc4795">Link-Local
+            Multicast Name Resolution</ulink> on the link. When set to
+            <literal>resolve</literal>, only resolution is enabled,
+            but not host registration and announcement. Defaults to
+            true. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastDNS=</varname></term>
+          <listitem>
+            <para>A boolean or <literal>resolve</literal>. When true,
+            enables <ulink
+            url="https://tools.ietf.org/html/rfc6762">Multicast
+            DNS</ulink> support on the link. When set to
+            <literal>resolve</literal>, only resolution is enabled,
+            but not host or service registration and
+            announcement. Defaults to false. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DNSSEC=</varname></term>
+          <listitem>
+            <para>A boolean or
+            <literal>allow-downgrade</literal>. When true, enables
+            <ulink
+            url="https://tools.ietf.org/html/rfc4033">DNSSEC</ulink>
+            DNS validation support on the link. When set to
+            <literal>allow-downgrade</literal>, compatibility with
+            non-DNSSEC capable networks is increased, by automatically
+            turning off DNSEC in this case. This option defines a
+            per-interface setting for
+            <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+            global <varname>DNSSEC=</varname> option. Defaults to
+            false. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DNSSECNegativeTrustAnchors=</varname></term>
+          <listitem><para>A space-separated list of DNSSEC negative
+          trust anchor domains. If specified and DNSSEC is enabled,
+          look-ups done via the interface's DNS server will be subject
+          to the list of negative trust anchors, and not require
+          authentication for the specified domains, or anything below
+          it. Use this to disable DNSSEC authentication for specific
+          private domains, that cannot be proven valid using the
+          Internet DNS hierarchy. Defaults to the empty list. This
+          setting is read by
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -346,19 +395,22 @@
             <para>A DNS server address, which must be in the format
             described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
+            This option may be specified more than once. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Domains=</varname></term>
           <listitem>
-            <para>The domains used for DNS resolution over this link.</para>
+            <para>The domains used for DNS resolution over this link. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>NTP=</varname></term>
           <listitem>
-            <para>An NTP server address. This option may be specified more than once.</para>
+            <para>An NTP server address. This option may be specified more than once. This setting is read by
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1011,9 +1063,10 @@ DHCP=yes
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
