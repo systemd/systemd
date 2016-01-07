@@ -2323,134 +2323,132 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 /* Exit the loop, we dropped something from the answer, start from the beginning */
                                 changed = true;
                                 break;
+                        }
 
-                        } else if (dnskeys_finalized) {
+                        /* If we haven't read all DNSKEYs yet a
+                         * negative result of the validation is
+                         * irrelevant, as there might be more DNSKEYs
+                         * coming. */
+                        if (!dnskeys_finalized)
+                                continue;
 
-                                /* If we haven't read all DNSKEYs yet
-                                 * a negative result of the validation
-                                 * is irrelevant, as there might be
-                                 * more DNSKEYs coming. */
-
-                                if (result == DNSSEC_NO_SIGNATURE) {
-                                        r = dns_transaction_requires_rrsig(t, rr);
+                        if (result == DNSSEC_NO_SIGNATURE) {
+                                r = dns_transaction_requires_rrsig(t, rr);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        /* Data does not require signing. In that case, just copy it over,
+                                         * but remember that this is by no means authenticated.*/
+                                        r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
                                         if (r < 0)
                                                 return r;
-                                        if (r == 0) {
-                                                /* Data does not require signing. In that case, just copy it over,
-                                                 * but remember that this is by no means authenticated.*/
-                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
-                                                if (r < 0)
-                                                        return r;
 
-                                                t->scope->manager->n_dnssec_insecure++;
-
-                                                changed = true;
-                                                break;
-                                        }
-
-                                        r = dns_transaction_known_signed(t, rr);
-                                        if (r < 0)
-                                                return r;
-                                        if (r > 0) {
-                                                /* This is an RR we know has to be signed. If it isn't this means
-                                                 * the server is not attaching RRSIGs, hence complain. */
-
-                                                dns_server_packet_rrsig_missing(t->server);
-
-                                                if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
-
-                                                        /* Downgrading is OK? If so, just consider the information unsigned */
-
-                                                        r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
-                                                        if (r < 0)
-                                                                return r;
-
-                                                        t->scope->manager->n_dnssec_insecure++;
-                                                        changed = true;
-                                                        break;
-                                                }
-
-                                                /* Otherwise, fail */
-                                                t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
-                                                return 0;
-                                        }
-
-                                        r = dns_transaction_in_private_tld(t, rr->key);
-                                        if (r < 0)
-                                                return r;
-                                        if (r > 0) {
-                                                _cleanup_free_ char *s = NULL;
-
-                                                /* The data is from a TLD that is proven not to exist, and we are in downgrade
-                                                 * mode, hence ignore the fact that this was not signed. */
-
-                                                (void) dns_resource_key_to_string(rr->key, &s);
-                                                log_info("Detected RRset %s is in a private DNS zone, permitting unsigned RRs.", strna(s ? strstrip(s) : NULL));
-
-                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
-                                                if (r < 0)
-                                                        return r;
-
-                                                t->scope->manager->n_dnssec_insecure++;
-                                                changed = true;
-                                                break;
-                                        }
+                                        t->scope->manager->n_dnssec_insecure++;
+                                        changed = true;
+                                        break;
                                 }
 
-                                if (IN_SET(result,
-                                           DNSSEC_MISSING_KEY,
-                                           DNSSEC_SIGNATURE_EXPIRED,
-                                           DNSSEC_UNSUPPORTED_ALGORITHM)) {
-
-                                        r = dns_transaction_dnskey_authenticated(t, rr);
-                                        if (r < 0 && r != -ENXIO)
-                                                return r;
-                                        if (r == 0) {
-                                                /* The DNSKEY transaction was not authenticated, this means there's
-                                                 * no DS for this, which means it's OK if no keys are found for this signature. */
-
-                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
-                                                if (r < 0)
-                                                        return r;
-
-                                                t->scope->manager->n_dnssec_insecure++;
-
-                                                changed = true;
-                                                break;
-                                        }
-                                }
-
-                                if (IN_SET(result,
-                                           DNSSEC_INVALID,
-                                           DNSSEC_SIGNATURE_EXPIRED,
-                                           DNSSEC_NO_SIGNATURE))
-                                        t->scope->manager->n_dnssec_bogus++;
-                                else /* DNSSEC_MISSING_KEY or DNSSEC_UNSUPPORTED_ALGORITHM */
-                                        t->scope->manager->n_dnssec_indeterminate++;
-
-                                r = dns_transaction_is_primary_response(t, rr);
+                                r = dns_transaction_known_signed(t, rr);
                                 if (r < 0)
                                         return r;
                                 if (r > 0) {
-                                        /* This is a primary response
-                                         * to our question, and it
-                                         * failed validation. That's
-                                         * fatal. */
-                                        t->answer_dnssec_result = result;
+                                        /* This is an RR we know has to be signed. If it isn't this means
+                                         * the server is not attaching RRSIGs, hence complain. */
+
+                                        dns_server_packet_rrsig_missing(t->server);
+
+                                        if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
+
+                                                /* Downgrading is OK? If so, just consider the information unsigned */
+
+                                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                                if (r < 0)
+                                                        return r;
+
+                                                t->scope->manager->n_dnssec_insecure++;
+                                                changed = true;
+                                                break;
+                                        }
+
+                                        /* Otherwise, fail */
+                                        t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
                                         return 0;
                                 }
 
-                                /* This is just some auxiliary
-                                 * data. Just remove the RRset and
-                                 * continue. */
-                                r = dns_answer_remove_by_key(&t->answer, rr->key);
+                                r = dns_transaction_in_private_tld(t, rr->key);
                                 if (r < 0)
                                         return r;
+                                if (r > 0) {
+                                        _cleanup_free_ char *s = NULL;
 
-                                /* Exit the loop, we dropped something from the answer, start from the beginning */
-                                changed = true;
-                                break;
+                                        /* The data is from a TLD that is proven not to exist, and we are in downgrade
+                                         * mode, hence ignore the fact that this was not signed. */
+
+                                        (void) dns_resource_key_to_string(rr->key, &s);
+                                        log_info("Detected RRset %s is in a private DNS zone, permitting unsigned RRs.", strna(s ? strstrip(s) : NULL));
+
+                                        r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                        if (r < 0)
+                                                return r;
+
+                                        t->scope->manager->n_dnssec_insecure++;
+                                        changed = true;
+                                        break;
+                                }
                         }
+
+                        if (IN_SET(result,
+                                   DNSSEC_MISSING_KEY,
+                                   DNSSEC_SIGNATURE_EXPIRED,
+                                   DNSSEC_UNSUPPORTED_ALGORITHM)) {
+
+                                r = dns_transaction_dnskey_authenticated(t, rr);
+                                if (r < 0 && r != -ENXIO)
+                                        return r;
+                                if (r == 0) {
+                                        /* The DNSKEY transaction was not authenticated, this means there's
+                                         * no DS for this, which means it's OK if no keys are found for this signature. */
+
+                                        r = dns_answer_move_by_key(&validated, &t->answer, rr->key, 0);
+                                        if (r < 0)
+                                                return r;
+
+                                        t->scope->manager->n_dnssec_insecure++;
+                                        changed = true;
+                                        break;
+                                }
+                        }
+
+                        if (IN_SET(result,
+                                   DNSSEC_INVALID,
+                                   DNSSEC_SIGNATURE_EXPIRED,
+                                   DNSSEC_NO_SIGNATURE))
+                                t->scope->manager->n_dnssec_bogus++;
+                        else /* DNSSEC_MISSING_KEY or DNSSEC_UNSUPPORTED_ALGORITHM */
+                                t->scope->manager->n_dnssec_indeterminate++;
+
+                        r = dns_transaction_is_primary_response(t, rr);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                /* This is a primary response
+                                 * to our question, and it
+                                 * failed validation. That's
+                                 * fatal. */
+                                t->answer_dnssec_result = result;
+                                return 0;
+                        }
+
+                        /* This is just some auxiliary
+                         * data. Just remove the RRset and
+                         * continue. */
+                        r = dns_answer_remove_by_key(&t->answer, rr->key);
+                        if (r < 0)
+                                return r;
+
+                        /* Exit the loop, we dropped something from the answer, start from the beginning */
+                        changed = true;
+                        break;
                 }
 
                 if (changed)
