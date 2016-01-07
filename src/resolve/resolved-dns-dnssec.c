@@ -1154,7 +1154,7 @@ finish:
         return r;
 }
 
-static int nsec3_is_good(DnsResourceRecord *rr, DnsAnswerFlags flags, DnsResourceRecord *nsec3) {
+static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
         const char *a, *b;
         int r;
 
@@ -1267,7 +1267,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         zone = DNS_RESOURCE_KEY_NAME(key);
         for (;;) {
                 DNS_ANSWER_FOREACH_FLAGS(zone_rr, flags, answer) {
-                        r = nsec3_is_good(zone_rr, flags, NULL);
+                        r = nsec3_is_good(zone_rr, NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -1307,7 +1307,7 @@ found_zone:
 
                 DNS_ANSWER_FOREACH_FLAGS(enclosure_rr, flags, answer) {
 
-                        r = nsec3_is_good(enclosure_rr, flags, zone_rr);
+                        r = nsec3_is_good(enclosure_rr, zone_rr);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -1395,7 +1395,7 @@ found_closest_encloser:
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 _cleanup_free_ char *label = NULL, *next_hashed_domain = NULL;
 
-                r = nsec3_is_good(rr, flags, zone_rr);
+                r = nsec3_is_good(rr, zone_rr);
                 if (r < 0)
                         return r;
                 if (r == 0)
