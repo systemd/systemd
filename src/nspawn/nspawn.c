@@ -1482,7 +1482,7 @@ static int setup_journal(const char *directory) {
 }
 
 static int drop_capabilities(void) {
-        return capability_bounding_set_drop(~arg_retain, false);
+        return capability_bounding_set_drop(arg_retain, false);
 }
 
 static int reset_audit_loginuid(void) {

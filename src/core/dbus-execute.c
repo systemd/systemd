@@ -293,9 +293,7 @@ static int property_get_capability_bounding_set(
         assert(reply);
         assert(c);
 
-        /* We store this negated internally, to match the kernel, but
-         * we expose it normalized. */
-        return sd_bus_message_append(reply, "t", ~c->capability_bounding_set_drop);
+        return sd_bus_message_append(reply, "t", c->capability_bounding_set);
 }
 
 static int property_get_capabilities(

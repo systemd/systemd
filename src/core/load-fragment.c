@@ -38,6 +38,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
 #include "cgroup.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
@@ -1024,7 +1025,7 @@ int config_parse_exec_secure_bits(const char *unit,
         return 0;
 }
 
-int config_parse_bounding_set(
+int config_parse_capability_set(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1036,8 +1037,8 @@ int config_parse_bounding_set(
                 void *data,
                 void *userdata) {
 
-        uint64_t *capability_bounding_set_drop = data;
-        uint64_t capability_bounding_set, sum = 0;
+        uint64_t *capability_set = data;
+        uint64_t sum = 0, initial = 0;
         bool invert = false;
         const char *p;
 
@@ -1051,10 +1052,8 @@ int config_parse_bounding_set(
                 rvalue++;
         }
 
-        /* Note that we store this inverted internally, since the
-         * kernel wants it like this. But we actually expose it
-         * non-inverted everywhere to have a fully normalized
-         * interface. */
+        if (strcmp(lvalue, "CapabilityBoundingSet") == 0)
+                initial = CAP_ALL; /* initialized to all bits on */
 
         p = rvalue;
         for (;;) {
@@ -1080,11 +1079,14 @@ int config_parse_bounding_set(
                 sum |= ((uint64_t) UINT64_C(1)) << (uint64_t) cap;
         }
 
-        capability_bounding_set = invert ? ~sum : sum;
-        if (*capability_bounding_set_drop != 0 && capability_bounding_set != 0)
-                *capability_bounding_set_drop = ~(~*capability_bounding_set_drop | capability_bounding_set);
+        sum = invert ? ~sum : sum;
+
+        if (sum == 0 || *capability_set == initial)
+                /* "" or uninitialized data -> replace */
+                *capability_set = sum;
         else
-                *capability_bounding_set_drop = ~capability_bounding_set;
+                /* previous data -> merge */
+                *capability_set |= sum;
 
         return 0;
 }
@@ -4002,7 +4004,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_log_level,             "LEVEL" },
                 { config_parse_exec_capabilities,     "CAPABILITIES" },
                 { config_parse_exec_secure_bits,      "SECUREBITS" },
-                { config_parse_bounding_set,          "BOUNDINGSET" },
+                { config_parse_capability_set,        "BOUNDINGSET" },
                 { config_parse_limit,                 "LIMIT" },
                 { config_parse_unit_deps,             "UNIT [...]" },
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },

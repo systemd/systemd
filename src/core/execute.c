@@ -1866,8 +1866,8 @@ static int exec_child(
                         }
                 }
 
-                if (context->capability_bounding_set_drop) {
-                        r = capability_bounding_set_drop(context->capability_bounding_set_drop, false);
+                if (!cap_test_all(context->capability_bounding_set)) {
+                        r = capability_bounding_set_drop(context->capability_bounding_set, false);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return r;
@@ -2114,6 +2114,7 @@ void exec_context_init(ExecContext *c) {
         c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = PERSONALITY_INVALID;
         c->runtime_directory_mode = 0755;
+        c->capability_bounding_set = CAP_ALL;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -2517,12 +2518,12 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         (c->secure_bits & 1<<SECURE_NOROOT) ? " noroot" : "",
                         (c->secure_bits & 1<<SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
-        if (c->capability_bounding_set_drop) {
+        if (c->capability_bounding_set != CAP_ALL) {
                 unsigned long l;
                 fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
                 for (l = 0; l <= cap_last_cap(); l++)
-                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l)))
+                        if (c->capability_bounding_set & (UINT64_C(1) << l))
                                 fprintf(f, " %s", strna(capability_to_name(l)));
 
                 fputs("\n", f);
