@@ -2089,11 +2089,12 @@ int dns_packet_extract(DnsPacket *p) {
                                         goto finish;
                                 }
 
-                                /* The OPT RR is only valid in the Additional section */
-                                if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
-                                        r = -EBADMSG;
-                                        goto finish;
-                                }
+                                /* Note that we accept the OPT RR in
+                                 * any section, not just in the
+                                 * additional section, as some routers
+                                 * (Belkin!)  blindly copy the OPT RR
+                                 * from the query to the reply packet,
+                                 * and don't get the section right. */
 
                                 /* Two OPT RRs? */
                                 if (p->opt) {
