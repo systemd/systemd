@@ -114,6 +114,16 @@ bool dns_type_may_redirect(uint16_t type) {
                        DNS_TYPE_KEY);
 }
 
+bool dns_type_is_dnssec(uint16_t type) {
+        return IN_SET(type,
+                      DNS_TYPE_DS,
+                      DNS_TYPE_DNSKEY,
+                      DNS_TYPE_RRSIG,
+                      DNS_TYPE_NSEC,
+                      DNS_TYPE_NSEC3,
+                      DNS_TYPE_NSEC3PARAM);
+}
+
 const char *dns_class_to_string(uint16_t class) {
 
         switch (class) {

@@ -418,6 +418,9 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
+                if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO && dns_type_is_dnssec(t->key->type))
+                        return -EOPNOTSUPP;
+
                 r = dns_server_adjust_opt(t->server, t->sent, t->current_features);
                 if (r < 0)
                         return r;
@@ -696,6 +699,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
                         return;
                 }
+                if (r == -EOPNOTSUPP) {
+                        /* Tried to ask for DNSSEC RRs, on a server that doesn't do DNSSEC  */
+                        dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
+                        return;
+                }
                 if (r < 0) {
                         /* On LLMNR, if we cannot connect to the host,
                          * we immediately give up */
@@ -831,6 +839,9 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
 
                 if (t->current_features < DNS_SERVER_FEATURE_LEVEL_UDP)
                         return -EAGAIN;
+
+                if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO && dns_type_is_dnssec(t->key->type))
+                        return -EOPNOTSUPP;
 
                 if (r > 0 || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
                         int fd;
@@ -1277,7 +1288,13 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* No servers to send this to? */
                 dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
                 return 0;
-        } else if (r < 0) {
+        }
+        if (r == -EOPNOTSUPP) {
+                /* Tried to ask for DNSSEC RRs, on a server that doesn't do DNSSEC  */
+                dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
+                return 0;
+        }
+        if (r < 0) {
                 if (t->scope->protocol != DNS_PROTOCOL_DNS) {
                         dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                         return 0;
@@ -2764,6 +2781,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_ABORTED] = "aborted",
         [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
         [DNS_TRANSACTION_NO_TRUST_ANCHOR] = "no-trust-anchor",
+        [DNS_TRANSACTION_RR_TYPE_UNSUPPORTED] = "rr-type-unsupported",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
