@@ -224,31 +224,48 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
         }
 }
 
-void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel level, usec_t rtt, size_t size) {
+static void dns_server_verified(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
 
-        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE) {
-                /* Even if we successfully receive a reply to a
-                   request announcing support for large packets, that
-                   does not mean we can necessarily receive large
-                   packets. */
+        if (s->verified_feature_level > level)
+                return;
 
-                if (s->verified_feature_level < DNS_SERVER_FEATURE_LEVEL_LARGE - 1) {
-                        s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
-                        assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
-                }
-        } else if (s->verified_feature_level < level) {
+        if (s->verified_feature_level != level) {
+                log_debug("Verified feature level %s.", dns_server_feature_level_to_string(level));
                 s->verified_feature_level = level;
-                assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
         }
 
-        if (s->possible_feature_level == level)
-                s->n_failed_attempts = 0;
+        assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
+}
+
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t rtt, size_t size) {
+        assert(s);
+
+        if (protocol == IPPROTO_UDP) {
+                if (s->possible_feature_level == level)
+                        s->n_failed_udp = 0;
+
+                if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
+                        /* Even if we successfully receive a reply to a request announcing support for large packets,
+                           that does not mean we can necessarily receive large packets. */
+                        dns_server_verified(s, DNS_SERVER_FEATURE_LEVEL_LARGE - 1);
+                else
+                        /* A successful UDP reply, verifies UDP, ENDS0 and DO levels */
+                        dns_server_verified(s, level);
+
+        } else if (protocol == IPPROTO_TCP) {
+
+                if (s->possible_feature_level == level)
+                        s->n_failed_tcp = 0;
+
+                /* Successful TCP connections are only useful to verify the TCP feature level. */
+                dns_server_verified(s, DNS_SERVER_FEATURE_LEVEL_TCP);
+        }
 
         /* Remember the size of the largest UDP packet we received from a server,
            we know that we can always announce support for packets with at least
            this size. */
-        if (s->received_udp_packet_max < size)
+        if (protocol == IPPROTO_UDP && s->received_udp_packet_max < size)
                 s->received_udp_packet_max = size;
 
         if (s->max_rtt < rtt) {
@@ -257,12 +274,16 @@ void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel level, usec_
         }
 }
 
-void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel level, usec_t usec) {
+void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec) {
         assert(s);
         assert(s->manager);
 
-        if (s->possible_feature_level == level)
-                s->n_failed_attempts ++;
+        if (s->possible_feature_level == level) {
+                if (protocol == IPPROTO_UDP)
+                        s->n_failed_udp ++;
+                else if (protocol == IPPROTO_TCP)
+                        s->n_failed_tcp ++;
+        }
 
         if (s->resend_timeout > usec)
                 return;
@@ -274,18 +295,24 @@ void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
         assert(s->manager);
 
+        /* Invoked whenever we get a FORMERR, SERVFAIL or NOTIMP rcode from a server. */
+
         if (s->possible_feature_level != level)
                 return;
 
-        /* Invoked whenever we get a FORMERR, SERVFAIL or NOTIMP rcode from a server. This is an immediate trigger for
-         * us to go one feature level down. Except when we are already at TCP or UDP level, in which case there's no
-         * point in changing, under the assumption that packet failures are caused by packet contents, not by used
-         * transport. */
+        s->packet_failed = true;
+}
 
-        if (s->possible_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP)
+void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
+        assert(s);
+        assert(s->manager);
+
+        /* Invoked whenever we get a packet with TC bit set. */
+
+        if (s->possible_feature_level != level)
                 return;
 
-        s->n_failed_attempts  = (unsigned) -1;
+        s->packet_truncated = true;
 }
 
 void dns_server_packet_rrsig_missing(DnsServer *s) {
@@ -326,35 +353,71 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 _cleanup_free_ char *ip = NULL;
 
                 s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
-                s->n_failed_attempts = 0;
+                s->n_failed_udp = 0;
+                s->n_failed_tcp = 0;
+                s->packet_failed = false;
+                s->packet_truncated = false;
                 s->verified_usec = 0;
                 s->rrsig_missing = false;
 
                 in_addr_to_string(s->family, &s->address, &ip);
-                log_info("Grace period over, resuming full feature set for DNS server %s", strna(ip));
+                log_info("Grace period over, resuming full feature set (%s) for DNS server %s",
+                         dns_server_feature_level_to_string(s->possible_feature_level), strna(ip));
+
         } else if (s->possible_feature_level <= s->verified_feature_level)
                 s->possible_feature_level = s->verified_feature_level;
-        else if (s->n_failed_attempts >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS) {
-                _cleanup_free_ char *ip = NULL;
+        else {
+                DnsServerFeatureLevel p = s->possible_feature_level;
 
-                /* Switch one feature level down. Except when we are at TCP already, in which case we try UDP
-                 * again. Thus, if a DNS server is not responding we'll keep toggling between UDP and TCP until it
-                 * responds on one of them. Note that we generally prefer UDP over TCP (which is why it is at a higher
-                 * feature level), but many DNS servers support lack TCP support. */
+                if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                    s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP)
 
-                if (s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP)
+                        /* We are at the TCP (lowest) level, and we tried a couple of TCP connections, and it didn't
+                         * work. Upgrade back to UDP again. */
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
-                else {
-                        assert(s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_WORST);
-                        s->possible_feature_level --;
+
+                else if ((s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                          s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_UDP) ||
+                         (s->packet_failed &&
+                          s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) ||
+                         (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                          s->packet_truncated &&
+                          s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP))
+
+                        /* Downgrade the feature one level, maybe things will work better then. We do this under any of
+                         * three conditions:
+                         *
+                         * 1. We lost too many UDP packets in a row, and are on a feature level of UDP or higher. If
+                         *    the packets are lost, maybe the server cannot parse them, hence downgrading sounds like a
+                         *    good idea. We might downgrade all the way down to TCP this way.
+                         *
+                         * 2. We got a failure packet, and are at a feature level above UDP. Note that in this case we
+                         *    downgrade no further than UDP, under the assumption that a failure packet indicates an
+                         *    incompatible packet contents, but not a problem with the transport.
+                         *
+                         * 3. We got too many TCP connection failures in a row, we had at least one truncated packet,
+                         *    and are on a feature level above UDP. By downgrading things and getting rid of DNSSEC or
+                         *    EDNS0 data we hope to make the packet smaller, so that it still works via UDP given that
+                         *    TCP appears not to be a fallback. Note that if we are already at the lowest UDP level, we
+                         *    don't go further down, since that's TCP, and TCP failed too often after all.
+                         */
+
+                        s->possible_feature_level--;
+
+                if (p != s->possible_feature_level) {
+                        _cleanup_free_ char *ip = NULL;
+
+                        /* We changed the feature level, reset the counting */
+                        s->n_failed_udp = 0;
+                        s->n_failed_tcp = 0;
+                        s->packet_failed = false;
+                        s->packet_truncated = false;
+                        s->verified_usec = 0;
+
+                        in_addr_to_string(s->family, &s->address, &ip);
+                        log_warning("Using degraded feature set (%s) for DNS server %s",
+                                    dns_server_feature_level_to_string(s->possible_feature_level), strna(ip));
                 }
-
-                s->n_failed_attempts = 0;
-                s->verified_usec = 0;
-
-                in_addr_to_string(s->family, &s->address, &ip);
-                log_warning("Using degraded feature set (%s) for DNS server %s",
-                            dns_server_feature_level_to_string(s->possible_feature_level), strna(ip));
         }
 
         return s->possible_feature_level;

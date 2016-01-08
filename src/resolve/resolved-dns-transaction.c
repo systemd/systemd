@@ -370,7 +370,7 @@ static int on_stream_complete(DnsStream *s, int error) {
 
                 log_debug_errno(error, "Connection failure for DNS TCP stream, treating as lost packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
-                dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+                dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_features, usec - t->start_usec);
 
                 dns_transaction_retry(t);
                 return 0;
@@ -670,8 +670,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_server_packet_failed(t->server, t->current_features);
                         dns_transaction_retry(t);
                         return;
-                } else
-                        dns_server_packet_received(t->server, t->current_features, ts - t->start_usec, p->size);
+                } else if (DNS_PACKET_TC(p))
+                        dns_server_packet_truncated(t->server, t->current_features);
+                else
+                        dns_server_packet_received(t->server, p->ipproto, t->current_features, ts - t->start_usec, p->size);
 
                 break;
 
@@ -797,7 +799,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
                 log_debug_errno(r, "Connection failure for DNS UDP packet, treating as lost packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
-                dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_features, usec - t->start_usec);
 
                 dns_transaction_retry(t);
                 return 0;
@@ -889,7 +891,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-                        dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_features, usec - t->start_usec);
                         break;
 
                 case DNS_PROTOCOL_LLMNR:
@@ -2375,6 +2377,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
             (t->server && t->server->rrsig_missing)) {
                 /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
+                log_debug("Cannot validate reponse, server lacks DNSSEC support.");
                 return 0;
         }
 
