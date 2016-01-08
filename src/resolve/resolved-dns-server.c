@@ -277,6 +277,14 @@ void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level) {
         if (s->possible_feature_level != level)
                 return;
 
+        /* Invoked whenever we get a FORMERR, SERVFAIL or NOTIMP rcode from a server. This is an immediate trigger for
+         * us to go one feature level down. Except when we are already at TCP or UDP level, in which case there's no
+         * point in changing, under the assumption that packet failures are caused by packet contents, not by used
+         * transport. */
+
+        if (s->possible_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP)
+                return;
+
         s->n_failed_attempts  = (unsigned) -1;
 }
 
