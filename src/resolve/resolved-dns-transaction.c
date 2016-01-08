@@ -779,15 +779,40 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         assert(t->scope);
 
         r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (r <= 0)
-                return r;
+        if (ERRNO_IS_DISCONNECT(-r)) {
+                usec_t usec;
 
-        if (dns_packet_validate_reply(p) > 0 &&
-            DNS_PACKET_ID(p) == t->id)
-                dns_transaction_process_reply(t, p);
-        else
-                log_debug("Invalid DNS UDP packet, ignoring.");
+                /* UDP connection failure get reported via ICMP and then are possible delivered to us on the next
+                 * recvmsg(). Treat this like a lost packet. */
 
+                log_debug_errno(r, "Connection failure for DNS UDP packet, treating as lost packet: %m");
+                assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
+                dns_server_packet_lost(t->server, t->current_features, usec - t->start_usec);
+
+                dns_transaction_retry(t);
+                return 0;
+        }
+        if (r < 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                return 0;
+        }
+
+        r = dns_packet_validate_reply(p);
+        if (r < 0) {
+                log_debug_errno(r, "Received invalid DNS packet as response, ignoring: %m");
+                return 0;
+        }
+        if (r == 0) {
+                log_debug("Received inappropriate DNS packet as response, ignoring: %m");
+                return 0;
+        }
+
+        if (DNS_PACKET_ID(p) != t->id) {
+                log_debug("Received packet with incorrect transaction ID, ignoring: %m");
+                return 0;
+        }
+
+        dns_transaction_process_reply(t, p);
         return 0;
 }
 
