@@ -709,7 +709,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 if (r < 0) {
                         /* On LLMNR, if we cannot connect to the host,
                          * we immediately give up */
-                        if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                        if (t->scope->protocol != DNS_PROTOCOL_DNS) {
                                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                                 return;
                         }
@@ -1280,6 +1280,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 r = dns_transaction_emit_udp(t);
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
+                if (r == -EAGAIN)
+                        log_debug("Sending query via TCP since server doesn't support UDP.");
                 if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
