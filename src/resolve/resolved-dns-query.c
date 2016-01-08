@@ -961,6 +961,8 @@ int dns_query_go(DnsQuery *q) {
         if (r < 0)
                 goto fail;
 
+        (void) sd_event_source_set_description(q->timeout_event_source, "query-timeout");
+
         q->state = DNS_TRANSACTION_PENDING;
         q->block_ready++;
 

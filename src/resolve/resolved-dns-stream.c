@@ -367,6 +367,8 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         if (r < 0)
                 return r;
 
+        (void) sd_event_source_set_description(s->io_event_source, "dns-stream-io");
+
         r = sd_event_add_time(
                         m->event,
                         &s->timeout_event_source,
@@ -375,6 +377,8 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
                         on_stream_timeout, s);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(s->timeout_event_source, "dns-stream-timeout");
 
         LIST_PREPEND(streams, m->dns_streams, s);
         s->manager = m;

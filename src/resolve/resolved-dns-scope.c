@@ -912,6 +912,8 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add conflict dispatch event: %m");
 
+        (void) sd_event_source_set_description(scope->conflict_event_source, "scope-conflict");
+
         return 0;
 }
 

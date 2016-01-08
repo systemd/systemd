@@ -812,6 +812,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                                 return r;
                         }
 
+                        (void) sd_event_source_set_description(t->dns_udp_event_source, "dns-transaction-udp");
                         t->dns_udp_fd = fd;
                 }
 
@@ -1088,6 +1089,8 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
+                (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
+
                 other->state = DNS_TRANSACTION_PENDING;
                 other->next_attempt_after = ts;
 
@@ -1203,6 +1206,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
+                (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
+
                 t->n_attempts = 0;
                 t->next_attempt_after = ts;
                 t->state = DNS_TRANSACTION_PENDING;
@@ -1264,6 +1269,8 @@ int dns_transaction_go(DnsTransaction *t) {
                         on_transaction_timeout, t);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
 
         t->state = DNS_TRANSACTION_PENDING;
         t->next_attempt_after = ts;
