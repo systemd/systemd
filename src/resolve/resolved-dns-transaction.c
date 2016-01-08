@@ -336,6 +336,21 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         return 1;
 }
 
+static void dns_transaction_retry(DnsTransaction *t) {
+        int r;
+
+        assert(t);
+
+        log_debug("Retrying transaction %" PRIu16 ".", t->id);
+
+        /* Before we try again, switch to a new server. */
+        dns_scope_next_dns_server(t->scope);
+
+        r = dns_transaction_go(t);
+        if (r < 0)
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+}
+
 static int on_stream_complete(DnsStream *s, int error) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsTransaction *t;
@@ -645,13 +660,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
 
                         dns_server_packet_failed(t->server, t->current_features);
-
-                        r = dns_transaction_go(t);
-                        if (r < 0) {
-                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                                return;
-                        }
-
+                        dns_transaction_retry(t);
                         return;
                 } else
                         dns_server_packet_received(t->server, t->current_features, ts - t->start_usec, p->size);
@@ -691,13 +700,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         }
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
-                        dns_scope_next_dns_server(t->scope);
-
-                        r = dns_transaction_go(t);
-                        if (r < 0) {
-                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                                return;
-                        }
+                        dns_transaction_retry(t);
                 }
 
                 return;
@@ -833,7 +836,6 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         DnsTransaction *t = userdata;
-        int r;
 
         assert(s);
         assert(t);
@@ -862,13 +864,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
         log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
 
-        /* ...and try again with a new server */
-        dns_scope_next_dns_server(t->scope);
-
-        r = dns_transaction_go(t);
-        if (r < 0)
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-
+        dns_transaction_retry(t);
         return 0;
 }
 
