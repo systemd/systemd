@@ -135,6 +135,7 @@ DnsServer* dns_server_unref(DnsServer *s)  {
         if (s->n_ref > 0)
                 return NULL;
 
+        free(s->server_string);
         free(s);
         return NULL;
 }
@@ -316,12 +317,10 @@ void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
 }
 
 void dns_server_packet_rrsig_missing(DnsServer *s) {
-        _cleanup_free_ char *ip = NULL;
         assert(s);
         assert(s->manager);
 
-        in_addr_to_string(s->family, &s->address, &ip);
-        log_warning("DNS server %s does not augment replies with RRSIG records, DNSSEC not available.", strna(ip));
+        log_warning("DNS server %s does not augment replies with RRSIG records, DNSSEC not available.", dns_server_string(s));
 
         s->rrsig_missing = true;
 }
@@ -350,7 +349,6 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
         if (s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_BEST &&
             dns_server_grace_period_expired(s)) {
-                _cleanup_free_ char *ip = NULL;
 
                 s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
                 s->n_failed_udp = 0;
@@ -360,9 +358,9 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 s->verified_usec = 0;
                 s->rrsig_missing = false;
 
-                in_addr_to_string(s->family, &s->address, &ip);
                 log_info("Grace period over, resuming full feature set (%s) for DNS server %s",
-                         dns_server_feature_level_to_string(s->possible_feature_level), strna(ip));
+                         dns_server_feature_level_to_string(s->possible_feature_level),
+                         dns_server_string(s));
 
         } else if (s->possible_feature_level <= s->verified_feature_level)
                 s->possible_feature_level = s->verified_feature_level;
@@ -405,7 +403,6 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         s->possible_feature_level--;
 
                 if (p != s->possible_feature_level) {
-                        _cleanup_free_ char *ip = NULL;
 
                         /* We changed the feature level, reset the counting */
                         s->n_failed_udp = 0;
@@ -414,9 +411,9 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         s->packet_truncated = false;
                         s->verified_usec = 0;
 
-                        in_addr_to_string(s->family, &s->address, &ip);
                         log_warning("Using degraded feature set (%s) for DNS server %s",
-                                    dns_server_feature_level_to_string(s->possible_feature_level), strna(ip));
+                                    dns_server_feature_level_to_string(s->possible_feature_level),
+                                    dns_server_string(s));
                 }
         }
 
@@ -449,6 +446,15 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
                 packet_size = server->received_udp_packet_max;
 
         return dns_packet_append_opt(packet, packet_size, edns_do, NULL);
+}
+
+const char *dns_server_string(DnsServer *server) {
+        assert(server);
+
+        if (!server->server_string)
+                (void) in_addr_to_string(server->family, &server->address, &server->server_string);
+
+        return strna(server->server_string);
 }
 
 static void dns_server_hash_func(const void *p, struct siphash *state) {
@@ -542,12 +548,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         if (m->current_dns_server == s)
                 return s;
 
-        if (s) {
-                _cleanup_free_ char *ip = NULL;
-
-                in_addr_to_string(s->family, &s->address, &ip);
-                log_info("Switching to system DNS server %s.", strna(ip));
-        }
+        if (s)
+                log_info("Switching to system DNS server %s.", dns_server_string(s));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);

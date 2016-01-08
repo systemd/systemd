@@ -61,6 +61,8 @@ struct DnsServer {
         int family;
         union in_addr_union address;
 
+        char *server_string;
+
         usec_t resend_timeout;
         usec_t max_rtt;
 
@@ -111,6 +113,8 @@ void dns_server_packet_rrsig_missing(DnsServer *s);
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
+
+const char *dns_server_string(DnsServer *server);
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 
