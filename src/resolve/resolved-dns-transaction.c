@@ -692,6 +692,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         return;
                 }
 
+                log_debug("Reply truncated, retrying via TCP.");
+
                 /* Response was truncated, let's try again with good old TCP */
                 r = dns_transaction_open_tcp(t);
                 if (r == -ESRCH) {
@@ -714,10 +716,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
                         dns_transaction_retry(t);
-                        return;
                 }
 
-                log_debug("Reply truncated, retrying via TCP.");
                 return;
         }
 
