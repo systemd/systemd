@@ -1120,8 +1120,9 @@ static void dns_resource_record_hash_func(const void *i, struct siphash *state) 
                 LIST_FOREACH(items, j, rr->txt.items) {
                         siphash24_compress(j->data, j->length, state);
 
-                        /* Add an extra NUL byte, so that "a" followed by "b" doesn't result in the same hash as "ab" followed by "". */
-                        siphash24_compress((const uint8_t[]) { 0 }, 1, state);
+                        /* Add an extra NUL byte, so that "a" followed by "b" doesn't result in the same hash as "ab"
+                         * followed by "". */
+                        siphash24_compress_byte(0, state);
                 }
                 break;
         }

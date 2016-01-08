@@ -504,6 +504,7 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
 
                 ascii_strlower_n(label, r);
                 siphash24_compress(label, r, state);
+                siphash24_compress_byte(0, state); /* make sure foobar and foo.bar result in different hashes */
         }
 
         /* enforce that all names are terminated by the empty label */
