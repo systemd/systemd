@@ -326,11 +326,21 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 log_info("Grace period over, resuming full feature set for DNS server %s", strna(ip));
         } else if (s->possible_feature_level <= s->verified_feature_level)
                 s->possible_feature_level = s->verified_feature_level;
-        else if (s->n_failed_attempts >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                 s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_WORST) {
+        else if (s->n_failed_attempts >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS) {
                 _cleanup_free_ char *ip = NULL;
 
-                s->possible_feature_level --;
+                /* Switch one feature level down. Except when we are at TCP already, in which case we try UDP
+                 * again. Thus, if a DNS server is not responding we'll keep toggling between UDP and TCP until it
+                 * responds on one of them. Note that we generally prefer UDP over TCP (which is why it is at a higher
+                 * feature level), but many DNS servers support lack TCP support. */
+
+                if (s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP)
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+                else {
+                        assert(s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_WORST);
+                        s->possible_feature_level --;
+                }
+
                 s->n_failed_attempts = 0;
                 s->verified_usec = 0;
 
