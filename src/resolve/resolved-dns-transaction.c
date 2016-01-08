@@ -706,8 +706,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
                         dns_transaction_retry(t);
+                        return;
                 }
 
+                log_debug("Reply truncated, retrying via TCP.");
                 return;
         }
 
@@ -1265,6 +1267,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* Try via UDP, and if that fails due to large size or lack of
                  * support try via TCP */
                 r = dns_transaction_emit_udp(t);
+                if (r == -EMSGSIZE)
+                        log_debug("Sending query via TCP since it is too large.");
                 if (r == -EMSGSIZE || r == -EAGAIN)
                         r = dns_transaction_open_tcp(t);
         }
