@@ -402,12 +402,16 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 
         assert(s);
 
+        p = s->buffer;
+        remaining = s->length;
+
+        if (remaining == 0)
+                return 0;
+
         /* refresh metadata once per buffer scanned */
         if (s->state == STDOUT_STREAM_RUNNING)
                 journal_meta_refresh(s->server, s->ucred.pid, &s->ucred, s->label, s->label ? strlen(s->label) : 0, s->unit_id, &s->meta);
 
-        p = s->buffer;
-        remaining = s->length;
         for (;;) {
                 char *end;
                 size_t skip;
