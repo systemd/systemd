@@ -2552,18 +2552,22 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         return r;
 
                                 /* Unless the NSEC proof showed that the key really doesn't exist something is off. */
-                                if (r == 0 || !authenticated)
+                                if (r == 0)
                                         result = DNSSEC_INVALID;
+                                else {
+                                        r = dns_answer_move_by_key(&validated, &t->answer, rr->key, authenticated ? (DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE) : 0);
+                                        if (r < 0)
+                                                return r;
 
-                                r = dns_answer_move_by_key(&validated, &t->answer, rr->key, DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE);
-                                if (r < 0)
-                                        return r;
+                                        if (authenticated)
+                                                t->scope->manager->n_dnssec_secure++;
+                                        else
+                                                t->scope->manager->n_dnssec_insecure++;
 
-                                t->scope->manager->n_dnssec_secure++;
-
-                                /* Exit the loop, we dropped something from the answer, start from the beginning */
-                                changed = true;
-                                break;
+                                        /* Exit the loop, we dropped something from the answer, start from the beginning */
+                                        changed = true;
+                                        break;
+                                }
                         }
 
                         if (result == DNSSEC_NO_SIGNATURE) {
