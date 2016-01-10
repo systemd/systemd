@@ -116,6 +116,8 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
 const char *dns_server_string(DnsServer *server);
 
+bool dns_server_dnssec_supported(DnsServer *server);
+
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 
 void dns_server_unlink_all(DnsServer *first);

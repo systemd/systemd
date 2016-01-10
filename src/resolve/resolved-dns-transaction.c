@@ -368,7 +368,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         if (ERRNO_IS_DISCONNECT(error)) {
                 usec_t usec;
 
-                log_debug_errno(error, "Connection failure for DNS TCP stream, treating as lost packet: %m");
+                log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
                 dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_features, usec - t->start_usec);
 
@@ -418,7 +418,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO && dns_type_is_dnssec(t->key->type))
+                if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(t->key->type))
                         return -EOPNOTSUPP;
 
                 r = dns_server_adjust_opt(t->server, t->sent, t->current_features);
@@ -797,7 +797,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 /* UDP connection failure get reported via ICMP and then are possible delivered to us on the next
                  * recvmsg(). Treat this like a lost packet. */
 
-                log_debug_errno(r, "Connection failure for DNS UDP packet, treating as lost packet: %m");
+                log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
                 dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_features, usec - t->start_usec);
 
@@ -842,7 +842,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (t->current_features < DNS_SERVER_FEATURE_LEVEL_UDP)
                         return -EAGAIN;
 
-                if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO && dns_type_is_dnssec(t->key->type))
+                if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(t->key->type))
                         return -EOPNOTSUPP;
 
                 if (r > 0 || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
@@ -1555,6 +1555,44 @@ static int dns_transaction_is_primary_response(DnsTransaction *t, DnsResourceRec
         return rr->key->type == DNS_TYPE_NSEC;
 }
 
+static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
+        assert(t);
+
+        /* Checks whether our transaction's DNS server is assumed to be compatible with DNSSEC. Returns false as soon
+         * as we changed our mind about a server, and now believe it is incompatible with DNSSEC. */
+
+        if (t->scope->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        /* If we have picked no server, then we are working from the cache or some other source, and DNSSEC might well
+         * be supported, hence return true. */
+        if (!t->server)
+                return true;
+
+        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO)
+                return false;
+
+        return dns_server_dnssec_supported(t->server);
+}
+
+static bool dns_transaction_dnssec_supported_full(DnsTransaction *t) {
+        DnsTransaction *dt;
+        Iterator i;
+
+        assert(t);
+
+        /* Checks whether our transaction our any of the auxiliary transactions couldn't do DNSSEC. */
+
+        if (!dns_transaction_dnssec_supported(t))
+                return false;
+
+        SET_FOREACH(dt, t->dnssec_transactions, i)
+                if (!dns_transaction_dnssec_supported(dt))
+                        return false;
+
+        return true;
+}
+
 int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         DnsResourceRecord *rr;
 
@@ -1578,11 +1616,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 
         if (t->scope->dnssec_mode == DNSSEC_NO)
                 return 0;
-
-        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO)
-                return 0; /* Server doesn't do DNSSEC, there's no point in requesting any RRs then. */
-        if (t->server && t->server->rrsig_missing)
-                return 0; /* Server handles DNSSEC requests, but isn't augmenting responses with RRSIGs. No point in trying DNSSEC then. */
+        if (t->answer_source != DNS_TRANSACTION_NETWORK)
+                return 0; /* We only need to validate stuff from the network */
+        if (!dns_transaction_dnssec_supported(t))
+                return 0; /* If we can't do DNSSEC anyway there's no point in geting the auxiliary RRs */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
 
@@ -2373,11 +2410,10 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0;
 
-        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO ||
-            (t->server && t->server->rrsig_missing)) {
+        if (!dns_transaction_dnssec_supported_full(t)) {
                 /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
-                log_debug("Cannot validate reponse, server lacks DNSSEC support.");
+                log_debug("Cannot validate response, server lacks DNSSEC support.");
                 return 0;
         }
 

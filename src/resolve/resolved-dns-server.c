@@ -457,6 +457,24 @@ const char *dns_server_string(DnsServer *server) {
         return strna(server->server_string);
 }
 
+bool dns_server_dnssec_supported(DnsServer *server) {
+        assert(server);
+
+        /* Returns whether the server supports DNSSEC according to what we know about it */
+
+        if (server->possible_feature_level < DNS_SERVER_FEATURE_LEVEL_DO)
+                return false;
+
+        if (server->rrsig_missing)
+                return false;
+
+        /* DNSSEC servers need to support TCP properly (see RFC5966), if they don't, we assume DNSSEC is borked too */
+        if (server->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS)
+                return false;
+
+        return true;
+}
+
 static void dns_server_hash_func(const void *p, struct siphash *state) {
         const DnsServer *s = p;
 
