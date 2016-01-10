@@ -3119,7 +3119,7 @@ int unit_kill_common(
                         killed = true;
         }
 
-        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_ALL_FAIL))
+        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL))
                 return -ESRCH;
 
         return r;
