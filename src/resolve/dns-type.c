@@ -77,7 +77,13 @@ bool dns_type_is_valid_query(uint16_t type) {
                        0,
                        DNS_TYPE_OPT,
                        DNS_TYPE_TSIG,
-                       DNS_TYPE_TKEY);
+                       DNS_TYPE_TKEY,
+
+                       /* RRSIG are technically valid as questions, but we refuse doing explicit queries for them, as
+                        * they aren't really payload, but signatures for payload, and cannot be validated on their
+                        * own. After all they are the signatures, and have no signatures of their own validating
+                        * them. */
+                       DNS_TYPE_RRSIG);
 }
 
 bool dns_type_is_valid_rr(uint16_t type) {
