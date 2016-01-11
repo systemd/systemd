@@ -264,6 +264,30 @@ static void test_basic(void) {
         safe_close_pair(k);
 }
 
+static void test_sd_event_now(void) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        uint64_t event_now;
+
+        assert_se(sd_event_new(&e) >= 0);
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME, &event_now) > 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now) > 0);
+        assert_se(sd_event_now(e, -1, &event_now) == -ENOSYS);
+        assert_se(sd_event_now(e, 900 /* arbitrary big number */, &event_now) == -ENOSYS);
+
+        assert_se(sd_event_run(e, 0) == 0);
+
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME, &event_now) == 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now) == 0);
+        assert_se(sd_event_now(e, -1, &event_now) == -ENOSYS);
+        assert_se(sd_event_now(e, 900 /* arbitrary big number */, &event_now) == -ENOSYS);
+}
+
 static int last_rtqueue_sigval = 0;
 static int n_rtqueue = 0;
 
@@ -324,7 +348,11 @@ static void test_rtqueue(void) {
 
 int main(int argc, char *argv[]) {
 
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+
         test_basic();
+        test_sd_event_now();
         test_rtqueue();
 
         return 0;

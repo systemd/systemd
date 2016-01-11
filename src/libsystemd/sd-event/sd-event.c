@@ -2751,6 +2751,12 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
         assert_return(e, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
+        assert_return(IN_SET(clock,
+                             CLOCK_REALTIME,
+                             CLOCK_REALTIME_ALARM,
+                             CLOCK_MONOTONIC,
+                             CLOCK_BOOTTIME,
+                             CLOCK_BOOTTIME_ALARM), -ENOSYS);
 
         if (!dual_timestamp_is_set(&e->timestamp)) {
                 /* Implicitly fall back to now() if we never ran
@@ -2770,8 +2776,7 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                 *usec = e->timestamp.monotonic;
                 break;
 
-        case CLOCK_BOOTTIME:
-        case CLOCK_BOOTTIME_ALARM:
+        default:
                 *usec = e->timestamp_boottime;
                 break;
         }

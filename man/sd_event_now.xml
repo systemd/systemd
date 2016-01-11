@@ -115,12 +115,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>-ENOSYS</constant></term>
+
+        <listitem><para>Unsupported clock type.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>-ECHILD</constant></term>
 
         <listitem><para>The event loop object was created in a
         different process.</para></listitem>
       </varlistentry>
-
     </variablelist>
   </refsect1>
 
