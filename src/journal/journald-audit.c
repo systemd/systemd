@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <syslog.h>
+
 #include "alloc-util.h"
 #include "audit-type.h"
 #include "fd-util.h"
@@ -345,7 +347,8 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         unsigned z;
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
-             source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
+             source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)],
+             syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         char *m;
 
         assert(s);
@@ -397,8 +400,8 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
         IOVEC_SET_STRING(iov[n_iov++], id_field);
 
-        assert_cc(32 == LOG_AUTH);
-        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_FACILITY=32");
+        snprintf(syslog_facility, sizeof(syslog_facility), "SYSLOG_FACILITY=%i", LOG_FAC(LOG_AUTH));
+        IOVEC_SET_STRING(iov[n_iov++], syslog_facility);
         IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_IDENTIFIER=audit");
 
         type_name = audit_type_name_alloca(type);
