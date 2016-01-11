@@ -138,6 +138,8 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         /* Don't allow looking up invalid or pseudo RRs */
         if (!dns_type_is_valid_query(key->type))
                 return -EINVAL;
+        if (dns_type_is_obsolete(key->type))
+                return -EOPNOTSUPP;
 
         /* We only support the IN class */
         if (key->class != DNS_CLASS_IN && key->class != DNS_CLASS_ANY)

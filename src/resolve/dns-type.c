@@ -124,6 +124,33 @@ bool dns_type_is_dnssec(uint16_t type) {
                       DNS_TYPE_NSEC3PARAM);
 }
 
+bool dns_type_is_obsolete(uint16_t type) {
+        return IN_SET(type,
+                      /* Obsoleted by RFC 973 */
+                      DNS_TYPE_MD,
+                      DNS_TYPE_MF,
+                      DNS_TYPE_MAILA,
+
+                      /* Kinda obsoleted by RFC 2505 */
+                      DNS_TYPE_MB,
+                      DNS_TYPE_MG,
+                      DNS_TYPE_MR,
+                      DNS_TYPE_MINFO,
+                      DNS_TYPE_MAILB,
+
+                      /* RFC1127 kinda obsoleted this by recommending against its use */
+                      DNS_TYPE_WKS,
+
+                      /* Declared historical by RFC 6563 */
+                      DNS_TYPE_A6,
+
+                      /* Obsoleted by DNSSEC-bis */
+                      DNS_TYPE_NXT,
+
+                      /* RFC 1035 removed support for concepts that needed this from RFC 883 */
+                      DNS_TYPE_NULL);
+}
+
 const char *dns_class_to_string(uint16_t class) {
 
         switch (class) {
