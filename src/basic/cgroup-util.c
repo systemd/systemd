@@ -93,7 +93,7 @@ int cg_read_pid(FILE *f, pid_t *_pid) {
                 if (feof(f))
                         return 0;
 
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
         }
 
         if (ul <= 0)

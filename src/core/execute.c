@@ -2319,7 +2319,7 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
                                 continue;
 
                         strv_free(r);
-                        return errno ? -errno : -EINVAL;
+                        return errno > 0 ? -errno : -EINVAL;
                 }
                 count = pglob.gl_pathc;
                 if (count == 0) {
