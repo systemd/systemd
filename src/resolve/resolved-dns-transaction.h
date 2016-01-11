@@ -36,10 +36,10 @@ enum DnsTransactionState {
         DNS_TRANSACTION_ATTEMPTS_MAX_REACHED,
         DNS_TRANSACTION_INVALID_REPLY,
         DNS_TRANSACTION_RESOURCES,
-        DNS_TRANSACTION_CONNECTION_FAILURE,
         DNS_TRANSACTION_ABORTED,
         DNS_TRANSACTION_DNSSEC_FAILED,
         DNS_TRANSACTION_NO_TRUST_ANCHOR,
+        DNS_TRANSACTION_RR_TYPE_UNSUPPORTED,
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -1
 };
@@ -113,7 +113,7 @@ struct DnsTransaction {
         DnsServer *server;
 
         /* The features of the DNS server at time of transaction start */
-        DnsServerFeatureLevel current_features;
+        DnsServerFeatureLevel current_feature_level;
 
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction

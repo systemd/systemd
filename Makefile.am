@@ -841,6 +841,8 @@ libbasic_la_SOURCES = \
 	src/basic/mempool.h \
 	src/basic/hashmap.c \
 	src/basic/hashmap.h \
+	src/basic/hash-funcs.c \
+	src/basic/hash-funcs.h \
 	src/basic/siphash24.c \
 	src/basic/siphash24.h \
 	src/basic/set.h \

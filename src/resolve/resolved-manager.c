@@ -313,6 +313,8 @@ static int manager_network_monitor_listen(Manager *m) {
         if (r < 0)
                 return r;
 
+        (void) sd_event_source_set_description(m->network_event_source, "network-monitor");
+
         return 0;
 }
 
@@ -419,6 +421,8 @@ static int manager_watch_hostname(Manager *m) {
                 else
                         return log_error_errno(r, "Failed to add hostname event source: %m");
         }
+
+        (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
 
         r = determine_hostname(&m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {

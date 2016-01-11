@@ -486,12 +486,14 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
 
         assert(p);
 
-        while (*p) {
+        for (;;) {
                 char label[DNS_LABEL_MAX+1];
                 int k;
 
                 r = dns_label_unescape(&p, label, sizeof(label));
                 if (r < 0)
+                        break;
+                if (r == 0)
                         break;
 
                 k = dns_label_undo_idna(label, r, label, sizeof(label));
@@ -500,13 +502,9 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
                 if (k > 0)
                         r = k;
 
-                if (r == 0)
-                        break;
-
-                label[r] = 0;
-                ascii_strlower(label);
-
-                string_hash_func(label, state);
+                ascii_strlower_n(label, r);
+                siphash24_compress(label, r, state);
+                siphash24_compress_byte(0, state); /* make sure foobar and foo.bar result in different hashes */
         }
 
         /* enforce that all names are terminated by the empty label */
@@ -913,19 +911,11 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
                 if (r < 0)
                         return r;
 
-                if (canonical) {
-                        size_t i;
-
-                        /* Optionally, output the name in DNSSEC
-                         * canonical format, as described in RFC 4034,
-                         * section 6.2. Or in other words: in
-                         * lower-case. */
-
-                        for (i = 0; i < (size_t) r; i++) {
-                                if (out[i] >= 'A' && out[i] <= 'Z')
-                                        out[i] = out[i] - 'A' + 'a';
-                        }
-                }
+                /* Optionally, output the name in DNSSEC canonical
+                 * format, as described in RFC 4034, section 6.2. Or
+                 * in other words: in lower-case. */
+                if (canonical)
+                        ascii_strlower_n((char*) out, (size_t) r);
 
                 /* Fill label length, move forward */
                 *label_length = r;

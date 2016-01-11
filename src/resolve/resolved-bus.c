@@ -57,9 +57,6 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_RESOURCES:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
 
-        case DNS_TRANSACTION_CONNECTION_FAILURE:
-                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_CONNECTION_FAILURE, "DNS server connection failure");
-
         case DNS_TRANSACTION_ABORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
 
@@ -69,6 +66,9 @@ static int reply_query_state(DnsQuery *q) {
 
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_TRUST_ANCHOR, "No suitable trust anchor known");
+
+        case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_RR_TYPE_UNSUPPORTED, "Server does not support requested resource record type");
 
         case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -94,6 +94,7 @@ static int reply_query_state(DnsQuery *q) {
 
         case DNS_TRANSACTION_NULL:
         case DNS_TRANSACTION_PENDING:
+        case DNS_TRANSACTION_VALIDATING:
         case DNS_TRANSACTION_SUCCESS:
         default:
                 assert_not_reached("Impossible state");
@@ -561,7 +562,9 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid name '%s'", name);
 
         if (!dns_type_is_valid_query(type))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid RR type for query %" PRIu16, type);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified resource record type %" PRIu16 " may not be used in a query.", type);
+        if (dns_type_is_obsolete(type))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
 
         r = check_ifindex_flags(ifindex, &flags, 0, error);
         if (r < 0)
@@ -1390,6 +1393,7 @@ int manager_connect_bus(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to install bus reconnect time event: %m");
 
+                (void) sd_event_source_set_description(m->bus_retry_event_source, "bus-retry");
                 return 0;
         }
 

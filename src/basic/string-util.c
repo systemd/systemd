@@ -317,14 +317,33 @@ char *truncate_nl(char *s) {
         return s;
 }
 
+char ascii_tolower(char x) {
+
+        if (x >= 'A' && x <= 'Z')
+                return x - 'A' + 'a';
+
+        return x;
+}
+
 char *ascii_strlower(char *t) {
         char *p;
 
         assert(t);
 
         for (p = t; *p; p++)
-                if (*p >= 'A' && *p <= 'Z')
-                        *p = *p - 'A' + 'a';
+                *p = ascii_tolower(*p);
+
+        return t;
+}
+
+char *ascii_strlower_n(char *t, size_t n) {
+        size_t i;
+
+        if (n <= 0)
+                return t;
+
+        for (i = 0; i < n; i++)
+                t[i] = ascii_tolower(t[i]);
 
         return t;
 }

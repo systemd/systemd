@@ -61,13 +61,18 @@ struct DnsServer {
         int family;
         union in_addr_union address;
 
+        char *server_string;
+
         usec_t resend_timeout;
         usec_t max_rtt;
 
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
         size_t received_udp_packet_max;
-        unsigned n_failed_attempts;
+        unsigned n_failed_udp;
+        unsigned n_failed_tcp;
+        bool packet_failed:1;
+        bool packet_truncated:1;
         usec_t verified_usec;
         usec_t features_grace_period_usec;
 
@@ -99,14 +104,19 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel level, usec_t rtt, size_t size);
-void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel level, usec_t usec);
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t rtt, size_t size);
+void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec);
 void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s);
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
+
+const char *dns_server_string(DnsServer *server);
+
+bool dns_server_dnssec_supported(DnsServer *server);
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 

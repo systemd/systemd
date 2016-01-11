@@ -147,16 +147,14 @@ clear:
 }
 
 static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
-        _cleanup_free_ char *t  = NULL;
-        int r;
-
         assert(s);
         assert(f);
         assert(count);
 
-        r = in_addr_to_string(s->family, &s->address, &t);
-        if (r < 0) {
-                log_warning_errno(r, "Invalid DNS address. Ignoring: %m");
+        (void) dns_server_string(s);
+
+        if (!s->server_string) {
+                log_warning("Our of memory, or invalid DNS address. Ignoring server.");
                 return;
         }
 
@@ -164,7 +162,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
                 fputs("# Too many DNS servers configured, the following entries may be ignored.\n", f);
         (*count) ++;
 
-        fprintf(f, "nameserver %s\n", t);
+        fprintf(f, "nameserver %s\n", s->server_string);
 }
 
 static void write_resolv_conf_search(

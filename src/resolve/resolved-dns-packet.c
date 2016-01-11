@@ -466,12 +466,8 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonica
                 /* Generate in canonical form, as defined by DNSSEC
                  * RFC 4034, Section 6.2, i.e. all lower-case. */
 
-                for (i = 0; i < l; i++) {
-                        if (d[i] >= 'A' && d[i] <= 'Z')
-                                w[i] = (uint8_t) (d[i] - 'A' + 'a');
-                        else
-                                w[i] = (uint8_t) d[i];
-                }
+                for (i = 0; i < l; i++)
+                        w[i] = (uint8_t) ascii_tolower(d[i]);
         } else
                 /* Otherwise, just copy the string unaltered. This is
                  * essential for DNS-SD, where the casing of labels
@@ -2089,11 +2085,12 @@ int dns_packet_extract(DnsPacket *p) {
                                         goto finish;
                                 }
 
-                                /* The OPT RR is only valid in the Additional section */
-                                if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
-                                        r = -EBADMSG;
-                                        goto finish;
-                                }
+                                /* Note that we accept the OPT RR in
+                                 * any section, not just in the
+                                 * additional section, as some routers
+                                 * (Belkin!)  blindly copy the OPT RR
+                                 * from the query to the reply packet,
+                                 * and don't get the section right. */
 
                                 /* Two OPT RRs? */
                                 if (p->opt) {

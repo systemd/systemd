@@ -463,12 +463,8 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
         if (l->current_dns_server == s)
                 return s;
 
-        if (s) {
-                _cleanup_free_ char *ip = NULL;
-
-                in_addr_to_string(s->family, &s->address, &ip);
-                log_info("Switching to DNS server %s for interface %s.", strna(ip), l->name);
-        }
+        if (s)
+                log_info("Switching to DNS server %s for interface %s.", dns_server_string(s), l->name);
 
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);

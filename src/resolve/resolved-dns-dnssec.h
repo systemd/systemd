@@ -29,8 +29,9 @@ typedef enum DnssecResult DnssecResult;
 #include "resolved-dns-rr.h"
 
 enum DnssecResult {
-        /* These four are returned by dnssec_verify_rrset() */
+        /* These five are returned by dnssec_verify_rrset() */
         DNSSEC_VALIDATED,
+        DNSSEC_VALIDATED_WILDCARD, /* Validated via a wildcard RRSIG, further NSEC/NSEC3 checks necessary */
         DNSSEC_INVALID,
         DNSSEC_SIGNATURE_EXPIRED,
         DNSSEC_UNSUPPORTED_ALGORITHM,
@@ -58,7 +59,7 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig);
 
 int dnssec_verify_rrset(DnsAnswer *answer, const DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime, DnssecResult *result);
-int dnssec_verify_rrset_search(DnsAnswer *answer, const DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result);
+int dnssec_verify_rrset_search(DnsAnswer *answer, const DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result, DnsResourceRecord **rrsig);
 
 int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke);
 int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
@@ -73,7 +74,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret);
 
 typedef enum DnssecNsecResult {
         DNSSEC_NSEC_NO_RR,     /* No suitable NSEC/NSEC3 RR found */
-        DNSSEC_NSEC_CNAME,     /* Would be NODATA, but for the existence of a CNAME RR */
+        DNSSEC_NSEC_CNAME,     /* Didn't find what was asked for, but did find CNAME */
         DNSSEC_NSEC_UNSUPPORTED_ALGORITHM,
         DNSSEC_NSEC_NXDOMAIN,
         DNSSEC_NSEC_NODATA,
@@ -81,7 +82,8 @@ typedef enum DnssecNsecResult {
         DNSSEC_NSEC_OPTOUT,
 } DnssecNsecResult;
 
-int dnssec_test_nsec(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl);
+int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl);
+int dnssec_nsec_test_between(DnsAnswer *answer, const char *name, const char *zone, bool *authenticated);
 
 const char* dnssec_result_to_string(DnssecResult m) _const_;
 DnssecResult dnssec_result_from_string(const char *s) _pure_;

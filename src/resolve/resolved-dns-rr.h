@@ -300,6 +300,7 @@ DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
+extern const struct hash_ops dns_resource_record_hash_ops;
 
 int dnssec_algorithm_to_string_alloc(int i, char **ret);
 int dnssec_algorithm_from_string(const char *s) _pure_;

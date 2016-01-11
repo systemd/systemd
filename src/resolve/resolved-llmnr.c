@@ -193,6 +193,8 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
         if (r < 0)
                 goto fail;
 
+        (void) sd_event_source_set_description(m->llmnr_ipv4_udp_event_source, "llmnr-ipv4-udp");
+
         return m->llmnr_ipv4_udp_fd;
 
 fail:
@@ -267,10 +269,10 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &m->llmnr_ipv6_udp_event_source, m->llmnr_ipv6_udp_fd, EPOLLIN, on_llmnr_packet, m);
-        if (r < 0)  {
-                r = -errno;
+        if (r < 0)
                 goto fail;
-        }
+
+        (void) sd_event_source_set_description(m->llmnr_ipv6_udp_event_source, "llmnr-ipv6-udp");
 
         return m->llmnr_ipv6_udp_fd;
 
@@ -393,6 +395,8 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
         if (r < 0)
                 goto fail;
 
+        (void) sd_event_source_set_description(m->llmnr_ipv4_tcp_event_source, "llmnr-ipv4-tcp");
+
         return m->llmnr_ipv4_tcp_fd;
 
 fail:
@@ -463,6 +467,8 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
         r = sd_event_add_io(m->event, &m->llmnr_ipv6_tcp_event_source, m->llmnr_ipv6_tcp_fd, EPOLLIN, on_llmnr_stream, m);
         if (r < 0)
                 goto fail;
+
+        (void) sd_event_source_set_description(m->llmnr_ipv6_tcp_event_source, "llmnr-ipv6-tcp");
 
         return m->llmnr_ipv6_tcp_fd;
 

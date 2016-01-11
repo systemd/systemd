@@ -511,13 +511,18 @@ int dns_trust_anchor_load(DnsTrustAnchor *d) {
 
 void dns_trust_anchor_flush(DnsTrustAnchor *d) {
         DnsAnswer *a;
+        DnsResourceRecord *rr;
 
         assert(d);
 
         while ((a = hashmap_steal_first(d->positive_by_key)))
                 dns_answer_unref(a);
-
         d->positive_by_key = hashmap_free(d->positive_by_key);
+
+        while ((rr = set_steal_first(d->revoked_by_rr)))
+                dns_resource_record_unref(rr);
+        d->revoked_by_rr = set_free(d->revoked_by_rr);
+
         d->negative_by_name = set_free_free(d->negative_by_name);
 }
 
@@ -547,11 +552,35 @@ int dns_trust_anchor_lookup_negative(DnsTrustAnchor *d, const char *name) {
         return set_contains(d->negative_by_name, name);
 }
 
+static int dns_trust_anchor_revoked_put(DnsTrustAnchor *d, DnsResourceRecord *rr) {
+        int r;
+
+        assert(d);
+
+        r = set_ensure_allocated(&d->revoked_by_rr, &dns_resource_record_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = set_put(d->revoked_by_rr, rr);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                dns_resource_record_ref(rr);
+
+        return r;
+}
+
 static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord *rr) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *new_answer = NULL;
         DnsAnswer *old_answer;
         int r;
 
+        /* Remember that this is a revoked trust anchor RR */
+        r = dns_trust_anchor_revoked_put(d, rr);
+        if (r < 0)
+                return r;
+
+        /* Remove this from the positive trust anchor */
         old_answer = hashmap_get(d->positive_by_key, rr->key);
         if (!old_answer)
                 return 0;
@@ -610,6 +639,9 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
                         if (anchor->dnskey.key_size != revoked_dnskey->dnskey.key_size)
                                 continue;
 
+                        /* Note that we allow the REVOKE bit to be
+                         * different! It will be set in the revoked
+                         * key, but unset in our version of it */
                         if (((anchor->dnskey.flags ^ revoked_dnskey->dnskey.flags) | DNSKEY_FLAG_REVOKE) != DNSKEY_FLAG_REVOKE)
                                 continue;
 
@@ -629,6 +661,10 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
 
                 DNS_ANSWER_FOREACH(anchor, a) {
 
+                        /* We set mask_revoke to true here, since our
+                         * DS fingerprint will be the one of the
+                         * unrevoked DNSKEY, but the one we got passed
+                         * here has the bit set. */
                         r = dnssec_verify_dnskey(revoked_dnskey, anchor, true);
                         if (r < 0)
                                 return r;
@@ -643,62 +679,67 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
         return 0;
 }
 
-int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsAnswer *rrs, const DnsResourceKey *key) {
-        DnsResourceRecord *dnskey;
+int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey, DnsAnswer *rrs) {
+        DnsResourceRecord *rrsig;
         int r;
 
         assert(d);
-        assert(key);
+        assert(dnskey);
 
-        /* Looks for self-signed DNSKEY RRs in "rrs" that have been revoked. */
+        /* Looks if "dnskey" is a self-signed RR that has been revoked
+         * and matches one of our trust anchor entries. If so, removes
+         * it from the trust anchor and returns > 0. */
 
-        if (key->type != DNS_TYPE_DNSKEY)
+        if (dnskey->key->type != DNS_TYPE_DNSKEY)
                 return 0;
 
-        DNS_ANSWER_FOREACH(dnskey, rrs) {
-                DnsResourceRecord *rrsig;
+        /* Is this DNSKEY revoked? */
+        if ((dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE) == 0)
+                return 0;
+
+        /* Could this be interesting to us at all? If not,
+         * there's no point in looking for and verifying a
+         * self-signed RRSIG. */
+        if (!dns_trust_anchor_knows_domain_positive(d, DNS_RESOURCE_KEY_NAME(dnskey->key)))
+                return 0;
+
+        /* Look for a self-signed RRSIG in the other rrs belonging to this DNSKEY */
+        DNS_ANSWER_FOREACH(rrsig, rrs) {
                 DnssecResult result;
 
-                r = dns_resource_key_equal(key, dnskey->key);
+                if (rrsig->key->type != DNS_TYPE_RRSIG)
+                        continue;
+
+                r = dnssec_rrsig_match_dnskey(rrsig, dnskey, true);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                /* Is this DNSKEY revoked? */
-                if ((dnskey->dnskey.flags & DNSKEY_FLAG_REVOKE) == 0)
+                r = dnssec_verify_rrset(rrs, dnskey->key, rrsig, dnskey, USEC_INFINITY, &result);
+                if (r < 0)
+                        return r;
+                if (result != DNSSEC_VALIDATED)
                         continue;
 
-                /* Could this be interesting to us at all? If not,
-                 * there's no point in looking for and verifying a
-                 * self-signed RRSIG. */
-                if (!dns_trust_anchor_knows_domain_positive(d, DNS_RESOURCE_KEY_NAME(dnskey->key)))
-                        continue;
+                /* Bingo! This is a revoked self-signed DNSKEY. Let's
+                 * see if this precise one exists in our trust anchor
+                 * database, too. */
+                r = dns_trust_anchor_check_revoked_one(d, dnskey);
+                if (r < 0)
+                        return r;
 
-                /* Look for a self-signed RRSIG */
-                DNS_ANSWER_FOREACH(rrsig, rrs) {
-
-                        if (rrsig->key->type != DNS_TYPE_RRSIG)
-                                continue;
-
-                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey, true);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-
-                        r = dnssec_verify_rrset(rrs, key, rrsig, dnskey, USEC_INFINITY, &result);
-                        if (r < 0)
-                                return r;
-                        if (result != DNSSEC_VALIDATED)
-                                continue;
-
-                        /* Bingo! Now, act! */
-                        r = dns_trust_anchor_check_revoked_one(d, dnskey);
-                        if (r < 0)
-                                return r;
-                }
+                return 1;
         }
 
         return 0;
+}
+
+int dns_trust_anchor_is_revoked(DnsTrustAnchor *d, DnsResourceRecord *rr) {
+        assert(d);
+
+        if (!IN_SET(rr->key->type, DNS_TYPE_DS, DNS_TYPE_DNSKEY))
+                return 0;
+
+        return set_contains(d->revoked_by_rr, rr);
 }
