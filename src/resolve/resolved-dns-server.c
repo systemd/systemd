@@ -344,6 +344,16 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
         return true;
 }
 
+static void dns_server_reset_counters(DnsServer *s) {
+        assert(s);
+
+        s->n_failed_udp = 0;
+        s->n_failed_tcp = 0;
+        s->packet_failed = false;
+        s->packet_truncated = false;
+        s->verified_usec = 0;
+}
+
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
         assert(s);
 
@@ -351,12 +361,9 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
             dns_server_grace_period_expired(s)) {
 
                 s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
-                s->n_failed_udp = 0;
-                s->n_failed_tcp = 0;
-                s->packet_failed = false;
-                s->packet_truncated = false;
-                s->verified_usec = 0;
                 s->rrsig_missing = false;
+
+                dns_server_reset_counters(s);
 
                 log_info("Grace period over, resuming full feature set (%s) for DNS server %s",
                          dns_server_feature_level_to_string(s->possible_feature_level),
@@ -405,11 +412,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 if (p != s->possible_feature_level) {
 
                         /* We changed the feature level, reset the counting */
-                        s->n_failed_udp = 0;
-                        s->n_failed_tcp = 0;
-                        s->packet_failed = false;
-                        s->packet_truncated = false;
-                        s->verified_usec = 0;
+                        dns_server_reset_counters(s);
 
                         log_warning("Using degraded feature set (%s) for DNS server %s",
                                     dns_server_feature_level_to_string(s->possible_feature_level),
