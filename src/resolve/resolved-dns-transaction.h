@@ -113,7 +113,7 @@ struct DnsTransaction {
         DnsServer *server;
 
         /* The features of the DNS server at time of transaction start */
-        DnsServerFeatureLevel current_features;
+        DnsServerFeatureLevel current_feature_level;
 
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction

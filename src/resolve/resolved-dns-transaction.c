@@ -160,6 +160,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         t->answer_nsec_ttl = (uint32_t) -1;
         t->key = dns_resource_key_ref(key);
+        t->current_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
 
         /* Find a fresh, unused transaction id */
         do
@@ -325,7 +326,7 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         if (!server)
                 return -ESRCH;
 
-        t->current_features = dns_server_possible_feature_level(server);
+        t->current_feature_level = dns_server_possible_feature_level(server);
 
         if (server == t->server)
                 return 0;
@@ -370,7 +371,7 @@ static int on_stream_complete(DnsStream *s, int error) {
 
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
-                dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_features, usec - t->start_usec);
+                dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level, usec - t->start_usec);
 
                 dns_transaction_retry(t);
                 return 0;
@@ -421,7 +422,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                 if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(t->key->type))
                         return -EOPNOTSUPP;
 
-                r = dns_server_adjust_opt(t->server, t->sent, t->current_features);
+                r = dns_server_adjust_opt(t->server, t->sent, t->current_feature_level);
                 if (r < 0)
                         return r;
 
@@ -667,13 +668,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         /* Request failed, immediately try again with reduced features */
                         log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
 
-                        dns_server_packet_failed(t->server, t->current_features);
+                        dns_server_packet_failed(t->server, t->current_feature_level);
                         dns_transaction_retry(t);
                         return;
                 } else if (DNS_PACKET_TC(p))
-                        dns_server_packet_truncated(t->server, t->current_features);
+                        dns_server_packet_truncated(t->server, t->current_feature_level);
                 else
-                        dns_server_packet_received(t->server, p->ipproto, t->current_features, ts - t->start_usec, p->size);
+                        dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, ts - t->start_usec, p->size);
 
                 break;
 
@@ -799,7 +800,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
                 log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
-                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_features, usec - t->start_usec);
+                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level, usec - t->start_usec);
 
                 dns_transaction_retry(t);
                 return 0;
@@ -839,7 +840,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                if (t->current_features < DNS_SERVER_FEATURE_LEVEL_UDP)
+                if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP)
                         return -EAGAIN;
 
                 if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(t->key->type))
@@ -864,7 +865,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                         t->dns_udp_fd = fd;
                 }
 
-                r = dns_server_adjust_opt(t->server, t->sent, t->current_features);
+                r = dns_server_adjust_opt(t->server, t->sent, t->current_feature_level);
                 if (r < 0)
                         return r;
         } else
@@ -891,7 +892,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_features, usec - t->start_usec);
+                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level, usec - t->start_usec);
                         break;
 
                 case DNS_PROTOCOL_LLMNR:
@@ -1569,7 +1570,7 @@ static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
         if (!t->server)
                 return true;
 
-        if (t->current_features < DNS_SERVER_FEATURE_LEVEL_DO)
+        if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_DO)
                 return false;
 
         return dns_server_dnssec_supported(t->server);
