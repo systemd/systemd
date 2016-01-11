@@ -193,7 +193,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>application/event-stream</constant></term>
+        <term><constant>text/event-stream</constant></term>
 
         <listitem><para>Entries are formatted as JSON data structures,
         wrapped in a format suitable for <ulink
