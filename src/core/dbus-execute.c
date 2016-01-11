@@ -141,7 +141,7 @@ static int property_get_nice(
         else {
                 errno = 0;
                 n = getpriority(PRIO_PROCESS, 0);
-                if (errno != 0)
+                if (errno > 0)
                         n = 0;
         }
 

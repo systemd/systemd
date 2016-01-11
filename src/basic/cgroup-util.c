@@ -648,7 +648,7 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) != 0) {
                 if (errno == ENOENT)
                         r = 0;
-                else if (errno != 0)
+                else if (errno > 0)
                         r = -errno;
                 else
                         r = -EIO;
@@ -2091,7 +2091,7 @@ int cg_kernel_controllers(Set *controllers) {
                         if (feof(f))
                                 break;
 
-                        if (ferror(f) && errno != 0)
+                        if (ferror(f) && errno > 0)
                                 return -errno;
 
                         return -EBADMSG;

@@ -481,7 +481,7 @@ int get_files_in_directory(const char *path, char ***list) {
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return -errno;
                 if (!de)
                         break;

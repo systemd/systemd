@@ -323,7 +323,7 @@ int main(int argc, char *argv[]) {
         errno = 0;
         device = udev_device_new_from_subsystem_sysname(udev, ss, sysname);
         if (!device) {
-                if (errno != 0)
+                if (errno > 0)
                         log_error_errno(errno, "Failed to get backlight or LED device '%s:%s': %m", ss, sysname);
                 else
                         log_oom();

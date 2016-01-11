@@ -82,7 +82,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                 errno = 0;
                 de = readdir(d);
                 if (!de) {
-                        if (errno != 0 && ret == 0)
+                        if (errno > 0 && ret == 0)
                                 ret = -errno;
                         return ret;
                 }

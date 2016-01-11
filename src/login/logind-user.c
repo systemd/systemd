@@ -868,7 +868,7 @@ int config_parse_tmpfs_size(
 
                 errno = 0;
                 ul = strtoul(rvalue, &f, 10);
-                if (errno != 0 || f != e) {
+                if (errno > 0 || f != e) {
                         log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse percentage value, ignoring: %s", rvalue);
                         return 0;
                 }
