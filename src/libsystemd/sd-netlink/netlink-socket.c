@@ -52,7 +52,7 @@ static int broadcast_groups_get(sd_netlink *nl) {
         int r;
 
         assert(nl);
-        assert(nl->fd > 0);
+        assert(nl->fd >= 0);
 
         r = getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len);
         if (r < 0) {
