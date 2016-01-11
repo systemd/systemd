@@ -1,3 +1,5 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
 /***
   This file is part of systemd.
 
@@ -112,7 +114,7 @@ static NDiscPrefix *ndisc_prefix_unref(NDiscPrefix *prefix) {
 }
 
 static int ndisc_prefix_new(sd_ndisc *nd, NDiscPrefix **ret) {
-        _cleanup_free_ NDiscPrefix *prefix = NULL;
+        NDiscPrefix *prefix;
 
         assert(ret);
 
@@ -125,8 +127,6 @@ static int ndisc_prefix_new(sd_ndisc *nd, NDiscPrefix **ret) {
         prefix->nd = nd;
 
         *ret = prefix;
-        prefix = NULL;
-
         return 0;
 }
 
@@ -314,7 +314,6 @@ static int ndisc_prefix_match(sd_ndisc *nd, const struct in6_addr *addr,
         LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
                 if (prefix->valid_until < time_now) {
                         prefix = ndisc_prefix_unref(prefix);
-
                         continue;
                 }
 
