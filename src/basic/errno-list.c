@@ -25,7 +25,7 @@
 #include "macro.h"
 
 static const struct errno_name* lookup_errno(register const char *str,
-                                                 register unsigned int len);
+                                             register unsigned int len);
 
 #include "errno-from-name.h"
 #include "errno-to-name.h"
@@ -48,8 +48,9 @@ int errno_from_name(const char *name) {
 
         sc = lookup_errno(name, strlen(name));
         if (!sc)
-                return 0;
+                return -ENOENT;
 
+        assert(sc->id > 0);
         return sc->id;
 }
 
