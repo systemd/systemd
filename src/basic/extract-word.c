@@ -107,7 +107,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         }
 
                         if (flags & EXTRACT_CUNESCAPE) {
-                                uint32_t u;
+                                char32_t u;
 
                                 r = cunescape_one(*p, (size_t) -1, &c, &u);
                                 if (r < 0) {

@@ -119,7 +119,7 @@ char *cescape(const char *s) {
         return cescape_length(s, strlen(s));
 }
 
-int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode) {
+int cunescape_one(const char *p, size_t length, char *ret, char32_t *ret_unicode) {
         int r = 1;
 
         assert(p);
@@ -236,7 +236,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
 
                 int a[8];
                 unsigned i;
-                uint32_t c;
+                char32_t c;
 
                 if (length != (size_t) -1 && length < 9)
                         return -EINVAL;
@@ -282,7 +282,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
         case '7': {
                 /* octal encoding */
                 int a, b, c;
-                uint32_t m;
+                char32_t m;
 
                 if (length != (size_t) -1 && length < 3)
                         return -EINVAL;
@@ -341,7 +341,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 
         for (f = s, t = r + pl; f < s + length; f++) {
                 size_t remaining;
-                uint32_t u;
+                char32_t u;
                 char c;
                 int k;
 
