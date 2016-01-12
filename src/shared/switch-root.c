@@ -35,6 +35,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "switch-root.h"
 #include "user-util.h"
@@ -77,7 +78,7 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                 char new_mount[PATH_MAX];
                 struct stat sb;
 
-                snprintf(new_mount, sizeof(new_mount), "%s%s", new_root, i);
+                xsprintf(new_mount, "%s%s", new_root, i);
 
                 mkdir_p_label(new_mount, 0755);
 

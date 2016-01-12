@@ -27,6 +27,7 @@
 #include "alloc-util.h"
 #include "libudev-private.h"
 #include "macro.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 #define BUFSIZE 16
@@ -91,7 +92,7 @@ static int prepare(char *dir, char *filename)
         if (r < 0 && errno != EEXIST)
                 return -errno;
 
-        snprintf(buf, sizeof(buf), "%s/%s", dir, filename);
+        xsprintf(buf, "%s/%s", dir, filename);
 
         fd = open(buf,O_RDWR|O_CREAT|O_CLOEXEC, S_IRUSR|S_IWUSR);
         if (fd < 0)

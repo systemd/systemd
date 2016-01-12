@@ -357,11 +357,11 @@ void server_process_syslog_message(
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
-        snprintf(syslog_priority, sizeof(syslog_priority), "PRIORITY=%i", priority & LOG_PRIMASK);
+        xsprintf(syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK);
         IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
         if (priority & LOG_FACMASK) {
-                snprintf(syslog_facility, sizeof(syslog_facility), "SYSLOG_FACILITY=%i", LOG_FAC(priority));
+                xsprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
                 IOVEC_SET_STRING(iovec[n++], syslog_facility);
         }
 

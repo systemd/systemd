@@ -40,6 +40,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
@@ -565,9 +566,9 @@ static void display(Hashmap *a) {
         }
 
         if (arg_cpu_type == CPU_PERCENT)
-                snprintf(buffer, sizeof(buffer), "%6s", "%CPU");
+                xsprintf(buffer, "%6s", "%CPU");
         else
-                snprintf(buffer, sizeof(buffer), "%*s", maxtcpu, "CPU Time");
+                xsprintf(buffer, "%*s", maxtcpu, "CPU Time");
 
         rows = lines();
         if (rows <= 10)
