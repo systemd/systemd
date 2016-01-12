@@ -93,14 +93,14 @@ static int bus_error_name_to_errno(const char *name) {
         p = startswith(name, "System.Error.");
         if (p) {
                 r = errno_from_name(p);
-                if (r <= 0)
+                if (r < 0)
                         return EIO;
 
                 return r;
         }
 
-        if (additional_error_maps) {
-                for (map = additional_error_maps; *map; map++) {
+        if (additional_error_maps)
+                for (map = additional_error_maps; *map; map++)
                         for (m = *map;; m++) {
                                 /* For additional error maps the end marker is actually the end marker */
                                 if (m->code == BUS_ERROR_MAP_END_MARKER)
@@ -109,15 +109,13 @@ static int bus_error_name_to_errno(const char *name) {
                                 if (streq(m->name, name))
                                         return m->code;
                         }
-                }
-        }
 
         m = __start_BUS_ERROR_MAP;
         while (m < __stop_BUS_ERROR_MAP) {
                 /* For magic ELF error maps, the end marker might
                  * appear in the middle of things, since multiple maps
                  * might appear in the same section. Hence, let's skip
-                 * over it, but realign the pointer to the netx 8byte
+                 * over it, but realign the pointer to the next 8 byte
                  * boundary, which is the selected alignment for the
                  * arrays. */
                 if (m->code == BUS_ERROR_MAP_END_MARKER) {
@@ -258,25 +256,24 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
 
         if (!name)
                 return 0;
-        if (!e)
-                goto finish;
 
-        assert_return(!bus_error_is_dirty(e), -EINVAL);
+        if (e) {
+                assert_return(!bus_error_is_dirty(e), -EINVAL);
 
-        e->name = strdup(name);
-        if (!e->name) {
-                *e = BUS_ERROR_OOM;
-                return -ENOMEM;
+                e->name = strdup(name);
+                if (!e->name) {
+                        *e = BUS_ERROR_OOM;
+                        return -ENOMEM;
+                }
+
+                /* If we hit OOM on formatting the pretty message, we ignore
+                 * this, since we at least managed to write the error name */
+                if (format)
+                        (void) vasprintf((char**) &e->message, format, ap);
+
+                e->_need_free = 1;
         }
 
-        /* If we hit OOM on formatting the pretty message, we ignore
-         * this, since we at least managed to write the error name */
-        if (format)
-                (void) vasprintf((char**) &e->message, format, ap);
-
-        e->_need_free = 1;
-
-finish:
         return -bus_error_name_to_errno(name);
 }
 
