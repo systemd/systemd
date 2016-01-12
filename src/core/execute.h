@@ -155,7 +155,9 @@ struct ExecContext {
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 
-        uint64_t capability_bounding_set_drop;
+        uint64_t capability_bounding_set;
+
+        uint64_t capability_ambient_set;
 
         cap_t capabilities;
         int secure_bits;

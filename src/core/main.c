@@ -117,7 +117,7 @@ static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
 static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
-static uint64_t arg_capability_bounding_set_drop = 0;
+static uint64_t arg_capability_bounding_set = CAP_ALL;
 static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
 static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
@@ -644,7 +644,7 @@ static int parse_config_file(void) {
                 { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
-                { "Manager", "CapabilityBoundingSet",     config_parse_bounding_set,     0, &arg_capability_bounding_set_drop      },
+                { "Manager", "CapabilityBoundingSet",     config_parse_capability_set,   0, &arg_capability_bounding_set           },
 #ifdef HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
 #endif
@@ -1631,14 +1631,14 @@ int main(int argc, char *argv[]) {
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_error_errno(errno, "Failed to adjust timer slack: %m");
 
-        if (arg_capability_bounding_set_drop) {
-                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
+        if (!cap_test_all(arg_capability_bounding_set)) {
+                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
                         error_message = "Failed to drop capability bounding set of usermode helpers";
                         goto finish;
                 }
-                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
+                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to drop capability bounding set: %m");
                         error_message = "Failed to drop capability bounding set";

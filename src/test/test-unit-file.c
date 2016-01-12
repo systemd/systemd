@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -625,8 +626,8 @@ static uint64_t make_cap(int cap) {
         return ((uint64_t) 1ULL << (uint64_t) cap);
 }
 
-static void test_config_parse_bounding_set(void) {
-        /* int config_parse_bounding_set(
+static void test_config_parse_capability_set(void) {
+        /* int config_parse_capability_set(
                  const char *unit,
                  const char *filename,
                  unsigned line,
@@ -638,38 +639,38 @@ static void test_config_parse_bounding_set(void) {
                  void *data,
                  void *userdata) */
         int r;
-        uint64_t capability_bounding_set_drop = 0;
+        uint64_t capability_bounding_set = 0;
 
-        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "CAP_NET_RAW",
-                              &capability_bounding_set_drop, NULL);
+                              &capability_bounding_set, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set_drop == ~make_cap(CAP_NET_RAW));
+        assert_se(capability_bounding_set == make_cap(CAP_NET_RAW));
 
-        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "CAP_NET_ADMIN",
-                              &capability_bounding_set_drop, NULL);
+                              &capability_bounding_set, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set_drop == ~(make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
+        assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 
-        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "",
-                              &capability_bounding_set_drop, NULL);
+                              &capability_bounding_set, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set_drop == ~((uint64_t) 0ULL));
+        assert_se(capability_bounding_set == UINT64_C(0));
 
-        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "~",
-                              &capability_bounding_set_drop, NULL);
+                              &capability_bounding_set, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set_drop == (uint64_t) 0ULL);
+        assert_se(cap_test_all(capability_bounding_set));
 
-        capability_bounding_set_drop = 0;
-        r = config_parse_bounding_set(NULL, "fake", 1, "section", 1,
+        capability_bounding_set = 0;
+        r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "  'CAP_NET_RAW' WAT_CAP??? CAP_NET_ADMIN CAP'_trailing_garbage",
-                              &capability_bounding_set_drop, NULL);
+                              &capability_bounding_set, NULL);
         assert_se(r >= 0);
-        assert_se(capability_bounding_set_drop == ~(make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
+        assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 }
 
 static void test_config_parse_rlimit(void) {
@@ -829,7 +830,7 @@ int main(int argc, char *argv[]) {
 
         r = test_unit_file_get_set();
         test_config_parse_exec();
-        test_config_parse_bounding_set();
+        test_config_parse_capability_set();
         test_config_parse_rlimit();
         test_config_parse_pass_environ();
         test_load_env_file_1();

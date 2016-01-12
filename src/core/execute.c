@@ -737,12 +737,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
         /* Sets (but doesn't lookup) the uid and make sure we keep the
          * capabilities while doing so. */
 
-        if (context->capabilities) {
-                _cleanup_cap_free_ cap_t d = NULL;
-                static const cap_value_t bits[] = {
-                        CAP_SETUID,   /* Necessary so that we can run setresuid() below */
-                        CAP_SETPCAP   /* Necessary so that we can set PR_SET_SECUREBITS later on */
-                };
+        if (context->capabilities || context->capability_ambient_set != 0) {
 
                 /* First step: If we need to keep capabilities but
                  * drop privileges we need to make sure we keep our
@@ -758,16 +753,24 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
                 /* Second step: set the capabilities. This will reduce
                  * the capabilities to the minimum we need. */
 
-                d = cap_dup(context->capabilities);
-                if (!d)
-                        return -errno;
+                if (context->capabilities) {
+                        _cleanup_cap_free_ cap_t d = NULL;
+                        static const cap_value_t bits[] = {
+                                CAP_SETUID,   /* Necessary so that we can run setresuid() below */
+                                CAP_SETPCAP   /* Necessary so that we can set PR_SET_SECUREBITS later on */
+                        };
 
-                if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
-                    cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0)
-                        return -errno;
+                        d = cap_dup(context->capabilities);
+                        if (!d)
+                                return -errno;
 
-                if (cap_set_proc(d) < 0)
-                        return -errno;
+                        if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
+                            cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0)
+                                return -errno;
+
+                        if (cap_set_proc(d) < 0)
+                                return -errno;
+                }
         }
 
         /* Third step: actually set the uids */
@@ -1856,6 +1859,8 @@ static int exec_child(
 
         if (params->apply_permissions) {
 
+                int secure_bits = context->secure_bits;
+
                 for (i = 0; i < _RLIMIT_MAX; i++) {
                         if (!context->rlimit[i])
                                 continue;
@@ -1866,11 +1871,36 @@ static int exec_child(
                         }
                 }
 
-                if (context->capability_bounding_set_drop) {
-                        r = capability_bounding_set_drop(context->capability_bounding_set_drop, false);
+                if (!cap_test_all(context->capability_bounding_set)) {
+                        r = capability_bounding_set_drop(context->capability_bounding_set, false);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return r;
+                        }
+                }
+
+                /* This is done before enforce_user, but ambient set
+                 * does not survive over setresuid() if keep_caps is not set. */
+                if (context->capability_ambient_set != 0) {
+                        r = capability_ambient_set_apply(context->capability_ambient_set, true);
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return r;
+                        }
+
+                        if (context->capabilities) {
+
+                                /* The capabilities in ambient set need to be also in the inherited
+                                 * set. If they aren't, trying to get them will fail. Add the ambient
+                                 * set inherited capabilities to the capability set in the context.
+                                 * This is needed because if capabilities are set (using "Capabilities="
+                                 * keyword), they will override whatever we set now. */
+
+                                r = capability_update_inherited_set(context->capabilities, context->capability_ambient_set);
+                                if (r < 0) {
+                                        *exit_status = EXIT_CAPABILITIES;
+                                        return r;
+                                }
                         }
                 }
 
@@ -1880,14 +1910,32 @@ static int exec_child(
                                 *exit_status = EXIT_USER;
                                 return r;
                         }
+                        if (context->capability_ambient_set != 0) {
+
+                                /* Fix the ambient capabilities after user change. */
+                                r = capability_ambient_set_apply(context->capability_ambient_set, false);
+                                if (r < 0) {
+                                        *exit_status = EXIT_CAPABILITIES;
+                                        return r;
+                                }
+
+                                /* If we were asked to change user and ambient capabilities
+                                 * were requested, we had to add keep-caps to the securebits
+                                 * so that we would maintain the inherited capability set
+                                 * through the setresuid(). Make sure that the bit is added
+                                 * also to the context secure_bits so that we don't try to
+                                 * drop the bit away next. */
+
+                                 secure_bits |= 1<<SECURE_KEEP_CAPS;
+                        }
                 }
 
                 /* PR_GET_SECUREBITS is not privileged, while
                  * PR_SET_SECUREBITS is. So to suppress
                  * potential EPERMs we'll try not to call
                  * PR_SET_SECUREBITS unless necessary. */
-                if (prctl(PR_GET_SECUREBITS) != context->secure_bits)
-                        if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
+                if (prctl(PR_GET_SECUREBITS) != secure_bits)
+                        if (prctl(PR_SET_SECUREBITS, secure_bits) < 0) {
                                 *exit_status = EXIT_SECUREBITS;
                                 return -errno;
                         }
@@ -2114,6 +2162,7 @@ void exec_context_init(ExecContext *c) {
         c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = PERSONALITY_INVALID;
         c->runtime_directory_mode = 0755;
+        c->capability_bounding_set = CAP_ALL;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -2517,12 +2566,23 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         (c->secure_bits & 1<<SECURE_NOROOT) ? " noroot" : "",
                         (c->secure_bits & 1<<SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
-        if (c->capability_bounding_set_drop) {
+        if (c->capability_bounding_set != CAP_ALL) {
                 unsigned long l;
                 fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
                 for (l = 0; l <= cap_last_cap(); l++)
-                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l)))
+                        if (c->capability_bounding_set & (UINT64_C(1) << l))
+                                fprintf(f, " %s", strna(capability_to_name(l)));
+
+                fputs("\n", f);
+        }
+
+        if (c->capability_ambient_set != 0) {
+                unsigned long l;
+                fprintf(f, "%sAmbientCapabilities:", prefix);
+
+                for (l = 0; l <= cap_last_cap(); l++)
+                        if (c->capability_ambient_set & (UINT64_C(1) << l))
                                 fprintf(f, " %s", strna(capability_to_name(l)));
 
                 fputs("\n", f);

@@ -807,6 +807,35 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AmbientCapabilities=</varname></term>
+
+        <listitem><para>Controls which capabilities to include in the
+        ambient capability set for the executed process. Takes a
+        whitespace-separated list of capability names as read by
+        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        e.g. <constant>CAP_SYS_ADMIN</constant>,
+        <constant>CAP_DAC_OVERRIDE</constant>,
+        <constant>CAP_SYS_PTRACE</constant>. This option may appear more than
+        once in which case the ambient capability sets are merged.
+        If the list of capabilities is prefixed with <literal>~</literal>, all
+        but the listed capabilities will be included, the effect of the
+        assignment inverted. If the empty string is
+        assigned to this option, the ambient capability set is reset to
+        the empty capability set, and all prior settings have no effect.
+        If set to <literal>~</literal> (without any further argument), the
+        ambient capability set is reset to the full set of available
+        capabilities, also undoing any previous settings. Note that adding
+        capabilities to ambient capability set adds them to the process's
+        inherited capability set.
+        </para><para>
+        Ambient capability sets are useful if you want to execute a process
+        as a non-privileged user but still want to give it some capabilities.
+        Note that in this case option <constant>keep-caps</constant> is
+        automatically added to <varname>SecureBits=</varname> to retain the
+        capabilities over the user change.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SecureBits=</varname></term>
         <listitem><para>Controls the secure bits set for the executed
         process. Takes a space-separated combination of options from
