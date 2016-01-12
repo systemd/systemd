@@ -2050,8 +2050,10 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
                 unsigned i;
 
                 args.key.nr_items = 256;
-                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
+                        assert(errno > 0);
                         return -errno;
+                }
 
                 if (args.key.nr_items <= 0)
                         break;

@@ -70,8 +70,10 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
         assert(ret);
 
         serial = request_key("user", keyname, NULL, 0);
-        if (serial == -1)
+        if (serial == -1) {
+                assert(errno > 0);
                 return -errno;
+        }
 
         *ret = serial;
         return 0;
