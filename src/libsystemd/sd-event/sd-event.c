@@ -449,7 +449,7 @@ _public_ int sd_event_new(sd_event** ret) {
         }
 
         if (secure_getenv("SD_EVENT_PROFILE_DELAYS")) {
-                log_info("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 ... 2^63 us will be logged every 5s.");
+                log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 ... 2^63 us will be logged every 5s.");
                 e->profile_delays = true;
         }
 
@@ -2633,13 +2633,14 @@ _public_ int sd_event_dispatch(sd_event *e) {
 
 static void event_log_delays(sd_event *e) {
         char b[ELEMENTSOF(e->delays) * DECIMAL_STR_MAX(unsigned) + 1];
-        int i, o;
+        unsigned i;
+        int o;
 
         for (i = o = 0; i < ELEMENTSOF(e->delays); i++) {
                 o += snprintf(&b[o], sizeof(b) - o, "%u ", e->delays[i]);
                 e->delays[i] = 0;
         }
-        log_info("Event loop iterations: %.*s", o, b);
+        log_debug("Event loop iterations: %.*s", o, b);
 }
 
 _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
