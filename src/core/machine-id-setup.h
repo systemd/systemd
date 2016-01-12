@@ -22,4 +22,4 @@
 ***/
 
 int machine_id_commit(const char *root);
-int machine_id_setup(const char *root);
+int machine_id_setup(const char *root, sd_id128_t machine_id);

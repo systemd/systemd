@@ -127,6 +127,7 @@ static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_C(512);
+static sd_id128_t arg_machine_id = {};
 
 static void pager_open_if_enabled(void) {
 
@@ -300,6 +301,17 @@ static int parse_crash_chvt(const char *value) {
         return 0;
 }
 
+static int set_machine_id(const char *m) {
+
+        if (sd_id128_from_string(m, &arg_machine_id) < 0)
+                return -EINVAL;
+
+        if (sd_id128_is_null(arg_machine_id))
+                return -EINVAL;
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         int r;
@@ -387,6 +399,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                                 log_warning_errno(ENOMEM, "Setting environment variable '%s' failed, ignoring: %m", value);
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
+
+        } else if (streq(key, "systemd.machine_id") && value) {
+
+               r = set_machine_id(value);
+               if (r < 0)
+                       log_warning("MachineID '%s' is not valid. Ignoring.", value);
 
         } else if (streq(key, "quiet") && !value) {
 
@@ -743,7 +761,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DESERIALIZE,
                 ARG_SWITCHED_ROOT,
                 ARG_DEFAULT_STD_OUTPUT,
-                ARG_DEFAULT_STD_ERROR
+                ARG_DEFAULT_STD_ERROR,
+                ARG_MACHINE_ID
         };
 
         static const struct option options[] = {
@@ -769,6 +788,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
+                { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
                 {}
         };
 
@@ -962,6 +982,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SWITCHED_ROOT:
                         arg_switched_root = true;
+                        break;
+
+                case ARG_MACHINE_ID:
+                        r = set_machine_id(optarg);
+                        if (r < 0) {
+                                log_error("MachineID '%s' is not valid.", optarg);
+                                return r;
+                        }
                         break;
 
                 case 'h':
@@ -1617,7 +1645,7 @@ int main(int argc, char *argv[]) {
                         status_welcome();
 
                 hostname_setup();
-                machine_id_setup(NULL);
+                machine_id_setup(NULL, arg_machine_id);
                 loopback_setup();
                 bump_unix_max_dgram_qlen();
 
