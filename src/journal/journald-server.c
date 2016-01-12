@@ -1330,7 +1330,7 @@ static int server_parse_proc_cmdline(Server *s) {
 
         p = line;
         for(;;) {
-                _cleanup_free_ char *word;
+                _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
                 if (r < 0)
