@@ -40,6 +40,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -275,7 +276,8 @@ static int ieee_oui(sd_hwdb *hwdb, struct ether_addr *mac, char **ret) {
         if (memcmp(mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
 
-        snprintf(modalias, sizeof(modalias), "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
+        xsprintf(modalias, "OUI:" ETHER_ADDR_FORMAT_STR,
+                 ETHER_ADDR_FORMAT_VAL(*mac));
 
         r = sd_hwdb_get(hwdb, modalias, "ID_OUI_FROM_DATABASE", &description);
         if (r < 0)

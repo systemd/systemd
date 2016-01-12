@@ -102,6 +102,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
 
@@ -228,7 +229,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 err = -ENOENT;
                 goto out;
         }
-        snprintf(slots, sizeof(slots), "%s/slots", udev_device_get_syspath(pci));
+        xsprintf(slots, "%s/slots", udev_device_get_syspath(pci));
         dir = opendir(slots);
         if (!dir) {
                 err = -errno;
@@ -247,7 +248,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                         continue;
                 if (i < 1)
                         continue;
-                snprintf(str, sizeof(str), "%s/%s/address", slots, dent->d_name);
+                xsprintf(str, "%s/%s/address", slots, dent->d_name);
                 if (read_one_line_file(str, &address) >= 0) {
                         /* match slot address with device by stripping the function */
                         if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
@@ -380,7 +381,7 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
                 return -EINVAL;
         /* suppress the common core == 0 */
         if (core > 0)
-                snprintf(names->bcma_core, sizeof(names->bcma_core), "b%u", core);
+                xsprintf(names->bcma_core, "b%u", core);
 
         names->type = NET_BCMA;
         return 0;
@@ -469,9 +470,9 @@ static int ieee_oui(struct udev_device *dev, struct netnames *names, bool test) 
         /* skip commonly misused 00:00:00 (Xerox) prefix */
         if (memcmp(names->mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
-        snprintf(str, sizeof(str), "OUI:%02X%02X%02X%02X%02X%02X",
-                 names->mac[0], names->mac[1], names->mac[2],
-                 names->mac[3], names->mac[4], names->mac[5]);
+        xsprintf(str, "OUI:%02X%02X%02X%02X%02X%02X", names->mac[0],
+                 names->mac[1], names->mac[2], names->mac[3], names->mac[4],
+                 names->mac[5]);
         udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
         return 0;
 }
@@ -523,7 +524,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.mac_valid) {
                 char str[IFNAMSIZ];
 
-                snprintf(str, sizeof(str), "%sx%02x%02x%02x%02x%02x%02x", prefix,
+                xsprintf(str, "%sx%02x%02x%02x%02x%02x%02x", prefix,
                          names.mac[0], names.mac[1], names.mac[2],
                          names.mac[3], names.mac[4], names.mac[5]);
                 udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);

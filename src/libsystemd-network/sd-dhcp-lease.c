@@ -37,6 +37,7 @@
 #include "in-addr-util.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "unaligned.h"
 
@@ -839,7 +840,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         LIST_FOREACH(options, option, lease->private_options) {
                 char key[strlen("OPTION_000")+1];
 
-                snprintf(key, sizeof(key), "OPTION_%"PRIu8, option->tag);
+                xsprintf(key, "OPTION_%" PRIu8, option->tag);
                 r = serialize_dhcp_option(f, key, option->data, option->length);
                 if (r < 0)
                         goto fail;

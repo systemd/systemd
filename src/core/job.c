@@ -35,6 +35,7 @@
 #include "parse-util.h"
 #include "set.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -754,7 +755,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        snprintf(buf, sizeof(buf), format, unit_description(u));
+        xsprintf(buf, format, unit_description(u));
         REENABLE_WARNING;
 
         switch (t) {

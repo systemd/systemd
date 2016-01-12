@@ -26,6 +26,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "stdio-util.h"
 #include "udev.h"
 
 static int inotify_fd = -1;
@@ -105,7 +106,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
                 return;
         }
 
-        snprintf(filename, sizeof(filename), "/run/udev/watch/%d", wd);
+        xsprintf(filename, "/run/udev/watch/%d", wd);
         mkdir_parents(filename, 0755);
         unlink(filename);
         r = symlink(udev_device_get_id_filename(dev), filename);
@@ -129,7 +130,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev) {
         log_debug("removing watch on '%s'", udev_device_get_devnode(dev));
         inotify_rm_watch(inotify_fd, wd);
 
-        snprintf(filename, sizeof(filename), "/run/udev/watch/%d", wd);
+        xsprintf(filename, "/run/udev/watch/%d", wd);
         unlink(filename);
 
         udev_device_set_watch_handle(dev, -1);
@@ -143,7 +144,7 @@ struct udev_device *udev_watch_lookup(struct udev *udev, int wd) {
         if (inotify_fd < 0 || wd < 0)
                 return NULL;
 
-        snprintf(filename, sizeof(filename), "/run/udev/watch/%d", wd);
+        xsprintf(filename, "/run/udev/watch/%d", wd);
         len = readlink(filename, device, sizeof(device));
         if (len <= 0 || (size_t)len == sizeof(device))
                 return NULL;
