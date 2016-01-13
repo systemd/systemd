@@ -559,10 +559,7 @@ int dns_name_equal(const char *x, const char *y) {
         assert(y);
 
         for (;;) {
-                char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
-
-                if (*x == 0 && *y == 0)
-                        return true;
+                char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
 
                 r = dns_label_unescape(&x, la, sizeof(la));
                 if (r < 0)
@@ -586,13 +583,12 @@ int dns_name_equal(const char *x, const char *y) {
                                 q = w;
                 }
 
-                /* If one name had fewer labels than the other, this
-                 * will show up as empty label here, which the
-                 * strcasecmp() below will properly consider different
-                 * from a non-empty label. */
+                if (r != q)
+                        return false;
+                if (r == 0)
+                        return true;
 
-                la[r] = lb[q] = 0;
-                if (strcasecmp(la, lb) != 0)
+                if (ascii_strcasecmp_n(la, lb, r) != 0)
                         return false;
         }
 }
@@ -608,7 +604,7 @@ int dns_name_endswith(const char *name, const char *suffix) {
         s = suffix;
 
         for (;;) {
-                char ln[DNS_LABEL_MAX+1], ls[DNS_LABEL_MAX+1];
+                char ln[DNS_LABEL_MAX], ls[DNS_LABEL_MAX];
 
                 r = dns_label_unescape(&n, ln, sizeof(ln));
                 if (r < 0)
@@ -640,9 +636,7 @@ int dns_name_endswith(const char *name, const char *suffix) {
                 if (r == 0 && saved_n == n)
                         return false;
 
-                ln[r] = ls[q] = 0;
-
-                if (r != q || strcasecmp(ln, ls)) {
+                if (r != q || ascii_strcasecmp_n(ln, ls, r) != 0) {
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = suffix;
@@ -713,7 +707,7 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
         s = old_suffix;
 
         for (;;) {
-                char ln[DNS_LABEL_MAX+1], ls[DNS_LABEL_MAX+1];
+                char ln[DNS_LABEL_MAX], ls[DNS_LABEL_MAX];
 
                 if (!saved_before)
                         saved_before = n;
@@ -750,9 +744,7 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
                         return 0;
                 }
 
-                ln[r] = ls[q] = 0;
-
-                if (r != q || strcasecmp(ln, ls)) {
+                if (r != q || ascii_strcasecmp_n(ln, ls, r) != 0) {
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = old_suffix;
