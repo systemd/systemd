@@ -521,7 +521,7 @@ int dns_name_compare_func(const void *a, const void *b) {
         y = (const char *) b + strlen(b);
 
         for (;;) {
-                char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
+                char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
 
                 if (x == NULL && y == NULL)
                         return 0;
@@ -531,8 +531,15 @@ int dns_name_compare_func(const void *a, const void *b) {
                 if (r < 0 || q < 0)
                         return r - q;
 
-                k = dns_label_undo_idna(la, r, la, sizeof(la));
-                w = dns_label_undo_idna(lb, q, lb, sizeof(lb));
+                if (r > 0)
+                        k = dns_label_undo_idna(la, r, la, sizeof(la));
+                else
+                        k = 0;
+                if (q > 0)
+                        w = dns_label_undo_idna(lb, q, lb, sizeof(lb));
+                else
+                        w = 0;
+
                 if (k < 0 || w < 0)
                         return k - w;
                 if (k > 0)
@@ -540,8 +547,7 @@ int dns_name_compare_func(const void *a, const void *b) {
                 if (w > 0)
                         q = w;
 
-                la[r] = lb[q] = 0;
-                r = strcasecmp(la, lb);
+                r = ascii_strcasecmp_nn(la, r, lb, q);
                 if (r != 0)
                         return r;
         }
