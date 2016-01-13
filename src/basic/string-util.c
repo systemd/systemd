@@ -348,6 +348,21 @@ char *ascii_strlower_n(char *t, size_t n) {
         return t;
 }
 
+int ascii_strcasecmp_n(const char *a, const char *b, size_t n) {
+
+        for (; n > 0; a++, b++, n--) {
+                int x, y;
+
+                x = (int) (uint8_t) ascii_tolower(*a);
+                y = (int) (uint8_t) ascii_tolower(*b);
+
+                if (x != y)
+                        return x - y;
+        }
+
+        return 0;
+}
+
 bool chars_intersect(const char *a, const char *b) {
         const char *p;
 

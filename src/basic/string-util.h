@@ -134,6 +134,8 @@ char ascii_tolower(char x);
 char *ascii_strlower(char *s);
 char *ascii_strlower_n(char *s, size_t n);
 
+int ascii_strcasecmp_n(const char *a, const char *b, size_t n);
+
 bool chars_intersect(const char *a, const char *b) _pure_;
 
 static inline bool _pure_ in_charset(const char *s, const char* charset) {

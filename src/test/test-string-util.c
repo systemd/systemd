@@ -55,7 +55,35 @@ static void test_string_erase(void) {
         assert_se(streq(string_erase(x), "xxxxxxxxx"));
 }
 
+static void test_ascii_strcasecmp_n(void) {
+
+        assert_se(ascii_strcasecmp_n("", "", 0) == 0);
+        assert_se(ascii_strcasecmp_n("", "", 1) == 0);
+        assert_se(ascii_strcasecmp_n("", "a", 1) < 0);
+        assert_se(ascii_strcasecmp_n("", "a", 2) < 0);
+        assert_se(ascii_strcasecmp_n("a", "", 1) > 0);
+        assert_se(ascii_strcasecmp_n("a", "", 2) > 0);
+        assert_se(ascii_strcasecmp_n("a", "a", 1) == 0);
+        assert_se(ascii_strcasecmp_n("a", "a", 2) == 0);
+        assert_se(ascii_strcasecmp_n("a", "b", 1) < 0);
+        assert_se(ascii_strcasecmp_n("a", "b", 2) < 0);
+        assert_se(ascii_strcasecmp_n("b", "a", 1) > 0);
+        assert_se(ascii_strcasecmp_n("b", "a", 2) > 0);
+        assert_se(ascii_strcasecmp_n("xxxxyxxxx", "xxxxYxxxx", 9) == 0);
+        assert_se(ascii_strcasecmp_n("xxxxxxxxx", "xxxxyxxxx", 9) < 0);
+        assert_se(ascii_strcasecmp_n("xxxxXxxxx", "xxxxyxxxx", 9) < 0);
+        assert_se(ascii_strcasecmp_n("xxxxxxxxx", "xxxxYxxxx", 9) < 0);
+        assert_se(ascii_strcasecmp_n("xxxxXxxxx", "xxxxYxxxx", 9) < 0);
+
+        assert_se(ascii_strcasecmp_n("xxxxYxxxx", "xxxxYxxxx", 9) == 0);
+        assert_se(ascii_strcasecmp_n("xxxxyxxxx", "xxxxxxxxx", 9) > 0);
+        assert_se(ascii_strcasecmp_n("xxxxyxxxx", "xxxxXxxxx", 9) > 0);
+        assert_se(ascii_strcasecmp_n("xxxxYxxxx", "xxxxxxxxx", 9) > 0);
+        assert_se(ascii_strcasecmp_n("xxxxYxxxx", "xxxxXxxxx", 9) > 0);
+}
+
 int main(int argc, char *argv[]) {
         test_string_erase();
+        test_ascii_strcasecmp_n();
         return 0;
 }
