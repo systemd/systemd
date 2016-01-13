@@ -548,6 +548,11 @@ int dnssec_verify_rrset(
         r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(key), rrsig->rrsig.labels, &source);
         if (r < 0)
                 return r;
+        if (r > 0 && !dns_type_may_wildcard(rrsig->rrsig.type_covered)) {
+                /* We refuse to validate NSEC3 or SOA RRs that are synthesized from wildcards */
+                *result = DNSSEC_INVALID;
+                return 0;
+        }
         if (r == 1) {
                 /* If we stripped a single label, then let's see if that maybe was "*". If so, we are not really
                  * synthesized from a wildcard, we are the wildcard itself. Treat that like a normal name. */
