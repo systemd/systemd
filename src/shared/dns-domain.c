@@ -263,7 +263,6 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
                         *(q++) = '0' + (char) ((uint8_t) *p % 10);
 
                         sz -= 4;
-
                 }
 
                 p++;
@@ -650,6 +649,54 @@ int dns_name_endswith(const char *name, const char *suffix) {
                         n = saved_n;
                         saved_n = NULL;
                 }
+        }
+}
+
+static int dns_label_unescape_undo_idna(const char **name, char *dest, size_t sz) {
+        int r, k;
+
+        /* Clobbers all arguments on failure... */
+
+        r = dns_label_unescape(name, dest, sz);
+        if (r <= 0)
+                return r;
+
+        k = dns_label_undo_idna(dest, r, dest, sz);
+        if (k < 0)
+                return k;
+        if (k == 0) /* not an IDNA name */
+                return r;
+
+        return k;
+}
+
+int dns_name_startswith(const char *name, const char *prefix) {
+        const char *n, *p;
+        int r, q;
+
+        assert(name);
+        assert(prefix);
+
+        n = name;
+        p = prefix;
+
+        for (;;) {
+                char ln[DNS_LABEL_MAX], lp[DNS_LABEL_MAX];
+
+                r = dns_label_unescape_undo_idna(&p, lp, sizeof(lp));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return true;
+
+                q = dns_label_unescape_undo_idna(&n, ln, sizeof(ln));
+                if (q < 0)
+                        return q;
+
+                if (r != q)
+                        return false;
+                if (ascii_strcasecmp_n(ln, lp, r) != 0)
+                        return false;
         }
 }
 

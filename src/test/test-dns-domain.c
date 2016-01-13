@@ -276,6 +276,25 @@ static void test_dns_name_endswith(void) {
         test_dns_name_endswith_one("x.y\001.z", "waldo", -EINVAL);
 }
 
+static void test_dns_name_startswith_one(const char *a, const char *b, int ret) {
+        assert_se(dns_name_startswith(a, b) == ret);
+}
+
+static void test_dns_name_startswith(void) {
+        test_dns_name_startswith_one("", "", true);
+        test_dns_name_startswith_one("", "xxx", false);
+        test_dns_name_startswith_one("xxx", "", true);
+        test_dns_name_startswith_one("x", "x", true);
+        test_dns_name_startswith_one("x", "y", false);
+        test_dns_name_startswith_one("x.y", "x.y", true);
+        test_dns_name_startswith_one("x.y", "y.x", false);
+        test_dns_name_startswith_one("x.y", "x", true);
+        test_dns_name_startswith_one("x.y", "X", true);
+        test_dns_name_startswith_one("x.y", "y", false);
+        test_dns_name_startswith_one("x.y", "", true);
+        test_dns_name_startswith_one("x.y", "X", true);
+}
+
 static void test_dns_name_is_root(void) {
         assert_se(dns_name_is_root(""));
         assert_se(dns_name_is_root("."));
@@ -567,6 +586,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_normalize();
         test_dns_name_equal();
         test_dns_name_endswith();
+        test_dns_name_startswith();
         test_dns_name_between();
         test_dns_name_is_root();
         test_dns_name_is_single_label();

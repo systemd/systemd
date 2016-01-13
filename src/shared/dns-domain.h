@@ -83,6 +83,7 @@ extern const struct hash_ops dns_name_hash_ops;
 int dns_name_between(const char *a, const char *b, const char *c);
 int dns_name_equal(const char *x, const char *y);
 int dns_name_endswith(const char *name, const char *suffix);
+int dns_name_startswith(const char *name, const char *prefix);
 
 int dns_name_change_suffix(const char *name, const char *old_suffix, const char *new_suffix, char **ret);
 
