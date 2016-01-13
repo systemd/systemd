@@ -320,6 +320,33 @@ int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
         return false;
 }
 
+int dns_answer_contains_zone_nsec3(DnsAnswer *answer, const char *zone) {
+        DnsResourceRecord *rr;
+        int r;
+
+        /* Checks whether the specified answer contains at least one NSEC3 RR in the specified zone */
+
+        DNS_ANSWER_FOREACH(rr, answer) {
+                const char *p;
+
+                if (rr->key->type != DNS_TYPE_NSEC3)
+                        continue;
+
+                p = DNS_RESOURCE_KEY_NAME(rr->key);
+                r = dns_name_parent(&p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = dns_name_equal(p, zone);
+                if (r != 0)
+                        return r;
+        }
+
+        return false;
+}
+
 int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
         DnsResourceRecord *rr, *soa = NULL;
         DnsAnswerFlags rr_flags, soa_flags = 0;

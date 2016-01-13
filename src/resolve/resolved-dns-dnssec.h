@@ -83,7 +83,10 @@ typedef enum DnssecNsecResult {
 } DnssecNsecResult;
 
 int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl);
-int dnssec_nsec_test_between(DnsAnswer *answer, const char *name, const char *zone, bool *authenticated);
+
+int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name, const char *zone, bool *authenticated);
+
+int dnssec_test_positive_wildcard(DnsAnswer *a, const char *name, const char *source, const char *zone, bool *authenticated);
 
 const char* dnssec_result_to_string(DnssecResult m) _const_;
 DnssecResult dnssec_result_from_string(const char *s) _pure_;

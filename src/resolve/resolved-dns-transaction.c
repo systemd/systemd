@@ -2531,28 +2531,24 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                         if (result == DNSSEC_VALIDATED_WILDCARD) {
                                 bool authenticated = false;
-                                const char *suffix;
+                                const char *source;
 
-                                /* This RRset validated, but as a wildcard. This means we need to proof via NSEC/NSEC3
-                                 * that no matching non-wildcard RR exists.
-                                 *
-                                 * See RFC 5155, Section 8.8 and RFC 4035, Section 5.3.4*/
+                                /* This RRset validated, but as a wildcard. This means we need to prove via NSEC/NSEC3
+                                 * that no matching non-wildcard RR exists.*/
 
-                                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &suffix);
+                                /* First step, determine the source of synthesis */
+                                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &source);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
                                         return -EBADMSG;
 
-                                r = dns_name_parent(&suffix);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        return -EBADMSG;
-
-                                r = dnssec_nsec_test_between(validated, DNS_RESOURCE_KEY_NAME(rr->key), suffix, &authenticated);
-                                if (r < 0)
-                                        return r;
+                                r = dnssec_test_positive_wildcard(
+                                                validated,
+                                                DNS_RESOURCE_KEY_NAME(rr->key),
+                                                source,
+                                                rrsig->rrsig.signer,
+                                                &authenticated);
 
                                 /* Unless the NSEC proof showed that the key really doesn't exist something is off. */
                                 if (r == 0)
