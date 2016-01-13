@@ -548,7 +548,18 @@ int dnssec_verify_rrset(
         r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(key), rrsig->rrsig.labels, &source);
         if (r < 0)
                 return r;
-        wildcard = r > 0;
+        if (r == 1) {
+                /* If we stripped a single label, then let's see if that maybe was "*". If so, we are not really
+                 * synthesized from a wildcard, we are the wildcard itself. Treat that like a normal name. */
+                r = dns_name_startswith(DNS_RESOURCE_KEY_NAME(key), "*");
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        source = DNS_RESOURCE_KEY_NAME(key);
+
+                wildcard = r == 0;
+        } else
+                wildcard = r > 0;
 
         /* Collect all relevant RRs in a single array, so that we can look at the RRset */
         list = newa(DnsResourceRecord *, dns_answer_size(a));
