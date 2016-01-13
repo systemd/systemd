@@ -264,7 +264,8 @@
           be removed and be replaced by the symlink. If the argument
           is omitted, symlinks to files with the same name residing in
           the directory <filename>/usr/share/factory/</filename> are
-          created.</para></listitem>
+          created. Note that permissions and ownership on symlinks
+          are ignored.</para></listitem>
         </varlistentry>
 
         <varlistentry>
