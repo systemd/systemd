@@ -2091,6 +2091,13 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown action");
         }
 
+        if (arg_boot_offset != 0 &&
+            sd_journal_has_runtime_files(j) &&
+            !sd_journal_has_persistent_files(j)) {
+                log_info("Specifying boot ID has no effect, there is only in-memory journal present on the machine.");
+                r = 0;
+                goto finish;
+        }
         /* add_boot() must be called first!
          * It may need to seek the journal to find parent boot IDs. */
         r = add_boot(j);
