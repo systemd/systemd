@@ -513,8 +513,9 @@ int dnssec_verify_rrset(
         DnsResourceRecord **list, *rr;
         gcry_md_hd_t md = NULL;
         int r, md_algorithm;
-        bool wildcard = false;
         size_t k, n = 0;
+        bool wildcard;
+        const char *source;
 
         assert(key);
         assert(rrsig);
@@ -542,6 +543,12 @@ int dnssec_verify_rrset(
                 *result = DNSSEC_SIGNATURE_EXPIRED;
                 return 0;
         }
+
+        /* Determine the "Source of Synthesis" and whether this is a wildcard RRSIG */
+        r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(key), rrsig->rrsig.labels, &source);
+        if (r < 0)
+                return r;
+        wildcard = r > 0;
 
         /* Collect all relevant RRs in a single array, so that we can look at the RRset */
         list = newa(DnsResourceRecord *, dns_answer_size(a));
@@ -593,22 +600,19 @@ int dnssec_verify_rrset(
                 goto finish;
         gcry_md_write(md, wire_format_name, r);
 
+        /* Convert the source of synthesis into wire format */
+        r = dns_name_to_wire_format(source, wire_format_name, sizeof(wire_format_name), true);
+        if (r < 0)
+                goto finish;
+
         for (k = 0; k < n; k++) {
-                const char *suffix;
                 size_t l;
+
                 rr = list[k];
 
-                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &suffix);
-                if (r < 0)
-                        goto finish;
-                if (r > 0) /* This is a wildcard! */ {
+                /* Hash the source of synthesis. If this is a wildcard, then prefix it with the *. label */
+                if (wildcard)
                         gcry_md_write(md, (uint8_t[]) { 1, '*'}, 2);
-                        wildcard = true;
-                }
-
-                r = dns_name_to_wire_format(suffix, wire_format_name, sizeof(wire_format_name), true);
-                if (r < 0)
-                        goto finish;
                 gcry_md_write(md, wire_format_name, r);
 
                 md_add_uint16(md, rr->key->type);
