@@ -1083,7 +1083,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
         /* Let's calculate the actual data size and update the field */
         rdlength = p->size - rdlength_offset - sizeof(uint16_t);
         if (rdlength > 0xFFFF) {
-                r = ENOSPC;
+                r = -ENOSPC;
                 goto fail;
         }
 
