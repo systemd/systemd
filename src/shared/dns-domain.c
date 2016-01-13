@@ -1143,17 +1143,15 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
                 if (x >= 3 && srv_type_label_is_valid(c, cn)) {
 
                         if (dns_service_name_label_is_valid(a, an)) {
-
                                 /* OK, got <name> . <type> . <type2> . <domain> */
 
                                 name = strndup(a, an);
                                 if (!name)
                                         return -ENOMEM;
 
-                                type = new(char, bn+1+cn+1);
+                                type = strjoin(b, ".", c, NULL);
                                 if (!type)
                                         return -ENOMEM;
-                                strcpy(stpcpy(stpcpy(type, b), "."), c);
 
                                 d = p;
                                 goto finish;
@@ -1165,10 +1163,9 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
 
                         name = NULL;
 
-                        type = new(char, an+1+bn+1);
+                        type = strjoin(a, ".", b, NULL);
                         if (!type)
                                 return -ENOMEM;
-                        strcpy(stpcpy(stpcpy(type, a), "."), b);
 
                         d = q;
                         goto finish;
