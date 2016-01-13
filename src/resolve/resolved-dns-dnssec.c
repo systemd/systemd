@@ -1275,8 +1275,8 @@ static int nsec3_hashed_domain_make(DnsResourceRecord *nsec3, const char *domain
  * name uses an NSEC3 record with the opt-out bit set. Lastly, if we are given insufficient NSEC3 records
  * to conclude anything we indicate this by returning NO_RR. */
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
-        _cleanup_free_ char *next_closer_domain = NULL, *wildcard = NULL, *wildcard_domain = NULL;
-        const char *zone, *p, *pp = NULL;
+        _cleanup_free_ char *next_closer_domain = NULL, *wildcard_domain = NULL;
+        const char *zone, *p, *pp = NULL, *wildcard;
         DnsResourceRecord *rr, *enclosure_rr, *zone_rr, *wildcard_rr = NULL;
         DnsAnswerFlags flags;
         int hashed_size, r;
@@ -1402,10 +1402,7 @@ found_closest_encloser:
 
         /* Prove that there is no next closer and whether or not there is a wildcard domain. */
 
-        wildcard = strappend("*.", p);
-        if (!wildcard)
-                return -ENOMEM;
-
+        wildcard = strjoina("*.", p);
         r = nsec3_hashed_domain_make(enclosure_rr, wildcard, zone, &wildcard_domain);
         if (r < 0)
                 return r;
