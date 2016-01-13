@@ -1248,7 +1248,7 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
         if (rr->key->type != DNS_TYPE_NSEC3)
                 return 0;
 
-        /* RFC  5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
+        /* RFC 5155, Section 8.2 says we MUST ignore NSEC3 RRs with flags != 0 or 1 */
         if (!IN_SET(rr->nsec3.flags, 0, 1))
                 return 0;
 

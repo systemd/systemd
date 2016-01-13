@@ -2852,7 +2852,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         /* Versions before 228 did not carry a state change timestamp. In this case, take the current time. This is
          * useful, so that timeouts based on this timestamp don't trigger too early, and is in-line with the logic from
-         * before 228 where the base for timeouts was not peristet across reboots. */
+         * before 228 where the base for timeouts was not persistent across reboots. */
 
         if (!dual_timestamp_is_set(&u->state_change_timestamp))
                 dual_timestamp_get(&u->state_change_timestamp);

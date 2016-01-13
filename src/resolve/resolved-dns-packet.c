@@ -2170,7 +2170,7 @@ int dns_packet_extract(DnsPacket *p) {
                                 }
 
                                 if (!dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key))) {
-                                        /* If the OPT RR qis not owned by the root domain, then it is bad, let's ignore
+                                        /* If the OPT RR is not owned by the root domain, then it is bad, let's ignore
                                          * it. */
                                         log_debug("OPT RR is not owned by root domain, ignoring.");
                                         bad_opt = true;

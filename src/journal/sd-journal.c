@@ -2638,7 +2638,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                         }
                 }
 
-                /* We use OBJECT_UNUSED here, so that the iteator below doesn't remove our mmap window */
+                /* We use OBJECT_UNUSED here, so that the iterator below doesn't remove our mmap window */
                 r = journal_file_move_to_object(f, OBJECT_UNUSED, j->fields_offset, &o);
                 if (r < 0)
                         return r;
