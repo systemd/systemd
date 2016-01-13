@@ -917,6 +917,10 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         if (new_size < 16*1024*1024)
                 new_size = 16*1024*1024;
 
+        /* Linux VFS cannot handle file sizes > 8EiB, because off_t is signed 64bit */
+        if (new_size > INT64_MAX)
+                new_size = INT64_MAX;
+
         r = btrfs_get_block_device_fd(fd, &dev);
         if (r < 0)
                 return r;
