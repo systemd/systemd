@@ -1979,7 +1979,7 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
 
         for (i = 0; i < n_changes; i++) {
                 if (changes[i].type == UNIT_FILE_SYMLINK)
-                        log_info("Created symlink from %s to %s.", changes[i].path, changes[i].source);
+                        log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
                 else
                         log_info("Removed symlink %s.", changes[i].path);
         }
