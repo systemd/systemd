@@ -579,26 +579,28 @@ const char *bus_error_message(const sd_bus_error *e, int error) {
         return strerror(error);
 }
 
+static bool map_ok(const sd_bus_error_map *map) {
+        for (; map->code != BUS_ERROR_MAP_END_MARKER; map++)
+                if (!map->name || map->code <=0)
+                        return false;
+        return true;
+}
+
 _public_ int sd_bus_error_add_map(const sd_bus_error_map *map) {
         const sd_bus_error_map **maps = NULL;
         unsigned n = 0;
 
         assert_return(map, -EINVAL);
+        assert_return(map_ok(map), -EINVAL);
 
-        if (additional_error_maps) {
-                for (;; n++) {
-                        if (additional_error_maps[n] == NULL)
-                                break;
-
+        if (additional_error_maps)
+                for (; additional_error_maps[n] != NULL; n++)
                         if (additional_error_maps[n] == map)
                                 return 0;
-                }
-        }
 
         maps = realloc_multiply(additional_error_maps, sizeof(struct sd_bus_error_map*), n + 2);
         if (!maps)
                 return -ENOMEM;
-
 
         maps[n] = map;
         maps[n+1] = NULL;
