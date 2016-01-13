@@ -912,12 +912,11 @@ bool dns_name_is_root(const char *name) {
 }
 
 bool dns_name_is_single_label(const char *name) {
-        char label[DNS_LABEL_MAX+1];
         int r;
 
         assert(name);
 
-        r = dns_label_unescape(&name, label, sizeof(label));
+        r = dns_name_parent(&name);
         if (r <= 0)
                 return false;
 
