@@ -363,6 +363,21 @@ int ascii_strcasecmp_n(const char *a, const char *b, size_t n) {
         return 0;
 }
 
+int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m) {
+        int r;
+
+        r = ascii_strcasecmp_n(a, b, MIN(n, m));
+        if (r != 0)
+                return r;
+
+        if (n < m)
+                return -1;
+        else if (n > m)
+                return 1;
+        else
+                return 0;
+}
+
 bool chars_intersect(const char *a, const char *b) {
         const char *p;
 

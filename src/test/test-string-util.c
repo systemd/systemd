@@ -82,8 +82,26 @@ static void test_ascii_strcasecmp_n(void) {
         assert_se(ascii_strcasecmp_n("xxxxYxxxx", "xxxxXxxxx", 9) > 0);
 }
 
+static void test_ascii_strcasecmp_nn(void) {
+        assert_se(ascii_strcasecmp_nn("", 0, "", 0) == 0);
+        assert_se(ascii_strcasecmp_nn("", 0, "", 1) < 0);
+        assert_se(ascii_strcasecmp_nn("", 1, "", 0) > 0);
+        assert_se(ascii_strcasecmp_nn("", 1, "", 1) == 0);
+
+        assert_se(ascii_strcasecmp_nn("aaaa", 4, "aaAa", 4) == 0);
+        assert_se(ascii_strcasecmp_nn("aaa", 3, "aaAa", 4) < 0);
+        assert_se(ascii_strcasecmp_nn("aaa", 4, "aaAa", 4) < 0);
+        assert_se(ascii_strcasecmp_nn("aaaa", 4, "aaA", 3) > 0);
+        assert_se(ascii_strcasecmp_nn("aaaa", 4, "AAA", 4) > 0);
+
+        assert_se(ascii_strcasecmp_nn("aaaa", 4, "bbbb", 4) < 0);
+        assert_se(ascii_strcasecmp_nn("aaAA", 4, "BBbb", 4) < 0);
+        assert_se(ascii_strcasecmp_nn("BBbb", 4, "aaaa", 4) > 0);
+}
+
 int main(int argc, char *argv[]) {
         test_string_erase();
         test_ascii_strcasecmp_n();
+        test_ascii_strcasecmp_nn();
         return 0;
 }
