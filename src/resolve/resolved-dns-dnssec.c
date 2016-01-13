@@ -442,8 +442,9 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         expiration = rrsig->rrsig.expiration * USEC_PER_SEC;
         inception = rrsig->rrsig.inception * USEC_PER_SEC;
 
+        /* Consider inverted validity intervals as expired */
         if (inception > expiration)
-                return -EKEYREJECTED;
+                return true;
 
         /* Permit a certain amount of clock skew of 10% of the valid
          * time range. This takes inspiration from unbound's
