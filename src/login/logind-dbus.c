@@ -2751,6 +2751,23 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
                         l);
 }
 
+static int strdup_job(sd_bus_message *reply, char **job) {
+        const char *j;
+        char *copy;
+        int r;
+
+        r = sd_bus_message_read(reply, "o", &j);
+        if (r < 0)
+                return r;
+
+        copy = strdup(j);
+        if (!copy)
+                return -ENOMEM;
+
+        *job = copy;
+        return 1;
+}
+
 int manager_start_slice(
                 Manager *manager,
                 const char *slice,
@@ -2766,6 +2783,7 @@ int manager_start_slice(
 
         assert(manager);
         assert(slice);
+        assert(job);
 
         r = sd_bus_message_new_method_call(
                         manager->bus,
@@ -2819,22 +2837,7 @@ int manager_start_slice(
         if (r < 0)
                 return r;
 
-        if (job) {
-                const char *j;
-                char *copy;
-
-                r = sd_bus_message_read(reply, "o", &j);
-                if (r < 0)
-                        return r;
-
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 1;
+        return strdup_job(reply, job);
 }
 
 int manager_start_scope(
@@ -2855,6 +2858,7 @@ int manager_start_scope(
         assert(manager);
         assert(scope);
         assert(pid > 1);
+        assert(job);
 
         r = sd_bus_message_new_method_call(
                         manager->bus,
@@ -2929,22 +2933,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        if (job) {
-                const char *j;
-                char *copy;
-
-                r = sd_bus_message_read(reply, "o", &j);
-                if (r < 0)
-                        return r;
-
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 1;
+        return strdup_job(reply, job);
 }
 
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
@@ -2953,6 +2942,7 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
 
         assert(manager);
         assert(unit);
+        assert(job);
 
         r = sd_bus_call_method(
                         manager->bus,
@@ -2966,22 +2956,7 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
         if (r < 0)
                 return r;
 
-        if (job) {
-                const char *j;
-                char *copy;
-
-                r = sd_bus_message_read(reply, "o", &j);
-                if (r < 0)
-                        return r;
-
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 1;
+        return strdup_job(reply, job);
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
@@ -2990,6 +2965,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
 
         assert(manager);
         assert(unit);
+        assert(job);
 
         r = sd_bus_call_method(
                         manager->bus,
@@ -3004,9 +2980,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
                 if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
                     sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
 
-                        if (job)
-                                *job = NULL;
-
+                        *job = NULL;
                         sd_bus_error_free(error);
                         return 0;
                 }
@@ -3014,22 +2988,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
                 return r;
         }
 
-        if (job) {
-                const char *j;
-                char *copy;
-
-                r = sd_bus_message_read(reply, "o", &j);
-                if (r < 0)
-                        return r;
-
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 1;
+        return strdup_job(reply, job);
 }
 
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error) {
