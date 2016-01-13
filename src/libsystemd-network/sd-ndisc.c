@@ -354,14 +354,13 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
 
         r = ndisc_prefix_match(nd, &prefix_opt->nd_opt_pi_prefix,
                                prefix_opt->nd_opt_pi_prefix_len, &prefix);
+        if (r < 0) {
+                if (r != -EADDRNOTAVAIL)
+                        return r;
 
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                return r;
+                /* if router advertisment prefix valid timeout is zero, the timeout
+                   callback will be called immediately to clean up the prefix */
 
-        /* if router advertisment prefix valid timeout is zero, the timeout
-           callback will be called immediately to clean up the prefix */
-
-        if (r == -EADDRNOTAVAIL) {
                 r = ndisc_prefix_new(nd, &prefix);
                 if (r < 0)
                         return r;
@@ -372,9 +371,9 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                         sizeof(prefix->addr));
 
                 log_ndisc(nd, "New prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
-                             prefix->len, lifetime_valid,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
+                          SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
+                          prefix->len, lifetime_valid,
+                          format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
 
                 LIST_PREPEND(prefixes, nd->prefixes, prefix);
 
@@ -385,17 +384,17 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                         prefixlen = MIN(prefix->len, prefix_opt->nd_opt_pi_prefix_len);
 
                         log_ndisc(nd, "Prefix length mismatch %d/%d using %d",
-                                     prefix->len,
-                                     prefix_opt->nd_opt_pi_prefix_len,
-                                     prefixlen);
+                                  prefix->len,
+                                  prefix_opt->nd_opt_pi_prefix_len,
+                                  prefixlen);
 
                         prefix->len = prefixlen;
                 }
 
                 log_ndisc(nd, "Update prefix "SD_NDISC_ADDRESS_FORMAT_STR"/%d lifetime %d expires in %s",
-                             SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
-                             prefix->len, lifetime_valid,
-                             format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
+                          SD_NDISC_ADDRESS_FORMAT_VAL(prefix->addr),
+                          prefix->len, lifetime_valid,
+                          format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_valid * USEC_PER_SEC, USEC_PER_SEC));
         }
 
         r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
@@ -449,7 +448,7 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, ssize_t len
                                 nd->mtu = MAX(mtu, IP6_MIN_MTU);
 
                                 log_ndisc(nd, "Router Advertisement link MTU %d using %d",
-                                             mtu, nd->mtu);
+                                          mtu, nd->mtu);
                         }
 
                         break;
