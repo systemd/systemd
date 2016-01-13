@@ -66,6 +66,7 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
@@ -2089,6 +2090,11 @@ int main(int argc, char *argv[]) {
 
         default:
                 assert_not_reached("Unknown action");
+        }
+
+        if (arg_boot_offset != 0 && dir_is_empty("/var/log/journal/")) {
+                log_info("Specifying boot ID has no effect, there is only in-memory journal present on the machine.");
+                goto finish;
         }
 
         /* add_boot() must be called first!
