@@ -117,8 +117,6 @@ setup_basic_environment() {
     strip_binaries
     install_depmod_files
     generate_module_dependencies
-    # softlink mtab
-    ln -fs /proc/self/mounts $initdir/etc/mtab
 }
 
 install_dmevent() {
