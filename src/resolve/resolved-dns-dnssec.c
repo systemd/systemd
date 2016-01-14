@@ -1583,6 +1583,19 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                         if (r < 0)
                                 return r;
                         if (r > 0) {
+                                if (key->type == DNS_TYPE_DS) {
+                                        /* If we look for a DS RR and the server sent us the NSEC RR of the child zone
+                                         * we have a problem. For DS RRs we want the NSEC RR from the parent */
+                                        if (bitmap_isset(rr->nsec.types, DNS_TYPE_SOA))
+                                                continue;
+                                } else {
+                                        /* For all RR types, ensure that if NS is set SOA is set too, so that we know
+                                         * we got the child's NSEC. */
+                                        if (bitmap_isset(rr->nsec.types, DNS_TYPE_NS) &&
+                                            !bitmap_isset(rr->nsec.types, DNS_TYPE_SOA))
+                                                continue;
+                                }
+
                                 if (bitmap_isset(rr->nsec.types, key->type))
                                         *result = DNSSEC_NSEC_FOUND;
                                 else if (bitmap_isset(rr->nsec.types, DNS_TYPE_CNAME))
