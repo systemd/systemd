@@ -80,6 +80,8 @@
 
 #define RECHECK_SPACE_USEC (30*USEC_PER_SEC)
 
+#define DEFAULT_FTRUNCATE_GRACE_PERIOD_USEC (100*USEC_PER_MSEC)
+
 #define NOTIFY_SNDBUF_SIZE (8*1024*1024)
 
 static int determine_space_for(
@@ -220,6 +222,138 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
 #endif
 }
 
+static void ftruncate_journal(JournalFile *f) {
+        assert(f);
+
+        /* inotify() does not receive IN_MODIFY events from file
+         * accesses done via mmap(). After each access we hence
+         * trigger IN_MODIFY by truncating the journal file to its
+         * current size which triggers IN_MODIFY. */
+
+        __sync_synchronize();
+
+        if (ftruncate(f->fd, f->last_stat.st_size) < 0)
+                log_error_errno(errno, "Failed to truncate file to its own size: %m");
+}
+
+static int ftruncate_journal_thunk(sd_event_source *timer, uint64_t usec, void *userdata) {
+        assert(userdata);
+
+        ftruncate_journal(userdata);
+
+        return 1;
+}
+
+static void sched_ftruncate_journal(JournalFile *f, void *arg) {
+        sd_event_source *s = arg;
+        int enabled, r;
+
+        assert(f);
+        assert(s);
+
+        /* schedule an ftruncate_journal() for this file if not already scheduled */
+
+        r = sd_event_source_get_enabled(s, &enabled);
+        if (r < 0) {
+                log_error_errno(-r, "Failed to get ftruncate timer state: %m");
+                return;
+        }
+
+        if (enabled != SD_EVENT_ONESHOT) {
+                uint64_t now;
+
+                sd_event_source_set_userdata(s, f);
+
+                r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &now);
+                if (r < 0) {
+                        log_error_errno(-r, "Failed to get clock's now for scheduling ftruncate: %m");
+                        return;
+                }
+
+                r = sd_event_source_set_time(s, now + DEFAULT_FTRUNCATE_GRACE_PERIOD_USEC);
+                if (r < 0) {
+                        log_error_errno(-r, "Failed to set time for scheduling ftruncate: %m");
+                        return;
+                }
+
+                r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+                if (r < 0) {
+                        log_error_errno(-r, "Failed to enable scheduled ftruncate: %m");
+                        return;
+                }
+        }
+}
+
+static void quiesce_journal_timer(JournalFile *f, bool unref) {
+        sd_event_source *timer;
+        int enabled;
+
+        assert(f);
+        assert(f->change_notify_fn);
+        assert(f->change_notify_arg);
+
+        timer = f->change_notify_arg;
+
+        if (sd_event_source_get_enabled(timer, &enabled) >= 0)
+                if (enabled == SD_EVENT_ONESHOT)
+                        ftruncate_journal(f);
+
+        sd_event_source_set_enabled(timer, SD_EVENT_OFF);
+
+        if (unref)
+                sd_event_source_unref(timer);
+}
+
+static int quiesce_journal_timer_nounref(JournalFile *f) {
+        assert(f);
+
+        quiesce_journal_timer(f, false);
+
+        return 0;
+}
+
+static int open_journal(
+                Server *s,
+                bool reliably,
+                const char *fname,
+                int flags,
+                bool seal,
+                JournalMetrics *metrics,
+                JournalFile *template,
+                JournalFile **ret) {
+        int r;
+        sd_event_source *timer;
+
+        assert(s);
+        assert(fname);
+        assert(ret);
+
+        r = sd_event_add_time(s->event, &timer, CLOCK_MONOTONIC, 0, 0, ftruncate_journal_thunk, NULL);
+        if (r >= 0)
+                r = sd_event_source_set_enabled(timer, SD_EVENT_OFF);
+
+        if (r >= 0) {
+                if (reliably)
+                        r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, sched_ftruncate_journal, timer, template, ret);
+                else
+                        r = journal_file_open(fname, flags, 0640, s->compress, seal, metrics, s->mmap, sched_ftruncate_journal, timer, template, ret);
+
+                if (r < 0)
+                        sd_event_source_unref(timer);
+        }
+
+        return r;
+}
+
+static JournalFile * close_journal(JournalFile *f) {
+        assert(f);
+
+        quiesce_journal_timer(f, true);
+        journal_file_close(f);
+
+        return NULL;
+}
+
 static JournalFile* find_journal(Server *s, uid_t uid) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -255,10 +389,11 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 /* Too many open? Then let's close one */
                 f = ordered_hashmap_steal_first(s->user_journals);
                 assert(f);
-                journal_file_close(f);
+                close_journal(f);
         }
 
-        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &f);
+
+        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_metrics, NULL, &f);
         if (r < 0)
                 return s->system_journal;
 
@@ -266,7 +401,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
 
         r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
         if (r < 0) {
-                journal_file_close(f);
+                close_journal(f);
                 return s->system_journal;
         }
 
@@ -286,7 +421,7 @@ static int do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journal_file_rotate(f, s->compress, seal);
+        r = journal_file_rotate(f, s->compress, seal, quiesce_journal_timer_nounref);
         if (r < 0)
                 if (*f)
                         log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
@@ -930,7 +1065,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 (void) mkdir(fn, 0755);
 
                 fn = strjoina(fn, "/system.journal");
-                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
+                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_metrics, NULL, &s->system_journal); 
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
                         (void) determine_space_for(s, &s->system_metrics, "/var/log/journal/", "System journal", true, true, NULL, NULL);
@@ -953,7 +1088,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
+                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_metrics, NULL, &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
@@ -970,7 +1105,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         (void) mkdir("/run/log/journal", 0755);
                         (void) mkdir_parents(fn, 0750);
 
-                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
+                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_metrics, NULL, &s->runtime_journal);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
@@ -1066,7 +1201,7 @@ int server_flush_to_var(Server *s) {
 finish:
         journal_file_post_change(s->system_journal);
 
-        s->runtime_journal = journal_file_close(s->runtime_journal);
+        s->runtime_journal = close_journal(s->runtime_journal);
 
         if (r >= 0)
                 (void) rm_rf("/run/log/journal", REMOVE_ROOT);
@@ -1851,13 +1986,13 @@ void server_done(Server *s) {
                 stdout_stream_free(s->stdout_streams);
 
         if (s->system_journal)
-                journal_file_close(s->system_journal);
+                close_journal(s->system_journal);
 
         if (s->runtime_journal)
-                journal_file_close(s->runtime_journal);
+                close_journal(s->runtime_journal);
 
         while ((f = ordered_hashmap_steal_first(s->user_journals)))
-                journal_file_close(f);
+                close_journal(f);
 
         ordered_hashmap_free(s->user_journals);
 

@@ -1250,7 +1250,7 @@ static int add_any_file(sd_journal *j, const char *path) {
                 goto fail;
         }
 
-        r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
+        r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, NULL, NULL, &f);
         if (r < 0) {
                 log_debug_errno(r, "Failed to open journal file %s: %m", path);
                 goto fail;

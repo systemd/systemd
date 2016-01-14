@@ -64,7 +64,9 @@ typedef enum LocationType {
         LOCATION_SEEK
 } LocationType;
 
-typedef struct JournalFile {
+typedef struct JournalFile JournalFile;
+
+struct JournalFile {
         int fd;
 
         mode_t mode;
@@ -101,6 +103,9 @@ typedef struct JournalFile {
         JournalMetrics metrics;
         MMapCache *mmap;
 
+        void (*change_notify_fn)(JournalFile *, void *);
+        void *change_notify_arg;
+
         OrderedHashmap *chain_cache;
 
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
@@ -124,7 +129,7 @@ typedef struct JournalFile {
         void *fsprg_seed;
         size_t fsprg_seed_size;
 #endif
-} JournalFile;
+};
 
 int journal_file_open(
                 const char *fname,
@@ -134,6 +139,8 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                void (*change_notify_fn)(JournalFile *, void *),
+                void *change_notify_fn_arg,
                 JournalFile *template,
                 JournalFile **ret);
 
@@ -148,6 +155,8 @@ int journal_file_open_reliably(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                void (*change_notify_fn)(JournalFile *, void *),
+                void *change_notify_fn_arg,
                 JournalFile *template,
                 JournalFile **ret);
 
@@ -221,7 +230,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal);
+int journal_file_rotate(JournalFile **f, bool compress, bool seal, int (*quiesce_fn)(JournalFile *));
 
 void journal_file_post_change(JournalFile *f);
 

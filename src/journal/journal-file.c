@@ -1389,15 +1389,8 @@ static int journal_file_append_entry_internal(
 void journal_file_post_change(JournalFile *f) {
         assert(f);
 
-        /* inotify() does not receive IN_MODIFY events from file
-         * accesses done via mmap(). After each access we hence
-         * trigger IN_MODIFY by truncating the journal file to its
-         * current size which triggers IN_MODIFY. */
-
-        __sync_synchronize();
-
-        if (ftruncate(f->fd, f->last_stat.st_size) < 0)
-                log_error_errno(errno, "Failed to truncate file to its own size: %m");
+        if (f->change_notify_fn)
+                f->change_notify_fn(f, f->change_notify_arg);
 }
 
 static int entry_item_cmp(const void *_a, const void *_b) {
@@ -2596,6 +2589,8 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                void (*change_notify_fn)(JournalFile *, void *),
+                void *change_notify_arg,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2633,6 +2628,8 @@ int journal_file_open(
 #ifdef HAVE_GCRYPT
         f->seal = seal;
 #endif
+        f->change_notify_fn = change_notify_fn;
+        f->change_notify_arg = change_notify_arg;
 
         if (mmap_cache)
                 f->mmap = mmap_cache_ref(mmap_cache);
@@ -2779,7 +2776,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
+int journal_file_rotate(JournalFile **f, bool compress, bool seal, int (*quiesce_fn)(JournalFile *)) {
         _cleanup_free_ char *p = NULL;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -2819,7 +2816,17 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
          * we archive them */
         old_file->defrag_on_close = true;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
+        if (quiesce_fn) {
+                r = quiesce_fn(old_file);
+                if (r < 0)
+                        return r;
+        }
+
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode,
+                              compress, seal, NULL, old_file->mmap,
+                              old_file->change_notify_fn,
+                              old_file->change_notify_arg,
+                              old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
@@ -2834,6 +2841,8 @@ int journal_file_open_reliably(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                void (*change_notify_fn)(JournalFile *, void *),
+                void *change_notify_arg,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2841,7 +2850,9 @@ int journal_file_open_reliably(
         size_t l;
         _cleanup_free_ char *p = NULL;
 
-        r = journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
+        r = journal_file_open(fname, flags, mode, compress, seal,
+                              metrics, mmap_cache, change_notify_fn,
+                              change_notify_arg, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* corrupted */
                     -ENODATA,           /* truncated */
@@ -2882,7 +2893,9 @@ int journal_file_open_reliably(
 
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
+        return journal_file_open(fname, flags, mode, compress, seal,
+                                 metrics, mmap_cache, change_notify_fn,
+                                 change_notify_arg, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
