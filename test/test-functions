@@ -119,6 +119,25 @@ setup_basic_environment() {
     generate_module_dependencies
 }
 
+install_valgrind() {
+    if ! type -p valgrind; then
+        dfatal "Failed to install valgrind"
+        exit 1
+    fi
+
+    local _valgrind_bins=$(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')
+    dracut_install $_valgrind_bins
+
+    local _valgrind_libs=$(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')
+    dracut_install $_valgrind_libs
+
+    local _valgrind_dbg_and_supp=$(
+        strace -e open valgrind /bin/true 2>&1 >/dev/null |
+        perl -lne 'if (my ($fname) = /^open\("([^"]+).*= (?!-)\d+/) { print $fname if $fname =~ /debug|\.supp$/ }'
+    )
+    dracut_install $_valgrind_dbg_and_supp
+}
+
 install_dmevent() {
     instmods dm_crypt =crypto
     type -P dmeventd >/dev/null && dracut_install dmeventd
