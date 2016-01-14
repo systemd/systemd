@@ -430,6 +430,57 @@ static void md_add_uint32(gcry_md_hd_t md, uint32_t v) {
         gcry_md_write(md, &v, sizeof(v));
 }
 
+static int dnssec_rrsig_prepare(DnsResourceRecord *rrsig) {
+        int n_key_labels, n_signer_labels;
+        const char *name;
+        int r;
+
+        /* Checks whether the specified RRSIG RR is somewhat valid, and initializes the .n_skip_labels_source and
+         * .n_skip_labels_signer fields so that we can use them later on. */
+
+        assert(rrsig);
+        assert(rrsig->key->type == DNS_TYPE_RRSIG);
+
+        /* Check if this RRSIG RR is already prepared */
+        if (rrsig->n_skip_labels_source != (unsigned) -1)
+                return 0;
+
+        if (rrsig->rrsig.inception > rrsig->rrsig.expiration)
+                return -EINVAL;
+
+        name = DNS_RESOURCE_KEY_NAME(rrsig->key);
+
+        n_key_labels = dns_name_count_labels(name);
+        if (n_key_labels < 0)
+                return n_key_labels;
+        if (rrsig->rrsig.labels > n_key_labels)
+                return -EINVAL;
+
+        n_signer_labels = dns_name_count_labels(rrsig->rrsig.signer);
+        if (n_signer_labels < 0)
+                return n_signer_labels;
+        if (n_signer_labels > rrsig->rrsig.labels)
+                return -EINVAL;
+
+        r = dns_name_skip(name, n_key_labels - n_signer_labels, &name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        /* Check if the signer is really a suffix of us */
+        r = dns_name_equal(name, rrsig->rrsig.signer);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        rrsig->n_skip_labels_source = n_key_labels - rrsig->rrsig.labels;
+        rrsig->n_skip_labels_signer = n_key_labels - n_signer_labels;
+
+        return 0;
+}
+
 static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         usec_t expiration, inception, skew;
 
@@ -499,6 +550,35 @@ static int algorithm_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
+static void dnssec_fix_rrset_ttl(
+                DnsResourceRecord *list[],
+                unsigned n,
+                DnsResourceRecord *rrsig,
+                usec_t realtime) {
+
+        unsigned k;
+
+        assert(list);
+        assert(n > 0);
+        assert(rrsig);
+
+        for (k = 0; k < n; k++) {
+                DnsResourceRecord *rr = list[k];
+
+                /* Pick the TTL as the minimum of the RR's TTL, the
+                 * RR's original TTL according to the RRSIG and the
+                 * RRSIG's own TTL, see RFC 4035, Section 5.3.3 */
+                rr->ttl = MIN3(rr->ttl, rrsig->rrsig.original_ttl, rrsig->ttl);
+                rr->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
+
+                /* Copy over information about the signer and wildcard source of synthesis */
+                rr->n_skip_labels_source = rrsig->n_skip_labels_source;
+                rr->n_skip_labels_signer = rrsig->n_skip_labels_signer;
+        }
+
+        rrsig->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
+}
+
 int dnssec_verify_rrset(
                 DnsAnswer *a,
                 const DnsResourceKey *key,
@@ -535,6 +615,14 @@ int dnssec_verify_rrset(
         }
         if (md_algorithm < 0)
                 return md_algorithm;
+
+        r = dnssec_rrsig_prepare(rrsig);
+        if (r == -EINVAL) {
+                *result = DNSSEC_INVALID;
+                return r;
+        }
+        if (r < 0)
+                return r;
 
         r = dnssec_rrsig_expired(rrsig, realtime);
         if (r < 0)
@@ -699,12 +787,17 @@ int dnssec_verify_rrset(
         if (r < 0)
                 goto finish;
 
-        if (!r)
+        /* Now, fix the ttl, expiry, and remember the synthesizing source and the signer */
+        if (r > 0)
+                dnssec_fix_rrset_ttl(list, n, rrsig, realtime);
+
+        if (r == 0)
                 *result = DNSSEC_INVALID;
         else if (wildcard)
                 *result = DNSSEC_VALIDATED_WILDCARD;
         else
                 *result = DNSSEC_VALIDATED;
+
         r = 0;
 
 finish:
@@ -743,8 +836,6 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
 }
 
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) {
-        int r;
-
         assert(key);
         assert(rrsig);
 
@@ -757,43 +848,7 @@ int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) 
         if (rrsig->rrsig.type_covered != key->type)
                 return 0;
 
-        /* Make sure signer is a parent of the RRset */
-        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rrsig->key), rrsig->rrsig.signer);
-        if (r <= 0)
-                return r;
-
-        /* Make sure the owner name has at least as many labels as the "label" fields indicates. */
-        r = dns_name_count_labels(DNS_RESOURCE_KEY_NAME(rrsig->key));
-        if (r < 0)
-                return r;
-        if (r < rrsig->rrsig.labels)
-                return 0;
-
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rrsig->key), DNS_RESOURCE_KEY_NAME(key));
-}
-
-static int dnssec_fix_rrset_ttl(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord *rrsig, usec_t realtime) {
-        DnsResourceRecord *rr;
-        int r;
-
-        assert(key);
-        assert(rrsig);
-
-        DNS_ANSWER_FOREACH(rr, a) {
-                r = dns_resource_key_equal(key, rr->key);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                /* Pick the TTL as the minimum of the RR's TTL, the
-                 * RR's original TTL according to the RRSIG and the
-                 * RRSIG's own TTL, see RFC 4035, Section 5.3.3 */
-                rr->ttl = MIN3(rr->ttl, rrsig->rrsig.original_ttl, rrsig->ttl);
-                rr->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
-        }
-
-        return 0;
 }
 
 int dnssec_verify_rrset_search(
@@ -865,10 +920,6 @@ int dnssec_verify_rrset_search(
                         case DNSSEC_VALIDATED_WILDCARD:
                                 /* Yay, the RR has been validated,
                                  * return immediately, but fix up the expiry */
-                                r = dnssec_fix_rrset_ttl(a, key, rrsig, realtime);
-                                if (r < 0)
-                                        return r;
-
                                 if (ret_rrsig)
                                         *ret_rrsig = rrsig;
 
@@ -1658,15 +1709,17 @@ int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name
                 if (rr->key->type != type && type != DNS_TYPE_ANY)
                         continue;
 
-                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), zone);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
                 switch (rr->key->type) {
 
                 case DNS_TYPE_NSEC:
+
+                        /* We only care for NSEC RRs from the indicated zone */
+                        r = dns_resource_record_is_signer(rr, zone);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
                         r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), name, rr->nsec.next_domain_name);
                         if (r < 0)
                                 return r;
@@ -1676,6 +1729,13 @@ int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name
 
                 case DNS_TYPE_NSEC3: {
                         _cleanup_free_ char *hashed_domain = NULL, *next_hashed_domain = NULL;
+
+                        /* We only care for NSEC3 RRs from the indicated zone */
+                        r = dns_resource_record_is_signer(rr, zone);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
 
                         r = nsec3_is_good(rr, NULL);
                         if (r < 0)

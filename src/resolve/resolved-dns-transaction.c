@@ -2537,11 +2537,9 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                  * that no matching non-wildcard RR exists.*/
 
                                 /* First step, determine the source of synthesis */
-                                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &source);
+                                r = dns_resource_record_source(rrsig, &source);
                                 if (r < 0)
                                         return r;
-                                if (r == 0)
-                                        return -EBADMSG;
 
                                 r = dnssec_test_positive_wildcard(
                                                 validated,

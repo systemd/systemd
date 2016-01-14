@@ -1189,6 +1189,26 @@ int dns_name_suffix(const char *name, unsigned n_labels, const char **ret) {
         return (int) (n - n_labels);
 }
 
+int dns_name_skip(const char *a, unsigned n_labels, const char **ret) {
+        int r;
+
+        assert(a);
+        assert(ret);
+
+        for (; n_labels > 0; n_labels --) {
+                r = dns_name_parent(&a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret = "";
+                        return 0;
+                }
+        }
+
+        *ret = a;
+        return 1;
+}
+
 int dns_name_count_labels(const char *name) {
         unsigned n = 0;
         const char *p;
@@ -1219,14 +1239,9 @@ int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b) {
         assert(a);
         assert(b);
 
-        while (n_labels > 0) {
-
-                r = dns_name_parent(&a);
-                if (r <= 0)
-                        return r;
-
-                n_labels --;
-        }
+        r = dns_name_skip(a, n_labels, &a);
+        if (r <= 0)
+                return r;
 
         return dns_name_equal(a, b);
 }

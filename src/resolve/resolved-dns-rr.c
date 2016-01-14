@@ -344,6 +344,7 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
         rr->n_ref = 1;
         rr->key = dns_resource_key_ref(key);
         rr->expiry = USEC_INFINITY;
+        rr->n_skip_labels_signer = rr->n_skip_labels_source = (unsigned) -1;
 
         return rr;
 }
@@ -1083,6 +1084,63 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         dns_packet_unref(&packet);
 
         return 0;
+}
+
+int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret) {
+        const char *n;
+        int r;
+
+        assert(rr);
+        assert(ret);
+
+        /* Returns the RRset's signer, if it is known. */
+
+        if (rr->n_skip_labels_signer == (unsigned) -1)
+                return -ENODATA;
+
+        n = DNS_RESOURCE_KEY_NAME(rr->key);
+        r = dns_name_skip(n, rr->n_skip_labels_signer, &n);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        *ret = n;
+        return 0;
+}
+
+int dns_resource_record_source(DnsResourceRecord *rr, const char **ret) {
+        const char *n;
+        int r;
+
+        assert(rr);
+        assert(ret);
+
+        /* Returns the RRset's synthesizing source, if it is known. */
+
+        if (rr->n_skip_labels_source == (unsigned) -1)
+                return -ENODATA;
+
+        n = DNS_RESOURCE_KEY_NAME(rr->key);
+        r = dns_name_skip(n, rr->n_skip_labels_source, &n);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        *ret = n;
+        return 0;
+}
+
+int dns_resource_record_is_signer(DnsResourceRecord *rr, const char *zone) {
+        const char *signer;
+        int r;
+
+        r = dns_resource_record_signer(rr, &signer);
+        if (r < 0)
+                return r;
+
+        return dns_name_equal(zone, signer);
 }
 
 static void dns_resource_record_hash_func(const void *i, struct siphash *state) {
