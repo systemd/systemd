@@ -120,6 +120,21 @@ bool dns_type_may_redirect(uint16_t type) {
                        DNS_TYPE_KEY);
 }
 
+bool dns_type_may_wildcard(uint16_t type) {
+
+        /* The following records may not be expanded from wildcard RRsets */
+
+        if (dns_type_is_pseudo(type))
+                return false;
+
+        return !IN_SET(type,
+                       DNS_TYPE_NSEC3,
+                       DNS_TYPE_SOA,
+
+                       /* Prohibited by https://tools.ietf.org/html/rfc4592#section-4.4 */
+                       DNS_TYPE_DNAME);
+}
+
 bool dns_type_is_dnssec(uint16_t type) {
         return IN_SET(type,
                       DNS_TYPE_DS,

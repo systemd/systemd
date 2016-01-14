@@ -442,8 +442,9 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         expiration = rrsig->rrsig.expiration * USEC_PER_SEC;
         inception = rrsig->rrsig.inception * USEC_PER_SEC;
 
+        /* Consider inverted validity intervals as expired */
         if (inception > expiration)
-                return -EKEYREJECTED;
+                return true;
 
         /* Permit a certain amount of clock skew of 10% of the valid
          * time range. This takes inspiration from unbound's
@@ -512,8 +513,9 @@ int dnssec_verify_rrset(
         DnsResourceRecord **list, *rr;
         gcry_md_hd_t md = NULL;
         int r, md_algorithm;
-        bool wildcard = false;
         size_t k, n = 0;
+        bool wildcard;
+        const char *source;
 
         assert(key);
         assert(rrsig);
@@ -541,6 +543,28 @@ int dnssec_verify_rrset(
                 *result = DNSSEC_SIGNATURE_EXPIRED;
                 return 0;
         }
+
+        /* Determine the "Source of Synthesis" and whether this is a wildcard RRSIG */
+        r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(key), rrsig->rrsig.labels, &source);
+        if (r < 0)
+                return r;
+        if (r > 0 && !dns_type_may_wildcard(rrsig->rrsig.type_covered)) {
+                /* We refuse to validate NSEC3 or SOA RRs that are synthesized from wildcards */
+                *result = DNSSEC_INVALID;
+                return 0;
+        }
+        if (r == 1) {
+                /* If we stripped a single label, then let's see if that maybe was "*". If so, we are not really
+                 * synthesized from a wildcard, we are the wildcard itself. Treat that like a normal name. */
+                r = dns_name_startswith(DNS_RESOURCE_KEY_NAME(key), "*");
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        source = DNS_RESOURCE_KEY_NAME(key);
+
+                wildcard = r == 0;
+        } else
+                wildcard = r > 0;
 
         /* Collect all relevant RRs in a single array, so that we can look at the RRset */
         list = newa(DnsResourceRecord *, dns_answer_size(a));
@@ -592,22 +616,19 @@ int dnssec_verify_rrset(
                 goto finish;
         gcry_md_write(md, wire_format_name, r);
 
+        /* Convert the source of synthesis into wire format */
+        r = dns_name_to_wire_format(source, wire_format_name, sizeof(wire_format_name), true);
+        if (r < 0)
+                goto finish;
+
         for (k = 0; k < n; k++) {
-                const char *suffix;
                 size_t l;
+
                 rr = list[k];
 
-                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &suffix);
-                if (r < 0)
-                        goto finish;
-                if (r > 0) /* This is a wildcard! */ {
+                /* Hash the source of synthesis. If this is a wildcard, then prefix it with the *. label */
+                if (wildcard)
                         gcry_md_write(md, (uint8_t[]) { 1, '*'}, 2);
-                        wildcard = true;
-                }
-
-                r = dns_name_to_wire_format(suffix, wire_format_name, sizeof(wire_format_name), true);
-                if (r < 0)
-                        goto finish;
                 gcry_md_write(md, wire_format_name, r);
 
                 md_add_uint16(md, rr->key->type);
@@ -1274,8 +1295,8 @@ static int nsec3_hashed_domain_make(DnsResourceRecord *nsec3, const char *domain
  * name uses an NSEC3 record with the opt-out bit set. Lastly, if we are given insufficient NSEC3 records
  * to conclude anything we indicate this by returning NO_RR. */
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
-        _cleanup_free_ char *next_closer_domain = NULL, *wildcard = NULL, *wildcard_domain = NULL;
-        const char *zone, *p, *pp = NULL;
+        _cleanup_free_ char *next_closer_domain = NULL, *wildcard_domain = NULL;
+        const char *zone, *p, *pp = NULL, *wildcard;
         DnsResourceRecord *rr, *enclosure_rr, *zone_rr, *wildcard_rr = NULL;
         DnsAnswerFlags flags;
         int hashed_size, r;
@@ -1401,10 +1422,7 @@ found_closest_encloser:
 
         /* Prove that there is no next closer and whether or not there is a wildcard domain. */
 
-        wildcard = strappend("*.", p);
-        if (!wildcard)
-                return -ENOMEM;
-
+        wildcard = strjoina("*.", p);
         r = nsec3_hashed_domain_make(enclosure_rr, wildcard, zone, &wildcard_domain);
         if (r < 0)
                 return r;
@@ -1586,7 +1604,7 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
         return 0;
 }
 
-int dnssec_nsec_test_between(DnsAnswer *answer, const char *name, const char *zone, bool *authenticated) {
+int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name, const char *zone, bool *authenticated) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
         int r;
@@ -1599,6 +1617,9 @@ int dnssec_nsec_test_between(DnsAnswer *answer, const char *name, const char *zo
 
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 bool found = false;
+
+                if (rr->key->type != type && type != DNS_TYPE_ANY)
+                        continue;
 
                 r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), zone);
                 if (r < 0)
@@ -1665,6 +1686,145 @@ int dnssec_nsec_test_between(DnsAnswer *answer, const char *name, const char *zo
         }
 
         return 0;
+}
+
+static int dnssec_test_positive_wildcard_nsec3(
+                DnsAnswer *answer,
+                const char *name,
+                const char *source,
+                const char *zone,
+                bool *authenticated) {
+
+        const char *next_closer = NULL;
+        int r;
+
+        /* Run a positive NSEC3 wildcard proof. Specifically:
+         *
+         * A proof that the the "next closer" of the generating wildcard does not exist.
+         *
+         * Note a key difference between the NSEC3 and NSEC versions of the proof. NSEC RRs don't have to exist for
+         * empty non-transients. NSEC3 RRs however have to. This means it's sufficient to check if the next closer name
+         * exists for the NSEC3 RR and we are done.
+         *
+         * To prove that a.b.c.d.e.f is rightfully synthesized from a wildcard *.d.e.f all we have to check is that
+         * c.d.e.f does not exist. */
+
+        for (;;) {
+                next_closer = name;
+                r = dns_name_parent(&name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0;
+
+                r = dns_name_equal(name, source);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        break;
+        }
+
+        return dnssec_nsec_test_enclosed(answer, DNS_TYPE_NSEC3, next_closer, zone, authenticated);
+}
+
+static int dnssec_test_positive_wildcard_nsec(
+                DnsAnswer *answer,
+                const char *name,
+                const char *source,
+                const char *zone,
+                bool *_authenticated) {
+
+        bool authenticated = true;
+        int r;
+
+        /* Run a positive NSEC wildcard proof. Specifically:
+         *
+         * A proof that there's neither a wildcard name nor a non-wildcard name that is a suffix of the name "name" and
+         * a prefix of the synthesizing source "source" in the zone "zone".
+         *
+         * See RFC 5155, Section 8.8 and RFC 4035, Section 5.3.4
+         *
+         * Note that if we want to prove that a.b.c.d.e.f is rightfully synthesized from a wildcard *.d.e.f, then we
+         * have to prove that none of the following exist:
+         *
+         *      1) a.b.c.d.e.f
+         *      2) *.b.c.d.e.f
+         *      3)   b.c.d.e.f
+         *      4)   *.c.d.e.f
+         *      5)     c.d.e.f
+         *
+         */
+
+        for (;;) {
+                _cleanup_free_ char *wc = NULL;
+                bool a = false;
+
+                /* Check if there's an NSEC or NSEC3 RR that proves that the mame we determined is really non-existing,
+                 * i.e between the owner name and the next name of an NSEC RR. */
+                r = dnssec_nsec_test_enclosed(answer, DNS_TYPE_NSEC, name, zone, &a);
+                if (r <= 0)
+                        return r;
+
+                authenticated = authenticated && a;
+
+                /* Strip one label off */
+                r = dns_name_parent(&name);
+                if (r <= 0)
+                        return r;
+
+                /* Did we reach the source of synthesis? */
+                r = dns_name_equal(name, source);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* Successful exit */
+                        *_authenticated = authenticated;
+                        return 1;
+                }
+
+                /* Safety check, that the source of synthesis is still our suffix */
+                r = dns_name_endswith(name, source);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBADMSG;
+
+                /* Replace the label we stripped off with an asterisk */
+                wc = strappend("*.", name);
+                if (!wc)
+                        return -ENOMEM;
+
+                /* And check if the proof holds for the asterisk name, too */
+                r = dnssec_nsec_test_enclosed(answer, DNS_TYPE_NSEC, wc, zone, &a);
+                if (r <= 0)
+                        return r;
+
+                authenticated = authenticated && a;
+                /* In the next iteration we'll check the non-asterisk-prefixed version */
+        }
+}
+
+int dnssec_test_positive_wildcard(
+                DnsAnswer *answer,
+                const char *name,
+                const char *source,
+                const char *zone,
+                bool *authenticated) {
+
+        int r;
+
+        assert(name);
+        assert(source);
+        assert(zone);
+        assert(authenticated);
+
+        r = dns_answer_contains_zone_nsec3(answer, zone);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return dnssec_test_positive_wildcard_nsec3(answer, name, source, zone, authenticated);
+        else
+                return dnssec_test_positive_wildcard_nsec(answer, name, source, zone, authenticated);
 }
 
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {

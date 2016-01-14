@@ -33,6 +33,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* add systemctl stop --job-mode=triggering that follows TRIGGERED_BY deps and adds them to the same transaction
+
+* coredump logic should use prlimit() to query RLIMIT_CORE of the dumpee and honour it
+
+* Add a MaxRuntimeSec= setting for service units (or units in general) to terminate units after they ran for a certain
+  amount of time
+
+* Maybe add a way how users can "pin" units into memory, so that they are not subject to automatic GC?
+
 * PID1: find a way how we can reload unit file configuration for
   specific units only, without reloading the whole of systemd
 

@@ -64,6 +64,7 @@ int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags
 int dns_answer_contains_rr(DnsAnswer *a, DnsResourceRecord *rr, DnsAnswerFlags *combined_flags);
 int dns_answer_contains_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags *combined_flags);
 int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a);
+int dns_answer_contains_zone_nsec3(DnsAnswer *answer, const char *zone);
 
 int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags);
 int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags);
