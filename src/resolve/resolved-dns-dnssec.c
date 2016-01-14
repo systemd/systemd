@@ -1617,16 +1617,55 @@ found_closest_encloser:
         return 0;
 }
 
+static int dnssec_nsec_in_path(DnsResourceRecord *rr, const char *name) {
+        const char *nn, *common_suffix;
+        int r;
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_NSEC);
+
+        /* Checks whether the specified nsec RR indicates that name is an empty non-terminal (ENT)
+         *
+         * A couple of examples:
+         *
+         *      NSEC             bar →   waldo.foo.bar: indicates that foo.bar exists and is an ENT
+         *      NSEC   waldo.foo.bar → yyy.zzz.xoo.bar: indicates that xoo.bar and zzz.xoo.bar exist and are ENTs
+         *      NSEC yyy.zzz.xoo.bar →             bar: indicates pretty much nothing about ENTs
+         */
+
+        /* First, determine parent of next domain. */
+        nn = rr->nsec.next_domain_name;
+        r = dns_name_parent(&nn);
+        if (r <= 0)
+                return r;
+
+        /* If the name we just determined is not equal or child of the name we are interested in, then we can't say
+         * anything at all. */
+        r = dns_name_endswith(nn, name);
+        if (r <= 0)
+                return r;
+
+        /* If the name we we are interested in is not a prefix of the common suffix of the NSEC RR's owner and next domain names, then we can't say anything either. */
+        r = dns_name_common_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rr->nsec.next_domain_name, &common_suffix);
+        if (r < 0)
+                return r;
+
+        return dns_name_endswith(name, common_suffix);
+}
+
 int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
-        DnsResourceRecord *rr;
         bool have_nsec3 = false;
+        DnsResourceRecord *rr;
         DnsAnswerFlags flags;
+        const char *name;
         int r;
 
         assert(key);
         assert(result);
 
         /* Look for any NSEC/NSEC3 RRs that say something about the specified key. */
+
+        name = DNS_RESOURCE_KEY_NAME(key);
 
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
 
@@ -1637,7 +1676,7 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
                 case DNS_TYPE_NSEC:
 
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), name);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -1669,11 +1708,13 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                                 return 0;
                         }
 
-                        r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key), rr->nsec.next_domain_name);
+                        /* Check if the name we are looking for is an empty non-terminal within the owner or next name
+                         * of the NSEC RR. */
+                        r = dnssec_nsec_in_path(rr, name);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
-                                *result = DNSSEC_NSEC_NXDOMAIN;
+                                *result = DNSSEC_NSEC_NODATA;
 
                                 if (authenticated)
                                         *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
@@ -1682,7 +1723,19 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
                                 return 0;
                         }
-                        break;
+
+                        r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), name, rr->nsec.next_domain_name);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                *result = DNSSEC_NSEC_NXDOMAIN;
+
+                        if (authenticated)
+                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                        if (ttl)
+                                *ttl = rr->ttl;
+
+                        return 0;
 
                 case DNS_TYPE_NSEC3:
                         have_nsec3 = true;

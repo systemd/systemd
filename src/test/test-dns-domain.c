@@ -578,6 +578,26 @@ static void test_dns_name_compare_func(void) {
         assert_se(dns_name_compare_func("de.", "heise.de") != 0);
 }
 
+static void test_dns_name_common_suffix_one(const char *a, const char *b, const char *result) {
+        const char *c;
+
+        assert_se(dns_name_common_suffix(a, b, &c) >= 0);
+        assert_se(streq(c, result));
+}
+
+static void test_dns_name_common_suffix(void) {
+        test_dns_name_common_suffix_one("", "", "");
+        test_dns_name_common_suffix_one("foo", "", "");
+        test_dns_name_common_suffix_one("", "foo", "");
+        test_dns_name_common_suffix_one("foo", "bar", "");
+        test_dns_name_common_suffix_one("bar", "foo", "");
+        test_dns_name_common_suffix_one("foo", "foo", "foo");
+        test_dns_name_common_suffix_one("quux.foo", "foo", "foo");
+        test_dns_name_common_suffix_one("foo", "quux.foo", "foo");
+        test_dns_name_common_suffix_one("this.is.a.short.sentence", "this.is.another.short.sentence", "short.sentence");
+        test_dns_name_common_suffix_one("FOO.BAR", "tEST.bAR", "BAR");
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -603,6 +623,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_count_labels();
         test_dns_name_equal_skip();
         test_dns_name_compare_func();
+        test_dns_name_common_suffix();
 
         return 0;
 }

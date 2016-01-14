@@ -106,3 +106,5 @@ int dns_name_count_labels(const char *name);
 
 int dns_name_skip(const char *a, unsigned n_labels, const char **ret);
 int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b);
+
+int dns_name_common_suffix(const char *a, const char *b, const char **ret);
