@@ -508,14 +508,14 @@ int dnssec_verify_rrset(
                 DnssecResult *result) {
 
         uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
-        size_t hash_size;
-        void *hash;
         DnsResourceRecord **list, *rr;
+        const char *source, *name;
         gcry_md_hd_t md = NULL;
         int r, md_algorithm;
         size_t k, n = 0;
+        size_t hash_size;
+        void *hash;
         bool wildcard;
-        const char *source;
 
         assert(key);
         assert(rrsig);
@@ -544,8 +544,32 @@ int dnssec_verify_rrset(
                 return 0;
         }
 
+        name = DNS_RESOURCE_KEY_NAME(key);
+
+        /* Some keys may only appear signed in the zone apex, and are invalid anywhere else. (SOA, NS...) */
+        if (dns_type_apex_only(rrsig->rrsig.type_covered)) {
+                r = dns_name_equal(rrsig->rrsig.signer, name);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *result = DNSSEC_INVALID;
+                        return 0;
+                }
+        }
+
+        /* OTOH DS RRs may not appear in the zone apex, but are valid everywhere else. */
+        if (rrsig->rrsig.type_covered == DNS_TYPE_DS) {
+                r = dns_name_equal(rrsig->rrsig.signer, name);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *result = DNSSEC_INVALID;
+                        return 0;
+                }
+        }
+
         /* Determine the "Source of Synthesis" and whether this is a wildcard RRSIG */
-        r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(key), rrsig->rrsig.labels, &source);
+        r = dns_name_suffix(name, rrsig->rrsig.labels, &source);
         if (r < 0)
                 return r;
         if (r > 0 && !dns_type_may_wildcard(rrsig->rrsig.type_covered)) {
@@ -556,11 +580,11 @@ int dnssec_verify_rrset(
         if (r == 1) {
                 /* If we stripped a single label, then let's see if that maybe was "*". If so, we are not really
                  * synthesized from a wildcard, we are the wildcard itself. Treat that like a normal name. */
-                r = dns_name_startswith(DNS_RESOURCE_KEY_NAME(key), "*");
+                r = dns_name_startswith(name, "*");
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        source = DNS_RESOURCE_KEY_NAME(key);
+                        source = name;
 
                 wildcard = r == 0;
         } else

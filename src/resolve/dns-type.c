@@ -135,6 +135,17 @@ bool dns_type_may_wildcard(uint16_t type) {
                        DNS_TYPE_DNAME);
 }
 
+bool dns_type_apex_only(uint16_t type) {
+
+        /* Returns true for all RR types that may only appear signed in a zone apex */
+
+        return IN_SET(type,
+                      DNS_TYPE_SOA,
+                      DNS_TYPE_NS,            /* this one can appear elsewhere, too, but not signed */
+                      DNS_TYPE_DNSKEY,
+                      DNS_TYPE_NSEC3PARAM);
+}
+
 bool dns_type_is_dnssec(uint16_t type) {
         return IN_SET(type,
                       DNS_TYPE_DS,
