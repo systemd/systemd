@@ -1950,7 +1950,7 @@ static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, t->answer) {
 
-                r = dnssec_verify_dnskey_search(rr, t->validated_keys);
+                r = dnssec_verify_dnskey_by_ds_search(rr, t->validated_keys);
                 if (r < 0)
                         return r;
                 if (r == 0)

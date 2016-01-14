@@ -61,8 +61,8 @@ int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig);
 int dnssec_verify_rrset(DnsAnswer *answer, const DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime, DnssecResult *result);
 int dnssec_verify_rrset_search(DnsAnswer *answer, const DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result, DnsResourceRecord **rrsig);
 
-int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke);
-int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
+int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke);
+int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
 
 int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key);
 

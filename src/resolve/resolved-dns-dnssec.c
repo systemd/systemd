@@ -1070,7 +1070,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
+int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
@@ -1140,7 +1140,7 @@ finish:
         return r;
 }
 
-int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
+int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
         DnsResourceRecord *ds;
         DnsAnswerFlags flags;
         int r;
@@ -1166,7 +1166,7 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
                 if (r == 0)
                         continue;
 
-                r = dnssec_verify_dnskey(dnskey, ds, false);
+                r = dnssec_verify_dnskey_by_ds(dnskey, ds, false);
                 if (IN_SET(r, -EKEYREJECTED, -EOPNOTSUPP))
                         return 0; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
                 if (r < 0)
