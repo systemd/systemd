@@ -949,9 +949,10 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_WANTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
+                                        /* unit masked and unit not found are not considered as errors. */
                                         log_unit_full(dep,
-                                                      r == -EBADR /* unit masked */ ? LOG_DEBUG : LOG_WARNING, r,
-                                                      "Cannot add dependency job, ignoring: %s",
+                                                      r == -EBADR || r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                                      r, "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
                                         sd_bus_error_free(e);
                                 }
