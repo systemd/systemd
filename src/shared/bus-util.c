@@ -624,6 +624,7 @@ int bus_connect_system_systemd(sd_bus **_bus) {
                 return r;
 
         bus->bus_client = true;
+        bus->is_system = true;
 
         r = sd_bus_start(bus);
         if (r >= 0) {
@@ -641,6 +642,8 @@ int bus_connect_system_systemd(sd_bus **_bus) {
         r = sd_bus_set_address(bus, "unix:path=/run/systemd/private");
         if (r < 0)
                 return r;
+
+        bus->is_system = true;
 
         r = sd_bus_start(bus);
         if (r < 0)
@@ -674,6 +677,7 @@ int bus_connect_user_systemd(sd_bus **_bus) {
                 return -ENOMEM;
 
         bus->bus_client = true;
+        bus->is_user = true;
 
         r = sd_bus_start(bus);
         if (r >= 0) {
@@ -699,6 +703,8 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         bus->address = strjoin("unix:path=", ee, "/systemd/private", NULL);
         if (!bus->address)
                 return -ENOMEM;
+
+        bus->is_user = true;
 
         r = sd_bus_start(bus);
         if (r < 0)
@@ -2041,12 +2047,15 @@ static const struct {
         { "start-limit", "start of the service was attempted too often" }
 };
 
-static void log_job_error_with_service_result(const char* service, const char *result) {
-        _cleanup_free_ char *service_shell_quoted = NULL;
+static void log_job_error_with_service_result(const char* service, const char *result, const char *extra_args) {
+        _cleanup_free_ char *service_shell_quoted = NULL, *systemctl_extra_args = NULL;
 
         assert(service);
 
         service_shell_quoted = shell_maybe_quote(service);
+
+        systemctl_extra_args = strjoin("systemctl ", extra_args, " ", NULL);
+        systemctl_extra_args = strstrip(systemctl_extra_args);
 
         if (!isempty(result)) {
                 unsigned i;
@@ -2056,23 +2065,26 @@ static void log_job_error_with_service_result(const char* service, const char *r
                                 break;
 
                 if (i < ELEMENTSOF(explanations)) {
-                        log_error("Job for %s failed because %s. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+                        log_error("Job for %s failed because %s. See \"%s status %s\" and \"journalctl -xe\" for details.\n",
                                   service,
                                   explanations[i].explanation,
+                                  systemctl_extra_args,
                                   strna(service_shell_quoted));
 
                         goto finish;
                 }
         }
 
-        log_error("Job for %s failed. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+        log_error("Job for %s failed. See \"%s status %s\" and \"journalctl -xe\" for details.\n",
                   service,
+                  systemctl_extra_args,
                   strna(service_shell_quoted));
 
 finish:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
-                log_info("To force a start use \"systemctl reset-failed %1$s\" followed by \"systemctl start %1$s\" again.",
+                log_info("To force a start use \"%1$s reset-failed %2$s\" followed by \"%1$s start %2$s\" again.",
+                         systemctl_extra_args,
                          strna(service_shell_quoted));
 }
 
@@ -2103,7 +2115,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
                                 if (q < 0)
                                         log_debug_errno(q, "Failed to get Result property of service %s: %m", d->name);
 
-                                log_job_error_with_service_result(d->name, result);
+                                log_job_error_with_service_result(d->name, result, d->bus->is_user ? "--user" : NULL);
                         } else
                                 log_error("Job failed. See \"journalctl -xe\" for details.");
                 }
