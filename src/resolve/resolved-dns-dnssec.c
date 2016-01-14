@@ -1117,8 +1117,8 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
                         continue;
 
                 r = dnssec_verify_dnskey(dnskey, ds, false);
-                if (r == -EKEYREJECTED)
-                        return 0; /* The DNSKEY is revoked or otherwise invalid, we won't bless it */
+                if (IN_SET(r, -EKEYREJECTED, -EOPNOTSUPP))
+                        return 0; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
                 if (r < 0)
                         return r;
                 if (r > 0)
