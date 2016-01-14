@@ -1157,7 +1157,6 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
 
                 if (ds->key->type != DNS_TYPE_DS)
                         continue;
-
                 if (ds->key->class != dnskey->key->class)
                         continue;
 
@@ -1286,6 +1285,13 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
         if (rr->nsec3.iterations > NSEC3_ITERATIONS_MAX)
                 return 0;
 
+        /* Ignore NSEC3 RRs generated from wildcards */
+        if (rr->n_skip_labels_source != 0)
+                return 0;
+        /* Ignore NSEC3 RRs that are located anywhere else than one label below the zone */
+        if (rr->n_skip_labels_signer != 1)
+                return 0;
+
         if (!nsec3)
                 return 1;
 
@@ -1319,6 +1325,7 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
         if (r == 0)
                 return 0;
 
+        /* Make sure both have the same parent */
         return dns_name_equal(a, b);
 }
 
