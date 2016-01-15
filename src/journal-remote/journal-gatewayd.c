@@ -700,7 +700,7 @@ static int request_handler_file(
         if (fstat(fd, &st) < 0)
                 return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m\n");
 
-        response = MHD_create_response_from_fd_at_offset(st.st_size, fd, 0);
+        response = MHD_create_response_from_fd_at_offset64(st.st_size, fd, MHD_VERSION);
         if (!response)
                 return respond_oom(connection);
 
