@@ -974,6 +974,10 @@ static inline int setns(int fd, int nstype) {
 #define IFA_FLAGS 8
 #endif
 
+#ifndef IFA_F_MANAGETEMPADDR
+#define IFA_F_MANAGETEMPADDR 0x100
+#endif
+
 #ifndef IFA_F_NOPREFIXROUTE
 #define IFA_F_NOPREFIXROUTE 0x200
 #endif
