@@ -40,9 +40,10 @@
  *   - log all RRs that failed validation
  *   - enable by default
  *   - Allow clients to request DNSSEC even if DNSSEC is off
- *   - find public DNAME test domain
  *   - make sure when getting an NXDOMAIN response through CNAME, we still process the first CNAMEs in the packet
- *   - flush cache when DNSSEC setting changes
+ *   - update test-complex to also do ResolveAddress lookups
+ *   - extend complex test to check "xn--kprw13d." DNAME domain
+ *   - rework IDNA stuff: only to IDNA for ResolveAddress and ResolveService, and prepare a pair of lookup keys then, never do IDNA comparisons after that
  * */
 
 #define VERIFY_RRS_MAX 256
