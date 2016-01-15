@@ -334,6 +334,46 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
         return 0;
 }
 
+bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b) {
+        assert(a);
+        assert(b);
+
+        /* Try to replace one RR key by another if they are identical, thus saving a bit of memory. Note that we do
+         * this only for RR keys, not for RRs themselves, as they carry a lot of additional metadata (where they come
+         * from, validity data, and suchlike), and cannot be replaced so easily by other RRs that have the same
+         * superficial data. */
+
+        if (!*a)
+                return false;
+        if (!*b)
+                return false;
+
+        /* We refuse merging const keys */
+        if ((*a)->n_ref == (unsigned) -1)
+                return false;
+        if ((*b)->n_ref == (unsigned) -1)
+                return false;
+
+        /* Already the same? */
+        if (*a == *b)
+                return true;
+
+        /* Are they really identical? */
+        if (dns_resource_key_equal(*a, *b) <= 0)
+                return false;
+
+        /* Keep the one which already has more references. */
+        if ((*a)->n_ref > (*b)->n_ref) {
+                dns_resource_key_unref(*b);
+                *b = dns_resource_key_ref(*a);
+        } else {
+                dns_resource_key_unref(*a);
+                *a = dns_resource_key_ref(*b);
+        }
+
+        return true;
+}
+
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
         DnsResourceRecord *rr;
 

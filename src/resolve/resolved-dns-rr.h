@@ -81,7 +81,7 @@ enum {
 };
 
 struct DnsResourceKey {
-        unsigned n_ref;
+        unsigned n_ref; /* (unsigned -1) for const keys, see below */
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
 };
@@ -293,6 +293,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 static inline bool dns_key_is_shared(const DnsResourceKey *key) {
         return IN_SET(key->type, DNS_TYPE_PTR);
 }
+
+bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b);
 
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);

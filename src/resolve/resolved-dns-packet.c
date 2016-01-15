@@ -2106,6 +2106,7 @@ int dns_packet_extract(DnsPacket *p) {
 
         n = DNS_PACKET_RRCOUNT(p);
         if (n > 0) {
+                DnsResourceRecord *previous = NULL;
                 bool bad_opt = false;
 
                 answer = dns_answer_new(n);
@@ -2121,6 +2122,10 @@ int dns_packet_extract(DnsPacket *p) {
                         r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
                         if (r < 0)
                                 goto finish;
+
+                        /* Try to reduce memory usage a bit */
+                        if (previous)
+                                dns_resource_key_reduce(&rr->key, &previous->key);
 
                         if (rr->key->type == DNS_TYPE_OPT) {
                                 bool has_rfc6975;
