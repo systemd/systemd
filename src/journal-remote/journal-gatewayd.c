@@ -840,7 +840,7 @@ static int request_handler(
         assert(method);
 
         if (!streq(method, "GET"))
-                return mhd_respond(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
+                return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE,
                                    "Unsupported method.\n");
 
 
