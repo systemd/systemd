@@ -232,7 +232,9 @@ static void dns_server_verified(DnsServer *s, DnsServerFeatureLevel level) {
                 return;
 
         if (s->verified_feature_level != level) {
-                log_debug("Verified feature level %s.", dns_server_feature_level_to_string(level));
+                log_debug("Verified we get a response at feature level %s from DNS server %s.",
+                          dns_server_feature_level_to_string(level),
+                          dns_server_string(s));
                 s->verified_feature_level = level;
         }
 
@@ -294,7 +296,6 @@ void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel le
 
 void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
-        assert(s->manager);
 
         /* Invoked whenever we get a FORMERR, SERVFAIL or NOTIMP rcode from a server. */
 
@@ -306,7 +307,6 @@ void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level) {
 
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
-        assert(s->manager);
 
         /* Invoked whenever we get a packet with TC bit set. */
 
@@ -316,13 +316,22 @@ void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
         s->packet_truncated = true;
 }
 
-void dns_server_packet_rrsig_missing(DnsServer *s) {
+void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
-        assert(s->manager);
 
-        log_warning("DNS server %s does not augment replies with RRSIG records, DNSSEC not available.", dns_server_string(s));
+        if (level < DNS_SERVER_FEATURE_LEVEL_DO)
+                return;
 
-        s->rrsig_missing = true;
+        s->packet_rrsig_missing = true;
+}
+
+void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level) {
+        assert(s);
+
+        if (level < DNS_SERVER_FEATURE_LEVEL_EDNS0)
+                return;
+
+        s->packet_bad_opt = true;
 }
 
 static bool dns_server_grace_period_expired(DnsServer *s) {
@@ -351,6 +360,8 @@ static void dns_server_reset_counters(DnsServer *s) {
         s->n_failed_tcp = 0;
         s->packet_failed = false;
         s->packet_truncated = false;
+        s->packet_bad_opt = false;
+        s->packet_rrsig_missing = false;
         s->verified_usec = 0;
 }
 
@@ -361,11 +372,9 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
             dns_server_grace_period_expired(s)) {
 
                 s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
-                s->rrsig_missing = false;
-
                 dns_server_reset_counters(s);
 
-                log_info("Grace period over, resuming full feature set (%s) for DNS server %s",
+                log_info("Grace period over, resuming full feature set (%s) for DNS server %s.",
                          dns_server_feature_level_to_string(s->possible_feature_level),
                          dns_server_string(s));
 
@@ -375,46 +384,75 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 DnsServerFeatureLevel p = s->possible_feature_level;
 
                 if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                    s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP)
+                    s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP) {
 
                         /* We are at the TCP (lowest) level, and we tried a couple of TCP connections, and it didn't
                          * work. Upgrade back to UDP again. */
+                        log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
 
-                else if ((s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                          s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_UDP) ||
-                         (s->packet_failed &&
-                          s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) ||
-                         (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                          s->packet_truncated &&
-                          s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP))
+                } else if (s->packet_bad_opt &&
+                           s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
 
-                        /* Downgrade the feature one level, maybe things will work better then. We do this under any of
-                         * three conditions:
-                         *
-                         * 1. We lost too many UDP packets in a row, and are on a feature level of UDP or higher. If
-                         *    the packets are lost, maybe the server cannot parse them, hence downgrading sounds like a
-                         *    good idea. We might downgrade all the way down to TCP this way.
-                         *
-                         * 2. We got a failure packet, and are at a feature level above UDP. Note that in this case we
-                         *    downgrade no further than UDP, under the assumption that a failure packet indicates an
-                         *    incompatible packet contents, but not a problem with the transport.
-                         *
-                         * 3. We got too many TCP connection failures in a row, we had at least one truncated packet,
-                         *    and are on a feature level above UDP. By downgrading things and getting rid of DNSSEC or
-                         *    EDNS0 data we hope to make the packet smaller, so that it still works via UDP given that
-                         *    TCP appears not to be a fallback. Note that if we are already at the lowest UDP level, we
-                         *    don't go further down, since that's TCP, and TCP failed too often after all.
-                         */
+                        /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to below
+                         * EDNS0 levels. After all, some records generate different responses with and without OPT RR
+                         * in the request. Example:
+                         * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
 
+                        log_debug("Server doesn't support EDNS(0) properly, downgrading feature level...");
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+
+                } else if (s->packet_rrsig_missing &&
+                           s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO) {
+
+                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server doesn't
+                         * augment responses with DNSSEC RRs. If so, let's better not ask the server for it anymore,
+                         * after all some servers generate different replies depending if an OPT RR is in the query or
+                         * not. */
+
+                        log_debug("Detected server responses lack RRSIG records, downgrading feature level...");
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+
+                } else if (s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                            s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_UDP) {
+
+                        /* We lost too many UDP packets in a row, and are on a feature level of UDP or higher. If the
+                         * packets are lost, maybe the server cannot parse them, hence downgrading sounds like a good
+                         * idea. We might downgrade all the way down to TCP this way. */
+
+                        log_debug("Lost too many UDP packets, downgrading feature level...");
                         s->possible_feature_level--;
+
+                } else if (s->packet_failed &&
+                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
+
+                        /* We got a failure packet, and are at a feature level above UDP. Note that in this case we
+                         * downgrade no further than UDP, under the assumption that a failure packet indicates an
+                         * incompatible packet contents, but not a problem with the transport. */
+
+                        log_debug("Got server failure, downgrading feature level...");
+                        s->possible_feature_level--;
+
+                } else if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                           s->packet_truncated &&
+                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
+
+                         /* We got too many TCP connection failures in a row, we had at least one truncated packet, and
+                          * are on a feature level above UDP. By downgrading things and getting rid of DNSSEC or EDNS0
+                          * data we hope to make the packet smaller, so that it still works via UDP given that TCP
+                          * appears not to be a fallback. Note that if we are already at the lowest UDP level, we don't
+                          * go further down, since that's TCP, and TCP failed too often after all. */
+
+                        log_debug("Got too many failed TCP connection failures and truncated UDP packets, downgrading feature level...");
+                        s->possible_feature_level--;
+                }
 
                 if (p != s->possible_feature_level) {
 
                         /* We changed the feature level, reset the counting */
                         dns_server_reset_counters(s);
 
-                        log_warning("Using degraded feature set (%s) for DNS server %s",
+                        log_warning("Using degraded feature set (%s) for DNS server %s.",
                                     dns_server_feature_level_to_string(s->possible_feature_level),
                                     dns_server_string(s));
                 }
@@ -468,7 +506,10 @@ bool dns_server_dnssec_supported(DnsServer *server) {
         if (server->possible_feature_level < DNS_SERVER_FEATURE_LEVEL_DO)
                 return false;
 
-        if (server->rrsig_missing)
+        if (server->packet_bad_opt)
+                return false;
+
+        if (server->packet_rrsig_missing)
                 return false;
 
         /* DNSSEC servers need to support TCP properly (see RFC5966), if they don't, we assume DNSSEC is borked too */

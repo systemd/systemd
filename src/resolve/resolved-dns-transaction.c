@@ -726,12 +726,16 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        /* Parse message, if it isn't parsed yet. */
+        /* After the superficial checks, actually parse the message. */
         r = dns_packet_extract(p);
         if (r < 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
+
+        /* Report that the OPT RR was missing */
+        if (t->server && !p->opt)
+                dns_server_packet_bad_opt(t->server, t->current_feature_level);
 
         if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR)) {
 
@@ -2416,7 +2420,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         if (!dns_transaction_dnssec_supported_full(t)) {
                 /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
-                log_debug("Cannot validate response, server lacks DNSSEC support.");
+                log_debug("Not validating response, server lacks DNSSEC support.");
                 return 0;
         }
 
@@ -2590,7 +2594,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         /* This is an RR we know has to be signed. If it isn't this means
                                          * the server is not attaching RRSIGs, hence complain. */
 
-                                        dns_server_packet_rrsig_missing(t->server);
+                                        dns_server_packet_rrsig_missing(t->server, t->current_feature_level);
 
                                         if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
 
