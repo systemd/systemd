@@ -26,6 +26,11 @@
 
 #include "macro.h"
 
+/* Compatiblity with libmicrohttpd < 0.9.38 */
+#ifndef MHD_HTTP_NOT_ACCEPTABLE
+#define MHD_HTTP_NOT_ACCEPTABLE MHD_HTTP_METHOD_NOT_ACCEPTABLE
+#endif
+
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 
 /* respond_oom() must be usable with return, hence this form. */

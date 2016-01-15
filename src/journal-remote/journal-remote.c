@@ -587,7 +587,7 @@ static int request_handler(
                                            *connection_cls);
 
         if (!streq(method, "POST"))
-                return mhd_respond(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
+                return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE,
                                    "Unsupported method.\n");
 
         if (!streq(url, "/upload"))
