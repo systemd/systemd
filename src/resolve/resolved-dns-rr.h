@@ -309,6 +309,7 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
 int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret);
 int dns_resource_record_source(DnsResourceRecord *rr, const char **ret);
 int dns_resource_record_is_signer(DnsResourceRecord *rr, const char *zone);
+int dns_resource_record_is_synthetic(DnsResourceRecord *rr);
 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);

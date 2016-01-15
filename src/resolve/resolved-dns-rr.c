@@ -1136,11 +1136,36 @@ int dns_resource_record_is_signer(DnsResourceRecord *rr, const char *zone) {
         const char *signer;
         int r;
 
+        assert(rr);
+
         r = dns_resource_record_signer(rr, &signer);
         if (r < 0)
                 return r;
 
         return dns_name_equal(zone, signer);
+}
+
+int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
+        int r;
+
+        assert(rr);
+
+        /* Returns > 0 if the RR is generated from a wildcard, and is not the asterisk name itself */
+
+        if (rr->n_skip_labels_source == (unsigned) -1)
+                return -ENODATA;
+
+        if (rr->n_skip_labels_source == 0)
+                return 0;
+
+        if (rr->n_skip_labels_source > 1)
+                return 1;
+
+        r = dns_name_startswith(DNS_RESOURCE_KEY_NAME(rr->key), "*");
+        if (r < 0)
+                return r;
+
+        return !r;
 }
 
 static void dns_resource_record_hash_func(const void *i, struct siphash *state) {
