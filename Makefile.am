@@ -5297,6 +5297,9 @@ tests += \
 	test-dns-domain \
 	test-dnssec
 
+manual_tests += \
+	test-dnssec-complex
+
 test_dnssec_SOURCES = \
 	src/resolve/test-dnssec.c \
 	src/resolve/resolved-dns-packet.c \
@@ -5313,6 +5316,14 @@ test_dnssec_SOURCES = \
 	src/resolve/dns-type.h
 
 test_dnssec_LDADD = \
+	libshared.la
+
+test_dnssec_complex_SOURCES = \
+	src/resolve/test-dnssec-complex.c \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h
+
+test_dnssec_complex_LDADD = \
 	libshared.la
 
 endif
