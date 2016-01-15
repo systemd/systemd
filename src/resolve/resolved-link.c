@@ -279,6 +279,7 @@ clear:
 
 static int link_update_dnssec_mode(Link *l) {
         _cleanup_free_ char *m = NULL;
+        DnssecMode mode;
         int r;
 
         assert(l);
@@ -291,11 +292,22 @@ static int link_update_dnssec_mode(Link *l) {
         if (r < 0)
                 goto clear;
 
-        l->dnssec_mode = dnssec_mode_from_string(m);
-        if (l->dnssec_mode < 0) {
+        mode = dnssec_mode_from_string(m);
+        if (mode < 0) {
                 r = -EINVAL;
                 goto clear;
         }
+
+        if ((l->dnssec_mode == DNSSEC_NO && mode != DNSSEC_NO) ||
+            (l->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && mode == DNSSEC_YES)) {
+
+                /* When switching from non-DNSSEC mode to DNSSEC mode, flush the cache. Also when switching from the
+                 * allow-downgrade mode to full DNSSEC mode, flush it too. */
+                if (l->unicast_scope)
+                        dns_cache_flush(&l->unicast_scope->cache);
+        }
+
+        l->dnssec_mode = mode;
 
         return 0;
 
