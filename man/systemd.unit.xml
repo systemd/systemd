@@ -875,7 +875,7 @@
 
         <para><varname>ConditionSecurity=</varname> may be used to
         check whether the given security module is enabled on the
-        system. Currently, the recognized values values are
+        system. Currently, the recognized values are
         <varname>selinux</varname>,
         <varname>apparmor</varname>,
         <varname>ima</varname>,
