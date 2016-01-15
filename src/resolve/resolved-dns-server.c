@@ -248,13 +248,18 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
                 if (s->possible_feature_level == level)
                         s->n_failed_udp = 0;
 
+                /* If the RRSIG data is missing, then we can only validate EDNS0 at max */
+                if (s->packet_rrsig_missing && level >= DNS_SERVER_FEATURE_LEVEL_DO)
+                        level = DNS_SERVER_FEATURE_LEVEL_DO - 1;
+
+                /* If the OPT RR got lost, then we can only validate UDP at max */
+                if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
+                        level = DNS_SERVER_FEATURE_LEVEL_EDNS0 - 1;
+
+                /* Even if we successfully receive a reply to a request announcing support for large packets,
+                   that does not mean we can necessarily receive large packets. */
                 if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
-                        /* Even if we successfully receive a reply to a request announcing support for large packets,
-                           that does not mean we can necessarily receive large packets. */
-                        dns_server_verified(s, DNS_SERVER_FEATURE_LEVEL_LARGE - 1);
-                else
-                        /* A successful UDP reply, verifies UDP, ENDS0 and DO levels */
-                        dns_server_verified(s, level);
+                        level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
 
         } else if (protocol == IPPROTO_TCP) {
 
@@ -262,8 +267,10 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
                         s->n_failed_tcp = 0;
 
                 /* Successful TCP connections are only useful to verify the TCP feature level. */
-                dns_server_verified(s, DNS_SERVER_FEATURE_LEVEL_TCP);
+                level = DNS_SERVER_FEATURE_LEVEL_TCP;
         }
+
+        dns_server_verified(s, level);
 
         /* Remember the size of the largest UDP packet we received from a server,
            we know that we can always announce support for packets with at least
@@ -322,6 +329,10 @@ void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level) 
         if (level < DNS_SERVER_FEATURE_LEVEL_DO)
                 return;
 
+        /* If the RRSIG RRs are missing, we have to downgrade what we previously verified */
+        if (s->verified_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO)
+                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_DO-1;
+
         s->packet_rrsig_missing = true;
 }
 
@@ -330,6 +341,10 @@ void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level) {
 
         if (level < DNS_SERVER_FEATURE_LEVEL_EDNS0)
                 return;
+
+        /* If the OPT RR got lost, we have to downgrade what we previously verified */
+        if (s->verified_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
+                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0-1;
 
         s->packet_bad_opt = true;
 }
