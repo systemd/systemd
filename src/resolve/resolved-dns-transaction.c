@@ -43,6 +43,17 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_nsec_ttl = (uint32_t) -1;
 }
 
+static void dns_transaction_flush_dnssec_transactions(DnsTransaction *t) {
+        DnsTransaction *z;
+
+        assert(t);
+
+        while ((z = set_steal_first(t->dnssec_transactions))) {
+                set_remove(z->notify_transactions, t);
+                dns_transaction_gc(z);
+        }
+}
+
 static void dns_transaction_close_connection(DnsTransaction *t) {
         assert(t);
 
@@ -95,10 +106,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 set_remove(z->dnssec_transactions, t);
         set_free(t->notify_transactions);
 
-        while ((z = set_steal_first(t->dnssec_transactions))) {
-                set_remove(z->notify_transactions, t);
-                dns_transaction_gc(z);
-        }
+        dns_transaction_flush_dnssec_transactions(t);
         set_free(t->dnssec_transactions);
 
         dns_answer_unref(t->validated_keys);
@@ -965,6 +973,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
         t->start_usec = ts;
 
         dns_transaction_reset_answer(t);
+        dns_transaction_flush_dnssec_transactions(t);
 
         /* Check the trust anchor. Do so only on classic DNS, since DNSSEC does not apply otherwise. */
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
