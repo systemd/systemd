@@ -31,6 +31,10 @@
 #define MHD_HTTP_NOT_ACCEPTABLE MHD_HTTP_METHOD_NOT_ACCEPTABLE
 #endif
 
+#if MHD_VERSION < 0x00094203
+#define MHD_create_response_from_fd_at_offset64 MHD_create_response_from_fd_at_offset
+#endif
+
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 
 /* respond_oom() must be usable with return, hence this form. */
