@@ -2017,6 +2017,48 @@ fail:
         return r;
 }
 
+static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
+        const uint8_t* p;
+        bool found_dau_dhu_n3u = false;
+        size_t l;
+
+        /* Checks whether the specified OPT RR is well-formed and whether it contains RFC6975 data (which is not OK in
+         * a reply). */
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_OPT);
+
+        /* Check that the version is 0 */
+        if (((rr->ttl >> 16) & UINT32_C(0xFF)) != 0)
+                return false;
+
+        p = rr->opt.data;
+        l = rr->opt.size;
+        while (l > 0) {
+                uint16_t option_code, option_length;
+
+                /* At least four bytes for OPTION-CODE and OPTION-LENGTH are required */
+                if (l < 4U)
+                        return false;
+
+                option_code = unaligned_read_be16(p);
+                option_length = unaligned_read_be16(p + 2);
+
+                if (l < option_length + 4U)
+                        return false;
+
+                /* RFC 6975 DAU, DHU or N3U fields found. */
+                if (IN_SET(option_code, 5, 6, 7))
+                        found_dau_dhu_n3u = true;
+
+                p += option_length + 4U;
+                l -= option_length + 4U;
+        }
+
+        *rfc6975 = found_dau_dhu_n3u;
+        return true;
+}
+
 int dns_packet_extract(DnsPacket *p) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
@@ -2064,6 +2106,8 @@ int dns_packet_extract(DnsPacket *p) {
 
         n = DNS_PACKET_RRCOUNT(p);
         if (n > 0) {
+                bool bad_opt = false;
+
                 answer = dns_answer_new(n);
                 if (!answer) {
                         r = -ENOMEM;
@@ -2079,35 +2123,57 @@ int dns_packet_extract(DnsPacket *p) {
                                 goto finish;
 
                         if (rr->key->type == DNS_TYPE_OPT) {
+                                bool has_rfc6975;
 
-                                if (!dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key))) {
-                                        r = -EBADMSG;
-                                        goto finish;
+                                if (p->opt || bad_opt) {
+                                        /* Multiple OPT RRs? if so, let's ignore all, because there's something wrong
+                                         * with the server, and if one is valid we wouldn't know which one. */
+                                        log_debug("Multiple OPT RRs detected, ignoring all.");
+                                        bad_opt = true;
+                                        continue;
                                 }
 
-                                /* Note that we accept the OPT RR in
-                                 * any section, not just in the
-                                 * additional section, as some routers
-                                 * (Belkin!)  blindly copy the OPT RR
-                                 * from the query to the reply packet,
-                                 * and don't get the section right. */
+                                if (!dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key))) {
+                                        /* If the OPT RR qis not owned by the root domain, then it is bad, let's ignore
+                                         * it. */
+                                        log_debug("OPT RR is not owned by root domain, ignoring.");
+                                        bad_opt = true;
+                                        continue;
+                                }
 
-                                /* Two OPT RRs? */
-                                if (p->opt) {
-                                        r = -EBADMSG;
-                                        goto finish;
+                                if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
+                                        /* OPT RR is in the wrong section? Some Belkin routers do this. This is a hint
+                                         * the EDNS implementation is borked, like the Belkin one is, hence ignore
+                                         * it. */
+                                        log_debug("OPT RR in wrong section, ignoring.");
+                                        bad_opt = true;
+                                        continue;
+                                }
+
+                                if (!opt_is_good(rr, &has_rfc6975)) {
+                                        log_debug("Malformed OPT RR, ignoring.");
+                                        bad_opt = true;
+                                        continue;
+                                }
+
+                                if (has_rfc6975) {
+                                        /* OPT RR contains RFC6975 algorithm data, then this is indication that the
+                                         * server just copied the OPT it got from us (which contained that data) back
+                                         * into the reply. If so, then it doesn't properly support EDNS, as RFC6975
+                                         * makes it very clear that the algorithm data should only be contained in
+                                         * questions, never in replies. Crappy Belkin copy the OPT data for example,
+                                         * hence let's detect this so that we downgrade early. */
+                                        log_debug("OPT RR contained RFC6975 data, ignoring.");
+                                        bad_opt = true;
+                                        continue;
                                 }
 
                                 p->opt = dns_resource_record_ref(rr);
                         } else {
 
-                                /* According to RFC 4795, section
-                                 * 2.9. only the RRs from the Answer
-                                 * section shall be cached. Hence mark
-                                 * only those RRs as cacheable by
-                                 * default, but not the ones from the
-                                 * Additional or Authority
-                                 * sections. */
+                                /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
+                                 * cached. Hence mark only those RRs as cacheable by default, but not the ones from the
+                                 * Additional or Authority sections. */
 
                                 r = dns_answer_add(answer, rr, p->ifindex,
                                                    (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
@@ -2116,6 +2182,9 @@ int dns_packet_extract(DnsPacket *p) {
                                         goto finish;
                         }
                 }
+
+                if (bad_opt)
+                        p->opt = dns_resource_record_unref(p->opt);
         }
 
         p->question = question;
