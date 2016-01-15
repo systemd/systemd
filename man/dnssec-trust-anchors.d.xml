@@ -121,7 +121,7 @@
     must be <literal>IN</literal>, followed by
     <literal>DNSKEY</literal>. The subsequent words encode the DNSKEY
     flags, protocol and algorithm fields, followed by the key data
-    encoded in Base64. See See <ulink
+    encoded in Base64. See <ulink
     url="https://tools.ietf.org/html/rfc4034#section-2">RFC 4034,
     Section 2</ulink> for details about the precise syntax and meaning
     of these fields.</para>
@@ -152,7 +152,7 @@
     trust anchor via adding in new trust anchor files.</para>
 
     <para>The current DNSSEC trust anchor for the Internet's root
-    domain is available a the <ulink
+    domain is available at the <ulink
     url="https://data.iana.org/root-anchors/root-anchors.xml">IANA
     Trust Anchor and Keys</ulink> page.</para>
   </refsect1>

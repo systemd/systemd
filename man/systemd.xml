@@ -259,7 +259,7 @@
         <term><option>--machine-id=</option></term>
 
         <listitem><para>Override the machine-id set on the hard drive,
-        userful for network booting or for containers. May not be set
+        useful for network booting or for containers. May not be set
         to all zeros.</para></listitem>
       </varlistentry>
 
