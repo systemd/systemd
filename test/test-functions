@@ -138,6 +138,17 @@ install_valgrind() {
     dracut_install $_valgrind_dbg_and_supp
 }
 
+create_valgrind_wrapper() {
+    local _valgrind_wrapper=$initdir/$ROOTLIBDIR/systemd-under-valgrind
+    ddebug "Create $_valgrind_wrapper"
+    cat >$_valgrind_wrapper <<EOF
+#!/bin/bash
+
+exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
+EOF
+    chmod 0755 $_valgrind_wrapper
+}
+
 install_dmevent() {
     instmods dm_crypt =crypto
     type -P dmeventd >/dev/null && dracut_install dmeventd
