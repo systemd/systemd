@@ -900,7 +900,14 @@ static int remoteserver_init(RemoteServer *s,
         if (arg_url) {
                 const char *url, *hostname;
 
-                url = strjoina(arg_url, "/entries");
+                if (!strstr(arg_url, "/entries")) {
+                        if (endswith(arg_url, "/"))
+                                url = strjoina(arg_url, "entries");
+                        else
+                                url = strjoina(arg_url, "/entries");
+                }
+                else
+                        url = strdupa(arg_url);
 
                 if (arg_getter) {
                         log_info("Spawning getter %s...", url);
