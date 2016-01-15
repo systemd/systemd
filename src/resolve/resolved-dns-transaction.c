@@ -683,8 +683,6 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         return;
                 } else if (DNS_PACKET_TC(p))
                         dns_server_packet_truncated(t->server, t->current_feature_level);
-                else
-                        dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, ts - t->start_usec, p->size);
 
                 break;
 
@@ -742,8 +740,12 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         /* Report that the OPT RR was missing */
-        if (t->server && !p->opt)
-                dns_server_packet_bad_opt(t->server, t->current_feature_level);
+        if (t->server) {
+                if (!p->opt)
+                        dns_server_packet_bad_opt(t->server, t->current_feature_level);
+
+                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, ts - t->start_usec, p->size);
+        }
 
         if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR)) {
 
