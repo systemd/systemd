@@ -362,6 +362,25 @@ static void dns_transaction_retry(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
 }
 
+static int dns_transaction_maybe_restart(DnsTransaction *t) {
+        assert(t);
+
+        if (!t->server)
+                return 0;
+
+        if (t->current_feature_level <= dns_server_possible_feature_level(t->server))
+                return 0;
+
+        /* The server's current feature level is lower than when we sent the original query. We learnt something from
+           the response or possibly an auxiliary DNSSEC response that we didn't know before.  We take that as reason to
+           restart the whole transaction. This is a good idea to deal with servers that respond rubbish if we include
+           OPT RR or DO bit. One of these cases is documented here, for example:
+           https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
+
+        log_debug("Server feature level is now lower than when we began our transaction. Restarting.");
+        return dns_transaction_go(t);
+}
+
 static int on_stream_complete(DnsStream *s, int error) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsTransaction *t;
@@ -544,6 +563,16 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
 
         /* Are there ongoing DNSSEC transactions? If so, let's wait for them. */
         if (dns_transaction_dnssec_is_live(t))
+                return;
+
+        /* See if we learnt things from the additional DNSSEC transactions, that we didn't know before, and better
+         * restart the lookup immediately. */
+        r = dns_transaction_maybe_restart(t);
+        if (r < 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                return;
+        }
+        if (r > 0) /* Transaction got restarted... */
                 return;
 
         /* All our auxiliary DNSSEC transactions are complete now. Try
@@ -746,6 +775,15 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                 dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, ts - t->start_usec, p->size);
         }
+
+        /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
+        r = dns_transaction_maybe_restart(t);
+        if (r < 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                return;
+        }
+        if (r > 0) /* Transaction got restarted... */
+                return;
 
         if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR)) {
 
