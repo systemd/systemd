@@ -35,17 +35,14 @@
  *
  * TODO:
  *
- *   - wildcard zones compatibility (NSEC/NSEC3 wildcard check is missing)
- *   - multi-label zone compatibility
- *   - cname/dname compatibility
- *   - nxdomain on qname
  *   - bus calls to override DNSEC setting per interface
  *   - log all DNSSEC downgrades
+ *   - log all RRs that failed validation
  *   - enable by default
- *
- *   - RFC 4035, Section 5.3.4 (When receiving a positive wildcard reply, use NSEC to ensure it actually really applies)
- *   - RFC 6840, Section 4.1 (ensure we don't get fed a glue NSEC from the parent zone)
- *   - RFC 6840, Section 4.3 (check for CNAME on NSEC too)
+ *   - Allow clients to request DNSSEC even if DNSSEC is off
+ *   - find public DNAME test domain
+ *   - make sure when getting an NXDOMAIN response through CNAME, we still process the first CNAMEs in the packet
+ *   - flush cache when DNSSEC setting changes
  * */
 
 #define VERIFY_RRS_MAX 256
