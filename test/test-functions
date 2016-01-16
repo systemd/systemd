@@ -111,6 +111,7 @@ setup_basic_environment() {
     install_keymaps
     install_terminfo
     install_execs
+    install_fsck
     install_plymouth
     install_debug_tools
     install_ld_so_conf
@@ -147,6 +148,11 @@ create_valgrind_wrapper() {
 exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
 EOF
     chmod 0755 $_valgrind_wrapper
+}
+
+install_fsck() {
+    dracut_install /sbin/fsck*
+    dracut_install -o /bin/fsck*
 }
 
 install_dmevent() {
