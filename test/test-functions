@@ -159,7 +159,13 @@ install_dmevent() {
     instmods dm_crypt =crypto
     type -P dmeventd >/dev/null && dracut_install dmeventd
     inst_libdir_file "libdevmapper-event.so*"
-    inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
+    if [[ "$LOOKS_LIKE_DEBIAN" ]]; then
+        # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
+        # see https://anonscm.debian.org/cgit/pkg-lvm/lvm2.git/tree/debian/patches/0007-udev.patch
+        inst_rules 55-dm.rules 60-persistent-storage-dm.rules
+    else
+        inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
+    fi
 }
 
 install_systemd() {
