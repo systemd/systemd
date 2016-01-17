@@ -77,7 +77,6 @@ EOF
 /dev/mapper/varcrypt    /var    ext3    defaults 0 1
 EOF
     ) || return 1
-    setup_nspawn_root
 
     ddebug "umount $TESTDIR/root/var"
     umount $TESTDIR/root/var
