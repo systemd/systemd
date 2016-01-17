@@ -4,9 +4,12 @@
 # installed job.
 
 systemctl start --no-block hello-after-sleep.target
-# sleep is now running, hello/start is waiting. Verify that:
+
 systemctl list-jobs > /root/list-jobs.txt
-grep 'sleep\.service.*running' /root/list-jobs.txt || exit 1
+while ! grep 'sleep\.service.*running' /root/list-jobs.txt; do
+    systemctl list-jobs > /root/list-jobs.txt
+done
+
 grep 'hello\.service.*waiting' /root/list-jobs.txt || exit 1
 
 # This is supposed to finish quickly, not wait for sleep to finish.
