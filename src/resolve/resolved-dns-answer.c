@@ -821,3 +821,40 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
                 fputc('\n', f);
         }
 }
+
+bool dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(cname);
+
+        /* Checks whether the answer contains a DNAME record that indicates that the specified CNAME record is
+         * synthesized from it */
+
+        if (cname->key->type != DNS_TYPE_CNAME)
+                return 0;
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                _cleanup_free_ char *n = NULL;
+
+                if (rr->key->type != DNS_TYPE_DNAME)
+                        continue;
+                if (rr->key->class != cname->key->class)
+                        continue;
+
+                r = dns_name_change_suffix(cname->cname.name, rr->dname.name, DNS_RESOURCE_KEY_NAME(rr->key), &n);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = dns_name_equal(n, DNS_RESOURCE_KEY_NAME(cname->key));
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+
+        }
+
+        return 0;
+}

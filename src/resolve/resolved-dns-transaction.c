@@ -1827,6 +1827,12 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
+                        r = dns_answer_has_dname_for_cname(t->answer, rr);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
                         name = DNS_RESOURCE_KEY_NAME(rr->key);
                         r = dns_name_parent(&name);
                         if (r < 0)
@@ -2719,17 +2725,30 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
                         if (r > 0) {
-                                /* This is a primary response
-                                 * to our question, and it
-                                 * failed validation. That's
-                                 * fatal. */
-                                t->answer_dnssec_result = result;
-                                return 0;
+
+                                /* Look for a matching DNAME for this CNAME */
+                                r = dns_answer_has_dname_for_cname(t->answer, rr);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        /* Also look among the stuff we already validated */
+                                        r = dns_answer_has_dname_for_cname(validated, rr);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                if (r == 0) {
+                                        /* This is a primary response to our question, and it failed validation. That's
+                                         * fatal. */
+                                        t->answer_dnssec_result = result;
+                                        return 0;
+                                }
+
+                                /* This is a primary response, but we do have a DNAME RR in the RR that can replay this
+                                 * CNAME, hence rely on that, and we can remove the CNAME in favour of it. */
                         }
 
-                        /* This is just some auxiliary
-                         * data. Just remove the RRset and
-                         * continue. */
+                        /* This is just some auxiliary data. Just remove the RRset and continue. */
                         r = dns_answer_remove_by_key(&t->answer, rr->key);
                         if (r < 0)
                                 return r;
