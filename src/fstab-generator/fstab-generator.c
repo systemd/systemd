@@ -574,7 +574,7 @@ static int add_sysroot_usr_mount(void) {
                          false,
                          false,
                          false,
-                         SPECIAL_INITRD_ROOT_FS_TARGET,
+                         SPECIAL_INITRD_FS_TARGET,
                          "/proc/cmdline");
 }
 
