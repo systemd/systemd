@@ -1607,6 +1607,7 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
+        unit_file_changes_free(changes, n_changes);
         return sd_bus_send(NULL, reply, NULL);
 
 fail:
