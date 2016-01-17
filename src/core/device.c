@@ -267,7 +267,7 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
         assert(u);
         assert(dev);
 
-        property = u->manager->running_as == MANAGER_USER ? "MANAGER_USER_WANTS" : "SYSTEMD_WANTS";
+        property = u->manager->running_as == MANAGER_USER ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
         wants = udev_device_get_property_value(dev, property);
         if (!wants)
                 return 0;
