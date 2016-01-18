@@ -499,7 +499,6 @@ int dns_packet_append_name(
                 const char *z = name;
                 char label[DNS_LABEL_MAX];
                 size_t n = 0;
-                int k;
 
                 if (allow_compression)
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
@@ -518,17 +517,6 @@ int dns_packet_append_name(
                 r = dns_label_unescape(&name, label, sizeof(label));
                 if (r < 0)
                         goto fail;
-
-                if (p->protocol == DNS_PROTOCOL_DNS)
-                        k = dns_label_apply_idna(label, r, label, sizeof(label));
-                else
-                        k = dns_label_undo_idna(label, r, label, sizeof(label));
-                if (k < 0) {
-                        r = k;
-                        goto fail;
-                }
-                if (k > 0)
-                        r = k;
 
                 r = dns_packet_append_label(p, label, r, canonical_candidate, &n);
                 if (r < 0)

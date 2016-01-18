@@ -210,32 +210,27 @@ int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b) {
 
 int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, DnsQuestion **ret) {
         _cleanup_(dns_question_unrefp) DnsQuestion *n = NULL;
+        DnsResourceKey *key;
         bool same = true;
-        unsigned i;
         int r;
 
         assert(cname);
         assert(ret);
         assert(IN_SET(cname->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME));
 
-        if (!q) {
-                n = dns_question_new(0);
-                if (!n)
-                        return -ENOMEM;
-
-                *ret = n;
-                n = 0;
+        if (dns_question_size(q) <= 0) {
+                *ret = NULL;
                 return 0;
         }
 
-        for (i = 0; i < q->n_keys; i++) {
+        DNS_QUESTION_FOREACH(key, q) {
                 _cleanup_free_ char *destination = NULL;
                 const char *d;
 
                 if (cname->key->type == DNS_TYPE_CNAME)
                         d = cname->cname.name;
                 else {
-                        r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(q->keys[i]), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                        r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -244,7 +239,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                         d = destination;
                 }
 
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), d);
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(key), d);
                 if (r < 0)
                         return r;
 
@@ -254,9 +249,9 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                 }
         }
 
+        /* Fully the same, indicate we didn't do a thing */
         if (same) {
-                /* Shortcut, the names are already right */
-                *ret = dns_question_ref(q);
+                *ret = NULL;
                 return 0;
         }
 
@@ -265,10 +260,10 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                 return -ENOMEM;
 
         /* Create a new question, and patch in the new name */
-        for (i = 0; i < q->n_keys; i++) {
+        DNS_QUESTION_FOREACH(key, q) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
 
-                k = dns_resource_key_new_redirect(q->keys[i], cname);
+                k = dns_resource_key_new_redirect(key, cname);
                 if (!k)
                         return -ENOMEM;
 
@@ -294,8 +289,9 @@ const char *dns_question_first_name(DnsQuestion *q) {
         return DNS_RESOURCE_KEY_NAME(q->keys[0]);
 }
 
-int dns_question_new_address(DnsQuestion **ret, int family, const char *name) {
+int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bool convert_idna) {
         _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_free_ char *buf = NULL;
         int r;
 
         assert(ret);
@@ -303,6 +299,14 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name) {
 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return -EAFNOSUPPORT;
+
+        if (convert_idna) {
+                r = dns_name_apply_idna(name, &buf);
+                if (r < 0)
+                        return r;
+
+                name = buf;
+        }
 
         q = dns_question_new(family == AF_UNSPEC ? 2 : 1);
         if (!q)
@@ -374,13 +378,60 @@ int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_
         return 0;
 }
 
-int dns_question_new_service(DnsQuestion **ret, const char *name, bool with_txt) {
+int dns_question_new_service(
+                DnsQuestion **ret,
+                const char *service,
+                const char *type,
+                const char *domain,
+                bool with_txt,
+                bool convert_idna) {
+
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_free_ char *buf = NULL, *joined = NULL;
+        const char *name;
         int r;
 
         assert(ret);
-        assert(name);
+
+        /* We support three modes of invocation:
+         *
+         * 1. Only a domain is specified, in which case we assume a properly encoded SRV RR name, including service
+         *    type and possibly a service name. If specified in this way we assume it's already IDNA converted if
+         *    that's necessary.
+         *
+         * 2. Both service type and a domain specified, in which case a normal SRV RR is assumed, without a DNS-SD
+         *    style prefix. In this case we'll IDNA convert the domain, if that's requested.
+         *
+         * 3. All three of service name, type and domain are specified, in which case a DNS-SD service is put
+         *    together. The service name is never IDNA converted, and the domain is if requested.
+         *
+         * It's not supported to specify a service name without a type, or no domain name.
+         */
+
+        if (!domain)
+                return -EINVAL;
+
+        if (type) {
+                if (convert_idna) {
+                        r = dns_name_apply_idna(domain, &buf);
+                        if (r < 0)
+                                return r;
+
+                        domain = buf;
+                }
+
+                r = dns_service_join(service, type, domain, &joined);
+                if (r < 0)
+                        return r;
+
+                name = joined;
+        } else {
+                if (service)
+                        return -EINVAL;
+
+                name = domain;
+        }
 
         q = dns_question_new(1 + with_txt);
         if (!q)

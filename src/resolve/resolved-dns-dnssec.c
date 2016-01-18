@@ -1005,16 +1005,6 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
                         return r;
                 if (r == 0)
                         break;
-                if (r > 0) {
-                        int k;
-
-                        /* DNSSEC validation is always done on the ASCII version of the label */
-                        k = dns_label_apply_idna(buffer, r, buffer, buffer_max);
-                        if (k < 0)
-                                return k;
-                        if (k > 0)
-                                r = k;
-                }
 
                 if (buffer_max < (size_t) r + 2)
                         return -ENOBUFS;
