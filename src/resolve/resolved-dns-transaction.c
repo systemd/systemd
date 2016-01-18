@@ -967,12 +967,12 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
         if (r == 0) {
-                log_debug("Received inappropriate DNS packet as response, ignoring: %m");
+                log_debug("Received inappropriate DNS packet as response, ignoring.");
                 return 0;
         }
 
         if (DNS_PACKET_ID(p) != t->id) {
-                log_debug("Received packet with incorrect transaction ID, ignoring: %m");
+                log_debug("Received packet with incorrect transaction ID, ignoring.");
                 return 0;
         }
 
