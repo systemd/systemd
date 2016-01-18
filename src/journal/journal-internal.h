@@ -115,6 +115,8 @@ struct sd_journal {
                                   removed, and there were no more
                                   files, so sd_j_enumerate_unique
                                   will return a value equal to 0. */
+        bool has_runtime_files;
+        bool has_persistent_files;
 
         size_t data_threshold;
 

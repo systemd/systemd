@@ -1508,11 +1508,22 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                 sd_id128_t id;
 
                 if (dirent_is_file_with_suffix(de, ".journal") ||
-                    dirent_is_file_with_suffix(de, ".journal~"))
+                    dirent_is_file_with_suffix(de, ".journal~")) {
                         (void) add_file(j, m->path, de->d_name);
+                        if (path_startswith(p, "/run"))
+                                j->has_runtime_files = true;
+                        else if (path_startswith(p, "/var"))
+                                j->has_persistent_files = true;
+                }
                 else if (IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN) &&
-                         sd_id128_from_string(de->d_name, &id) >= 0)
+                         sd_id128_from_string(de->d_name, &id) >= 0) {
                         (void) add_directory(j, m->path, de->d_name);
+                        if (path_startswith(p, "/run"))
+                                j->has_runtime_files = true;
+                        else if (path_startswith(p, "/var"))
+                                j->has_persistent_files = true;
+                }
+
         }
 
         check_network(j, dirfd(d));
@@ -2629,4 +2640,12 @@ _public_ int sd_journal_get_data_threshold(sd_journal *j, size_t *sz) {
 
         *sz = j->data_threshold;
         return 0;
+}
+
+_public_ bool sd_journal_has_runtime_files(sd_journal *j) {
+        return j->has_runtime_files;
+}
+
+_public_ bool sd_journal_has_persistent_files(sd_journal *j) {
+        return j->has_persistent_files;
 }
