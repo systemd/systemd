@@ -47,7 +47,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key);
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain);
 int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr, const char* search_domain);
 int dns_question_is_valid_for_query(DnsQuestion *q);
-int dns_question_contains(DnsQuestion *a, DnsResourceKey *k);
+int dns_question_contains(DnsQuestion *a, const DnsResourceKey *k);
 int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b);
 
 int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, DnsQuestion **ret);

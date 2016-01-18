@@ -155,7 +155,7 @@ int dns_question_is_valid_for_query(DnsQuestion *q) {
         return 1;
 }
 
-int dns_question_contains(DnsQuestion *a, DnsResourceKey *k) {
+int dns_question_contains(DnsQuestion *a, const DnsResourceKey *k) {
         unsigned j;
         int r;
 
