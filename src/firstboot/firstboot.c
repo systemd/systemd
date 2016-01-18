@@ -502,7 +502,7 @@ static int write_root_shadow(const char *path, const struct spwd *p) {
 
         errno = 0;
         if (putspent(p, f) != 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return fflush_and_check(f);
 }

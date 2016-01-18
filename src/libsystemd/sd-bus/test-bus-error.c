@@ -44,7 +44,15 @@ static void test_error(void) {
         assert_se(sd_bus_error_is_set(&error));
         sd_bus_error_free(&error);
 
+        /* Check with no error */
         assert_se(!sd_bus_error_is_set(&error));
+        assert_se(sd_bus_error_setf(&error, NULL, "yyy %i", -1) == 0);
+        assert_se(error.name == NULL);
+        assert_se(error.message == NULL);
+        assert_se(!sd_bus_error_has_name(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
+        assert_se(sd_bus_error_get_errno(&error) == 0);
+        assert_se(!sd_bus_error_is_set(&error));
+
         assert_se(sd_bus_error_setf(&error, SD_BUS_ERROR_FILE_NOT_FOUND, "yyy %i", -1) == -ENOENT);
         assert_se(streq(error.name, SD_BUS_ERROR_FILE_NOT_FOUND));
         assert_se(streq(error.message, "yyy -1"));
@@ -112,6 +120,16 @@ static void test_error(void) {
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_IO_ERROR));
         assert_se(sd_bus_error_get_errno(&error) == EIO);
         assert_se(sd_bus_error_is_set(&error));
+        sd_bus_error_free(&error);
+
+        /* Check with no error */
+        assert_se(!sd_bus_error_is_set(&error));
+        assert_se(sd_bus_error_set_errnof(&error, 0, "Waldi %c", 'X') == 0);
+        assert_se(error.name == NULL);
+        assert_se(error.message == NULL);
+        assert_se(!sd_bus_error_has_name(&error, SD_BUS_ERROR_IO_ERROR));
+        assert_se(sd_bus_error_get_errno(&error) == 0);
+        assert_se(!sd_bus_error_is_set(&error));
 }
 
 extern const sd_bus_error_map __start_BUS_ERROR_MAP[];
@@ -167,6 +185,16 @@ static const sd_bus_error_map test_errors4[] = {
         SD_BUS_ERROR_MAP_END
 };
 
+static const sd_bus_error_map test_errors_bad1[] = {
+        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", 0),
+        SD_BUS_ERROR_MAP_END
+};
+
+static const sd_bus_error_map test_errors_bad2[] = {
+        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", -1),
+        SD_BUS_ERROR_MAP_END
+};
+
 static void test_errno_mapping_custom(void) {
         assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error", NULL) == -5);
         assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-2", NULL) == -52);
@@ -190,6 +218,9 @@ static void test_errno_mapping_custom(void) {
         assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-y", NULL) == -EIO);
 
         assert_se(sd_bus_error_set(NULL, BUS_ERROR_NO_SUCH_UNIT, NULL) == -ENOENT);
+
+        assert_se(sd_bus_error_add_map(test_errors_bad1) == -EINVAL);
+        assert_se(sd_bus_error_add_map(test_errors_bad2) == -EINVAL);
 }
 
 int main(int argc, char *argv[]) {

@@ -539,7 +539,7 @@ static int read_next_mapping(const char* filename,
                 if (!fgets(line, sizeof(line), f)) {
 
                         if (ferror(f))
-                                return errno ? -errno : -EIO;
+                                return errno > 0 ? -errno : -EIO;
 
                         return 0;
                 }

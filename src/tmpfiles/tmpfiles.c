@@ -1075,7 +1075,7 @@ static int item_do_children(Item *i, const char *path, action_t action) {
                 errno = 0;
                 de = readdir(d);
                 if (!de) {
-                        if (errno != 0 && r == 0)
+                        if (errno > 0 && r == 0)
                                 r = -errno;
 
                         break;

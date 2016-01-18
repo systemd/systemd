@@ -141,7 +141,7 @@ static int property_get_nice(
         else {
                 errno = 0;
                 n = getpriority(PRIO_PROCESS, 0);
-                if (errno != 0)
+                if (errno > 0)
                         n = 0;
         }
 
@@ -1382,7 +1382,7 @@ int bus_exec_context_set_transient_property(
                                 dirs = &c->read_write_dirs;
                         else if (streq(name, "ReadOnlyDirectories"))
                                 dirs = &c->read_only_dirs;
-                        else if (streq(name, "InaccessibleDirectories"))
+                        else /* "InaccessibleDirectories" */
                                 dirs = &c->inaccessible_dirs;
 
                         if (strv_length(l) == 0) {

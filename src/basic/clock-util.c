@@ -120,8 +120,10 @@ int clock_set_timezone(int *min) {
          * system clock, so that it runs in UTC instead of the local time we
          * have read from the RTC.
          */
-        if (settimeofday(tv_null, &tz) < 0)
+        if (settimeofday(tv_null, &tz) < 0) {
+                assert(errno > 0);
                 return -errno;
+        }
         if (min)
                 *min = minutesdelta;
         return 0;

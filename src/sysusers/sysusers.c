@@ -280,7 +280,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
 
                         errno = 0;
                         if (putgrent(&t, group) != 0)
-                                return errno ? -errno : -EIO;
+                                return errno > 0 ? -errno : -EIO;
 
                         return 1;
                 }
@@ -288,7 +288,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
 
         errno = 0;
         if (putgrent(gr, group) != 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return 0;
 }
@@ -330,7 +330,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 
                         errno = 0;
                         if (putsgent(&t, gshadow) != 0)
-                                return errno ? -errno : -EIO;
+                                return errno > 0 ? -errno : -EIO;
 
                         return 1;
                 }
@@ -338,7 +338,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 
         errno = 0;
         if (putsgent(sg, gshadow) != 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return 0;
 }

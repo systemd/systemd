@@ -910,7 +910,7 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno != 0)
+                        if (ferror(f) && errno > 0)
                                 return -errno;
 
                         return -EIO;
@@ -968,7 +968,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno != 0)
+                                if (ferror(f) && errno > 0)
                                         return -errno;
 
                                 return -EIO;
@@ -1028,7 +1028,7 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno != 0)
+                        if (ferror(f) && errno > 0)
                                 return -errno;
 
                         return -EIO;
@@ -1086,7 +1086,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno != 0)
+                                if (ferror(f) && errno > 0)
                                         return -errno;
 
                                 return -EIO;

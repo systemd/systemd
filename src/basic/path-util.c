@@ -101,8 +101,10 @@ int path_make_absolute_cwd(const char *p, char **ret) {
                 _cleanup_free_ char *cwd = NULL;
 
                 cwd = get_current_dir_name();
-                if (!cwd)
+                if (!cwd) {
+                        assert(errno > 0);
                         return -errno;
+                }
 
                 c = strjoin(cwd, "/", p, NULL);
         }

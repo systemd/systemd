@@ -139,7 +139,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         errno = 0;
         p = getpwuid(uid);
         if (!p)
-                return errno ? -errno : -ENOENT;
+                return errno > 0 ? -errno : -ENOENT;
 
         return manager_add_user(m, uid, p->pw_gid, p->pw_name, _user);
 }
