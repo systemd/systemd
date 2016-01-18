@@ -108,7 +108,7 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *s
         return 0;
 }
 
-int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
+int dns_question_matches_cname_or_dname(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
         unsigned i;
         int r;
 
@@ -117,7 +117,14 @@ int dns_question_matches_cname(DnsQuestion *q, DnsResourceRecord *rr, const char
         if (!q)
                 return 0;
 
+        if (!IN_SET(rr->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME))
+                return 0;
+
         for (i = 0; i < q->n_keys; i++) {
+                /* For a {C,D}NAME record we can never find a matching {C,D}NAME record */
+                if (!dns_type_may_redirect(q->keys[i]->type))
+                        return 0;
+
                 r = dns_resource_key_match_cname_or_dname(q->keys[i], rr->key, search_domain);
                 if (r != 0)
                         return r;

@@ -1268,7 +1268,7 @@ int dns_query_process_cname(DnsQuery *q) {
                 if (r > 0)
                         return DNS_QUERY_MATCH; /* The answer matches directly, no need to follow cnames */
 
-                r = dns_question_matches_cname(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                r = dns_question_matches_cname_or_dname(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
                         return r;
                 if (r > 0 && !cname)
