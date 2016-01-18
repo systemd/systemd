@@ -212,6 +212,10 @@ check_result_nspawn() {
 }
 
 strip_binaries() {
+    if [[ "$STRIP_BINARIES" = "no" ]]; then
+        ddebug "Don't strip binaries"
+        return 0
+    fi
     ddebug "Strip binaries"
     find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | xargs strip --strip-unneeded | ddebug
 }
