@@ -21,6 +21,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-type.h"
 #include "resolved-dns-question.h"
 
 DnsQuestion *dns_question_new(unsigned n) {
@@ -144,12 +145,17 @@ int dns_question_is_valid_for_query(DnsQuestion *q) {
                 return 0;
 
         /* Check that all keys in this question bear the same name */
-        for (i = 1; i < q->n_keys; i++) {
+        for (i = 0; i < q->n_keys; i++) {
                 assert(q->keys[i]);
 
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), name);
-                if (r <= 0)
-                        return r;
+                if (i > 0) {
+                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), name);
+                        if (r <= 0)
+                                return r;
+                }
+
+                if (!dns_type_is_valid_query(q->keys[i]->type))
+                        return 0;
         }
 
         return 1;
