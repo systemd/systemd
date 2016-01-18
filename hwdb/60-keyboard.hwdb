@@ -499,6 +499,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook450G0:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard:pnHPProBook6555b:*
  KEYBOARD_KEY_b2=www                                    # Earth
 
+# HP ProBook 440 G3
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*440*G3*
+ KEYBOARD_KEY_92=brightnessdown
+ KEYBOARD_KEY_97=brightnessup
+ KEYBOARD_KEY_ee=switchvideomode
+ KEYBOARD_KEY_81=f20                                    # micmute
+
 ###########################################################
 # IBM
 ###########################################################
