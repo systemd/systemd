@@ -1210,7 +1210,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (r < 0)
                 return r;
         else if (r > 0)
-                log_debug("Following CNAME/DNAME %s → %s", dns_question_first_name(q->question_idna), dns_question_first_name(nq_idna));
+                log_debug("Following CNAME/DNAME %s → %s.", dns_question_first_name(q->question_idna), dns_question_first_name(nq_idna));
 
         k = dns_question_is_equal(q->question_idna, q->question_utf8);
         if (k < 0)
@@ -1224,7 +1224,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 if (k < 0)
                         return k;
                 else if (k > 0)
-                        log_debug("Following UTF8 CNAME/DNAME %s → %s", dns_question_first_name(q->question_utf8), dns_question_first_name(nq_utf8));
+                        log_debug("Following UTF8 CNAME/DNAME %s → %s.", dns_question_first_name(q->question_utf8), dns_question_first_name(nq_utf8));
         }
 
         if (r == 0 && k == 0) /* No actual cname happened? */
