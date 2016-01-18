@@ -309,6 +309,25 @@ static void dns_query_stop(DnsQuery *q) {
                 dns_query_candidate_stop(c);
 }
 
+static void dns_query_free_candidates(DnsQuery *q) {
+        assert(q);
+
+        while (q->candidates)
+                dns_query_candidate_free(q->candidates);
+}
+
+static void dns_query_reset_answer(DnsQuery *q) {
+        assert(q);
+
+        q->answer = dns_answer_unref(q->answer);
+        q->answer_rcode = 0;
+        q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        q->answer_authenticated = false;
+        q->answer_protocol = _DNS_PROTOCOL_INVALID;
+        q->answer_family = AF_UNSPEC;
+        q->answer_search_domain = dns_search_domain_unref(q->answer_search_domain);
+}
+
 DnsQuery *dns_query_free(DnsQuery *q) {
         if (!q)
                 return NULL;
@@ -322,13 +341,12 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 LIST_REMOVE(auxiliary_queries, q->auxiliary_for->auxiliary_queries, q);
         }
 
-        while (q->candidates)
-                dns_query_candidate_free(q->candidates);
+        dns_query_free_candidates(q);
 
         dns_question_unref(q->question_idna);
         dns_question_unref(q->question_utf8);
-        dns_answer_unref(q->answer);
-        dns_search_domain_unref(q->answer_search_domain);
+
+        dns_query_reset_answer(q);
 
         sd_bus_message_unref(q->request);
         sd_bus_track_unref(q->bus_track);
@@ -401,8 +419,9 @@ int dns_query_new(
         q->question_idna = dns_question_ref(question_idna);
         q->ifindex = ifindex;
         q->flags = flags;
-        q->answer_family = AF_UNSPEC;
+        q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         q->answer_protocol = _DNS_PROTOCOL_INVALID;
+        q->answer_family = AF_UNSPEC;
 
         /* First dump UTF8  question */
         DNS_QUESTION_FOREACH(key, question_utf8) {
@@ -1219,7 +1238,8 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         q->question_utf8 = nq_utf8;
         nq_utf8 = NULL;
 
-        dns_query_stop(q);
+        dns_query_free_candidates(q);
+        dns_query_reset_answer(q);
         q->state = DNS_TRANSACTION_NULL;
 
         return 0;
