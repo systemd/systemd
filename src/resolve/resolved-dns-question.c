@@ -183,6 +183,9 @@ int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b) {
         unsigned j;
         int r;
 
+        if (a == b)
+                return 1;
+
         if (!a)
                 return !b || b->n_keys == 0;
         if (!b)
