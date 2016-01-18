@@ -1844,8 +1844,10 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_preset_all(scope, runtime, NULL, mm, force, &changes, &n_changes);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_free(changes, n_changes);
                 return r;
+        }
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
