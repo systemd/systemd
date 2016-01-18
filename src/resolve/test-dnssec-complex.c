@@ -227,5 +227,12 @@ int main(int argc, char* argv[]) {
         test_hostname_lookup(bus, "pöttering.de", AF_INET6, NULL);
 #endif
 
+        /* DNAME, pointing to NXDOMAIN */
+        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_RP, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
+
         return 0;
 }
