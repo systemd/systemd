@@ -598,6 +598,26 @@ static void test_dns_name_common_suffix(void) {
         test_dns_name_common_suffix_one("FOO.BAR", "tEST.bAR", "BAR");
 }
 
+static void test_dns_name_apply_idna_one(const char *s, const char *result) {
+#ifdef HAVE_LIBIDN
+        _cleanup_free_ char *buf = NULL;
+        assert_se(dns_name_apply_idna(s, &buf) >= 0);
+        assert_se(dns_name_equal(buf, result) > 0);
+#endif
+}
+
+static void test_dns_name_apply_idna(void) {
+        test_dns_name_apply_idna_one("", "");
+        test_dns_name_apply_idna_one("foo", "foo");
+        test_dns_name_apply_idna_one("foo.", "foo");
+        test_dns_name_apply_idna_one("foo.bar", "foo.bar");
+        test_dns_name_apply_idna_one("foo.bar.", "foo.bar");
+        test_dns_name_apply_idna_one("föö", "xn--f-1gaa");
+        test_dns_name_apply_idna_one("föö.", "xn--f-1gaa");
+        test_dns_name_apply_idna_one("föö.bär", "xn--f-1gaa.xn--br-via");
+        test_dns_name_apply_idna_one("föö.bär.", "xn--f-1gaa.xn--br-via");
+}
+
 int main(int argc, char *argv[]) {
 
         test_dns_label_unescape();
@@ -624,6 +644,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_equal_skip();
         test_dns_name_compare_func();
         test_dns_name_common_suffix();
+        test_dns_name_apply_idna();
 
         return 0;
 }

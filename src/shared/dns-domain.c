@@ -1303,3 +1303,55 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
                 k++;
         }
 }
+
+int dns_name_apply_idna(const char *name, char **ret) {
+        _cleanup_free_ char *buf = NULL;
+        size_t n = 0, allocated = 0;
+        bool first = true;
+        int r, q;
+
+        assert(name);
+        assert(ret);
+
+        for (;;) {
+                char label[DNS_LABEL_MAX];
+
+                r = dns_label_unescape(&name, label, sizeof(label));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                q = dns_label_apply_idna(label, r, label, sizeof(label));
+                if (q < 0)
+                        return q;
+                if (q > 0)
+                        r = q;
+
+                if (!GREEDY_REALLOC(buf, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        return -ENOMEM;
+
+                r = dns_label_escape(label, r, buf + n + !first, DNS_LABEL_ESCAPED_MAX);
+                if (r < 0)
+                        return r;
+
+                if (first)
+                        first = false;
+                else
+                        buf[n++] = '.';
+
+                n +=r;
+        }
+
+        if (n > DNS_HOSTNAME_MAX)
+                return -EINVAL;
+
+        if (!GREEDY_REALLOC(buf, allocated, n + 1))
+                return -ENOMEM;
+
+        buf[n] = 0;
+        *ret = buf;
+        buf = NULL;
+
+        return (int) n;
+}
