@@ -137,6 +137,22 @@ bool dns_transaction_gc(DnsTransaction *t) {
         return true;
 }
 
+static uint16_t pick_new_id(Manager *m) {
+        uint16_t new_id;
+
+        /* Find a fresh, unused transaction id. Note that this loop is bounded because there's a limit on the number of
+         * transactions, and it's much lower than the space of IDs. */
+
+        assert_cc(TRANSACTIONS_MAX < 0xFFFF);
+
+        do
+                random_bytes(&new_id, sizeof(new_id));
+        while (new_id == 0 ||
+               hashmap_get(m->dns_transactions, UINT_TO_PTR(new_id)));
+
+        return new_id;
+}
+
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) {
         _cleanup_(dns_transaction_freep) DnsTransaction *t = NULL;
         int r;
@@ -177,11 +193,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t->key = dns_resource_key_ref(key);
         t->current_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
 
-        /* Find a fresh, unused transaction id */
-        do
-                random_bytes(&t->id, sizeof(t->id));
-        while (t->id == 0 ||
-               hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(t->id)));
+        t->id = pick_new_id(s->manager);
 
         r = hashmap_put(s->manager->dns_transactions, UINT_TO_PTR(t->id), t);
         if (r < 0) {
@@ -206,6 +218,22 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t = NULL;
 
         return 0;
+}
+
+static void dns_transaction_shuffle_id(DnsTransaction *t) {
+        uint16_t new_id;
+        assert(t);
+
+        /* Pick a new ID for this transaction. */
+
+        new_id = pick_new_id(t->scope->manager);
+        assert_se(hashmap_remove_and_put(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id), UINT_TO_PTR(new_id), t) >= 0);
+
+        log_debug("Transaction %" PRIu16 " is now %" PRIu16 ".", t->id, new_id);
+        t->id = new_id;
+
+        /* Make sure we generate a new packet with the new ID */
+        t->sent = dns_packet_unref(t->sent);
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
@@ -382,7 +410,8 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
            OPT RR or DO bit. One of these cases is documented here, for example:
            https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
 
-        log_debug("Server feature level is now lower than when we began our transaction. Restarting.");
+        log_debug("Server feature level is now lower than when we began our transaction. Restarting with new ID.");
+        dns_transaction_shuffle_id(t);
         return dns_transaction_go(t);
 }
 
