@@ -31,6 +31,8 @@
 #include "resolved-llmnr.h"
 #include "string-table.h"
 
+#define TRANSACTIONS_MAX 4096
+
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
 
@@ -152,6 +154,9 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         /* We only support the IN class */
         if (key->class != DNS_CLASS_IN && key->class != DNS_CLASS_ANY)
                 return -EOPNOTSUPP;
+
+        if (hashmap_size(s->manager->dns_transactions) >= TRANSACTIONS_MAX)
+                return -EBUSY;
 
         r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL);
         if (r < 0)
