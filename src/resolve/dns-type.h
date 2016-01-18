@@ -132,6 +132,7 @@ bool dns_type_may_redirect(uint16_t type);
 bool dns_type_is_dnssec(uint16_t type);
 bool dns_type_is_obsolete(uint16_t type);
 bool dns_type_may_wildcard(uint16_t type);
+bool dns_type_apex_only(uint16_t type);
 
 bool dns_class_is_pseudo(uint16_t class);
 bool dns_class_is_valid_rr(uint16_t class);

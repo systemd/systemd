@@ -247,6 +247,19 @@ static int dns_cache_link_item(DnsCache *c, DnsCacheItem *i) {
 
         first = hashmap_get(c->by_key, i->key);
         if (first) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
+
+                /* Keep a reference to the original key, while we manipulate the list. */
+                k = dns_resource_key_ref(first->key);
+
+                /* Now, try to reduce the number of keys we keep */
+                dns_resource_key_reduce(&first->key, &i->key);
+
+                if (first->rr)
+                        dns_resource_key_reduce(&first->rr->key, &i->key);
+                if (i->rr)
+                        dns_resource_key_reduce(&i->rr->key, &i->key);
+
                 LIST_PREPEND(by_key, first, i);
                 assert_se(hashmap_replace(c->by_key, first->key, first) >= 0);
         } else {

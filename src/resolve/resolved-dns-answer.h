@@ -83,6 +83,8 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr);
 int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKey *key, DnsAnswerFlags or_flags);
 int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKey *key, DnsAnswerFlags or_flags);
 
+bool dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname);
+
 static inline unsigned dns_answer_size(DnsAnswer *a) {
         return a ? a->n_rrs : 0;
 }

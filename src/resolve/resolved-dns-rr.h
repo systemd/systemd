@@ -81,7 +81,7 @@ enum {
 };
 
 struct DnsResourceKey {
-        unsigned n_ref;
+        unsigned n_ref; /* (unsigned -1) for const keys, see below */
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
 };
@@ -108,14 +108,24 @@ struct DnsTxtItem {
 struct DnsResourceRecord {
         unsigned n_ref;
         DnsResourceKey *key;
+
         char *to_string;
+
         uint32_t ttl;
         usec_t expiry; /* RRSIG signature expiry */
+
+        /* How many labels to strip to determine "signer" of the RRSIG (aka, the zone). -1 if not signed. */
+        unsigned n_skip_labels_signer;
+        /* How many labels to strip to determine "synthesizing source" of this RR, i.e. the wildcard's immediate parent. -1 if not signed. */
+        unsigned n_skip_labels_source;
+
         bool unparseable:1;
+
         bool wire_format_canonical:1;
         void *wire_format;
         size_t wire_format_size;
         size_t wire_format_rdata_offset;
+
         union {
                 struct {
                         void *data;
@@ -284,6 +294,8 @@ static inline bool dns_key_is_shared(const DnsResourceKey *key) {
         return IN_SET(key->type, DNS_TYPE_PTR);
 }
 
+bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b);
+
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
@@ -295,6 +307,11 @@ const char* dns_resource_record_to_string(DnsResourceRecord *rr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
+
+int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret);
+int dns_resource_record_source(DnsResourceRecord *rr, const char **ret);
+int dns_resource_record_is_signer(DnsResourceRecord *rr, const char *zone);
+int dns_resource_record_is_synthetic(DnsResourceRecord *rr);
 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);

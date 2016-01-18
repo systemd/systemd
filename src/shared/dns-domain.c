@@ -1157,22 +1157,20 @@ finish:
         return 0;
 }
 
-int dns_name_suffix(const char *name, unsigned n_labels, const char **ret) {
-        const char* labels[DNS_N_LABELS_MAX+1];
-        unsigned n = 0;
+static int dns_name_build_suffix_table(const char *name, const char*table[]) {
         const char *p;
+        unsigned n = 0;
         int r;
 
         assert(name);
-        assert(ret);
+        assert(table);
 
         p = name;
         for (;;) {
                 if (n > DNS_N_LABELS_MAX)
                         return -EINVAL;
 
-                labels[n] = p;
-
+                table[n] = p;
                 r = dns_name_parent(&p);
                 if (r < 0)
                         return r;
@@ -1182,11 +1180,45 @@ int dns_name_suffix(const char *name, unsigned n_labels, const char **ret) {
                 n++;
         }
 
-        if (n < n_labels)
+        return (int) n;
+}
+
+int dns_name_suffix(const char *name, unsigned n_labels, const char **ret) {
+        const char* labels[DNS_N_LABELS_MAX+1];
+        int n;
+
+        assert(name);
+        assert(ret);
+
+        n = dns_name_build_suffix_table(name, labels);
+        if (n < 0)
+                return n;
+
+        if ((unsigned) n < n_labels)
                 return -EINVAL;
 
         *ret = labels[n - n_labels];
         return (int) (n - n_labels);
+}
+
+int dns_name_skip(const char *a, unsigned n_labels, const char **ret) {
+        int r;
+
+        assert(a);
+        assert(ret);
+
+        for (; n_labels > 0; n_labels --) {
+                r = dns_name_parent(&a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret = "";
+                        return 0;
+                }
+        }
+
+        *ret = a;
+        return 1;
 }
 
 int dns_name_count_labels(const char *name) {
@@ -1219,14 +1251,55 @@ int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b) {
         assert(a);
         assert(b);
 
-        while (n_labels > 0) {
-
-                r = dns_name_parent(&a);
-                if (r <= 0)
-                        return r;
-
-                n_labels --;
-        }
+        r = dns_name_skip(a, n_labels, &a);
+        if (r <= 0)
+                return r;
 
         return dns_name_equal(a, b);
+}
+
+int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
+        const char *a_labels[DNS_N_LABELS_MAX+1], *b_labels[DNS_N_LABELS_MAX+1];
+        int n = 0, m = 0, k = 0, r, q;
+
+        assert(a);
+        assert(b);
+        assert(ret);
+
+        /* Determines the common suffix of domain names a and b */
+
+        n = dns_name_build_suffix_table(a, a_labels);
+        if (n < 0)
+                return n;
+
+        m = dns_name_build_suffix_table(b, b_labels);
+        if (m < 0)
+                return m;
+
+        for (;;) {
+                char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
+                const char *x, *y;
+
+                if (k >= n || k >= m) {
+                        *ret = a_labels[n - k];
+                        return 0;
+                }
+
+                x = a_labels[n - 1 - k];
+                r = dns_label_unescape_undo_idna(&x, la, sizeof(la));
+                if (r < 0)
+                        return r;
+
+                y = b_labels[m - 1 - k];
+                q = dns_label_unescape_undo_idna(&y, lb, sizeof(lb));
+                if (q < 0)
+                        return q;
+
+                if (r != q || ascii_strcasecmp_n(la, lb, r) != 0) {
+                        *ret = a_labels[n - k];
+                        return 0;
+                }
+
+                k++;
+        }
 }

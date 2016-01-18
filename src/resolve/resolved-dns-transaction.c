@@ -43,6 +43,17 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_nsec_ttl = (uint32_t) -1;
 }
 
+static void dns_transaction_flush_dnssec_transactions(DnsTransaction *t) {
+        DnsTransaction *z;
+
+        assert(t);
+
+        while ((z = set_steal_first(t->dnssec_transactions))) {
+                set_remove(z->notify_transactions, t);
+                dns_transaction_gc(z);
+        }
+}
+
 static void dns_transaction_close_connection(DnsTransaction *t) {
         assert(t);
 
@@ -95,10 +106,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 set_remove(z->dnssec_transactions, t);
         set_free(t->notify_transactions);
 
-        while ((z = set_steal_first(t->dnssec_transactions))) {
-                set_remove(z->notify_transactions, t);
-                dns_transaction_gc(z);
-        }
+        dns_transaction_flush_dnssec_transactions(t);
         set_free(t->dnssec_transactions);
 
         dns_answer_unref(t->validated_keys);
@@ -354,6 +362,25 @@ static void dns_transaction_retry(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
 }
 
+static int dns_transaction_maybe_restart(DnsTransaction *t) {
+        assert(t);
+
+        if (!t->server)
+                return 0;
+
+        if (t->current_feature_level <= dns_server_possible_feature_level(t->server))
+                return 0;
+
+        /* The server's current feature level is lower than when we sent the original query. We learnt something from
+           the response or possibly an auxiliary DNSSEC response that we didn't know before.  We take that as reason to
+           restart the whole transaction. This is a good idea to deal with servers that respond rubbish if we include
+           OPT RR or DO bit. One of these cases is documented here, for example:
+           https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
+
+        log_debug("Server feature level is now lower than when we began our transaction. Restarting.");
+        return dns_transaction_go(t);
+}
+
 static int on_stream_complete(DnsStream *s, int error) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsTransaction *t;
@@ -538,6 +565,16 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
         if (dns_transaction_dnssec_is_live(t))
                 return;
 
+        /* See if we learnt things from the additional DNSSEC transactions, that we didn't know before, and better
+         * restart the lookup immediately. */
+        r = dns_transaction_maybe_restart(t);
+        if (r < 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                return;
+        }
+        if (r > 0) /* Transaction got restarted... */
+                return;
+
         /* All our auxiliary DNSSEC transactions are complete now. Try
          * to validate our RRset now. */
         r = dns_transaction_validate_dnssec(t);
@@ -675,8 +712,6 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         return;
                 } else if (DNS_PACKET_TC(p))
                         dns_server_packet_truncated(t->server, t->current_feature_level);
-                else
-                        dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, ts - t->start_usec, p->size);
 
                 break;
 
@@ -726,12 +761,29 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        /* Parse message, if it isn't parsed yet. */
+        /* After the superficial checks, actually parse the message. */
         r = dns_packet_extract(p);
         if (r < 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
+
+        /* Report that the OPT RR was missing */
+        if (t->server) {
+                if (!p->opt)
+                        dns_server_packet_bad_opt(t->server, t->current_feature_level);
+
+                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, ts - t->start_usec, p->size);
+        }
+
+        /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
+        r = dns_transaction_maybe_restart(t);
+        if (r < 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                return;
+        }
+        if (r > 0) /* Transaction got restarted... */
+                return;
 
         if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR)) {
 
@@ -961,6 +1013,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
         t->start_usec = ts;
 
         dns_transaction_reset_answer(t);
+        dns_transaction_flush_dnssec_transactions(t);
 
         /* Check the trust anchor. Do so only on classic DNS, since DNSSEC does not apply otherwise. */
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
@@ -1774,6 +1827,12 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
+                        r = dns_answer_has_dname_for_cname(t->answer, rr);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
                         name = DNS_RESOURCE_KEY_NAME(rr->key);
                         r = dns_name_parent(&name);
                         if (r < 0)
@@ -1950,7 +2009,7 @@ static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, t->answer) {
 
-                r = dnssec_verify_dnskey_search(rr, t->validated_keys);
+                r = dnssec_verify_dnskey_by_ds_search(rr, t->validated_keys);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -2416,7 +2475,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         if (!dns_transaction_dnssec_supported_full(t)) {
                 /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
-                log_debug("Cannot validate response, server lacks DNSSEC support.");
+                log_debug("Not validating response, server lacks DNSSEC support.");
                 return 0;
         }
 
@@ -2537,11 +2596,9 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                  * that no matching non-wildcard RR exists.*/
 
                                 /* First step, determine the source of synthesis */
-                                r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rrsig->rrsig.labels, &source);
+                                r = dns_resource_record_source(rrsig, &source);
                                 if (r < 0)
                                         return r;
-                                if (r == 0)
-                                        return -EBADMSG;
 
                                 r = dnssec_test_positive_wildcard(
                                                 validated,
@@ -2592,7 +2649,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         /* This is an RR we know has to be signed. If it isn't this means
                                          * the server is not attaching RRSIGs, hence complain. */
 
-                                        dns_server_packet_rrsig_missing(t->server);
+                                        dns_server_packet_rrsig_missing(t->server, t->current_feature_level);
 
                                         if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
 
@@ -2668,17 +2725,30 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
                         if (r > 0) {
-                                /* This is a primary response
-                                 * to our question, and it
-                                 * failed validation. That's
-                                 * fatal. */
-                                t->answer_dnssec_result = result;
-                                return 0;
+
+                                /* Look for a matching DNAME for this CNAME */
+                                r = dns_answer_has_dname_for_cname(t->answer, rr);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        /* Also look among the stuff we already validated */
+                                        r = dns_answer_has_dname_for_cname(validated, rr);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                if (r == 0) {
+                                        /* This is a primary response to our question, and it failed validation. That's
+                                         * fatal. */
+                                        t->answer_dnssec_result = result;
+                                        return 0;
+                                }
+
+                                /* This is a primary response, but we do have a DNAME RR in the RR that can replay this
+                                 * CNAME, hence rely on that, and we can remove the CNAME in favour of it. */
                         }
 
-                        /* This is just some auxiliary
-                         * data. Just remove the RRset and
-                         * continue. */
+                        /* This is just some auxiliary data. Just remove the RRset and continue. */
                         r = dns_answer_remove_by_key(&t->answer, rr->key);
                         if (r < 0)
                                 return r;

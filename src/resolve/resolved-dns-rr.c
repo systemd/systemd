@@ -334,6 +334,46 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
         return 0;
 }
 
+bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b) {
+        assert(a);
+        assert(b);
+
+        /* Try to replace one RR key by another if they are identical, thus saving a bit of memory. Note that we do
+         * this only for RR keys, not for RRs themselves, as they carry a lot of additional metadata (where they come
+         * from, validity data, and suchlike), and cannot be replaced so easily by other RRs that have the same
+         * superficial data. */
+
+        if (!*a)
+                return false;
+        if (!*b)
+                return false;
+
+        /* We refuse merging const keys */
+        if ((*a)->n_ref == (unsigned) -1)
+                return false;
+        if ((*b)->n_ref == (unsigned) -1)
+                return false;
+
+        /* Already the same? */
+        if (*a == *b)
+                return true;
+
+        /* Are they really identical? */
+        if (dns_resource_key_equal(*a, *b) <= 0)
+                return false;
+
+        /* Keep the one which already has more references. */
+        if ((*a)->n_ref > (*b)->n_ref) {
+                dns_resource_key_unref(*b);
+                *b = dns_resource_key_ref(*a);
+        } else {
+                dns_resource_key_unref(*a);
+                *a = dns_resource_key_ref(*b);
+        }
+
+        return true;
+}
+
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
         DnsResourceRecord *rr;
 
@@ -344,6 +384,7 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
         rr->n_ref = 1;
         rr->key = dns_resource_key_ref(key);
         rr->expiry = USEC_INFINITY;
+        rr->n_skip_labels_signer = rr->n_skip_labels_source = (unsigned) -1;
 
         return rr;
 }
@@ -1083,6 +1124,88 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         dns_packet_unref(&packet);
 
         return 0;
+}
+
+int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret) {
+        const char *n;
+        int r;
+
+        assert(rr);
+        assert(ret);
+
+        /* Returns the RRset's signer, if it is known. */
+
+        if (rr->n_skip_labels_signer == (unsigned) -1)
+                return -ENODATA;
+
+        n = DNS_RESOURCE_KEY_NAME(rr->key);
+        r = dns_name_skip(n, rr->n_skip_labels_signer, &n);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        *ret = n;
+        return 0;
+}
+
+int dns_resource_record_source(DnsResourceRecord *rr, const char **ret) {
+        const char *n;
+        int r;
+
+        assert(rr);
+        assert(ret);
+
+        /* Returns the RRset's synthesizing source, if it is known. */
+
+        if (rr->n_skip_labels_source == (unsigned) -1)
+                return -ENODATA;
+
+        n = DNS_RESOURCE_KEY_NAME(rr->key);
+        r = dns_name_skip(n, rr->n_skip_labels_source, &n);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        *ret = n;
+        return 0;
+}
+
+int dns_resource_record_is_signer(DnsResourceRecord *rr, const char *zone) {
+        const char *signer;
+        int r;
+
+        assert(rr);
+
+        r = dns_resource_record_signer(rr, &signer);
+        if (r < 0)
+                return r;
+
+        return dns_name_equal(zone, signer);
+}
+
+int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
+        int r;
+
+        assert(rr);
+
+        /* Returns > 0 if the RR is generated from a wildcard, and is not the asterisk name itself */
+
+        if (rr->n_skip_labels_source == (unsigned) -1)
+                return -ENODATA;
+
+        if (rr->n_skip_labels_source == 0)
+                return 0;
+
+        if (rr->n_skip_labels_source > 1)
+                return 1;
+
+        r = dns_name_startswith(DNS_RESOURCE_KEY_NAME(rr->key), "*");
+        if (r < 0)
+                return r;
+
+        return !r;
 }
 
 static void dns_resource_record_hash_func(const void *i, struct siphash *state) {

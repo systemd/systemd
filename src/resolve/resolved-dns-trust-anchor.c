@@ -665,7 +665,7 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
                          * DS fingerprint will be the one of the
                          * unrevoked DNSKEY, but the one we got passed
                          * here has the bit set. */
-                        r = dnssec_verify_dnskey(revoked_dnskey, anchor, true);
+                        r = dnssec_verify_dnskey_by_ds(revoked_dnskey, anchor, true);
                         if (r < 0)
                                 return r;
                         if (r == 0)

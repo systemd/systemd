@@ -1120,8 +1120,6 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
 
         assert(q);
 
-        log_debug("Following CNAME %s → %s", dns_question_first_name(q->question), cname->cname.name);
-
         q->n_cname_redirects ++;
         if (q->n_cname_redirects > CNAME_MAX)
                 return -ELOOP;
@@ -1129,6 +1127,8 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         r = dns_question_cname_redirect(q->question, cname, &nq);
         if (r < 0)
                 return r;
+
+        log_debug("Following CNAME/DNAME %s → %s", dns_question_first_name(q->question), dns_question_first_name(nq));
 
         dns_question_unref(q->question);
         q->question = nq;

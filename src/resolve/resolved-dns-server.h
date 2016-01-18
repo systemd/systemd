@@ -68,19 +68,19 @@ struct DnsServer {
 
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
+
         size_t received_udp_packet_max;
+
         unsigned n_failed_udp;
         unsigned n_failed_tcp;
+
         bool packet_failed:1;
         bool packet_truncated:1;
+        bool packet_bad_opt:1;
+        bool packet_rrsig_missing:1;
+
         usec_t verified_usec;
         usec_t features_grace_period_usec;
-
-        /* Indicates whether responses are augmented with RRSIG by
-         * server or not. Note that this is orthogonal to the feature
-         * level stuff, as it's only information describing responses,
-         * and has no effect on how the questions are asked. */
-        bool rrsig_missing:1;
 
         /* Used when GC'ing old DNS servers when configuration changes. */
         bool marked:1;
@@ -108,7 +108,8 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec);
 void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
-void dns_server_packet_rrsig_missing(DnsServer *s);
+void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 

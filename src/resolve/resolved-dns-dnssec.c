@@ -35,17 +35,15 @@
  *
  * TODO:
  *
- *   - wildcard zones compatibility (NSEC/NSEC3 wildcard check is missing)
- *   - multi-label zone compatibility
- *   - cname/dname compatibility
- *   - nxdomain on qname
  *   - bus calls to override DNSEC setting per interface
  *   - log all DNSSEC downgrades
+ *   - log all RRs that failed validation
  *   - enable by default
- *
- *   - RFC 4035, Section 5.3.4 (When receiving a positive wildcard reply, use NSEC to ensure it actually really applies)
- *   - RFC 6840, Section 4.1 (ensure we don't get fed a glue NSEC from the parent zone)
- *   - RFC 6840, Section 4.3 (check for CNAME on NSEC too)
+ *   - Allow clients to request DNSSEC even if DNSSEC is off
+ *   - make sure when getting an NXDOMAIN response through CNAME, we still process the first CNAMEs in the packet
+ *   - update test-complex to also do ResolveAddress lookups
+ *   - extend complex test to check "xn--kprw13d." DNAME domain
+ *   - rework IDNA stuff: only to IDNA for ResolveAddress and ResolveService, and prepare a pair of lookup keys then, never do IDNA comparisons after that
  * */
 
 #define VERIFY_RRS_MAX 256
@@ -430,6 +428,57 @@ static void md_add_uint32(gcry_md_hd_t md, uint32_t v) {
         gcry_md_write(md, &v, sizeof(v));
 }
 
+static int dnssec_rrsig_prepare(DnsResourceRecord *rrsig) {
+        int n_key_labels, n_signer_labels;
+        const char *name;
+        int r;
+
+        /* Checks whether the specified RRSIG RR is somewhat valid, and initializes the .n_skip_labels_source and
+         * .n_skip_labels_signer fields so that we can use them later on. */
+
+        assert(rrsig);
+        assert(rrsig->key->type == DNS_TYPE_RRSIG);
+
+        /* Check if this RRSIG RR is already prepared */
+        if (rrsig->n_skip_labels_source != (unsigned) -1)
+                return 0;
+
+        if (rrsig->rrsig.inception > rrsig->rrsig.expiration)
+                return -EINVAL;
+
+        name = DNS_RESOURCE_KEY_NAME(rrsig->key);
+
+        n_key_labels = dns_name_count_labels(name);
+        if (n_key_labels < 0)
+                return n_key_labels;
+        if (rrsig->rrsig.labels > n_key_labels)
+                return -EINVAL;
+
+        n_signer_labels = dns_name_count_labels(rrsig->rrsig.signer);
+        if (n_signer_labels < 0)
+                return n_signer_labels;
+        if (n_signer_labels > rrsig->rrsig.labels)
+                return -EINVAL;
+
+        r = dns_name_skip(name, n_key_labels - n_signer_labels, &name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        /* Check if the signer is really a suffix of us */
+        r = dns_name_equal(name, rrsig->rrsig.signer);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        rrsig->n_skip_labels_source = n_key_labels - rrsig->rrsig.labels;
+        rrsig->n_skip_labels_signer = n_key_labels - n_signer_labels;
+
+        return 0;
+}
+
 static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         usec_t expiration, inception, skew;
 
@@ -499,6 +548,35 @@ static int algorithm_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
+static void dnssec_fix_rrset_ttl(
+                DnsResourceRecord *list[],
+                unsigned n,
+                DnsResourceRecord *rrsig,
+                usec_t realtime) {
+
+        unsigned k;
+
+        assert(list);
+        assert(n > 0);
+        assert(rrsig);
+
+        for (k = 0; k < n; k++) {
+                DnsResourceRecord *rr = list[k];
+
+                /* Pick the TTL as the minimum of the RR's TTL, the
+                 * RR's original TTL according to the RRSIG and the
+                 * RRSIG's own TTL, see RFC 4035, Section 5.3.3 */
+                rr->ttl = MIN3(rr->ttl, rrsig->rrsig.original_ttl, rrsig->ttl);
+                rr->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
+
+                /* Copy over information about the signer and wildcard source of synthesis */
+                rr->n_skip_labels_source = rrsig->n_skip_labels_source;
+                rr->n_skip_labels_signer = rrsig->n_skip_labels_signer;
+        }
+
+        rrsig->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
+}
+
 int dnssec_verify_rrset(
                 DnsAnswer *a,
                 const DnsResourceKey *key,
@@ -508,14 +586,14 @@ int dnssec_verify_rrset(
                 DnssecResult *result) {
 
         uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
-        size_t hash_size;
-        void *hash;
         DnsResourceRecord **list, *rr;
+        const char *source, *name;
         gcry_md_hd_t md = NULL;
         int r, md_algorithm;
         size_t k, n = 0;
+        size_t hash_size;
+        void *hash;
         bool wildcard;
-        const char *source;
 
         assert(key);
         assert(rrsig);
@@ -536,6 +614,14 @@ int dnssec_verify_rrset(
         if (md_algorithm < 0)
                 return md_algorithm;
 
+        r = dnssec_rrsig_prepare(rrsig);
+        if (r == -EINVAL) {
+                *result = DNSSEC_INVALID;
+                return r;
+        }
+        if (r < 0)
+                return r;
+
         r = dnssec_rrsig_expired(rrsig, realtime);
         if (r < 0)
                 return r;
@@ -544,8 +630,32 @@ int dnssec_verify_rrset(
                 return 0;
         }
 
+        name = DNS_RESOURCE_KEY_NAME(key);
+
+        /* Some keys may only appear signed in the zone apex, and are invalid anywhere else. (SOA, NS...) */
+        if (dns_type_apex_only(rrsig->rrsig.type_covered)) {
+                r = dns_name_equal(rrsig->rrsig.signer, name);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *result = DNSSEC_INVALID;
+                        return 0;
+                }
+        }
+
+        /* OTOH DS RRs may not appear in the zone apex, but are valid everywhere else. */
+        if (rrsig->rrsig.type_covered == DNS_TYPE_DS) {
+                r = dns_name_equal(rrsig->rrsig.signer, name);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *result = DNSSEC_INVALID;
+                        return 0;
+                }
+        }
+
         /* Determine the "Source of Synthesis" and whether this is a wildcard RRSIG */
-        r = dns_name_suffix(DNS_RESOURCE_KEY_NAME(key), rrsig->rrsig.labels, &source);
+        r = dns_name_suffix(name, rrsig->rrsig.labels, &source);
         if (r < 0)
                 return r;
         if (r > 0 && !dns_type_may_wildcard(rrsig->rrsig.type_covered)) {
@@ -556,11 +666,11 @@ int dnssec_verify_rrset(
         if (r == 1) {
                 /* If we stripped a single label, then let's see if that maybe was "*". If so, we are not really
                  * synthesized from a wildcard, we are the wildcard itself. Treat that like a normal name. */
-                r = dns_name_startswith(DNS_RESOURCE_KEY_NAME(key), "*");
+                r = dns_name_startswith(name, "*");
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        source = DNS_RESOURCE_KEY_NAME(key);
+                        source = name;
 
                 wildcard = r == 0;
         } else
@@ -675,12 +785,17 @@ int dnssec_verify_rrset(
         if (r < 0)
                 goto finish;
 
-        if (!r)
+        /* Now, fix the ttl, expiry, and remember the synthesizing source and the signer */
+        if (r > 0)
+                dnssec_fix_rrset_ttl(list, n, rrsig, realtime);
+
+        if (r == 0)
                 *result = DNSSEC_INVALID;
         else if (wildcard)
                 *result = DNSSEC_VALIDATED_WILDCARD;
         else
                 *result = DNSSEC_VALIDATED;
+
         r = 0;
 
 finish:
@@ -719,8 +834,6 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
 }
 
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) {
-        int r;
-
         assert(key);
         assert(rrsig);
 
@@ -733,43 +846,7 @@ int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) 
         if (rrsig->rrsig.type_covered != key->type)
                 return 0;
 
-        /* Make sure signer is a parent of the RRset */
-        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rrsig->key), rrsig->rrsig.signer);
-        if (r <= 0)
-                return r;
-
-        /* Make sure the owner name has at least as many labels as the "label" fields indicates. */
-        r = dns_name_count_labels(DNS_RESOURCE_KEY_NAME(rrsig->key));
-        if (r < 0)
-                return r;
-        if (r < rrsig->rrsig.labels)
-                return 0;
-
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rrsig->key), DNS_RESOURCE_KEY_NAME(key));
-}
-
-static int dnssec_fix_rrset_ttl(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord *rrsig, usec_t realtime) {
-        DnsResourceRecord *rr;
-        int r;
-
-        assert(key);
-        assert(rrsig);
-
-        DNS_ANSWER_FOREACH(rr, a) {
-                r = dns_resource_key_equal(key, rr->key);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                /* Pick the TTL as the minimum of the RR's TTL, the
-                 * RR's original TTL according to the RRSIG and the
-                 * RRSIG's own TTL, see RFC 4035, Section 5.3.3 */
-                rr->ttl = MIN3(rr->ttl, rrsig->rrsig.original_ttl, rrsig->ttl);
-                rr->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
-        }
-
-        return 0;
 }
 
 int dnssec_verify_rrset_search(
@@ -841,10 +918,6 @@ int dnssec_verify_rrset_search(
                         case DNSSEC_VALIDATED_WILDCARD:
                                 /* Yay, the RR has been validated,
                                  * return immediately, but fix up the expiry */
-                                r = dnssec_fix_rrset_ttl(a, key, rrsig, realtime);
-                                if (r < 0)
-                                        return r;
-
                                 if (ret_rrsig)
                                         *ret_rrsig = rrsig;
 
@@ -995,7 +1068,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_verify_dnskey(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
+int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
@@ -1065,7 +1138,7 @@ finish:
         return r;
 }
 
-int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
+int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
         DnsResourceRecord *ds;
         DnsAnswerFlags flags;
         int r;
@@ -1082,7 +1155,6 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
 
                 if (ds->key->type != DNS_TYPE_DS)
                         continue;
-
                 if (ds->key->class != dnskey->key->class)
                         continue;
 
@@ -1092,9 +1164,9 @@ int dnssec_verify_dnskey_search(DnsResourceRecord *dnskey, DnsAnswer *validated_
                 if (r == 0)
                         continue;
 
-                r = dnssec_verify_dnskey(dnskey, ds, false);
-                if (r == -EKEYREJECTED)
-                        return 0; /* The DNSKEY is revoked or otherwise invalid, we won't bless it */
+                r = dnssec_verify_dnskey_by_ds(dnskey, ds, false);
+                if (IN_SET(r, -EKEYREJECTED, -EOPNOTSUPP))
+                        return 0; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1211,6 +1283,13 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
         if (rr->nsec3.iterations > NSEC3_ITERATIONS_MAX)
                 return 0;
 
+        /* Ignore NSEC3 RRs generated from wildcards */
+        if (rr->n_skip_labels_source != 0)
+                return 0;
+        /* Ignore NSEC3 RRs that are located anywhere else than one label below the zone */
+        if (rr->n_skip_labels_signer != 1)
+                return 0;
+
         if (!nsec3)
                 return 1;
 
@@ -1244,6 +1323,7 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
         if (r == 0)
                 return 0;
 
+        /* Make sure both have the same parent */
         return dns_name_equal(a, b);
 }
 
@@ -1535,10 +1615,158 @@ found_closest_encloser:
         return 0;
 }
 
+static int dnssec_nsec_wildcard_equal(DnsResourceRecord *rr, const char *name) {
+        char label[DNS_LABEL_MAX];
+        const char *n;
+        int r;
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_NSEC);
+
+        /* Checks whether the specified RR has a name beginning in "*.", and if the rest is a suffix of our name */
+
+        if (rr->n_skip_labels_source != 1)
+                return 0;
+
+        n = DNS_RESOURCE_KEY_NAME(rr->key);
+        r = dns_label_unescape(&n, label, sizeof(label));
+        if (r <= 0)
+                return r;
+        if (r != 1 || label[0] != '*')
+                return 0;
+
+        return dns_name_endswith(name, n);
+}
+
+static int dnssec_nsec_in_path(DnsResourceRecord *rr, const char *name) {
+        const char *nn, *common_suffix;
+        int r;
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_NSEC);
+
+        /* Checks whether the specified nsec RR indicates that name is an empty non-terminal (ENT)
+         *
+         * A couple of examples:
+         *
+         *      NSEC             bar →   waldo.foo.bar: indicates that foo.bar exists and is an ENT
+         *      NSEC   waldo.foo.bar → yyy.zzz.xoo.bar: indicates that xoo.bar and zzz.xoo.bar exist and are ENTs
+         *      NSEC yyy.zzz.xoo.bar →             bar: indicates pretty much nothing about ENTs
+         */
+
+        /* First, determine parent of next domain. */
+        nn = rr->nsec.next_domain_name;
+        r = dns_name_parent(&nn);
+        if (r <= 0)
+                return r;
+
+        /* If the name we just determined is not equal or child of the name we are interested in, then we can't say
+         * anything at all. */
+        r = dns_name_endswith(nn, name);
+        if (r <= 0)
+                return r;
+
+        /* If the name we we are interested in is not a prefix of the common suffix of the NSEC RR's owner and next domain names, then we can't say anything either. */
+        r = dns_name_common_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rr->nsec.next_domain_name, &common_suffix);
+        if (r < 0)
+                return r;
+
+        return dns_name_endswith(name, common_suffix);
+}
+
+static int dnssec_nsec_from_parent_zone(DnsResourceRecord *rr, const char *name) {
+        int r;
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_NSEC);
+
+        /* Checks whether this NSEC originates to the parent zone or the child zone. */
+
+        r = dns_name_parent(&name);
+        if (r <= 0)
+                return r;
+
+        r = dns_name_equal(name, DNS_RESOURCE_KEY_NAME(rr->key));
+        if (r <= 0)
+                return r;
+
+        /* DNAME, and NS without SOA is an indication for a delegation. */
+        if (bitmap_isset(rr->nsec.types, DNS_TYPE_DNAME))
+                return 1;
+
+        if (bitmap_isset(rr->nsec.types, DNS_TYPE_NS) && !bitmap_isset(rr->nsec.types, DNS_TYPE_SOA))
+                return 1;
+
+        return 0;
+}
+
+static int dnssec_nsec_covers(DnsResourceRecord *rr, const char *name) {
+        const char *common_suffix, *p;
+        int r;
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_NSEC);
+
+        /* Checks whether the "Next Closer" is witin the space covered by the specified RR. */
+
+        r = dns_name_common_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rr->nsec.next_domain_name, &common_suffix);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                p = name;
+                r = dns_name_parent(&name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0;
+
+                r = dns_name_equal(name, common_suffix);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        break;
+        }
+
+        /* p is now the "Next Closer". */
+
+        return dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), p, rr->nsec.next_domain_name);
+}
+
+static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) {
+        const char *common_suffix, *wc;
+        int r;
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_NSEC);
+
+        /* Checks whether the "Wildcard at the Closest Encloser" is within the space covered by the specified
+         * RR. Specifically, checks whether 'name' has the common suffix of the NSEC RR's owner and next names as
+         * suffix, and whether the NSEC covers the name generated by that suffix prepended with an asterisk label.
+         *
+         *     NSEC             bar →   waldo.foo.bar: indicates that *.bar and *.foo.bar do not exist
+         *     NSEC   waldo.foo.bar → yyy.zzz.xoo.bar: indicates that *.xoo.bar and *.zzz.xoo.bar do not exist (and more ...)
+         *     NSEC yyy.zzz.xoo.bar →             bar: indicates that a number of wildcards don#t exist either...
+         */
+
+        r = dns_name_common_suffix(DNS_RESOURCE_KEY_NAME(rr->key), rr->nsec.next_domain_name, &common_suffix);
+        if (r < 0)
+                return r;
+
+        /* If the common suffix is not shared by the name we are interested in, it has nothing to say for us. */
+        r = dns_name_endswith(name, common_suffix);
+        if (r <= 0)
+                return r;
+
+        wc = strjoina("*.", common_suffix, NULL);
+        return dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), wc, rr->nsec.next_domain_name);
+}
+
 int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
-        DnsResourceRecord *rr;
-        bool have_nsec3 = false;
+        bool have_nsec3 = false, covering_rr_authenticated = false, wildcard_rr_authenticated = false;
+        DnsResourceRecord *rr, *covering_rr = NULL, *wildcard_rr = NULL;
         DnsAnswerFlags flags;
+        const char *name;
         int r;
 
         assert(key);
@@ -1546,53 +1774,117 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
         /* Look for any NSEC/NSEC3 RRs that say something about the specified key. */
 
+        name = DNS_RESOURCE_KEY_NAME(key);
+
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
 
                 if (rr->key->class != key->class)
                         continue;
 
-                switch (rr->key->type) {
+                have_nsec3 = have_nsec3 || (rr->key->type == DNS_TYPE_NSEC3);
 
-                case DNS_TYPE_NSEC:
+                if (rr->key->type != DNS_TYPE_NSEC)
+                        continue;
 
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+                /* The following checks only make sense for NSEC RRs that are not expanded from a wildcard */
+                r = dns_resource_record_is_synthetic(rr);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                /* Check if this is a direct match. If so, we have encountered a NODATA case */
+                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), name);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* If it's not a direct match, maybe it's a wild card match? */
+                        r = dnssec_nsec_wildcard_equal(rr, name);
                         if (r < 0)
                                 return r;
-                        if (r > 0) {
-                                if (bitmap_isset(rr->nsec.types, key->type))
-                                        *result = DNSSEC_NSEC_FOUND;
-                                else if (bitmap_isset(rr->nsec.types, DNS_TYPE_CNAME))
-                                        *result = DNSSEC_NSEC_CNAME;
-                                else
-                                        *result = DNSSEC_NSEC_NODATA;
-
-                                if (authenticated)
-                                        *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
-                                if (ttl)
-                                        *ttl = rr->ttl;
-
-                                return 0;
-                        }
-
-                        r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key), rr->nsec.next_domain_name);
-                        if (r < 0)
-                                return r;
-                        if (r > 0) {
-                                *result = DNSSEC_NSEC_NXDOMAIN;
-
-                                if (authenticated)
-                                        *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
-                                if (ttl)
-                                        *ttl = rr->ttl;
-
-                                return 0;
-                        }
-                        break;
-
-                case DNS_TYPE_NSEC3:
-                        have_nsec3 = true;
-                        break;
                 }
+                if (r > 0) {
+                        if (key->type == DNS_TYPE_DS) {
+                                /* If we look for a DS RR and the server sent us the NSEC RR of the child zone
+                                 * we have a problem. For DS RRs we want the NSEC RR from the parent */
+                                if (bitmap_isset(rr->nsec.types, DNS_TYPE_SOA))
+                                        continue;
+                        } else {
+                                /* For all RR types, ensure that if NS is set SOA is set too, so that we know
+                                 * we got the child's NSEC. */
+                                if (bitmap_isset(rr->nsec.types, DNS_TYPE_NS) &&
+                                    !bitmap_isset(rr->nsec.types, DNS_TYPE_SOA))
+                                        continue;
+                        }
+
+                        if (bitmap_isset(rr->nsec.types, key->type))
+                                *result = DNSSEC_NSEC_FOUND;
+                        else if (bitmap_isset(rr->nsec.types, DNS_TYPE_CNAME))
+                                *result = DNSSEC_NSEC_CNAME;
+                        else
+                                *result = DNSSEC_NSEC_NODATA;
+
+                        if (authenticated)
+                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                        if (ttl)
+                                *ttl = rr->ttl;
+
+                        return 0;
+                }
+
+                /* Check if the name we are looking for is an empty non-terminal within the owner or next name
+                 * of the NSEC RR. */
+                r = dnssec_nsec_in_path(rr, name);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *result = DNSSEC_NSEC_NODATA;
+
+                        if (authenticated)
+                                *authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                        if (ttl)
+                                *ttl = rr->ttl;
+
+                        return 0;
+                }
+
+                /* The following two "covering" checks, are not useful if the NSEC is from the parent */
+                r = dnssec_nsec_from_parent_zone(rr, name);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                /* Check if this NSEC RR proves the absence of an explicit RR under this name */
+                r = dnssec_nsec_covers(rr, name);
+                if (r < 0)
+                        return r;
+                if (r > 0 && (!covering_rr || !covering_rr_authenticated)) {
+                        covering_rr = rr;
+                        covering_rr_authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                }
+
+                /* Check if this NSEC RR proves the absence of a wildcard RR under this name */
+                r = dnssec_nsec_covers_wildcard(rr, name);
+                if (r < 0)
+                        return r;
+                if (r > 0 && (!wildcard_rr || !wildcard_rr_authenticated)) {
+                        wildcard_rr = rr;
+                        wildcard_rr_authenticated = flags & DNS_ANSWER_AUTHENTICATED;
+                }
+        }
+
+        if (covering_rr && wildcard_rr) {
+                /* If we could prove that neither the name itself, nor the wildcard at the closest encloser exists, we
+                 * proved the NXDOMAIN case. */
+                *result = DNSSEC_NSEC_NXDOMAIN;
+
+                if (authenticated)
+                        *authenticated = covering_rr_authenticated && wildcard_rr_authenticated;
+                if (ttl)
+                        *ttl = MIN(covering_rr->ttl, wildcard_rr->ttl);
+
+                return 0;
         }
 
         /* OK, this was not sufficient. Let's see if NSEC3 can help. */
@@ -1621,15 +1913,17 @@ int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name
                 if (rr->key->type != type && type != DNS_TYPE_ANY)
                         continue;
 
-                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), zone);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
                 switch (rr->key->type) {
 
                 case DNS_TYPE_NSEC:
+
+                        /* We only care for NSEC RRs from the indicated zone */
+                        r = dns_resource_record_is_signer(rr, zone);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
                         r = dns_name_between(DNS_RESOURCE_KEY_NAME(rr->key), name, rr->nsec.next_domain_name);
                         if (r < 0)
                                 return r;
@@ -1639,6 +1933,13 @@ int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name
 
                 case DNS_TYPE_NSEC3: {
                         _cleanup_free_ char *hashed_domain = NULL, *next_hashed_domain = NULL;
+
+                        /* We only care for NSEC3 RRs from the indicated zone */
+                        r = dns_resource_record_is_signer(rr, zone);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
 
                         r = nsec3_is_good(rr, NULL);
                         if (r < 0)

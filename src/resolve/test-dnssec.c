@@ -270,8 +270,8 @@ static void test_dnssec_verify_dns_key(void) {
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
         log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
-        assert_se(dnssec_verify_dnskey(dnskey, ds1, false) > 0);
-        assert_se(dnssec_verify_dnskey(dnskey, ds2, false) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, false) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, false) > 0);
 }
 
 static void test_dnssec_canonicalize_one(const char *original, const char *canonical, int r) {
