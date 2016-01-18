@@ -1242,6 +1242,9 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         dns_query_reset_answer(q);
         q->state = DNS_TRANSACTION_NULL;
 
+        /* Turn off searching for the new name */
+        q->flags |= SD_RESOLVED_NO_SEARCH;
+
         return 0;
 }
 
