@@ -129,7 +129,7 @@ static int disk_identify_command(int          fd,
                  */
                 [0] = 0xa1,     /* OPERATION CODE: 12 byte pass through */
                 [1] = 4 << 1,   /* PROTOCOL: PIO Data-in */
-                [2] = 0x2e,     /* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
+                [2] = 0x0e,     /* OFF_LINE=0, CK_COND=0, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
                 [3] = 0,        /* FEATURES */
                 [4] = 1,        /* SECTORS */
                 [5] = 0,        /* LBA LOW */
@@ -139,7 +139,6 @@ static int disk_identify_command(int          fd,
                 [9] = 0xEC,     /* Command: ATA IDENTIFY DEVICE */
         };
         uint8_t sense[32] = {};
-        uint8_t *desc = sense + 8;
         struct sg_io_v4 io_v4 = {
                 .guard = 'Q',
                 .protocol = BSG_PROTOCOL_SCSI,
@@ -173,11 +172,22 @@ static int disk_identify_command(int          fd,
                         ret = ioctl(fd, SG_IO, &io_hdr);
                         if (ret != 0)
                                 return ret;
+
+                        /* even if the ioctl succeeds, we need to check the return value */
+                        if (!(io_hdr.status == 0 &&
+                              io_hdr.host_status == 0 &&
+                              io_hdr.driver_status == 0)) {
+                                errno = EIO;
+                                return -1;
+                        }
                 } else
                         return ret;
         }
 
-        if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
+        /* even if the ioctl succeeds, we need to check the return value */
+        if (!(io_v4.device_status == 0 &&
+              io_v4.transport_status == 0 &&
+              io_v4.driver_status == 0)) {
                 errno = EIO;
                 return -1;
         }
