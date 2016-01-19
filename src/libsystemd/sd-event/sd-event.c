@@ -486,7 +486,7 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
         return NULL;
 }
 
-static bool event_pid_changed(sd_event *e) {
+static bool event_pid_changed(const sd_event *e) {
         assert(e);
 
         /* We don't support people creating an event loop and keeping
@@ -1409,7 +1409,7 @@ _public_ int sd_event_source_set_description(sd_event_source *s, const char *des
         return free_and_strdup(&s->description, description);
 }
 
-_public_ int sd_event_source_get_description(sd_event_source *s, const char **description) {
+_public_ int sd_event_source_get_description(const sd_event_source *s, const char **description) {
         assert_return(s, -EINVAL);
         assert_return(description, -EINVAL);
         assert_return(s->description, -ENXIO);
@@ -1434,7 +1434,7 @@ _public_ int sd_event_source_get_pending(sd_event_source *s) {
         return s->pending;
 }
 
-_public_ int sd_event_source_get_io_fd(sd_event_source *s) {
+_public_ int sd_event_source_get_io_fd(const sd_event_source *s) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -1478,7 +1478,7 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
         return 0;
 }
 
-_public_ int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
+_public_ int sd_event_source_get_io_events(const sd_event_source *s, uint32_t* events) {
         assert_return(s, -EINVAL);
         assert_return(events, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
@@ -1524,7 +1524,7 @@ _public_ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revent
         return 0;
 }
 
-_public_ int sd_event_source_get_signal(sd_event_source *s) {
+_public_ int sd_event_source_get_signal(const sd_event_source *s) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_SIGNAL, -EDOM);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -1532,7 +1532,7 @@ _public_ int sd_event_source_get_signal(sd_event_source *s) {
         return s->signal.sig;
 }
 
-_public_ int sd_event_source_get_priority(sd_event_source *s, int64_t *priority) {
+_public_ int sd_event_source_get_priority(const sd_event_source *s, int64_t *priority) {
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
@@ -1742,7 +1742,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         return 0;
 }
 
-_public_ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
+_public_ int sd_event_source_get_time(const sd_event_source *s, uint64_t *usec) {
         assert_return(s, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
@@ -1775,7 +1775,7 @@ _public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         return 0;
 }
 
-_public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
+_public_ int sd_event_source_get_time_accuracy(const sd_event_source *s, uint64_t *usec) {
         assert_return(s, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
@@ -1810,7 +1810,7 @@ _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec
         return 0;
 }
 
-_public_ int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *clock) {
+_public_ int sd_event_source_get_time_clock(const sd_event_source *s, clockid_t *clock) {
         assert_return(s, -EINVAL);
         assert_return(clock, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
@@ -1820,7 +1820,7 @@ _public_ int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *clock
         return 0;
 }
 
-_public_ int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid) {
+_public_ int sd_event_source_get_child_pid(const sd_event_source *s, pid_t *pid) {
         assert_return(s, -EINVAL);
         assert_return(pid, -EINVAL);
         assert_return(s->type == SOURCE_CHILD, -EDOM);
@@ -1862,7 +1862,7 @@ _public_ int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t 
         return 0;
 }
 
-_public_ void* sd_event_source_get_userdata(sd_event_source *s) {
+_public_ void* sd_event_source_get_userdata(const sd_event_source *s) {
         assert_return(s, NULL);
 
         return s->userdata;
@@ -2711,7 +2711,7 @@ finish:
         return r;
 }
 
-_public_ int sd_event_get_fd(sd_event *e) {
+_public_ int sd_event_get_fd(const sd_event *e) {
 
         assert_return(e, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
@@ -2726,7 +2726,7 @@ _public_ int sd_event_get_state(sd_event *e) {
         return e->state;
 }
 
-_public_ int sd_event_get_exit_code(sd_event *e, int *code) {
+_public_ int sd_event_get_exit_code(const sd_event *e, int *code) {
         assert_return(e, -EINVAL);
         assert_return(code, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
@@ -2812,7 +2812,7 @@ _public_ int sd_event_default(sd_event **ret) {
         return 1;
 }
 
-_public_ int sd_event_get_tid(sd_event *e, pid_t *tid) {
+_public_ int sd_event_get_tid(const sd_event *e, pid_t *tid) {
         assert_return(e, -EINVAL);
         assert_return(tid, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
@@ -2877,7 +2877,7 @@ fail:
         return r;
 }
 
-_public_ int sd_event_get_watchdog(sd_event *e) {
+_public_ int sd_event_get_watchdog(const sd_event *e) {
         assert_return(e, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
 

@@ -61,7 +61,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_get_exit_code</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>const sd_event *<parameter>event</parameter></paramdef>
         <paramdef>int *<parameter>code</parameter></paramdef>
       </funcprototype>
 
