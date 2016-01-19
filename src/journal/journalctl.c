@@ -2336,7 +2336,7 @@ int main(int argc, char *argv[]) {
                         flags =
                                 arg_all * OUTPUT_SHOW_ALL |
                                 arg_full * OUTPUT_FULL_WIDTH |
-                                on_tty() * OUTPUT_COLOR |
+                                colors_enabled() * OUTPUT_COLOR |
                                 arg_catalog * OUTPUT_CATALOG |
                                 arg_utc * OUTPUT_UTC;
 

@@ -79,37 +79,38 @@ unsigned lines(void);
 void columns_lines_cache_reset(int _unused_ signum);
 
 bool on_tty(void);
+bool colors_enabled(void);
 
 static inline const char *ansi_underline(void) {
-        return on_tty() ? ANSI_UNDERLINE : "";
+        return colors_enabled() ? ANSI_UNDERLINE : "";
 }
 
 static inline const char *ansi_highlight(void) {
-        return on_tty() ? ANSI_HIGHLIGHT : "";
+        return colors_enabled() ? ANSI_HIGHLIGHT : "";
 }
 
 static inline const char *ansi_highlight_underline(void) {
-        return on_tty() ? ANSI_HIGHLIGHT_UNDERLINE : "";
+        return colors_enabled() ? ANSI_HIGHLIGHT_UNDERLINE : "";
 }
 
 static inline const char *ansi_highlight_red(void) {
-        return on_tty() ? ANSI_HIGHLIGHT_RED : "";
+        return colors_enabled() ? ANSI_HIGHLIGHT_RED : "";
 }
 
 static inline const char *ansi_highlight_green(void) {
-        return on_tty() ? ANSI_HIGHLIGHT_GREEN : "";
+        return colors_enabled() ? ANSI_HIGHLIGHT_GREEN : "";
 }
 
 static inline const char *ansi_highlight_yellow(void) {
-        return on_tty() ? ANSI_HIGHLIGHT_YELLOW : "";
+        return colors_enabled() ? ANSI_HIGHLIGHT_YELLOW : "";
 }
 
 static inline const char *ansi_highlight_blue(void) {
-        return on_tty() ? ANSI_HIGHLIGHT_BLUE : "";
+        return colors_enabled() ? ANSI_HIGHLIGHT_BLUE : "";
 }
 
 static inline const char *ansi_normal(void) {
-        return on_tty() ? ANSI_NORMAL : "";
+        return colors_enabled() ? ANSI_NORMAL : "";
 }
 
 int get_ctty_devnr(pid_t pid, dev_t *d);
