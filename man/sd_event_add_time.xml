@@ -80,7 +80,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_time</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
       </funcprototype>
 
@@ -92,7 +92,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_time_accuracy</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
       </funcprototype>
 
@@ -104,7 +104,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_time_clock</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>clockid_t *<parameter>clock</parameter></paramdef>
       </funcprototype>
 
@@ -122,31 +122,31 @@
     clock identifier, one of <constant>CLOCK_REALTIME</constant>,
     <constant>CLOCK_MONOTONIC</constant>,
     <constant>CLOCK_BOOTTIME</constant>,
-    <constant>CLOCK_REALTIME_ALARM</constant> or
+    <constant>CLOCK_REALTIME_ALARM</constant>, or
     <constant>CLOCK_BOOTTIME_ALARM</constant>. See
     <citerefentry><refentrytitle>timerfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for details regarding the various types of clocks. The
-    <parameter>usec</parameter> parameter takes a time value in
-    microseconds (µs), relative to the clock's epoch, specifying when
-    the timer shall elapse the earliest. If a time that already lies
-    in the past is specified (including 0), the timer source is
-    dispatched immediately in the next event loop iterations. The
-    <parameter>accuracy</parameter> parameter takes an additional
-    accuracy value in µs specifying a time the timer event may be
-    delayed. Specify 0 for selecting the default accuracy
-    (250ms). Specify 1µs for most accurate timers. Consider specifying
-    60000000µs or larger (1min) for long-running events that may be
+    <parameter>usec</parameter> parameter specifies the earliest time,
+    in microseconds (µs), relative to the clock's epoch, when
+    the timer shall be triggered. If a time already
+    in the past is specified (including <constant>0</constant>), the timer source is
+    dispatched immediately in the next event loop iteration. The
+    <parameter>accuracy</parameter> parameter specifies an additional
+    accuracy value in µs specifying how much the timer event may be
+    delayed. Use <constant>0</constant> to select the default accuracy
+    (250ms). Use 1µs for maximum accuracy. Consider specifying
+    60000000µs (1min) or larger for long-running events that may be
     delayed substantially. Picking higher accuracy values allows the
-    system to coalesce timer events more aggressively, thus improving
+    system to coalesce timer events more aggressively, improving
     power efficiency. The <parameter>handler</parameter> parameter
     shall reference a function to call when the timer elapses. The
     handler function will be passed the
     <parameter>userdata</parameter> pointer, which may be chosen
     freely by the caller. The handler is also passed the configured
-    time it was triggered, however it might actually have been called
-    at a slightly later time, subject to the specified accuracy value,
+    trigger time, even if is actually called
+    slightly later, subject to the specified accuracy value,
     the kernel timer slack (see
-    <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+    <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>),
     and additional scheduling latencies. To query the actual time the
     handler was called use
     <citerefentry><refentrytitle>sd_event_now</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
@@ -167,22 +167,24 @@
     <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     but note that the event source is only removed from the event loop
     when all references to the event source are dropped. To make sure
-    an event source does not fire anymore, even when there's still a
-    reference to it kept, consider setting the event source to
-    <constant>SD_EVENT_OFF</constant> with
-    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    an event source does not fire anymore, even if is still referenced,
+    disable the event source using
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    with <constant>SD_EVENT_OFF</constant>.</para>
 
     <para>If the second parameter of
-    <function>sd_event_add_time()</function> is passed as NULL no
-    reference to the event source object is returned. In this case the
-    event source is considered "floating", and will be destroyed
-    implicitly when the event loop itself is destroyed.</para>
+    <function>sd_event_add_time()</function> is
+    <constant>NULL</constant> no reference to the event source object
+    is returned. In this case the event source is considered
+    "floating", and will be destroyed implicitly when the event loop
+    itself is destroyed.</para>
 
     <para>If the <parameter>handler</parameter> to
-    <function>sd_event_add_time()</function> is passed as NULL, and
-    the event source fires, this will be considered a request to exit
-    the event loop. In this case, the <parameter>userdata</parameter>
-    parameter, cast to an integer is used for the exit code passed to
+    <function>sd_event_add_time()</function> is
+    <constant>NULL</constant>, and the event source fires, this will
+    be considered a request to exit the event loop. In this case, the
+    <parameter>userdata</parameter> parameter, cast to an integer, is
+    used for the exit code passed to
     <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>Use <constant>CLOCK_BOOTTIME_ALARM</constant> and
@@ -192,7 +194,7 @@
     <para>In order to set up relative timers (that is, relative to the
     current time), retrieve the current time via
     <citerefentry><refentrytitle>sd_event_now</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    add the desired timespan to sleep to it, and pass the result as
+    add the desired timespan to it, and use the result as
     the <parameter>usec</parameter> parameter to
     <function>sd_event_add_time()</function>.</para>
 
@@ -212,30 +214,30 @@
     latency will keep accumulating on the timer.</para>
 
     <para><function>sd_event_source_get_time()</function> retrieves
-    the configured time value of a timer event source created
+    the configured time value of an event source created
     previously with <function>sd_event_add_time()</function>. It takes
     the event source object and a pointer to a variable to store the
-    time, relative to the selected clock's epoch, in µs in.</para>
+    time in, relative to the selected clock's epoch, in µs.</para>
 
     <para><function>sd_event_source_set_time()</function> changes the
-    configured time value of a timer event source created previously
-    with <function>sd_event_add_time()</function>. It takes the event
-    source object and a time relative to the selected clock's
-    epoch, in µs.</para>
+    time of an event source created previously with
+    <function>sd_event_add_time()</function>. It takes the event
+    source object and a time relative to the selected clock's epoch,
+    in µs.</para>
 
     <para><function>sd_event_source_get_time_accuracy()</function>
-    retrieves the configured accuracy value of a timer event source
+    retrieves the configured accuracy value of a event source
     created previously with <function>sd_event_add_time()</function>. It
     takes the event source object and a pointer to a variable to store
-    the accuracy in µs in.</para>
+    the accuracy in. The accuracy is specified in µs.</para>
 
     <para><function>sd_event_source_set_time_accuracy()</function>
     changes the configured accuracy of a timer event source created
     previously with <function>sd_event_add_time()</function>. It takes
-    the event source object and an accuracy, in µs.</para>
+    the event source object and accuracy, in µs.</para>
 
     <para><function>sd_event_source_get_time_clock()</function>
-    retrieves the configured clock of a timer event source created
+    retrieves the configured clock of a event source created
     previously with <function>sd_event_add_time()</function>. It takes
     the event source object and a pointer to a variable to store the
     clock identifier in.</para>
@@ -252,7 +254,7 @@
   <refsect1>
     <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+    <para>Returned values may indicate the following problems:</para>
 
     <variablelist>
       <varlistentry>

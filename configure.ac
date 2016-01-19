@@ -1301,9 +1301,9 @@ AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
 # ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
+AC_PATH_PROG([XSLTPROC], [xsltproc])
 AS_IF([test "x$enable_manpages" != xno], [
        have_manpages=yes
-       AC_PATH_PROG([XSLTPROC], [xsltproc])
        AS_IF([test -z "$XSLTPROC"],
              AC_MSG_ERROR([*** xsltproc is required for man pages]))
 ])

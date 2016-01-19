@@ -123,24 +123,23 @@
     <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     but note that the event source is only removed from the event loop
     when all references to the event source are dropped. To make sure
-    an event source does not fire anymore, even when there's still a
-    reference to it kept, consider setting the event source to
-    <constant>SD_EVENT_OFF</constant> with
-    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    an event source does not fire anymore, even if is still referenced,
+    disable the event source using
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    with <constant>SD_EVENT_OFF</constant>.</para>
 
     <para>If the second parameter of
-    <function>sd_event_add_signal()</function> is passed as NULL no
-    reference to the event source object is returned. In this case the
-    event source is considered "floating", and will be destroyed
-    implicitly when the event loop itself is destroyed.</para>
+    <function>sd_event_add_signal()</function> is
+    <constant>NULL</constant> no reference to the event source object
+    is returned. In this case the event source is considered
+    "floating", and will be destroyed implicitly when the event loop
+    itself is destroyed.</para>
 
-    <para><function>sd_event_source_get_signal()</function> retrieves
-    the configured UNIX process signal number of a signal event source
-    created previously with
-    <function>sd_event_add_signal()</function>. It takes the event
-    source object as the <parameter>source</parameter>
+    <para><function>sd_event_source_get_signal()</function> returns
+    the configured signal number of an event source created previously
+    with <function>sd_event_add_signal()</function>. It takes the
+    event source object as the <parameter>source</parameter>
     parameter.</para>
-
   </refsect1>
 
   <refsect1>
@@ -148,7 +147,7 @@
 
     <para>On success, these functions return 0 or a positive
     integer. On failure, they return a negative errno-style error
-    code. </para>
+    code.</para>
   </refsect1>
 
   <refsect1>
@@ -167,7 +166,6 @@
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An invalid argument has been passed.</para></listitem>
-
       </varlistentry>
 
       <varlistentry>
@@ -175,21 +173,18 @@
 
         <listitem><para>A handler is already installed for this
         signal or the signal was not blocked previously.</para></listitem>
-
       </varlistentry>
 
       <varlistentry>
         <term><constant>-ESTALE</constant></term>
 
         <listitem><para>The event loop is already terminated.</para></listitem>
-
       </varlistentry>
 
       <varlistentry>
         <term><constant>-ECHILD</constant></term>
 
         <listitem><para>The event loop has been created in a different process.</para></listitem>
-
       </varlistentry>
 
       <varlistentry>

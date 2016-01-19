@@ -61,7 +61,7 @@
 
       <funcprototype>
         <funcdef>void* <function>sd_event_source_get_userdata</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const sd_event_source *<parameter>source</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
