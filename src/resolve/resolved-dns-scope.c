@@ -67,11 +67,9 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                  * changes. */
 
                 if (l)
-                        s->dnssec_mode = l->dnssec_mode;
-                if (s->dnssec_mode == _DNSSEC_MODE_INVALID)
-                        s->dnssec_mode = m->dnssec_mode;
-                if (s->dnssec_mode == _DNSSEC_MODE_INVALID)
-                        s->dnssec_mode = DNSSEC_NO;
+                        s->dnssec_mode = link_get_dnssec_mode(l);
+                else
+                        s->dnssec_mode = manager_get_dnssec_mode(m);
         }
 
         LIST_PREPEND(scopes, m->dns_scopes, s);

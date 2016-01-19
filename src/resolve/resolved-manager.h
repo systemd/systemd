@@ -158,3 +158,6 @@ int manager_is_own_hostname(Manager *m, const char *name);
 
 int manager_compile_dns_servers(Manager *m, OrderedSet **servers);
 int manager_compile_search_domains(Manager *m, OrderedSet **domains);
+
+DnssecMode manager_get_dnssec_mode(Manager *m);
+bool manager_dnssec_supported(Manager *m);

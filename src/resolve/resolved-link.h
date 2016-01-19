@@ -100,6 +100,9 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s);
 DnsServer* link_get_dns_server(Link *l);
 void link_next_dns_server(Link *l);
 
+DnssecMode link_get_dnssec_mode(Link *l);
+bool link_dnssec_supported(Link *l);
+
 int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr);
 LinkAddress *link_address_free(LinkAddress *a);
 int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m);

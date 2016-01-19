@@ -580,6 +580,30 @@ void link_next_dns_server(Link *l) {
         link_set_dns_server(l, l->dns_servers);
 }
 
+DnssecMode link_get_dnssec_mode(Link *l) {
+        assert(l);
+
+        if (l->dnssec_mode != _DNSSEC_MODE_INVALID)
+                return l->dnssec_mode;
+
+        return manager_get_dnssec_mode(l->manager);
+}
+
+bool link_dnssec_supported(Link *l) {
+        DnsServer *server;
+
+        assert(l);
+
+        if (link_get_dnssec_mode(l) == DNSSEC_NO)
+                return false;
+
+        server = link_get_dns_server(l);
+        if (server)
+                return dns_server_dnssec_supported(server);
+
+        return true;
+}
+
 int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr) {
         LinkAddress *a;
 

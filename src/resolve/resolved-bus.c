@@ -1309,25 +1309,11 @@ static int bus_property_get_dnssec_supported(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        DnsServer *server;
-        bool supported = true;
-        Iterator i;
-        Link *l;
 
         assert(reply);
         assert(m);
 
-        server = manager_get_dns_server(m);
-        if (server)
-                supported = supported && dns_server_dnssec_supported(server);
-
-        HASHMAP_FOREACH(l, m->links, i) {
-                server = link_get_dns_server(l);
-                if (server)
-                        supported = supported && dns_server_dnssec_supported(server);
-        }
-
-        return sd_bus_message_append(reply, "b", supported);
+        return sd_bus_message_append(reply, "b", manager_dnssec_supported(m));
 }
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {

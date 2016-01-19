@@ -142,6 +142,23 @@ static int property_get_ntas(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_dnssec_supported(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = userdata;
+
+        assert(reply);
+        assert(l);
+
+        return sd_bus_message_append(reply, "b", link_dnssec_supported(l));
+}
+
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ struct in_addr_data *dns = NULL;
         size_t allocated = 0, n = 0;
@@ -418,6 +435,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("MulticastDNS", "s", property_get_resolve_support, offsetof(Link, mdns_support), 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, offsetof(Link, dnssec_mode), 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
+        SD_BUS_PROPERTY("DNSSECSupport", "b", property_get_dnssec_supported, 0, 0),
 
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
         SD_BUS_METHOD("SetDomains", "as", NULL, bus_link_method_set_search_domains, 0),
