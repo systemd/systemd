@@ -44,9 +44,9 @@ typedef int (*sd_resolve_getaddrinfo_handler_t)(sd_resolve_query *q, int ret, co
 typedef int (*sd_resolve_getnameinfo_handler_t)(sd_resolve_query *q, int ret, const char *host, const char *serv, void *userdata);
 
 enum {
-        SD_RESOLVE_GET_HOST = 1ULL,
-        SD_RESOLVE_GET_SERVICE = 2ULL,
-        SD_RESOLVE_GET_BOTH = 3ULL
+        SD_RESOLVE_GET_HOST = UINT64_C(1),
+        SD_RESOLVE_GET_SERVICE = UINT64_C(2),
+        SD_RESOLVE_GET_BOTH = UINT64_C(3),
 };
 
 int sd_resolve_default(sd_resolve **ret);
