@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Lennart Poettering
+  Copyright 2016 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved-manager.h"
+#include "sd-bus.h"
 
-int manager_connect_bus(Manager *m);
-int bus_dns_server_append(sd_bus_message *reply, DnsServer *s, bool with_ifindex);
+#include "resolved-link.h"
+
+extern const sd_bus_vtable link_vtable[];
+
+int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+char *link_bus_path(Link *link);
+int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
