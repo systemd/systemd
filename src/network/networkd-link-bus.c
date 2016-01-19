@@ -102,7 +102,7 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(found);
 
         r = sd_bus_path_decode(path, "/org/freedesktop/network1/link", &identifier);
-        if (r < 0)
+        if (r <= 0)
                 return 0;
 
         r = parse_ifindex(identifier, &ifindex);
