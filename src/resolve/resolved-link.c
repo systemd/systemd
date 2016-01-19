@@ -63,15 +63,27 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         return 0;
 }
 
-Link *link_free(Link *l) {
-        if (!l)
-                return NULL;
+void link_flush_settings(Link *l) {
+        assert(l);
+
+        l->llmnr_support = RESOLVE_SUPPORT_YES;
+        l->mdns_support = RESOLVE_SUPPORT_NO;
+        l->dnssec_mode = _DNSSEC_MODE_INVALID;
 
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
 
+        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
+}
+
+Link *link_free(Link *l) {
+        if (!l)
+                return NULL;
+
+        link_flush_settings(l);
+
         while (l->addresses)
-                link_address_free(l->addresses);
+                (void) link_address_free(l->addresses);
 
         if (l->manager)
                 hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
@@ -82,13 +94,11 @@ Link *link_free(Link *l) {
         dns_scope_free(l->mdns_ipv4_scope);
         dns_scope_free(l->mdns_ipv6_scope);
 
-        set_free_free(l->dnssec_negative_trust_anchors);
-
         free(l);
         return NULL;
 }
 
-static void link_allocate_scopes(Link *l) {
+void link_allocate_scopes(Link *l) {
         int r;
 
         assert(l);
@@ -278,6 +288,26 @@ clear:
         return r;
 }
 
+void link_set_dnssec_mode(Link *l, DnssecMode mode) {
+
+        assert(l);
+
+        if (l->dnssec_mode == mode)
+                return;
+
+        if ((l->dnssec_mode == _DNSSEC_MODE_INVALID) ||
+            (l->dnssec_mode == DNSSEC_NO && mode != DNSSEC_NO) ||
+            (l->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && mode == DNSSEC_YES)) {
+
+                /* When switching from non-DNSSEC mode to DNSSEC mode, flush the cache. Also when switching from the
+                 * allow-downgrade mode to full DNSSEC mode, flush it too. */
+                if (l->unicast_scope)
+                        dns_cache_flush(&l->unicast_scope->cache);
+        }
+
+        l->dnssec_mode = mode;
+}
+
 static int link_update_dnssec_mode(Link *l) {
         _cleanup_free_ char *m = NULL;
         DnssecMode mode;
@@ -299,16 +329,7 @@ static int link_update_dnssec_mode(Link *l) {
                 goto clear;
         }
 
-        if ((l->dnssec_mode == DNSSEC_NO && mode != DNSSEC_NO) ||
-            (l->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && mode == DNSSEC_YES)) {
-
-                /* When switching from non-DNSSEC mode to DNSSEC mode, flush the cache. Also when switching from the
-                 * allow-downgrade mode to full DNSSEC mode, flush it too. */
-                if (l->unicast_scope)
-                        dns_cache_flush(&l->unicast_scope->cache);
-        }
-
-        l->dnssec_mode = mode;
+        link_set_dnssec_mode(l, mode);
 
         return 0;
 
@@ -396,10 +417,44 @@ clear:
         return r;
 }
 
-int link_update_monitor(Link *l) {
+static int link_is_unmanaged(Link *l) {
+        _cleanup_free_ char *state = NULL;
         int r;
 
         assert(l);
+
+        r = sd_network_link_get_setup_state(l->ifindex, &state);
+        if (r == -ENODATA)
+                return 1;
+        if (r < 0)
+                return r;
+
+        return STR_IN_SET(state, "pending", "unmanaged");
+}
+
+static void link_read_settings(Link *l) {
+        int r;
+
+        assert(l);
+
+        /* Read settings from networkd, except when networkd is not managing this interface. */
+
+        r = link_is_unmanaged(l);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to determine whether interface %s is managed: %m", l->name);
+                return;
+        }
+        if (r > 0) {
+
+                /* If this link used to be managed, but is now unmanaged, flush all our settings -- but only once. */
+                if (l->is_managed)
+                        link_flush_settings(l);
+
+                l->is_managed = false;
+                return;
+        }
+
+        l->is_managed = true;
 
         r = link_update_dns_servers(l);
         if (r < 0)
@@ -424,7 +479,12 @@ int link_update_monitor(Link *l) {
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+}
 
+int link_update_monitor(Link *l) {
+        assert(l);
+
+        link_read_settings(l);
         link_allocate_scopes(l);
         link_add_rrs(l, false);
 

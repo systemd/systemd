@@ -77,6 +77,8 @@
 #define BUS_ERROR_DNSSEC_FAILED "org.freedesktop.resolve1.DnssecFailed"
 #define BUS_ERROR_NO_TRUST_ANCHOR "org.freedesktop.resolve1.NoTrustAnchor"
 #define BUS_ERROR_RR_TYPE_UNSUPPORTED "org.freedesktop.resolve1.ResourceRecordTypeUnsupported"
+#define BUS_ERROR_NO_SUCH_LINK "org.freedesktop.resolve1.NoSuchLink"
+#define BUS_ERROR_LINK_BUSY "org.freedesktop.resolve1.LinkBusy"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
 
 #define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"

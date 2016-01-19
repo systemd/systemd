@@ -78,6 +78,8 @@ struct Link {
         DnsScope *mdns_ipv4_scope;
         DnsScope *mdns_ipv6_scope;
 
+        bool is_managed;
+
         char name[IF_NAMESIZE];
         uint32_t mtu;
 };
@@ -89,6 +91,10 @@ int link_update_monitor(Link *l);
 bool link_relevant(Link *l, int family, bool multicast);
 LinkAddress* link_find_address(Link *l, int family, const union in_addr_union *in_addr);
 void link_add_rrs(Link *l, bool force_remove);
+
+void link_flush_settings(Link *l);
+void link_set_dnssec_mode(Link *l, DnssecMode mode);
+void link_allocate_scopes(Link *l);
 
 DnsServer* link_set_dns_server(Link *l, DnsServer *s);
 DnsServer* link_get_dns_server(Link *l);
