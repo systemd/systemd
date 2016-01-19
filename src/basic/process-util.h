@@ -98,3 +98,5 @@ int sched_policy_from_string(const char *s);
 
 #define PTR_TO_PID(p) ((pid_t) ((uintptr_t) p))
 #define PID_TO_PTR(p) ((void*) ((uintptr_t) p))
+
+void valgrind_summary_hack(void);
