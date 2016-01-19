@@ -1292,6 +1292,37 @@ static int bus_property_get_dnssec_statistics(
                                      (uint64_t) m->n_dnssec_indeterminate);
 }
 
+static int bus_property_get_dnssec_supported(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        DnsServer *server;
+        bool supported = true;
+        Iterator i;
+        Link *l;
+
+        assert(reply);
+        assert(m);
+
+        server = manager_get_dns_server(m);
+        if (server)
+                supported = supported && dns_server_dnssec_supported(server);
+
+        HASHMAP_FOREACH(l, m->links, i) {
+                server = link_get_dns_server(l);
+                if (server)
+                        supported = supported && dns_server_dnssec_supported(server);
+        }
+
+        return sd_bus_message_append(reply, "b", supported);
+}
+
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         DnsScope *s;
@@ -1316,6 +1347,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
         SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
+        SD_BUS_PROPERTY("DNSSECSupported", "b", bus_property_get_dnssec_supported, 0, 0),
 
         SD_BUS_METHOD("ResolveHostname", "isit", "a(iiay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),

@@ -771,9 +771,25 @@ static int show_statistics(sd_bus *bus) {
         uint64_t n_current_transactions, n_total_transactions,
                 cache_size, n_cache_hit, n_cache_miss,
                 n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
-        int r;
+        int r, dnssec_supported;
 
         assert(bus);
+
+        r = sd_bus_get_property_trivial(bus,
+                                        "org.freedesktop.resolve1",
+                                        "/org/freedesktop/resolve1",
+                                        "org.freedesktop.resolve1.Manager",
+                                        "DNSSECSupported",
+                                        &error,
+                                        'b',
+                                        &dnssec_supported);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get DNSSEC supported state: %s", bus_error_message(&error, r));
+
+        printf("DNSSEC supported by current servers: %s%s%s\n\n",
+               ansi_highlight(),
+               yes_no(dnssec_supported),
+               ansi_normal());
 
         r = sd_bus_get_property(bus,
                                 "org.freedesktop.resolve1",
