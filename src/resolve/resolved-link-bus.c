@@ -142,6 +142,272 @@ static int property_get_ntas(
         return sd_bus_message_close_container(reply);
 }
 
+int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ struct in_addr_data *dns = NULL;
+        size_t allocated = 0, n = 0;
+        Link *l = userdata;
+        unsigned i;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = sd_bus_message_enter_container(message, 'a', "(iay)");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                int family;
+                size_t sz;
+                const void *d;
+
+                assert_cc(sizeof(int) == sizeof(int32_t));
+
+                r = sd_bus_message_enter_container(message, 'r', "iay");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(message, "i", &family);
+                if (r < 0)
+                        return r;
+
+                if (!IN_SET(family, AF_INET, AF_INET6))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
+
+                r = sd_bus_message_read_array(message, 'y', &d, &sz);
+                if (r < 0)
+                        return r;
+                if (sz != FAMILY_ADDRESS_SIZE(family))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(dns, allocated, n+1))
+                        return -ENOMEM;
+
+                dns[n].family = family;
+                memcpy(&dns[n].address, d, sz);
+                n++;
+        }
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        dns_server_mark_all(l->dns_servers);
+
+        for (i = 0; i < n; i++) {
+                DnsServer *s;
+
+                s = dns_server_find(l->dns_servers, dns[i].family, &dns[i].address);
+                if (s)
+                        dns_server_move_back_and_unmark(s);
+                else {
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address);
+                        if (r < 0)
+                                goto clear;
+                }
+
+        }
+
+        dns_server_unlink_marked(l->dns_servers);
+        link_allocate_scopes(l);
+
+        return sd_bus_reply_method_return(message, NULL);
+
+clear:
+        dns_server_unlink_all(l->dns_servers);
+        return r;
+}
+
+int bus_link_method_set_search_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char **domains = NULL;
+        Link *l = userdata;
+        char **i;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = sd_bus_message_read_strv(message, &domains);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, domains) {
+
+                r = dns_name_is_valid(*i);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", *i);
+                if (dns_name_is_root(*i))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
+        }
+
+        dns_search_domain_mark_all(l->search_domains);
+
+        STRV_FOREACH(i, domains) {
+                DnsSearchDomain *d;
+
+                r = dns_search_domain_find(l->search_domains, *i, &d);
+                if (r < 0)
+                        goto clear;
+
+                if (r > 0)
+                        dns_search_domain_move_back_and_unmark(d);
+                else {
+                        r = dns_search_domain_new(l->manager, NULL, DNS_SEARCH_DOMAIN_LINK, l, *i);
+                        if (r < 0)
+                                goto clear;
+                }
+        }
+
+        dns_search_domain_unlink_marked(l->search_domains);
+        return sd_bus_reply_method_return(message, NULL);
+
+clear:
+        dns_search_domain_unlink_all(l->search_domains);
+        return r;
+}
+
+int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        ResolveSupport mode;
+        const char *llmnr;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = sd_bus_message_read(message, "s", &llmnr);
+        if (r < 0)
+                return r;
+
+        if (isempty(llmnr))
+                mode = RESOLVE_SUPPORT_YES;
+        else {
+                mode = resolve_support_from_string(llmnr);
+                if (mode < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid LLMNR setting: %s", llmnr);
+        }
+
+        l->llmnr_support = mode;
+        link_allocate_scopes(l);
+        link_add_rrs(l, false);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        ResolveSupport mode;
+        const char *mdns;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = sd_bus_message_read(message, "s", &mdns);
+        if (r < 0)
+                return r;
+
+        if (isempty(mdns))
+                mode = RESOLVE_SUPPORT_NO;
+        else {
+                mode = resolve_support_from_string(mdns);
+                if (mode < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid MulticastDNS setting: %s", mdns);
+        }
+
+        l->mdns_support = mode;
+        link_allocate_scopes(l);
+        link_add_rrs(l, false);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        const char *dnssec;
+        DnssecMode mode;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = sd_bus_message_read(message, "s", &dnssec);
+        if (r < 0)
+                return r;
+
+        if (isempty(dnssec))
+                mode = _DNSSEC_MODE_INVALID;
+        else {
+                mode = dnssec_mode_from_string(dnssec);
+                if (mode < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSSEC setting: %s", dnssec);
+        }
+
+        link_set_dnssec_mode(l, mode);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_set_free_free_ Set *ns = NULL;
+        _cleanup_free_ char **ntas = NULL;
+        Link *l = userdata;
+        int r;
+        char **i;
+
+        assert(message);
+        assert(l);
+
+        r = sd_bus_message_read_strv(message, &ntas);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, ntas) {
+                r = dns_name_is_valid(*i);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search negative trust anchor domain: %s", *i);
+        }
+
+        ns = set_new(&dns_name_hash_ops);
+        if (!ns)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, ntas) {
+                r = set_put_strdup(ns, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        set_free_free(l->dnssec_negative_trust_anchors);
+        l->dnssec_negative_trust_anchors = ns;
+        ns = NULL;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+
+        assert(message);
+        assert(l);
+
+        link_flush_settings(l);
+        link_allocate_scopes(l);
+        link_add_rrs(l, false);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -152,6 +418,14 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("MulticastDNS", "s", property_get_resolve_support, offsetof(Link, mdns_support), 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, offsetof(Link, dnssec_mode), 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
+
+        SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
+        SD_BUS_METHOD("SetDomains", "as", NULL, bus_link_method_set_search_domains, 0),
+        SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
+        SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
+        SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),
+        SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, 0),
+        SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, 0),
 
         SD_BUS_VTABLE_END
 };
