@@ -934,7 +934,7 @@ static void help(void) {
                "     --version              Show package version\n"
                "  -4                        Resolve IPv4 addresses\n"
                "  -6                        Resolve IPv6 addresses\n"
-               "  -i INTERFACE              Look on interface\n"
+               "  -i --interface=INTERFACE  Look on interface\n"
                "  -p --protocol=PROTOCOL    Look via protocol\n"
                "  -t --type=TYPE            Query RR with DNS type\n"
                "  -c --class=CLASS          Query RR with DNS class\n"
@@ -968,6 +968,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "type",             required_argument, NULL, 't'                  },
                 { "class",            required_argument, NULL, 'c'                  },
                 { "legend",           required_argument, NULL, ARG_LEGEND           },
+                { "interface",        required_argument, NULL, 'i'                  },
                 { "protocol",         required_argument, NULL, 'p'                  },
                 { "cname",            required_argument, NULL, ARG_CNAME            },
                 { "service",          no_argument,       NULL, ARG_SERVICE          },
