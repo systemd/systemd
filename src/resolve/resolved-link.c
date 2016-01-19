@@ -93,7 +93,8 @@ static void link_allocate_scopes(Link *l) {
 
         assert(l);
 
-        if (l->dns_servers) {
+        if (link_relevant(l, AF_UNSPEC, false) &&
+            l->dns_servers) {
                 if (!l->unicast_scope) {
                         r = dns_scope_new(l->manager, &l->unicast_scope, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
                         if (r < 0)
@@ -102,7 +103,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
-        if (link_relevant(l, AF_INET) &&
+        if (link_relevant(l, AF_INET, true) &&
             l->llmnr_support != RESOLVE_SUPPORT_NO &&
             l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
@@ -113,7 +114,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6) &&
+        if (link_relevant(l, AF_INET6, true) &&
             l->llmnr_support != RESOLVE_SUPPORT_NO &&
             l->manager->llmnr_support != RESOLVE_SUPPORT_NO &&
             socket_ipv6_is_supported()) {
@@ -125,7 +126,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
 
-        if (link_relevant(l, AF_INET) &&
+        if (link_relevant(l, AF_INET, true) &&
             l->mdns_support != RESOLVE_SUPPORT_NO &&
             l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv4_scope) {
@@ -136,7 +137,7 @@ static void link_allocate_scopes(Link *l) {
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6) &&
+        if (link_relevant(l, AF_INET6, true) &&
             l->mdns_support != RESOLVE_SUPPORT_NO &&
             l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv6_scope) {
@@ -430,28 +431,35 @@ int link_update_monitor(Link *l) {
         return 0;
 }
 
-bool link_relevant(Link *l, int family) {
+bool link_relevant(Link *l, int family, bool multicast) {
         _cleanup_free_ char *state = NULL;
         LinkAddress *a;
 
         assert(l);
 
-        /* A link is relevant if it isn't a loopback or pointopoint
-         * device, has a link beat, can do multicast and has at least
-         * one relevant IP address */
+        /* A link is relevant for multicast traffic if it isn't a loopback or pointopoint device, has a link beat, can
+         * do multicast and has at least one relevant IP address */
 
-        if (l->flags & (IFF_LOOPBACK|IFF_POINTOPOINT|IFF_DORMANT))
+        if (l->flags & (IFF_LOOPBACK|IFF_DORMANT))
                 return false;
 
-        if ((l->flags & (IFF_UP|IFF_LOWER_UP|IFF_MULTICAST)) != (IFF_UP|IFF_LOWER_UP|IFF_MULTICAST))
+        if ((l->flags & (IFF_UP|IFF_LOWER_UP)) != (IFF_UP|IFF_LOWER_UP))
                 return false;
+
+        if (multicast) {
+                if (l->flags & IFF_POINTOPOINT)
+                        return false;
+
+                if ((l->flags & IFF_MULTICAST) != IFF_MULTICAST)
+                        return false;
+        }
 
         sd_network_link_get_operational_state(l->ifindex, &state);
         if (state && !STR_IN_SET(state, "unknown", "degraded", "routable"))
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
-                if (a->family == family && link_address_relevant(a))
+                if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a))
                         return true;
 
         return false;
