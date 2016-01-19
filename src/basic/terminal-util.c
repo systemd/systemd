@@ -1135,3 +1135,17 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
 
         return receive_one_fd(pair[0], 0);
 }
+
+bool colors_enabled(void) {
+        const char *term, *colors;
+
+        term = secure_getenv("TERM");
+        if (term && streq(term, "dumb"))
+                return false;
+
+        colors = secure_getenv("SYSTEMD_COLORS");
+        if (!colors)
+                return on_tty();
+
+        return parse_boolean(colors) != 0;
+}
