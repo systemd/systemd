@@ -41,9 +41,6 @@
  *   - enable by default
  *   - Allow clients to request DNSSEC even if DNSSEC is off
  *   - make sure when getting an NXDOMAIN response through CNAME, we still process the first CNAMEs in the packet
- *   - update test-complex to also do ResolveAddress lookups
- *   - extend complex test to check "xn--kprw13d." DNAME domain
- *   - rework IDNA stuff: only to IDNA for ResolveAddress and ResolveService, and prepare a pair of lookup keys then, never do IDNA comparisons after that
  * */
 
 #define VERIFY_RRS_MAX 256
@@ -1005,16 +1002,6 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
                         return r;
                 if (r == 0)
                         break;
-                if (r > 0) {
-                        int k;
-
-                        /* DNSSEC validation is always done on the ASCII version of the label */
-                        k = dns_label_apply_idna(buffer, r, buffer, buffer_max);
-                        if (k < 0)
-                                return k;
-                        if (k > 0)
-                                r = k;
-                }
 
                 if (buffer_max < (size_t) r + 2)
                         return -ENOBUFS;

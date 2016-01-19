@@ -19,8 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <netinet/ip.h>
+
 #include "sd-bus.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "dns-type.h"
@@ -30,7 +33,28 @@
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
-static void test_lookup(sd_bus *bus, const char *name, uint16_t type, const char *result) {
+static void prefix_random(const char *name, char **ret) {
+        uint64_t i, u;
+        char *m = NULL;
+
+        u = 1 + (random_u64() & 3);
+
+        for (i = 0; i < u; i++) {
+                _cleanup_free_ char *b = NULL;
+                char *x;
+
+                assert_se(asprintf(&b, "x%" PRIu64 "x", random_u64()));
+                x = strjoin(b, ".", name, NULL);
+                assert_se(x);
+
+                free(m);
+                m = x;
+        }
+
+        *ret = m;
+ }
+
+static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const char *result) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *m = NULL;
@@ -38,21 +62,8 @@ static void test_lookup(sd_bus *bus, const char *name, uint16_t type, const char
 
         /* If the name starts with a dot, we prefix one to three random labels */
         if (startswith(name, ".")) {
-                uint64_t i, u;
-
-                u = 1 + (random_u64() & 3);
-                name ++;
-
-                for (i = 0; i < u; i++) {
-                        _cleanup_free_ char *b = NULL;
-                        char *x;
-
-                        assert_se(asprintf(&b, "x%" PRIu64 "x", random_u64()));
-                        x = strjoin(b, ".", name, NULL);
-                        assert_se(x);
-                        free(m);
-                        name = m = x;
-                }
+                prefix_random(name + 1, &m);
+                name = m;
         }
 
         assert_se(sd_bus_message_new_method_call(
@@ -77,6 +88,44 @@ static void test_lookup(sd_bus *bus, const char *name, uint16_t type, const char
         }
 }
 
+static void test_hostname_lookup(sd_bus *bus, const char *name, int family, const char *result) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *m = NULL;
+        const char *af;
+        int r;
+
+        af = family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(family);
+
+        /* If the name starts with a dot, we prefix one to three random labels */
+        if (startswith(name, ".")) {
+                prefix_random(name + 1, &m);
+                name = m;
+        }
+
+        assert_se(sd_bus_message_new_method_call(
+                                  bus,
+                                  &req,
+                                  "org.freedesktop.resolve1",
+                                  "/org/freedesktop/resolve1",
+                                  "org.freedesktop.resolve1.Manager",
+                                  "ResolveHostname") >= 0);
+
+        assert_se(sd_bus_message_append(req, "isit", 0, name, family, UINT64_C(0)) >= 0);
+
+        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+
+        if (r < 0) {
+                assert_se(result);
+                assert_se(sd_bus_error_has_name(&error, result));
+                log_info("[OK] %s/%s resulted in <%s>.", name, af, error.name);
+        } else {
+                assert_se(!result);
+                log_info("[OK] %s/%s succeeded.", name, af);
+        }
+
+}
+
 int main(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
@@ -90,57 +139,100 @@ int main(int argc, char* argv[]) {
         assert_se(sd_bus_open_system(&bus) >= 0);
 
         /* Normally signed */
-        test_lookup(bus, "www.eurid.eu", DNS_TYPE_A, NULL);
-        test_lookup(bus, "sigok.verteiltesysteme.net", DNS_TYPE_A, NULL);
+        test_rr_lookup(bus, "www.eurid.eu", DNS_TYPE_A, NULL);
+        test_hostname_lookup(bus, "www.eurid.eu", AF_UNSPEC, NULL);
+
+        test_rr_lookup(bus, "sigok.verteiltesysteme.net", DNS_TYPE_A, NULL);
+        test_hostname_lookup(bus, "sigok.verteiltesysteme.net", AF_UNSPEC, NULL);
 
         /* Normally signed, NODATA */
-        test_lookup(bus, "www.eurid.eu", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
-        test_lookup(bus, "sigok.verteiltesysteme.net", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
+        test_rr_lookup(bus, "www.eurid.eu", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
+        test_rr_lookup(bus, "sigok.verteiltesysteme.net", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* Invalid signature */
-        test_lookup(bus, "sigfail.verteiltesysteme.net", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
+        test_rr_lookup(bus, "sigfail.verteiltesysteme.net", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
+        test_hostname_lookup(bus, "sigfail.verteiltesysteme.net", AF_INET, BUS_ERROR_DNSSEC_FAILED);
 
         /* Invalid signature, RSA, wildcard */
-        test_lookup(bus, ".wilda.rhybar.0skar.cz", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
+        test_rr_lookup(bus, ".wilda.rhybar.0skar.cz", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
+        test_hostname_lookup(bus, ".wilda.rhybar.0skar.cz", AF_INET, BUS_ERROR_DNSSEC_FAILED);
 
         /* Invalid signature, ECDSA, wildcard */
-        test_lookup(bus, ".wilda.rhybar.ecdsa.0skar.cz", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
+        test_rr_lookup(bus, ".wilda.rhybar.ecdsa.0skar.cz", DNS_TYPE_A, BUS_ERROR_DNSSEC_FAILED);
+        test_hostname_lookup(bus, ".wilda.rhybar.ecdsa.0skar.cz", AF_INET, BUS_ERROR_DNSSEC_FAILED);
 
         /* NXDOMAIN in NSEC domain */
-        test_lookup(bus, "hhh.nasa.gov", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, "hhh.nasa.gov", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, "hhh.nasa.gov", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
 
         /* wildcard, NSEC zone */
-        test_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_A, NULL);
+        test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_A, NULL);
+        test_hostname_lookup(bus, ".wilda.nsec.0skar.cz", AF_INET, NULL);
 
         /* wildcard, NSEC zone, NODATA */
-        test_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
+        test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* wildcard, NSEC3 zone */
-        test_lookup(bus, ".wilda.0skar.cz", DNS_TYPE_A, NULL);
+        test_rr_lookup(bus, ".wilda.0skar.cz", DNS_TYPE_A, NULL);
+        test_hostname_lookup(bus, ".wilda.0skar.cz", AF_INET, NULL);
 
         /* wildcard, NSEC3 zone, NODATA */
-        test_lookup(bus, ".wilda.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
+        test_rr_lookup(bus, ".wilda.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* wildcard, NSEC zone, CNAME */
-        test_lookup(bus, ".wild.nsec.0skar.cz", DNS_TYPE_A, NULL);
+        test_rr_lookup(bus, ".wild.nsec.0skar.cz", DNS_TYPE_A, NULL);
+        test_hostname_lookup(bus, ".wild.nsec.0skar.cz", AF_UNSPEC, NULL);
+        test_hostname_lookup(bus, ".wild.nsec.0skar.cz", AF_INET, NULL);
 
         /* wildcard, NSEC zone, NODATA, CNAME */
-        test_lookup(bus, ".wild.nsec.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
+        test_rr_lookup(bus, ".wild.nsec.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* wildcard, NSEC3 zone, CNAME */
-        test_lookup(bus, ".wild.0skar.cz", DNS_TYPE_A, NULL);
+        test_rr_lookup(bus, ".wild.0skar.cz", DNS_TYPE_A, NULL);
+        test_hostname_lookup(bus, ".wild.0skar.cz", AF_UNSPEC, NULL);
+        test_hostname_lookup(bus, ".wild.0skar.cz", AF_INET, NULL);
 
         /* wildcard, NSEC3 zone, NODATA, CNAME */
-        test_lookup(bus, ".wild.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
+        test_rr_lookup(bus, ".wild.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* NODATA due to empty non-terminal in NSEC domain */
-        test_lookup(bus, "herndon.nasa.gov", DNS_TYPE_A, BUS_ERROR_NO_SUCH_RR);
+        test_rr_lookup(bus, "herndon.nasa.gov", DNS_TYPE_A, BUS_ERROR_NO_SUCH_RR);
+        test_hostname_lookup(bus, "herndon.nasa.gov", AF_UNSPEC, BUS_ERROR_NO_SUCH_RR);
+        test_hostname_lookup(bus, "herndon.nasa.gov", AF_INET, BUS_ERROR_NO_SUCH_RR);
+        test_hostname_lookup(bus, "herndon.nasa.gov", AF_INET6, BUS_ERROR_NO_SUCH_RR);
 
         /* NXDOMAIN in NSEC root zone: */
-        test_lookup(bus, "jasdhjas.kjkfgjhfjg", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, "jasdhjas.kjkfgjhfjg", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
 
         /* NXDOMAIN in NSEC3 .com zone: */
-        test_lookup(bus, "kjkfgjhfjgsdfdsfd.com", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, "kjkfgjhfjgsdfdsfd.com", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
+
+        /* Unsigned A */
+        test_rr_lookup(bus, "poettering.de", DNS_TYPE_A, NULL);
+        test_rr_lookup(bus, "poettering.de", DNS_TYPE_AAAA, NULL);
+        test_hostname_lookup(bus, "poettering.de", AF_UNSPEC, NULL);
+        test_hostname_lookup(bus, "poettering.de", AF_INET, NULL);
+        test_hostname_lookup(bus, "poettering.de", AF_INET6, NULL);
+
+#if HAVE_LIBIDN
+        /* Unsigned A with IDNA conversion necessary */
+        test_hostname_lookup(bus, "pöttering.de", AF_UNSPEC, NULL);
+        test_hostname_lookup(bus, "pöttering.de", AF_INET, NULL);
+        test_hostname_lookup(bus, "pöttering.de", AF_INET6, NULL);
+#endif
+
+        /* DNAME, pointing to NXDOMAIN */
+        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_RP, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
 
         return 0;
 }

@@ -375,9 +375,18 @@ static void dns_server_reset_counters(DnsServer *s) {
         s->n_failed_tcp = 0;
         s->packet_failed = false;
         s->packet_truncated = false;
-        s->packet_bad_opt = false;
-        s->packet_rrsig_missing = false;
         s->verified_usec = 0;
+
+        /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only when the
+         * grace period ends, but not when lowering the possible feature level, as a lower level feature level should
+         * not make RRSIGs appear or OPT appear, but rather make them disappear. If the reappear anyway, then that's
+         * indication for a differently broken OPT/RRSIG implementation, and we really don't want to support that
+         * either.
+         *
+         * This is particularly important to deal with certain Belkin routers which break OPT for certain lookups (A),
+         * but pass traffic through for others (AAAA). If we detect the broken behaviour on one lookup we should not
+         * reenable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
+         * incomplete. */
 }
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
@@ -387,7 +396,11 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
             dns_server_grace_period_expired(s)) {
 
                 s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
+
                 dns_server_reset_counters(s);
+
+                s->packet_bad_opt = false;
+                s->packet_rrsig_missing = false;
 
                 log_info("Grace period over, resuming full feature set (%s) for DNS server %s.",
                          dns_server_feature_level_to_string(s->possible_feature_level),

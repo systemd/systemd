@@ -413,7 +413,6 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
         for (;;) {
                 char label[DNS_LABEL_MAX];
-                int k;
 
                 r = dns_label_unescape(&p, label, sizeof(label));
                 if (r < 0)
@@ -431,12 +430,6 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
                         break;
                 }
-
-                k = dns_label_undo_idna(label, r, label, sizeof(label));
-                if (k < 0)
-                        return k;
-                if (k > 0)
-                        r = k;
 
                 if (_ret) {
                         if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
@@ -487,19 +480,12 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
 
         for (;;) {
                 char label[DNS_LABEL_MAX+1];
-                int k;
 
                 r = dns_label_unescape(&p, label, sizeof(label));
                 if (r < 0)
                         break;
                 if (r == 0)
                         break;
-
-                k = dns_label_undo_idna(label, r, label, sizeof(label));
-                if (k < 0)
-                        break;
-                if (k > 0)
-                        r = k;
 
                 ascii_strlower_n(label, r);
                 siphash24_compress(label, r, state);
@@ -512,7 +498,7 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
 
 int dns_name_compare_func(const void *a, const void *b) {
         const char *x, *y;
-        int r, q, k, w;
+        int r, q;
 
         assert(a);
         assert(b);
@@ -531,22 +517,6 @@ int dns_name_compare_func(const void *a, const void *b) {
                 if (r < 0 || q < 0)
                         return r - q;
 
-                if (r > 0)
-                        k = dns_label_undo_idna(la, r, la, sizeof(la));
-                else
-                        k = 0;
-                if (q > 0)
-                        w = dns_label_undo_idna(lb, q, lb, sizeof(lb));
-                else
-                        w = 0;
-
-                if (k < 0 || w < 0)
-                        return k - w;
-                if (k > 0)
-                        r = k;
-                if (w > 0)
-                        q = w;
-
                 r = ascii_strcasecmp_nn(la, r, lb, q);
                 if (r != 0)
                         return r;
@@ -558,24 +528,6 @@ const struct hash_ops dns_name_hash_ops = {
         .compare = dns_name_compare_func
 };
 
-static int dns_label_unescape_undo_idna(const char **name, char *dest, size_t sz) {
-        int r, k;
-
-        /* Clobbers all arguments on failure... */
-
-        r = dns_label_unescape(name, dest, sz);
-        if (r <= 0)
-                return r;
-
-        k = dns_label_undo_idna(dest, r, dest, sz);
-        if (k < 0)
-                return k;
-        if (k == 0) /* not an IDNA name */
-                return r;
-
-        return k;
-}
-
 int dns_name_equal(const char *x, const char *y) {
         int r, q;
 
@@ -585,11 +537,11 @@ int dns_name_equal(const char *x, const char *y) {
         for (;;) {
                 char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
 
-                r = dns_label_unescape_undo_idna(&x, la, sizeof(la));
+                r = dns_label_unescape(&x, la, sizeof(la));
                 if (r < 0)
                         return r;
 
-                q = dns_label_unescape_undo_idna(&y, lb, sizeof(lb));
+                q = dns_label_unescape(&y, lb, sizeof(lb));
                 if (q < 0)
                         return q;
 
@@ -616,14 +568,14 @@ int dns_name_endswith(const char *name, const char *suffix) {
         for (;;) {
                 char ln[DNS_LABEL_MAX], ls[DNS_LABEL_MAX];
 
-                r = dns_label_unescape_undo_idna(&n, ln, sizeof(ln));
+                r = dns_label_unescape(&n, ln, sizeof(ln));
                 if (r < 0)
                         return r;
 
                 if (!saved_n)
                         saved_n = n;
 
-                q = dns_label_unescape_undo_idna(&s, ls, sizeof(ls));
+                q = dns_label_unescape(&s, ls, sizeof(ls));
                 if (q < 0)
                         return q;
 
@@ -655,13 +607,13 @@ int dns_name_startswith(const char *name, const char *prefix) {
         for (;;) {
                 char ln[DNS_LABEL_MAX], lp[DNS_LABEL_MAX];
 
-                r = dns_label_unescape_undo_idna(&p, lp, sizeof(lp));
+                r = dns_label_unescape(&p, lp, sizeof(lp));
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return true;
 
-                q = dns_label_unescape_undo_idna(&n, ln, sizeof(ln));
+                q = dns_label_unescape(&n, ln, sizeof(ln));
                 if (q < 0)
                         return q;
 
@@ -690,14 +642,14 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
                 if (!saved_before)
                         saved_before = n;
 
-                r = dns_label_unescape_undo_idna(&n, ln, sizeof(ln));
+                r = dns_label_unescape(&n, ln, sizeof(ln));
                 if (r < 0)
                         return r;
 
                 if (!saved_after)
                         saved_after = n;
 
-                q = dns_label_unescape_undo_idna(&s, ls, sizeof(ls));
+                q = dns_label_unescape(&s, ls, sizeof(ls));
                 if (q < 0)
                         return q;
 
@@ -1286,12 +1238,12 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
                 }
 
                 x = a_labels[n - 1 - k];
-                r = dns_label_unescape_undo_idna(&x, la, sizeof(la));
+                r = dns_label_unescape(&x, la, sizeof(la));
                 if (r < 0)
                         return r;
 
                 y = b_labels[m - 1 - k];
-                q = dns_label_unescape_undo_idna(&y, lb, sizeof(lb));
+                q = dns_label_unescape(&y, lb, sizeof(lb));
                 if (q < 0)
                         return q;
 
@@ -1302,4 +1254,56 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
 
                 k++;
         }
+}
+
+int dns_name_apply_idna(const char *name, char **ret) {
+        _cleanup_free_ char *buf = NULL;
+        size_t n = 0, allocated = 0;
+        bool first = true;
+        int r, q;
+
+        assert(name);
+        assert(ret);
+
+        for (;;) {
+                char label[DNS_LABEL_MAX];
+
+                r = dns_label_unescape(&name, label, sizeof(label));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                q = dns_label_apply_idna(label, r, label, sizeof(label));
+                if (q < 0)
+                        return q;
+                if (q > 0)
+                        r = q;
+
+                if (!GREEDY_REALLOC(buf, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        return -ENOMEM;
+
+                r = dns_label_escape(label, r, buf + n + !first, DNS_LABEL_ESCAPED_MAX);
+                if (r < 0)
+                        return r;
+
+                if (first)
+                        first = false;
+                else
+                        buf[n++] = '.';
+
+                n +=r;
+        }
+
+        if (n > DNS_HOSTNAME_MAX)
+                return -EINVAL;
+
+        if (!GREEDY_REALLOC(buf, allocated, n + 1))
+                return -ENOMEM;
+
+        buf[n] = 0;
+        *ret = buf;
+        buf = NULL;
+
+        return (int) n;
 }

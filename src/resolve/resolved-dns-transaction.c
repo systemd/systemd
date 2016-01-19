@@ -31,6 +31,8 @@
 #include "resolved-llmnr.h"
 #include "string-table.h"
 
+#define TRANSACTIONS_MAX 4096
+
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
 
@@ -135,6 +137,22 @@ bool dns_transaction_gc(DnsTransaction *t) {
         return true;
 }
 
+static uint16_t pick_new_id(Manager *m) {
+        uint16_t new_id;
+
+        /* Find a fresh, unused transaction id. Note that this loop is bounded because there's a limit on the number of
+         * transactions, and it's much lower than the space of IDs. */
+
+        assert_cc(TRANSACTIONS_MAX < 0xFFFF);
+
+        do
+                random_bytes(&new_id, sizeof(new_id));
+        while (new_id == 0 ||
+               hashmap_get(m->dns_transactions, UINT_TO_PTR(new_id)));
+
+        return new_id;
+}
+
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) {
         _cleanup_(dns_transaction_freep) DnsTransaction *t = NULL;
         int r;
@@ -152,6 +170,9 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         /* We only support the IN class */
         if (key->class != DNS_CLASS_IN && key->class != DNS_CLASS_ANY)
                 return -EOPNOTSUPP;
+
+        if (hashmap_size(s->manager->dns_transactions) >= TRANSACTIONS_MAX)
+                return -EBUSY;
 
         r = hashmap_ensure_allocated(&s->manager->dns_transactions, NULL);
         if (r < 0)
@@ -172,11 +193,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t->key = dns_resource_key_ref(key);
         t->current_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
 
-        /* Find a fresh, unused transaction id */
-        do
-                random_bytes(&t->id, sizeof(t->id));
-        while (t->id == 0 ||
-               hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(t->id)));
+        t->id = pick_new_id(s->manager);
 
         r = hashmap_put(s->manager->dns_transactions, UINT_TO_PTR(t->id), t);
         if (r < 0) {
@@ -201,6 +218,22 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         t = NULL;
 
         return 0;
+}
+
+static void dns_transaction_shuffle_id(DnsTransaction *t) {
+        uint16_t new_id;
+        assert(t);
+
+        /* Pick a new ID for this transaction. */
+
+        new_id = pick_new_id(t->scope->manager);
+        assert_se(hashmap_remove_and_put(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id), UINT_TO_PTR(new_id), t) >= 0);
+
+        log_debug("Transaction %" PRIu16 " is now %" PRIu16 ".", t->id, new_id);
+        t->id = new_id;
+
+        /* Make sure we generate a new packet with the new ID */
+        t->sent = dns_packet_unref(t->sent);
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
@@ -377,7 +410,8 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
            OPT RR or DO bit. One of these cases is documented here, for example:
            https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
 
-        log_debug("Server feature level is now lower than when we began our transaction. Restarting.");
+        log_debug("Server feature level is now lower than when we began our transaction. Restarting with new ID.");
+        dns_transaction_shuffle_id(t);
         return dns_transaction_go(t);
 }
 
@@ -556,13 +590,76 @@ static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
         return false;
 }
 
+static int dns_transaction_dnssec_ready(DnsTransaction *t) {
+        DnsTransaction *dt;
+        Iterator i;
+
+        assert(t);
+
+        /* Checks whether the auxiliary DNSSEC transactions of our transaction have completed, or are still
+         * ongoing. Returns 0, if we aren't ready for the DNSSEC validation, positive if we are. */
+
+        SET_FOREACH(dt, t->dnssec_transactions, i) {
+
+                switch (dt->state) {
+
+                case DNS_TRANSACTION_NULL:
+                case DNS_TRANSACTION_PENDING:
+                case DNS_TRANSACTION_VALIDATING:
+                        /* Still ongoing */
+                        return 0;
+
+                case DNS_TRANSACTION_RCODE_FAILURE:
+                        if (dt->answer_rcode != DNS_RCODE_NXDOMAIN) {
+                                log_debug("Auxiliary DNSSEC RR query failed with rcode=%s.", dns_rcode_to_string(dt->answer_rcode));
+                                goto fail;
+                        }
+
+                        /* Fall-through: NXDOMAIN is good enough for us. This is because some DNS servers erronously
+                         * return NXDOMAIN for empty non-terminals (Akamai...), and we need to handle that nicely, when
+                         * asking for parent SOA or similar RRs to make unsigned proofs. */
+
+                case DNS_TRANSACTION_SUCCESS:
+                        /* All good. */
+                        break;
+
+                case DNS_TRANSACTION_DNSSEC_FAILED:
+                        /* We handle DNSSEC failures different from other errors, as we care about the DNSSEC
+                         * validationr result */
+
+                        log_debug("Auxiliary DNSSEC RR query failed validation: %s", dnssec_result_to_string(dt->answer_dnssec_result));
+                        t->answer_dnssec_result = dt->answer_dnssec_result; /* Copy error code over */
+                        dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                        return 0;
+
+
+                default:
+                        log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
+                        goto fail;
+                }
+        }
+
+        /* All is ready, we can go and validate */
+        return 1;
+
+fail:
+        t->answer_dnssec_result = DNSSEC_FAILED_AUXILIARY;
+        dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+        return 0;
+}
+
 static void dns_transaction_process_dnssec(DnsTransaction *t) {
         int r;
 
         assert(t);
 
         /* Are there ongoing DNSSEC transactions? If so, let's wait for them. */
-        if (dns_transaction_dnssec_is_live(t))
+        r = dns_transaction_dnssec_ready(t);
+        if (r < 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                return;
+        }
+        if (r == 0) /* We aren't ready yet (or one of our auxiliary transactions failed, and we shouldn't validate now */
                 return;
 
         /* See if we learnt things from the additional DNSSEC transactions, that we didn't know before, and better
@@ -870,12 +967,12 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
         if (r == 0) {
-                log_debug("Received inappropriate DNS packet as response, ignoring: %m");
+                log_debug("Received inappropriate DNS packet as response, ignoring.");
                 return 0;
         }
 
         if (DNS_PACKET_ID(p) != t->id) {
-                log_debug("Received packet with incorrect transaction ID, ignoring: %m");
+                log_debug("Received packet with incorrect transaction ID, ignoring.");
                 return 0;
         }
 
@@ -1932,69 +2029,15 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 }
 
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
-        int r;
-
         assert(t);
         assert(source);
 
-        if (!IN_SET(t->state, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING))
-                return;
+        /* Invoked whenever any of our auxiliary DNSSEC transactions completed its work. If the state is still PENDING,
+           we are still in the loop that adds further DNSSEC transactions, hence don't check if we are ready yet. If
+           the state is VALIDATING however, we should check if we are complete now. */
 
-        /* Invoked whenever any of our auxiliary DNSSEC transactions
-           completed its work. We copy any RRs from that transaction
-           over into our list of validated keys -- but only if the
-           answer is authenticated.
-
-           Note that we fail our transaction if the auxiliary
-           transaction failed, except on NXDOMAIN. This is because
-           some broken DNS servers (Akamai...) will return NXDOMAIN
-           for empty non-terminals. */
-
-        switch (source->state) {
-
-        case DNS_TRANSACTION_DNSSEC_FAILED:
-
-                log_debug("Auxiliary DNSSEC RR query failed validation: %s", dnssec_result_to_string(source->answer_dnssec_result));
-                t->answer_dnssec_result = source->answer_dnssec_result; /* Copy error code over */
-                dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
-                break;
-
-        case DNS_TRANSACTION_RCODE_FAILURE:
-
-                if (source->answer_rcode != DNS_RCODE_NXDOMAIN) {
-                        log_debug("Auxiliary DNSSEC RR query failed with rcode=%i.", source->answer_rcode);
-                        goto fail;
-                }
-
-                /* fall-through: NXDOMAIN is good enough for us */
-
-        case DNS_TRANSACTION_SUCCESS:
-                if (source->answer_authenticated) {
-                        r = dns_answer_extend(&t->validated_keys, source->answer);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to merge validated DNSSEC key data: %m");
-                                goto fail;
-                        }
-                }
-
-                /* If the state is still PENDING, we are still in the loop
-                 * that adds further DNSSEC transactions, hence don't check if
-                 * we are ready yet. If the state is VALIDATING however, we
-                 * should check if we are complete now. */
-                if (t->state == DNS_TRANSACTION_VALIDATING)
-                        dns_transaction_process_dnssec(t);
-                break;
-
-        default:
-                log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(source->state));
-                goto fail;
-        }
-
-        return;
-
-fail:
-        t->answer_dnssec_result = DNSSEC_FAILED_AUXILIARY;
-        dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+        if (t->state == DNS_TRANSACTION_VALIDATING)
+                dns_transaction_process_dnssec(t);
 }
 
 static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
@@ -2437,6 +2480,31 @@ static int dns_transaction_invalidate_revoked_keys(DnsTransaction *t) {
         return 0;
 }
 
+static int dns_transaction_copy_validated(DnsTransaction *t) {
+        DnsTransaction *dt;
+        Iterator i;
+        int r;
+
+        assert(t);
+
+        /* Copy all validated RRs from the auxiliary DNSSEC transactions into our set of validated RRs */
+
+        SET_FOREACH(dt, t->dnssec_transactions, i) {
+
+                if (DNS_TRANSACTION_IS_LIVE(dt->state))
+                        continue;
+
+                if (!dt->answer_authenticated)
+                        continue;
+
+                r = dns_answer_extend(&t->validated_keys, dt->answer);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int dns_transaction_validate_dnssec(DnsTransaction *t) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
         enum {
@@ -2487,13 +2555,18 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
+        /* Third, copy all RRs we acquired successfully from auxiliary RRs over. */
+        r = dns_transaction_copy_validated(t);
+        if (r < 0)
+                return r;
+
         /* Second, see if there are DNSKEYs we already know a
          * validated DS for. */
         r = dns_transaction_validate_dnskey_by_ds(t);
         if (r < 0)
                 return r;
 
-        /* Third, remove all DNSKEY and DS RRs again that our trust
+        /* Fourth, remove all DNSKEY and DS RRs again that our trust
          * anchor says are revoked. After all we might have marked
          * some keys revoked above, but they might still be lingering
          * in our validated_keys list. */

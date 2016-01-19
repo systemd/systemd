@@ -24,6 +24,7 @@
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "resolved-dns-query.h"
+#include "string-util.h"
 
 /* How long to wait for the query in total */
 #define QUERY_TIMEOUT_USEC (30 * USEC_PER_SEC)
@@ -217,6 +218,7 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
 }
 
 static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
+        DnsQuestion *question;
         DnsResourceKey *key;
         int n = 0, r;
 
@@ -224,8 +226,10 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
 
         dns_query_candidate_stop(c);
 
+        question = dns_query_question_for_protocol(c->query, c->scope->protocol);
+
         /* Create one transaction per question key */
-        DNS_QUESTION_FOREACH(key, c->query->question) {
+        DNS_QUESTION_FOREACH(key, question) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *new_key = NULL;
 
                 if (c->search_domain) {
@@ -305,6 +309,25 @@ static void dns_query_stop(DnsQuery *q) {
                 dns_query_candidate_stop(c);
 }
 
+static void dns_query_free_candidates(DnsQuery *q) {
+        assert(q);
+
+        while (q->candidates)
+                dns_query_candidate_free(q->candidates);
+}
+
+static void dns_query_reset_answer(DnsQuery *q) {
+        assert(q);
+
+        q->answer = dns_answer_unref(q->answer);
+        q->answer_rcode = 0;
+        q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        q->answer_authenticated = false;
+        q->answer_protocol = _DNS_PROTOCOL_INVALID;
+        q->answer_family = AF_UNSPEC;
+        q->answer_search_domain = dns_search_domain_unref(q->answer_search_domain);
+}
+
 DnsQuery *dns_query_free(DnsQuery *q) {
         if (!q)
                 return NULL;
@@ -318,15 +341,17 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 LIST_REMOVE(auxiliary_queries, q->auxiliary_for->auxiliary_queries, q);
         }
 
-        while (q->candidates)
-                dns_query_candidate_free(q->candidates);
+        dns_query_free_candidates(q);
 
-        dns_question_unref(q->question);
-        dns_answer_unref(q->answer);
-        dns_search_domain_unref(q->answer_search_domain);
+        dns_question_unref(q->question_idna);
+        dns_question_unref(q->question_utf8);
+
+        dns_query_reset_answer(q);
 
         sd_bus_message_unref(q->request);
         sd_bus_track_unref(q->bus_track);
+
+        free(q->request_address_string);
 
         if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
@@ -338,17 +363,50 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return NULL;
 }
 
-int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question, int ifindex, uint64_t flags) {
+int dns_query_new(
+                Manager *m,
+                DnsQuery **ret,
+                DnsQuestion *question_utf8,
+                DnsQuestion *question_idna,
+                int ifindex, uint64_t flags) {
+
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        unsigned i;
+        DnsResourceKey *key;
+        bool good = false;
         int r;
 
         assert(m);
-        assert(question);
 
-        r = dns_question_is_valid_for_query(question);
+        if (dns_question_size(question_utf8) > 0) {
+                r = dns_question_is_valid_for_query(question_utf8);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+
+                good = true;
+        }
+
+        /* If the IDNA and UTF8 questions are the same, merge their references */
+        r = dns_question_is_equal(question_idna, question_utf8);
         if (r < 0)
                 return r;
+        if (r > 0)
+                question_idna = question_utf8;
+        else {
+                if (dns_question_size(question_idna) > 0) {
+                        r = dns_question_is_valid_for_query(question_idna);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EINVAL;
+
+                        good = true;
+                }
+        }
+
+        if (!good) /* don't allow empty queries */
+                return -EINVAL;
 
         if (m->n_dns_queries >= QUERIES_MAX)
                 return -EBUSY;
@@ -357,20 +415,40 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question, int ifindex
         if (!q)
                 return -ENOMEM;
 
-        q->question = dns_question_ref(question);
+        q->question_utf8 = dns_question_ref(question_utf8);
+        q->question_idna = dns_question_ref(question_idna);
         q->ifindex = ifindex;
         q->flags = flags;
-        q->answer_family = AF_UNSPEC;
+        q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         q->answer_protocol = _DNS_PROTOCOL_INVALID;
+        q->answer_family = AF_UNSPEC;
 
-        for (i = 0; i < question->n_keys; i++) {
-                _cleanup_free_ char *p;
+        /* First dump UTF8  question */
+        DNS_QUESTION_FOREACH(key, question_utf8) {
+                _cleanup_free_ char *p = NULL;
 
-                r = dns_resource_key_to_string(question->keys[i], &p);
+                r = dns_resource_key_to_string(key, &p);
                 if (r < 0)
                         return r;
 
-                log_debug("Looking up RR for %s", p);
+                log_debug("Looking up RR for %s.", strstrip(p));
+        }
+
+        /* And then dump the IDNA question, but only what hasn't been dumped already through the UTF8 question. */
+        DNS_QUESTION_FOREACH(key, question_idna) {
+                _cleanup_free_ char *p = NULL;
+
+                r = dns_question_contains(question_utf8, key);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                r = dns_resource_key_to_string(key, &p);
+                if (r < 0)
+                        return r;
+
+                log_debug("Looking up IDNA RR for %s.", strstrip(p));
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);
@@ -446,7 +524,7 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
 
         /* If this a single-label domain on DNS, we might append a suitable search domain first. */
         if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0)  {
-                r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question));
+                r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question_idna));
                 if (r < 0)
                         goto fail;
                 if (r > 0) {
@@ -534,7 +612,7 @@ static int dns_type_to_af(uint16_t t) {
         }
 }
 
-static int synthesize_localhost_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer **answer) {
+static int synthesize_localhost_rr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
         int r;
 
         assert(q);
@@ -590,7 +668,7 @@ static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, 
         return dns_answer_add(*answer, rr, ifindex, flags);
 }
 
-static int synthesize_localhost_ptr(DnsQuery *q, DnsResourceKey *key, DnsAnswer **answer) {
+static int synthesize_localhost_ptr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
         int r;
 
         assert(q);
@@ -682,7 +760,7 @@ static int answer_add_addresses_ptr(
         return 0;
 }
 
-static int synthesize_system_hostname_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer **answer) {
+static int synthesize_system_hostname_rr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
         int n = 0, af;
 
@@ -766,7 +844,7 @@ static int synthesize_system_hostname_ptr(DnsQuery *q, int af, const union in_ad
         return answer_add_addresses_ptr(answer, q->manager->mdns_hostname, addresses, n, af, address);
 }
 
-static int synthesize_gateway_rr(DnsQuery *q, DnsResourceKey *key, DnsAnswer **answer) {
+static int synthesize_gateway_rr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
         int n = 0, af;
 
@@ -801,7 +879,7 @@ static int synthesize_gateway_ptr(DnsQuery *q, int af, const union in_addr_union
 
 static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        unsigned i;
+        DnsResourceKey *key;
         int r;
 
         assert(q);
@@ -816,39 +894,39 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                     DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))
                 return 0;
 
-        for (i = 0; i < q->question->n_keys; i++) {
+        DNS_QUESTION_FOREACH(key, q->question_utf8) {
                 union in_addr_union address;
                 const char *name;
                 int af;
 
-                if (q->question->keys[i]->class != DNS_CLASS_IN &&
-                    q->question->keys[i]->class != DNS_CLASS_ANY)
+                if (key->class != DNS_CLASS_IN &&
+                    key->class != DNS_CLASS_ANY)
                         continue;
 
-                name = DNS_RESOURCE_KEY_NAME(q->question->keys[i]);
+                name = DNS_RESOURCE_KEY_NAME(key);
 
                 if (is_localhost(name)) {
 
-                        r = synthesize_localhost_rr(q, q->question->keys[i], &answer);
+                        r = synthesize_localhost_rr(q, key, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize localhost RRs: %m");
 
                 } else if (manager_is_own_hostname(q->manager, name)) {
 
-                        r = synthesize_system_hostname_rr(q, q->question->keys[i], &answer);
+                        r = synthesize_system_hostname_rr(q, key, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize system hostname RRs: %m");
 
                 } else if (is_gateway_hostname(name)) {
 
-                        r = synthesize_gateway_rr(q, q->question->keys[i], &answer);
+                        r = synthesize_gateway_rr(q, key, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize gateway RRs: %m");
 
                 } else if ((dns_name_endswith(name, "127.in-addr.arpa") > 0 && dns_name_equal(name, "2.0.0.127.in-addr.arpa") == 0) ||
                            dns_name_equal(name, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0) {
 
-                        r = synthesize_localhost_ptr(q, q->question->keys[i], &answer);
+                        r = synthesize_localhost_ptr(q, key, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
 
@@ -884,7 +962,6 @@ int dns_query_go(DnsQuery *q) {
         DnsScopeMatch found = DNS_SCOPE_NO;
         DnsScope *s, *first = NULL;
         DnsQueryCandidate *c;
-        const char *name;
         int r;
 
         assert(q);
@@ -892,13 +969,13 @@ int dns_query_go(DnsQuery *q) {
         if (q->state != DNS_TRANSACTION_NULL)
                 return 0;
 
-        assert(q->question);
-        assert(q->question->n_keys > 0);
-
-        name = dns_question_first_name(q->question);
-
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
+                const char *name;
+
+                name = dns_question_first_name(dns_query_question_for_protocol(q, s->protocol));
+                if (!name)
+                        continue;
 
                 match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
                 if (match < 0)
@@ -934,6 +1011,11 @@ int dns_query_go(DnsQuery *q) {
 
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
+                const char *name;
+
+                name = dns_question_first_name(dns_query_question_for_protocol(q, s->protocol));
+                if (!name)
+                        continue;
 
                 match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
                 if (match < 0)
@@ -1115,8 +1197,8 @@ void dns_query_ready(DnsQuery *q) {
 }
 
 static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *nq = NULL;
-        int r;
+        _cleanup_(dns_question_unrefp) DnsQuestion *nq_idna = NULL, *nq_utf8 = NULL;
+        int r, k;
 
         assert(q);
 
@@ -1124,24 +1206,51 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (q->n_cname_redirects > CNAME_MAX)
                 return -ELOOP;
 
-        r = dns_question_cname_redirect(q->question, cname, &nq);
+        r = dns_question_cname_redirect(q->question_idna, cname, &nq_idna);
         if (r < 0)
                 return r;
+        else if (r > 0)
+                log_debug("Following CNAME/DNAME %s → %s.", dns_question_first_name(q->question_idna), dns_question_first_name(nq_idna));
 
-        log_debug("Following CNAME/DNAME %s → %s", dns_question_first_name(q->question), dns_question_first_name(nq));
+        k = dns_question_is_equal(q->question_idna, q->question_utf8);
+        if (k < 0)
+                return r;
+        if (k > 0) {
+                /* Same question? Shortcut new question generation */
+                nq_utf8 = dns_question_ref(nq_idna);
+                k = r;
+        } else {
+                k = dns_question_cname_redirect(q->question_utf8, cname, &nq_utf8);
+                if (k < 0)
+                        return k;
+                else if (k > 0)
+                        log_debug("Following UTF8 CNAME/DNAME %s → %s.", dns_question_first_name(q->question_utf8), dns_question_first_name(nq_utf8));
+        }
 
-        dns_question_unref(q->question);
-        q->question = nq;
-        nq = NULL;
+        if (r == 0 && k == 0) /* No actual cname happened? */
+                return -ELOOP;
 
-        dns_query_stop(q);
+        dns_question_unref(q->question_idna);
+        q->question_idna = nq_idna;
+        nq_idna = NULL;
+
+        dns_question_unref(q->question_utf8);
+        q->question_utf8 = nq_utf8;
+        nq_utf8 = NULL;
+
+        dns_query_free_candidates(q);
+        dns_query_reset_answer(q);
         q->state = DNS_TRANSACTION_NULL;
+
+        /* Turn off searching for the new name */
+        q->flags |= SD_RESOLVED_NO_SEARCH;
 
         return 0;
 }
 
 int dns_query_process_cname(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        DnsQuestion *question;
         DnsResourceRecord *rr;
         int r;
 
@@ -1150,15 +1259,16 @@ int dns_query_process_cname(DnsQuery *q) {
         if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
                 return DNS_QUERY_NOMATCH;
 
-        DNS_ANSWER_FOREACH(rr, q->answer) {
+        question = dns_query_question_for_protocol(q, q->answer_protocol);
 
-                r = dns_question_matches_rr(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+        DNS_ANSWER_FOREACH(rr, q->answer) {
+                r = dns_question_matches_rr(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
                         return r;
                 if (r > 0)
                         return DNS_QUERY_MATCH; /* The answer matches directly, no need to follow cnames */
 
-                r = dns_question_matches_cname(q->question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                r = dns_question_matches_cname_or_dname(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
                         return r;
                 if (r > 0 && !cname)
@@ -1218,4 +1328,43 @@ int dns_query_bus_track(DnsQuery *q, sd_bus_message *m) {
                 return r;
 
         return 0;
+}
+
+DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {
+        assert(q);
+
+        switch (protocol) {
+
+        case DNS_PROTOCOL_DNS:
+                return q->question_idna;
+
+        case DNS_PROTOCOL_MDNS:
+        case DNS_PROTOCOL_LLMNR:
+                return q->question_utf8;
+
+        default:
+                return NULL;
+        }
+}
+
+const char *dns_query_string(DnsQuery *q) {
+        const char *name;
+        int r;
+
+        /* Returns a somewhat useful human-readable lookup key string for this query */
+
+        if (q->request_address_string)
+                return q->request_address_string;
+
+        if (q->request_address_valid) {
+                r = in_addr_to_string(q->request_family, &q->request_address, &q->request_address_string);
+                if (r >= 0)
+                        return q->request_address_string;
+        }
+
+        name = dns_question_first_name(q->question_utf8);
+        if (name)
+                return name;
+
+        return dns_question_first_name(q->question_idna);
 }
