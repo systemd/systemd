@@ -156,7 +156,7 @@ static int iterate_dir(
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return log_error_errno(errno, "Failed to read directory %s: %m", path);
 
                 if (!de)

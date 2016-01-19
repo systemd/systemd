@@ -96,15 +96,6 @@ static const NLType rtnl_link_info_data_macvlan_types[] = {
         [IFLA_MACVLAN_FLAGS] = { .type = NETLINK_TYPE_U16 },
 };
 
-static const NLType rtnl_link_bridge_management_types[] = {
-        [IFLA_BRIDGE_FLAGS]     = { .type = NETLINK_TYPE_U16 },
-        [IFLA_BRIDGE_MODE]      = { .type = NETLINK_TYPE_U16 },
-/*
-        [IFLA_BRIDGE_VLAN_INFO] = { .type = NETLINK_TYPE_BINARY,
-                                    .len = sizeof(struct bridge_vlan_info), },
-*/
-};
-
 static const NLType rtnl_link_info_data_bridge_types[] = {
         [IFLA_BR_FORWARD_DELAY]  = { .type = NETLINK_TYPE_U32 },
         [IFLA_BR_HELLO_TIME]     = { .type = NETLINK_TYPE_U32 },

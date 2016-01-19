@@ -33,6 +33,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "util.h"
 
 int clock_get_hwclock(struct tm *tm) {
         _cleanup_close_ int fd = -1;
@@ -121,7 +122,8 @@ int clock_set_timezone(int *min) {
          * have read from the RTC.
          */
         if (settimeofday(tv_null, &tz) < 0)
-                return -errno;
+                return negative_errno();
+
         if (min)
                 *min = minutesdelta;
         return 0;

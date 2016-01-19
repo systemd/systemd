@@ -40,7 +40,7 @@ int glob_exists(const char *path) {
         if (k == GLOB_NOSPACE)
                 return -ENOMEM;
         if (k != 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return !strv_isempty(g.gl_pathv);
 }
@@ -58,7 +58,7 @@ int glob_extend(char ***strv, const char *path) {
         if (k == GLOB_NOSPACE)
                 return -ENOMEM;
         if (k != 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
         if (strv_isempty(g.gl_pathv))
                 return -ENOENT;
 

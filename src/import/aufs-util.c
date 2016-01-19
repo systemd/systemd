@@ -69,7 +69,7 @@ int aufs_resolve(const char *path) {
         errno = 0;
         r = nftw(path, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
         if (r == FTW_STOP)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return 0;
 }

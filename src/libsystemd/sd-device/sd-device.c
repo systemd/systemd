@@ -494,7 +494,7 @@ static int handle_uevent_line(sd_device *device, const char *key, const char *va
 
 int device_read_uevent_file(sd_device *device) {
         _cleanup_free_ char *uevent = NULL;
-        const char *syspath, *key, *value, *major = NULL, *minor = NULL;
+        const char *syspath, *key = NULL, *value = NULL, *major = NULL, *minor = NULL;
         char *path;
         size_t uevent_len;
         unsigned i;

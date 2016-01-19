@@ -2319,7 +2319,7 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
                                 continue;
 
                         strv_free(r);
-                        return errno ? -errno : -EINVAL;
+                        return errno > 0 ? -errno : -EINVAL;
                 }
                 count = pglob.gl_pathc;
                 if (count == 0) {
@@ -2683,7 +2683,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fputc('\n', f);
         }
 
-        if (c->syscall_errno != 0)
+        if (c->syscall_errno > 0)
                 fprintf(f,
                         "%sSystemCallErrorNumber: %s\n",
                         prefix, strna(errno_to_name(c->syscall_errno)));

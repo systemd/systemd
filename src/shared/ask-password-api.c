@@ -71,7 +71,7 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 
         serial = request_key("user", keyname, NULL, 0);
         if (serial == -1)
-                return -errno;
+                return negative_errno();
 
         *ret = serial;
         return 0;
