@@ -18,5 +18,4 @@ Resolve.DNS,          config_parse_dns_servers,     DNS_SERVER_SYSTEM,   0
 Resolve.FallbackDNS,  config_parse_dns_servers,     DNS_SERVER_FALLBACK, 0
 Resolve.Domains,      config_parse_search_domains,  0,                   0
 Resolve.LLMNR,        config_parse_resolve_support, 0,                   offsetof(Manager, llmnr_support)
-Resolve.MulticastDNS, config_parse_resolve_support, 0,                   offsetof(Manager, mdns_support)
 Resolve.DNSSEC,       config_parse_dnssec_mode,     0,                   offsetof(Manager, dnssec_mode)
