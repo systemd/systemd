@@ -123,3 +123,5 @@ int ptsname_namespace(int pty, char **ret);
 
 int openpt_in_namespace(pid_t pid, int flags);
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
+
+bool colors_enabled(void);
