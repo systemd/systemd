@@ -59,14 +59,18 @@ static char *link_bus_path(Link *link) {
 int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
+        unsigned c = 0;
         Link *link;
         Iterator i;
-        int r;
 
         assert(bus);
         assert(path);
         assert(m);
         assert(nodes);
+
+        l = new0(char*, hashmap_size(m->links) + 1);
+        if (!l)
+                return -ENOMEM;
 
         HASHMAP_FOREACH(link, m->links, i) {
                 char *p;
@@ -75,11 +79,10 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
                 if (!p)
                         return -ENOMEM;
 
-                r = strv_consume(&l, p);
-                if (r < 0)
-                        return r;
+                l[c++] = p;
         }
 
+        l[c] = NULL;
         *nodes = l;
         l = NULL;
 
