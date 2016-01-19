@@ -1689,8 +1689,8 @@ static int bus_method_revert_link(sd_bus_message *message, void *userdata, sd_bu
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
-        SD_BUS_PROPERTY("DNSServers", "a(iiay)", bus_property_get_dns_servers, 0, 0),
-        SD_BUS_PROPERTY("SearchDomains", "a(is)", bus_property_get_search_domains, 0, 0),
+        SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("Domains", "a(is)", bus_property_get_search_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
         SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
