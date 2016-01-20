@@ -56,15 +56,15 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-resolved</command> is a system service that
-    manages network name resolution. It implements a caching DNS stub
-    resolver and an LLMNR resolver and responder. It also generates
-    <filename>/run/systemd/resolve/resolv.conf</filename> for
-    compatibility which may be symlinked from
-    <filename>/etc/resolv.conf</filename>. The glibc NSS module
-    <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    is necessary to allow libc's NSS resolver functions to resolve
-    host names via <command>systemd-resolved</command>.</para>
+    <para><command>systemd-resolved</command> is a system service that provides network name resolution to local
+    applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR resolver and
+    responder. In addition it maintains the <filename>/run/systemd/resolve/resolv.conf</filename> file for
+    compatibility with traditional Linux programs. This file may be symlinked from
+    <filename>/etc/resolv.conf</filename>.</para>
+
+    <para>The glibc NSS module
+    <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry> is required to
+    permit glibc's NSS resolver functions to resolve host names via <command>systemd-resolved</command>.</para>
 
     <para>The DNS servers contacted are determined from the global
     settings in <filename>/etc/systemd/resolved.conf</filename>, the
@@ -104,7 +104,7 @@
     <itemizedlist>
       <listitem><para>Lookups for the special hostname
       <literal>localhost</literal> are never routed to the
-      network.</para></listitem>
+      network. (A few other, special domains are handled the same way.)</para></listitem>
 
       <listitem><para>Single-label names are routed to all local
       interfaces capable of IP multicasting, using the LLMNR
@@ -133,10 +133,8 @@
     per-interface domains are exclusively routed to the matching
     interfaces.</para>
 
-    <para>Note that
-    <filename>/run/systemd/resolve/resolv.conf</filename> should not
-    be used directly, but only through a symlink from
-    <filename>/etc/resolv.conf</filename>.</para>
+    <para>Note that <filename>/run/systemd/resolve/resolv.conf</filename> should not be used directly by applications,
+    but only through a symlink from <filename>/etc/resolv.conf</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -146,6 +144,7 @@
       <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-resolve</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
