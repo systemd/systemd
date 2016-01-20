@@ -354,13 +354,13 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
         assert(packet);
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
-                               DHCP_OPTION_SERVER_IDENTIFIER,
+                               SD_DHCP_OPTION_SERVER_IDENTIFIER,
                                4, &server->address);
         if (r < 0)
                 return r;
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
-                               DHCP_OPTION_END, 0, NULL);
+                               SD_DHCP_OPTION_END, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -457,18 +457,18 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
 
         lease_time = htobe32(req->lifetime);
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4,
+                               SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4,
                                &lease_time);
         if (r < 0)
                 return r;
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               DHCP_OPTION_SUBNET_MASK, 4, &server->netmask);
+                               SD_DHCP_OPTION_SUBNET_MASK, 4, &server->netmask);
         if (r < 0)
                 return r;
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               DHCP_OPTION_ROUTER, 4, &server->address);
+                               SD_DHCP_OPTION_ROUTER, 4, &server->address);
         if (r < 0)
                 return r;
 
@@ -494,25 +494,25 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
 
         lease_time = htobe32(req->lifetime);
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4,
+                               SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4,
                                &lease_time);
         if (r < 0)
                 return r;
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               DHCP_OPTION_SUBNET_MASK, 4, &server->netmask);
+                               SD_DHCP_OPTION_SUBNET_MASK, 4, &server->netmask);
         if (r < 0)
                 return r;
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               DHCP_OPTION_ROUTER, 4, &server->address);
+                               SD_DHCP_OPTION_ROUTER, 4, &server->address);
         if (r < 0)
                 return r;
 
         if (server->n_dns > 0) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
-                                DHCP_OPTION_DOMAIN_NAME_SERVER,
+                                SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
                                 sizeof(struct in_addr) * server->n_dns, server->dns);
                 if (r < 0)
                         return r;
@@ -521,7 +521,7 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
         if (server->n_ntp > 0) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
-                                DHCP_OPTION_NTP_SERVER,
+                                SD_DHCP_OPTION_NTP_SERVER,
                                 sizeof(struct in_addr) * server->n_ntp, server->ntp);
                 if (r < 0)
                         return r;
@@ -530,7 +530,7 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
         if (server->timezone) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
-                                DHCP_OPTION_NEW_TZDB_TIMEZONE,
+                                SD_DHCP_OPTION_NEW_TZDB_TIMEZONE,
                                 strlen(server->timezone), server->timezone);
                 if (r < 0)
                         return r;
@@ -576,7 +576,7 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
                 return r;
 
         r = dhcp_option_append(&packet->dhcp, DHCP_MIN_OPTIONS_SIZE,
-                               &optoffset, 0, DHCP_OPTION_END, 0, NULL);
+                               &optoffset, 0, SD_DHCP_OPTION_END, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -596,22 +596,22 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
         assert(req);
 
         switch(code) {
-        case DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
+        case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
                 if (len == 4)
                         req->lifetime = be32toh(*(be32_t*)option);
 
                 break;
-        case DHCP_OPTION_REQUESTED_IP_ADDRESS:
+        case SD_DHCP_OPTION_REQUESTED_IP_ADDRESS:
                 if (len == 4)
                         req->requested_ip = *(be32_t*)option;
 
                 break;
-        case DHCP_OPTION_SERVER_IDENTIFIER:
+        case SD_DHCP_OPTION_SERVER_IDENTIFIER:
                 if (len == 4)
                         req->server_id = *(be32_t*)option;
 
                 break;
-        case DHCP_OPTION_CLIENT_IDENTIFIER:
+        case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
                 if (len >= 2) {
                         uint8_t *data;
 
@@ -625,7 +625,7 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                 }
 
                 break;
-        case DHCP_OPTION_MAXIMUM_MESSAGE_SIZE:
+        case SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE:
                 if (len == 2)
                         req->max_optlen = be16toh(*(be16_t*)option) -
                                           - sizeof(DHCPPacket);

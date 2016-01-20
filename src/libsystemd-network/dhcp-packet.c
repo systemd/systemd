@@ -44,7 +44,7 @@ int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 
         r = dhcp_option_append(message, optlen, &offset, 0,
-                               DHCP_OPTION_MESSAGE_TYPE, 1, &type);
+                               SD_DHCP_OPTION_MESSAGE_TYPE, 1, &type);
         if (r < 0)
                 return r;
 

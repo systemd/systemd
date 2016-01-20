@@ -437,8 +437,10 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         return size;
 }
 
-void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *routes, size_t size) {
+void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, size_t size) {
         unsigned i;
+        uint8_t length;
+        struct in_addr dest, gw;
 
         assert(f);
         assert(key);
@@ -448,10 +450,12 @@ void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *route
         fprintf(f, "%s=", key);
 
         for (i = 0; i < size; i++) {
-                fprintf(f, "%s/%" PRIu8, inet_ntoa(routes[i].dst_addr),
-                        routes[i].dst_prefixlen);
-                fprintf(f, ",%s%s", inet_ntoa(routes[i].gw_addr),
-                        (i < (size - 1)) ? " ": "");
+                sd_dhcp_route_get_destination(routes[i], &dest);
+                sd_dhcp_route_get_gateway(routes[i], &gw);
+                sd_dhcp_route_get_destination_prefix_length(routes[i], &length);
+
+                fprintf(f, "%s/%" PRIu8, inet_ntoa(dest), length);
+                fprintf(f, ",%s%s", inet_ntoa(gw), (i < (size - 1)) ? " ": "");
         }
 
         fputs("\n", f);
