@@ -612,80 +612,8 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 #endif
 }
 
+int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
 #ifdef HAVE_LZ4
-static int decompress_stream_lz4_v1(int fdf, int fdt, uint64_t max_bytes) {
-
-        _cleanup_free_ char *buf = NULL, *out = NULL;
-        size_t buf_size = 0;
-        LZ4_streamDecode_t lz4_data = {};
-        le32_t header;
-        size_t total_in = sizeof(header), total_out = 0;
-
-        assert(fdf >= 0);
-        assert(fdt >= 0);
-
-        out = malloc(4*LZ4_BUFSIZE);
-        if (!out)
-                return -ENOMEM;
-
-        for (;;) {
-                ssize_t m;
-                int r;
-
-                r = loop_read_exact(fdf, &header, sizeof(header), false);
-                if (r < 0)
-                        return r;
-
-                m = le32toh(header);
-                if (m == 0)
-                        break;
-
-                /* We refuse to use a bigger decompression buffer than
-                 * the one used for compression by 4 times. This means
-                 * that compression buffer size can be enlarged 4
-                 * times. This can be changed, but old binaries might
-                 * not accept buffers compressed by newer binaries then.
-                 */
-                if (m > LZ4_COMPRESSBOUND(LZ4_BUFSIZE * 4)) {
-                        log_debug("Compressed stream block too big: %zd bytes", m);
-                        return -ENOBUFS;
-                }
-
-                total_in += sizeof(header) + m;
-
-                if (!GREEDY_REALLOC(buf, buf_size, m))
-                        return -ENOMEM;
-
-                r = loop_read_exact(fdf, buf, m, false);
-                if (r < 0)
-                        return r;
-
-                r = LZ4_decompress_safe_continue(&lz4_data, buf, out, m, 4*LZ4_BUFSIZE);
-                if (r <= 0) {
-                        log_debug("LZ4 decompression failed (legacy format).");
-                        return -EBADMSG;
-                }
-
-                total_out += r;
-
-                if (max_bytes != (uint64_t) -1 && (uint64_t) total_out > max_bytes) {
-                        log_debug("Decompressed stream longer than %" PRIu64 " bytes", max_bytes);
-                        return -EFBIG;
-                }
-
-                r = loop_write(fdt, out, r, false);
-                if (r < 0)
-                        return r;
-        }
-
-        log_debug("LZ4 decompression finished (legacy format, %zu -> %zu bytes, %.1f%%)",
-                  total_in, total_out,
-                  (double) total_out / total_in * 100);
-
-        return 0;
-}
-
-static int decompress_stream_lz4_v2(int in, int out, uint64_t max_bytes) {
         size_t c;
         _cleanup_(LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
         _cleanup_free_ char *buf = NULL;
@@ -738,17 +666,6 @@ static int decompress_stream_lz4_v2(int in, int out, uint64_t max_bytes) {
                   (double) total_out / total_in * 100);
  cleanup:
         munmap(src, st.st_size);
-        return r;
-}
-#endif
-
-int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
-#ifdef HAVE_LZ4
-        int r;
-
-        r = decompress_stream_lz4_v2(fdf, fdt, max_bytes);
-        if (r == -EBADMSG)
-                r = decompress_stream_lz4_v1(fdf, fdt, max_bytes);
         return r;
 #else
         log_debug("Cannot decompress file. Compiled without LZ4 support.");
