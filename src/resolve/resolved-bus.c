@@ -136,8 +136,9 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
 static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        DnsResourceRecord *rr;
         unsigned added = 0;
-        int r;
+        int ifindex, r;
 
         assert(q);
 
@@ -164,30 +165,25 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        if (q->answer) {
-                DnsResourceRecord *rr;
-                int ifindex;
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
+                DnsQuestion *question;
 
-                DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        DnsQuestion *question;
+                question = dns_query_question_for_protocol(q, q->answer_protocol);
 
-                        question = dns_query_question_for_protocol(q, q->answer_protocol);
+                r = dns_question_matches_rr(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                if (r < 0)
+                        goto finish;
+                if (r == 0)
+                        continue;
 
-                        r = dns_question_matches_rr(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
-                        if (r < 0)
-                                goto finish;
-                        if (r == 0)
-                                continue;
+                r = append_address(reply, rr, ifindex);
+                if (r < 0)
+                        goto finish;
 
-                        r = append_address(reply, rr, ifindex);
-                        if (r < 0)
-                                goto finish;
+                if (!canonical)
+                        canonical = dns_resource_record_ref(rr);
 
-                        if (!canonical)
-                                canonical = dns_resource_record_ref(rr);
-
-                        added ++;
-                }
+                added ++;
         }
 
         if (added <= 0) {
