@@ -197,6 +197,7 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
         if (barrier_i_aborted(b))
                 return false;
 
+        assert(b->me >= 0);
         do {
                 len = write(b->me, &buf, sizeof(buf));
         } while (len < 0 && IN_SET(errno, EAGAIN, EINTR));
