@@ -5188,6 +5188,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-query.h \
 	src/resolve/resolved-dns-query.c \
+	src/resolve/resolved-dns-synthesize.h \
+	src/resolve/resolved-dns-synthesize.c \
 	src/resolve/resolved-dns-transaction.h \
 	src/resolve/resolved-dns-transaction.c \
 	src/resolve/resolved-dns-scope.h \
