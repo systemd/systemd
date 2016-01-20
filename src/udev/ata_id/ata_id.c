@@ -192,6 +192,15 @@ static int disk_identify_command(int          fd,
                 return -1;
         }
 
+        /*
+         * We set CK_COND=0 in the command. Therefore we are not expecting any
+         * sense data. If sense is present it indicates command failure.
+         */
+        if (0x70 == (0x70 & sense[0])) {
+                errno = EIO;
+                return -1;
+        }
+
         return 0;
 }
 
