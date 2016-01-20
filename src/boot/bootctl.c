@@ -270,9 +270,9 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        printf("         File: └─/%s/%s (%s)\n", path, de->d_name, v);
+                        printf("         File: %s/%s/%s (%s)\n", draw_special_char(DRAW_TREE_RIGHT), path, de->d_name, v);
                 else
-                        printf("         File: └─/%s/%s\n", path, de->d_name);
+                        printf("         File: %s/%s/%s\n", draw_special_char(DRAW_TREE_RIGHT), path, de->d_name);
                 c++;
         }
 
@@ -324,7 +324,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("           ID: 0x%04X\n", id);
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
-        printf("         File: └─%s\n", path);
+        printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), path);
         printf("\n");
 
         return 0;
