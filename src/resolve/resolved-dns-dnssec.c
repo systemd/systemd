@@ -1458,19 +1458,20 @@ found_zone:
 found_closest_encloser:
         /* We found a closest encloser in 'p'; next closer is 'pp' */
 
-        /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
-        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_DNAME))
-                return -EBADMSG;
-
-        /* Ensure that this data is from the delegated domain
-         * (i.e. originates from the "lower" DNS server), and isn't
-         * just glue records (i.e. doesn't originate from the "upper"
-         * DNS server). */
-        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
-            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
-                return -EBADMSG;
-
         if (!pp) {
+                /* We have an exact match! If we area looking for a DS RR, then we must insist that we got the NSEC3 RR
+                 * from the parent. Otherwise the one from the child. Do so, by checking whether SOA and NS are
+                 * appropriately set. */
+
+                if (key->type == DNS_TYPE_DS) {
+                        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
+                                return -EBADMSG;
+                } else {
+                        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
+                            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
+                                return -EBADMSG;
+                }
+
                 /* No next closer NSEC3 RR. That means there's a direct NSEC3 RR for our key. */
                 if (bitmap_isset(enclosure_rr->nsec3.types, key->type))
                         *result = DNSSEC_NSEC_FOUND;
@@ -1486,6 +1487,18 @@ found_closest_encloser:
 
                 return 0;
         }
+
+        /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_DNAME))
+                return -EBADMSG;
+
+        /* Ensure that this data is from the delegated domain
+         * (i.e. originates from the "lower" DNS server), and isn't
+         * just glue records (i.e. doesn't originate from the "upper"
+         * DNS server). */
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
+            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
+                return -EBADMSG;
 
         /* Prove that there is no next closer and whether or not there is a wildcard domain. */
 
