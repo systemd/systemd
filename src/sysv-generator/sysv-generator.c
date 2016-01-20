@@ -161,7 +161,6 @@ static int add_alias(const char *service, const char *alias) {
 }
 
 static int generate_unit_file(SysvStub *s) {
-        _cleanup_free_ char *before = NULL, *after = NULL, *wants = NULL, *conflicts = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *unit;
         char **p;
@@ -173,14 +172,6 @@ static int generate_unit_file(SysvStub *s) {
                 return 0;
 
         unit = strjoina(arg_dest, "/", s->name);
-
-        before = strv_join(s->before, " ");
-        after = strv_join(s->after, " ");
-        wants = strv_join(s->wants, " ");
-        conflicts = strv_join(s->conflicts, " ");
-
-        if (!before || !after || !wants || !conflicts)
-                return log_oom();
 
         /* We might already have a symlink with the same name from a Provides:,
          * or from backup files like /etc/init.d/foo.bak. Real scripts always win,
@@ -204,14 +195,14 @@ static int generate_unit_file(SysvStub *s) {
         if (s->description)
                 fprintf(f, "Description=%s\n", s->description);
 
-        if (!isempty(before))
-                fprintf(f, "Before=%s\n", before);
-        if (!isempty(after))
-                fprintf(f, "After=%s\n", after);
-        if (!isempty(wants))
-                fprintf(f, "Wants=%s\n", wants);
-        if (!isempty(conflicts))
-                fprintf(f, "Conflicts=%s\n", conflicts);
+        STRV_FOREACH(p, s->before)
+                fprintf(f, "Before=%s\n", *p);
+        STRV_FOREACH(p, s->after)
+                fprintf(f, "After=%s\n", *p);
+        STRV_FOREACH(p, s->wants)
+                fprintf(f, "Wants=%s\n", *p);
+        STRV_FOREACH(p, s->conflicts)
+                fprintf(f, "Conflicts=%s\n", *p);
 
         fprintf(f,
                 "\n[Service]\n"
