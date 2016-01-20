@@ -4876,7 +4876,7 @@ libnss_myhostname_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-myhostname/nss-myhostname.sym
 
 libnss_myhostname_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_myhostname.la
@@ -4976,7 +4976,7 @@ libnss_mymachines_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-mymachines/nss-mymachines.sym
 
 libnss_mymachines_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_mymachines.la
@@ -5259,7 +5259,7 @@ libnss_resolve_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
 
 libnss_resolve_la_LIBADD = \
-	libshared.la \
+	libsystemd-internal.la \
         -ldl
 
 lib_LTLIBRARIES += \
