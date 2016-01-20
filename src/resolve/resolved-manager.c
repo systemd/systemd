@@ -1173,3 +1173,33 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
 
         return 0;
 }
+
+DnssecMode manager_get_dnssec_mode(Manager *m) {
+        assert(m);
+
+        if (m->dnssec_mode != _DNSSEC_MODE_INVALID)
+                return m->dnssec_mode;
+
+        return DNSSEC_NO;
+}
+
+bool manager_dnssec_supported(Manager *m) {
+        DnsServer *server;
+        Iterator i;
+        Link *l;
+
+        assert(m);
+
+        if (manager_get_dnssec_mode(m) == DNSSEC_NO)
+                return false;
+
+        server = manager_get_dns_server(m);
+        if (server && !dns_server_dnssec_supported(server))
+                return false;
+
+        HASHMAP_FOREACH(l, m->links, i)
+                if (!link_dnssec_supported(l))
+                        return false;
+
+        return true;
+}

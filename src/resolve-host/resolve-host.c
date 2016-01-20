@@ -64,10 +64,12 @@ static void print_source(uint64_t flags, usec_t rtt) {
         fputs("\n-- Information acquired via", stdout);
 
         if (flags != 0)
-                printf(" protocol%s%s%s",
+                printf(" protocol%s%s%s%s%s",
                        flags & SD_RESOLVED_DNS ? " DNS" :"",
                        flags & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
-                       flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "");
+                       flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "",
+                       flags & SD_RESOLVED_MDNS_IPV4 ? "mDNS/IPv4" : "",
+                       flags & SD_RESOLVED_MDNS_IPV6 ? "mDNS/IPv6" : "");
 
         assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
 
@@ -769,9 +771,25 @@ static int show_statistics(sd_bus *bus) {
         uint64_t n_current_transactions, n_total_transactions,
                 cache_size, n_cache_hit, n_cache_miss,
                 n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
-        int r;
+        int r, dnssec_supported;
 
         assert(bus);
+
+        r = sd_bus_get_property_trivial(bus,
+                                        "org.freedesktop.resolve1",
+                                        "/org/freedesktop/resolve1",
+                                        "org.freedesktop.resolve1.Manager",
+                                        "DNSSECSupported",
+                                        &error,
+                                        'b',
+                                        &dnssec_supported);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get DNSSEC supported state: %s", bus_error_message(&error, r));
+
+        printf("DNSSEC supported by current servers: %s%s%s\n\n",
+               ansi_highlight(),
+               yes_no(dnssec_supported),
+               ansi_normal());
 
         r = sd_bus_get_property(bus,
                                 "org.freedesktop.resolve1",
@@ -916,7 +934,7 @@ static void help(void) {
                "     --version              Show package version\n"
                "  -4                        Resolve IPv4 addresses\n"
                "  -6                        Resolve IPv6 addresses\n"
-               "  -i INTERFACE              Look on interface\n"
+               "  -i --interface=INTERFACE  Look on interface\n"
                "  -p --protocol=PROTOCOL    Look via protocol\n"
                "  -t --type=TYPE            Query RR with DNS type\n"
                "  -c --class=CLASS          Query RR with DNS class\n"
@@ -950,6 +968,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "type",             required_argument, NULL, 't'                  },
                 { "class",            required_argument, NULL, 'c'                  },
                 { "legend",           required_argument, NULL, ARG_LEGEND           },
+                { "interface",        required_argument, NULL, 'i'                  },
                 { "protocol",         required_argument, NULL, 'p'                  },
                 { "cname",            required_argument, NULL, ARG_CNAME            },
                 { "service",          no_argument,       NULL, ARG_SERVICE          },
