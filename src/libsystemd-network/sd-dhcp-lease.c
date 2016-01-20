@@ -485,21 +485,21 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
         switch(code) {
 
-        case DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
+        case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
                 r = lease_parse_u32(option, len, &lease->lifetime, 1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse lease time, ignoring: %m");
 
                 break;
 
-        case DHCP_OPTION_SERVER_IDENTIFIER:
+        case SD_DHCP_OPTION_SERVER_IDENTIFIER:
                 r = lease_parse_be32(option, len, &lease->server_address);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse server identifier, ignoring: %m");
 
                 break;
 
-        case DHCP_OPTION_SUBNET_MASK:
+        case SD_DHCP_OPTION_SUBNET_MASK:
                 r = lease_parse_be32(option, len, &lease->subnet_mask);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse subnet mask, ignoring: %m");
@@ -507,7 +507,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         lease->have_subnet_mask = true;
                 break;
 
-        case DHCP_OPTION_BROADCAST:
+        case SD_DHCP_OPTION_BROADCAST:
                 r = lease_parse_be32(option, len, &lease->broadcast);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse broadcast address, ignoring: %m");
@@ -515,7 +515,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         lease->have_broadcast = true;
                 break;
 
-        case DHCP_OPTION_ROUTER:
+        case SD_DHCP_OPTION_ROUTER:
                 if (len >= 4) {
                         r = lease_parse_be32(option, 4, &lease->router);
                         if (r < 0)
@@ -523,31 +523,31 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 }
                 break;
 
-        case DHCP_OPTION_DOMAIN_NAME_SERVER:
+        case SD_DHCP_OPTION_DOMAIN_NAME_SERVER:
                 r = lease_parse_in_addrs(option, len, &lease->dns, &lease->dns_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse DNS server, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_NTP_SERVER:
+        case SD_DHCP_OPTION_NTP_SERVER:
                 r = lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse NTP server, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_STATIC_ROUTE:
+        case SD_DHCP_OPTION_STATIC_ROUTE:
                 r = lease_parse_routes(option, len, &lease->static_route, &lease->static_route_size, &lease->static_route_allocated);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse static routes, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_INTERFACE_MTU:
+        case SD_DHCP_OPTION_INTERFACE_MTU:
                 r = lease_parse_u16(option, len, &lease->mtu, 68);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_DOMAIN_NAME: {
+        case SD_DHCP_OPTION_DOMAIN_NAME: {
                 _cleanup_free_ char *domainname = NULL, *normalized = NULL;
 
                 r = lease_parse_string(option, len, &domainname);
@@ -574,7 +574,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
         }
 
-        case DHCP_OPTION_HOST_NAME: {
+        case SD_DHCP_OPTION_HOST_NAME: {
                 _cleanup_free_ char *hostname = NULL, *normalized = NULL;
 
                 r = lease_parse_string(option, len, &hostname);
@@ -601,25 +601,25 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
         }
 
-        case DHCP_OPTION_ROOT_PATH:
+        case SD_DHCP_OPTION_ROOT_PATH:
                 r = lease_parse_string(option, len, &lease->root_path);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse root path, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_RENEWAL_T1_TIME:
+        case SD_DHCP_OPTION_RENEWAL_T1_TIME:
                 r = lease_parse_u32(option, len, &lease->t1, 1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T1 time, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_REBINDING_T2_TIME:
+        case SD_DHCP_OPTION_REBINDING_T2_TIME:
                 r = lease_parse_u32(option, len, &lease->t2, 1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T2 time, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
+        case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
                 r = lease_parse_classless_routes(
                                 option, len,
                                 &lease->static_route,
@@ -629,7 +629,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse classless routes, ignoring: %m");
                 break;
 
-        case DHCP_OPTION_NEW_TZDB_TIMEZONE: {
+        case SD_DHCP_OPTION_NEW_TZDB_TIMEZONE: {
                 _cleanup_free_ char *tz = NULL;
 
                 r = lease_parse_string(option, len, &tz);
@@ -650,7 +650,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
         }
 
-        case DHCP_OPTION_VENDOR_SPECIFIC:
+        case SD_DHCP_OPTION_VENDOR_SPECIFIC:
 
                 if (len <= 0)
                         lease->vendor_specific = mfree(lease->vendor_specific);
@@ -668,7 +668,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 lease->vendor_specific_len = len;
                 break;
 
-        case DHCP_OPTION_PRIVATE_BASE ... DHCP_OPTION_PRIVATE_LAST:
+        case SD_DHCP_OPTION_PRIVATE_BASE ... SD_DHCP_OPTION_PRIVATE_LAST:
                 r = dhcp_lease_insert_private_option(lease, code, option, len);
                 if (r < 0)
                         return r;
@@ -897,7 +897,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *lifetime = NULL,
                 *t1 = NULL,
                 *t2 = NULL,
-                *options[DHCP_OPTION_PRIVATE_LAST - DHCP_OPTION_PRIVATE_BASE + 1] = {};
+                *options[SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1] = {};
 
         int r, i;
 
@@ -1065,7 +1065,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         log_debug_errno(r, "Failed to parse vendor specific data %s, ignoring: %m", vendor_specific_hex);
         }
 
-        for (i = 0; i <= DHCP_OPTION_PRIVATE_LAST - DHCP_OPTION_PRIVATE_BASE; i++) {
+        for (i = 0; i <= SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE; i++) {
                 _cleanup_free_ void *data = NULL;
                 size_t len;
 
@@ -1078,7 +1078,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         continue;
                 }
 
-                r = dhcp_lease_insert_private_option(lease, DHCP_OPTION_PRIVATE_BASE + i, data, len);
+                r = dhcp_lease_insert_private_option(lease, SD_DHCP_OPTION_PRIVATE_BASE + i, data, len);
                 if (r < 0)
                         return r;
         }
