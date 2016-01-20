@@ -891,7 +891,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                     DNS_TRANSACTION_RCODE_FAILURE,
                     DNS_TRANSACTION_NO_SERVERS,
                     DNS_TRANSACTION_TIMEOUT,
-                    DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))
+                    DNS_TRANSACTION_ATTEMPTS_MAX_REACHED,
+                    DNS_TRANSACTION_NETWORK_DOWN))
                 return 0;
 
         DNS_QUESTION_FOREACH(key, q->question_utf8) {

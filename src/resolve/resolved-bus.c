@@ -59,6 +59,9 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_RR_TYPE_UNSUPPORTED, "Server does not support requested resource record type");
 
+        case DNS_TRANSACTION_NETWORK_DOWN:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NETWORK_DOWN, "Network is down");
+
         case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 

@@ -80,6 +80,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_RR_TYPE_UNSUPPORTED,          EOPNOTSUPP),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_LINK,                 ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_LINK_BUSY,                    EBUSY),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NETWORK_DOWN,                 ENETDOWN),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_TRANSFER,             ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_TRANSFER_IN_PROGRESS,         EBUSY),

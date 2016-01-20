@@ -1094,6 +1094,14 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
         dns_transaction_stop_timeout(t);
 
+        r = dns_scope_network_good(t->scope);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                dns_transaction_complete(t, DNS_TRANSACTION_NETWORK_DOWN);
+                return 0;
+        }
+
         if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
                 dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
                 return 0;
@@ -2969,6 +2977,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
         [DNS_TRANSACTION_NO_TRUST_ANCHOR] = "no-trust-anchor",
         [DNS_TRANSACTION_RR_TYPE_UNSUPPORTED] = "rr-type-unsupported",
+        [DNS_TRANSACTION_NETWORK_DOWN] = "network-down",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 

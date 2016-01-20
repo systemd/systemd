@@ -1015,3 +1015,22 @@ bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {
 
         return dns_name_is_single_label(name);
 }
+
+bool dns_scope_network_good(DnsScope *s) {
+        Iterator i;
+        Link *l;
+
+        /* Checks whether the network is in good state for lookups on this scope. For mDNS/LLMNR/Classic DNS scopes
+         * bound to links this is easy, as they don't even exist if the link isn't in a suitable state. For the global
+         * DNS scope we check whether there are any links that are up and have an address. */
+
+        if (s->link)
+                return true;
+
+        HASHMAP_FOREACH(l, s->manager->links, i) {
+                if (link_relevant(l, AF_UNSPEC, false))
+                        return true;
+        }
+
+        return false;
+}
