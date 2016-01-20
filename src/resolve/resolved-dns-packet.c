@@ -2094,7 +2094,7 @@ int dns_packet_extract(DnsPacket *p) {
 
         n = DNS_PACKET_RRCOUNT(p);
         if (n > 0) {
-                DnsResourceRecord *previous = NULL;
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
                 bool bad_opt = false;
 
                 answer = dns_answer_new(n);
@@ -2150,12 +2150,12 @@ int dns_packet_extract(DnsPacket *p) {
                                 }
 
                                 if (has_rfc6975) {
-                                        /* OPT RR contains RFC6975 algorithm data, then this is indication that the
-                                         * server just copied the OPT it got from us (which contained that data) back
-                                         * into the reply. If so, then it doesn't properly support EDNS, as RFC6975
-                                         * makes it very clear that the algorithm data should only be contained in
-                                         * questions, never in replies. Crappy Belkin copy the OPT data for example,
-                                         * hence let's detect this so that we downgrade early. */
+                                        /* If the OPT RR contains RFC6975 algorithm data, then this is indication that
+                                         * the server just copied the OPT it got from us (which contained that data)
+                                         * back into the reply. If so, then it doesn't properly support EDNS, as
+                                         * RFC6975 makes it very clear that the algorithm data should only be contained
+                                         * in questions, never in replies. Crappy Belkin routers copy the OPT data for
+                                         * example, hence let's detect this so that we downgrade early. */
                                         log_debug("OPT RR contained RFC6975 data, ignoring.");
                                         bad_opt = true;
                                         continue;
@@ -2174,6 +2174,11 @@ int dns_packet_extract(DnsPacket *p) {
                                 if (r < 0)
                                         goto finish;
                         }
+
+                        /* Remember this RR, so that we potentically can merge it's ->key object with the next RR. Note
+                         * that we only do this if we actually decided to keep the RR around. */
+                        dns_resource_record_unref(previous);
+                        previous = dns_resource_record_ref(rr);
                 }
 
                 if (bad_opt)
