@@ -109,7 +109,7 @@
 /systemd-remount-api-vfs
 /systemd-remount-fs
 /systemd-reply-password
-/systemd-resolve-host
+/systemd-resolve
 /systemd-resolved
 /systemd-rfkill
 /systemd-run
