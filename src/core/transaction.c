@@ -27,6 +27,7 @@
 #include "bus-error.h"
 #include "terminal-util.h"
 #include "transaction.h"
+#include "dbus-unit.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
@@ -860,29 +861,11 @@ int transaction_add_job_and_dependencies(
         if (!IN_SET(unit->load_state, UNIT_LOADED, UNIT_ERROR, UNIT_NOT_FOUND, UNIT_MASKED))
                 return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
 
-        if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
-                if (unit->load_error == -ENOENT || unit->manager->test_run)
-                        return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                                                 "Unit %s failed to load: %s.",
-                                                 unit->id,
-                                                 strerror(-unit->load_error));
-                else
-                        return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                                                 "Unit %s failed to load: %s. "
-                                                 "See system logs and 'systemctl status %s' for details.",
-                                                 unit->id,
-                                                 strerror(-unit->load_error),
-                                                 unit->id);
+        if (type != JOB_STOP) {
+                r = bus_unit_check_load_state(unit, e);
+                if (r < 0)
+                        return r;
         }
-
-        if (type != JOB_STOP && unit->load_state == UNIT_NOT_FOUND)
-                return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
-                                         "Unit %s failed to load: %s.",
-                                         unit->id, strerror(-unit->load_error));
-
-        if (type != JOB_STOP && unit->load_state == UNIT_MASKED)
-                return sd_bus_error_setf(e, BUS_ERROR_UNIT_MASKED,
-                                         "Unit %s is masked.", unit->id);
 
         if (!unit_job_is_applicable(unit, type))
                 return sd_bus_error_setf(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,
