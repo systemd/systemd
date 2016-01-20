@@ -372,7 +372,8 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         if (r < 0)
                 return -errno;
 
-        touch("/var/lib/systemd/clock");
+        /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
+        (void) touch("/var/lib/systemd/clock");
 
         m->drift_ppm = tmx.freq / 65536;
 
