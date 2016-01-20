@@ -659,15 +659,16 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
         } else if (ifindex <= 0) {
                 log_warning("rtnl: received link message with invalid ifindex: %d", ifindex);
                 return 0;
-        } else
-                link_get(m, ifindex, &link);
+        }
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: Received link message without ifname: %m");
                 return 0;
-        } else
-                netdev_get(m, name, &netdev);
+        }
+
+        (void) link_get(m, ifindex, &link);
+        (void) netdev_get(m, name, &netdev);
 
         switch (type) {
         case RTM_NEWLINK:
