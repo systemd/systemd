@@ -26,6 +26,7 @@
 #include <locale.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
@@ -40,6 +41,7 @@
 #include "cgroup-util.h"
 #include "copy.h"
 #include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
@@ -82,6 +84,8 @@ static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 
+#define MACHINE_NAME_ESCAPE_CHARS "!\"#$%&'()*+'/;<=>?@[]^`{|}~"
+
 static void pager_open_if_enabled(void) {
 
         if (arg_no_pager)
@@ -113,6 +117,7 @@ static OutputFlags get_output_flags(void) {
 }
 
 typedef struct MachineInfo {
+        const char *pretty_name;
         const char *name;
         const char *class;
         const char *service;
@@ -124,12 +129,17 @@ static int compare_machine_info(const void *a, const void *b) {
         return strcmp(x->name, y->name);
 }
 
+static char *machine_name_escape(const char *name) {
+        return xescape(name, MACHINE_NAME_ESCAPE_CHARS);
+}
+
 static int list_machines(int argc, char *argv[], void *userdata) {
 
         size_t max_name = strlen("MACHINE"), max_class = strlen("CLASS"), max_service = strlen("SERVICE");
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ MachineInfo *machines = NULL;
+        _cleanup_strv_free_ char **pretty_names = NULL;
         const char *name, *class, *service, *object;
         size_t n_machines = 0, n_allocated = 0, j;
         sd_bus *bus = userdata;
@@ -159,6 +169,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         while ((r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object)) > 0) {
                 size_t l;
+                char *pretty_name;
 
                 if (name[0] == '.' && !arg_all)
                         continue;
@@ -166,19 +177,30 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 if (!GREEDY_REALLOC(machines, n_allocated, n_machines + 1))
                         return log_oom();
 
+                r = cunescape(name, UNESCAPE_RELAX, &pretty_name);
+                if (r < 0)
+                        continue;
+
+                r = strv_push(&pretty_names, pretty_name);
+                if (r < 0) {
+                        free(pretty_name);
+                        continue;
+                }
+
                 machines[n_machines].name = name;
+                machines[n_machines].pretty_name = pretty_name;
                 machines[n_machines].class = class;
                 machines[n_machines].service = service;
 
-                l = strlen(name);
+                l = mbstowcs(NULL, pretty_name, 0);
                 if (l > max_name)
                         max_name = l;
 
-                l = strlen(class);
+                l = mbstowcs(NULL, class, 0);
                 if (l > max_class)
                         max_class = l;
 
-                l = strlen(service);
+                l = mbstowcs(NULL, service, 0);
                 if (l > max_service)
                         max_service = l;
 
@@ -201,7 +223,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         for (j = 0; j < n_machines; j++)
                 printf("%-*s %-*s %-*s\n",
-                       (int) max_name, machines[j].name,
+                       (int) max_name, machines[j].pretty_name,
                        (int) max_class, machines[j].class,
                        (int) max_service, machines[j].service);
 
@@ -451,14 +473,19 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
         return 0;
 }
 
-static int print_os_release(sd_bus *bus, const char *name, const char *prefix) {
+static int print_os_release(sd_bus *bus, const char *n, const char *prefix) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *k, *v, *pretty = NULL;
+        _cleanup_free_ char *name = NULL;
         int r;
 
         assert(bus);
-        assert(name);
+        assert(n);
         assert(prefix);
+
+        name = machine_name_escape(n);
+        if (!name)
+                return log_oom();
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.machine1",
@@ -495,6 +522,7 @@ static int print_os_release(sd_bus *bus, const char *name, const char *prefix) {
 
 typedef struct MachineStatusInfo {
         char *name;
+        char *pretty_name;
         sd_id128_t id;
         char *class;
         char *service;
@@ -509,6 +537,7 @@ typedef struct MachineStatusInfo {
 static void machine_status_info_clear(MachineStatusInfo *info) {
         if (info) {
                 free(info->name);
+                free(info->pretty_name);
                 free(info->class);
                 free(info->service);
                 free(info->unit);
@@ -526,7 +555,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         assert(bus);
         assert(i);
 
-        fputs(strna(i->name), stdout);
+        fputs(strna(i->pretty_name), stdout);
 
         if (!sd_id128_equal(i->id, SD_ID128_NULL))
                 printf("(" SD_ID128_FORMAT_STR ")\n", SD_ID128_FORMAT_VAL(i->id));
@@ -669,6 +698,10 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %m");
 
+        r = cunescape(info.name, UNESCAPE_RELAX, &info.pretty_name);
+        if (r < 0)
+                return log_oom();
+
         if (*new_line)
                 printf("\n");
         *new_line = true;
@@ -721,7 +754,14 @@ static int show_machine(int argc, char *argv[], void *userdata) {
         }
 
         for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *name = NULL;
                 const char *path = NULL;
+
+                name = machine_name_escape(argv[i]);
+                if (!name) {
+                        log_oom();
+                        continue;
+                }
 
                 r = sd_bus_call_method(
                                         bus,
@@ -731,7 +771,7 @@ static int show_machine(int argc, char *argv[], void *userdata) {
                                         "GetMachine",
                                         &error,
                                         &reply,
-                                        "s", argv[i]);
+                                        "s", name);
                 if (r < 0) {
                         log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
                         return r;
@@ -1016,6 +1056,14 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
                 arg_kill_who = "all";
 
         for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *name = NULL;
+
+                name = machine_name_escape(argv[i]);
+                if (!name) {
+                        log_oom();
+                        continue;
+                }
+
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.machine1",
@@ -1024,7 +1072,7 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
                                 "KillMachine",
                                 &error,
                                 NULL,
-                                "ssi", argv[i], arg_kill_who, arg_signal);
+                                "ssi", name, arg_kill_who, arg_signal);
                 if (r < 0) {
                         log_error("Could not kill machine: %s", bus_error_message(&error, -r));
                         return r;
@@ -1058,6 +1106,14 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled();
 
         for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *name = NULL;
+
+                name = machine_name_escape(argv[i]);
+                if (!name) {
+                        log_oom();
+                        continue;
+                }
+
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.machine1",
@@ -1066,7 +1122,7 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
                                 "TerminateMachine",
                                 &error,
                                 NULL,
-                                "s", argv[i]);
+                                "s", name);
                 if (r < 0) {
                         log_error("Could not terminate machine: %s", bus_error_message(&error, -r));
                         return r;
@@ -1231,7 +1287,8 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match, *machine;
+        const char *pty, *match, *m;
+        _cleanup_free_ char *machine = NULL;
 
         assert(bus);
 
@@ -1256,7 +1313,11 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        machine = argc < 2 || isempty(argv[1]) ? ".host" : argv[1];
+        m = argc < 2 || isempty(argv[1]) ? ".host" : argv[1];
+
+        machine = machine_name_escape(m);
+        if (!machine)
+                return log_oom();
 
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.machine1',"
@@ -1298,7 +1359,8 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match, *machine, *path, *uid = NULL;
+        const char *pty, *match, *name, *path, *uid = NULL;
+        _cleanup_free_ const char *machine = NULL;
 
         assert(bus);
 
@@ -1329,7 +1391,11 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        machine = argc < 2 || isempty(argv[1]) ? NULL : argv[1];
+        name = argc < 2 || isempty(argv[1]) ? NULL : argv[1];
+
+        machine = machine_name_escape(name);
+        if (!machine)
+                return log_oom();
 
         if (arg_uid)
                 uid = arg_uid;
@@ -1502,12 +1568,16 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int make_service_name(const char *name, char **ret) {
-        _cleanup_free_ char *e = NULL;
+static int make_service_name(const char *n, char **ret) {
+        _cleanup_free_ char *e = NULL, *name = NULL;
         int r;
 
-        assert(name);
+        assert(n);
         assert(ret);
+
+        name = machine_name_escape(n);
+        if (!name)
+                return log_oom();
 
         if (!machine_name_is_valid(name)) {
                 log_error("Invalid machine name %s.", name);

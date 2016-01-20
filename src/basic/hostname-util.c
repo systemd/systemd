@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <ctype.h>
 #include <bits/local_lim.h>
 #include <errno.h>
 #include <limits.h>
@@ -31,6 +32,7 @@
 #include "fileio.h"
 #include "hostname-util.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
 
 bool hostname_is_set(void) {
@@ -84,13 +86,13 @@ bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
         const char *p;
         bool dot;
 
-        if (isempty(s))
-                return false;
-
         /* Doesn't accept empty hostnames, hostnames with
          * leading dots, and hostnames with multiple dots in a
          * sequence. Also ensures that the length stays below
          * HOST_NAME_MAX. */
+
+        if (isempty(s))
+                return false;
 
         for (p = s, dot = true; *p; p++) {
                 if (*p == '.') {
@@ -110,9 +112,30 @@ bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
         if (dot && (n_dots < 2 || !allow_trailing_dot))
                 return false;
 
-        if (p-s > HOST_NAME_MAX) /* Note that HOST_NAME_MAX is 64 on
-                                  * Linux, but DNS allows domain names
-                                  * up to 255 characters */
+        /* Note that HOST_NAME_MAX is 64 on
+         * Linux, but DNS allows domain names
+         * up to 255 characters */
+        if (strlen(s) > HOST_NAME_MAX)
+                return false;
+
+        return true;
+}
+
+bool machine_name_is_valid(const char *s) {
+        const char *p;
+
+        assert(s);
+
+        if (isempty(s))
+                return false;
+
+        /* Only 7 Bit ASCII is permitted */
+        for (p = s; p && *p; ++p)
+                if (!isascii(*p))
+                    return false;
+
+        /* Machine name must be suitable as a file name */
+        if (!filename_is_valid(s))
                 return false;
 
         return true;
