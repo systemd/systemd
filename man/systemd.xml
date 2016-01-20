@@ -835,6 +835,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$SYSTEMD_COLORS</varname></term>
+
+        <listitem><para>Controls whether colorized output should be generated.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_FDNAMES</varname></term>
