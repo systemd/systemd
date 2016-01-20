@@ -595,23 +595,6 @@ static DnsProtocol SYNTHESIZE_PROTOCOL(uint64_t flags) {
         return DNS_PROTOCOL_DNS;
 }
 
-static int dns_type_to_af(uint16_t t) {
-        switch (t) {
-
-        case DNS_TYPE_A:
-                return AF_INET;
-
-        case DNS_TYPE_AAAA:
-                return AF_INET6;
-
-        case DNS_TYPE_ANY:
-                return AF_UNSPEC;
-
-        default:
-                return -EINVAL;
-        }
-}
-
 static int synthesize_localhost_rr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
         int r;
 

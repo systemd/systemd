@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/socket.h>
+
 #include "dns-type.h"
 #include "string-util.h"
 
@@ -181,6 +183,23 @@ bool dns_type_is_obsolete(uint16_t type) {
 
                       /* RFC 1035 removed support for concepts that needed this from RFC 883 */
                       DNS_TYPE_NULL);
+}
+
+int dns_type_to_af(uint16_t t) {
+        switch (t) {
+
+        case DNS_TYPE_A:
+                return AF_INET;
+
+        case DNS_TYPE_AAAA:
+                return AF_INET6;
+
+        case DNS_TYPE_ANY:
+                return AF_UNSPEC;
+
+        default:
+                return -EINVAL;
+        }
 }
 
 const char *dns_class_to_string(uint16_t class) {
