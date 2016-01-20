@@ -49,6 +49,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        l->operstate = IF_OPER_UNKNOWN;
 
         r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
         if (r < 0)
@@ -177,7 +178,8 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
         if (r < 0)
                 return r;
 
-        sd_netlink_message_read_u32(m, IFLA_MTU, &l->mtu);
+        (void) sd_netlink_message_read_u32(m, IFLA_MTU, &l->mtu);
+        (void) sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &l->operstate);
 
         if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
                 strncpy(l->name, n, sizeof(l->name)-1);
@@ -514,7 +516,12 @@ bool link_relevant(Link *l, int family, bool multicast) {
                         return false;
         }
 
-        sd_network_link_get_operational_state(l->ifindex, &state);
+        /* Check kernel operstate
+         * https://www.kernel.org/doc/Documentation/networking/operstates.txt */
+        if (!IN_SET(l->operstate, IF_OPER_UNKNOWN, IF_OPER_UP))
+                return false;
+
+        (void) sd_network_link_get_operational_state(l->ifindex, &state);
         if (state && !STR_IN_SET(state, "unknown", "degraded", "routable"))
                 return false;
 

@@ -1149,3 +1149,14 @@ static inline key_serial_t request_key(const char *type, const char *description
 #ifndef PR_CAP_AMBIENT_CLEAR_ALL
 #define PR_CAP_AMBIENT_CLEAR_ALL 4
 #endif
+
+/* The following two defines are actually available in the kernel headers for longer, but we define them here anyway,
+ * since that makes it easier to use them in conjunction with the glibc net/if.h header which conflicts with
+ * linux/if.h. */
+#ifndef IF_OPER_UNKNOWN
+#define IF_OPER_UNKNOWN 0
+#endif
+
+#ifndef IF_OPER_UP
+#define IF_OPER_UP 6
+#endif
