@@ -256,7 +256,7 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
-        free(lease->ntp);
+        lease->ntp = mfree(lease->ntp);
         lease->ntp_count = 0;
         lease->ntp_allocated = 0;
 
