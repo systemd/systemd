@@ -54,7 +54,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
 static int link_set_dhcp_routes(Link *link) {
         struct in_addr gateway;
-        struct sd_dhcp_route *static_routes;
+        _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         int r, n, i;
 
         assert(link);
@@ -130,9 +130,9 @@ static int link_set_dhcp_routes(Link *link) {
 
                 route->family = AF_INET;
                 route->protocol = RTPROT_DHCP;
-                route->gw.in = static_routes[i].gw_addr;
-                route->dst.in = static_routes[i].dst_addr;
-                route->dst_prefixlen = static_routes[i].dst_prefixlen;
+                assert_se(sd_dhcp_route_get_gateway(static_routes[i], &route->gw.in) >= 0);
+                assert_se(sd_dhcp_route_get_destination(static_routes[i], &route->dst.in) >= 0);
+                assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
                 route->priority = link->network->dhcp_route_metric;
 
                 r = route_configure(route, link, &dhcp4_route_handler);
@@ -159,7 +159,7 @@ static int dhcp_lease_lost(Link *link) {
         log_link_warning(link, "DHCP lease lost");
 
         if (link->network->dhcp_routes) {
-                struct sd_dhcp_route *routes;
+                _cleanup_free_ sd_dhcp_route **routes = NULL;
                 int n, i;
 
                 n = sd_dhcp_lease_get_routes(link->dhcp_lease, &routes);
@@ -170,9 +170,9 @@ static int dhcp_lease_lost(Link *link) {
                                 r = route_new(&route);
                                 if (r >= 0) {
                                         route->family = AF_INET;
-                                        route->gw.in = routes[i].gw_addr;
-                                        route->dst.in = routes[i].dst_addr;
-                                        route->dst_prefixlen = routes[i].dst_prefixlen;
+                                        assert_se(sd_dhcp_route_get_gateway(routes[i], &route->gw.in) >= 0);
+                                        assert_se(sd_dhcp_route_get_destination(routes[i], &route->dst.in) >= 0);
+                                        assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &route->dst_prefixlen) >= 0);
 
                                         route_remove(route, link,
                                                    &link_route_remove_handler);
@@ -573,28 +573,28 @@ int dhcp4_configure(Link *link) {
 
         if (link->network->dhcp_mtu) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
-                                                      DHCP_OPTION_INTERFACE_MTU);
+                                                      SD_DHCP_OPTION_INTERFACE_MTU);
                 if (r < 0)
                         return r;
         }
 
         if (link->network->dhcp_routes) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
-                                                      DHCP_OPTION_STATIC_ROUTE);
+                                                      SD_DHCP_OPTION_STATIC_ROUTE);
                 if (r < 0)
                         return r;
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
-                                                      DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
+                                                      SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
                 if (r < 0)
                         return r;
         }
 
         /* Always acquire the timezone and NTP*/
-        r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_NTP_SERVER);
+        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NTP_SERVER);
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_client_set_request_option(link->dhcp_client, DHCP_OPTION_NEW_TZDB_TIMEZONE);
+        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
         if (r < 0)
                 return r;
 
