@@ -23,6 +23,7 @@ import subprocess
 import tempfile
 import shutil
 from glob import glob
+import collections
 
 try:
     from configparser import RawConfigParser
@@ -32,6 +33,12 @@ except ImportError:
 
 sysv_generator = os.path.join(os.environ.get('builddir', '.'), 'systemd-sysv-generator')
 
+class MultiDict(collections.OrderedDict):
+    def __setitem__(self, key, value):
+        if isinstance(value, list) and key in self:
+            self[key].extend(value)
+        else:
+            super(MultiDict, self).__setitem__(key, value)
 
 class SysvGeneratorTest(unittest.TestCase):
     def setUp(self):
@@ -77,7 +84,11 @@ class SysvGeneratorTest(unittest.TestCase):
         for service in glob(self.out_dir + '/*.service'):
             if os.path.islink(service):
                 continue
-            cp = RawConfigParser()
+            try:
+                cp = RawConfigParser(dict_type=MultiDict, strict=False)
+            except TypeError:
+                # python 2
+                cp = RawConfigParser(dict_type=MultiDict)
             cp.optionxform = lambda o: o  # don't lower-case option names
             with open(service) as f:
                 cp.readfp(f)
@@ -224,7 +235,7 @@ class SysvGeneratorTest(unittest.TestCase):
         s = self.run_generator()[1]['foo.service']
         self.assertEqual(set(s.options('Unit')),
                          set(['Documentation', 'SourcePath', 'Description', 'After']))
-        self.assertEqual(s.get('Unit', 'After'), 'nss-lookup.target rpcbind.target')
+        self.assertEqual(s.get('Unit', 'After').split(), ['nss-lookup.target', 'rpcbind.target'])
 
     def test_lsb_deps(self):
         '''LSB header dependencies to other services'''
