@@ -78,6 +78,8 @@
     to <command>systemd-activate</command> will be passed through to
     the daemon, in the original positions. Other sockets specified
     with <option>--listen</option> will use consecutive descriptors.
+    By default, <command>systemd-activate</command> listens on a stream socket,
+    use <option>--datagram</option> to listen on a datagram socket instead (see below).
     </para>
   </refsect1>
 
@@ -101,6 +103,13 @@
         <listitem><para>Launch a separate instance of daemon per
         connection and pass the connection socket as standard input
         and standard output.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-d</option></term>
+        <term><option>--datagram</option></term>
+
+        <listitem><para>Listen on a datagram socket, instead of a stream socket.</para></listitem>
       </varlistentry>
 
       <varlistentry>
