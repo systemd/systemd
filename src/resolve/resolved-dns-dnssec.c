@@ -2142,3 +2142,11 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_INCOMPATIBLE_SERVER] = "incompatible-server",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
+
+static const char* const dnssec_verdict_table[_DNSSEC_VERDICT_MAX] = {
+        [DNSSEC_SECURE] = "secure",
+        [DNSSEC_INSECURE] = "insecure",
+        [DNSSEC_BOGUS] = "bogus",
+        [DNSSEC_INDETERMINATE] = "indeterminate",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_verdict, DnssecVerdict);

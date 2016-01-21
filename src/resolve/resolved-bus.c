@@ -1292,10 +1292,10 @@ static int bus_property_get_dnssec_statistics(
         assert(m);
 
         return sd_bus_message_append(reply, "(tttt)",
-                                     (uint64_t) m->n_dnssec_secure,
-                                     (uint64_t) m->n_dnssec_insecure,
-                                     (uint64_t) m->n_dnssec_bogus,
-                                     (uint64_t) m->n_dnssec_indeterminate);
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_SECURE],
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_INSECURE],
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_BOGUS],
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_INDETERMINATE]);
 }
 
 static int bus_property_get_dnssec_supported(
@@ -1326,7 +1326,7 @@ static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, 
                 s->cache.n_hit = s->cache.n_miss = 0;
 
         m->n_transactions_total = 0;
-        m->n_dnssec_secure = m->n_dnssec_insecure = m->n_dnssec_bogus = m->n_dnssec_indeterminate = 0;
+        zero(m->n_dnssec_verdict);
 
         return sd_bus_reply_method_return(message, NULL);
 }

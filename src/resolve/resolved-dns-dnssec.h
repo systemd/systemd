@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef enum DnssecMode DnssecMode;
 typedef enum DnssecResult DnssecResult;
+typedef enum DnssecVerdict DnssecVerdict;
 
 #include "dns-domain.h"
 #include "resolved-dns-answer.h"
@@ -48,6 +48,16 @@ enum DnssecResult {
 
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -1
+};
+
+enum DnssecVerdict {
+        DNSSEC_SECURE,
+        DNSSEC_INSECURE,
+        DNSSEC_BOGUS,
+        DNSSEC_INDETERMINATE,
+
+        _DNSSEC_VERDICT_MAX,
+        _DNSSEC_VERDICT_INVALID = -1
 };
 
 #define DNSSEC_CANONICAL_HOSTNAME_MAX (DNS_HOSTNAME_MAX + 2)
@@ -90,3 +100,6 @@ int dnssec_test_positive_wildcard(DnsAnswer *a, const char *name, const char *so
 
 const char* dnssec_result_to_string(DnssecResult m) _const_;
 DnssecResult dnssec_result_from_string(const char *s) _pure_;
+
+const char* dnssec_verdict_to_string(DnssecVerdict m) _const_;
+DnssecVerdict dnssec_verdict_from_string(const char *s) _pure_;

@@ -2660,7 +2660,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 if (r < 0)
                                         return r;
 
-                                t->scope->manager->n_dnssec_secure++;
+                                manager_dnssec_verdict(t->scope->manager, DNSSEC_SECURE, rr->key);
 
                                 /* Exit the loop, we dropped something from the answer, start from the beginning */
                                 changed = true;
@@ -2700,10 +2700,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         if (r < 0)
                                                 return r;
 
-                                        if (authenticated)
-                                                t->scope->manager->n_dnssec_secure++;
-                                        else
-                                                t->scope->manager->n_dnssec_insecure++;
+                                        manager_dnssec_verdict(t->scope->manager, authenticated ? DNSSEC_SECURE : DNSSEC_INSECURE, rr->key);
 
                                         /* Exit the loop, we dropped something from the answer, start from the beginning */
                                         changed = true;
@@ -2722,7 +2719,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         if (r < 0)
                                                 return r;
 
-                                        t->scope->manager->n_dnssec_insecure++;
+                                        manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, rr->key);
                                         changed = true;
                                         break;
                                 }
@@ -2744,7 +2741,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                                 if (r < 0)
                                                         return r;
 
-                                                t->scope->manager->n_dnssec_insecure++;
+                                                manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, rr->key);
                                                 changed = true;
                                                 break;
                                         }
@@ -2770,7 +2767,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         if (r < 0)
                                                 return r;
 
-                                        t->scope->manager->n_dnssec_insecure++;
+                                        manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, rr->key);
                                         changed = true;
                                         break;
                                 }
@@ -2792,19 +2789,11 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                         if (r < 0)
                                                 return r;
 
-                                        t->scope->manager->n_dnssec_insecure++;
+                                        manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, rr->key);
                                         changed = true;
                                         break;
                                 }
                         }
-
-                        if (IN_SET(result,
-                                   DNSSEC_INVALID,
-                                   DNSSEC_SIGNATURE_EXPIRED,
-                                   DNSSEC_NO_SIGNATURE))
-                                t->scope->manager->n_dnssec_bogus++;
-                        else /* DNSSEC_MISSING_KEY or DNSSEC_UNSUPPORTED_ALGORITHM */
-                                t->scope->manager->n_dnssec_indeterminate++;
 
                         r = dns_transaction_is_primary_response(t, rr);
                         if (r < 0)
@@ -2823,6 +2812,14 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 }
 
                                 if (r == 0) {
+                                        if (IN_SET(result,
+                                                   DNSSEC_INVALID,
+                                                   DNSSEC_SIGNATURE_EXPIRED,
+                                                   DNSSEC_NO_SIGNATURE))
+                                                manager_dnssec_verdict(t->scope->manager, DNSSEC_BOGUS, rr->key);
+                                        else /* DNSSEC_MISSING_KEY or DNSSEC_UNSUPPORTED_ALGORITHM */
+                                                manager_dnssec_verdict(t->scope->manager, DNSSEC_INDETERMINATE, rr->key);
+
                                         /* This is a primary response to our question, and it failed validation. That's
                                          * fatal. */
                                         t->answer_dnssec_result = result;
@@ -2905,11 +2902,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         t->answer_rcode = DNS_RCODE_NXDOMAIN;
                         t->answer_authenticated = authenticated;
 
-                        if (authenticated)
-                                t->scope->manager->n_dnssec_secure++;
-                        else
-                                t->scope->manager->n_dnssec_insecure++;
-
+                        manager_dnssec_verdict(t->scope->manager, authenticated ? DNSSEC_SECURE : DNSSEC_INSECURE, t->key);
                         break;
 
                 case DNSSEC_NSEC_NODATA:
@@ -2919,11 +2912,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_authenticated = authenticated;
 
-                        if (authenticated)
-                                t->scope->manager->n_dnssec_secure++;
-                        else
-                                t->scope->manager->n_dnssec_insecure++;
-
+                        manager_dnssec_verdict(t->scope->manager, authenticated ? DNSSEC_SECURE : DNSSEC_INSECURE, t->key);
                         break;
 
                 case DNSSEC_NSEC_OPTOUT:
@@ -2932,7 +2921,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         t->answer_dnssec_result = DNSSEC_UNSIGNED;
                         t->answer_authenticated = false;
 
-                        t->scope->manager->n_dnssec_insecure++;
+                        manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, t->key);
                         break;
 
                 case DNSSEC_NSEC_NO_RR:
@@ -2943,11 +2932,11 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 return r;
                         if (r > 0) {
                                 t->answer_dnssec_result = DNSSEC_NO_SIGNATURE;
-                                t->scope->manager->n_dnssec_indeterminate++;
+                                manager_dnssec_verdict(t->scope->manager, DNSSEC_BOGUS, t->key);
                         } else {
                                 t->answer_dnssec_result = DNSSEC_UNSIGNED;
                                 t->answer_authenticated = false;
-                                t->scope->manager->n_dnssec_insecure++;
+                                manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, t->key);
                         }
 
                         break;
@@ -2955,14 +2944,14 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 case DNSSEC_NSEC_UNSUPPORTED_ALGORITHM:
                         /* We don't know the NSEC3 algorithm used? */
                         t->answer_dnssec_result = DNSSEC_UNSUPPORTED_ALGORITHM;
-                        t->scope->manager->n_dnssec_indeterminate++;
+                        manager_dnssec_verdict(t->scope->manager, DNSSEC_INDETERMINATE, t->key);
                         break;
 
                 case DNSSEC_NSEC_FOUND:
                 case DNSSEC_NSEC_CNAME:
                         /* NSEC says it needs to be there, but we couldn't find it? Bummer! */
                         t->answer_dnssec_result = DNSSEC_NSEC_MISMATCH;
-                        t->scope->manager->n_dnssec_bogus++;
+                        manager_dnssec_verdict(t->scope->manager, DNSSEC_BOGUS, t->key);
                         break;
 
                 default:
