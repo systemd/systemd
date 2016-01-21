@@ -410,11 +410,13 @@ static int write_files(void) {
 
                                 i = hashmap_get(groups, gr->gr_name);
                                 if (i && i->todo_group) {
+                                        log_error("%s: Group \"%s\" already exists.", group_path, gr->gr_name);
                                         r = -EEXIST;
                                         goto finish;
                                 }
 
                                 if (hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
+                                        log_error("%s: Detected collision for GID %d.", group_path, gr->gr_gid);
                                         r = -EEXIST;
                                         goto finish;
                                 }
@@ -482,6 +484,7 @@ static int write_files(void) {
 
                                 i = hashmap_get(groups, sg->sg_namp);
                                 if (i && i->todo_group) {
+                                        log_error("%s: Group \"%s\" already exists.", gshadow_path, sg->sg_namp);
                                         r = -EEXIST;
                                         goto finish;
                                 }
@@ -548,11 +551,13 @@ static int write_files(void) {
 
                                 i = hashmap_get(users, pw->pw_name);
                                 if (i && i->todo_user) {
+                                        log_error("%s: User \"%s\" already exists.", passwd_path, pw->pw_name);
                                         r = -EEXIST;
                                         goto finish;
                                 }
 
                                 if (hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
+                                        log_error("%s: Detected collision for UID %d.", passwd_path, pw->pw_uid);
                                         r = -EEXIST;
                                         goto finish;
                                 }
