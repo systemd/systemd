@@ -39,6 +39,7 @@
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;
+static bool arg_datagram = false;
 static char** arg_args = NULL;
 static char** arg_setenv = NULL;
 static const char *arg_fdname = NULL;
@@ -98,7 +99,11 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         STRV_FOREACH(address, arg_listen) {
 
-                fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
+                if (arg_datagram)
+                        fd = make_socket_fd(LOG_DEBUG, *address, SOCK_DGRAM, SOCK_CLOEXEC);
+                else
+                        fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM, (arg_accept*SOCK_CLOEXEC));
+
                 if (fd < 0) {
                         log_open();
                         return log_error_errno(fd, "Failed to open '%s': %m", *address);
@@ -304,6 +309,7 @@ static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
+               "  -d --datagram            Datagram sockets\n"
                "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
                "  -a --accept              Spawn separate child for each connection\n"
                "  -h --help                Show this help and exit\n"
@@ -323,6 +329,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",        no_argument,       NULL, 'h'           },
                 { "version",     no_argument,       NULL, ARG_VERSION   },
+                { "datagram",    no_argument,       NULL, 'd'           },
                 { "listen",      required_argument, NULL, 'l'           },
                 { "accept",      no_argument,       NULL, 'a'           },
                 { "setenv",      required_argument, NULL, 'E'           },
@@ -336,7 +343,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hl:aE:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hl:aEd", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         help();
@@ -350,6 +357,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
+                        break;
+
+                case 'd':
+                        arg_datagram = true;
                         break;
 
                 case 'a':
