@@ -675,6 +675,10 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
         /* All our auxiliary DNSSEC transactions are complete now. Try
          * to validate our RRset now. */
         r = dns_transaction_validate_dnssec(t);
+        if (r == -EBADMSG) {
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                return;
+        }
         if (r < 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                 return;
