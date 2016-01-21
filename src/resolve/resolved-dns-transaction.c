@@ -2900,6 +2900,12 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_NXDOMAIN;
                         t->answer_authenticated = authenticated;
+
+                        if (authenticated)
+                                t->scope->manager->n_dnssec_secure++;
+                        else
+                                t->scope->manager->n_dnssec_insecure++;
+
                         break;
 
                 case DNSSEC_NSEC_NODATA:
@@ -2908,6 +2914,12 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_authenticated = authenticated;
+
+                        if (authenticated)
+                                t->scope->manager->n_dnssec_secure++;
+                        else
+                                t->scope->manager->n_dnssec_insecure++;
+
                         break;
 
                 case DNSSEC_NSEC_OPTOUT:
@@ -2915,6 +2927,8 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         log_debug("Data is NSEC3 opt-out via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
                         t->answer_dnssec_result = DNSSEC_UNSIGNED;
                         t->answer_authenticated = false;
+
+                        t->scope->manager->n_dnssec_insecure++;
                         break;
 
                 case DNSSEC_NSEC_NO_RR:
@@ -2923,11 +2937,13 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         r = dns_transaction_requires_nsec(t);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
+                        if (r > 0) {
                                 t->answer_dnssec_result = DNSSEC_NO_SIGNATURE;
-                        else {
+                                t->scope->manager->n_dnssec_indeterminate++;
+                        } else {
                                 t->answer_dnssec_result = DNSSEC_UNSIGNED;
                                 t->answer_authenticated = false;
+                                t->scope->manager->n_dnssec_insecure++;
                         }
 
                         break;
@@ -2935,12 +2951,14 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 case DNSSEC_NSEC_UNSUPPORTED_ALGORITHM:
                         /* We don't know the NSEC3 algorithm used? */
                         t->answer_dnssec_result = DNSSEC_UNSUPPORTED_ALGORITHM;
+                        t->scope->manager->n_dnssec_indeterminate++;
                         break;
 
                 case DNSSEC_NSEC_FOUND:
                 case DNSSEC_NSEC_CNAME:
                         /* NSEC says it needs to be there, but we couldn't find it? Bummer! */
                         t->answer_dnssec_result = DNSSEC_NSEC_MISMATCH;
+                        t->scope->manager->n_dnssec_bogus++;
                         break;
 
                 default:
