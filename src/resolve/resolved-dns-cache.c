@@ -579,6 +579,28 @@ static void dns_cache_remove_previous(
         }
 }
 
+static bool rr_eligible(DnsResourceRecord *rr) {
+        assert(rr);
+
+        /* When we see an NSEC/NSEC3 RR, we'll only cache it if it is from the lower zone, not the upper zone, since
+         * that's where the interesting bits are (with exception of DS RRs). Of course, this way we cannot derive DS
+         * existence from any cached NSEC/NSEC3, but that should be fine. */
+
+        switch (rr->key->type) {
+
+        case DNS_TYPE_NSEC:
+                return !bitmap_isset(rr->nsec.types, DNS_TYPE_NS) ||
+                        bitmap_isset(rr->nsec.types, DNS_TYPE_SOA);
+
+        case DNS_TYPE_NSEC3:
+                return !bitmap_isset(rr->nsec3.types, DNS_TYPE_NS) ||
+                        bitmap_isset(rr->nsec3.types, DNS_TYPE_SOA);
+
+        default:
+                return true;
+        }
+}
+
 int dns_cache_put(
                 DnsCache *c,
                 DnsResourceKey *key,
@@ -633,6 +655,12 @@ int dns_cache_put(
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+                        continue;
+
+                r = rr_eligible(rr);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 r = dns_cache_put_positive(
@@ -835,7 +863,10 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                         have_non_authenticated = true;
         }
 
-        if (nsec && key->type != DNS_TYPE_NSEC) {
+        if (nsec && !IN_SET(key->type, DNS_TYPE_NSEC, DNS_TYPE_DS)) {
+                /* Note that we won't derive information for DS RRs from an NSEC, because we only cache NSEC RRs from
+                 * the lower-zone of a zone cut, but the DS RRs are on the upper zone. */
+
                 if (log_get_max_level() >= LOG_DEBUG) {
                         r = dns_resource_key_to_string(key, &key_str);
                         if (r < 0)
