@@ -177,6 +177,7 @@
 /test-daemon
 /test-date
 /test-device-nodes
+/test-dnssec-complex
 /test-dhcp-client
 /test-dhcp-option
 /test-dhcp-server
