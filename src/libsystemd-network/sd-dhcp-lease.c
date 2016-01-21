@@ -467,7 +467,7 @@ static int lease_parse_classless_routes(
                 if (len < 4)
                         return -EINVAL;
 
-                lease_parse_be32(option, 4, &route->gw_addr.s_addr);
+                assert_se(lease_parse_be32(option, 4, &route->gw_addr.s_addr) >= 0);
                 option += 4;
                 len -= 4;
 

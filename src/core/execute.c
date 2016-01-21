@@ -991,13 +991,7 @@ fail:
         }
 
         strv_free(e);
-
         closelog();
-
-        if (pam_pid > 1) {
-                kill(pam_pid, SIGTERM);
-                kill(pam_pid, SIGCONT);
-        }
 
         return err;
 }
