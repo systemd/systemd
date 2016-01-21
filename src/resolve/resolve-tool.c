@@ -867,11 +867,11 @@ static int show_statistics(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("\n%sDNSSEC%s\n"
-               "       Secure RRsets: %" PRIu64 "\n"
-               "     Insecure RRsets: %" PRIu64 "\n"
-               "        Bogus RRsets: %" PRIu64 "\n"
-               "Indeterminate RRsets: %" PRIu64 "\n",
+        printf("\n%sDNSSEC Verdicts%s\n"
+               "              Secure: %" PRIu64 "\n"
+               "            Insecure: %" PRIu64 "\n"
+               "               Bogus: %" PRIu64 "\n"
+               "       Indeterminate: %" PRIu64 "\n",
                ansi_highlight(),
                ansi_normal(),
                n_dnssec_secure,
