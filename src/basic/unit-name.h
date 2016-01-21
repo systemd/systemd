@@ -261,10 +261,11 @@ typedef enum UnitDependency {
 } UnitDependency;
 
 typedef enum UnitNameFlags {
-        UNIT_NAME_PLAIN = 1,      /* Allow foo.service */
-        UNIT_NAME_INSTANCE = 2,   /* Allow foo@bar.service */
-        UNIT_NAME_TEMPLATE = 4,   /* Allow foo@.service */
-        UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE,
+        UNIT_NAME_PLAIN = 1,         /* Allow foo.service */
+        UNIT_NAME_INSTANCE = 2,      /* Allow foo@bar.service */
+        UNIT_NAME_TEMPLATE = 4,      /* Allow foo@.service */
+        UNIT_NAME_TEMPLATE_GLOB = 8, /* Allow foo@*.service */
+        UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE|UNIT_NAME_TEMPLATE_GLOB,
 } UnitNameFlags;
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
