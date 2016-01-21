@@ -312,6 +312,9 @@ void close_journal_input(Uploader *u) {
 static int process_journal_input(Uploader *u, int skip) {
         int r;
 
+        if (u->uploading)
+                return 0;
+
         r = sd_journal_next_skip(u->journal, skip);
         if (r < 0)
                 return log_error_errno(r, "Failed to skip to next entry: %m");
@@ -349,10 +352,8 @@ static int dispatch_journal_input(sd_event_source *event,
 
         assert(u);
 
-        if (u->uploading) {
-                log_warning("dispatch_journal_input called when uploading, ignoring.");
+        if (u->uploading)
                 return 0;
-        }
 
         log_debug("Detected journal input, checking for new data.");
         return check_journal_input(u);
