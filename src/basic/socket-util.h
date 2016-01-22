@@ -89,7 +89,7 @@ int socket_address_listen(
                 mode_t directory_mode,
                 mode_t socket_mode,
                 const char *label);
-int make_socket_fd(int log_level, const char* address, int flags);
+int make_socket_fd(int log_level, const char* address, int type, int flags);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);
 bool socket_address_is_netlink(const SocketAddress *a, const char *s);
