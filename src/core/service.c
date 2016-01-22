@@ -3201,7 +3201,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         if (s->state != SERVICE_DEAD)
                 return -EAGAIN;
 
-        if (getpeername_pretty(fd, &peer) >= 0) {
+        if (getpeername_pretty(fd, true, &peer) >= 0) {
 
                 if (UNIT(s)->description) {
                         _cleanup_free_ char *a;

@@ -277,7 +277,7 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
         }
 
         getsockname_pretty(fd2, &local);
-        getpeername_pretty(fd2, &peer);
+        getpeername_pretty(fd2, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
         return launch1(name, argv, envp, fd2);

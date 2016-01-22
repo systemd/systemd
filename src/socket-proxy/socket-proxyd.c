@@ -505,7 +505,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 if (errno != -EAGAIN)
                         log_warning_errno(errno, "Failed to accept() socket: %m");
         } else {
-                getpeername_pretty(nfd, &peer);
+                getpeername_pretty(nfd, true, &peer);
                 log_debug("New connection from %s", strna(peer));
 
                 r = add_connection_socket(context, nfd);

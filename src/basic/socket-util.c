@@ -601,7 +601,7 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
         return 0;
 }
 
-int getpeername_pretty(int fd, char **ret) {
+int getpeername_pretty(int fd, bool include_port, char **ret) {
         union sockaddr_union sa;
         socklen_t salen = sizeof(sa);
         int r;
@@ -631,7 +631,7 @@ int getpeername_pretty(int fd, char **ret) {
         /* For remote sockets we translate IPv6 addresses back to IPv4
          * if applicable, since that's nicer. */
 
-        return sockaddr_pretty(&sa.sa, salen, true, true, ret);
+        return sockaddr_pretty(&sa.sa, salen, true, include_port, ret);
 }
 
 int getsockname_pretty(int fd, char **ret) {
