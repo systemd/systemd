@@ -703,10 +703,7 @@ int dns_query_go(DnsQuery *q) {
                         goto fail;
         }
 
-        q->answer = dns_answer_unref(q->answer);
-        q->answer_rcode = 0;
-        q->answer_family = AF_UNSPEC;
-        q->answer_protocol = _DNS_PROTOCOL_INVALID;
+        dns_query_reset_answer(q);
 
         r = sd_event_add_time(
                         q->manager->event,
