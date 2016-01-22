@@ -62,6 +62,11 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_NETWORK_DOWN:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NETWORK_DOWN, "Network is down");
 
+        case DNS_TRANSACTION_NOT_FOUND:
+                /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
+                 * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
+                return sd_bus_reply_method_errorf(q->request, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
+
         case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 

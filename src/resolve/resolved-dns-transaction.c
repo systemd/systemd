@@ -432,6 +432,13 @@ static int on_stream_complete(DnsStream *s, int error) {
         if (ERRNO_IS_DISCONNECT(error)) {
                 usec_t usec;
 
+                if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                        /* If the LLMNR/TCP connection failed, the host doesn't support LLMNR, and we cannot answer the
+                         * question on this scope. */
+                        dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
+                        return 0;
+                }
+
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
                 dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level, usec - t->start_usec);
@@ -1461,6 +1468,12 @@ int dns_transaction_go(DnsTransaction *t) {
         if (r == -EOPNOTSUPP) {
                 /* Tried to ask for DNSSEC RRs, on a server that doesn't do DNSSEC  */
                 dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
+                return 0;
+        }
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(-r)) {
+                /* On LLMNR, if we cannot connect to a host via TCP when doing revers lookups. This means we cannot
+                 * answer this request with this protocol. */
+                dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
                 return 0;
         }
         if (r < 0) {
@@ -2989,6 +3002,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_NO_TRUST_ANCHOR] = "no-trust-anchor",
         [DNS_TRANSACTION_RR_TYPE_UNSUPPORTED] = "rr-type-unsupported",
         [DNS_TRANSACTION_NETWORK_DOWN] = "network-down",
+        [DNS_TRANSACTION_NOT_FOUND] = "not-found",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
