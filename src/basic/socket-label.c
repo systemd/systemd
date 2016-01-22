@@ -147,7 +147,7 @@ int socket_address_listen(
         return r;
 }
 
-int make_socket_fd(int log_level, const char* address, int flags) {
+int make_socket_fd(int log_level, const char* address, int type, int flags) {
         SocketAddress a;
         int fd, r;
 
@@ -155,7 +155,9 @@ int make_socket_fd(int log_level, const char* address, int flags) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse socket address \"%s\": %m", address);
 
-        fd = socket_address_listen(&a, flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
+        a.type = type;
+
+        fd = socket_address_listen(&a, type | flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
                                    NULL, false, false, false, 0755, 0644, NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
                 _cleanup_free_ char *p = NULL;
