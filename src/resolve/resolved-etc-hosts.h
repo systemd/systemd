@@ -19,12 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
 #include "resolved-manager.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-answer.h"
 
-int dns_synthesize_ifindex(int ifindex);
-int dns_synthesize_family(uint64_t flags);
-DnsProtocol dns_synthesize_protocol(uint64_t flags);
-
-int dns_synthesize_answer(Manager *m, DnsQuestion *q, int ifindex, DnsAnswer **ret);
+void manager_etc_hosts_flush(Manager *m);
+int manager_etc_hosts_read(Manager *m);
+int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer);

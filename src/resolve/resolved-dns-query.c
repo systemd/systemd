@@ -25,6 +25,7 @@
 #include "local-addresses.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-etc-hosts.h"
 #include "string-util.h"
 
 /* How long to wait for the query in total */
@@ -550,13 +551,14 @@ fail:
 
 static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        DnsProtocol protocol;
-        int family, r;
+        int r;
 
         assert(q);
         assert(state);
 
-        /* Tries to synthesize localhost RR replies (and others) where appropriate */
+        /* Tries to synthesize localhost RR replies (and others) where appropriate. Note that this is done *after* the
+         * the normal lookup finished. The data from the network hence takes precedence over the data we
+         * synthesize. (But note that many scopes refuse to resolve certain domain names) */
 
         if (!IN_SET(*state,
                     DNS_TRANSACTION_RCODE_FAILURE,
@@ -571,10 +573,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                         q->manager,
                         q->question_utf8,
                         q->ifindex,
-                        q->flags,
-                        &answer,
-                        &protocol,
-                        &family);
+                        &answer);
 
         if (r <= 0)
                 return r;
@@ -584,11 +583,39 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer = answer;
         answer = NULL;
         q->answer_rcode = DNS_RCODE_SUCCESS;
-        q->answer_protocol = protocol;
-        q->answer_family = family;
+        q->answer_protocol = dns_synthesize_protocol(q->flags);
+        q->answer_family = dns_synthesize_family(q->flags);
         q->answer_authenticated = true;
 
         *state = DNS_TRANSACTION_SUCCESS;
+
+        return 1;
+}
+
+static int dns_query_try_etc_hosts(DnsQuery *q) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        int r;
+
+        assert(q);
+
+        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is done. The
+         * data from /etc/hosts hence takes precedence over the network. */
+
+        r = manager_etc_hosts_lookup(
+                        q->manager,
+                        q->question_utf8,
+                        &answer);
+        if (r <= 0)
+                return r;
+
+        dns_query_reset_answer(q);
+
+        q->answer = answer;
+        answer = NULL;
+        q->answer_rcode = DNS_RCODE_SUCCESS;
+        q->answer_protocol = dns_synthesize_protocol(q->flags);
+        q->answer_family = dns_synthesize_family(q->flags);
+        q->answer_authenticated = true;
 
         return 1;
 }
@@ -603,6 +630,14 @@ int dns_query_go(DnsQuery *q) {
 
         if (q->state != DNS_TRANSACTION_NULL)
                 return 0;
+
+        r = dns_query_try_etc_hosts(q);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
+                return 1;
+        }
 
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;

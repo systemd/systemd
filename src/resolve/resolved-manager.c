@@ -37,10 +37,11 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
+#include "resolved-etc-hosts.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
-#include "resolved-resolv-conf.h"
 #include "resolved-mdns.h"
+#include "resolved-resolv-conf.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -485,6 +486,7 @@ int manager_new(Manager **ret) {
         m->dnssec_mode = DNSSEC_NO;
         m->read_resolv_conf = true;
         m->need_builtin_fallbacks = true;
+        m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
@@ -594,6 +596,7 @@ Manager *manager_free(Manager *m) {
         free(m->mdns_hostname);
 
         dns_trust_anchor_flush(&m->trust_anchor);
+        manager_etc_hosts_flush(m);
 
         free(m);
 
