@@ -296,6 +296,8 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                            "DNS_TRANSACTION=%" PRIu16, t->id,
                            "DNS_QUESTION=%s", dns_transaction_key_string(t),
                            "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
+                           "DNS_SERVER=%s", dns_server_string(t->server),
+                           "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level),
                            NULL);
 
         /* Note that this call might invalidate the query. Callers
@@ -707,6 +709,9 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                 return;
         }
+
+        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER)
+                dns_server_warn_downgrade(t->server);
 
         dns_transaction_cache_answer(t);
 
@@ -2568,7 +2573,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         if (!dns_transaction_dnssec_supported_full(t)) {
                 /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
-                log_debug("Not validating response, server lacks DNSSEC support.");
+                log_debug("Not validating response for %" PRIu16 ", server lacks DNSSEC support.", t->id);
                 return 0;
         }
 
