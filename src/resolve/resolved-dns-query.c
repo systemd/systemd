@@ -760,6 +760,15 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 return;
         }
 
+        if (c->error_code != 0) {
+                /* If the candidate had an error condition of its own, start with that. */
+                state = DNS_TRANSACTION_ERRNO;
+                q->answer = dns_answer_unref(q->answer);
+                q->answer_rcode = 0;
+                q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+                q->answer_errno = c->error_code;
+        }
+
         SET_FOREACH(t, c->transactions, i) {
 
                 switch (t->state) {
