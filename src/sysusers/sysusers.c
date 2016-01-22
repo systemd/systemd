@@ -416,7 +416,7 @@ static int write_files(void) {
                                 }
 
                                 if (hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
-                                        log_error("%s: Detected collision for GID %d.", group_path, gr->gr_gid);
+                                        log_error("%s: Detected collision for GID " GID_FMT ".", group_path, gr->gr_gid);
                                         r = -EEXIST;
                                         goto finish;
                                 }
@@ -557,7 +557,7 @@ static int write_files(void) {
                                 }
 
                                 if (hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
-                                        log_error("%s: Detected collision for UID %d.", passwd_path, pw->pw_uid);
+                                        log_error("%s: Detected collision for UID " UID_FMT ".", passwd_path, pw->pw_uid);
                                         r = -EEXIST;
                                         goto finish;
                                 }
