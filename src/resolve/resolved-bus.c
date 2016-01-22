@@ -69,7 +69,7 @@ static int reply_query_state(DnsQuery *q) {
                         sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
                 else {
                         const char *rc, *n;
-                        char p[3]; /* the rcode is 4 bits long */
+                        char p[DECIMAL_STR_MAX(q->answer_rcode)];
 
                         rc = dns_rcode_to_string(q->answer_rcode);
                         if (!rc) {
