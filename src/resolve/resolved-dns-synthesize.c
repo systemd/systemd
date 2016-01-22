@@ -348,6 +348,7 @@ int dns_synthesize_answer(
 
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnsResourceKey *key;
+        bool found = false;
         int r;
 
         assert(m);
@@ -398,10 +399,13 @@ int dns_synthesize_answer(
                         r = synthesize_gateway_ptr(m, af, &address, ifindex, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize gateway hostname PTR RR: %m");
-                }
+                } else
+                        continue;
+
+                found = true;
         }
 
-        r = dns_answer_size(answer) > 0;
+        r = found;
 
         if (ret) {
                 *ret = answer;
