@@ -35,9 +35,6 @@
  *
  * TODO:
  *
- *   - bus calls to override DNSEC setting per interface
- *   - log all DNSSEC downgrades
- *   - log all RRs that failed validation
  *   - enable by default
  *   - Allow clients to request DNSSEC even if DNSSEC is off
  *   - make sure when getting an NXDOMAIN response through CNAME, we still process the first CNAMEs in the packet
