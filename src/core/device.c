@@ -315,12 +315,19 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
 
         u = manager_get_unit(m, e);
 
-        if (u &&
-            sysfs &&
-            DEVICE(u)->sysfs &&
-            !path_equal(DEVICE(u)->sysfs, sysfs)) {
-                log_unit_debug(u, "Device %s appeared twice with different sysfs paths %s and %s", e, DEVICE(u)->sysfs, sysfs);
-                return -EEXIST;
+        /* The device unit can still be present even if the device was
+         * unplugged: a mount unit can reference it hence preventing
+         * the GC to have garbaged it. That's desired since the device
+         * unit may have a dependency on the mount unit which was
+         * added during the loading of the later. */
+        if (u && DEVICE(u)->state == DEVICE_PLUGGED) {
+                /* This unit is in plugged state: we're sure it's
+                 * attached to a device. */
+                if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
+                        log_unit_error(u, "Dev %s appeared twice with different sysfs paths %s and %s",
+                                       e, DEVICE(u)->sysfs, sysfs);
+                        return -EEXIST;
+                }
         }
 
         if (!u) {
