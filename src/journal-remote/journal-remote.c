@@ -621,7 +621,7 @@ static int request_handler(
                 if (r < 0)
                         return code;
         } else {
-                r = getnameinfo_pretty(fd, &hostname);
+                r = getpeername_pretty(fd, &hostname);
                 if (r < 0)
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
                                            "Cannot check remote hostname");
@@ -879,7 +879,7 @@ static int remoteserver_init(RemoteServer *s,
                 } else if (sd_is_socket(fd, AF_UNSPEC, 0, false)) {
                         char *hostname;
 
-                        r = getnameinfo_pretty(fd, &hostname);
+                        r = getpeername_pretty(fd, &hostname);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to retrieve remote name: %m");
 
