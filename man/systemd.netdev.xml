@@ -83,7 +83,37 @@
     needed. As a special case, an empty file (file size 0) or symlink
     with the same name pointing to <filename>/dev/null</filename>
     disables the configuration file entirely (it is "masked").</para>
+
+    <para>Boolean arguments used in these settings files can be
+    written in various formats. For positive settings, the strings
+    <option>1</option>, <option>yes</option>, <option>true</option>
+    and <option>on</option> are equivalent. For negative settings, the
+    strings <option>0</option>, <option>no</option>,
+    <option>false</option> and <option>off</option> are
+    equivalent.</para>
+
+    <para>Empty lines and lines starting with # or ; are
+    ignored. This may be used for commenting. Lines ending
+    in a backslash are concatenated with the following
+    line while reading and the backslash is replaced by a
+    space character. This may be used to wrap long lines.</para>
+
   </refsect1>
+
+    <para>Boolean arguments used in these settings files can be
+    written in various formats. For positive settings, the strings
+    <option>1</option>, <option>yes</option>, <option>true</option>
+    and <option>on</option> are equivalent. For negative settings, the
+    strings <option>0</option>, <option>no</option>,
+    <option>false</option> and <option>off</option> are
+    equivalent.</para>
+
+    <para>Empty lines and lines starting with # or ; are
+    ignored. This may be used for commenting. Lines ending
+    in a backslash are concatenated with the following
+    line while reading and the backslash is replaced by a
+    space character. This may be used to wrap long lines.</para>
+
 
   <refsect1>
     <title>Supported netdev kinds</title>
