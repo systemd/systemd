@@ -35,7 +35,7 @@ enum DnsTransactionState {
         DNS_TRANSACTION_TIMEOUT,
         DNS_TRANSACTION_ATTEMPTS_MAX_REACHED,
         DNS_TRANSACTION_INVALID_REPLY,
-        DNS_TRANSACTION_RESOURCES,
+        DNS_TRANSACTION_ERRNO,
         DNS_TRANSACTION_ABORTED,
         DNS_TRANSACTION_DNSSEC_FAILED,
         DNS_TRANSACTION_NO_TRUST_ANCHOR,
@@ -84,6 +84,7 @@ struct DnsTransaction {
         DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
         uint32_t answer_nsec_ttl;
+        int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
 
         /* Indicates whether the primary answer is authenticated,
          * i.e. whether the RRs from answer which directly match the

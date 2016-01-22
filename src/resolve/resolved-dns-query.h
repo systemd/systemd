@@ -83,6 +83,7 @@ struct DnsQuery {
         DnsProtocol answer_protocol;
         int answer_family;
         DnsSearchDomain *answer_search_domain;
+        int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
 
         /* Bus client information */
         sd_bus_message *request;

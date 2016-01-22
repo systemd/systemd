@@ -182,7 +182,7 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         assert(c);
 
         if (c->error_code != 0)
-                return DNS_TRANSACTION_RESOURCES;
+                return DNS_TRANSACTION_ERRNO;
 
         SET_FOREACH(t, c->transactions, i) {
 
@@ -324,6 +324,7 @@ static void dns_query_reset_answer(DnsQuery *q) {
         q->answer = dns_answer_unref(q->answer);
         q->answer_rcode = 0;
         q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        q->answer_errno = 0;
         q->answer_authenticated = false;
         q->answer_protocol = _DNS_PROTOCOL_INVALID;
         q->answer_family = AF_UNSPEC;
@@ -670,7 +671,10 @@ int dns_query_go(DnsQuery *q) {
         if (found == DNS_SCOPE_NO) {
                 DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
 
-                dns_query_synthesize_reply(q, &state);
+                r = dns_query_synthesize_reply(q, &state);
+                if (r < 0)
+                        return r;
+
                 dns_query_complete(q, state);
                 return 1;
         }
@@ -748,7 +752,10 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         assert(q);
 
         if (!c) {
-                dns_query_synthesize_reply(q, &state);
+                r = dns_query_synthesize_reply(q, &state);
+                if (r < 0)
+                        goto fail;
+
                 dns_query_complete(q, state);
                 return;
         }
@@ -760,12 +767,11 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 case DNS_TRANSACTION_SUCCESS: {
                         /* We found a successfuly reply, merge it into the answer */
                         r = dns_answer_extend(&q->answer, t->answer);
-                        if (r < 0) {
-                                dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
-                                return;
-                        }
+                        if (r < 0)
+                                goto fail;
 
                         q->answer_rcode = t->answer_rcode;
+                        q->answer_errno = 0;
 
                         if (t->answer_authenticated) {
                                 has_authenticated = true;
@@ -796,6 +802,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         q->answer = dns_answer_unref(q->answer);
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
+                        q->answer_errno = t->answer_errno;
 
                         state = t->state;
                         break;
@@ -813,8 +820,16 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         dns_search_domain_unref(q->answer_search_domain);
         q->answer_search_domain = dns_search_domain_ref(c->search_domain);
 
-        dns_query_synthesize_reply(q, &state);
+        r = dns_query_synthesize_reply(q, &state);
+        if (r < 0)
+                goto fail;
+
         dns_query_complete(q, state);
+        return;
+
+fail:
+        q->answer_errno = -r;
+        dns_query_complete(q, DNS_TRANSACTION_ERRNO);
 }
 
 void dns_query_ready(DnsQuery *q) {

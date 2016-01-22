@@ -43,8 +43,8 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_INVALID_REPLY:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
-        case DNS_TRANSACTION_RESOURCES:
-                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
+        case DNS_TRANSACTION_ERRNO:
+                return sd_bus_reply_method_errnof(q->request, q->answer_errno, "Lookup failed due to system error: %m");
 
         case DNS_TRANSACTION_ABORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");

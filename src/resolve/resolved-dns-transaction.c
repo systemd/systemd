@@ -24,6 +24,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "errno-list.h"
 #include "fd-util.h"
 #include "random-util.h"
 #include "resolved-dns-cache.h"
@@ -43,6 +44,7 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_authenticated = false;
         t->answer_nsec_ttl = (uint32_t) -1;
+        t->answer_errno = 0;
 }
 
 static void dns_transaction_flush_dnssec_transactions(DnsTransaction *t) {
@@ -285,6 +287,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         DnsZoneItem *z;
         DnsTransaction *d;
         Iterator i;
+        const char *st;
 
         assert(t);
         assert(!DNS_TRANSACTION_IS_LIVE(state));
@@ -304,13 +307,18 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
+        if (state == DNS_TRANSACTION_ERRNO)
+                st = errno_to_name(t->answer_errno);
+        else
+                st = dns_transaction_state_to_string(state);
+
         log_debug("Transaction %" PRIu16 " for <%s> on scope %s on %s/%s now complete with <%s> from %s (%s).",
                   t->id,
                   dns_transaction_key_string(t),
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
                   t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
-                  dns_transaction_state_to_string(state),
+                  st,
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
                   t->answer_authenticated ? "authenticated" : "unsigned");
 
@@ -393,8 +401,10 @@ static void dns_transaction_retry(DnsTransaction *t) {
         dns_scope_next_dns_server(t->scope);
 
         r = dns_transaction_go(t);
-        if (r < 0)
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+        if (r < 0) {
+                t->answer_errno = -r;
+                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+        }
 }
 
 static int dns_transaction_maybe_restart(DnsTransaction *t) {
@@ -449,7 +459,8 @@ static int on_stream_complete(DnsStream *s, int error) {
                 return 0;
         }
         if (error != 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                t->answer_errno = error;
+                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
                 return 0;
         }
 
@@ -664,20 +675,16 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
 
         /* Are there ongoing DNSSEC transactions? If so, let's wait for them. */
         r = dns_transaction_dnssec_ready(t);
-        if (r < 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                return;
-        }
+        if (r < 0)
+                goto fail;
         if (r == 0) /* We aren't ready yet (or one of our auxiliary transactions failed, and we shouldn't validate now */
                 return;
 
         /* See if we learnt things from the additional DNSSEC transactions, that we didn't know before, and better
          * restart the lookup immediately. */
         r = dns_transaction_maybe_restart(t);
-        if (r < 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                return;
-        }
+        if (r < 0)
+                goto fail;
         if (r > 0) /* Transaction got restarted... */
                 return;
 
@@ -688,10 +695,8 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
-        if (r < 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                return;
-        }
+        if (r < 0)
+                goto fail;
 
         if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
             t->scope->dnssec_mode == DNSSEC_YES) {
@@ -719,6 +724,12 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
         else
                 dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
+
+        return;
+
+fail:
+        t->answer_errno = -r;
+        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
@@ -862,10 +873,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 if (r < 0) {
                         /* On LLMNR, if we cannot connect to the host,
                          * we immediately give up */
-                        if (t->scope->protocol != DNS_PROTOCOL_DNS) {
-                                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                                return;
-                        }
+                        if (t->scope->protocol != DNS_PROTOCOL_DNS)
+                                goto fail;
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
                         dns_transaction_retry(t);
@@ -891,10 +900,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
         /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
         r = dns_transaction_maybe_restart(t);
-        if (r < 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                return;
-        }
+        if (r < 0)
+                goto fail;
         if (r > 0) /* Transaction got restarted... */
                 return;
 
@@ -902,10 +909,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
                 /* Only consider responses with equivalent query section to the request */
                 r = dns_packet_is_reply_for(p, t->key);
-                if (r < 0) {
-                        dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                        return;
-                }
+                if (r < 0)
+                        goto fail;
                 if (r == 0) {
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
@@ -934,10 +939,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                  * quickly. */
                 if (t->state != DNS_TRANSACTION_PENDING)
                         return;
-                if (r < 0) {
-                        dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                        return;
-                }
+                if (r < 0)
+                        goto fail;
                 if (r > 0) {
                         /* There are DNSSEC transactions pending now. Update the state accordingly. */
                         t->state = DNS_TRANSACTION_VALIDATING;
@@ -948,6 +951,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         }
 
         dns_transaction_process_dnssec(t);
+        return;
+
+fail:
+        t->answer_errno = -r;
+        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
 }
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -973,7 +981,8 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
         if (r < 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
+                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+                t->answer_errno = -r;
                 return 0;
         }
 
@@ -1482,10 +1491,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 return 0;
         }
         if (r < 0) {
-                if (t->scope->protocol != DNS_PROTOCOL_DNS) {
-                        dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
-                        return 0;
-                }
+                if (t->scope->protocol != DNS_PROTOCOL_DNS)
+                        return r;
 
                 /* Couldn't send? Try immediately again, with a new server */
                 dns_scope_next_dns_server(t->scope);
@@ -3001,7 +3008,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_TIMEOUT] = "timeout",
         [DNS_TRANSACTION_ATTEMPTS_MAX_REACHED] = "attempts-max-reached",
         [DNS_TRANSACTION_INVALID_REPLY] = "invalid-reply",
-        [DNS_TRANSACTION_RESOURCES] = "resources",
+        [DNS_TRANSACTION_ERRNO] = "errno",
         [DNS_TRANSACTION_ABORTED] = "aborted",
         [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
         [DNS_TRANSACTION_NO_TRUST_ANCHOR] = "no-trust-anchor",
