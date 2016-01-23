@@ -54,6 +54,8 @@ typedef struct {
         EFI_STATUS (*call)(VOID);
         BOOLEAN no_autoselect;
         BOOLEAN non_unique;
+        INTN attempts;
+        CHAR16 *attempts_path;
 } ConfigEntry;
 
 typedef struct {
@@ -456,6 +458,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"auto-select             %s\n", yes_no(!entry->no_autoselect));
                 if (entry->call)
                         Print(L"internal call           yes\n");
+                Print(L"boot-attempts           %ld\n", entry->attempts);\
+                if (entry->attempts_path)
+                        Print(L"boot-attempts-path      '%s'\n", entry->attempts_path); \
 
                 Print(L"\n--- press key ---\n\n");
                 console_key_read(&key, TRUE);
@@ -464,7 +469,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
-static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *loaded_image_path) {
+static BOOLEAN menu_run(Config *config, INTN *id, ConfigEntry **chosen_entry, CHAR16 *loaded_image_path) {
         EFI_STATUS err;
         UINTN visible_max;
         UINTN idx_highlight;
@@ -509,7 +514,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
         else
                 timeout_remain = -1;
 
-        idx_highlight = config->idx_default;
+        idx_highlight = *id;
         idx_highlight_prev = 0;
 
         visible_max = y_max - 2;
@@ -821,6 +826,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
         }
 
         *chosen_entry = config->entries[idx_highlight];
+        *id = idx_highlight;
 
         for (i = 0; i < config->entry_count; i++)
                 FreePool(lines[i]);
@@ -1007,7 +1013,81 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
         }
 }
 
-static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR16 *file, CHAR8 *content, CHAR16 *loaded_image_path) {
+static CHAR16 *get_loader_dir_path(CHAR16 *loader_path) {
+        CHAR16 *p = NULL, *s;
+
+        p = StrDuplicate(loader_path);
+        if (!p)
+                return NULL;
+
+        s = strrchr(p, '\\');
+        if (!s) {
+                FreePool(p);
+                return NULL;
+        }
+
+        *s = (CHAR16) '\0';
+
+        return p;
+}
+
+static VOID config_entry_load_attempts(ConfigEntry *entry, EFI_FILE *root_dir) {
+        EFI_FILE_HANDLE loader_dir;
+        EFI_STATUS err;
+        CHAR16 *loader_dir_path = NULL, *attempts_str = NULL;
+        CHAR8 *content = NULL, *key, *value;
+        UINTN len, pos = 0;
+
+        if (!entry)
+                return;
+
+        /* Attempts count having value -1 means that entry is valid, i.e. we will always try to boot it */
+        entry->attempts = -1;
+
+        loader_dir_path = get_loader_dir_path(entry->loader);
+        if (!loader_dir_path)
+                goto out;
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &loader_dir, loader_dir_path, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(err))
+                goto out;
+
+        len = file_read(loader_dir, L"attempts", 0, 0, &content);
+        if (len <= 0)
+                goto out;
+
+        line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value);
+
+        if (!key || !value)
+                goto out;
+
+        if (strcmpa((CHAR8 *)"BOOT_ATTEMPTS", key) != 0)
+                goto out;
+
+        attempts_str = stra_to_str(value);
+        if (!attempts_str)
+                goto out;
+
+        entry->attempts = (INTN) Atoi(attempts_str);
+        if (entry->attempts < 0)
+                entry->attempts = 3;
+
+        entry->attempts_path = PoolPrint(L"%s\\%s", loader_dir_path, L"attempts");
+
+out:
+        if (loader_dir_path)
+                FreePool(loader_dir_path);
+
+        if (content)
+                FreePool(content);
+
+        if (attempts_str)
+                FreePool(attempts_str);
+
+        return;
+}
+
+static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, CHAR16 *file, CHAR8 *content, CHAR16 *loaded_image_path) {
         ConfigEntry *entry;
         CHAR8 *line;
         UINTN pos = 0;
@@ -1132,6 +1212,8 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                 entry->file[len - 5] = '\0';
         StrLwr(entry->file);
 
+        config_entry_load_attempts(entry, root_dir);
+
         config_add_entry(config, entry);
 }
 
@@ -1188,7 +1270,7 @@ static VOID config_load_entries(Config *config, EFI_HANDLE *device, EFI_FILE *ro
 
                         len = file_read(entries_dir, f->FileName, 0, 0, &content);
                         if (len > 0)
-                                config_entry_add_from_file(config, device, f->FileName, content, loaded_image_path);
+                                config_entry_add_from_file(config, device, root_dir, f->FileName, content, loaded_image_path);
                         FreePool(content);
                 }
                 uefi_call_wrapper(entries_dir->Close, 1, entries_dir);
@@ -1420,6 +1502,7 @@ static BOOLEAN config_entry_add_call(Config *config, CHAR16 *title, EFI_STATUS (
         entry->title = StrDuplicate(title);
         entry->call = call;
         entry->no_autoselect = TRUE;
+        config_entry_load_attempts(entry, NULL);
         config_add_entry(config, entry);
         return TRUE;
 }
@@ -1436,6 +1519,7 @@ static ConfigEntry *config_entry_add_loader(Config *config, EFI_HANDLE *device,
         entry->file = StrDuplicate(file);
         StrLwr(entry->file);
         entry->key = key;
+        config_entry_load_attempts(entry, NULL);
         config_add_entry(config, entry);
 
         return entry;
@@ -1608,7 +1692,85 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
         }
 }
 
-static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, const ConfigEntry *entry) {
+static void config_entry_write_attempts(ConfigEntry *entry, EFI_FILE *root_dir) {
+        CHAR16 *loader_dir_path = NULL;
+        CHAR8 *remaining = NULL, *r;
+        UINTN size = 0;
+        INTN a;
+        EFI_STATUS err;
+        EFI_FILE_HANDLE attempts_file;
+        CHAR8 prefix[] = "BOOT_ATTEMPTS=";
+        const INTN MAX_INT64_LEN = 19;
+
+        if (entry->attempts < 0)
+                return;
+
+        remaining = AllocatePool(sizeof(prefix) + MAX_INT64_LEN + 2);
+        if (!remaining)
+                return;
+
+        ZeroMem(remaining, sizeof(prefix) + MAX_INT64_LEN + 2);
+        CopyMem(remaining, prefix, sizeof(prefix));
+        size = sizeof(prefix) + 1;
+
+        r = remaining + sizeof(prefix) - 1;
+        a = entry->attempts;
+
+        if (a == 0) {
+                *r = '0';
+                r++;
+        } else
+                while (a > 0) {
+                        UINTN rem;
+
+                        rem = a % 10;
+                        a = a / 10;
+
+                        *r = rem + '0';
+
+                        r++;
+                        size++;
+                }
+
+        *r = '\n';
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &attempts_file, entry->attempts_path, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(err))
+                goto out;
+
+        err = uefi_call_wrapper(attempts_file->Delete, 1, attempts_file);
+        if (EFI_ERROR(err))
+                goto out;
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &attempts_file, entry->attempts_path,
+                                EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE|EFI_FILE_MODE_CREATE, 0ULL);
+        if (EFI_ERROR(err))
+                goto out;
+
+        uefi_call_wrapper(attempts_file->Write, 3, attempts_file, &size, remaining);
+        uefi_call_wrapper(attempts_file->Close, 1, attempts_file);
+out:
+        if (loader_dir_path)
+                FreePool(loader_dir_path);
+
+        if (remaining)
+                FreePool(remaining);
+}
+
+static EFI_STATUS config_entry_check_attempts(ConfigEntry *entry, EFI_FILE *root_dir) {
+        if (entry->attempts == -1)
+                return EFI_SUCCESS;
+
+        if (entry->attempts == 0)
+                return EFI_INVALID_PARAMETER;
+
+        entry->attempts--;
+        config_entry_write_attempts(entry, root_dir);
+
+        return EFI_SUCCESS;
+}
+
+static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, ConfigEntry *entry) {
         EFI_HANDLE image;
         EFI_DEVICE_PATH *path;
         CHAR16 *options;
@@ -1620,6 +1782,9 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return EFI_INVALID_PARAMETER;
         }
+
+        if (entry->attempts_path)
+                efivar_set(L"LoaderAttemptsPath", entry->attempts_path, FALSE);
 
         err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
         if (EFI_ERROR(err)) {
@@ -1703,6 +1868,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINT64 init_usec;
         BOOLEAN menu = FALSE;
         CHAR16 uuid[37];
+        INTN idx_selected;
 
         InitializeLib(image, sys_table);
         init_usec = time_usec();
@@ -1804,14 +1970,16 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         } else
                 menu = TRUE;
 
+        idx_selected = config.idx_default;
+
         for (;;) {
                 ConfigEntry *entry;
 
-                entry = config.entries[config.idx_default];
+                entry = config.entries[idx_selected];
                 if (menu) {
                         efivar_set_time_usec(L"LoaderTimeMenuUSec", 0);
                         uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
-                        if (!menu_run(&config, &entry, loaded_image_path))
+                        if (!menu_run(&config, &idx_selected, &entry, loaded_image_path))
                                 break;
 
                         /* run special entry like "reboot" */
@@ -1819,6 +1987,19 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                 entry->call();
                                 continue;
                         }
+                }
+
+                /* check attempts count */
+                err = config_entry_check_attempts(entry, root_dir);
+                if (EFI_ERROR(err)) {
+                        Print(L"Maximum number of boot attempts has been reached, ignoring entry\n");
+
+                        /* select next entry from menu */
+                        idx_selected++;
+                        idx_selected %= config.entry_count;
+
+                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                        continue;
                 }
 
                 /* export the selected boot entry to the system */

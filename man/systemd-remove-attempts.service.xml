@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 Michal Sekletar
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-remove-attempts.service" conditional='ENABLE_EFI'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-remove-attempts.service</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Michal</firstname>
+        <surname>Sekletar</surname>
+        <email>msekleta@redhat.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-remove-attempts.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-remove-attempts.service</refname>
+    <refname>systemd-remove-attempts</refname>
+    <refpurpose>Removes attempts configuration file from the EFI System Partition</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-remove-attempts.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-remove-attempts</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-remove-attempts.service</filename> is an oneshot
+    late boot service that removes attempts configuration file. Path to file
+    which should be removed is handed over by OS loader in the EFI variable
+    <envar>LoaderAttemptsPath</envar>. Service will remove the file, indicating
+    to OS loader that coresponding boot loader entry should be considered valid
+    on next reboot.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

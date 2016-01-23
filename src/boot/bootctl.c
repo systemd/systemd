@@ -39,6 +39,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "boot-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -48,142 +49,19 @@
 #include "util.h"
 
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
-        struct statfs sfs;
-        struct stat st, st2;
-        _cleanup_free_ char *t = NULL;
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         int r;
-        const char *v, *t2;
 
-        if (statfs(p, &sfs) < 0)
-                return log_error_errno(errno, "Failed to check file system type of \"%s\": %m", p);
-
-        if (sfs.f_type != 0x4d44) {
-                log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
-        }
-
-        if (stat(p, &st) < 0)
-                return log_error_errno(errno, "Failed to determine block device node of \"%s\": %m", p);
-
-        if (major(st.st_dev) == 0) {
-                log_error("Block device node of %p is invalid.", p);
-                return -ENODEV;
-        }
-
-        t2 = strjoina(p, "/..");
-        r = stat(t2, &st2);
+        r = esp_verify_fs_type(p);
         if (r < 0)
-                return log_error_errno(errno, "Failed to determine block device node of parent of \"%s\": %m", p);
+                log_error_errno(r, "Incorrect file system type on EFI System Partition, must be FAT: %m");
 
-        if (st.st_dev == st2.st_dev) {
-                log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
-        }
-
-        r = asprintf(&t, "/dev/block/%u:%u", major(st.st_dev), minor(st.st_dev));
+        r = esp_verify_path_is_esp_root(p);
         if (r < 0)
-                return log_oom();
+                log_error_errno(r, "Path is not a root of file system on EFI System Partition: %m");
 
-        errno = 0;
-        b = blkid_new_probe_from_filename(t);
-        if (!b) {
-                if (errno == 0)
-                        return log_oom();
-
-                return log_error_errno(errno, "Failed to open file system \"%s\": %m", p);
-        }
-
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2) {
-                log_error("File system \"%s\" is ambigious.", p);
-                return -ENODEV;
-        } else if (r == 1) {
-                log_error("File system \"%s\" does not contain a label.", p);
-                return -ENODEV;
-        } else if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe file system \"%s\": %m", p);
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe file system type \"%s\": %m", p);
-        }
-
-        if (!streq(v, "vfat")) {
-                log_error("File system \"%s\" is not FAT.", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition scheme \"%s\": %m", p);
-        }
-
-        if (!streq(v, "gpt")) {
-                log_error("File system \"%s\" is not on a GPT partition table.", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition type UUID \"%s\": %m", p);
-        }
-
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b")) {
-                log_error("File system \"%s\" has wrong type for an EFI System Partition (ESP).", p);
-                return -ENODEV;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition entry UUID \"%s\": %m", p);
-        }
-
-        r = sd_id128_from_string(v, uuid);
-        if (r < 0) {
-                log_error("Partition \"%s\" has invalid UUID \"%s\".", p, v);
-                return -EIO;
-        }
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition number \"%s\": m", p);
-        }
-        *part = strtoul(v, NULL, 10);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition offset \"%s\": %m", p);
-        }
-        *pstart = strtoul(v, NULL, 10);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                return log_error_errno(r, "Failed to probe partition size \"%s\": %m", p);
-        }
-        *psize = strtoul(v, NULL, 10);
+        r = esp_verify_partition(p, part, pstart, psize, uuid);
+        if (r < 0)
+                log_error_errno(r, "Failed to verify partition layout of EFI System Partition: %m");
 
         return 0;
 }

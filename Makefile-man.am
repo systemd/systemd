@@ -1858,10 +1858,13 @@ endif
 
 if ENABLE_EFI
 MANPAGES += \
-	man/bootctl.1
+	man/bootctl.1 \
+	man/systemd-remove-attempts.service.8
 MANPAGES_ALIAS += \
-	#
-
+	man/systemd-remove-attempts.8
+man/systemd-remove-attempts.8: man/systemd-remove-attempts.service.8
+man/systemd-remove-attempts.html: man/systemd-remove-attempts.service.html
+	$(html-alias)
 
 endif
 
@@ -2601,6 +2604,7 @@ EXTRA_DIST += \
 	man/systemd-quotacheck.service.xml \
 	man/systemd-random-seed.service.xml \
 	man/systemd-remount-fs.service.xml \
+	man/systemd-remove-attempts.service.xml \
 	man/systemd-resolved.service.xml \
 	man/systemd-rfkill.service.xml \
 	man/systemd-run.xml \

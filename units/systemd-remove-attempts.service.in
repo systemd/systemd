@@ -1,0 +1,18 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Remove attempts file from the EFI System Partition
+Documentation=man:systemd-remove-attempts.service(8)
+RequiresMountsFor=/boot
+ConditionVirtualization=!container
+CondtionPathExists=/sys/firmware/efi/efivars
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-remove-attempts

@@ -6,6 +6,7 @@ COMMAND="$1"
 KERNEL_VERSION="$2"
 BOOT_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
+BOOT_ATTEMPTS=${5:-"3"}
 
 if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
@@ -62,7 +63,8 @@ fi
 
 cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
    chown root:root "$BOOT_DIR_ABS/linux" &&
-   chmod 0644 "$BOOT_DIR_ABS/linux" || {
+   chmod 0644 "$BOOT_DIR_ABS/linux" &&
+   echo "BOOT_ATTEMPTS=$BOOT_ATTEMPTS" > "$BOOT_DIR_ABS/attempts" || {
     echo "Could not copy '$KERNEL_IMAGE to '$BOOT_DIR_ABS/linux'." >&2
     exit 1
 }
