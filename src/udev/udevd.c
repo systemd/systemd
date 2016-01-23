@@ -1759,6 +1759,9 @@ int main(int argc, char *argv[]) {
 
         r = run(fd_ctrl, fd_uevent, cgroup);
 
+        fd_ctrl = -1;
+        fd_uevent = -1;
+
 exit:
         mac_selinux_finish();
         log_close();
