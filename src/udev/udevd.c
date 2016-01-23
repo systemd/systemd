@@ -1652,7 +1652,7 @@ exit:
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
-        _cleanup_close_ int fd_ctrl = -1, fd_uevent = -1;
+        int fd_ctrl = -1, fd_uevent = -1;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
