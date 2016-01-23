@@ -24,8 +24,8 @@ SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", ATTR{md/array_state}=="
 # Ignore loop devices that don't have any file attached
 SUBSYSTEM=="block", KERNEL=="loop[0-9]*", ENV{DEVTYPE}=="disk", TEST!="loop/backing_file", ENV{SYSTEMD_READY}="0"
 
-# Ignore nbd devices in the "add" event, with "change" the nbd is ready
-ACTION=="add", SUBSYSTEM=="block", KERNEL=="nbd*", ENV{SYSTEMD_READY}="0"
+# Ignore nbd devices until the PID file exists (which signals a connected device)
+SUBSYSTEM=="block", KERNEL=="nbd*", ENV{DEVTYPE}=="disk", TEST!="pid", ENV{SYSTEMD_READY}="0"
 
 # We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem/ path for this. Kernel "bus" and "class" names
