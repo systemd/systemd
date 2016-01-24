@@ -31,13 +31,14 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
 
 #define TIMEOUT_USEC (10 * USEC_PER_SEC)
 
-static bool ignore_proc(pid_t pid) {
+static bool ignore_proc(pid_t pid, bool killing_spree) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
         const char *p;
@@ -72,8 +73,23 @@ static bool ignore_proc(pid_t pid) {
          * spree.
          *
          * http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons */
-        if (count == 1 && c == '@')
+        if (count == 1 && c == '@') {
+                if (killing_spree && !in_initrd()) {
+                        const char *root;
+
+                        root = procfs_file_alloca(pid, "root");
+
+                        if (files_same(root, "/proc/1/root")) {
+                                _cleanup_free_ char *comm = NULL;
+
+                                get_process_comm(pid, &comm);
+
+                                log_info("Excluded process PID "PID_FMT" (%s) running of the same root filesystem as PID 1.\n", pid, strna(comm));
+                        }
+                }
+
                 return true;
+        }
 
         return false;
 }
@@ -171,7 +187,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 if (parse_pid(d->d_name, &pid) < 0)
                         continue;
 
-                if (ignore_proc(pid))
+                if (ignore_proc(pid, sig == SIGKILL))
                         continue;
 
                 if (sig == SIGKILL) {
