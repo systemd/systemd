@@ -898,7 +898,8 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         if (arg_url) {
-                const char *url, *hostname;
+                const char *url;
+                char *hostname, *p;
 
                 if (!strstr(arg_url, "/entries")) {
                         if (endswith(arg_url, "/"))
@@ -924,7 +925,15 @@ static int remoteserver_init(RemoteServer *s,
                         startswith(arg_url, "http://") ?:
                         arg_url;
 
-                r = add_source(s, fd, (char*) hostname, false);
+                hostname = strdupa(hostname);
+                if (!hostname)
+                        return log_oom();
+                if ((p = strchr(hostname, '/')))
+                        *p = '\0';
+                if ((p = strchr(hostname, ':')))
+                        *p = '\0';
+
+                r = add_source(s, fd, hostname, false);
                 if (r < 0)
                         return r;
         }
