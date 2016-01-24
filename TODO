@@ -344,10 +344,6 @@ Features:
   - generate a failure of a default event loop is executed out-of-thread
   - maybe add support for inotify events
 
-* in the final killing spree, detect processes from the root directory, and
-  complain loudly if they have argv[0][0] == '@' set.
-  https://bugzilla.redhat.com/show_bug.cgi?id=961044
-
 * investigate endianness issues of UUID vs. GUID
 
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
