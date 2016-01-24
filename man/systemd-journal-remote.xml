@@ -293,15 +293,24 @@ journalctl -o export | systemd-journal-remote -o /tmp/dir -
     </programlisting>
     </para>
 
-    <para>Retrieve events from a remote
+    <para>Retrieve all available events from a remote
     <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     instance and store them in
-    <filename>/var/log/journal/some.host/remote-some~host.journal</filename>:
+    <filename>/var/log/journal/remote/remote-some.host.journal</filename>:
     <programlisting>
 systemd-journal-remote --url http://some.host:19531/
     </programlisting>
     </para>
-  </refsect1>
+
+    <para>Retrieve current boot events and wait for new events from a remote
+    <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    instance, and store them in
+    <filename>/var/log/journal/remote/remote-some.host.journal</filename>:
+    <programlisting>
+systemd-journal-remote --url http://some.host:19531/entries?boot&amp;follow
+    </programlisting>
+    </para>
+</refsect1>
 
   <refsect1>
     <title>See Also</title>
