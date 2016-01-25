@@ -830,7 +830,7 @@ static void print_string_set(FILE *f, const char *field, Set *s) {
 }
 
 static int manager_save(Manager *m) {
-        _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL, *domains = NULL;
+        _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL, *search_domains = NULL, *route_domains = NULL;
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
@@ -851,8 +851,12 @@ static int manager_save(Manager *m) {
         if (!ntp)
                 return -ENOMEM;
 
-        domains = set_new(&string_hash_ops);
-        if (!domains)
+        search_domains = set_new(&string_hash_ops);
+        if (!search_domains)
+                return -ENOMEM;
+
+        route_domains = set_new(&string_hash_ops);
+        if (!route_domains)
                 return -ENOMEM;
 
         HASHMAP_FOREACH(link, m->links, i) {
@@ -874,7 +878,11 @@ static int manager_save(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = set_put_strdupv(domains, link->network->domains);
+                r = set_put_strdupv(search_domains, link->network->search_domains);
+                if (r < 0)
+                        return r;
+
+                r = set_put_strdupv(route_domains, link->network->route_domains);
                 if (r < 0)
                         return r;
 
@@ -911,7 +919,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
-                                r = set_put_strdup(domains, domainname);
+                                r = set_put_strdup(search_domains, domainname);
                                 if (r < 0)
                                         return r;
                         } else if (r != -ENODATA)
@@ -934,7 +942,8 @@ static int manager_save(Manager *m) {
 
         print_string_set(f, "DNS=", dns);
         print_string_set(f, "NTP=", ntp);
-        print_string_set(f, "DOMAINS=", domains);
+        print_string_set(f, "DOMAINS=", search_domains);
+        print_string_set(f, "ROUTE_DOMAINS=", route_domains);
 
         r = fflush_and_check(f);
         if (r < 0)

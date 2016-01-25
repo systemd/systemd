@@ -871,3 +871,34 @@ rollback:
         nl[k] = NULL;
         return -ENOMEM;
 }
+
+int fputstrv(FILE *f, char **l, const char *separator, bool *space) {
+        bool b = false;
+        char **s;
+        int r;
+
+        /* Like fputs(), but for strv, and with a less stupid argument order */
+
+        if (!f)
+                f = stdout;
+        if (!separator)
+                separator = " ";
+        if (!space)
+                space = &b;
+
+        STRV_FOREACH(s, l) {
+                if (*space) {
+                        r = fputs(separator, f);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = fputs(*s, f);
+                if (r < 0)
+                        return r;
+
+                *space = true;
+        }
+
+        return 0;
+}

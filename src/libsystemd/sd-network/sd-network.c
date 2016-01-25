@@ -95,8 +95,12 @@ _public_ int sd_network_get_ntp(char ***ret) {
         return network_get_strv("NTP", ret);
 }
 
-_public_ int sd_network_get_domains(char ***ret) {
+_public_ int sd_network_get_search_domains(char ***ret) {
         return network_get_strv("DOMAINS", ret);
+}
+
+_public_ int sd_network_get_route_domains(char ***ret) {
+        return network_get_strv("ROUTE_DOMAINS", ret);
 }
 
 static int network_link_get_string(int ifindex, const char *field, char **ret) {
@@ -222,8 +226,12 @@ _public_ int sd_network_link_get_ntp(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "NTP", ret);
 }
 
-_public_ int sd_network_link_get_domains(int ifindex, char ***ret) {
+_public_ int sd_network_link_get_search_domains(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "DOMAINS", ret);
+}
+
+_public_ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
+        return network_link_get_strv(ifindex, "ROUTE_DOMAINS", ret);
 }
 
 _public_ int sd_network_link_get_carrier_bound_to(int ifindex, char ***ret) {
@@ -232,26 +240,6 @@ _public_ int sd_network_link_get_carrier_bound_to(int ifindex, char ***ret) {
 
 _public_ int sd_network_link_get_carrier_bound_by(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "CARRIER_BOUND_BY", ret);
-}
-
-_public_ int sd_network_link_get_wildcard_domain(int ifindex) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, "WILDCARD_DOMAIN", &s, NULL);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
-
-        return parse_boolean(s);
 }
 
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {

@@ -43,7 +43,7 @@ Network.IPv6Token,                      config_parse_ipv6token,                 
 Network.LLDP,                           config_parse_bool,                              0,                             offsetof(Network, lldp)
 Network.Address,                        config_parse_address,                           0,                             0
 Network.Gateway,                        config_parse_gateway,                           0,                             0
-Network.Domains,                        config_parse_domains,                           0,                             offsetof(Network, domains)
+Network.Domains,                        config_parse_domains,                           0,                             0
 Network.DNS,                            config_parse_strv,                              0,                             offsetof(Network, dns)
 Network.LLMNR,                          config_parse_resolve_support,                   0,                             offsetof(Network, llmnr)
 Network.MulticastDNS,                   config_parse_resolve_support,                   0,                             offsetof(Network, mdns)

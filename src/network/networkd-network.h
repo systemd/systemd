@@ -141,8 +141,7 @@ struct Network {
         Hashmap *routes_by_section;
         Hashmap *fdb_entries_by_section;
 
-        bool wildcard_domain;
-        char **domains, **dns, **ntp, **bind_carrier;
+        char **search_domains, **route_domains, **dns, **ntp, **bind_carrier;
 
         ResolveSupport llmnr;
         ResolveSupport mdns;

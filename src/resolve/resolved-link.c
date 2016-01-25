@@ -384,7 +384,7 @@ static int link_update_search_domains(Link *l) {
 
         assert(l);
 
-        r = sd_network_link_get_domains(l->ifindex, &domains);
+        r = sd_network_link_get_search_domains(l->ifindex, &domains);
         if (r == -ENODATA) {
                 /* networkd knows nothing about this interface, and that's fine. */
                 r = 0;

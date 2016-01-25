@@ -169,3 +169,5 @@ char ***strv_free_free(char ***l);
 char **strv_skip(char **l, size_t n);
 
 int strv_extend_n(char ***l, const char *value, size_t n);
+
+int fputstrv(FILE *f, char **l, const char *separator, bool *space);

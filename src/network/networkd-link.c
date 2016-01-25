@@ -2729,7 +2729,6 @@ int link_save(Link *link) {
                 admin_state, oper_state);
 
         if (link->network) {
-                char **address, **domain;
                 bool space;
                 sd_dhcp6_lease *dhcp6_lease = NULL;
 
@@ -2743,12 +2742,7 @@ int link_save(Link *link) {
 
                 fputs("DNS=", f);
                 space = false;
-                STRV_FOREACH(address, link->network->dns) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(*address, f);
-                        space = true;
-                }
+                fputstrv(f, link->network->dns, NULL, &space);
 
                 if (link->network->dhcp_dns &&
                     link->dhcp_lease) {
@@ -2778,12 +2772,7 @@ int link_save(Link *link) {
 
                 fputs("NTP=", f);
                 space = false;
-                STRV_FOREACH(address, link->network->ntp) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(*address, f);
-                        space = true;
-                }
+                fputstrv(f, link->network->ntp, NULL, &space);
 
                 if (link->network->dhcp_ntp &&
                     link->dhcp_lease) {
@@ -2801,7 +2790,6 @@ int link_save(Link *link) {
                 if (link->network->dhcp_ntp && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
                         char **hosts;
-                        char **hostname;
 
                         r = sd_dhcp6_lease_get_ntp_addrs(dhcp6_lease,
                                                          &in6_addrs);
@@ -2813,26 +2801,14 @@ int link_save(Link *link) {
                         }
 
                         r = sd_dhcp6_lease_get_ntp_fqdn(dhcp6_lease, &hosts);
-                        if (r > 0) {
-                                STRV_FOREACH(hostname, hosts) {
-                                        if (space)
-                                                fputc(' ', f);
-                                        fputs(*hostname, f);
-                                        space = true;
-                                }
-                        }
+                        if (r > 0)
+                                fputstrv(f, hosts, NULL, &space);
                 }
 
                 fputc('\n', f);
 
                 fputs("DOMAINS=", f);
-                space = false;
-                STRV_FOREACH(domain, link->network->domains) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(*domain, f);
-                        space = true;
-                }
+                fputstrv(f, link->network->search_domains, NULL, &space);
 
                 if (link->network->dhcp_domains &&
                     link->dhcp_lease) {
@@ -2851,20 +2827,15 @@ int link_save(Link *link) {
                         char **domains;
 
                         r = sd_dhcp6_lease_get_domains(dhcp6_lease, &domains);
-                        if (r >= 0) {
-                                STRV_FOREACH(domain, domains) {
-                                        if (space)
-                                                fputc(' ', f);
-                                        fputs(*domain, f);
-                                        space = true;
-                                }
-                        }
+                        if (r >= 0)
+                                fputstrv(f, domains, NULL, &space);
                 }
 
                 fputc('\n', f);
 
-                fprintf(f, "WILDCARD_DOMAIN=%s\n",
-                        yes_no(link->network->wildcard_domain));
+                fputs("ROUTE_DOMAINS=", f);
+                fputstrv(f, link->network->route_domains, NULL, NULL);
+                fputc('\n', f);
 
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
