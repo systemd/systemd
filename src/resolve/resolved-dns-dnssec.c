@@ -35,9 +35,6 @@
  *
  * TODO:
  *
- *   - bus calls to override DNSEC setting per interface
- *   - log all DNSSEC downgrades
- *   - log all RRs that failed validation
  *   - enable by default
  *   - Allow clients to request DNSSEC even if DNSSEC is off
  *   - make sure when getting an NXDOMAIN response through CNAME, we still process the first CNAMEs in the packet
@@ -1270,11 +1267,12 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
         if (rr->nsec3.iterations > NSEC3_ITERATIONS_MAX)
                 return 0;
 
-        /* Ignore NSEC3 RRs generated from wildcards */
-        if (rr->n_skip_labels_source != 0)
+        /* Ignore NSEC3 RRs generated from wildcards. If these NSEC3 RRs weren't correctly signed we can't make this
+         * check (since rr->n_skip_labels_source is -1), but that's OK, as we won't trust them anyway in that case. */
+        if (rr->n_skip_labels_source != 0 && rr->n_skip_labels_source != (unsigned) -1)
                 return 0;
         /* Ignore NSEC3 RRs that are located anywhere else than one label below the zone */
-        if (rr->n_skip_labels_signer != 1)
+        if (rr->n_skip_labels_signer != 1 && rr->n_skip_labels_signer != (unsigned) -1)
                 return 0;
 
         if (!nsec3)
@@ -1458,19 +1456,20 @@ found_zone:
 found_closest_encloser:
         /* We found a closest encloser in 'p'; next closer is 'pp' */
 
-        /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
-        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_DNAME))
-                return -EBADMSG;
-
-        /* Ensure that this data is from the delegated domain
-         * (i.e. originates from the "lower" DNS server), and isn't
-         * just glue records (i.e. doesn't originate from the "upper"
-         * DNS server). */
-        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
-            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
-                return -EBADMSG;
-
         if (!pp) {
+                /* We have an exact match! If we area looking for a DS RR, then we must insist that we got the NSEC3 RR
+                 * from the parent. Otherwise the one from the child. Do so, by checking whether SOA and NS are
+                 * appropriately set. */
+
+                if (key->type == DNS_TYPE_DS) {
+                        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
+                                return -EBADMSG;
+                } else {
+                        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
+                            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
+                                return -EBADMSG;
+                }
+
                 /* No next closer NSEC3 RR. That means there's a direct NSEC3 RR for our key. */
                 if (bitmap_isset(enclosure_rr->nsec3.types, key->type))
                         *result = DNSSEC_NSEC_FOUND;
@@ -1486,6 +1485,18 @@ found_closest_encloser:
 
                 return 0;
         }
+
+        /* Ensure this is not a DNAME domain, see RFC5155, section 8.3. */
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_DNAME))
+                return -EBADMSG;
+
+        /* Ensure that this data is from the delegated domain
+         * (i.e. originates from the "lower" DNS server), and isn't
+         * just glue records (i.e. doesn't originate from the "upper"
+         * DNS server). */
+        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
+            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
+                return -EBADMSG;
 
         /* Prove that there is no next closer and whether or not there is a wildcard domain. */
 
@@ -2129,3 +2140,11 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_INCOMPATIBLE_SERVER] = "incompatible-server",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
+
+static const char* const dnssec_verdict_table[_DNSSEC_VERDICT_MAX] = {
+        [DNSSEC_SECURE] = "secure",
+        [DNSSEC_INSECURE] = "insecure",
+        [DNSSEC_BOGUS] = "bogus",
+        [DNSSEC_INDETERMINATE] = "indeterminate",
+};
+DEFINE_STRING_TABLE_LOOKUP(dnssec_verdict, DnssecVerdict);

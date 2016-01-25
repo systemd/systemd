@@ -867,11 +867,11 @@ static int show_statistics(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("\n%sDNSSEC%s\n"
-               "       Secure RRsets: %" PRIu64 "\n"
-               "     Insecure RRsets: %" PRIu64 "\n"
-               "        Bogus RRsets: %" PRIu64 "\n"
-               "Indeterminate RRsets: %" PRIu64 "\n",
+        printf("\n%sDNSSEC Verdicts%s\n"
+               "              Secure: %" PRIu64 "\n"
+               "            Insecure: %" PRIu64 "\n"
+               "               Bogus: %" PRIu64 "\n"
+               "       Indeterminate: %" PRIu64 "\n",
                ansi_highlight(),
                ansi_normal(),
                n_dnssec_secure,
@@ -929,7 +929,7 @@ static void help_dns_classes(void) {
 static void help(void) {
         printf("%s [OPTIONS...] NAME...\n"
                "%s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n\n"
-               "Resolve domain names, IPv4 or IPv6 addresses, resource records, and services.\n\n"
+               "Resolve domain names, IPv4 and IPv6 addresses, DNS resource records, and services.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "  -4                        Resolve IPv4 addresses\n"
@@ -943,7 +943,7 @@ static void help(void) {
                "     --service-txt=BOOL     Do [not] resolve TXT records for services\n"
                "     --cname=BOOL           Do [not] follow CNAME redirects\n"
                "     --search=BOOL          Do [not] use search domains\n"
-               "     --legend=BOOL          Do [not] print column headers\n"
+               "     --legend=BOOL          Do [not] print column headers and meta information\n"
                "     --statistics           Show resolver statistics\n"
                "     --reset-statistics     Reset resolver statistics\n"
                , program_invocation_short_name, program_invocation_short_name);
@@ -1175,7 +1175,7 @@ int main(int argc, char **argv) {
 
         case MODE_RESOLVE_HOST:
                 if (optind >= argc) {
-                        log_error("No arguments passed");
+                        log_error("No arguments passed.");
                         r = -EINVAL;
                         goto finish;
                 }
@@ -1203,7 +1203,7 @@ int main(int argc, char **argv) {
 
         case MODE_RESOLVE_RECORD:
                 if (optind >= argc) {
-                        log_error("No arguments passed");
+                        log_error("No arguments passed.");
                         r = -EINVAL;
                         goto finish;
                 }
@@ -1232,7 +1232,7 @@ int main(int argc, char **argv) {
                 else if (argc == optind + 3)
                         r = resolve_service(bus, argv[optind], argv[optind+1], argv[optind+2]);
                 else {
-                        log_error("Too many arguments");
+                        log_error("Too many arguments.");
                         r = -EINVAL;
                         goto finish;
                 }

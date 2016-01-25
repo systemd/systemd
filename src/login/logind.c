@@ -70,7 +70,7 @@ static Manager *manager_new(void) {
         m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
         m->runtime_dir_size = PAGE_ALIGN((size_t) (physical_memory() / 10)); /* 10% */
-        m->user_tasks_max = UINT64_C(4096);
+        m->user_tasks_max = UINT64_C(12288);
 
         m->devices = hashmap_new(&string_hash_ops);
         m->seats = hashmap_new(&string_hash_ops);

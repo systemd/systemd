@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sd-messages.h>
+
 #include "alloc-util.h"
 #include "resolved-dns-server.h"
 #include "resolved-resolv-conf.h"
@@ -545,6 +547,22 @@ bool dns_server_dnssec_supported(DnsServer *server) {
                 return false;
 
         return true;
+}
+
+void dns_server_warn_downgrade(DnsServer *server) {
+        assert(server);
+
+        if (server->warned_downgrade)
+                return;
+
+        log_struct(LOG_NOTICE,
+                   LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_DOWNGRADE),
+                   LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.", dns_server_string(server)),
+                   "DNS_SERVER=%s", dns_server_string(server),
+                   "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level),
+                   NULL);
+
+        server->warned_downgrade = true;
 }
 
 static void dns_server_hash_func(const void *p, struct siphash *state) {

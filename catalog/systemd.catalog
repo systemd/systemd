@@ -1,3 +1,4 @@
+# -*- fill-column: 79; indent-tabs-mode: nil -*-
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
@@ -278,3 +279,42 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 The virtual machine @NAME@ with its leader PID @LEADER@ has been
 shut down.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: DNSSEC mode has been turned off, as server doesn't support it
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+The resolver service (systemd-resolved.service) has detected that the
+configured DNS server does not support DNSSEC, and DNSSEC validation has been
+turned off as result.
+
+This event will take place if DNSSEC=allow-downgrade is configured in
+resolved.conf and the configured DNS server is incompatible with DNSSEC. Note
+that using this mode permits DNSSEC downgrade attacks, as an attacker might be
+able turn off DNSSEC validation on the system by inserting DNS replies in the
+communication channel that result in a downgrade like this.
+
+This event might be indication that the DNS server is indeed incompatible with
+DNSSEC or that an attacker has successfully managed to stage such a downgrade
+attack.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: DNSSEC validation failed
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+A DNS query or resource record set failed DNSSEC validation. This is usually
+indication that the communication channel used was tampered with.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: A DNSSEC trust anchor has been revoked
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+A DNSSEC trust anchor has been revoked. A new trust anchor has to be
+configured, or the operating system needs to be updated, to provide an updated
+DNSSEC trust anchor.

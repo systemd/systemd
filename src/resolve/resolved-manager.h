@@ -123,7 +123,12 @@ struct Manager {
         sd_event_source *sigusr1_event_source;
 
         unsigned n_transactions_total;
-        unsigned n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
+        unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
+
+        /* Data from /etc/hosts */
+        Set* etc_hosts_by_address;
+        Hashmap* etc_hosts_by_name;
+        usec_t etc_hosts_last, etc_hosts_mtime;
 };
 
 /* Manager */
@@ -161,3 +166,5 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains);
 
 DnssecMode manager_get_dnssec_mode(Manager *m);
 bool manager_dnssec_supported(Manager *m);
+
+void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);

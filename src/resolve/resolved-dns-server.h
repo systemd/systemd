@@ -82,6 +82,9 @@ struct DnsServer {
         usec_t verified_usec;
         usec_t features_grace_period_usec;
 
+        /* Whether we already warned about downgrading to non-DNSSEC mode for this server */
+        bool warned_downgrade:1;
+
         /* Used when GC'ing old DNS servers when configuration changes. */
         bool marked:1;
 
@@ -118,6 +121,8 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 const char *dns_server_string(DnsServer *server);
 
 bool dns_server_dnssec_supported(DnsServer *server);
+
+void dns_server_warn_downgrade(DnsServer *server);
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 

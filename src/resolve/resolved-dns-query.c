@@ -24,6 +24,8 @@
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "resolved-dns-query.h"
+#include "resolved-dns-synthesize.h"
+#include "resolved-etc-hosts.h"
 #include "string-util.h"
 
 /* How long to wait for the query in total */
@@ -180,7 +182,7 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         assert(c);
 
         if (c->error_code != 0)
-                return DNS_TRANSACTION_RESOURCES;
+                return DNS_TRANSACTION_ERRNO;
 
         SET_FOREACH(t, c->transactions, i) {
 
@@ -322,6 +324,7 @@ static void dns_query_reset_answer(DnsQuery *q) {
         q->answer = dns_answer_unref(q->answer);
         q->answer_rcode = 0;
         q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        q->answer_errno = 0;
         q->answer_authenticated = false;
         q->answer_protocol = _DNS_PROTOCOL_INVALID;
         q->answer_family = AF_UNSPEC;
@@ -547,413 +550,73 @@ fail:
         return r;
 }
 
-static int SYNTHESIZE_IFINDEX(int ifindex) {
-
-        /* When the caller asked for resolving on a specific
-         * interface, we synthesize the answer for that
-         * interface. However, if nothing specific was claimed and we
-         * only return localhost RRs, we synthesize the answer for
-         * localhost. */
-
-        if (ifindex > 0)
-                return ifindex;
-
-        return LOOPBACK_IFINDEX;
-}
-
-static int SYNTHESIZE_FAMILY(uint64_t flags) {
-
-        /* Picks an address family depending on set flags. This is
-         * purely for synthesized answers, where the family we return
-         * for the reply should match what was requested in the
-         * question, even though we are synthesizing the answer
-         * here. */
-
-        if (!(flags & SD_RESOLVED_DNS)) {
-                if (flags & SD_RESOLVED_LLMNR_IPV4)
-                        return AF_INET;
-                if (flags & SD_RESOLVED_LLMNR_IPV6)
-                        return AF_INET6;
-        }
-
-        return AF_UNSPEC;
-}
-
-static DnsProtocol SYNTHESIZE_PROTOCOL(uint64_t flags) {
-
-        /* Similar as SYNTHESIZE_FAMILY() but does this for the
-         * protocol. If resolving via DNS was requested, we claim it
-         * was DNS. Similar, if nothing specific was
-         * requested. However, if only resolving via LLMNR was
-         * requested we return that. */
-
-        if (flags & SD_RESOLVED_DNS)
-                return DNS_PROTOCOL_DNS;
-        if (flags & SD_RESOLVED_LLMNR)
-                return DNS_PROTOCOL_LLMNR;
-
-        return DNS_PROTOCOL_DNS;
-}
-
-static int dns_type_to_af(uint16_t t) {
-        switch (t) {
-
-        case DNS_TYPE_A:
-                return AF_INET;
-
-        case DNS_TYPE_AAAA:
-                return AF_INET6;
-
-        case DNS_TYPE_ANY:
-                return AF_UNSPEC;
-
-        default:
-                return -EINVAL;
-        }
-}
-
-static int synthesize_localhost_rr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
-        int r;
-
-        assert(q);
-        assert(key);
-        assert(answer);
-
-        r = dns_answer_reserve(answer, 2);
-        if (r < 0)
-                return r;
-
-        if (IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_ANY)) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, DNS_RESOURCE_KEY_NAME(key));
-                if (!rr)
-                        return -ENOMEM;
-
-                rr->a.in_addr.s_addr = htobe32(INADDR_LOOPBACK);
-
-                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-        }
-
-        if (IN_SET(key->type, DNS_TYPE_AAAA, DNS_TYPE_ANY)) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, DNS_RESOURCE_KEY_NAME(key));
-                if (!rr)
-                        return -ENOMEM;
-
-                rr->aaaa.in6_addr = in6addr_loopback;
-
-                r = dns_answer_add(*answer, rr, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, int ifindex, DnsAnswerFlags flags) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, from);
-        if (!rr)
-                return -ENOMEM;
-
-        rr->ptr.name = strdup(to);
-        if (!rr->ptr.name)
-                return -ENOMEM;
-
-        return dns_answer_add(*answer, rr, ifindex, flags);
-}
-
-static int synthesize_localhost_ptr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
-        int r;
-
-        assert(q);
-        assert(key);
-        assert(answer);
-
-        if (IN_SET(key->type, DNS_TYPE_PTR, DNS_TYPE_ANY)) {
-                r = dns_answer_reserve(answer, 1);
-                if (r < 0)
-                        return r;
-
-                r = answer_add_ptr(answer, DNS_RESOURCE_KEY_NAME(key), "localhost", SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int answer_add_addresses_rr(
-                DnsAnswer **answer,
-                const char *name,
-                struct local_address *addresses,
-                unsigned n_addresses) {
-
-        unsigned j;
-        int r;
-
-        assert(answer);
-        assert(name);
-
-        r = dns_answer_reserve(answer, n_addresses);
-        if (r < 0)
-                return r;
-
-        for (j = 0; j < n_addresses; j++) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                r = dns_resource_record_new_address(&rr, addresses[j].family, &addresses[j].address, name);
-                if (r < 0)
-                        return r;
-
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int answer_add_addresses_ptr(
-                DnsAnswer **answer,
-                const char *name,
-                struct local_address *addresses,
-                unsigned n_addresses,
-                int af, const union in_addr_union *match) {
-
-        unsigned j;
-        int r;
-
-        assert(answer);
-        assert(name);
-
-        for (j = 0; j < n_addresses; j++) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                if (af != AF_UNSPEC) {
-
-                        if (addresses[j].family != af)
-                                continue;
-
-                        if (match && !in_addr_equal(af, match, &addresses[j].address))
-                                continue;
-                }
-
-                r = dns_answer_reserve(answer, 1);
-                if (r < 0)
-                        return r;
-
-                r = dns_resource_record_new_reverse(&rr, addresses[j].family, &addresses[j].address, name);
-                if (r < 0)
-                        return r;
-
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int synthesize_system_hostname_rr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
-        _cleanup_free_ struct local_address *addresses = NULL;
-        int n = 0, af;
-
-        assert(q);
-        assert(key);
-        assert(answer);
-
-        af = dns_type_to_af(key->type);
-        if (af >= 0) {
-                n = local_addresses(q->manager->rtnl, q->ifindex, af, &addresses);
-                if (n < 0)
-                        return n;
-
-                if (n == 0) {
-                        struct local_address buffer[2];
-
-                        /* If we have no local addresses then use ::1
-                         * and 127.0.0.2 as local ones. */
-
-                        if (af == AF_INET || af == AF_UNSPEC)
-                                buffer[n++] = (struct local_address) {
-                                        .family = AF_INET,
-                                        .ifindex = SYNTHESIZE_IFINDEX(q->ifindex),
-                                        .address.in.s_addr = htobe32(0x7F000002),
-                                };
-
-                        if (af == AF_INET6 || af == AF_UNSPEC)
-                                buffer[n++] = (struct local_address) {
-                                        .family = AF_INET6,
-                                        .ifindex = SYNTHESIZE_IFINDEX(q->ifindex),
-                                        .address.in6 = in6addr_loopback,
-                                };
-
-                        return answer_add_addresses_rr(answer, DNS_RESOURCE_KEY_NAME(key), buffer, n);
-                }
-        }
-
-        return answer_add_addresses_rr(answer, DNS_RESOURCE_KEY_NAME(key), addresses, n);
-}
-
-static int synthesize_system_hostname_ptr(DnsQuery *q, int af, const union in_addr_union *address, DnsAnswer **answer) {
-        _cleanup_free_ struct local_address *addresses = NULL;
-        int n, r;
-
-        assert(q);
-        assert(address);
-        assert(answer);
-
-        if (af == AF_INET && address->in.s_addr == htobe32(0x7F000002)) {
-
-                /* Always map the IPv4 address 127.0.0.2 to the local
-                 * hostname, in addition to "localhost": */
-
-                r = dns_answer_reserve(answer, 3);
-                if (r < 0)
-                        return r;
-
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->llmnr_hostname, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", q->manager->mdns_hostname, SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", SYNTHESIZE_IFINDEX(q->ifindex), DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
-
-                return 0;
-        }
-
-        n = local_addresses(q->manager->rtnl, q->ifindex, af, &addresses);
-        if (n < 0)
-                return n;
-
-        r = answer_add_addresses_ptr(answer, q->manager->llmnr_hostname, addresses, n, af, address);
-        if (r < 0)
-                return r;
-
-        return answer_add_addresses_ptr(answer, q->manager->mdns_hostname, addresses, n, af, address);
-}
-
-static int synthesize_gateway_rr(DnsQuery *q, const DnsResourceKey *key, DnsAnswer **answer) {
-        _cleanup_free_ struct local_address *addresses = NULL;
-        int n = 0, af;
-
-        assert(q);
-        assert(key);
-        assert(answer);
-
-        af = dns_type_to_af(key->type);
-        if (af >= 0) {
-                n = local_gateways(q->manager->rtnl, q->ifindex, af, &addresses);
-                if (n < 0)
-                        return n;
-        }
-
-        return answer_add_addresses_rr(answer, DNS_RESOURCE_KEY_NAME(key), addresses, n);
-}
-
-static int synthesize_gateway_ptr(DnsQuery *q, int af, const union in_addr_union *address, DnsAnswer **answer) {
-        _cleanup_free_ struct local_address *addresses = NULL;
-        int n;
-
-        assert(q);
-        assert(address);
-        assert(answer);
-
-        n = local_gateways(q->manager->rtnl, q->ifindex, af, &addresses);
-        if (n < 0)
-                return n;
-
-        return answer_add_addresses_ptr(answer, "gateway", addresses, n, af, address);
-}
-
 static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        DnsResourceKey *key;
         int r;
 
         assert(q);
         assert(state);
 
-        /* Tries to synthesize localhost RR replies where appropriate */
+        /* Tries to synthesize localhost RR replies (and others) where appropriate. Note that this is done *after* the
+         * the normal lookup finished. The data from the network hence takes precedence over the data we
+         * synthesize. (But note that many scopes refuse to resolve certain domain names) */
 
         if (!IN_SET(*state,
                     DNS_TRANSACTION_RCODE_FAILURE,
                     DNS_TRANSACTION_NO_SERVERS,
                     DNS_TRANSACTION_TIMEOUT,
-                    DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))
+                    DNS_TRANSACTION_ATTEMPTS_MAX_REACHED,
+                    DNS_TRANSACTION_NETWORK_DOWN,
+                    DNS_TRANSACTION_NOT_FOUND))
                 return 0;
 
-        DNS_QUESTION_FOREACH(key, q->question_utf8) {
-                union in_addr_union address;
-                const char *name;
-                int af;
+        r = dns_synthesize_answer(
+                        q->manager,
+                        q->question_utf8,
+                        q->ifindex,
+                        &answer);
 
-                if (key->class != DNS_CLASS_IN &&
-                    key->class != DNS_CLASS_ANY)
-                        continue;
+        if (r <= 0)
+                return r;
 
-                name = DNS_RESOURCE_KEY_NAME(key);
+        dns_query_reset_answer(q);
 
-                if (is_localhost(name)) {
-
-                        r = synthesize_localhost_rr(q, key, &answer);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to synthesize localhost RRs: %m");
-
-                } else if (manager_is_own_hostname(q->manager, name)) {
-
-                        r = synthesize_system_hostname_rr(q, key, &answer);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to synthesize system hostname RRs: %m");
-
-                } else if (is_gateway_hostname(name)) {
-
-                        r = synthesize_gateway_rr(q, key, &answer);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to synthesize gateway RRs: %m");
-
-                } else if ((dns_name_endswith(name, "127.in-addr.arpa") > 0 && dns_name_equal(name, "2.0.0.127.in-addr.arpa") == 0) ||
-                           dns_name_equal(name, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0) {
-
-                        r = synthesize_localhost_ptr(q, key, &answer);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
-
-                } else if (dns_name_address(name, &af, &address) > 0) {
-
-                        r = synthesize_system_hostname_ptr(q, af, &address, &answer);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to synthesize system hostname PTR RR: %m");
-
-                        r = synthesize_gateway_ptr(q, af, &address, &answer);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to synthesize gateway hostname PTR RR: %m");
-                }
-        }
-
-        if (!answer)
-                return 0;
-
-        dns_answer_unref(q->answer);
         q->answer = answer;
         answer = NULL;
-
         q->answer_rcode = DNS_RCODE_SUCCESS;
-        q->answer_protocol = SYNTHESIZE_PROTOCOL(q->flags);
-        q->answer_family = SYNTHESIZE_FAMILY(q->flags);
+        q->answer_protocol = dns_synthesize_protocol(q->flags);
+        q->answer_family = dns_synthesize_family(q->flags);
+        q->answer_authenticated = true;
 
         *state = DNS_TRANSACTION_SUCCESS;
+
+        return 1;
+}
+
+static int dns_query_try_etc_hosts(DnsQuery *q) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        int r;
+
+        assert(q);
+
+        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is done. The
+         * data from /etc/hosts hence takes precedence over the network. */
+
+        r = manager_etc_hosts_lookup(
+                        q->manager,
+                        q->question_utf8,
+                        &answer);
+        if (r <= 0)
+                return r;
+
+        dns_query_reset_answer(q);
+
+        q->answer = answer;
+        answer = NULL;
+        q->answer_rcode = DNS_RCODE_SUCCESS;
+        q->answer_protocol = dns_synthesize_protocol(q->flags);
+        q->answer_family = dns_synthesize_family(q->flags);
+        q->answer_authenticated = true;
 
         return 1;
 }
@@ -968,6 +631,14 @@ int dns_query_go(DnsQuery *q) {
 
         if (q->state != DNS_TRANSACTION_NULL)
                 return 0;
+
+        r = dns_query_try_etc_hosts(q);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
+                return 1;
+        }
 
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
@@ -1000,7 +671,10 @@ int dns_query_go(DnsQuery *q) {
         if (found == DNS_SCOPE_NO) {
                 DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
 
-                dns_query_synthesize_reply(q, &state);
+                r = dns_query_synthesize_reply(q, &state);
+                if (r < 0)
+                        return r;
+
                 dns_query_complete(q, state);
                 return 1;
         }
@@ -1029,10 +703,7 @@ int dns_query_go(DnsQuery *q) {
                         goto fail;
         }
 
-        q->answer = dns_answer_unref(q->answer);
-        q->answer_rcode = 0;
-        q->answer_family = AF_UNSPEC;
-        q->answer_protocol = _DNS_PROTOCOL_INVALID;
+        dns_query_reset_answer(q);
 
         r = sd_event_add_time(
                         q->manager->event,
@@ -1078,9 +749,21 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         assert(q);
 
         if (!c) {
-                dns_query_synthesize_reply(q, &state);
+                r = dns_query_synthesize_reply(q, &state);
+                if (r < 0)
+                        goto fail;
+
                 dns_query_complete(q, state);
                 return;
+        }
+
+        if (c->error_code != 0) {
+                /* If the candidate had an error condition of its own, start with that. */
+                state = DNS_TRANSACTION_ERRNO;
+                q->answer = dns_answer_unref(q->answer);
+                q->answer_rcode = 0;
+                q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+                q->answer_errno = c->error_code;
         }
 
         SET_FOREACH(t, c->transactions, i) {
@@ -1090,12 +773,11 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 case DNS_TRANSACTION_SUCCESS: {
                         /* We found a successfuly reply, merge it into the answer */
                         r = dns_answer_extend(&q->answer, t->answer);
-                        if (r < 0) {
-                                dns_query_complete(q, DNS_TRANSACTION_RESOURCES);
-                                return;
-                        }
+                        if (r < 0)
+                                goto fail;
 
                         q->answer_rcode = t->answer_rcode;
+                        q->answer_errno = 0;
 
                         if (t->answer_authenticated) {
                                 has_authenticated = true;
@@ -1126,6 +808,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         q->answer = dns_answer_unref(q->answer);
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
+                        q->answer_errno = t->answer_errno;
 
                         state = t->state;
                         break;
@@ -1143,8 +826,16 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         dns_search_domain_unref(q->answer_search_domain);
         q->answer_search_domain = dns_search_domain_ref(c->search_domain);
 
-        dns_query_synthesize_reply(q, &state);
+        r = dns_query_synthesize_reply(q, &state);
+        if (r < 0)
+                goto fail;
+
         dns_query_complete(q, state);
+        return;
+
+fail:
+        q->answer_errno = -r;
+        dns_query_complete(q, DNS_TRANSACTION_ERRNO);
 }
 
 void dns_query_ready(DnsQuery *q) {

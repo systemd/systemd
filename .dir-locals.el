@@ -10,4 +10,5 @@
             (eval . (c-set-offset 'statement-case-open 0))
             (eval . (c-set-offset 'case-label 0))
             (eval . (c-set-offset 'arglist-intro '++))
-            (eval . (c-set-offset 'arglist-close 0)))))
+            (eval . (c-set-offset 'arglist-close 0))))
+ (nxml-mode . ((nxml-child-indent . 2))))

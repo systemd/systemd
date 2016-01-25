@@ -392,7 +392,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search negative trust anchor domain: %s", *i);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid negative trust anchor domain: %s", *i);
         }
 
         ns = set_new(&dns_name_hash_ops);

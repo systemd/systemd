@@ -7,7 +7,7 @@
 
 - Don't break code lines too eagerly. We do *not* force line breaks at
   80ch, all of today's screens should be much larger than that. But
-  then again, don't overdo it, ~140ch should be enough really.
+  then again, don't overdo it, ~119ch should be enough really.
 
 - Variables and functions *must* be static, unless they have a
   prototype, and are supposed to be exported.

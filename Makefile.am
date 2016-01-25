@@ -5188,6 +5188,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-query.h \
 	src/resolve/resolved-dns-query.c \
+	src/resolve/resolved-dns-synthesize.h \
+	src/resolve/resolved-dns-synthesize.c \
 	src/resolve/resolved-dns-transaction.h \
 	src/resolve/resolved-dns-transaction.c \
 	src/resolve/resolved-dns-scope.h \
@@ -5206,6 +5208,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-dnssec.c \
 	src/resolve/resolved-dns-trust-anchor.h \
 	src/resolve/resolved-dns-trust-anchor.c \
+	src/resolve/resolved-etc-hosts.h \
+	src/resolve/resolved-etc-hosts.c \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
@@ -5265,8 +5269,8 @@ libnss_resolve_la_LIBADD = \
 lib_LTLIBRARIES += \
 	libnss_resolve.la
 
-systemd_resolve_host_SOURCES = \
-	src/resolve-host/resolve-host.c \
+systemd_resolve_SOURCES = \
+	src/resolve/resolve-tool.c \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-packet.h \
 	src/resolve/resolved-dns-rr.c \
@@ -5278,15 +5282,15 @@ systemd_resolve_host_SOURCES = \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
-nodist_systemd_resolve_host_SOURCES = \
+nodist_systemd_resolve_SOURCES = \
 	src/resolve/dns_type-from-name.h \
 	src/resolve/dns_type-to-name.h
 
-systemd_resolve_host_LDADD = \
+systemd_resolve_LDADD = \
 	libshared.la
 
 rootlibexec_PROGRAMS += \
-	systemd-resolve-host
+	systemd-resolve
 
 tests += \
 	test-dns-domain \

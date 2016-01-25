@@ -5,5 +5,14 @@
 
 ## Details
 
- * General information about systemd can be found in the [systemd Wiki](http://www.freedesktop.org/wiki/Software/systemd)
- * Information about build requirements are provided in the [README file](../master/README)
+General information about systemd can be found in the [systemd Wiki](http://www.freedesktop.org/wiki/Software/systemd).
+
+Information about build requirements are provided in the [README file](../master/README).
+
+Consult our [NEWS file](../master/NEWS) for information about what's new in the most recent systemd versions.
+
+Please see our [Contribution Guidelines](../master/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
+
+When preparing patches for systemd, please follow our [Coding Style Guidelines](../master/CODING_STYLE).
+
+If you are looking for support, please contact our [mailing list](http://lists.freedesktop.org/mailman/listinfo/systemd-devel) or join our [IRC channel](irc://irc.freenode.org/%23systemd).

@@ -106,6 +106,8 @@
 #include "string-util.h"
 #include "udev.h"
 
+#define ONBOARD_INDEX_MAX (16*1024-1)
+
 enum netname_type{
         NET_UNDEF,
         NET_PCI,
@@ -151,6 +153,13 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         idx = strtoul(attr, NULL, 0);
         if (idx <= 0)
                 return -EINVAL;
+
+        /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to report for
+         * example). Let's define a cut-off where we don't consider the index reliable anymore. We pick some arbitrary
+         * cut-off, which is somewhere beyond the realistic number of physical network interface a system might
+         * have. Ideally the kernel would already filter his crap for us, but it doesn't currently. */
+        if (idx > ONBOARD_INDEX_MAX)
+                return -ENOENT;
 
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");

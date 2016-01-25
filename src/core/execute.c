@@ -814,8 +814,7 @@ static int setup_pam(
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
-        int pam_code = PAM_SUCCESS;
-        int err = 0;
+        int pam_code = PAM_SUCCESS, r;
         char **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
@@ -832,8 +831,8 @@ static int setup_pam(
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
 
-        err = barrier_create(&barrier);
-        if (err < 0)
+        r = barrier_create(&barrier);
+        if (r < 0)
                 goto fail;
 
         if (log_get_max_level() < LOG_DEBUG)
@@ -875,12 +874,13 @@ static int setup_pam(
         parent_pid = getpid();
 
         pam_pid = fork();
-        if (pam_pid < 0)
+        if (pam_pid < 0) {
+                r = -errno;
                 goto fail;
+        }
 
         if (pam_pid == 0) {
-                int sig;
-                int r = EXIT_PAM;
+                int sig, ret = EXIT_PAM;
 
                 /* The child's job is to reset the PAM session on
                  * termination */
@@ -945,11 +945,11 @@ static int setup_pam(
                                 goto child_finish;
                 }
 
-                r = 0;
+                ret = 0;
 
         child_finish:
                 pam_end(handle, pam_code | flags);
-                _exit(r);
+                _exit(ret);
         }
 
         barrier_set_role(&barrier, BARRIER_PARENT);
@@ -978,10 +978,9 @@ static int setup_pam(
 fail:
         if (pam_code != PAM_SUCCESS) {
                 log_error("PAM failed: %s", pam_strerror(handle, pam_code));
-                err = -EPERM;  /* PAM errors do not map to errno */
-        } else {
-                err = log_error_errno(err < 0 ? err : errno, "PAM failed: %m");
-        }
+                r = -EPERM;  /* PAM errors do not map to errno */
+        } else
+                log_error_errno(r, "PAM failed: %m");
 
         if (handle) {
                 if (close_session)
@@ -993,7 +992,7 @@ fail:
         strv_free(e);
         closelog();
 
-        return err;
+        return r;
 }
 #endif
 

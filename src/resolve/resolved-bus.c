@@ -43,8 +43,8 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_INVALID_REPLY:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_INVALID_REPLY, "Received invalid reply");
 
-        case DNS_TRANSACTION_RESOURCES:
-                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_RESOURCES, "Not enough resources");
+        case DNS_TRANSACTION_ERRNO:
+                return sd_bus_reply_method_errnof(q->request, q->answer_errno, "Lookup failed due to system error: %m");
 
         case DNS_TRANSACTION_ABORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_ABORTED, "Query aborted");
@@ -59,6 +59,14 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
                 return sd_bus_reply_method_errorf(q->request, BUS_ERROR_RR_TYPE_UNSUPPORTED, "Server does not support requested resource record type");
 
+        case DNS_TRANSACTION_NETWORK_DOWN:
+                return sd_bus_reply_method_errorf(q->request, BUS_ERROR_NETWORK_DOWN, "Network is down");
+
+        case DNS_TRANSACTION_NOT_FOUND:
+                /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
+                 * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
+                return sd_bus_reply_method_errorf(q->request, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
+
         case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -66,7 +74,7 @@ static int reply_query_state(DnsQuery *q) {
                         sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
                 else {
                         const char *rc, *n;
-                        char p[3]; /* the rcode is 4 bits long */
+                        char p[DECIMAL_STR_MAX(q->answer_rcode)];
 
                         rc = dns_rcode_to_string(q->answer_rcode);
                         if (!rc) {
@@ -133,8 +141,9 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
 static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        DnsResourceRecord *rr;
         unsigned added = 0;
-        int r;
+        int ifindex, r;
 
         assert(q);
 
@@ -161,30 +170,25 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        if (q->answer) {
-                DnsResourceRecord *rr;
-                int ifindex;
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
+                DnsQuestion *question;
 
-                DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                        DnsQuestion *question;
+                question = dns_query_question_for_protocol(q, q->answer_protocol);
 
-                        question = dns_query_question_for_protocol(q, q->answer_protocol);
+                r = dns_question_matches_rr(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                if (r < 0)
+                        goto finish;
+                if (r == 0)
+                        continue;
 
-                        r = dns_question_matches_rr(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
-                        if (r < 0)
-                                goto finish;
-                        if (r == 0)
-                                continue;
+                r = append_address(reply, rr, ifindex);
+                if (r < 0)
+                        goto finish;
 
-                        r = append_address(reply, rr, ifindex);
-                        if (r < 0)
-                                goto finish;
+                if (!canonical)
+                        canonical = dns_resource_record_ref(rr);
 
-                        if (!canonical)
-                                canonical = dns_resource_record_ref(rr);
-
-                        added ++;
-                }
+                added ++;
         }
 
         if (added <= 0) {
@@ -1293,10 +1297,10 @@ static int bus_property_get_dnssec_statistics(
         assert(m);
 
         return sd_bus_message_append(reply, "(tttt)",
-                                     (uint64_t) m->n_dnssec_secure,
-                                     (uint64_t) m->n_dnssec_insecure,
-                                     (uint64_t) m->n_dnssec_bogus,
-                                     (uint64_t) m->n_dnssec_indeterminate);
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_SECURE],
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_INSECURE],
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_BOGUS],
+                                     (uint64_t) m->n_dnssec_verdict[DNSSEC_INDETERMINATE]);
 }
 
 static int bus_property_get_dnssec_supported(
@@ -1327,7 +1331,7 @@ static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, 
                 s->cache.n_hit = s->cache.n_miss = 0;
 
         m->n_transactions_total = 0;
-        m->n_dnssec_secure = m->n_dnssec_insecure = m->n_dnssec_bogus = m->n_dnssec_indeterminate = 0;
+        zero(m->n_dnssec_verdict);
 
         return sd_bus_reply_method_return(message, NULL);
 }

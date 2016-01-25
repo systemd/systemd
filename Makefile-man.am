@@ -120,6 +120,7 @@ MANPAGES += \
 	man/systemd-nspawn.1 \
 	man/systemd-path.1 \
 	man/systemd-remount-fs.service.8 \
+	man/systemd-resolve.1 \
 	man/systemd-run.1 \
 	man/systemd-sleep.conf.5 \
 	man/systemd-socket-proxyd.8 \
@@ -2601,6 +2602,7 @@ EXTRA_DIST += \
 	man/systemd-quotacheck.service.xml \
 	man/systemd-random-seed.service.xml \
 	man/systemd-remount-fs.service.xml \
+	man/systemd-resolve.xml \
 	man/systemd-resolved.service.xml \
 	man/systemd-rfkill.service.xml \
 	man/systemd-run.xml \

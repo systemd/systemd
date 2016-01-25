@@ -82,6 +82,7 @@ struct Link {
 
         char name[IF_NAMESIZE];
         uint32_t mtu;
+        uint8_t operstate;
 };
 
 int link_new(Manager *m, Link **ret, int ifindex);
