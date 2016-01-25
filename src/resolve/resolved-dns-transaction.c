@@ -1716,33 +1716,13 @@ static int dns_transaction_is_primary_response(DnsTransaction *t, DnsResourceRec
 
         /* Check if the specified RR is the "primary" response,
          * i.e. either matches the question precisely or is a
-         * CNAME/DNAME for it, or is any kind of NSEC/NSEC3 RR */
+         * CNAME/DNAME for it. */
 
         r = dns_resource_key_match_rr(t->key, rr, NULL);
         if (r != 0)
                 return r;
 
-        r = dns_resource_key_match_cname_or_dname(t->key, rr->key, NULL);
-        if (r != 0)
-                return r;
-
-        if (rr->key->type == DNS_TYPE_NSEC3) {
-                const char *p;
-
-                p = DNS_RESOURCE_KEY_NAME(rr->key);
-                r = dns_name_parent(&p);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), p);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                return true;
-                }
-        }
-
-        return rr->key->type == DNS_TYPE_NSEC;
+        return dns_resource_key_match_cname_or_dname(t->key, rr->key, NULL);
 }
 
 static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
