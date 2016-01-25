@@ -1027,7 +1027,7 @@ static int setup_timezone(const char *dest) {
         }
 
         check = strjoina("/usr/share/zoneinfo/", z);
-        check = prefix_root(dest, check);
+        check = prefix_roota(dest, check);
         if (laccess(check, F_OK) < 0) {
                 log_warning("Timezone %s does not exist in container, not updating container timezone.", z);
                 return 0;
