@@ -192,7 +192,7 @@
 
         <listitem><para>Takes a space-separated list of Linux process
         capabilities (see
-        <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details). The <varname>Capability=</varname> setting
         specifies additional capabilities to pass on top of the
         default set of capabilities. The
