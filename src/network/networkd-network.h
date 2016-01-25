@@ -79,17 +79,17 @@ struct Network {
         AddressFamilyBoolean dhcp;
         DCHPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
-        char *hostname;
-        bool dhcp_dns;
-        bool dhcp_ntp;
-        bool dhcp_mtu;
-        bool dhcp_hostname;
-        bool dhcp_domains;
-        bool dhcp_sendhost;
+        char *dhcp_hostname;
+        bool dhcp_use_dns;
+        bool dhcp_use_ntp;
+        bool dhcp_use_mtu;
+        bool dhcp_use_hostname;
+        bool dhcp_use_domains;
+        bool dhcp_send_hostname;
         bool dhcp_broadcast;
         bool dhcp_critical;
-        bool dhcp_routes;
-        bool dhcp_timezone;
+        bool dhcp_use_routes;
+        bool dhcp_use_timezone;
         unsigned dhcp_route_metric;
 
         /* DHCP Server Support */

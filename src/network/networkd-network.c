@@ -105,11 +105,11 @@ static int network_load_one(Manager *manager, const char *filename) {
         *d = '\0';
 
         network->dhcp = ADDRESS_FAMILY_NO;
-        network->dhcp_ntp = true;
-        network->dhcp_dns = true;
-        network->dhcp_hostname = true;
-        network->dhcp_routes = true;
-        network->dhcp_sendhost = true;
+        network->dhcp_use_ntp = true;
+        network->dhcp_use_dns = true;
+        network->dhcp_use_hostname = true;
+        network->dhcp_use_routes = true;
+        network->dhcp_send_hostname = true;
         network->dhcp_route_metric = DHCP_ROUTE_METRIC;
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
 
@@ -227,7 +227,7 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
-        free(network->hostname);
+        free(network->dhcp_hostname);
 
         free(network->mac);
 

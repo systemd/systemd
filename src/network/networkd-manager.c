@@ -892,7 +892,7 @@ static int manager_save(Manager *m) {
                         continue;
 
                 /* Secondly, add the entries acquired via DHCP */
-                if (link->network->dhcp_dns) {
+                if (link->network->dhcp_use_dns) {
                         const struct in_addr *addresses;
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
@@ -904,7 +904,7 @@ static int manager_save(Manager *m) {
                                 return r;
                 }
 
-                if (link->network->dhcp_ntp) {
+                if (link->network->dhcp_use_ntp) {
                         const struct in_addr *addresses;
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
@@ -916,7 +916,7 @@ static int manager_save(Manager *m) {
                                 return r;
                 }
 
-                if (link->network->dhcp_domains) {
+                if (link->network->dhcp_use_domains) {
                         const char *domainname;
 
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);

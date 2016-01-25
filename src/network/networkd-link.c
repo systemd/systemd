@@ -767,7 +767,7 @@ static int link_push_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 addresses[n_addresses++] = ia;
         }
 
-        if (link->network->dhcp_dns &&
+        if (link->network->dhcp_use_dns &&
             link->dhcp_lease) {
                 const struct in_addr *da = NULL;
                 int n;
@@ -812,7 +812,7 @@ static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 addresses[n_addresses++] = ia;
         }
 
-        if (link->network->dhcp_ntp &&
+        if (link->network->dhcp_use_ntp &&
             link->dhcp_lease) {
                 const struct in_addr *da = NULL;
                 int n;
@@ -2744,7 +2744,7 @@ int link_save(Link *link) {
                 space = false;
                 fputstrv(f, link->network->dns, NULL, &space);
 
-                if (link->network->dhcp_dns &&
+                if (link->network->dhcp_use_dns &&
                     link->dhcp_lease) {
                         const struct in_addr *addresses;
 
@@ -2757,7 +2757,7 @@ int link_save(Link *link) {
                         }
                 }
 
-                if (link->network->dhcp_dns && dhcp6_lease) {
+                if (link->network->dhcp_use_dns && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
 
                         r = sd_dhcp6_lease_get_dns(dhcp6_lease, &in6_addrs);
@@ -2774,7 +2774,7 @@ int link_save(Link *link) {
                 space = false;
                 fputstrv(f, link->network->ntp, NULL, &space);
 
-                if (link->network->dhcp_ntp &&
+                if (link->network->dhcp_use_ntp &&
                     link->dhcp_lease) {
                         const struct in_addr *addresses;
 
@@ -2787,7 +2787,7 @@ int link_save(Link *link) {
                         }
                 }
 
-                if (link->network->dhcp_ntp && dhcp6_lease) {
+                if (link->network->dhcp_use_ntp && dhcp6_lease) {
                         struct in6_addr *in6_addrs;
                         char **hosts;
 
@@ -2810,7 +2810,7 @@ int link_save(Link *link) {
                 fputs("DOMAINS=", f);
                 fputstrv(f, link->network->search_domains, NULL, &space);
 
-                if (link->network->dhcp_domains &&
+                if (link->network->dhcp_use_domains &&
                     link->dhcp_lease) {
                         const char *domainname;
 
@@ -2823,7 +2823,7 @@ int link_save(Link *link) {
                         }
                 }
 
-                if (link->network->dhcp_domains && dhcp6_lease) {
+                if (link->network->dhcp_use_domains && dhcp6_lease) {
                         char **domains;
 
                         r = sd_dhcp6_lease_get_domains(dhcp6_lease, &domains);
