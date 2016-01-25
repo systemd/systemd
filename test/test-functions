@@ -379,6 +379,10 @@ install_pam() {
         inst $file
     done
 
+    # pam_unix depends on unix_chkpwd.
+    # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
+    dracut_install -o unix_chkpwd
+
     [[ "$LOOKS_LIKE_DEBIAN" ]] &&
         cp /etc/pam.d/systemd-user $initdir/etc/pam.d/
 }
