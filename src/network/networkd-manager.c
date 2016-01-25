@@ -29,6 +29,7 @@
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "libudev-private.h"
@@ -852,11 +853,11 @@ static int manager_save(Manager *m) {
         if (!ntp)
                 return -ENOMEM;
 
-        search_domains = ordered_set_new(&string_hash_ops);
+        search_domains = ordered_set_new(&dns_name_hash_ops);
         if (!search_domains)
                 return -ENOMEM;
 
-        route_domains = ordered_set_new(&string_hash_ops);
+        route_domains = ordered_set_new(&dns_name_hash_ops);
         if (!route_domains)
                 return -ENOMEM;
 
