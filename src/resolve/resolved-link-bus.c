@@ -75,12 +75,12 @@ static int property_get_domains(
         assert(reply);
         assert(l);
 
-        r = sd_bus_message_open_container(reply, 'a', "s");
+        r = sd_bus_message_open_container(reply, 'a', "(sb)");
         if (r < 0)
                 return r;
 
         LIST_FOREACH(domains, d, l->search_domains) {
-                r = sd_bus_message_append(reply, "s", d->name);
+                r = sd_bus_message_append(reply, "(sb)", d->name, d->route_only);
                 if (r < 0)
                         return r;
         }
@@ -242,46 +242,70 @@ clear:
 }
 
 int bus_link_method_set_search_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char **domains = NULL;
         Link *l = userdata;
-        char **i;
         int r;
 
         assert(message);
         assert(l);
 
-        r = sd_bus_message_read_strv(message, &domains);
+        r = sd_bus_message_enter_container(message, 'a', "(sb)");
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, domains) {
+        for (;;) {
+                const char *name;
+                int route_only;
 
-                r = dns_name_is_valid(*i);
+                r = sd_bus_message_read(message, "(sb)", &name, &route_only);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", *i);
-                if (dns_name_is_root(*i))
+                        break;
+
+                r = dns_name_is_valid(name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
+                if (!route_only && dns_name_is_root(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
         }
 
         dns_search_domain_mark_all(l->search_domains);
 
-        STRV_FOREACH(i, domains) {
-                DnsSearchDomain *d;
+        r = sd_bus_message_rewind(message, false);
+        if (r < 0)
+                return r;
 
-                r = dns_search_domain_find(l->search_domains, *i, &d);
+        for (;;) {
+                DnsSearchDomain *d;
+                const char *name;
+                int route_only;
+
+                r = sd_bus_message_read(message, "(sb)", &name, &route_only);
+                if (r < 0)
+                        goto clear;
+                if (r == 0)
+                        break;
+
+                r = dns_search_domain_find(l->search_domains, name, &d);
                 if (r < 0)
                         goto clear;
 
                 if (r > 0)
                         dns_search_domain_move_back_and_unmark(d);
                 else {
-                        r = dns_search_domain_new(l->manager, NULL, DNS_SEARCH_DOMAIN_LINK, l, *i);
+                        r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
                         if (r < 0)
                                 goto clear;
                 }
+
+                d->route_only = route_only;
         }
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                goto clear;
 
         dns_search_domain_unlink_marked(l->search_domains);
         return sd_bus_reply_method_return(message, NULL);
@@ -430,7 +454,7 @@ const sd_bus_vtable link_vtable[] = {
 
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
-        SD_BUS_PROPERTY("Domains", "as", property_get_domains, 0, 0),
+        SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", property_get_resolve_support, offsetof(Link, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", property_get_resolve_support, offsetof(Link, mdns_support), 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, offsetof(Link, dnssec_mode), 0),
@@ -438,7 +462,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("DNSSECSupport", "b", property_get_dnssec_supported, 0, 0),
 
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
-        SD_BUS_METHOD("SetDomains", "as", NULL, bus_link_method_set_search_domains, 0),
+        SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_search_domains, 0),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
         SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
         SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),
