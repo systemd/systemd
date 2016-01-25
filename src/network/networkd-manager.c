@@ -916,12 +916,17 @@ static int manager_save(Manager *m) {
                                 return r;
                 }
 
-                if (link->network->dhcp_use_domains) {
+                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         const char *domainname;
 
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
-                                r = ordered_set_put_strdup(search_domains, domainname);
+
+                                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES)
+                                        r = ordered_set_put_strdup(search_domains, domainname);
+                                else
+                                        r = ordered_set_put_strdup(route_domains, domainname);
+
                                 if (r < 0)
                                         return r;
                         } else if (r != -ENODATA)

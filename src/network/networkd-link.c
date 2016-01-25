@@ -2731,6 +2731,8 @@ int link_save(Link *link) {
         if (link->network) {
                 bool space;
                 sd_dhcp6_lease *dhcp6_lease = NULL;
+                const char *dhcp_domainname = NULL;
+                char **dhcp6_domains = NULL;
 
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
@@ -2807,34 +2809,42 @@ int link_save(Link *link) {
 
                 fputc('\n', f);
 
+                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
+                        if (link->dhcp_lease)
+                                (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
+
+                        if (dhcp6_lease)
+                                (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
+                }
+
                 fputs("DOMAINS=", f);
                 fputstrv(f, link->network->search_domains, NULL, &space);
 
-                if (link->network->dhcp_use_domains &&
-                    link->dhcp_lease) {
-                        const char *domainname;
-
-                        r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
-                        if (r >= 0) {
-                                if (space)
-                                        fputc(' ', f);
-                                fputs(domainname, f);
-                                space = true;
-                        }
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp_domainname) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(dhcp_domainname, f);
+                        space = true;
                 }
 
-                if (link->network->dhcp_use_domains && dhcp6_lease) {
-                        char **domains;
-
-                        r = sd_dhcp6_lease_get_domains(dhcp6_lease, &domains);
-                        if (r >= 0)
-                                fputstrv(f, domains, NULL, &space);
-                }
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp6_domains)
+                        fputstrv(f, dhcp6_domains, NULL, &space);
 
                 fputc('\n', f);
 
                 fputs("ROUTE_DOMAINS=", f);
                 fputstrv(f, link->network->route_domains, NULL, NULL);
+
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp_domainname) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(dhcp_domainname, f);
+                        space = true;
+                }
+
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp6_domains)
+                        fputstrv(f, dhcp6_domains, NULL, &space);
+
                 fputc('\n', f);
 
                 fprintf(f, "LLMNR=%s\n",

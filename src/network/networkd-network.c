@@ -1005,3 +1005,13 @@ int config_parse_dnssec_negative_trust_anchors(
 
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains, "Failed to parse DHCP use domains setting");
+
+static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
+        [DHCP_USE_DOMAINS_NO] = "no",
+        [DHCP_USE_DOMAINS_ROUTE] = "route",
+        [DHCP_USE_DOMAINS_YES] = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_use_domains, DHCPUseDomains, DHCP_USE_DOMAINS_YES);

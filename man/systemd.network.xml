@@ -717,15 +717,20 @@
         <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
-            <para>When true (not the default), the domain name
-            received from the DHCP server will be used for DNS
-            resolution over this link. When a name cannot be resolved
-            as specified, the domain name will be used a suffix and
-            name resolution of that will be attempted.</para>
+            <para>Takes a boolean argument, or a the special value <literal>route</literal>. When true, the domain name
+            received from the DHCP server will be used as DNS search domain over this link, similar to the effect of
+            the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name received from
+            the DHCP server will be used for routing DNS queries only, but not for searching, similar to the effect of
+            the <option>Domains=</option> setting when the argument is prefixed with <literal>~</literal>. Defaults to
+            false.</para>
 
-            <para>This corresponds to the <option>domain</option>
-            option in <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            and should not be enabled on untrusted networks.</para>
+            <para>It is recommended to enable this option only on trusted networks, as setting this affects resolution
+            of all host names, in particular to single-label names. It is generally safer to use the supplied domain
+            only as routing domain, rather than as search domain, in order to not have it affect local resolution of
+            single-label names.</para>
+
+            <para>When set to true, this setting corresponds to the <option>domain</option> option in <citerefentry
+            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -52,6 +52,14 @@ typedef enum IPv6PrivacyExtensions {
         _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
 } IPv6PrivacyExtensions;
 
+typedef enum DHCPUseDomains {
+        DHCP_USE_DOMAINS_NO,
+        DHCP_USE_DOMAINS_YES,
+        DHCP_USE_DOMAINS_ROUTE,
+        _DHCP_USE_DOMAINS_MAX,
+        _DHCP_USE_DOMAINS_INVALID = -1,
+} DHCPUseDomains;
+
 struct Network {
         Manager *manager;
 
@@ -84,7 +92,7 @@ struct Network {
         bool dhcp_use_ntp;
         bool dhcp_use_mtu;
         bool dhcp_use_hostname;
-        bool dhcp_use_domains;
+        DHCPUseDomains dhcp_use_domains;
         bool dhcp_send_hostname;
         bool dhcp_broadcast;
         bool dhcp_critical;
@@ -174,6 +182,7 @@ int config_parse_timezone(const char *unit, const char *filename, unsigned line,
 int config_parse_dhcp_server_dns(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dhcp_server_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dnssec_negative_trust_anchors(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_dhcp_use_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Legacy IPv4LL support */
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
@@ -187,3 +196,6 @@ int network_object_find(sd_bus *bus, const char *path, const char *interface, vo
 
 const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
+
+const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
+DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
