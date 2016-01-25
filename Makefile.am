@@ -840,6 +840,7 @@ libbasic_la_SOURCES = \
 	src/basic/siphash24.h \
 	src/basic/set.h \
 	src/basic/ordered-set.h \
+	src/basic/ordered-set.c \
 	src/basic/bitmap.c \
 	src/basic/bitmap.h \
 	src/basic/fdset.c \

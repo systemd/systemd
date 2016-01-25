@@ -35,6 +35,7 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "networkd.h"
+#include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
 #include "udev-util.h"
@@ -776,7 +777,7 @@ static int manager_connect_rtnl(Manager *m) {
         return 0;
 }
 
-static int set_put_in_addr(Set *s, const struct in_addr *address) {
+static int ordered_set_put_in_addr(OrderedSet *s, const struct in_addr *address) {
         char *p;
         int r;
 
@@ -786,21 +787,21 @@ static int set_put_in_addr(Set *s, const struct in_addr *address) {
         if (r < 0)
                 return r;
 
-        r = set_consume(s, p);
+        r = ordered_set_consume(s, p);
         if (r == -EEXIST)
                 return 0;
 
         return r;
 }
 
-static int set_put_in_addrv(Set *s, const struct in_addr *addresses, int n) {
+static int ordered_set_put_in_addrv(OrderedSet *s, const struct in_addr *addresses, int n) {
         int r, i, c = 0;
 
         assert(s);
         assert(n <= 0 || addresses);
 
         for (i = 0; i < n; i++) {
-                r = set_put_in_addr(s, addresses+i);
+                r = ordered_set_put_in_addr(s, addresses+i);
                 if (r < 0)
                         return r;
 
@@ -810,17 +811,17 @@ static int set_put_in_addrv(Set *s, const struct in_addr *addresses, int n) {
         return c;
 }
 
-static void print_string_set(FILE *f, const char *field, Set *s) {
+static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
         bool space = false;
         Iterator i;
         char *p;
 
-        if (set_isempty(s))
+        if (ordered_set_isempty(s))
                 return;
 
         fputs(field, f);
 
-        SET_FOREACH(p, s, i) {
+        ORDERED_SET_FOREACH(p, s, i) {
                 if (space)
                         fputc(' ', f);
                 fputs(p, f);
@@ -830,7 +831,7 @@ static void print_string_set(FILE *f, const char *field, Set *s) {
 }
 
 static int manager_save(Manager *m) {
-        _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL, *search_domains = NULL, *route_domains = NULL;
+        _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *search_domains = NULL, *route_domains = NULL;
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
@@ -843,19 +844,19 @@ static int manager_save(Manager *m) {
         assert(m->state_file);
 
         /* We add all NTP and DNS server to a set, to filter out duplicates */
-        dns = set_new(&string_hash_ops);
+        dns = ordered_set_new(&string_hash_ops);
         if (!dns)
                 return -ENOMEM;
 
-        ntp = set_new(&string_hash_ops);
+        ntp = ordered_set_new(&string_hash_ops);
         if (!ntp)
                 return -ENOMEM;
 
-        search_domains = set_new(&string_hash_ops);
+        search_domains = ordered_set_new(&string_hash_ops);
         if (!search_domains)
                 return -ENOMEM;
 
-        route_domains = set_new(&string_hash_ops);
+        route_domains = ordered_set_new(&string_hash_ops);
         if (!route_domains)
                 return -ENOMEM;
 
@@ -870,19 +871,19 @@ static int manager_save(Manager *m) {
                         continue;
 
                 /* First add the static configured entries */
-                r = set_put_strdupv(dns, link->network->dns);
+                r = ordered_set_put_strdupv(dns, link->network->dns);
                 if (r < 0)
                         return r;
 
-                r = set_put_strdupv(ntp, link->network->ntp);
+                r = ordered_set_put_strdupv(ntp, link->network->ntp);
                 if (r < 0)
                         return r;
 
-                r = set_put_strdupv(search_domains, link->network->search_domains);
+                r = ordered_set_put_strdupv(search_domains, link->network->search_domains);
                 if (r < 0)
                         return r;
 
-                r = set_put_strdupv(route_domains, link->network->route_domains);
+                r = ordered_set_put_strdupv(route_domains, link->network->route_domains);
                 if (r < 0)
                         return r;
 
@@ -895,7 +896,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = set_put_in_addrv(dns, addresses, r);
+                                r = ordered_set_put_in_addrv(dns, addresses, r);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -907,7 +908,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = set_put_in_addrv(ntp, addresses, r);
+                                r = ordered_set_put_in_addrv(ntp, addresses, r);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -919,7 +920,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
-                                r = set_put_strdup(search_domains, domainname);
+                                r = ordered_set_put_strdup(search_domains, domainname);
                                 if (r < 0)
                                         return r;
                         } else if (r != -ENODATA)
