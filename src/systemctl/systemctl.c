@@ -3153,6 +3153,7 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
         sd_bus *bus;
         char **name;
         int r;
+        bool found = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -3168,11 +3169,13 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
                 state = check_one_unit(bus, *name, good_states, arg_quiet);
                 if (state < 0)
                         return state;
-                if (state == 0)
-                        r = code;
+                if (state > 0)
+                        found = true;
         }
 
-        return r;
+        /* use the given return code for the case that we won't find
+         * any unit which matches the list */
+        return found ? 0 : code;
 }
 
 static int check_unit_active(int argc, char *argv[], void *userdata) {
