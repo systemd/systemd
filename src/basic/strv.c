@@ -29,6 +29,7 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "fileio.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -879,25 +880,13 @@ int fputstrv(FILE *f, char **l, const char *separator, bool *space) {
 
         /* Like fputs(), but for strv, and with a less stupid argument order */
 
-        if (!f)
-                f = stdout;
-        if (!separator)
-                separator = " ";
         if (!space)
                 space = &b;
 
         STRV_FOREACH(s, l) {
-                if (*space) {
-                        r = fputs(separator, f);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = fputs(*s, f);
+                r = fputs_with_space(f, *s, separator, space);
                 if (r < 0)
                         return r;
-
-                *space = true;
         }
 
         return 0;

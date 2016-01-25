@@ -822,12 +822,9 @@ static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
 
         fputs(field, f);
 
-        ORDERED_SET_FOREACH(p, s, i) {
-                if (space)
-                        fputc(' ', f);
-                fputs(p, f);
-                space = true;
-        }
+        ORDERED_SET_FOREACH(p, s, i)
+                fputs_with_space(f, p, NULL, &space);
+
         fputc('\n', f);
 }
 

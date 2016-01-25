@@ -82,3 +82,5 @@ int tempfn_random_child(const char *p, const char *extra, char **ret);
 
 int write_timestamp_file_atomic(const char *fn, usec_t n);
 int read_timestamp_file(const char *fn, usec_t *ret);
+
+int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space);

@@ -2820,12 +2820,8 @@ int link_save(Link *link) {
                 fputs("DOMAINS=", f);
                 fputstrv(f, link->network->search_domains, NULL, &space);
 
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp_domainname) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(dhcp_domainname, f);
-                        space = true;
-                }
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp_domainname)
+                        fputs_with_space(f, dhcp_domainname, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp6_domains)
                         fputstrv(f, dhcp6_domains, NULL, &space);
@@ -2835,12 +2831,8 @@ int link_save(Link *link) {
                 fputs("ROUTE_DOMAINS=", f);
                 fputstrv(f, link->network->route_domains, NULL, NULL);
 
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp_domainname) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(dhcp_domainname, f);
-                        space = true;
-                }
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp_domainname)
+                        fputs_with_space(f, dhcp_domainname, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp6_domains)
                         fputstrv(f, dhcp6_domains, NULL, &space);
@@ -2861,12 +2853,8 @@ int link_save(Link *link) {
 
                         fputs("DNSSEC_NTA=", f);
                         space = false;
-                        SET_FOREACH(n, link->network->dnssec_negative_trust_anchors, i) {
-                                if (space)
-                                        fputc(' ', f);
-                                fputs(n, f);
-                                space = true;
-                        }
+                        SET_FOREACH(n, link->network->dnssec_negative_trust_anchors, i)
+                                fputs_with_space(f, n, NULL, &space);
                         fputc('\n', f);
                 }
 
@@ -2906,12 +2894,8 @@ int link_save(Link *link) {
                 bool space = false;
 
                 fputs("CARRIER_BOUND_TO=", f);
-                HASHMAP_FOREACH(carrier, link->bound_to_links, i) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(carrier->ifname, f);
-                        space = true;
-                }
+                HASHMAP_FOREACH(carrier, link->bound_to_links, i)
+                        fputs_with_space(f, carrier->ifname, NULL, &space);
 
                 fputc('\n', f);
         }
@@ -2921,12 +2905,8 @@ int link_save(Link *link) {
                 bool space = false;
 
                 fputs("CARRIER_BOUND_BY=", f);
-                HASHMAP_FOREACH(carrier, link->bound_by_links, i) {
-                        if (space)
-                                fputc(' ', f);
-                        fputs(carrier->ifname, f);
-                        space = true;
-                }
+                HASHMAP_FOREACH(carrier, link->bound_by_links, i)
+                        fputs_with_space(f, carrier->ifname, NULL, &space);
 
                 fputc('\n', f);
         }
