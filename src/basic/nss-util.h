@@ -27,6 +27,8 @@
 #include <pwd.h>
 #include <resolv.h>
 
+#define NSS_SIGNALS_BLOCK SIGALRM,SIGVTALRM,SIGPIPE,SIGCHLD,SIGTSTP,SIGIO,SIGHUP,SIGUSR1,SIGUSR2,SIGPROF,SIGURG,SIGWINCH
+
 #define NSS_GETHOSTBYNAME_PROTOTYPES(module)            \
 enum nss_status _nss_##module##_gethostbyname4_r(       \
                 const char *name,                       \

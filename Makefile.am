@@ -1500,7 +1500,8 @@ tests += \
 	test-arphrd-list \
 	test-dns-domain \
 	test-install-root \
-	test-rlimit-util
+	test-rlimit-util \
+	test-signal-util
 
 if HAVE_ACL
 tests += \
@@ -1879,6 +1880,12 @@ test_ask_password_api_SOURCES = \
 	src/test/test-ask-password-api.c
 
 test_ask_password_api_LDADD = \
+	libshared.la
+
+test_signal_util_SOURCES = \
+	src/test/test-signal-util.c
+
+test_signal_util_LDADD = \
 	libshared.la
 
 BUILT_SOURCES += \

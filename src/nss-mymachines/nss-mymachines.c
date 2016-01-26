@@ -31,6 +31,7 @@
 #include "in-addr-util.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "user-util.h"
 #include "util.h"
@@ -93,6 +94,8 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         unsigned i = 0, c = 0;
         char *r_name;
         int n_ifindices, r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(pat);
@@ -241,6 +244,8 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
         size_t l, idx, ms, alen;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(result);
@@ -404,6 +409,8 @@ enum nss_status _nss_mymachines_getpwnam_r(
         size_t l;
         int r;
 
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+
         assert(name);
         assert(pwd);
 
@@ -491,6 +498,8 @@ enum nss_status _nss_mymachines_getpwuid_r(
         uint32_t mapped;
         int r;
 
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+
         if (!uid_is_valid(uid)) {
                 r = -EINVAL;
                 goto fail;
@@ -563,6 +572,8 @@ enum nss_status _nss_mymachines_getgrnam_r(
         uid_t gid;
         size_t l;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(gr);
@@ -648,6 +659,8 @@ enum nss_status _nss_mymachines_getgrgid_r(
         const char *machine, *object;
         uint32_t mapped;
         int r;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (!gid_is_valid(gid)) {
                 r = -EINVAL;
