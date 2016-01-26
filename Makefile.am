@@ -6043,11 +6043,12 @@ XSLTPROC_FLAGS = \
 	--stringparam systemd.version $(VERSION) \
 	--path '$(builddir)/man:$(srcdir)/man'
 
+XSLT = $(if $(XSLTPROC), $(XSLTPROC), xsltproc)
 XSLTPROC_PROCESS_MAN = \
-	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
+	$(AM_V_XSLT)$(XSLT) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
 
 XSLTPROC_PROCESS_HTML = \
-	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
+	$(AM_V_XSLT)$(XSLT) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
 man/%.1: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
