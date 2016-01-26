@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "manager.h"
@@ -159,34 +160,40 @@ static void test_unit_name_to_path(void) {
         test_unit_name_to_path_one("home/foo", NULL, -EINVAL);
 }
 
-static void test_unit_name_mangle_one(const char *pattern, const char *expect, int ret) {
+static void test_unit_name_mangle_one(UnitNameMangle allow_globs, const char *pattern, const char *expect, int ret) {
         _cleanup_free_ char *t = NULL;
 
-        assert_se(unit_name_mangle(pattern, UNIT_NAME_NOGLOB, &t) == ret);
+        assert_se(unit_name_mangle(pattern, allow_globs, &t) == ret);
         puts(strna(t));
         assert_se(streq_ptr(t, expect));
 
         if (t) {
                 _cleanup_free_ char *k = NULL;
 
-                assert_se(unit_name_is_valid(t, UNIT_NAME_ANY));
+                assert_se(unit_name_is_valid(t, UNIT_NAME_ANY) ||
+                          (allow_globs == UNIT_NAME_GLOB && string_is_glob(t)));
 
-                assert_se(unit_name_mangle(t, UNIT_NAME_NOGLOB, &k) == 0);
+                assert_se(unit_name_mangle(t, allow_globs, &k) == 0);
                 assert_se(streq_ptr(t, k));
         }
 }
 
 static void test_unit_name_mangle(void) {
         puts("-------------------------------------------------");
-        test_unit_name_mangle_one("foo.service", "foo.service", 0);
-        test_unit_name_mangle_one("/home", "home.mount", 1);
-        test_unit_name_mangle_one("/dev/sda", "dev-sda.device", 1);
-        test_unit_name_mangle_one("üxknürz.service", "\\xc3\\xbcxkn\\xc3\\xbcrz.service", 1);
-        test_unit_name_mangle_one("foobar-meh...waldi.service", "foobar-meh...waldi.service", 0);
-        test_unit_name_mangle_one("_____####----.....service", "_____\\x23\\x23\\x23\\x23----.....service", 1);
-        test_unit_name_mangle_one("_____##@;;;,,,##----.....service", "_____\\x23\\x23@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x23\\x23----.....service", 1);
-        test_unit_name_mangle_one("xxx@@@@/////\\\\\\\\\\yyy.service", "xxx@@@@-----\\\\\\\\\\yyy.service", 1);
-        test_unit_name_mangle_one("", NULL, -EINVAL);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "foo.service", "foo.service", 0);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "/home", "home.mount", 1);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "/dev/sda", "dev-sda.device", 1);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "üxknürz.service", "\\xc3\\xbcxkn\\xc3\\xbcrz.service", 1);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "foobar-meh...waldi.service", "foobar-meh...waldi.service", 0);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "_____####----.....service", "_____\\x23\\x23\\x23\\x23----.....service", 1);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "_____##@;;;,,,##----.....service", "_____\\x23\\x23@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x23\\x23----.....service", 1);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "xxx@@@@/////\\\\\\\\\\yyy.service", "xxx@@@@-----\\\\\\\\\\yyy.service", 1);
+        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "", NULL, -EINVAL);
+
+        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo.service", "foo.service", 0);
+        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo", "foo.service", 1);
+        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo*", "foo*", 0);
+        test_unit_name_mangle_one(UNIT_NAME_GLOB, "ü*", "\\xc3\\xbc*", 1);
 }
 
 static int test_unit_printf(void) {
