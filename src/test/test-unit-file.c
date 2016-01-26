@@ -112,17 +112,30 @@ static void test_config_parse_exec(void) {
 
         ExecCommand *c = NULL, *c1;
         const char *ccc;
+        Manager *m = NULL;
+        Unit *u = NULL;
+
+        r = manager_new(MANAGER_USER, true, &m);
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
+                return;
+        }
+
+        assert_se(r >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
+
+        assert_se(u = unit_new(m, sizeof(Service)));
 
         log_info("/* basic test */");
         r = config_parse_exec(NULL, "fake", 1, "section", 1,
                               "LValue", 0, "/RValue r1",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         check_execcommand(c, "/RValue", "/RValue", "r1", NULL, false);
 
         r = config_parse_exec(NULL, "fake", 2, "section", 1,
                               "LValue", 0, "/RValue///slashes r1///",
-                              &c, NULL);
+                              &c, u);
 
         log_info("/* test slashes */");
         assert_se(r >= 0);
@@ -132,14 +145,14 @@ static void test_config_parse_exec(void) {
         log_info("/* trailing slash */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/RValue/ argv0 r1",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "@/RValue///slashes2 ///argv0 r1",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue/slashes2", "///argv0", "r1", NULL, false);
@@ -147,21 +160,21 @@ static void test_config_parse_exec(void) {
         log_info("/* honour_argv0, no args */");
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "@/RValue",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* no command, whitespace only, reset */");
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "    ",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c == NULL);
 
         log_info("/* ignore && honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@/RValue///slashes3 argv0a r1",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c;
         check_execcommand(c1, "/RValue/slashes3", "argv0a", "r1", NULL, true);
@@ -169,7 +182,7 @@ static void test_config_parse_exec(void) {
         log_info("/* ignore && honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "@-/RValue///slashes4 argv0b r1",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue/slashes4", "argv0b", "r1", NULL, true);
@@ -177,14 +190,14 @@ static void test_config_parse_exec(void) {
         log_info("/* ignore && ignore */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "--/RValue argv0 r1",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* ignore && ignore (2) */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@-/RValue argv0 r1",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
@@ -193,7 +206,7 @@ static void test_config_parse_exec(void) {
                               "LValue", 0,
                               "-@/RValue argv0 r1 ; "
                               "/goo/goo boo",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
@@ -206,7 +219,7 @@ static void test_config_parse_exec(void) {
                               "LValue", 0,
                               "-@/RValue argv0 r1 ; ; "
                               "/goo/goo boo",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
@@ -218,7 +231,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "-@/RValue argv0 r1 ; ",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
@@ -229,7 +242,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "-@/RValue argv0 r1 ;",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
@@ -240,7 +253,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "-@/RValue argv0 r1 ';'",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", ";", true);
@@ -249,7 +262,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/bin/find \\;",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
@@ -258,7 +271,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/sbin/find \\; /x",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -268,7 +281,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/sbin/find \\;x",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -278,7 +291,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/bin/find \\073",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
@@ -287,7 +300,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/bin/find \";\"",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
@@ -296,7 +309,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/sbin/find \";\" /x",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -306,7 +319,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "\"/PATH WITH SPACES/daemon\" -1 -2",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -316,7 +329,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "\"/PATH WITH SPACES/daemon -1 -2\"",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -326,7 +339,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "\"/PATH WITH SPACES/daemon\" \"-1\" '-2'",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -336,7 +349,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "\"/PATH\\sWITH\\sSPACES/daemon\" '-1 -2'",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -346,7 +359,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "\"/PATH\\x20WITH\\x20SPACES/daemon\" \"-1 -2\"",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
@@ -360,7 +373,7 @@ static void test_config_parse_exec(void) {
                 log_info("/* invalid character: \\%c */", *ccc);
                 r = config_parse_exec(NULL, "fake", 4, "section", 1,
                                       "LValue", 0, path,
-                                      &c, NULL);
+                                      &c, u);
                 assert_se(r == 0);
                 assert_se(c1->command_next == NULL);
         }
@@ -368,7 +381,7 @@ static void test_config_parse_exec(void) {
         log_info("/* valid character: \\s */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path\\s",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/path ", NULL, NULL, NULL, false);
@@ -377,7 +390,7 @@ static void test_config_parse_exec(void) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/bin/grep '\\w+\\K'",
-                              &c, NULL);
+                              &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/grep", NULL, "\\w+\\K", NULL, false);
@@ -387,46 +400,49 @@ static void test_config_parse_exec(void) {
         /* backslash is invalid */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path\\",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* missing ending ' */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path 'foo",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* missing ending ' with trailing backslash */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path 'foo\\",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* invalid space between modifiers */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "- /path",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* only modifiers, no path */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         log_info("/* empty argument, reset */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "",
-                              &c, NULL);
+                              &c, u);
         assert_se(r == 0);
         assert_se(c == NULL);
 
         exec_command_free_list(c);
+
+        unit_free(u);
+        manager_free(m);
 }
 
 #define env_file_1                              \
