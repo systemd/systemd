@@ -1417,7 +1417,8 @@ manual_tests += \
 	test-ipcrm \
 	test-btrfs \
 	test-acd \
-	test-ipv4ll-manual
+	test-ipv4ll-manual \
+	test-ask-password-api
 
 if HAVE_LIBIPTC
 manual_tests += \
@@ -1871,6 +1872,12 @@ test_rlimit_util_SOURCES = \
 	src/test/test-rlimit-util.c
 
 test_rlimit_util_LDADD = \
+	libshared.la
+
+test_ask_password_api_SOURCES = \
+	src/test/test-ask-password-api.c
+
+test_ask_password_api_LDADD = \
 	libshared.la
 
 BUILT_SOURCES += \
