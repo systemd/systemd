@@ -73,8 +73,6 @@ Features:
 
 * consider throwing a warning if a service declares it wants to be "Before=" a .device unit.
 
-* "systemctl edit" should know a mode to create a new unit file
-
 * there's probably something wrong with having user mounts below /sys,
   as we have for debugfs. for exmaple, src/core/mount.c handles mounts
   prefixed with /sys generally special.
@@ -496,10 +494,6 @@ Features:
   - journal-or-kmsg is currently broken? See reverted
     commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.
   - man: document that corrupted journal files is nothing to act on
-  - systemd-journal-upload (or a new, related tool): allow pushing out
-    journal messages onto the network in BSD syslog protocol,
-    continuously. Default to some link-local IP mcast group, to make this
-    useful as a one-stop debugging tool.
   - rework journald sigbus stuff to use mutex
   - Set RLIMIT_NPROC for systemd-journal-xyz, and all other of our
     services that run under their own user ids, and use User= (but only

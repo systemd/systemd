@@ -67,9 +67,11 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
+#include "log.h"
 
 #define USER_JOURNALS_MAX 1024
 
@@ -145,7 +147,7 @@ static int determine_space_for(
                 sum += (uint64_t) st.st_blocks * 512UL;
         }
 
-        /* If request, then let's bump the min_use limit to the
+        /* If requested, then let's bump the min_use limit to the
          * current usage on disk. We do this when starting up and
          * first opening the journal files. This way sudden spikes in
          * disk usage will not cause journald to vacuum files without
@@ -165,19 +167,31 @@ static int determine_space_for(
         if (verbose) {
                 char    fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
                         fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
+                format_bytes(fb1, sizeof(fb1), sum);
+                format_bytes(fb2, sizeof(fb2), metrics->max_use);
+                format_bytes(fb3, sizeof(fb3), metrics->keep_free);
+                format_bytes(fb4, sizeof(fb4), ss_avail);
+                format_bytes(fb5, sizeof(fb5), s->cached_space_limit);
+                format_bytes(fb6, sizeof(fb6), s->cached_space_available);
 
                 server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
-                                      "%s (%s) is currently using %s.\n"
-                                      "Maximum allowed usage is set to %s.\n"
-                                      "Leaving at least %s free (of currently available %s of space).\n"
-                                      "Enforced usage limit is thus %s, of which %s are still available.",
-                                      name, path,
-                                      format_bytes(fb1, sizeof(fb1), sum),
-                                      format_bytes(fb2, sizeof(fb2), metrics->max_use),
-                                      format_bytes(fb3, sizeof(fb3), metrics->keep_free),
-                                      format_bytes(fb4, sizeof(fb4), ss_avail),
-                                      format_bytes(fb5, sizeof(fb5), s->cached_space_limit),
-                                      format_bytes(fb6, sizeof(fb6), s->cached_space_available));
+                                      LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
+                                                  name, path, fb1, fb5, fb6),
+                                      "JOURNAL_NAME=%s", name,
+                                      "JOURNAL_PATH=%s", path,
+                                      "CURRENT_USE=%"PRIu64, sum,
+                                      "CURRENT_USE_PRETTY=%s", fb1,
+                                      "MAX_USE=%"PRIu64, metrics->max_use,
+                                      "MAX_USE_PRETTY=%s", fb2,
+                                      "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
+                                      "DISK_KEEP_FREE_PRETTY=%s", fb3,
+                                      "DISK_AVAILABLE=%"PRIu64, ss_avail,
+                                      "DISK_AVAILABLE_PRETTY=%s", fb4,
+                                      "LIMIT=%"PRIu64, s->cached_space_limit,
+                                      "LIMIT_PRETTY=%s", fb5,
+                                      "AVAILABLE=%"PRIu64, s->cached_space_available,
+                                      "AVAILABLE_PRETTY=%s", fb6,
+                                      NULL);
         }
 
         if (available)
@@ -843,9 +857,9 @@ static void dispatch_message_real(
 
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
         char mid[11 + 32 + 1];
-        char buffer[16 + LINE_MAX + 1];
-        struct iovec iovec[N_IOVEC_META_FIELDS + 6];
-        int n = 0;
+        struct iovec iovec[N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS];
+        unsigned n = 0, m;
+        int r;
         va_list ap;
         struct ucred ucred = {};
 
@@ -855,25 +869,42 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         IOVEC_SET_STRING(iovec[n++], "SYSLOG_FACILITY=3");
         IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=systemd-journald");
 
-        IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
-
-        memcpy(buffer, "MESSAGE=", 8);
-        va_start(ap, format);
-        vsnprintf(buffer + 8, sizeof(buffer) - 8, format, ap);
-        va_end(ap);
-        IOVEC_SET_STRING(iovec[n++], buffer);
+        IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
 
         if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
                 snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
                 IOVEC_SET_STRING(iovec[n++], mid);
         }
 
+        m = n;
+
+        va_start(ap, format);
+        r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, false, 0, format, ap);
+        /* Error handling below */
+        va_end(ap);
+
         ucred.pid = getpid();
         ucred.uid = getuid();
         ucred.gid = getgid();
 
-        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+        if (r >= 0)
+                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+
+        while (m < n)
+                free(iovec[m++].iov_base);
+
+        if (r < 0) {
+                /* We failed to format the message. Emit a warning instead. */
+                char buf[LINE_MAX];
+
+                xsprintf(buf, "MESSAGE=Entry printing failed: %s", strerror(-r));
+
+                n = 3;
+                IOVEC_SET_STRING(iovec[n++], "PRIORITY=4");
+                IOVEC_SET_STRING(iovec[n++], buf);
+                dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+        }
 }
 
 void server_dispatch_message(
@@ -936,7 +967,8 @@ void server_dispatch_message(
         /* Write a suppression message if we suppressed something */
         if (rl > 1)
                 server_driver_message(s, SD_MESSAGE_JOURNAL_DROPPED,
-                                      "Suppressed %u messages from %s", rl - 1, path);
+                                      LOG_MESSAGE("Suppressed %u messages from %s", rl - 1, path),
+                                      NULL);
 
 finish:
         dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, priority, object_pid);
@@ -1108,7 +1140,11 @@ finish:
 
         sd_journal_close(j);
 
-        server_driver_message(s, SD_ID128_NULL, "Time spent on flushing to /var is %s for %u entries.", format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0), n);
+        server_driver_message(s, SD_ID128_NULL,
+                              LOG_MESSAGE("Time spent on flushing to /var is %s for %u entries.",
+                                          format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0),
+                                          n),
+                              NULL);
 
         return r;
 }
