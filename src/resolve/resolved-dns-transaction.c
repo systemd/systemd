@@ -1538,7 +1538,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 return 0;
         }
         if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(-r)) {
-                /* On LLMNR, if we cannot connect to a host via TCP when doing revers lookups. This means we cannot
+                /* On LLMNR, if we cannot connect to a host via TCP when doing reverse lookups. This means we cannot
                  * answer this request with this protocol. */
                 dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
                 return 0;

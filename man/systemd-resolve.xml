@@ -179,7 +179,7 @@
       <varlistentry>
         <term><option>--service</option></term>
 
-        <listitem><para>Enables service resolution. This enables DNS-SD and simple SRV service resolution, dependending
+        <listitem><para>Enables service resolution. This enables DNS-SD and simple SRV service resolution, depending
         on the specified list of parameters (see above).</para></listitem>
       </varlistentry>
 
