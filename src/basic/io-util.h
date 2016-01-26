@@ -77,3 +77,21 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
 
         return k;
 }
+
+static inline bool FILE_SIZE_VALID(uint64_t l) {
+        /* ftruncate() and friends take an unsigned file size, but actually cannot deal with file sizes larger than
+         * 2^63 since the kernel internally handles it as signed value. This call allows checking for this early. */
+
+        return (l >> 63) == 0;
+}
+
+static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
+
+        /* Same as above, but allows one extra value: -1 as indication for infinity. */
+
+        if (l == (uint64_t) -1)
+                return true;
+
+        return FILE_SIZE_VALID(l);
+
+}

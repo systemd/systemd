@@ -34,6 +34,7 @@
 #include "formats-util.h"
 #include "hostname-util.h"
 #include "image-dbus.h"
+#include "io-util.h"
 #include "machine-dbus.h"
 #include "machine-image.h"
 #include "machine-pool.h"
@@ -813,6 +814,8 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         r = sd_bus_message_read(message, "t", &limit);
         if (r < 0)
                 return r;
+        if (!FILE_SIZE_VALID_OR_INFINITY(limit))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         r = bus_verify_polkit_async(
                         message,
