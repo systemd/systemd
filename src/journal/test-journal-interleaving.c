@@ -67,6 +67,7 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         dual_timestamp ts;
         static dual_timestamp previous_ts = {};
         struct iovec iovec[1];
+        JournalEntryItem items = { .iov_base = iovec, .iov_len = 1 };
 
         dual_timestamp_get(&ts);
 
@@ -81,7 +82,7 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         assert_se(asprintf(&p, "NUMBER=%d", n) >= 0);
         iovec[0].iov_base = p;
         iovec[0].iov_len = strlen(p);
-        assert_ret(journal_file_append_entry(f, &ts, iovec, 1, seqnum, NULL, NULL));
+        assert_ret(journal_file_append_entry(f, &ts, &items, 1, seqnum, NULL, NULL));
         free(p);
 }
 

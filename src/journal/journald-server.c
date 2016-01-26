@@ -507,14 +507,14 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         return true;
 }
 
-static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n, int priority) {
+static void write_to_journal(Server *s, uid_t uid, JournalEntryItem *items, unsigned n_items, int priority) {
         JournalFile *f;
         bool vacuumed = false;
         int r;
 
         assert(s);
-        assert(iovec);
-        assert(n > 0);
+        assert(items);
+        assert(n_items > 0);
 
         f = find_journal(s, uid);
         if (!f)
@@ -531,14 +531,14 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                         return;
         }
 
-        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, NULL, items, n_items, &s->seqnum, NULL, NULL);
         if (r >= 0) {
                 server_schedule_sync(s, priority);
                 return;
         }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n_items, journal_entry_size(items, n_items));
                 return;
         }
 
@@ -550,11 +550,257 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 return;
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, NULL, items, n_items, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n_items, journal_entry_size(items, n_items));
         else
                 server_schedule_sync(s, priority);
+}
+
+static const char *meta_trusted_fields[] = {
+        "_PID=",
+        "_UID=",
+        "_GID=",
+        "_COMM=",
+        "_EXE=",
+        "_CMDLINE=",
+        "_CAP_EFFECTIVE=",
+#ifdef HAVE_AUDIT
+        "_AUDIT_SESSION=",
+        "_AUDIT_LOGINUID=",
+#endif
+        "_SYSTEMD_CGROUP=",
+        "_SYSTEMD_SESSION=",
+        "_SYSTEMD_OWNER_UID=",
+        "_SYSTEMD_UNIT=",
+        "_SYSTEMD_USER_UNIT=",
+        "_SYSTEMD_SLICE=",
+#ifdef HAVE_SELINUX
+        "_SELINUX_CONTEXT="
+#endif
+};
+
+static const unsigned meta_trusted_offsets[] = {
+        offsetof(JournalMeta, pid),
+        offsetof(JournalMeta, uid),
+        offsetof(JournalMeta, gid),
+        offsetof(JournalMeta, comm),
+        offsetof(JournalMeta, exe),
+        offsetof(JournalMeta, cmdline),
+        offsetof(JournalMeta, capeff),
+#ifdef HAVE_AUDIT
+        offsetof(JournalMeta, audit_session),
+        offsetof(JournalMeta, audit_loginuid),
+#endif
+        offsetof(JournalMeta, cgroup),
+        offsetof(JournalMeta, session),
+        offsetof(JournalMeta, owner_uid),
+        offsetof(JournalMeta, unit),
+        offsetof(JournalMeta, user_unit),
+        offsetof(JournalMeta, slice),
+#ifdef HAVE_SELINUX
+        offsetof(JournalMeta, selinux_context)
+#endif
+};
+
+static const char *meta_object_fields[] = {
+        "OBJECT_UID=",
+        "OBJECT_GID=",
+        "OBJECT_COMM=",
+        "OBJECT_EXE=",
+        "OBJECT_CMDLINE=",
+#ifdef HAVE_AUDIT
+        "OBJECT_AUDIT_SESSION=",
+        "OBJECT_AUDIT_LOGINUID=",
+#endif
+        "OBJECT_SYSTEMD_CGROUP=",
+        "OBJECT_SYSTEMD_SESSION=",
+        "OBJECT_SYSTEMD_OWNER_UID=",
+        "OBJECT_SYSTEMD_UNIT=",
+        "OBJECT_SYSTEMD_USER_UNIT="
+};
+
+static const unsigned meta_object_offsets[] = {
+        offsetof(JournalMeta, pid),
+        offsetof(JournalMeta, uid),
+        offsetof(JournalMeta, gid),
+        offsetof(JournalMeta, comm),
+        offsetof(JournalMeta, exe),
+        offsetof(JournalMeta, cmdline),
+#ifdef HAVE_AUDIT
+        offsetof(JournalMeta, audit_session),
+        offsetof(JournalMeta, audit_loginuid),
+#endif
+        offsetof(JournalMeta, cgroup),
+        offsetof(JournalMeta, session),
+        offsetof(JournalMeta, owner_uid),
+        offsetof(JournalMeta, unit),
+        offsetof(JournalMeta, user_unit),
+};
+
+void journal_meta_destroy(JournalMeta *meta) {
+        meta->ipid = 0;
+
+        meta->pid = mfree(meta->pid);
+        meta->uid = mfree(meta->uid);
+        meta->gid = mfree(meta->gid);
+        meta->comm = mfree(meta->comm);
+        meta->exe = mfree(meta->exe);
+        meta->cmdline = mfree(meta->cmdline);
+        meta->capeff = mfree(meta->capeff);
+#ifdef HAVE_AUDIT
+        meta->audit_session = mfree(meta->audit_session);
+        meta->audit_loginuid = mfree(meta->audit_loginuid);
+#endif
+        meta->cgroup = mfree(meta->cgroup);
+        meta->session = mfree(meta->session);
+        meta->owner_uid = mfree(meta->owner_uid);
+        meta->unit = mfree(meta->unit);
+        meta->user_unit = mfree(meta->user_unit);
+        meta->slice = mfree(meta->slice);
+#ifdef HAVE_SELINUX
+        meta->selinux_context = mfree(meta->selinux_context);
+#endif
+}
+
+/* XXX: 87699fe313cf8919917f2ea422b8d10b3ae3b244 removed this from util.h.
+ * that was a mistake IMHO.  It made sense to change the NULL callers
+ * to use mfree() instead, but they are not mutually exclusive.
+ */
+static inline void free_and_replace(char **s, char *v) {
+        free(*s);
+        *s = v;
+}
+
+/* Refresh the metadata in *meta for the process pid.
+ *
+ * When a ucred, label, or unit_id are supplied they will be used as fall-backs
+ * when process interrogation cannot provide them, and they aren't already
+ * initialized.
+ *
+ * When ucred is supplied, it is considered a programming error for ucred->pid
+ * to differ from the supplied pid.
+ *
+ * You may call this repeatedly on the same JournalMeta, it will update fields
+ * when possible, freeing them as needed, leaving non-NULL fields intact when
+ * there's nothing better to put in them (like when the process has exited).
+ *
+ * If the pid has changed, *meta will be zeroed first, effectively turning this
+ * into journal_meta_init().
+ */
+void journal_meta_refresh(Server *s, pid_t pid, const struct ucred *ucred,
+                const char *label, size_t label_len,
+                const char *unit_id,
+                JournalMeta *meta) {
+        char *t;
+        uid_t uid;
+        gid_t gid;
+#ifdef HAVE_AUDIT
+        uint32_t audit;
+        uid_t loginuid;
+#endif
+
+        assert(s);
+        assert(!ucred || ucred->pid == pid);
+        assert(meta);
+
+        if (pid != meta->ipid) {
+                journal_meta_destroy(meta);
+                meta->ipid = pid;
+                if (pid)
+                        asprintf(&meta->pid, PID_FMT, pid);
+        }
+
+        if ((get_process_uid(pid, &uid) >= 0 && asprintf(&t, UID_FMT, uid) >= 0) ||
+            (!meta->uid && ucred && asprintf(&t, UID_FMT, ucred->uid) >= 0))
+                free_and_replace(&meta->uid, t);
+
+        if ((get_process_gid(pid, &gid) >= 0 && asprintf(&t, GID_FMT, gid) >= 0) ||
+            (!meta->gid && ucred && asprintf(&t, GID_FMT, ucred->gid) >= 0))
+                free_and_replace(&meta->gid, t);
+
+        if (get_process_comm(pid, &t) >= 0)
+                free_and_replace(&meta->comm, t);
+
+        if (get_process_exe(pid, &t) >= 0)
+                free_and_replace(&meta->exe, t);
+
+        if (get_process_cmdline(pid, 0, false, &t) >= 0)
+                free_and_replace(&meta->cmdline, t);
+
+        if (get_process_capeff(pid, &t) >= 0)
+                free_and_replace(&meta->capeff, t);
+
+#ifdef HAVE_AUDIT
+        if (audit_session_from_pid(pid, &audit) >= 0 &&
+            asprintf(&t, "%"PRIu32, audit) >= 0)
+                free_and_replace(&meta->audit_session, t);
+
+        if (audit_loginuid_from_pid(pid, &loginuid) >= 0 &&
+            asprintf(&t, UID_FMT, loginuid) >= 0)
+                free_and_replace(&meta->audit_loginuid, t);
+#endif
+
+        if (cg_pid_get_path_shifted(pid, s->cgroup_root, &t) >= 0) {
+                uid_t owner;
+
+                free_and_replace(&meta->cgroup, t);
+
+                if (cg_path_get_session(meta->cgroup, &t) >= 0)
+                        free_and_replace(&meta->session, t);
+
+                if (cg_path_get_owner_uid(meta->cgroup, &owner) >= 0 &&
+                    asprintf(&t, UID_FMT, owner) >= 0)
+                        free_and_replace(&meta->owner_uid, t);
+
+                if (cg_path_get_unit(meta->cgroup, &t) >= 0)
+                        free_and_replace(&meta->unit, t);
+
+                if (cg_path_get_user_unit(meta->cgroup, &t) >= 0)
+                        free_and_replace(&meta->user_unit, t);
+
+                if (!meta->user_unit && unit_id && meta->session)
+                        meta->user_unit = strdup(unit_id);
+
+                if (cg_path_get_slice(meta->cgroup, &t) >= 0)
+                        free_and_replace(&meta->slice, t);
+
+        } else if (!meta->unit && unit_id) {
+                t = strdup(unit_id);
+                if (t)
+                        free_and_replace(&meta->unit, t);
+        }
+
+#ifdef HAVE_SELINUX
+        if (mac_selinux_use()) {
+                security_context_t con;
+
+                t = NULL;
+                if (getpidcon(pid, &con) >= 0) {
+                        t = strdup(con);
+                        freecon(con);
+                } else if (!meta->selinux_context && label)
+                        t = strndup(label, label_len);
+
+                if (t)
+                        free_and_replace(&meta->selinux_context, t);
+        }
+#endif
+}
+
+/* Initialize a JournalMeta
+ *
+ * When ucred is provided, ucred->pid is expected to equal pid, as enforced by
+ * journal_meta_refresh().
+ */
+void journal_meta_init(Server *s, pid_t pid, const struct ucred *ucred,
+                const char *label, size_t label_len,
+                const char *unit_id,
+                JournalMeta *meta) {
+        assert(meta);
+
+        zero(*meta);
+        journal_meta_refresh(s, pid, ucred, label, label_len, unit_id, meta);
 }
 
 static void dispatch_message_real(
@@ -562,268 +808,117 @@ static void dispatch_message_real(
                 struct iovec *iovec, unsigned n, unsigned m,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len,
-                const char *unit_id,
+                const struct JournalMeta *meta,
                 int priority,
                 pid_t object_pid) {
 
-        char    pid[sizeof("_PID=") + DECIMAL_STR_MAX(pid_t)],
-                uid[sizeof("_UID=") + DECIMAL_STR_MAX(uid_t)],
-                gid[sizeof("_GID=") + DECIMAL_STR_MAX(gid_t)],
-                owner_uid[sizeof("_SYSTEMD_OWNER_UID=") + DECIMAL_STR_MAX(uid_t)],
-                source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)],
-                o_uid[sizeof("OBJECT_UID=") + DECIMAL_STR_MAX(uid_t)],
-                o_gid[sizeof("OBJECT_GID=") + DECIMAL_STR_MAX(gid_t)],
-                o_owner_uid[sizeof("OBJECT_SYSTEMD_OWNER_UID=") + DECIMAL_STR_MAX(uid_t)];
-        uid_t object_uid;
-        gid_t object_gid;
-        char *x;
-        int r;
-        char *t, *c;
-        uid_t realuid = 0, owner = 0, journal_uid;
+        char source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
+        uid_t realuid = 0, owner = 0, journal_uid = 0;
         bool owner_valid = false;
-#ifdef HAVE_AUDIT
-        char    audit_session[sizeof("_AUDIT_SESSION=") + DECIMAL_STR_MAX(uint32_t)],
-                audit_loginuid[sizeof("_AUDIT_LOGINUID=") + DECIMAL_STR_MAX(uid_t)],
-                o_audit_session[sizeof("OBJECT_AUDIT_SESSION=") + DECIMAL_STR_MAX(uint32_t)],
-                o_audit_loginuid[sizeof("OBJECT_AUDIT_LOGINUID=") + DECIMAL_STR_MAX(uid_t)];
 
-        uint32_t audit;
-        uid_t loginuid;
-#endif
+        /* TODO: dispatch_message() and dispatch_message_real() should probably not
+         * be (mis)using struct iovec for items, since it implies generic scatter-gather and that
+         * isn't what's happening here.  Switch them to use JournalEntryItem and update the call
+         * sites accordingly, or something else.  For now we just assemble the items here since
+         * none of the callers will immediately take advantage of scattered items, but we require
+         * it here for composing meta items fed to write_to_journal().
+         */
+        JournalEntryItem items[m];
+        unsigned n_items;
 
         assert(s);
         assert(iovec);
         assert(n > 0);
         assert(n + N_IOVEC_META_FIELDS + (object_pid ? N_IOVEC_OBJECT_FIELDS : 0) <= m);
 
-        if (ucred) {
-                realuid = ucred->uid;
-
-                sprintf(pid, "_PID="PID_FMT, ucred->pid);
-                IOVEC_SET_STRING(iovec[n++], pid);
-
-                sprintf(uid, "_UID="UID_FMT, ucred->uid);
-                IOVEC_SET_STRING(iovec[n++], uid);
-
-                sprintf(gid, "_GID="GID_FMT, ucred->gid);
-                IOVEC_SET_STRING(iovec[n++], gid);
-
-                r = get_process_comm(ucred->pid, &t);
-                if (r >= 0) {
-                        x = strjoina("_COMM=", t);
-                        free(t);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
-
-                r = get_process_exe(ucred->pid, &t);
-                if (r >= 0) {
-                        x = strjoina("_EXE=", t);
-                        free(t);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
-
-                r = get_process_cmdline(ucred->pid, 0, false, &t);
-                if (r >= 0) {
-                        x = strjoina("_CMDLINE=", t);
-                        free(t);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
-
-                r = get_process_capeff(ucred->pid, &t);
-                if (r >= 0) {
-                        x = strjoina("_CAP_EFFECTIVE=", t);
-                        free(t);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
-
-#ifdef HAVE_AUDIT
-                r = audit_session_from_pid(ucred->pid, &audit);
-                if (r >= 0) {
-                        sprintf(audit_session, "_AUDIT_SESSION=%"PRIu32, audit);
-                        IOVEC_SET_STRING(iovec[n++], audit_session);
-                }
-
-                r = audit_loginuid_from_pid(ucred->pid, &loginuid);
-                if (r >= 0) {
-                        sprintf(audit_loginuid, "_AUDIT_LOGINUID="UID_FMT, loginuid);
-                        IOVEC_SET_STRING(iovec[n++], audit_loginuid);
-                }
-#endif
-
-                r = cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &c);
-                if (r >= 0) {
-                        char *session = NULL;
-
-                        x = strjoina("_SYSTEMD_CGROUP=", c);
-                        IOVEC_SET_STRING(iovec[n++], x);
-
-                        r = cg_path_get_session(c, &t);
-                        if (r >= 0) {
-                                session = strjoina("_SYSTEMD_SESSION=", t);
-                                free(t);
-                                IOVEC_SET_STRING(iovec[n++], session);
-                        }
-
-                        if (cg_path_get_owner_uid(c, &owner) >= 0) {
-                                owner_valid = true;
-
-                                sprintf(owner_uid, "_SYSTEMD_OWNER_UID="UID_FMT, owner);
-                                IOVEC_SET_STRING(iovec[n++], owner_uid);
-                        }
-
-                        if (cg_path_get_unit(c, &t) >= 0) {
-                                x = strjoina("_SYSTEMD_UNIT=", t);
-                                free(t);
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        } else if (unit_id && !session) {
-                                x = strjoina("_SYSTEMD_UNIT=", unit_id);
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        }
-
-                        if (cg_path_get_user_unit(c, &t) >= 0) {
-                                x = strjoina("_SYSTEMD_USER_UNIT=", t);
-                                free(t);
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        } else if (unit_id && session) {
-                                x = strjoina("_SYSTEMD_USER_UNIT=", unit_id);
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        }
-
-                        if (cg_path_get_slice(c, &t) >= 0) {
-                                x = strjoina("_SYSTEMD_SLICE=", t);
-                                free(t);
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        }
-
-                        free(c);
-                } else if (unit_id) {
-                        x = strjoina("_SYSTEMD_UNIT=", unit_id);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
-
-#ifdef HAVE_SELINUX
-                if (mac_selinux_have()) {
-                        if (label) {
-                                x = alloca(strlen("_SELINUX_CONTEXT=") + label_len + 1);
-
-                                *((char*) mempcpy(stpcpy(x, "_SELINUX_CONTEXT="), label, label_len)) = 0;
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        } else {
-                                security_context_t con;
-
-                                if (getpidcon(ucred->pid, &con) >= 0) {
-                                        x = strjoina("_SELINUX_CONTEXT=", con);
-
-                                        freecon(con);
-                                        IOVEC_SET_STRING(iovec[n++], x);
-                                }
-                        }
-                }
-#endif
+        for (n_items = 0; n_items < n; n_items++) {
+                items[n_items].iov_base = &iovec[n_items];
+                items[n_items].iov_len = 1;
         }
+
+        if (meta) {
+                unsigned i;
+
+                for (i = 0; i < ELEMENTSOF(meta_trusted_fields); i++) {
+                        char *v = *(char **)((char *)meta + meta_trusted_offsets[i]);
+
+                        if (v) {
+                                items[n_items].iov_base = &iovec[n];
+                                items[n_items++].iov_len = 2;
+
+                                IOVEC_SET_STRING(iovec[n++], meta_trusted_fields[i]);
+                                IOVEC_SET_STRING(iovec[n++], v);
+                        }
+                }
+
+                if (meta->owner_uid && parse_uid(meta->owner_uid, &owner) >= 0)
+                        owner_valid = true;
+        }
+        assert(n_items < m);
         assert(n <= m);
 
         if (object_pid) {
-                r = get_process_uid(object_pid, &object_uid);
-                if (r >= 0) {
-                        sprintf(o_uid, "OBJECT_UID="UID_FMT, object_uid);
-                        IOVEC_SET_STRING(iovec[n++], o_uid);
-                }
+                unsigned i;
+                JournalMeta _object_meta;
+                const JournalMeta *object_meta;
 
-                r = get_process_gid(object_pid, &object_gid);
-                if (r >= 0) {
-                        sprintf(o_gid, "OBJECT_GID="GID_FMT, object_gid);
-                        IOVEC_SET_STRING(iovec[n++], o_gid);
-                }
+                if (!meta || object_pid != meta->ipid) {
+                        journal_meta_init(s, object_pid, NULL, NULL, 0, NULL, &_object_meta);
+                        object_meta = &_object_meta;
+                } else
+                        object_meta = meta;
 
-                r = get_process_comm(object_pid, &t);
-                if (r >= 0) {
-                        x = strjoina("OBJECT_COMM=", t);
-                        free(t);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
+                for (i = 0; i < ELEMENTSOF(meta_object_fields); i++) {
+                        char *v = *(char **)((char *)meta + meta_object_offsets[i]);
 
-                r = get_process_exe(object_pid, &t);
-                if (r >= 0) {
-                        x = strjoina("OBJECT_EXE=", t);
-                        free(t);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
+                        if (v) {
+                                items[n_items].iov_base = &iovec[n];
+                                items[n_items++].iov_len = 2;
 
-                r = get_process_cmdline(object_pid, 0, false, &t);
-                if (r >= 0) {
-                        x = strjoina("OBJECT_CMDLINE=", t);
-                        free(t);
-                        IOVEC_SET_STRING(iovec[n++], x);
-                }
-
-#ifdef HAVE_AUDIT
-                r = audit_session_from_pid(object_pid, &audit);
-                if (r >= 0) {
-                        sprintf(o_audit_session, "OBJECT_AUDIT_SESSION=%"PRIu32, audit);
-                        IOVEC_SET_STRING(iovec[n++], o_audit_session);
-                }
-
-                r = audit_loginuid_from_pid(object_pid, &loginuid);
-                if (r >= 0) {
-                        sprintf(o_audit_loginuid, "OBJECT_AUDIT_LOGINUID="UID_FMT, loginuid);
-                        IOVEC_SET_STRING(iovec[n++], o_audit_loginuid);
-                }
-#endif
-
-                r = cg_pid_get_path_shifted(object_pid, s->cgroup_root, &c);
-                if (r >= 0) {
-                        x = strjoina("OBJECT_SYSTEMD_CGROUP=", c);
-                        IOVEC_SET_STRING(iovec[n++], x);
-
-                        r = cg_path_get_session(c, &t);
-                        if (r >= 0) {
-                                x = strjoina("OBJECT_SYSTEMD_SESSION=", t);
-                                free(t);
-                                IOVEC_SET_STRING(iovec[n++], x);
+                                IOVEC_SET_STRING(iovec[n++], meta_object_fields[i]);
+                                IOVEC_SET_STRING(iovec[n++], v);
                         }
-
-                        if (cg_path_get_owner_uid(c, &owner) >= 0) {
-                                sprintf(o_owner_uid, "OBJECT_SYSTEMD_OWNER_UID="UID_FMT, owner);
-                                IOVEC_SET_STRING(iovec[n++], o_owner_uid);
-                        }
-
-                        if (cg_path_get_unit(c, &t) >= 0) {
-                                x = strjoina("OBJECT_SYSTEMD_UNIT=", t);
-                                free(t);
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        }
-
-                        if (cg_path_get_user_unit(c, &t) >= 0) {
-                                x = strjoina("OBJECT_SYSTEMD_USER_UNIT=", t);
-                                free(t);
-                                IOVEC_SET_STRING(iovec[n++], x);
-                        }
-
-                        free(c);
                 }
+
+                if (object_meta == &_object_meta)
+                        journal_meta_destroy(&_object_meta);
         }
+        assert(n_items < m);
         assert(n <= m);
 
         if (tv) {
                 sprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=%llu", (unsigned long long) timeval_load(tv));
+                items[n_items].iov_base = &iovec[n];
+                items[n_items++].iov_len = 1;
                 IOVEC_SET_STRING(iovec[n++], source_time);
         }
 
         /* Note that strictly speaking storing the boot id here is
          * redundant since the entry includes this in-line
          * anyway. However, we need this indexed, too. */
-        if (!isempty(s->boot_id_field))
+        if (!isempty(s->boot_id_field)) {
+                items[n_items].iov_base = &iovec[n];
+                items[n_items++].iov_len = 1;
                 IOVEC_SET_STRING(iovec[n++], s->boot_id_field);
+        }
 
-        if (!isempty(s->machine_id_field))
+        if (!isempty(s->machine_id_field)) {
+                items[n_items].iov_base = &iovec[n];
+                items[n_items++].iov_len = 1;
                 IOVEC_SET_STRING(iovec[n++], s->machine_id_field);
+        }
 
-        if (!isempty(s->hostname_field))
+        if (!isempty(s->hostname_field)) {
+                items[n_items].iov_base = &iovec[n];
+                items[n_items++].iov_len = 1;
                 IOVEC_SET_STRING(iovec[n++], s->hostname_field);
+        }
 
+        assert(n_items < m);
         assert(n <= m);
+
+        if (ucred)
+                realuid = ucred->uid;
 
         if (s->split_mode == SPLIT_UID && realuid > 0)
                 /* Split up strictly by any UID */
@@ -835,10 +930,8 @@ static void dispatch_message_real(
                  * logged by a privileged process that is part of an
                  * unprivileged session. */
                 journal_uid = owner;
-        else
-                journal_uid = 0;
 
-        write_to_journal(s, journal_uid, iovec, n, priority);
+        write_to_journal(s, journal_uid, items, n_items, priority);
 }
 
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
@@ -848,6 +941,7 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         int n = 0;
         va_list ap;
         struct ucred ucred = {};
+        JournalMeta meta;
 
         assert(s);
         assert(format);
@@ -872,8 +966,9 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         ucred.pid = getpid();
         ucred.uid = getuid();
         ucred.gid = getgid();
-
-        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
+        journal_meta_init(s, ucred.pid, &ucred, NULL, 0, NULL, &meta);
+        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, &meta, LOG_INFO, 0);
+        journal_meta_destroy(&meta);
 }
 
 void server_dispatch_message(
@@ -881,12 +976,11 @@ void server_dispatch_message(
                 struct iovec *iovec, unsigned n, unsigned m,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len,
-                const char *unit_id,
+                const JournalMeta *meta,
                 int priority,
                 pid_t object_pid) {
 
-        int rl, r;
+        int rl;
         _cleanup_free_ char *path = NULL;
         uint64_t available = 0;
         char *c;
@@ -905,11 +999,15 @@ void server_dispatch_message(
         if (s->storage == STORAGE_NONE)
                 return;
 
-        if (!ucred)
+        if (!meta && !ucred)
                 goto finish;
 
-        r = cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &path);
-        if (r < 0)
+        if (meta && meta->cgroup)
+                path = strdup(meta->cgroup);
+        else if (ucred)
+                cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &path);
+
+        if (!path)
                 goto finish;
 
         /* example: /user/lennart/3/foobar
@@ -939,7 +1037,7 @@ void server_dispatch_message(
                                       "Suppressed %u messages from %s", rl - 1, path);
 
 finish:
-        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, priority, object_pid);
+        dispatch_message_real(s, iovec, n, m, ucred, tv, meta, priority, object_pid);
 }
 
 
@@ -1115,6 +1213,7 @@ finish:
 
 int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         Server *s = userdata;
+        JournalMeta meta;
         struct ucred *ucred = NULL;
         struct timeval *tv = NULL;
         struct cmsghdr *cmsg;
@@ -1208,17 +1307,19 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         /* And a trailing NUL, just in case */
         s->buffer[n] = 0;
 
+        journal_meta_init(s, ucred ? ucred->pid : 0, ucred, label, label_len, NULL, &meta);
+
         if (fd == s->syslog_fd) {
                 if (n > 0 && n_fds == 0)
-                        server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
+                        server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, &meta);
                 else if (n_fds > 0)
                         log_warning("Got file descriptors via syslog socket. Ignoring.");
 
         } else if (fd == s->native_fd) {
                 if (n > 0 && n_fds == 0)
-                        server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
+                        server_process_native_message(s, s->buffer, n, ucred, tv, &meta);
                 else if (n == 0 && n_fds == 1)
-                        server_process_native_file(s, fds[0], ucred, tv, label, label_len);
+                        server_process_native_file(s, fds[0], ucred, tv, &meta);
                 else if (n_fds > 0)
                         log_warning("Got too many file descriptors via native socket. Ignoring.");
 
@@ -1231,6 +1332,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                         log_warning("Got file descriptors via audit socket. Ignoring.");
         }
 
+        journal_meta_destroy(&meta);
         close_many(fds, n_fds);
         return 0;
 }

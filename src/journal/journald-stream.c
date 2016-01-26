@@ -69,6 +69,7 @@ struct StdoutStream {
         int fd;
 
         struct ucred ucred;
+        JournalMeta meta;
         char *label;
         char *identifier;
         char *unit_id;
@@ -115,6 +116,7 @@ void stdout_stream_free(StdoutStream *s) {
         free(s->identifier);
         free(s->unit_id);
         free(s->state_file);
+        journal_meta_destroy(&s->meta);
 
         free(s);
 }
@@ -196,6 +198,12 @@ static int stdout_stream_save(StdoutStream *s) {
                 fprintf(f, "UNIT=%s\n", escaped);
         }
 
+        /* TODO: it would be preferable to save the s->meta contents, so it's available
+         * across a restart.  In the event that the process exits in the interim, since
+         * we're not saving/restoring the metadata, everything will be unknown about any
+         * in-flight log messages.
+         */
+
         r = fflush_and_check(f);
         if (r < 0)
                 goto fail;
@@ -234,7 +242,6 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
-        size_t label_len;
 
         assert(s);
         assert(p);
@@ -279,8 +286,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        label_len = s->label ? strlen(s->label) : 0;
-        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, s->label, label_len, s->unit_id, priority, 0);
+        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, &s->meta, priority, 0);
         return 0;
 }
 
@@ -375,6 +381,9 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 s->forward_to_console = !!r;
                 s->state = STDOUT_STREAM_RUNNING;
 
+                /* Refresh metadata immediately upon entering the running state (s->unit_id is known for example) */
+                journal_meta_refresh(s->server, s->ucred.pid, &s->ucred, s->label, s->label ? strlen(s->label) : 0, s->unit_id, &s->meta);
+
                 /* Try to save the stream, so that journald can be restarted and we can recover */
                 (void) stdout_stream_save(s);
                 return 0;
@@ -395,6 +404,14 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 
         p = s->buffer;
         remaining = s->length;
+
+        if (remaining == 0)
+                return 0;
+
+        /* refresh metadata once per buffer scanned */
+        if (s->state == STDOUT_STREAM_RUNNING)
+                journal_meta_refresh(s->server, s->ucred.pid, &s->ucred, s->label, s->label ? strlen(s->label) : 0, s->unit_id, &s->meta);
+
         for (;;) {
                 char *end;
                 size_t skip;
@@ -498,6 +515,8 @@ static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
                 if (r < 0 && r != -EOPNOTSUPP)
                         (void) log_warning_errno(r, "Failed to determine peer security context: %m");
         }
+
+        journal_meta_init(s, stream->ucred.pid, &stream->ucred, stream->label, stream->label ? strlen(stream->label) : 0, stream->unit_id, &stream->meta);
 
         (void) shutdown(fd, SHUT_WR);
 

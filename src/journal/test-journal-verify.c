@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
+                JournalEntryItem items = { .iov_base = &iovec, .iov_len = 1 };
                 struct dual_timestamp ts;
                 char *test;
 
@@ -104,7 +105,7 @@ int main(int argc, char *argv[]) {
                 iovec.iov_base = (void*) test;
                 iovec.iov_len = strlen(test);
 
-                assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+                assert_se(journal_file_append_entry(f, &ts, &items, 1, NULL, NULL, NULL) == 0);
 
                 free(test);
         }

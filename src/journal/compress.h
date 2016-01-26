@@ -22,6 +22,7 @@
 ***/
 
 #include <unistd.h>
+#include <sys/uio.h>
 
 #include "journal-def.h"
 
@@ -46,6 +47,18 @@ static inline int compress_blob(const void *src, uint64_t src_size,
                 return OBJECT_COMPRESSED_XZ;
 #endif
         return r;
+}
+
+static inline int compress_blobv(const struct iovec *iovec, unsigned n_iovec, uint64_t src_size,
+                                 void *dst, size_t dst_alloc_size, size_t *dst_size) {
+        /* XXX: No caller actually exploits the iovec here yet, so not fully implementing it.
+         * Trivial implementation would be to gather into a temporary allocated contiguous buffer and pass to compress_blob(),
+         * otherwise we have to get our hands dirty teaching the underlying compressors about iovecs using their streaming interfaces.
+         */
+        assert(n_iovec == 1);
+        assert(src_size <= iovec->iov_len);
+
+        return compress_blob(iovec->iov_base, src_size, dst, dst_alloc_size, dst_size);
 }
 
 int decompress_blob_xz(const void *src, uint64_t src_size,
