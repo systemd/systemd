@@ -119,6 +119,13 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
+        enum nss_status (*fallback)(
+                        const char *name,
+                        struct gaih_addrtuple **pat,
+                        char *buffer, size_t buflen,
+                        int *errnop, int *h_errnop,
+                        int32_t *ttlp);
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
@@ -138,7 +145,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                goto fail;
+                goto fallback;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -166,28 +173,10 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                if (bus_error_shall_fallback(&error)) {
+                if (bus_error_shall_fallback(&error))
+                        goto fallback;
 
-                        enum nss_status (*fallback)(
-                                        const char *name,
-                                        struct gaih_addrtuple **pat,
-                                        char *buffer, size_t buflen,
-                                        int *errnop, int *h_errnop,
-                                        int32_t *ttlp);
-
-                        fallback = (enum nss_status (*)(const char *name,
-                                                        struct gaih_addrtuple **pat,
-                                                        char *buffer, size_t buflen,
-                                                        int *errnop, int *h_errnop,
-                                                        int32_t *ttlp))
-                                find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyname4_r");
-                        if (fallback)
-                                return fallback(name, pat, buffer, buflen, errnop, h_errnop, ttlp);
-                }
-
-                *errnop = -r;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+                goto fail;
         }
 
         c = count_addresses(reply, AF_UNSPEC, &canonical);
@@ -287,9 +276,20 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         return NSS_STATUS_SUCCESS;
 
+fallback:
+        fallback = (enum nss_status (*)(const char *name,
+                                        struct gaih_addrtuple **pat,
+                                        char *buffer, size_t buflen,
+                                        int *errnop, int *h_errnop,
+                                        int32_t *ttlp))
+                find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyname4_r");
+
+        if (fallback)
+                return fallback(name, pat, buffer, buflen, errnop, h_errnop, ttlp);
+
 fail:
         *errnop = -r;
-        *h_errnop = NO_DATA;
+        *h_errnop = NO_RECOVERY;
         return NSS_STATUS_UNAVAIL;
 }
 
@@ -301,6 +301,15 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp,
                 char **canonp) {
+
+        enum nss_status (*fallback)(
+                        const char *name,
+                        int af,
+                        struct hostent *result,
+                        char *buffer, size_t buflen,
+                        int *errnop, int *h_errnop,
+                        int32_t *ttlp,
+                        char **canonp);
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -328,7 +337,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                goto fail;
+                goto fallback;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -356,32 +365,10 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                if (bus_error_shall_fallback(&error)) {
+                if (bus_error_shall_fallback(&error))
+                        goto fallback;
 
-                        enum nss_status (*fallback)(
-                                        const char *name,
-                                        int af,
-                                        struct hostent *result,
-                                        char *buffer, size_t buflen,
-                                        int *errnop, int *h_errnop,
-                                        int32_t *ttlp,
-                                        char **canonp);
-
-                        fallback = (enum nss_status (*)(const char *name,
-                                                        int af,
-                                                        struct hostent *result,
-                                                        char *buffer, size_t buflen,
-                                                        int *errnop, int *h_errnop,
-                                                        int32_t *ttlp,
-                                                        char **canonp))
-                                find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyname3_r");
-                        if (fallback)
-                                return fallback(name, af, result, buffer, buflen, errnop, h_errnop, ttlp, canonp);
-                }
-
-                *errnop = -r;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+                goto fail;
         }
 
         c = count_addresses(reply, af, &canonical);
@@ -494,9 +481,21 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         return NSS_STATUS_SUCCESS;
 
+fallback:
+        fallback = (enum nss_status (*)(const char *name,
+                                        int af,
+                                        struct hostent *result,
+                                        char *buffer, size_t buflen,
+                                        int *errnop, int *h_errnop,
+                                        int32_t *ttlp,
+                                        char **canonp))
+                find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyname3_r");
+        if (fallback)
+                return fallback(name, af, result, buffer, buflen, errnop, h_errnop, ttlp, canonp);
+
 fail:
         *errnop = -r;
-        *h_errnop = NO_DATA;
+        *h_errnop = NO_RECOVERY;
         return NSS_STATUS_UNAVAIL;
 }
 
@@ -507,6 +506,15 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
+
+        enum nss_status (*fallback)(
+                        const void* addr, socklen_t len,
+                        int af,
+                        struct hostent *result,
+                        char *buffer, size_t buflen,
+                        int *errnop, int *h_errnop,
+                        int32_t *ttlp);
+
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -539,7 +547,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                goto fail;
+                goto fallback;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -575,28 +583,9 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                if (bus_error_shall_fallback(&error)) {
+                if (bus_error_shall_fallback(&error))
+                        goto fallback;
 
-                        enum nss_status (*fallback)(
-                                        const void* addr, socklen_t len,
-                                        int af,
-                                        struct hostent *result,
-                                        char *buffer, size_t buflen,
-                                        int *errnop, int *h_errnop,
-                                        int32_t *ttlp);
-
-                        fallback = (enum nss_status (*)(
-                                        const void* addr, socklen_t len,
-                                        int af,
-                                        struct hostent *result,
-                                        char *buffer, size_t buflen,
-                                        int *errnop, int *h_errnop,
-                                        int32_t *ttlp))
-                                find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyaddr2_r");
-
-                        if (fallback)
-                                return fallback(addr, len, af, result, buffer, buflen, errnop, h_errnop, ttlp);
-                }
 
                 *errnop = -r;
                 *h_errnop = NO_RECOVERY;
@@ -694,9 +683,22 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         return NSS_STATUS_SUCCESS;
 
+fallback:
+        fallback = (enum nss_status (*)(
+                                    const void* addr, socklen_t len,
+                                    int af,
+                                    struct hostent *result,
+                                    char *buffer, size_t buflen,
+                                    int *errnop, int *h_errnop,
+                                    int32_t *ttlp))
+                find_fallback("libnss_dns.so.2", "_nss_dns_gethostbyaddr2_r");
+
+        if (fallback)
+                return fallback(addr, len, af, result, buffer, buflen, errnop, h_errnop, ttlp);
+
 fail:
         *errnop = -r;
-        *h_errnop = NO_DATA;
+        *h_errnop = NO_RECOVERY;
         return NSS_STATUS_UNAVAIL;
 }
 
