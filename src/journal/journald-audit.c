@@ -397,8 +397,8 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
         IOVEC_SET_STRING(iov[n_iov++], id_field);
 
-        assert_cc(32 == LOG_AUTH);
-        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_FACILITY=32");
+        assert_cc(4 == LOG_FAC(LOG_AUTH));
+        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_FACILITY=4");
         IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_IDENTIFIER=audit");
 
         type_name = audit_type_name_alloca(type);
