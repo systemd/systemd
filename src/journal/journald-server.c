@@ -866,10 +866,12 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         assert(s);
         assert(format);
 
+        assert_cc(3 == LOG_FAC(LOG_DAEMON));
         IOVEC_SET_STRING(iovec[n++], "SYSLOG_FACILITY=3");
         IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=systemd-journald");
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
+        assert_cc(6 == LOG_INFO);
         IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
 
         if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
