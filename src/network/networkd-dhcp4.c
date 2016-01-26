@@ -158,7 +158,7 @@ static int dhcp_lease_lost(Link *link) {
 
         log_link_warning(link, "DHCP lease lost");
 
-        if (link->network->dhcp_routes) {
+        if (link->network->dhcp_use_routes) {
                 _cleanup_free_ sd_dhcp_route **routes = NULL;
                 int n, i;
 
@@ -223,7 +223,7 @@ static int dhcp_lease_lost(Link *link) {
                 }
         }
 
-        if (link->network->dhcp_mtu) {
+        if (link->network->dhcp_use_mtu) {
                 uint16_t mtu;
 
                 r = sd_dhcp_lease_get_mtu(link->dhcp_lease, &mtu);
@@ -238,11 +238,11 @@ static int dhcp_lease_lost(Link *link) {
                 }
         }
 
-        if (link->network->dhcp_hostname) {
+        if (link->network->dhcp_use_hostname) {
                 const char *hostname = NULL;
 
-                if (link->network->hostname)
-                        hostname = link->network->hostname;
+                if (link->network->dhcp_hostname)
+                        hostname = link->network->dhcp_hostname;
                 else
                         (void) sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
 
@@ -412,7 +412,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
         link_dirty(link);
 
-        if (link->network->dhcp_mtu) {
+        if (link->network->dhcp_use_mtu) {
                 uint16_t mtu;
 
                 r = sd_dhcp_lease_get_mtu(lease, &mtu);
@@ -423,11 +423,11 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 }
         }
 
-        if (link->network->dhcp_hostname) {
+        if (link->network->dhcp_use_hostname) {
                 const char *hostname = NULL;
 
-                if (link->network->hostname)
-                        hostname = link->network->hostname;
+                if (link->network->dhcp_hostname)
+                        hostname = link->network->dhcp_hostname;
                 else
                         (void) sd_dhcp_lease_get_hostname(lease, &hostname);
 
@@ -438,7 +438,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 }
         }
 
-        if (link->network->dhcp_timezone) {
+        if (link->network->dhcp_use_timezone) {
                 const char *tz = NULL;
 
                 (void) sd_dhcp_lease_get_timezone(link->dhcp_lease, &tz);
@@ -571,14 +571,14 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
-        if (link->network->dhcp_mtu) {
+        if (link->network->dhcp_use_mtu) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       SD_DHCP_OPTION_INTERFACE_MTU);
                 if (r < 0)
                         return r;
         }
 
-        if (link->network->dhcp_routes) {
+        if (link->network->dhcp_use_routes) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       SD_DHCP_OPTION_STATIC_ROUTE);
                 if (r < 0)
@@ -589,7 +589,7 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
-        /* Always acquire the timezone and NTP*/
+        /* Always acquire the timezone and NTP */
         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NTP_SERVER);
         if (r < 0)
                 return r;
@@ -598,18 +598,18 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link->network->dhcp_sendhost) {
+        if (link->network->dhcp_send_hostname) {
                 _cleanup_free_ char *hostname = NULL;
                 const char *hn = NULL;
 
-                if (!link->network->hostname)  {
+                if (!link->network->dhcp_hostname) {
                         hostname = gethostname_malloc();
                         if (!hostname)
                                 return -ENOMEM;
 
                         hn = hostname;
                 } else
-                        hn = link->network->hostname;
+                        hn = link->network->dhcp_hostname;
 
                 if (!is_localhost(hn)) {
                         r = sd_dhcp_client_set_hostname(link->dhcp_client, hn);

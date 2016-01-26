@@ -353,6 +353,38 @@ static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
         return 0;
 }
 
+static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
+        _cleanup_free_ char *name = NULL, *normalized = NULL;
+        int r;
+
+        assert(option);
+        assert(ret);
+
+        r = lease_parse_string(option, len, &name);
+        if (r < 0)
+                return r;
+        if (!name) {
+                *ret = mfree(*ret);
+                return 0;
+        }
+
+        r = dns_name_normalize(name, &normalized);
+        if (r < 0)
+                return r;
+
+        if (is_localhost(normalized))
+                return -EINVAL;
+
+        if (dns_name_is_root(normalized))
+                return -EINVAL;
+
+        free(*ret);
+        *ret = normalized;
+        normalized = NULL;
+
+        return 0;
+}
+
 static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *n_ret) {
         assert(option);
         assert(ret);
@@ -547,59 +579,23 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_DOMAIN_NAME: {
-                _cleanup_free_ char *domainname = NULL, *normalized = NULL;
-
-                r = lease_parse_string(option, len, &domainname);
+        case SD_DHCP_OPTION_DOMAIN_NAME:
+                r = lease_parse_domain(option, len, &lease->domainname);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse domain name, ignoring: %m");
                         return 0;
                 }
 
-                r = dns_name_normalize(domainname, &normalized);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to normalize domain name '%s': %m", domainname);
-                        return 0;
-                }
-
-                if (is_localhost(normalized)) {
-                        log_debug_errno(r, "Detected 'localhost' as suggested domain name, ignoring.");
-                        break;
-                }
-
-                free(lease->domainname);
-                lease->domainname = normalized;
-                normalized = NULL;
-
                 break;
-        }
 
-        case SD_DHCP_OPTION_HOST_NAME: {
-                _cleanup_free_ char *hostname = NULL, *normalized = NULL;
-
-                r = lease_parse_string(option, len, &hostname);
+        case SD_DHCP_OPTION_HOST_NAME:
+                r = lease_parse_domain(option, len, &lease->hostname);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse host name, ignoring: %m");
                         return 0;
                 }
 
-                r = dns_name_normalize(hostname, &normalized);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to normalize host name '%s', ignoring: %m", hostname);
-                        return 0;
-                }
-
-                if (is_localhost(normalized)) {
-                        log_debug_errno(r, "Detected 'localhost' as suggested host name, ignoring.");
-                        return 0;
-                }
-
-                free(lease->hostname);
-                lease->hostname = normalized;
-                normalized = NULL;
-
                 break;
-        }
 
         case SD_DHCP_OPTION_ROOT_PATH:
                 r = lease_parse_string(option, len, &lease->root_path);

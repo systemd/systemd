@@ -1251,3 +1251,32 @@ int read_timestamp_file(const char *fn, usec_t *ret) {
         *ret = (usec_t) t;
         return 0;
 }
+
+int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space) {
+        int r;
+
+        assert(s);
+
+        /* Outputs the specified string with fputs(), but optionally prefixes it with a separator. The *space parameter
+         * when specified shall initially point to a boolean variable initialized to false. It is set to true after the
+         * first invocation. This call is supposed to be use in loops, where a separator shall be inserted between each
+         * element, but not before the first one. */
+
+        if (!f)
+                f = stdout;
+
+        if (space) {
+                if (!separator)
+                        separator = " ";
+
+                if (*space) {
+                        r = fputs(separator, f);
+                        if (r < 0)
+                                return r;
+                }
+
+                *space = true;
+        }
+
+        return fputs(s, f);
+}

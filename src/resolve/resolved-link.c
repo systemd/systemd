@@ -377,38 +377,60 @@ clear:
         return r;
 }
 
-static int link_update_search_domains(Link *l) {
-        _cleanup_strv_free_ char **domains = NULL;
-        char **i;
+static int link_update_search_domain_one(Link *l, const char *name, bool route_only) {
+        DnsSearchDomain *d;
         int r;
+
+        r = dns_search_domain_find(l->search_domains, name, &d);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                dns_search_domain_move_back_and_unmark(d);
+        else {
+                r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
+                if (r < 0)
+                        return r;
+        }
+
+        d->route_only = route_only;
+        return 0;
+}
+
+static int link_update_search_domains(Link *l) {
+        _cleanup_strv_free_ char **sdomains = NULL, **rdomains = NULL;
+        char **i;
+        int r, q;
 
         assert(l);
 
-        r = sd_network_link_get_domains(l->ifindex, &domains);
-        if (r == -ENODATA) {
+        r = sd_network_link_get_search_domains(l->ifindex, &sdomains);
+        if (r < 0 && r != -ENODATA)
+                goto clear;
+
+        q = sd_network_link_get_route_domains(l->ifindex, &rdomains);
+        if (q < 0 && q != -ENODATA) {
+                r = q;
+                goto clear;
+        }
+
+        if (r == -ENODATA && q == -ENODATA) {
                 /* networkd knows nothing about this interface, and that's fine. */
                 r = 0;
                 goto clear;
         }
-        if (r < 0)
-                goto clear;
 
         dns_search_domain_mark_all(l->search_domains);
 
-        STRV_FOREACH(i, domains) {
-                DnsSearchDomain *d;
-
-                r = dns_search_domain_find(l->search_domains, *i, &d);
+        STRV_FOREACH(i, sdomains) {
+                r = link_update_search_domain_one(l, *i, false);
                 if (r < 0)
                         goto clear;
+        }
 
-                if (r > 0)
-                        dns_search_domain_move_back_and_unmark(d);
-                else {
-                        r = dns_search_domain_new(l->manager, NULL, DNS_SEARCH_DOMAIN_LINK, l, *i);
-                        if (r < 0)
-                                goto clear;
-                }
+        STRV_FOREACH(i, rdomains) {
+                r = link_update_search_domain_one(l, *i, true);
+                if (r < 0)
+                        goto clear;
         }
 
         dns_search_domain_unlink_marked(l->search_domains);

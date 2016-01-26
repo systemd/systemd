@@ -80,20 +80,34 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
 
 int manager_add_search_domain_by_string(Manager *m, const char *domain) {
         DnsSearchDomain *d;
+        bool route_only;
         int r;
 
         assert(m);
         assert(domain);
 
+        route_only = *domain == '~';
+        if (route_only)
+                domain++;
+
+        if (dns_name_is_root(domain) || streq(domain, "*")) {
+                route_only = true;
+                domain = ".";
+        }
+
         r = dns_search_domain_find(m->search_domains, domain, &d);
         if (r < 0)
                 return r;
-        if (r > 0) {
+        if (r > 0)
                 dns_search_domain_move_back_and_unmark(d);
-                return 0;
+        else {
+                r = dns_search_domain_new(m, &d, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
+                if (r < 0)
+                        return r;
         }
 
-        return dns_search_domain_new(m, NULL, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
+        d->route_only = route_only;
+        return 0;
 }
 
 int manager_parse_search_domains_and_warn(Manager *m, const char *string) {

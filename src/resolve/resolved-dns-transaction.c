@@ -732,6 +732,55 @@ fail:
         dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
 }
 
+static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags *flags) {
+        int r;
+
+        assert(t);
+
+        /* Checks whether the answer is positive, i.e. either a direct
+         * answer to the question, or a CNAME/DNAME for it */
+
+        r = dns_answer_match_key(t->answer, t->key, flags);
+        if (r != 0)
+                return r;
+
+        r = dns_answer_find_cname_or_dname(t->answer, t->key, NULL, flags);
+        if (r != 0)
+                return r;
+
+        return false;
+}
+
+static int dns_transaction_fix_rcode(DnsTransaction *t) {
+        int r;
+
+        assert(t);
+
+        /* Fix up the RCODE to SUCCESS if we get at least one matching RR in a response. Note that this contradicts the
+         * DNS RFCs a bit. Specifically, RFC 6604 Section 3 clarifies that the RCODE shall say something about a
+         * CNAME/DNAME chain element coming after the last chain element contained in the message, and not the first
+         * one included. However, it also indicates that not all DNS servers implement this correctly. Moreover, when
+         * using DNSSEC we usually only can prove the first element of a CNAME/DNAME chain anyway, hence let's settle
+         * on always processing the RCODE as referring to the immediate look-up we do, i.e. the first element of a
+         * CNAME/DNAME chain. This way, we uniformly handle CNAME/DNAME chains, regardless if the DNS server
+         * incorrectly implements RCODE, whether DNSSEC is in use, or whether the DNS server only supplied us with an
+         * incomplete CNAME/DNAME chain.
+         *
+         * Or in other words: if we get at least one positive reply in a message we patch NXDOMAIN to become SUCCESS,
+         * and then rely on the CNAME chasing logic to figure out that there's actually a CNAME error with a new
+         * lookup. */
+
+        if (t->answer_rcode != DNS_RCODE_NXDOMAIN)
+                return 0;
+
+        r = dns_transaction_has_positive_answer(t, NULL);
+        if (r <= 0)
+                return r;
+
+        t->answer_rcode = DNS_RCODE_SUCCESS;
+        return 0;
+}
+
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         usec_t ts;
         int r;
@@ -922,6 +971,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 t->answer_rcode = DNS_PACKET_RCODE(p);
                 t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 t->answer_authenticated = false;
+
+                r = dns_transaction_fix_rcode(t);
+                if (r < 0)
+                        goto fail;
 
                 /* Block GC while starting requests for additional DNSSEC RRs */
                 t->block_gc++;
@@ -1633,25 +1686,6 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
         }
 
         return 1;
-}
-
-static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags *flags) {
-        int r;
-
-        assert(t);
-
-        /* Checks whether the answer is positive, i.e. either a direct
-         * answer to the question, or a CNAME/DNAME for it */
-
-        r = dns_answer_match_key(t->answer, t->key, flags);
-        if (r != 0)
-                return r;
-
-        r = dns_answer_find_cname_or_dname(t->answer, t->key, NULL, flags);
-        if (r != 0)
-                return r;
-
-        return false;
 }
 
 static int dns_transaction_negative_trust_anchor_lookup(DnsTransaction *t, const char *name) {

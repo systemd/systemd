@@ -105,11 +105,11 @@ static int network_load_one(Manager *manager, const char *filename) {
         *d = '\0';
 
         network->dhcp = ADDRESS_FAMILY_NO;
-        network->dhcp_ntp = true;
-        network->dhcp_dns = true;
-        network->dhcp_hostname = true;
-        network->dhcp_routes = true;
-        network->dhcp_sendhost = true;
+        network->dhcp_use_ntp = true;
+        network->dhcp_use_dns = true;
+        network->dhcp_use_hostname = true;
+        network->dhcp_use_routes = true;
+        network->dhcp_send_hostname = true;
         network->dhcp_route_metric = DHCP_ROUTE_METRIC;
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
 
@@ -227,13 +227,14 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
-        free(network->hostname);
+        free(network->dhcp_hostname);
 
         free(network->mac);
 
         strv_free(network->ntp);
         strv_free(network->dns);
-        strv_free(network->domains);
+        strv_free(network->search_domains);
+        strv_free(network->route_domains);
         strv_free(network->bind_carrier);
 
         netdev_unref(network->bridge);
@@ -384,7 +385,10 @@ int network_apply(Manager *manager, Network *network, Link *link) {
                 route->protocol = RTPROT_STATIC;
         }
 
-        if (network->dns || network->ntp || network->domains) {
+        if (!strv_isempty(network->dns) ||
+            !strv_isempty(network->ntp) ||
+            !strv_isempty(network->search_domains) ||
+            !strv_isempty(network->route_domains)) {
                 manager_dirty(manager);
                 link_dirty(link);
         }
@@ -469,48 +473,84 @@ int config_parse_netdev(const char *unit,
         return 0;
 }
 
-int config_parse_domains(const char *unit,
-                         const char *filename,
-                         unsigned line,
-                         const char *section,
-                         unsigned section_line,
-                         const char *lvalue,
-                         int ltype,
-                         const char *rvalue,
-                         void *data,
-                         void *userdata) {
-        Network *network = userdata;
-        char ***domains = data;
-        char **domain;
+int config_parse_domains(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p;
+        Network *n = data;
         int r;
 
-        r = config_parse_strv(unit, filename, line, section, section_line,
-                              lvalue, ltype, rvalue, domains, userdata);
-        if (r < 0)
-                return r;
+        assert(n);
+        assert(lvalue);
+        assert(rvalue);
 
-        strv_uniq(*domains);
-        network->wildcard_domain = !!strv_find(*domains, "*");
+        if (isempty(rvalue)) {
+                n->search_domains = strv_free(n->search_domains);
+                n->route_domains = strv_free(n->route_domains);
+                return 0;
+        }
 
-        STRV_FOREACH(domain, *domains) {
-                if (is_localhost(*domain))
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "'localhost' domain names may not be configured, ignoring assignment: %s", *domain);
-                else {
-                        r = dns_name_is_valid(*domain);
-                        if (r <= 0 && !streq(*domain, "*")) {
-                                if (r < 0)
-                                        log_error_errno(r, "Failed to validate domain name: %s: %m", *domain);
-                                if (r == 0)
-                                        log_warning("Domain name is not valid, ignoring assignment: %s", *domain);
-                        } else
+        p = rvalue;
+        for (;;) {
+                _cleanup_free_ char *w = NULL, *normalized = NULL;
+                const char *domain;
+                bool is_route;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract search or route domain, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                is_route = w[0] == '~';
+                domain = is_route ? w + 1 : w;
+
+                if (dns_name_is_root(domain) || streq(domain, "*")) {
+                        /* If the root domain appears as is, or the special token "*" is found, we'll consider this as
+                         * routing domain, unconditionally. */
+                        is_route = true;
+                        domain = "."; /* make sure we don't allow empty strings, thus write the root domain as "." */
+
+                } else {
+                        r = dns_name_normalize(domain, &normalized);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "'%s' is not a valid domain name, ignoring.", domain);
                                 continue;
+                        }
+
+                        domain = normalized;
+
+                        if (is_localhost(domain)) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "'localhost' domain names may not be configure as search or route domains, ignoring assignment: %s", domain);
+                                continue;
+                        }
                 }
 
-                strv_remove(*domains, *domain);
+                if (is_route) {
+                        r = strv_extend(&n->route_domains, domain);
+                        if (r < 0)
+                                return log_oom();
 
-                /* We removed one entry, make sure we don't skip the next one */
-                domain--;
+                } else {
+                        r = strv_extend(&n->search_domains, domain);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
+
+        strv_uniq(n->route_domains);
+        strv_uniq(n->search_domains);
 
         return 0;
 }
@@ -930,7 +970,7 @@ int config_parse_dnssec_negative_trust_anchors(
         Network *n = data;
         int r;
 
-        assert(filename);
+        assert(n);
         assert(lvalue);
         assert(rvalue);
 
@@ -965,3 +1005,13 @@ int config_parse_dnssec_negative_trust_anchors(
 
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains, "Failed to parse DHCP use domains setting");
+
+static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
+        [DHCP_USE_DOMAINS_NO] = "no",
+        [DHCP_USE_DOMAINS_ROUTE] = "route",
+        [DHCP_USE_DOMAINS_YES] = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_use_domains, DHCPUseDomains, DHCP_USE_DOMAINS_YES);

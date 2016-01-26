@@ -396,21 +396,37 @@
             described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This option may be specified more than once. This setting is read by
-            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Domains=</varname></term>
           <listitem>
-            <para>The domains used for DNS resolution over this link. This setting is read by
-            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
+            <para>The domains used for DNS host name resolution on this link. Takes a list of DNS domain names which
+            are used as search suffixes for extending single-label host names (host names containing no dots) to become
+            fully qualified domain names (FQDNs). If a single-label host name is resolved on this interface, each of
+            the specified search domains are appended to it in turn, converting it into a fully qualified domain name,
+            until one of them may be successfully resolved.</para>
+
+            <para>The specified domains are also used for routing of DNS queries: look-ups for host names ending in the
+            domains specified here are preferably routed to the DNS servers configured for this interface. If a domain
+            name is prefixed with <literal>~</literal>, the domain name becomes a pure "routing" domain, is used for
+            DNS query routing purposes only and is not used in the described domain search logic. By specifying a
+            routing domain of <literal>~.</literal> (the tilda indicating definition of a routing domain, the dot
+            referring to the DNS root domain which is the implied suffix of all valid DNS names) it is possible to
+            route all DNS traffic preferably to the DNS server specified for this interface. The route domain logic is
+            particularly useful on multi-homed hosts with DNS servers serving particular private DNS zones on each
+            interface.</para>
+
+            <para>This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>NTP=</varname></term>
           <listitem>
             <para>An NTP server address. This option may be specified more than once. This setting is read by
-            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -701,15 +717,20 @@
         <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
-            <para>When true (not the default), the domain name
-            received from the DHCP server will be used for DNS
-            resolution over this link. When a name cannot be resolved
-            as specified, the domain name will be used a suffix and
-            name resolution of that will be attempted.</para>
+            <para>Takes a boolean argument, or a the special value <literal>route</literal>. When true, the domain name
+            received from the DHCP server will be used as DNS search domain over this link, similar to the effect of
+            the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name received from
+            the DHCP server will be used for routing DNS queries only, but not for searching, similar to the effect of
+            the <option>Domains=</option> setting when the argument is prefixed with <literal>~</literal>. Defaults to
+            false.</para>
 
-            <para>This corresponds to the <option>domain</option>
-            option in <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            and should not be enabled on untrusted networks.</para>
+            <para>It is recommended to enable this option only on trusted networks, as setting this affects resolution
+            of all host names, in particular to single-label names. It is generally safer to use the supplied domain
+            only as routing domain, rather than as search domain, in order to not have it affect local resolution of
+            single-label names.</para>
+
+            <para>When set to true, this setting corresponds to the <option>domain</option> option in <citerefentry
+            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

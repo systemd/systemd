@@ -490,6 +490,9 @@ static int dump_addresses(
 static void dump_list(const char *prefix, char **l) {
         char **i;
 
+        if (strv_isempty(l))
+                return;
+
         STRV_FOREACH(i, l) {
                 printf("%*s%s\n",
                        (int) strlen(prefix),
@@ -502,7 +505,7 @@ static int link_status_one(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 const char *name) {
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
@@ -552,7 +555,6 @@ static int link_status_one(
                 return rtnl_log_parse_error(r);
 
         have_mac = sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &e) >= 0;
-
         if (have_mac) {
                 const uint8_t *p;
                 bool all_zeroes = true;
@@ -567,44 +569,35 @@ static int link_status_one(
                         have_mac = false;
         }
 
-        sd_netlink_message_read_u32(reply, IFLA_MTU, &mtu);
+        (void) sd_netlink_message_read_u32(reply, IFLA_MTU, &mtu);
 
-        sd_network_link_get_operational_state(ifindex, &operational_state);
+        (void) sd_network_link_get_operational_state(ifindex, &operational_state);
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-        sd_network_link_get_setup_state(ifindex, &setup_state);
+        (void) sd_network_link_get_setup_state(ifindex, &setup_state);
         setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
-        sd_network_link_get_dns(ifindex, &dns);
-        sd_network_link_get_domains(ifindex, &domains);
-        r = sd_network_link_get_wildcard_domain(ifindex);
-        if (r > 0) {
-                char *wildcard;
-
-                wildcard = strdup("*");
-                if (!wildcard)
-                        return log_oom();
-
-                if (strv_consume(&domains, wildcard) < 0)
-                        return log_oom();
-        }
+        (void) sd_network_link_get_dns(ifindex, &dns);
+        (void) sd_network_link_get_search_domains(ifindex, &search_domains);
+        (void) sd_network_link_get_route_domains(ifindex, &route_domains);
+        (void) sd_network_link_get_ntp(ifindex, &ntp);
 
         sprintf(devid, "n%i", ifindex);
 
-        (void)sd_device_new_from_device_id(&d, devid);
+        (void) sd_device_new_from_device_id(&d, devid);
 
         if (d) {
-                (void)sd_device_get_property_value(d, "ID_NET_LINK_FILE", &link);
-                (void)sd_device_get_property_value(d, "ID_NET_DRIVER", &driver);
-                (void)sd_device_get_property_value(d, "ID_PATH", &path);
+                (void) sd_device_get_property_value(d, "ID_NET_LINK_FILE", &link);
+                (void) sd_device_get_property_value(d, "ID_NET_DRIVER", &driver);
+                (void) sd_device_get_property_value(d, "ID_PATH", &path);
 
                 r = sd_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE", &vendor);
                 if (r < 0)
-                        (void)sd_device_get_property_value(d, "ID_VENDOR", &vendor);
+                        (void) sd_device_get_property_value(d, "ID_VENDOR", &vendor);
 
                 r = sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model);
                 if (r < 0)
-                        (void)sd_device_get_property_value(d, "ID_MODEL", &model);
+                        (void) sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
         link_get_type_string(iftype, d, &t);
@@ -653,20 +646,14 @@ static int link_status_one(
         dump_addresses(rtnl, "         Address: ", ifindex);
         dump_gateways(rtnl, hwdb, "         Gateway: ", ifindex);
 
-        if (!strv_isempty(dns))
-                dump_list("             DNS: ", dns);
-        if (!strv_isempty(domains))
-                dump_list("          Domain: ", domains);
+        dump_list("             DNS: ", dns);
+        dump_list("  Search Domains: ", search_domains);
+        dump_list("   Route Domains: ", route_domains);
 
-        (void) sd_network_link_get_ntp(ifindex, &ntp);
-        if (!strv_isempty(ntp))
-                dump_list("             NTP: ", ntp);
+        dump_list("             NTP: ", ntp);
 
-        if (!strv_isempty(carrier_bound_to))
-                dump_list("Carrier Bound To: ", carrier_bound_to);
-
-        if (!strv_isempty(carrier_bound_by))
-                dump_list("Carrier Bound By: ", carrier_bound_by);
+        dump_list("Carrier Bound To: ", carrier_bound_to);
+        dump_list("Carrier Bound By: ", carrier_bound_by);
 
         (void) sd_network_link_get_timezone(ifindex, &tz);
         if (tz)
@@ -691,30 +678,30 @@ static int link_status(int argc, char *argv[], void *userdata) {
 
         if (argc <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
-                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
+                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains;
                 const char *on_color_operational, *off_color_operational;
 
                 sd_network_get_operational_state(&operational_state);
                 operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-                printf("%s%s%s      State: %s%s%s\n",
+                printf("%s%s%s        State: %s%s%s\n",
                        on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
                        on_color_operational, strna(operational_state), off_color_operational);
 
-                dump_addresses(rtnl, "     Address: ", 0);
-                dump_gateways(rtnl, hwdb, "     Gateway: ", 0);
+                dump_addresses(rtnl, "       Address: ", 0);
+                dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
 
                 sd_network_get_dns(&dns);
-                if (!strv_isempty(dns))
-                        dump_list("         DNS: ", dns);
+                dump_list("           DNS: ", dns);
 
-                sd_network_get_domains(&domains);
-                if (!strv_isempty(domains))
-                        dump_list("      Domain: ", domains);
+                sd_network_get_search_domains(&search_domains);
+                dump_list("Search Domains: ", search_domains);
+
+                sd_network_get_route_domains(&route_domains);
+                dump_list(" Route Domains: ", route_domains);
 
                 sd_network_get_ntp(&ntp);
-                if (!strv_isempty(ntp))
-                        dump_list("         NTP: ", ntp);
+                dump_list("           NTP: ", ntp);
 
                 return 0;
         }

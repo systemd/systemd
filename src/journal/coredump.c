@@ -794,6 +794,8 @@ int main(int argc, char* argv[]) {
                 IOVEC_SET_STRING(iovec[j++], core_timestamp);
 
         IOVEC_SET_STRING(iovec[j++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
+
+        assert_cc(2 == LOG_CRIT);
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=2");
 
         /* Vacuum before we write anything again */

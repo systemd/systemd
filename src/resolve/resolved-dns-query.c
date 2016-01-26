@@ -93,17 +93,20 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
 
         assert(c);
 
-        if (c->search_domain && c->search_domain->linked) {
+        if (c->search_domain && c->search_domain->linked)
                 next = c->search_domain->domains_next;
+        else
+                next = dns_scope_get_search_domains(c->scope);
 
+        for (;;) {
                 if (!next) /* We hit the end of the list */
                         return 0;
 
-        } else {
-                next = dns_scope_get_search_domains(c->scope);
+                if (!next->route_only)
+                        break;
 
-                if (!next) /* OK, there's nothing. */
-                        return 0;
+                /* Skip over route-only domains */
+                next = next->domains_next;
         }
 
         dns_search_domain_unref(c->search_domain);

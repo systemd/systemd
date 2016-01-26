@@ -1217,19 +1217,19 @@ static int bus_property_get_search_domains(
         assert(reply);
         assert(m);
 
-        r = sd_bus_message_open_container(reply, 'a', "(is)");
+        r = sd_bus_message_open_container(reply, 'a', "(isb)");
         if (r < 0)
                 return r;
 
         LIST_FOREACH(domains, d, m->search_domains) {
-                r = sd_bus_message_append(reply, "(is)", 0, d->name);
+                r = sd_bus_message_append(reply, "(isb)", 0, d->name, d->route_only);
                 if (r < 0)
                         return r;
         }
 
         HASHMAP_FOREACH(l, m->links, i) {
                 LIST_FOREACH(domains, d, l->search_domains) {
-                        r = sd_bus_message_append(reply, "is", l->ifindex, d->name);
+                        r = sd_bus_message_append(reply, "(isb)", l->ifindex, d->name, d->route_only);
                         if (r < 0)
                                 return r;
                 }
@@ -1450,7 +1450,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
-        SD_BUS_PROPERTY("Domains", "a(is)", bus_property_get_search_domains, 0, 0),
+        SD_BUS_PROPERTY("SearchDomains", "a(isb)", bus_property_get_search_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
         SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
@@ -1463,7 +1463,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, 0),
         SD_BUS_METHOD("GetLink", "i", "o", bus_method_get_link, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, 0),
-        SD_BUS_METHOD("SetLinkDomains", "ias", NULL, bus_method_set_link_search_domains, 0),
+        SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_search_domains, 0),
         SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, 0),
         SD_BUS_METHOD("SetLinkMulticastDNS", "is", NULL, bus_method_set_link_mdns, 0),
         SD_BUS_METHOD("SetLinkDNSSEC", "is", NULL, bus_method_set_link_dnssec, 0),
