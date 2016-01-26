@@ -157,7 +157,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                         if (enabled == SD_EVENT_ONESHOT)
                                 journal_file_post_change(f);
 
-                sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
+                (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
                 sd_event_source_unref(f->post_change_timer);
         }
 
@@ -1409,7 +1409,7 @@ void journal_file_post_change(JournalFile *f) {
         __sync_synchronize();
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
-                log_error_errno(errno, "Failed to truncate file to its own size: %m");
+                log_debug_errno(errno, "Failed to truncate file to its own size: %m");
 }
 
 static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userdata) {
@@ -1432,8 +1432,8 @@ static void schedule_post_change(JournalFile *f) {
 
         r = sd_event_source_get_enabled(timer, &enabled);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get ftruncate timer state: %m");
-                return;
+                log_debug_errno(r, "Failed to get ftruncate timer state: %m");
+                goto fail;
         }
 
         if (enabled == SD_EVENT_ONESHOT)
@@ -1441,21 +1441,27 @@ static void schedule_post_change(JournalFile *f) {
 
         r = sd_event_now(sd_event_source_get_event(timer), CLOCK_MONOTONIC, &now);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get clock's now for scheduling ftruncate: %m");
-                return;
+                log_debug_errno(r, "Failed to get clock's now for scheduling ftruncate: %m");
+                goto fail;
         }
 
         r = sd_event_source_set_time(timer, now+f->post_change_timer_period);
         if (r < 0) {
-                log_error_errno(-r, "Failed to set time for scheduling ftruncate: %m");
-                return;
+                log_debug_errno(r, "Failed to set time for scheduling ftruncate: %m");
+                goto fail;
         }
 
         r = sd_event_source_set_enabled(timer, SD_EVENT_ONESHOT);
         if (r < 0) {
-                log_error_errno(-r, "Failed to enable scheduled ftruncate: %m");
-                return;
+                log_debug_errno(r, "Failed to enable scheduled ftruncate: %m");
+                goto fail;
         }
+
+        return;
+
+fail:
+        /* On failure, let's simply post the change immediately. */
+        journal_file_post_change(f);
 }
 
 /* Enable coalesced change posting in a timer on the provided sd_event instance */
@@ -2854,9 +2860,11 @@ int journal_file_open(
         }
 
         if (template && template->post_change_timer) {
-                sd_event *e = sd_event_source_get_event(template->post_change_timer);
+                r = journal_file_enable_post_change_timer(
+                                f,
+                                sd_event_source_get_event(template->post_change_timer),
+                                template->post_change_timer_period);
 
-                r = journal_file_enable_post_change_timer(f, e, template->post_change_timer_period);
                 if (r < 0)
                         goto fail;
         }

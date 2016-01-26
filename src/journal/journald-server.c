@@ -233,25 +233,26 @@ static int open_journal(
                 JournalFile *template,
                 JournalFile **ret) {
         int r;
+        JournalFile *f;
 
         assert(s);
         assert(fname);
         assert(ret);
 
         if (reliably)
-                r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, template, ret);
+                r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, template, &f);
         else
-                r = journal_file_open(fname, flags, 0640, s->compress, seal, metrics, s->mmap, template, ret);
-
+                r = journal_file_open(fname, flags, 0640, s->compress, seal, metrics, s->mmap, template, &f);
         if (r < 0)
                 return r;
 
-        r = journal_file_enable_post_change_timer(*ret, s->event, POST_CHANGE_TIMER_INTERVAL_USEC);
+        r = journal_file_enable_post_change_timer(f, s->event, POST_CHANGE_TIMER_INTERVAL_USEC);
         if (r < 0) {
-                *ret = journal_file_close(*ret);
+                journal_file_close(f);
                 return r;
         }
 
+        *ret = f;
         return r;
 }
 
