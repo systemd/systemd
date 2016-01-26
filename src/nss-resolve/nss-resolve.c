@@ -659,7 +659,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 p = buffer + idx;
                 memcpy(p, n, l+1);
 
-                if (i > 1)
+                if (i > 0)
                         ((char**) r_aliases)[i-1] = p;
                 i++;
 
