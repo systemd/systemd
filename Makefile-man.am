@@ -25,6 +25,7 @@ MANPAGES += \
 	man/machine-info.5 \
 	man/os-release.5 \
 	man/sd-bus-errors.3 \
+	man/sd-bus.3 \
 	man/sd-daemon.3 \
 	man/sd-event.3 \
 	man/sd-id128.3 \
@@ -2478,6 +2479,7 @@ EXTRA_DIST += \
 	man/resolved.conf.xml \
 	man/runlevel.xml \
 	man/sd-bus-errors.xml \
+	man/sd-bus.xml \
 	man/sd-daemon.xml \
 	man/sd-event.xml \
 	man/sd-id128.xml \
