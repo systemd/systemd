@@ -115,9 +115,53 @@ setup_basic_environment() {
     install_plymouth
     install_debug_tools
     install_ld_so_conf
+    setup_selinux
     strip_binaries
     install_depmod_files
     generate_module_dependencies
+}
+
+setup_selinux() {
+    # don't forget KERNEL_APPEND='... selinux=1 ...'
+    if [[ "$SETUP_SELINUX" != "yes" ]]; then
+        ddebug "Don't setup SELinux"
+        return 0
+    fi
+    ddebug "Setup SELinux"
+    local _conf_dir=/etc/selinux
+    local _fixfiles_tools="bash uname cat sort uniq awk grep egrep head expr find rm secon setfiles"
+
+    rm -rf $initdir/$_conf_dir
+    if ! cp -ar $_conf_dir $initdir/$_conf_dir; then
+        dfatal "Failed to copy $_conf_dir"
+        exit 1
+    fi
+
+    cat <<EOF >$initdir/etc/systemd/system/autorelabel.service
+[Unit]
+Description=Relabel all filesystems
+DefaultDependencies=no
+Requires=local-fs.target
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target shutdown.target
+ConditionSecurity=selinux
+ConditionPathExists=|/.autorelabel
+
+[Service]
+ExecStart=/bin/sh -x -c 'echo 0 >/sys/fs/selinux/enforce && fixfiles -f -F relabel && rm /.autorelabel && systemctl --force reboot'
+Type=oneshot
+TimeoutSec=0
+RemainAfterExit=yes
+EOF
+
+    touch $initdir/.autorelabel
+    mkdir -p $initdir/etc/systemd/system/basic.target.wants
+    ln -fs autorelabel.service $initdir/etc/systemd/system/basic.target.wants/autorelabel.service
+
+    dracut_install $_fixfiles_tools
+    dracut_install fixfiles
+    dracut_install sestatus
 }
 
 install_valgrind() {
@@ -334,6 +378,10 @@ install_pam() {
     ) | while read file; do
         inst $file
     done
+
+    # pam_unix depends on unix_chkpwd.
+    # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
+    dracut_install -o unix_chkpwd
 
     [[ "$LOOKS_LIKE_DEBIAN" ]] &&
         cp /etc/pam.d/systemd-user $initdir/etc/pam.d/
