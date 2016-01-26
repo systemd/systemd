@@ -96,7 +96,7 @@ int sync_cgroup(pid_t pid, bool unified_requested) {
         if (unified)
                 r = mount("cgroup", tree, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
         else
-                r = mount("cgroup", tree, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, "__DEVEL__sane_behavior");
+                r = mount("cgroup2", tree, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
         if (r < 0) {
                 r = log_error_errno(errno, "Failed to mount unified hierarchy: %m");
                 goto finish;
