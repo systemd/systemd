@@ -34,7 +34,10 @@ _journal_none() {
 _journal_fields() {
     local -a _fields cmd
     cmd=("journalctl" "-F ${@[-1]}" "2>/dev/null" )
-    _fields=( ${(f)"$(_call_program fields $cmd[@])"} )
+    _fields=$(_call_program fields $cmd[@])
+    _fields=${_fields//'\'/'\\'}
+    _fields=${_fields//':'/'\:'}
+    _fields=( ${(f)_fields} )
     typeset -U _fields
     _describe 'possible values' _fields
 }
