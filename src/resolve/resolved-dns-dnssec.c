@@ -28,18 +28,6 @@
 #include "resolved-dns-packet.h"
 #include "string-table.h"
 
-/* Open question:
- *
- * How does the DNSSEC canonical form of a hostname with a label
- * containing a dot look like, the way DNS-SD does it?
- *
- * TODO:
- *
- *   - enable by default
- *   - Allow clients to request DNSSEC even if DNSSEC is off
- *   - make sure when getting an NXDOMAIN response through CNAME, we still process the first CNAMEs in the packet
- * */
-
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
 

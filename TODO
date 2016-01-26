@@ -173,9 +173,9 @@ Features:
 - use equvalent of cat() to insert existing config as a comment, prepended with #.
   Upon editor exit, lines with one # are removed, lines with two # are left with one #, etc.
 
-* exponential backoff in timesyncd and resolved when we cannot reach a server
+* exponential backoff in timesyncd when we cannot reach a server
 
-* timesyncd + resolved: add ugly bus calls to set NTP and DNS servers per-interface, for usage by NM
+* timesyncd: add ugly bus calls to set NTP servers per-interface, for usage by NM
 
 * extract_many_words() should probably be used by a lot of code that
   currently uses FOREACH_WORD and friends. For example, most conf
@@ -190,13 +190,7 @@ Features:
   (throughout the codebase, not only PID1)
 
 * resolved:
-  - put networkd events and rtnl events at a higher priority, so that
-    we always process them before we process client requests
-  - DNSSEC
-        - add display of private key types (http://tools.ietf.org/html/rfc4034#appendix-A.1.1)?
-        - synthesize negative cache entries from NSEC/NSEC3 and drop explicit negative caching of authenticated answers
   - mDNS/DNS-SD
-        - mDNS RR resolving
         - service registration
         - service/domain/types browsing
         - avahi compat
@@ -204,7 +198,8 @@ Features:
   - resolved should optionally register additional per-interface LLMNR
     names, so that for the container case we can establish the same name
     (maybe "host") for referencing the server, everywhere.
-  - add API so NM can push DNS server info into resolved
+  - enable DNSSEC by default
+  - allow clients to request DNSSEC for a single lookup even if DNSSEC is off (?)
 
 * refcounting in sd-resolve is borked
 
