@@ -78,7 +78,7 @@ static void etc_hosts_item_hash_func(const void *p, struct siphash *state) {
 static int etc_hosts_item_compare_func(const void *a, const void *b) {
         const EtcHostsItem *x = a, *y = b;
 
-        if (x->family != x->family)
+        if (x->family != y->family)
                 return x->family - y->family;
 
         if (x->family == AF_INET)
