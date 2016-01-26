@@ -206,7 +206,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, SD_EVENT_PRIORITY_IMPORTANT);
         if (r < 0)
                 return r;
 
@@ -311,6 +311,10 @@ static int manager_network_monitor_listen(Manager *m) {
                 return events;
 
         r = sd_event_add_io(m->event, &m->network_event_source, fd, events, &on_network_event, m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT+5);
         if (r < 0)
                 return r;
 
