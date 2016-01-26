@@ -37,7 +37,7 @@
 
 #define TIMEOUT_USEC (10 * USEC_PER_SEC)
 
-static bool ignore_proc(pid_t pid) {
+static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
         const char *p;
@@ -72,7 +72,22 @@ static bool ignore_proc(pid_t pid) {
          * spree.
          *
          * http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons */
-        if (count == 1 && c == '@')
+        if (c == '@' && warn_rootfs) {
+                _cleanup_free_ char *comm = NULL;
+
+                r = pid_from_same_root_fs(pid);
+                if (r < 0)
+                        return true;
+
+                get_process_comm(pid, &comm);
+
+                if (r)
+                        log_notice("Process " PID_FMT " (%s) has been been marked to be excluded from killing. It is "
+                                   "running from the root file system, and thus likely to block re-mounting of the "
+                                   "root file system to read-only. Please consider moving it into an initrd file "
+                                   "system instead.", pid, strna(comm));
+                return true;
+        } else if (c == '@')
                 return true;
 
         return false;
@@ -171,7 +186,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 if (parse_pid(d->d_name, &pid) < 0)
                         continue;
 
-                if (ignore_proc(pid))
+                if (ignore_proc(pid, sig == SIGKILL && !in_initrd()))
                         continue;
 
                 if (sig == SIGKILL) {

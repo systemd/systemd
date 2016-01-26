@@ -48,6 +48,7 @@
 #include "missing.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
@@ -635,6 +636,17 @@ bool pid_is_alive(pid_t pid) {
                 return false;
 
         return true;
+}
+
+int pid_from_same_root_fs(pid_t pid) {
+        const char *root;
+
+        if (pid < 0)
+                return 0;
+
+        root = procfs_file_alloca(pid, "root");
+
+        return files_same(root, "/proc/1/root");
 }
 
 bool is_main_thread(void) {
