@@ -64,14 +64,14 @@
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--type=<replaceable>TYPE</replaceable></command>
+      <command> --type=<replaceable>TYPE</replaceable></command>
       <arg choice="plain" rep="repeat"><replaceable>RRDOMAIN</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--service</command>
+      <command> --service</command>
       <arg choice="plain"><arg choice="opt"><arg choice="opt"><replaceable>NAME</replaceable></arg>
       <replaceable>TYPE</replaceable></arg> <replaceable>DOMAIN</replaceable></arg>
     </cmdsynopsis>
@@ -79,13 +79,13 @@
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--statistics</command>
+      <command> --statistics</command>
     </cmdsynopsis>
 
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--reset-statistics</command>
+      <command> --reset-statistics</command>
     </cmdsynopsis>
 
   </refsynopsisdiv>
