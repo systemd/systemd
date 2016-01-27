@@ -101,6 +101,8 @@ struct sd_dhcp_client {
         sd_dhcp_client_cb_t cb;
         void *userdata;
         sd_dhcp_lease *lease;
+        uint64_t init_delay;
+        unsigned int nak_count;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -381,6 +383,7 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client->state = DHCP_STATE_INIT;
         client->xid = 0;
+        client->init_delay = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
 
@@ -945,6 +948,7 @@ error:
 }
 
 static int client_initialize_time_events(sd_dhcp_client *client) {
+        uint64_t usec = 0;
         int r;
 
         assert(client);
@@ -952,10 +956,16 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
+        if (client->init_delay) {
+                sd_event_now(client->event, clock_boottime_or_monotonic(), &usec);
+                usec += client->init_delay;
+                client->init_delay = 0;
+        }
+
         r = sd_event_add_time(client->event,
                               &client->timeout_resend,
                               clock_boottime_or_monotonic(),
-                              0, 0,
+                              usec, 0,
                               client_timeout_resend, client);
         if (r < 0)
                 goto error;
@@ -1409,6 +1419,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                 r = client_handle_ack(client, message, len);
                 if (r >= 0) {
+                        client->nak_count = 0;
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
                         client->receive_message =
@@ -1451,12 +1462,16 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                 } else if (r == -EADDRNOTAVAIL) {
                         /* got a NAK, let's restart the client */
+                        client->nak_count++;
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
 
                         r = client_initialize(client);
                         if (r < 0)
                                 goto error;
+
+                        if (client->nak_count > 1)
+                                client->init_delay = random_u32() % (USEC_PER_SEC * 9) + USEC_PER_SEC;
 
                         r = client_start(client);
                         if (r < 0)
