@@ -986,7 +986,7 @@ int bus_unit_queue_job(
         if (reload_if_possible && unit_can_reload(u)) {
                 if (type == JOB_RESTART)
                         type = JOB_RELOAD_OR_START;
-                else if (type == JOB_TRY_RESTART)
+                else if (type == JOB_TRY_RESTART && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)))
                         type = JOB_RELOAD;
         }
 
