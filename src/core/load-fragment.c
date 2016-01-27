@@ -3006,7 +3006,8 @@ int config_parse_memory_limit(
         int r;
 
         if (isempty(rvalue) || streq(rvalue, "infinity")) {
-                c->memory_limit = (uint64_t) -1;
+                /* c->memory_limit = (uint64_t) -1; */
+                c->memory_limit = MIN((uint64_t) -1, c->memory_swap_limit);
                 return 0;
         }
 
@@ -3016,7 +3017,40 @@ int config_parse_memory_limit(
                 return 0;
         }
 
-        c->memory_limit = bytes;
+        /* c->memory_limit = bytes; */
+        c->memory_limit = MIN(bytes, c->memory_swap_limit);
+        return 0;
+}
+
+int config_parse_memory_swap_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        uint64_t bytes;
+        int r;
+
+        if (isempty(rvalue) || streq(rvalue, "infinity")) {
+                c->memory_swap_limit = (uint64_t) -1;
+                return 0;
+        }
+
+        r = parse_size(rvalue, 1024, &bytes);
+        if (r < 0 || bytes < 1) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Memory Swap limit '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
+        c->memory_limit = MIN(c->memory_limit, bytes);
+        c->memory_swap_limit = bytes;
         return 0;
 }
 
@@ -4057,6 +4091,7 @@ void unit_dump_config_items(FILE *f) {
 #endif
                 { config_parse_cpu_shares,            "SHARES" },
                 { config_parse_memory_limit,          "LIMIT" },
+                { config_parse_memory_swap_limit,     "LIMIT" },
                 { config_parse_device_allow,          "DEVICE" },
                 { config_parse_device_policy,         "POLICY" },
                 { config_parse_blockio_bandwidth,     "BANDWIDTH" },

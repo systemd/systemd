@@ -151,6 +151,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
+        SD_BUS_PROPERTY("MemorySwapLimit", "t", NULL, offsetof(CGroupContext, memory_swap_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
@@ -523,7 +524,7 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (streq(name, "MemoryLimit")) {
+        } else if (STR_IN_SET(name, "MemoryLimit", "MemorySwapLimit")) {
                 uint64_t limit;
 
                 r = sd_bus_message_read(message, "t", &limit);
@@ -531,13 +532,16 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        c->memory_limit = limit;
+                        if (streq(name, "MemoryLimit"))
+                                c->memory_limit = limit;
+                        else
+                                c->memory_swap_limit = limit;
                         unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
 
                         if (limit == (uint64_t) -1)
-                                unit_write_drop_in_private(u, mode, name, "MemoryLimit=infinity");
+                                unit_write_drop_in_private_format(u, mode, name, "%s=infinity", name);
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "MemoryLimit=%" PRIu64, limit);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, limit);
                 }
 
                 return 1;
