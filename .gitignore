@@ -137,6 +137,7 @@
 /test-af-list
 /test-architecture
 /test-arphrd-list
+/test-ask-password-api
 /test-async
 /test-audit-type
 /test-barrier
