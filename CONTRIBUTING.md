@@ -24,7 +24,7 @@ right-away for being misfiled.
   code. This is a requirement for all code we merge.
 * Make sure to run "make check" locally, before posting your PR. We use a CI system, meaning we don't even look at your
   PR, if the build and tests don't pass.
-* If you need to update the code in a existing PR, please consider opening a new PR (mentioning in it which old PR it
+* If you need to update the code in an existing PR, please consider opening a new PR (mentioning in it which old PR it
   replaces) and closing the old PR. This is much preferable over force-pushing a new patch set into the PR's branch, as
   commit comments aren't lost that way. That said, we don't follow this rule ourselves quite often, hence this is
   really just a say as we say, not say as we do...
