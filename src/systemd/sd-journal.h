@@ -129,6 +129,9 @@ int sd_journal_query_unique(sd_journal *j, const char *field);
 int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l);
 void sd_journal_restart_unique(sd_journal *j);
 
+int sd_journal_enumerate_fields(sd_journal *j, const char **field);
+void sd_journal_restart_fields(sd_journal *j);
+
 int sd_journal_get_fd(sd_journal *j);
 int sd_journal_get_events(sd_journal *j);
 int sd_journal_get_timeout(sd_journal *j, uint64_t *timeout_usec);
@@ -142,21 +145,27 @@ int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **text);
 int sd_journal_has_runtime_files(sd_journal *j);
 int sd_journal_has_persistent_files(sd_journal *j);
 
-/* the inverse condition avoids ambiguity of danling 'else' after the macro */
+/* The inverse condition avoids ambiguity of dangling 'else' after the macro */
 #define SD_JOURNAL_FOREACH(j)                                           \
         if (sd_journal_seek_head(j) < 0) { }                            \
         else while (sd_journal_next(j) > 0)
 
-/* the inverse condition avoids ambiguity of danling 'else' after the macro */
+/* The inverse condition avoids ambiguity of dangling 'else' after the macro */
 #define SD_JOURNAL_FOREACH_BACKWARDS(j)                                 \
         if (sd_journal_seek_tail(j) < 0) { }                            \
         else while (sd_journal_previous(j) > 0)
 
+/* Iterate through the data fields of the current journal entry */
 #define SD_JOURNAL_FOREACH_DATA(j, data, l)                             \
         for (sd_journal_restart_data(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )
 
+/* Iterate through the all known values of a specific field */
 #define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
         for (sd_journal_restart_unique(j); sd_journal_enumerate_unique((j), &(data), &(l)) > 0; )
+
+/* Iterate through all known field names */
+#define SD_JOURNAL_FOREACH_FIELD(j, field) \
+        for (sd_journal_restart_fields(j); sd_journal_enumerate_fields((j), &(field)) > 0; )
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_journal, sd_journal_close);
 

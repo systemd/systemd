@@ -103,18 +103,27 @@ struct sd_journal {
         unsigned current_invalidate_counter, last_invalidate_counter;
         usec_t last_process_usec;
 
+        /* Iterating through unique fields and their data values */
         char *unique_field;
         JournalFile *unique_file;
         uint64_t unique_offset;
 
+        /* Iterating through known fields */
+        JournalFile *fields_file;
+        uint64_t fields_offset;
+        uint64_t fields_hash_table_index;
+        char *fields_buffer;
+        size_t fields_buffer_allocated;
+
         int flags;
 
-        bool on_network;
-        bool no_new_files;
-        bool unique_file_lost; /* File we were iterating over got
-                                  removed, and there were no more
-                                  files, so sd_j_enumerate_unique
-                                  will return a value equal to 0. */
+        bool on_network:1;
+        bool no_new_files:1;
+        bool unique_file_lost:1; /* File we were iterating over got
+                                    removed, and there were no more
+                                    files, so sd_j_enumerate_unique
+                                    will return a value equal to 0. */
+        bool fields_file_lost:1;
         bool has_runtime_files:1;
         bool has_persistent_files:1;
 

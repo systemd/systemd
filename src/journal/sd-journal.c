@@ -1338,6 +1338,13 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
                         j->unique_file_lost = true;
         }
 
+        if (j->fields_file == f) {
+                j->fields_file = ordered_hashmap_next(j->files, j->fields_file->path);
+                j->fields_offset = 0;
+                if (!j->fields_file)
+                        j->fields_file_lost = true;
+        }
+
         journal_file_close(f);
 
         j->current_invalidate_counter ++;
@@ -1806,6 +1813,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j->path);
         free(j->prefix);
         free(j->unique_field);
+        free(j->fields_buffer);
         free(j);
 }
 
@@ -2550,6 +2558,154 @@ _public_ void sd_journal_restart_unique(sd_journal *j) {
         j->unique_file = NULL;
         j->unique_offset = 0;
         j->unique_file_lost = false;
+}
+
+_public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
+        int r;
+
+        assert_return(j, -EINVAL);
+        assert_return(!journal_pid_changed(j), -ECHILD);
+        assert_return(field, -EINVAL);
+
+        if (!j->fields_file) {
+                if (j->fields_file_lost)
+                        return 0;
+
+                j->fields_file = ordered_hashmap_first(j->files);
+                if (!j->fields_file)
+                        return 0;
+
+                j->fields_hash_table_index = 0;
+                j->fields_offset = 0;
+        }
+
+        for (;;) {
+                JournalFile *f, *of;
+                Iterator i;
+                uint64_t m;
+                Object *o;
+                size_t sz;
+                bool found;
+
+                f = j->fields_file;
+
+                if (j->fields_offset == 0) {
+                        bool eof = false;
+
+                        /* We are not yet positioned at any field. Let's pick the first one */
+                        r = journal_file_map_field_hash_table(f);
+                        if (r < 0)
+                                return r;
+
+                        m = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
+                        for (;;) {
+                                if (j->fields_hash_table_index >= m) {
+                                        /* Reached the end of the hash table, go to the next file. */
+                                        eof = true;
+                                        break;
+                                }
+
+                                j->fields_offset = le64toh(f->field_hash_table[j->fields_hash_table_index].head_hash_offset);
+
+                                if (j->fields_offset != 0)
+                                        break;
+
+                                /* Empty hash table bucket, go to next one */
+                                j->fields_hash_table_index++;
+                        }
+
+                        if (eof) {
+                                /* Proceed with next file */
+                                j->fields_file = ordered_hashmap_next(j->files, f->path);
+                                if (!j->fields_file) {
+                                        *field = NULL;
+                                        return 0;
+                                }
+
+                                j->fields_offset = 0;
+                                j->fields_hash_table_index = 0;
+                                continue;
+                        }
+
+                } else {
+                        /* We are already positioned at a field. If so, let's figure out the next field from it */
+
+                        r = journal_file_move_to_object(f, OBJECT_FIELD, j->fields_offset, &o);
+                        if (r < 0)
+                                return r;
+
+                        j->fields_offset = le64toh(o->field.next_hash_offset);
+                        if (j->fields_offset == 0) {
+                                /* Reached the end of the hash table chain */
+                                j->fields_hash_table_index++;
+                                continue;
+                        }
+                }
+
+                /* We use OBJECT_UNUSED here, so that the iteator below doesn't remove our mmap window */
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, j->fields_offset, &o);
+                if (r < 0)
+                        return r;
+
+                /* Because we used OBJECT_UNUSED above, we need to do our type check manually */
+                if (o->object.type != OBJECT_FIELD) {
+                        log_debug("%s:offset " OFSfmt ": object has type %i, expected %i", f->path, j->fields_offset, o->object.type, OBJECT_FIELD);
+                        return -EBADMSG;
+                }
+
+                sz = le64toh(o->object.size) - offsetof(Object, field.payload);
+
+                /* Let's see if we already returned this field name before. */
+                found = false;
+                ORDERED_HASHMAP_FOREACH(of, j->files, i) {
+                        if (of == f)
+                                break;
+
+                        /* Skip this file it didn't have any fields indexed */
+                        if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
+                                continue;
+
+                        r = journal_file_find_field_object_with_hash(of, o->field.payload, sz, le64toh(o->field.hash), NULL, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                found = true;
+                                break;
+                        }
+                }
+
+                if (found)
+                        continue;
+
+                /* Check if this is really a valid string containing no NUL byte */
+                if (memchr(o->field.payload, 0, sz))
+                        return -EBADMSG;
+
+                if (sz > j->data_threshold)
+                        sz = j->data_threshold;
+
+                if (!GREEDY_REALLOC(j->fields_buffer, j->fields_buffer_allocated, sz + 1))
+                        return -ENOMEM;
+
+                memcpy(j->fields_buffer, o->field.payload, sz);
+                j->fields_buffer[sz] = 0;
+
+                if (!field_is_valid(j->fields_buffer))
+                        return -EBADMSG;
+
+                *field = j->fields_buffer;
+                return 1;
+        }
+}
+
+_public_ void sd_journal_restart_fields(sd_journal *j) {
+        if (!j)
+                return;
+
+        j->fields_file = NULL;
+        j->fields_hash_table_index = 0;
+        j->fields_offset = 0;
+        j->fields_file_lost = false;
 }
 
 _public_ int sd_journal_reliable_fd(sd_journal *j) {
