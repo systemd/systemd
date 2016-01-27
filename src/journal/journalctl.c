@@ -136,6 +136,8 @@ static enum {
         ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
+        ACTION_LIST_FIELDS,
+        ACTION_LIST_FIELD_NAMES,
 } arg_action = ACTION_SHOW;
 
 typedef struct BootId {
@@ -244,6 +246,7 @@ static void help(void) {
                "\nCommands:\n"
                "  -h --help                Show this help text\n"
                "     --version             Show package version\n"
+               "  -N --fields              List all field names currently used\n"
                "  -F --field=FIELD         List all values that a specified field takes\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
@@ -340,6 +343,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unit",           required_argument, NULL, 'u'                },
                 { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
                 { "field",          required_argument, NULL, 'F'                },
+                { "fields",         no_argument,       NULL, 'N'                },
                 { "catalog",        no_argument,       NULL, 'x'                },
                 { "list-catalog",   no_argument,       NULL, ARG_LIST_CATALOG   },
                 { "dump-catalog",   no_argument,       NULL, ARG_DUMP_CATALOG   },
@@ -361,7 +365,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:F:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -698,7 +702,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'F':
+                        arg_action = ACTION_LIST_FIELDS;
                         arg_field = optarg;
+                        break;
+
+                case 'N':
+                        arg_action = ACTION_LIST_FIELD_NAMES;
                         break;
 
                 case 'x':
@@ -2003,6 +2012,8 @@ int main(int argc, char *argv[]) {
         case ACTION_DISK_USAGE:
         case ACTION_LIST_BOOTS:
         case ACTION_VACUUM:
+        case ACTION_LIST_FIELDS:
+        case ACTION_LIST_FIELD_NAMES:
                 /* These ones require access to the journal files, continue below. */
                 break;
 
@@ -2085,7 +2096,20 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        case ACTION_LIST_FIELD_NAMES: {
+                const char *field;
+
+                SD_JOURNAL_FOREACH_FIELD(j, field) {
+                        printf("%s\n", field);
+                        n_shown ++;
+                }
+
+                r = 0;
+                goto finish;
+        }
+
         case ACTION_SHOW:
+        case ACTION_LIST_FIELDS:
                 break;
 
         default:
@@ -2139,9 +2163,11 @@ int main(int argc, char *argv[]) {
                 log_debug("Journal filter: %s", filter);
         }
 
-        if (arg_field) {
+        if (arg_action == ACTION_LIST_FIELDS) {
                 const void *data;
                 size_t size;
+
+                assert(arg_field);
 
                 r = sd_journal_set_data_threshold(j, 0);
                 if (r < 0) {

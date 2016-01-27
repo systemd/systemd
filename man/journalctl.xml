@@ -572,6 +572,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-N</option></term>
+        <term><option>--fields</option></term>
+
+        <listitem><para>Print all field names currently used in all entries of the journal.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--system</option></term>
         <term><option>--user</option></term>
 
