@@ -226,6 +226,7 @@
         <term><varname>vconsole.font=</varname></term>
         <term><varname>vconsole.font.map=</varname></term>
         <term><varname>vconsole.font.unimap=</varname></term>
+        <term><varname>vconsole.colors=</varname></term>
 
         <listitem>
           <para>Parameters understood by the virtual console setup

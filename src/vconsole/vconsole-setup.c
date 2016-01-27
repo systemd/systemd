@@ -34,6 +34,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
@@ -103,6 +104,40 @@ static int enable_utf8(int fd) {
                 log_warning_errno(r, "Failed to enable UTF-8: %m");
 
         return r;
+}
+
+static int set_colors(int fd, const char *colors) {
+        uint8_t palette[48], *rgb;
+        const char *start, *stop;
+        size_t len;
+        int i, r;
+
+        if (isempty(colors))
+                return 1;
+
+        (void) ioctl(fd, GIO_CMAP, palette);
+
+        start = stop = colors;
+        for (i = 0; i < 16 && *stop; i++) {
+                stop = strchr(start, ',');
+                if (stop == NULL)
+                        stop = strchr(start, '\0');
+                start += strspn(start, WHITESPACE);
+
+                r = unhexmem(start, stop - start, (void **) &rgb, &len);
+                if (r == 0) {
+                        if (len == 3) {
+                                palette[i*3] = rgb[0];
+                                palette[i*3 + 1] = rgb[1];
+                                palette[i*3 + 2 ] = rgb[2];
+                        }
+                        free(rgb);
+                }
+
+                start = stop + 1;
+        }
+
+        return ioctl(fd, PIO_CMAP, palette) >= 0;
 }
 
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
@@ -256,7 +291,8 @@ int main(int argc, char **argv) {
         const char *vc;
         _cleanup_free_ char
                 *vc_keymap = NULL, *vc_keymap_toggle = NULL,
-                *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
+                *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL,
+                *vc_colors = NULL;
         _cleanup_close_ int fd = -1;
         bool utf8, font_copy = false, font_ok, keyboard_ok;
         int r = EXIT_FAILURE;
@@ -293,6 +329,7 @@ int main(int argc, char **argv) {
                            "FONT", &vc_font,
                            "FONT_MAP", &vc_font_map,
                            "FONT_UNIMAP", &vc_font_unimap,
+                           "COLORS", &vc_colors,
                            NULL);
 
         if (r < 0 && r != -ENOENT)
@@ -306,6 +343,7 @@ int main(int argc, char **argv) {
                                    "vconsole.font", &vc_font,
                                    "vconsole.font.map", &vc_font_map,
                                    "vconsole.font.unimap", &vc_font_unimap,
+                                   "vconsole.colors", &vc_colors,
                                    NULL);
 
                 if (r < 0 && r != -ENOENT)
@@ -316,6 +354,8 @@ int main(int argc, char **argv) {
                 (void) enable_utf8(fd);
         else
                 (void) disable_utf8(fd);
+
+        (void) set_colors(fd, vc_colors);
 
         font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) > 0;
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) > 0;

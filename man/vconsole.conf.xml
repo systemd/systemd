@@ -71,7 +71,8 @@
     <varname>vconsole.keymap.toggle=</varname>,
     <varname>vconsole.font=</varname>,
     <varname>vconsole.font.map=</varname>,
-    <varname>vconsole.font.unimap=</varname> may be used
+    <varname>vconsole.font.unimap=</varname>,
+    <varname>vconsole.colors=</varname> may be used
     to override the console settings at boot.</para>
 
     <para>Depending on the operating system other configuration files
@@ -105,6 +106,14 @@
 
         <listitem><para>Configures the console font, the console map
         and the unicode font map.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COLORS=</varname></term>
+
+        <listitem><para>Sets the default console color map. Accepts
+        a comma-separated list of up to sixteen hexadecimal
+        values in the form RRGGBB.</para></listitem>
       </varlistentry>
 
     </variablelist>
