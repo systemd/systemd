@@ -40,9 +40,9 @@
         ":-_.\\"
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
-        const char *e, *i, *at;
+        const char *e, *i, *at, *valid_chars;
 
-        assert((flags & ~(UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE)) == 0);
+        assert((flags & ~UNIT_NAME_ANY) == 0);
 
         if (_unlikely_(flags == 0))
                 return false;
@@ -60,12 +60,14 @@ bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         if (unit_type_from_string(e + 1) < 0)
                 return false;
 
+        valid_chars = (flags & UNIT_NAME_TEMPLATE_GLOB) ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
+
         for (i = n, at = NULL; i < e; i++) {
 
                 if (*i == '@' && !at)
                         at = i;
 
-                if (!strchr("@" VALID_CHARS, *i))
+                if (!strchr(valid_chars, *i))
                         return false;
         }
 
@@ -76,7 +78,7 @@ bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
                 if (!at)
                         return true;
 
-        if (flags & UNIT_NAME_INSTANCE)
+        if (flags & UNIT_NAME_INSTANCE || flags & UNIT_NAME_TEMPLATE_GLOB)
                 if (at && e > at + 1)
                         return true;
 
@@ -705,7 +707,8 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
         t = do_escape_mangle(name, allow_globs, s);
         *t = 0;
 
-        if (unit_name_to_type(s) < 0)
+        if (!(allow_globs == UNIT_NAME_GLOB && unit_name_is_valid(s, UNIT_NAME_TEMPLATE_GLOB))
+            && unit_name_to_type(s) < 0)
                 strcpy(t, suffix);
 
         *ret = s;
