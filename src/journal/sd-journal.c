@@ -2520,24 +2520,20 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                  * traversed files. */
                 found = false;
                 ORDERED_HASHMAP_FOREACH(of, j->files, i) {
-                        Object *oo;
-                        uint64_t op;
-
                         if (of == j->unique_file)
                                 break;
 
-                        /* Skip this file it didn't have any fields
-                         * indexed */
-                        if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) &&
-                            le64toh(of->header->n_fields) <= 0)
+                        /* Skip this file it didn't have any fields indexed */
+                        if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
                                 continue;
 
-                        r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), &oo, &op);
+                        r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
                         if (r < 0)
                                 return r;
-
-                        if (r > 0)
+                        if (r > 0) {
                                 found = true;
+                                break;
+                        }
                 }
 
                 if (found)
