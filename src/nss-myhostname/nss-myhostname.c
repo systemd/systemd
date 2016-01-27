@@ -31,6 +31,7 @@
 #include "local-addresses.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -62,6 +63,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         size_t l, idx, ms;
         char *r_name;
         unsigned n;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(pat);
@@ -327,6 +330,8 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         uint32_t local_address_ipv4 = 0;
         int n_addresses = 0;
 
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+
         assert(name);
         assert(host);
         assert(buffer);
@@ -408,6 +413,8 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         struct local_address *a;
         bool additional_from_hostname = false;
         unsigned n;
+
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(addr);
         assert(host);
