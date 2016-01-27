@@ -226,8 +226,6 @@ static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *doma
 
 int manager_write_resolv_conf(Manager *m) {
 
-        #define PRIVATE_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
-
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;

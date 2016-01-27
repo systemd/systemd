@@ -288,7 +288,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         r = manager_write_resolv_conf(m);
         if (r < 0)
-                log_warning_errno(r, "Could not update resolv.conf: %m");
+                log_warning_errno(r, "Could not update "PRIVATE_RESOLV_CONF": %m");
 
         return 0;
 }
