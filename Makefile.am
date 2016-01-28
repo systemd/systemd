@@ -4274,7 +4274,9 @@ libsystemd_journal_internal_la_SOURCES += \
 	src/journal/journal-authenticate.c \
 	src/journal/journal-authenticate.h \
 	src/journal/fsprg.c \
-	src/journal/fsprg.h
+	src/journal/fsprg.h \
+	src/shared/gcrypt-util.c \
+	src/shared/gcrypt-util.h
 
 libsystemd_journal_internal_la_LIBADD += \
 	$(GCRYPT_LIBS)
@@ -5216,7 +5218,9 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-etc-hosts.h \
 	src/resolve/resolved-etc-hosts.c \
 	src/resolve/dns-type.c \
-	src/resolve/dns-type.h
+	src/resolve/dns-type.h \
+	src/shared/gcrypt-util.c \
+	src/shared/gcrypt-util.h
 
 nodist_systemd_resolved_SOURCES = \
 	src/resolve/dns_type-from-name.h \
