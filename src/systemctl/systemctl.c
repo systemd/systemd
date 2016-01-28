@@ -2411,15 +2411,11 @@ static int unit_find_paths(
 
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *n = NULL, *state = NULL;
+        _cleanup_free_ char *state = NULL;
         const char *path;
         int r;
 
         assert(name);
-
-        r = unit_name_mangle(name, UNIT_NAME_NOGLOB, &n);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mangle unit name: %m");
 
         /* We don't use unit_dbus_path_from_name() directly since we
          * don't want to load the unit if it isn't loaded. */
@@ -2432,7 +2428,7 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
                         "GetUnit",
                         NULL,
                         &reply,
-                        "s", n);
+                        "s", name);
         if (r < 0) {
                 if (!quiet)
                         puts("unknown");
