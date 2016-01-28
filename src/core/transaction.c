@@ -1010,7 +1010,13 @@ int transaction_add_job_and_dependencies(
                 if (type == JOB_RELOAD) {
 
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_PROPAGATES_RELOAD_TO], i) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_RELOAD, dep, ret, false, false, false, ignore_order, e);
+                                JobType nt;
+
+                                nt = job_type_collapse(JOB_TRY_RELOAD, dep);
+                                if (nt == JOB_NOP)
+                                        continue;
+
+                                r = transaction_add_job_and_dependencies(tr, nt, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         log_unit_warning(dep,
                                                          "Cannot add dependency reload job, ignoring: %s",
