@@ -122,6 +122,8 @@ struct ExecContext {
 
         nsec_t timer_slack_nsec;
 
+        bool stdio_as_fds;
+
         char *tty_path;
 
         bool tty_reset;
