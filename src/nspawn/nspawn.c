@@ -1457,8 +1457,8 @@ static int setup_journal(const char *directory) {
         if (arg_link_journal == LINK_HOST) {
                 /* don't create parents here -- if the host doesn't have
                  * permanent journal set up, don't force it here */
-                r = mkdir(p, 0755);
-                if (r < 0) {
+
+                if (mkdir(p, 0755) < 0 && errno != EEXIST) {
                         if (try) {
                                 log_debug_errno(errno, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
