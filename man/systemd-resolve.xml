@@ -64,14 +64,14 @@
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--type=<replaceable>TYPE</replaceable></command>
+      <command> --type=<replaceable>TYPE</replaceable></command>
       <arg choice="plain" rep="repeat"><replaceable>RRDOMAIN</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--service</command>
+      <command> --service</command>
       <arg choice="plain"><arg choice="opt"><arg choice="opt"><replaceable>NAME</replaceable></arg>
       <replaceable>TYPE</replaceable></arg> <replaceable>DOMAIN</replaceable></arg>
     </cmdsynopsis>
@@ -79,13 +79,13 @@
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--statistics</command>
+      <command> --statistics</command>
     </cmdsynopsis>
 
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <command>--reset-statistics</command>
+      <command> --reset-statistics</command>
     </cmdsynopsis>
 
   </refsynopsisdiv>
@@ -101,7 +101,8 @@
     done, and a hostname is retrieved for the specified addresses.</para>
 
     <para>The <option>--type=</option> switch may be used to specify a DNS resource record type (A, AAAA, SOA, MX, ...) in
-    order to request a specific DNS resource record, instead of the address or reverse address lookups.</para>
+    order to request a specific DNS resource record, instead of the address or reverse address lookups.
+    The special value <literal>help</literal> may be used to list known values.</para>
 
     <para>The <option>--service</option> switch may be used to resolve <ulink
     url="https://tools.ietf.org/html/rfc2782">SRV</ulink> and <ulink
@@ -157,7 +158,9 @@
         same time. The setting <literal>llmnr</literal> is identical to specifying this switch once with
         <literal>llmnr-ipv4</literal> and once via <literal>llmnr-ipv6</literal>. Note that this option does not force
         the service to resolve the operation with the specified protocol, as that might require a suitable network
-        interface and configuration.</para></listitem>
+        interface and configuration.
+        The special value <literal>help</literal> may be used to list known values.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -168,7 +171,9 @@
 
         <listitem><para>Specifies the DNS resource record type (e.g. A, AAAA, MX, …) and class (e.g. IN, ANY, …) to
         look up. If these options are used a DNS resource record set matching the specified class and type is
-        requested. The class defaults to IN if only a type is specified.</para></listitem>
+        requested. The class defaults to IN if only a type is specified.
+        The special value <literal>help</literal> may be used to list known values.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

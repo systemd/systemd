@@ -900,6 +900,12 @@ static int reset_statistics(sd_bus *bus) {
         return 0;
 }
 
+static void help_protocol_types(void) {
+        if (arg_legend)
+                puts("Known protocol types:");
+        puts("dns\nllmnr\nllmnr-ipv4\nllmnr-ipv6");
+}
+
 static void help_dns_types(void) {
         int i;
         const char *t;
@@ -930,22 +936,22 @@ static void help(void) {
         printf("%s [OPTIONS...] NAME...\n"
                "%s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n\n"
                "Resolve domain names, IPv4 and IPv6 addresses, DNS resource records, and services.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -4                        Resolve IPv4 addresses\n"
-               "  -6                        Resolve IPv6 addresses\n"
-               "  -i --interface=INTERFACE  Look on interface\n"
-               "  -p --protocol=PROTOCOL    Look via protocol\n"
-               "  -t --type=TYPE            Query RR with DNS type\n"
-               "  -c --class=CLASS          Query RR with DNS class\n"
-               "     --service              Resolve service (SRV)\n"
-               "     --service-address=BOOL Do [not] resolve address for services\n"
-               "     --service-txt=BOOL     Do [not] resolve TXT records for services\n"
-               "     --cname=BOOL           Do [not] follow CNAME redirects\n"
-               "     --search=BOOL          Do [not] use search domains\n"
-               "     --legend=BOOL          Do [not] print column headers and meta information\n"
-               "     --statistics           Show resolver statistics\n"
-               "     --reset-statistics     Reset resolver statistics\n"
+               "  -h --help                   Show this help\n"
+               "     --version                Show package version\n"
+               "  -4                          Resolve IPv4 addresses\n"
+               "  -6                          Resolve IPv6 addresses\n"
+               "  -i --interface=INTERFACE    Look on interface\n"
+               "  -p --protocol=PROTOCOL|help Look via protocol\n"
+               "  -t --type=TYPE|help         Query RR with DNS type\n"
+               "  -c --class=CLASS|help       Query RR with DNS class\n"
+               "     --service                Resolve service (SRV)\n"
+               "     --service-address=BOOL   Do [not] resolve address for services\n"
+               "     --service-txt=BOOL       Do [not] resolve TXT records for services\n"
+               "     --cname=BOOL             Do [not] follow CNAME redirects\n"
+               "     --search=BOOL            Do [not] use search domains\n"
+               "     --legend=BOOL            Do [not] print column headers and meta information\n"
+               "     --statistics             Show resolver statistics\n"
+               "     --reset-statistics       Reset resolver statistics\n"
                , program_invocation_short_name, program_invocation_short_name);
 }
 
@@ -1061,7 +1067,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
-                        if (streq(optarg, "dns"))
+                        if (streq(optarg, "help")) {
+                                help_protocol_types();
+                                return 0;
+                        } else if (streq(optarg, "dns"))
                                 arg_flags |= SD_RESOLVED_DNS;
                         else if (streq(optarg, "llmnr"))
                                 arg_flags |= SD_RESOLVED_LLMNR;

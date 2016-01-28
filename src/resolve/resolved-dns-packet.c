@@ -1058,7 +1058,24 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
                 break;
 
+        case DNS_TYPE_TLSA:
+                r = dns_packet_append_uint8(p, rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, NULL);
+                break;
+
         case DNS_TYPE_OPT:
+        case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
@@ -1835,7 +1852,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
 
                 break;
 
-        case DNS_TYPE_DNSKEY:
+        case DNS_TYPE_DNSKEY: {
+                size_t rdindex = p->rindex; /* we will calculate the tag starting here */
+
                 r = dns_packet_read_uint16(p, &rr->dnskey.flags, NULL);
                 if (r < 0)
                         goto fail;
@@ -1859,7 +1878,12 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                         goto fail;
                 }
 
+                rr->dnskey.key_tag = dns_keytag(rr->dnskey.algorithm,
+                                                (uint8_t*) DNS_PACKET_DATA(p) + rdindex,
+                                                rdlength);
+
                 break;
+        }
 
         case DNS_TYPE_RRSIG:
                 r = dns_packet_read_uint16(p, &rr->rrsig.type_covered, NULL);
@@ -1976,7 +2000,33 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 break;
         }
 
+        case DNS_TYPE_TLSA:
+                r = dns_packet_read_uint8(p, &rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_memdup(p, rdlength - 3,
+                                           &rr->tlsa.data, &rr->tlsa.data_size,
+                                           NULL);
+                if (rr->tlsa.data_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                break;
+
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
+        case DNS_TYPE_OPENPGPKEY:
         default:
         unparseable:
                 r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.size, NULL);
@@ -2222,6 +2272,31 @@ int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key) {
                 return 0;
 
         return dns_resource_key_equal(p->question->keys[0], key);
+}
+
+uint16_t dns_keytag(uint8_t algorithm, const uint8_t* key, uint16_t keysize) {
+        if (algorithm == DNSSEC_ALGORITHM_RSAMD5) {
+                /* http://tools.ietf.org/html/rfc4034#appendix-B.1 */
+                /* I don't understand the description in RFC. By my reckoning, most
+                   significant 16 bits of least significant 24 bits should be the 1st to
+                   last, and 2nd to last octets, not 3rd and 4th..., */
+                return ((uint16_t) key[keysize-3] << 8) + key[keysize-2];
+        } else {
+                /* http://tools.ietf.org/html/rfc4034#appendix-B */
+
+                /*
+                 * First octet of the key tag is the most significant 8 bits of the return
+                 * value; Second octet of the key tag is the least significant 8 bits of
+                 * the return value.
+                 */
+                unsigned ac, i;
+
+                for (ac = 0, i = 0; i < keysize; ++i)
+                        ac += (i & 1) ? key[i] : key[i] << 8;
+                ac += (ac >> 16) & 0xFFFF;
+
+                return (uint16_t) ac;
+        }
 }
 
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
