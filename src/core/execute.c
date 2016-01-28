@@ -183,8 +183,11 @@ static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
         return 0;
 }
 
-_pure_ static const char *tty_path(const ExecContext *context) {
+static const char *exec_context_tty_path(const ExecContext *context) {
         assert(context);
+
+        if (context->stdio_as_fds)
+                return NULL;
 
         if (context->tty_path)
                 return context->tty_path;
@@ -192,17 +195,29 @@ _pure_ static const char *tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
-static void exec_context_tty_reset(const ExecContext *context) {
+static void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
+        const char *path;
+
         assert(context);
 
-        if (context->tty_vhangup)
-                terminal_vhangup(tty_path(context));
+        path = exec_context_tty_path(context);
 
-        if (context->tty_reset)
-                reset_terminal(tty_path(context));
+        if (context->tty_vhangup) {
+                if (p && p->stdin_fd >= 0)
+                        (void) terminal_vhangup_fd(p->stdin_fd);
+                else if (path)
+                        (void) terminal_vhangup(path);
+        }
 
-        if (context->tty_vt_disallocate && context->tty_path)
-                vt_disallocate(context->tty_path);
+        if (context->tty_reset) {
+                if (p && p->stdin_fd >= 0)
+                        (void) reset_terminal_fd(p->stdin_fd, true);
+                else if (path)
+                        (void) reset_terminal(path);
+        }
+
+        if (context->tty_vt_disallocate && path)
+                (void) vt_disallocate(path);
 }
 
 static bool is_terminal_output(ExecOutput o) {
@@ -400,7 +415,7 @@ static int setup_input(
         case EXEC_INPUT_TTY_FAIL: {
                 int fd, r;
 
-                fd = acquire_terminal(tty_path(context),
+                fd = acquire_terminal(exec_context_tty_path(context),
                                       i == EXEC_INPUT_TTY_FAIL,
                                       i == EXEC_INPUT_TTY_FORCE,
                                       false,
@@ -485,7 +500,7 @@ static int setup_output(
         } else if (o == EXEC_OUTPUT_INHERIT) {
                 /* If input got downgraded, inherit the original value */
                 if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
-                        return open_terminal_as(tty_path(context), O_WRONLY, fileno);
+                        return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null, inherit that... */
                 if (i != EXEC_INPUT_NULL)
@@ -509,7 +524,7 @@ static int setup_output(
                         return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
                 /* We don't reset the terminal if this is just about output */
-                return open_terminal_as(tty_path(context), O_WRONLY, fileno);
+                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
         case EXEC_OUTPUT_SYSLOG:
         case EXEC_OUTPUT_SYSLOG_AND_CONSOLE:
@@ -1232,9 +1247,8 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 
 static int build_environment(
                 const ExecContext *c,
+                const ExecParameters *p,
                 unsigned n_fds,
-                char ** fd_names,
-                usec_t watchdog_usec,
                 const char *home,
                 const char *username,
                 const char *shell,
@@ -1262,7 +1276,7 @@ static int build_environment(
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
-                joined = strv_join(fd_names, ":");
+                joined = strv_join(p->fd_names, ":");
                 if (!joined)
                         return -ENOMEM;
 
@@ -1272,12 +1286,12 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (watchdog_usec > 0) {
+        if (p->watchdog_usec > 0) {
                 if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
-                if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, watchdog_usec) < 0)
+                if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
@@ -1313,7 +1327,7 @@ static int build_environment(
             c->std_error == EXEC_OUTPUT_TTY ||
             c->tty_path) {
 
-                x = strdup(default_term_for_tty(tty_path(c)));
+                x = strdup(default_term_for_tty(exec_context_tty_path(c)));
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
@@ -1490,7 +1504,7 @@ static int exec_child(
                         return -errno;
                 }
 
-        exec_context_tty_reset(context);
+        exec_context_tty_reset(context, params);
 
         if (params->confirm_spawn) {
                 char response;
@@ -1991,7 +2005,7 @@ static int exec_child(
 #endif
         }
 
-        r = build_environment(context, n_fds, params->fd_names, params->watchdog_usec, home, username, shell, &our_env);
+        r = build_environment(context, params, n_fds, home, username, shell, &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
                 return r;
@@ -2366,6 +2380,9 @@ static bool tty_may_match_dev_console(const char *tty) {
         _cleanup_free_ char *active = NULL;
         char *console;
 
+        if (!tty)
+                return true;
+
         if (startswith(tty, "/dev/"))
                 tty += 5;
 
@@ -2383,11 +2400,14 @@ static bool tty_may_match_dev_console(const char *tty) {
 }
 
 bool exec_context_may_touch_console(ExecContext *ec) {
-        return (ec->tty_reset || ec->tty_vhangup || ec->tty_vt_disallocate ||
+
+        return (ec->tty_reset ||
+                ec->tty_vhangup ||
+                ec->tty_vt_disallocate ||
                 is_terminal_input(ec->std_input) ||
                 is_terminal_output(ec->std_output) ||
                 is_terminal_output(ec->std_error)) &&
-               tty_may_match_dev_console(tty_path(ec));
+               tty_may_match_dev_console(exec_context_tty_path(ec));
 }
 
 static void strv_fprintf(FILE *f, char **l) {
@@ -2726,7 +2746,7 @@ void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, 
                 if (context->utmp_id)
                         utmp_put_dead_process(context->utmp_id, pid, code, status);
 
-                exec_context_tty_reset(context);
+                exec_context_tty_reset(context, NULL);
         }
 }
 
