@@ -657,7 +657,9 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 return s;
 
         if (s)
-                log_info("Switching to system DNS server %s.", dns_server_string(s));
+                log_info("Switching to %s DNS server %s.",
+                         dns_server_type_to_string(s->type),
+                         dns_server_string(s));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
@@ -675,7 +677,7 @@ DnsServer *manager_get_dns_server(Manager *m) {
         /* Try to read updates resolv.conf */
         manager_read_resolv_conf(m);
 
-        /* If no DNS server was chose so far, pick the first one */
+        /* If no DNS server was chosen so far, pick the first one */
         if (!m->current_dns_server)
                 manager_set_dns_server(m, m->dns_servers);
 
@@ -722,6 +724,13 @@ void manager_next_dns_server(Manager *m) {
         else
                 manager_set_dns_server(m, m->dns_servers);
 }
+
+static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
+        [DNS_SERVER_SYSTEM] = "system",
+        [DNS_SERVER_FALLBACK] = "fallback",
+        [DNS_SERVER_LINK] = "link",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
 
 static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
         [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",

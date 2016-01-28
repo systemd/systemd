@@ -30,6 +30,10 @@ typedef enum DnsServerType {
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
 } DnsServerType;
+#define _DNS_SERVER_TYPE_MAX (DNS_SERVER_LINK + 1)
+
+const char* dns_server_type_to_string(DnsServerType i) _const_;
+DnsServerType dns_server_type_from_string(const char *s) _pure_;
 
 typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_TCP,
