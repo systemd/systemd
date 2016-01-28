@@ -129,7 +129,7 @@ struct DnsResourceRecord {
         union {
                 struct {
                         void *data;
-                        size_t size;
+                        size_t data_size;
                 } generic, opt;
 
                 struct {
