@@ -191,10 +191,11 @@ _pure_ static bool window_matches(Window *w, int fd, int prot, bool private, uin
                 offset + size <= w->offset + w->size;
 }
 
-static Window *window_add(MMapCache *m) {
+static Window *window_add(MMapCache *m, FileDescriptor *f, int prot, bool private, bool keep_always, uint64_t offset, size_t size, void *ptr) {
         Window *w;
 
         assert(m);
+        assert(f);
 
         if (!m->last_unused || m->n_windows <= WINDOWS_MIN) {
 
@@ -212,6 +213,19 @@ static Window *window_add(MMapCache *m) {
         }
 
         w->cache = m;
+        w->keep_always = keep_always;
+        w->ptr = ptr;
+        w->offset = offset;
+        w->prot = prot;
+        w->private = private;
+        w->size = size;
+        w->fd = f;
+
+        if (private)
+                f->private_n_ref++;
+
+        LIST_PREPEND(by_fd, f->windows, w);
+
         return w;
 }
 
@@ -561,6 +575,7 @@ static int add_mmap(
         }
 
         if (private) {
+                if (!st)
                         return -EINVAL;
 
                 f = hashmap_get(m->fds, FD_TO_PTR(fd));
@@ -599,22 +614,9 @@ static int add_mmap(
         if (!c)
                 goto outofmem;
 
-        w = window_add(m);
+        w = window_add(m, f, prot, private, keep_always, woffset, wsize, d);
         if (!w)
                 goto outofmem;
-
-        w->keep_always = keep_always;
-        w->ptr = d;
-        w->offset = woffset;
-        w->prot = prot;
-        w->private = private;
-        w->size = wsize;
-        w->fd = f;
-
-        if (private)
-                f->private_n_ref++;
-
-        LIST_PREPEND(by_fd, f->windows, w);
 
         context_detach_window(c);
         c->window = w;
@@ -784,4 +786,46 @@ void mmap_cache_close_fd(MMapCache *m, int fd) {
                 return;
 
         fd_free(f);
+}
+
+/* Copies all private windows to the shared windows for the supplied
+ * fd, discarding the private windows in the process. */
+int mmap_cache_private_to_shared_fd(MMapCache *m, int fd) {
+        FileDescriptor *f;
+        Window *w, *_w;
+
+        assert(m);
+        assert(fd >= 0);
+
+        f = hashmap_get(m->fds, FD_TO_PTR(fd));
+        if (!f)
+                return 0;
+
+        assert(f->fd == fd);
+
+        if (f->sigbus)
+                return -EIO;
+
+        LIST_FOREACH_SAFE(by_fd, w, _w, f->windows)
+                if (!w->private || w->prot == PROT_READ)
+                        window_free(w);
+
+        LIST_FOREACH_SAFE(by_fd, w, _w, f->windows) {
+                Window *sw;
+                void *d;
+                int r;
+
+                r = get_mmap(m, NULL, w->size, w->prot, MAP_SHARED, fd, w->offset, &d);
+                if (r < 0)
+                        return r;
+
+                sw = window_add(m, f, w->prot, false, w->keep_always, w->offset, w->size, d);
+                if (!sw)
+                        return -ENOMEM;
+
+                memcpy(sw->ptr, w->ptr, w->size);
+                window_free(w);
+        }
+
+        return 1;
 }
