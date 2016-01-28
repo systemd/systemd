@@ -43,6 +43,7 @@ static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
+static bool arg_raw = false;
 
 static enum {
         MODE_RESOLVE_HOST,
@@ -378,7 +379,6 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
         while ((r = sd_bus_message_enter_container(reply, 'r', "iqqay")) > 0) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-                const char *s;
                 uint16_t c, t;
                 int ifindex;
                 const void *d;
@@ -412,15 +412,30 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse RR: %m");
 
-                s = dns_resource_record_to_string(rr);
-                if (!s)
-                        return log_oom();
+                if (arg_raw) {
+                        void *data;
+                        ssize_t k;
 
-                ifname[0] = 0;
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                        log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
+                        k = dns_resource_record_data(rr, &data);
+                        if (k < 0)
+                                return log_error_errno(k, "Cannot dump RR: %m");
+                        fwrite(data, 1, k, stdout);
+                        if (ferror(stdout))
+                                return log_error_errno(errno, "Writing failed: %m");
+                } else {
+                        const char *s;
 
-                printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", ifname);
+                        s = dns_resource_record_to_string(rr);
+                        if (!s)
+                                return log_oom();
+
+                        ifname[0] = 0;
+                        if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                                log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
+
+                        printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", ifname);
+                }
+
                 n++;
         }
         if (r < 0)
@@ -996,6 +1011,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
                 ARG_OPENPGP,
+                ARG_RAW,
                 ARG_SEARCH,
                 ARG_STATISTICS,
                 ARG_RESET_STATISTICS,
@@ -1014,6 +1030,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "service-address",  required_argument, NULL, ARG_SERVICE_ADDRESS  },
                 { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
                 { "openpgp",          no_argument,       NULL, ARG_OPENPGP          },
+                { "raw",              no_argument,       NULL, ARG_RAW              },
                 { "search",           required_argument, NULL, ARG_SEARCH           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
                 { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
@@ -1125,6 +1142,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_OPENPGP:
                         arg_mode = MODE_RESOLVE_OPENPGP;
+                        break;
+
+                case ARG_RAW:
+                        if (on_tty()) {
+                                log_error("Refusing to write binary data to tty.");
+                                return -ENOTTY;
+                        }
+
+                        arg_raw = true;
+                        arg_legend = false;
                         break;
 
                 case ARG_CNAME:
