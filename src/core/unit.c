@@ -1894,6 +1894,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 case JOB_RELOAD:
                 case JOB_RELOAD_OR_START:
+                case JOB_TRY_RELOAD:
 
                         if (u->job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
@@ -2107,6 +2108,7 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
                 return unit_can_start(u);
 
         case JOB_RELOAD:
+        case JOB_TRY_RELOAD:
                 return unit_can_reload(u);
 
         case JOB_RELOAD_OR_START:
