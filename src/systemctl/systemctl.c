@@ -5792,7 +5792,7 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted()) {
+        if (running_in_chroot() > 0 || (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted())) {
                 if (!arg_quiet)
                         puts("offline");
                 return EXIT_FAILURE;
@@ -7642,7 +7642,7 @@ int main(int argc, char*argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (running_in_chroot() > 0 && arg_action != ACTION_SYSTEMCTL) {
+        if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {
                 log_info("Running in chroot, ignoring request.");
                 r = 0;
                 goto finish;
