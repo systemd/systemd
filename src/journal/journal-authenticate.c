@@ -24,6 +24,7 @@
 
 #include "fd-util.h"
 #include "fsprg.h"
+#include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
@@ -426,25 +427,13 @@ finish:
         return r;
 }
 
-static void initialize_libgcrypt(void) {
-        const char *p;
-
-        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
-                return;
-
-        p = gcry_check_version("1.4.5");
-        assert(p);
-
-        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-}
-
 int journal_file_hmac_setup(JournalFile *f) {
         gcry_error_t e;
 
         if (!f->seal)
                 return 0;
 
-        initialize_libgcrypt();
+        initialize_libgcrypt(true);
 
         e = gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
         if (e != 0)
