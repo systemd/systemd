@@ -82,12 +82,11 @@ static int print_catalog(FILE *f, sd_journal *j) {
 
 static int parse_field(const void *data, size_t length, const char *field, char **target, size_t *target_size) {
         size_t fl, nl;
-        void *buf;
+        char *buf;
 
         assert(data);
         assert(field);
         assert(target);
-        assert(target_size);
 
         fl = strlen(field);
         if (length < fl)
@@ -97,16 +96,18 @@ static int parse_field(const void *data, size_t length, const char *field, char 
                 return 0;
 
         nl = length - fl;
-        buf = malloc(nl+1);
+        buf = new(char, nl+1);
         if (!buf)
                 return log_oom();
 
         memcpy(buf, (const char*) data + fl, nl);
-        ((char*)buf)[nl] = 0;
+        buf[nl] = 0;
 
         free(*target);
         *target = buf;
-        *target_size = nl;
+
+        if (target_size)
+                *target_size = nl;
 
         return 1;
 }
@@ -415,7 +416,7 @@ static int output_verbose(
         const void *data;
         size_t length;
         _cleanup_free_ char *cursor = NULL;
-        uint64_t realtime;
+        uint64_t realtime = 0;
         char ts[FORMAT_TIMESTAMP_MAX + 7];
         int r;
 
@@ -431,17 +432,15 @@ static int output_verbose(
                 return log_full_errno(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR, r, "Failed to get source realtime timestamp: %m");
         else {
                 _cleanup_free_ char *value = NULL;
-                size_t size;
 
-                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", &value, &size);
+                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", &value, NULL);
                 if (r < 0)
                         return r;
-                else {
-                        assert(r > 0);
-                        r = safe_atou64(value, &realtime);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse realtime timestamp: %m");
-                }
+                assert(r > 0);
+
+                r = safe_atou64(value, &realtime);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse realtime timestamp: %m");
         }
 
         if (r < 0) {
