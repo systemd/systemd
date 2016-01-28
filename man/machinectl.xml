@@ -96,7 +96,7 @@
       <listitem><para>btrfs subvolumes containing OS trees, similar to
       normal directory trees.</para></listitem>
 
-      <listitem><para>Binary "raw" disk images containing MBR or GPT
+      <listitem><para>Binary "raw" disk images containing MS-DOS or GPT
       partition tables and Linux file system partitions.</para></listitem>
 
       <listitem><para>The file system tree of the host OS itself.</para></listitem>
