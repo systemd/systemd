@@ -2538,6 +2538,7 @@ static const struct {
         { "try-restart",           "TryRestartUnit" },
         { "condrestart",           "TryRestartUnit" },
         { "reload-or-restart",     "ReloadOrRestartUnit" },
+        { "try-reload-or-restart", "ReloadOrTryRestartUnit" },
         { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
         { "condreload",            "ReloadOrTryRestartUnit" },
         { "force-reload",          "ReloadOrTryRestartUnit" }
@@ -6234,8 +6235,8 @@ static void systemctl_help(void) {
                "  try-restart NAME...             Restart one or more units if active\n"
                "  reload-or-restart NAME...       Reload one or more units if possible,\n"
                "                                  otherwise start or restart\n"
-               "  reload-or-try-restart NAME...   Reload one or more units if possible,\n"
-               "                                  otherwise restart if active\n"
+               "  try-reload-or-restart NAME...   If active, reload one or more units,\n"
+               "                                  if supported, otherwise restart\n"
                "  isolate NAME                    Start one unit and stop all others\n"
                "  kill NAME...                    Send signal to processes of a unit\n"
                "  is-active PATTERN...            Check whether units are active\n"

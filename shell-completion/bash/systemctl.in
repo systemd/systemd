@@ -170,7 +170,7 @@ _systemctl () {
           [STARTABLE_UNITS]='start'
           [STOPPABLE_UNITS]='stop condstop kill try-restart condrestart'
          [ISOLATABLE_UNITS]='isolate'
-         [RELOADABLE_UNITS]='reload condreload reload-or-try-restart force-reload'
+         [RELOADABLE_UNITS]='reload condreload try-reload-or-restart force-reload'
         [RESTARTABLE_UNITS]='restart reload-or-restart'
          [TARGET_AND_UNITS]='add-wants add-requires'
              [MASKED_UNITS]='unmask'

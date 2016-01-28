@@ -748,7 +748,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload-or-try-restart <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>try-reload-or-restart <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Reload one or more units if they support it. If not,

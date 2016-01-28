@@ -17,7 +17,7 @@
     "force-reload:Reload one or more units if possible, otherwise restart if active"
     "hibernate:Hibernate the system"
     "hybrid-sleep:Hibernate and suspend the system"
-    "reload-or-try-restart:Reload one or more units if possible, otherwise restart if active"
+    "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
     "isolate:Start one unit and stop all others"
     "kill:Send signal to processes of a unit"
     "is-active:Check whether units are active"
@@ -69,7 +69,7 @@
     # Deal with any aliases
     case $cmd in
       condrestart) cmd="try-restart";;
-      force-reload) cmd="reload-or-try-restart";;
+      force-reload) cmd="try-reload-or-restart";;
     esac
 
     if (( $#cmd )); then
@@ -230,7 +230,7 @@ done
 }
 
 # Completion functions for RELOADABLE_UNITS
-for fun in reload reload-or-try-restart force-reload ; do
+for fun in reload try-reload-or-restart force-reload ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     local _sys_active_units; _systemctl_active_units
