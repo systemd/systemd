@@ -5291,7 +5291,9 @@ systemd_resolve_SOURCES = \
 	src/resolve/resolved-dns-question.c \
 	src/resolve/resolved-dns-question.h \
 	src/resolve/dns-type.c \
-	src/resolve/dns-type.h
+	src/resolve/dns-type.h \
+	src/shared/gcrypt-util.c \
+	src/shared/gcrypt-util.h
 
 nodist_systemd_resolve_SOURCES = \
 	src/resolve/dns_type-from-name.h \

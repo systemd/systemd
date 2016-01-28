@@ -22,3 +22,4 @@
 #include <stdbool.h>
 
 void initialize_libgcrypt(bool secmem);
+int string_hashsum(const char *s, size_t len, int md_algorithm, char **out);
