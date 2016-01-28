@@ -1204,6 +1204,44 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         return s;
 }
 
+ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
+        assert(rr);
+        assert(out);
+
+        switch(rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+        case DNS_TYPE_SRV:
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME:
+        case DNS_TYPE_HINFO:
+        case DNS_TYPE_SPF:
+        case DNS_TYPE_TXT:
+        case DNS_TYPE_A:
+        case DNS_TYPE_AAAA:
+        case DNS_TYPE_SOA:
+        case DNS_TYPE_MX:
+        case DNS_TYPE_LOC:
+        case DNS_TYPE_DS:
+        case DNS_TYPE_SSHFP:
+        case DNS_TYPE_DNSKEY:
+        case DNS_TYPE_RRSIG:
+        case DNS_TYPE_NSEC:
+        case DNS_TYPE_NSEC3:
+                return -EINVAL;
+
+        case DNS_TYPE_TLSA:
+                *out = rr->tlsa.data;
+                return rr->tlsa.data_size;
+
+
+        case DNS_TYPE_OPENPGPKEY:
+        default:
+                *out = rr->generic.data;
+                return rr->generic.data_size;
+        }
+}
+
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
 
         DnsPacket packet = {
