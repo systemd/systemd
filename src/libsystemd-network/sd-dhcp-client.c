@@ -101,6 +101,7 @@ struct sd_dhcp_client {
         sd_dhcp_client_cb_t cb;
         void *userdata;
         sd_dhcp_lease *lease;
+        uint64_t start_delay;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -945,6 +946,7 @@ error:
 }
 
 static int client_initialize_time_events(sd_dhcp_client *client) {
+        uint64_t usec = 0;
         int r;
 
         assert(client);
@@ -952,10 +954,15 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
+        if (client->start_delay) {
+                sd_event_now(client->event, clock_boottime_or_monotonic(), &usec);
+                usec += client->start_delay;
+        }
+
         r = sd_event_add_time(client->event,
                               &client->timeout_resend,
                               clock_boottime_or_monotonic(),
-                              0, 0,
+                              usec, 0,
                               client_timeout_resend, client);
         if (r < 0)
                 goto error;
@@ -985,7 +992,7 @@ static int client_initialize_events(sd_dhcp_client *client,
         return 0;
 }
 
-static int client_start(sd_dhcp_client *client) {
+static int client_start_delayed(sd_dhcp_client *client) {
         int r;
 
         assert_return(client, -EINVAL);
@@ -1011,6 +1018,11 @@ static int client_start(sd_dhcp_client *client) {
                 client->start_time = now(clock_boottime_or_monotonic());
 
         return client_initialize_events(client, client_receive_message_raw);
+}
+
+static int client_start(sd_dhcp_client *client) {
+        client->start_delay = 0;
+        return client_start_delayed(client);
 }
 
 static int client_timeout_expire(sd_event_source *s, uint64_t usec,
@@ -1409,6 +1421,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                 r = client_handle_ack(client, message, len);
                 if (r >= 0) {
+                        client->start_delay = 0;
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
                         client->receive_message =
@@ -1458,11 +1471,16 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         if (r < 0)
                                 goto error;
 
-                        r = client_start(client);
+                        r = client_start_delayed(client);
                         if (r < 0)
                                 goto error;
 
-                        log_dhcp_client(client, "REBOOTED");
+                        log_dhcp_client(client, "REBOOT in %"PRIu64" secs", client->start_delay / USEC_PER_SEC);
+
+                        if (client->start_delay == 0)
+                                client->start_delay = USEC_PER_SEC;
+                        else if (client->start_delay < USEC_PER_HOUR)
+                                client->start_delay *= 2;
 
                         return 0;
                 } else if (r == -ENOMSG)
