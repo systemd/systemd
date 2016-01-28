@@ -37,6 +37,7 @@ int mmap_cache_get(
         MMapCache *m,
         int fd,
         int prot,
+        bool private,
         unsigned context,
         bool keep_always,
         uint64_t offset,

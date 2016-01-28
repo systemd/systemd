@@ -43,6 +43,7 @@ struct Window {
         bool invalidated;
         bool keep_always;
         bool in_unused;
+        bool private;
 
         int prot;
         void *ptr;
@@ -69,6 +70,11 @@ struct FileDescriptor {
         MMapCache *cache;
         int fd;
         bool sigbus;
+
+        int private_n_ref;      /* number of windows referencing the private map */
+        void *private_ptr;      /* base pointer of the private mapping */
+        off_t private_size;     /* current size of the private mapping */
+
         LIST_HEAD(Window, windows);
 };
 
@@ -119,8 +125,18 @@ static void window_unlink(Window *w) {
 
         assert(w);
 
-        if (w->ptr)
+        if (w->private && w->fd && w->fd->private_n_ref) {
+                w->fd->private_n_ref--;
+                if (!w->fd->private_n_ref) {
+                        munmap(w->fd->private_ptr, w->fd->private_size);
+                        w->fd->private_ptr = NULL;
+                }
+        }
+
+        if (!w->private && w->ptr) {
                 munmap(w->ptr, w->size);
+                w->ptr = NULL;
+        }
 
         if (w->fd)
                 LIST_REMOVE(by_fd, w->fd->windows, w);
@@ -161,7 +177,7 @@ static void window_free(Window *w) {
         free(w);
 }
 
-_pure_ static bool window_matches(Window *w, int fd, int prot, uint64_t offset, size_t size) {
+_pure_ static bool window_matches(Window *w, int fd, int prot, bool private, uint64_t offset, size_t size) {
         assert(w);
         assert(fd >= 0);
         assert(size > 0);
@@ -170,6 +186,7 @@ _pure_ static bool window_matches(Window *w, int fd, int prot, uint64_t offset, 
                 w->fd &&
                 fd == w->fd->fd &&
                 prot == w->prot &&
+                private == w->private &&
                 offset >= w->offset &&
                 offset + size <= w->offset + w->size;
 }
@@ -375,6 +392,7 @@ static int try_context(
                 MMapCache *m,
                 int fd,
                 int prot,
+                bool private,
                 unsigned context,
                 bool keep_always,
                 uint64_t offset,
@@ -398,7 +416,7 @@ static int try_context(
         if (!c->window)
                 return 0;
 
-        if (!window_matches(c->window, fd, prot, offset, size)) {
+        if (!window_matches(c->window, fd, prot, private, offset, size)) {
 
                 /* Drop the reference to the window, since it's unnecessary now */
                 context_detach_window(c);
@@ -418,6 +436,7 @@ static int find_mmap(
                 MMapCache *m,
                 int fd,
                 int prot,
+                bool private,
                 unsigned context,
                 bool keep_always,
                 uint64_t offset,
@@ -443,7 +462,7 @@ static int find_mmap(
                 return -EIO;
 
         LIST_FOREACH(by_fd, w, f->windows)
-                if (window_matches(w, fd, prot, offset, size))
+                if (window_matches(w, fd, prot, private, offset, size))
                         break;
 
         if (!w)
@@ -460,10 +479,38 @@ static int find_mmap(
         return 1;
 }
 
+static int get_mmap(MMapCache *m, void *addr, size_t size, int prot, int flags, int fd, off_t offset, void **res) {
+        void *d;
+
+        assert(m);
+        assert(fd >= 0);
+        assert(res);
+
+        for (;;) {
+                int r;
+
+                d = mmap(addr, size, prot, flags, fd, offset);
+                if (d != MAP_FAILED)
+                        break;
+                if (errno != ENOMEM)
+                        return -errno;
+
+                r = make_room(m);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOMEM;
+        }
+
+        *res = d;
+        return 0;
+}
+
 static int add_mmap(
                 MMapCache *m,
                 int fd,
                 int prot,
+                bool private,
                 unsigned context,
                 bool keep_always,
                 uint64_t offset,
@@ -473,9 +520,9 @@ static int add_mmap(
 
         uint64_t woffset, wsize;
         Context *c;
-        FileDescriptor *f;
+        FileDescriptor *f = NULL;
         Window *w;
-        void *d;
+        void *d, *private_ptr = NULL;
         int r;
 
         assert(m);
@@ -513,26 +560,43 @@ static int add_mmap(
                         wsize = PAGE_ALIGN(st->st_size - woffset);
         }
 
-        for (;;) {
-                d = mmap(NULL, wsize, prot, MAP_SHARED, fd, woffset);
-                if (d != MAP_FAILED)
-                        break;
-                if (errno != ENOMEM)
-                        return -errno;
+        if (private) {
+                        return -EINVAL;
 
-                r = make_room(m);
+                f = hashmap_get(m->fds, FD_TO_PTR(fd));
+                if (f && f->private_ptr) {
+                        if (f->private_size < st->st_size) {
+                                private_ptr = mremap(f->private_ptr, f->private_size, st->st_size, 0);
+                                if (private_ptr == MAP_FAILED)
+                                        return -ENOMEM;
+                        } else
+                                private_ptr = f->private_ptr;
+                }
+
+                if (!private_ptr) {
+                        r = get_mmap(m, NULL, st->st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0, &private_ptr);
+                        if (r < 0)
+                                return r;
+                }
+
+                d = private_ptr + woffset;
+        } else {
+                r = get_mmap(m, NULL, wsize, prot, MAP_SHARED, fd, woffset, &d);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -ENOMEM;
+        }
+
+        f = fd_add(m, fd);
+        if (!f)
+                goto outofmem;
+
+        if (private) {
+                f->private_ptr = private_ptr;
+                f->private_size = st->st_size;
         }
 
         c = context_add(m, context);
         if (!c)
-                goto outofmem;
-
-        f = fd_add(m, fd);
-        if (!f)
                 goto outofmem;
 
         w = window_add(m);
@@ -543,8 +607,12 @@ static int add_mmap(
         w->ptr = d;
         w->offset = woffset;
         w->prot = prot;
+        w->private = private;
         w->size = wsize;
         w->fd = f;
+
+        if (private)
+                f->private_n_ref++;
 
         LIST_PREPEND(by_fd, f->windows, w);
 
@@ -556,7 +624,15 @@ static int add_mmap(
         return 1;
 
 outofmem:
-        munmap(d, wsize);
+
+        if (private) {
+                if(f && f->private_ptr && !f->private_n_ref) {
+                        munmap(f->private_ptr, st->st_size);
+                        f->private_ptr = NULL;
+                }
+        } else
+                munmap(d, wsize);
+
         return -ENOMEM;
 }
 
@@ -564,6 +640,7 @@ int mmap_cache_get(
                 MMapCache *m,
                 int fd,
                 int prot,
+                bool private,
                 unsigned context,
                 bool keep_always,
                 uint64_t offset,
@@ -581,14 +658,14 @@ int mmap_cache_get(
         assert(context < MMAP_CACHE_MAX_CONTEXTS);
 
         /* Check whether the current context is the right one already */
-        r = try_context(m, fd, prot, context, keep_always, offset, size, ret);
+        r = try_context(m, fd, prot, private, context, keep_always, offset, size, ret);
         if (r != 0) {
                 m->n_hit ++;
                 return r;
         }
 
         /* Search for a matching mmap */
-        r = find_mmap(m, fd, prot, context, keep_always, offset, size, ret);
+        r = find_mmap(m, fd, prot, private, context, keep_always, offset, size, ret);
         if (r != 0) {
                 m->n_hit ++;
                 return r;
@@ -597,7 +674,7 @@ int mmap_cache_get(
         m->n_missed++;
 
         /* Create a new mmap */
-        return add_mmap(m, fd, prot, context, keep_always, offset, size, st, ret);
+        return add_mmap(m, fd, prot, private, context, keep_always, offset, size, st, ret);
 }
 
 unsigned mmap_cache_get_hit(MMapCache *m) {
