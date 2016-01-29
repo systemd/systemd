@@ -66,6 +66,9 @@ enum JobType {
          * Thus we never need to merge it with anything. */
         JOB_TRY_RESTART = _JOB_TYPE_MAX_IN_TRANSACTION, /* if running, stop and then start */
 
+        /* Similar to JOB_TRY_RESTART but collapses to JOB_RELOAD or JOB_NOP */
+        JOB_TRY_RELOAD,
+
         /* JOB_RELOAD_OR_START won't enter into a transaction and cannot result
          * from transaction merging (there's no way for JOB_RELOAD and
          * JOB_START to meet in one transaction). It can result from a merge

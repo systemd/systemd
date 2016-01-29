@@ -733,9 +733,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Restart one or more units specified on the command
             line if the units are running. This does nothing if units are not
-            running.  Note that, for compatibility with Red Hat init
-            scripts, <command>condrestart</command> is equivalent to this
-            command.</para>
+            running.</para>
+            <!-- Note that we don't document condrestart here, as that is just compatibility support, and we generally
+                 don't document that. -->
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -748,14 +748,14 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload-or-try-restart <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>try-reload-or-restart <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Reload one or more units if they support it. If not,
             restart them instead. This does nothing if the units are not
-            running. Note that, for compatibility with SysV init scripts,
-            <command>force-reload</command> is equivalent to this
-            command.</para>
+            running.</para>
+            <!-- Note that we don't document force-reload here, as that is just compatibility support, and we generally
+                 don't document that. -->
           </listitem>
         </varlistentry>
         <varlistentry>

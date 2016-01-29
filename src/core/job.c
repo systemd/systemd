@@ -405,6 +405,13 @@ JobType job_type_collapse(JobType t, Unit *u) {
 
                 return JOB_RESTART;
 
+        case JOB_TRY_RELOAD:
+                s = unit_active_state(u);
+                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
+                        return JOB_NOP;
+
+                return JOB_RELOAD;
+
         case JOB_RELOAD_OR_START:
                 s = unit_active_state(u);
                 if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
@@ -1202,6 +1209,7 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_RELOAD_OR_START] = "reload-or-start",
         [JOB_RESTART] = "restart",
         [JOB_TRY_RESTART] = "try-restart",
+        [JOB_TRY_RELOAD] = "try-reload",
         [JOB_NOP] = "nop",
 };
 

@@ -2100,7 +2100,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char *extra_
                 else if (streq(d->result, "dependency"))
                         log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", strna(d->name));
                 else if (streq(d->result, "invalid"))
-                        log_error("Job for %s invalid.", strna(d->name));
+                        log_error("%s is not active, cannot reload.", strna(d->name));
                 else if (streq(d->result, "assert"))
                         log_error("Assertion failed on job for %s.", strna(d->name));
                 else if (streq(d->result, "unsupported"))
