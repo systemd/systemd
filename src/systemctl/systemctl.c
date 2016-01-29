@@ -7340,7 +7340,8 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "restart",               2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
                 { "try-restart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
                 { "reload-or-restart",     2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "reload-or-try-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "reload-or-try-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatbility with old systemctl <= 228 */
+                { "try-reload-or-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
                 { "force-reload",          2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with SysV */
                 { "condreload",            2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with ALTLinux */
                 { "condrestart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with RH */
