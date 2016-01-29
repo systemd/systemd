@@ -593,7 +593,7 @@ static int verify_hash_table(
         if (n <= 0)
                 return 0;
 
-        r = journal_file_map_data_hash_table(f);
+        r = journal_file_map_data_hash_table(f, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to map data hash table: %m");
 
@@ -654,7 +654,7 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
         if (n <= 0)
                 return 0;
 
-        r = journal_file_map_data_hash_table(f);
+        r = journal_file_map_data_hash_table(f, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to map data hash table: %m");
 

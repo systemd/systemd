@@ -77,6 +77,7 @@ typedef struct JournalFile {
         bool compress_lz4:1;
         bool seal:1;
         bool defrag_on_close:1;
+        bool offline_fsync_in_progress:1;
 
         bool tail_entry_monotonic_valid:1;
 
@@ -88,6 +89,7 @@ typedef struct JournalFile {
         struct stat last_stat;
         usec_t last_stat_usec;
 
+        pthread_t offline_fsync_thread;
         Header *header;
         HashItem *data_hash_table;
         HashItem *field_hash_table;
@@ -142,6 +144,7 @@ int journal_file_open(
                 JournalFile **ret);
 
 int journal_file_set_offline(JournalFile *f);
+int journal_file_set_offline_finalize(JournalFile *f, bool wait);
 JournalFile* journal_file_close(JournalFile *j);
 
 int journal_file_open_reliably(
@@ -238,8 +241,8 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec);
 
-int journal_file_map_data_hash_table(JournalFile *f);
-int journal_file_map_field_hash_table(JournalFile *f);
+int journal_file_map_data_hash_table(JournalFile *f, bool force);
+int journal_file_map_field_hash_table(JournalFile *f, bool force);
 
 static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
         assert(f);
