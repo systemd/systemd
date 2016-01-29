@@ -68,6 +68,8 @@
   <refsect1>
     <title>Options</title>
 
+    <para>The following options are available in the <literal>[Resolve]</literal> section:</para>
+
     <variablelist class='network-directives'>
 
       <varlistentry>
