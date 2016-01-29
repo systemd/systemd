@@ -5304,7 +5304,7 @@ nodist_systemd_resolve_SOURCES = \
 systemd_resolve_LDADD = \
 	libshared.la
 
-rootlibexec_PROGRAMS += \
+bin_PROGRAMS += \
 	systemd-resolve
 
 tests += \
