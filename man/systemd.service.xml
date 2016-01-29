@@ -113,6 +113,16 @@
     involved with early boot or late system shutdown should disable
     this option.</para>
 
+    <para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
+    default a per-template slice unit (see
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>), named after the
+    template unit, containing all instances of the specific template. This slice is normally stopped at shutdown,
+    together with all template instances. If that is not desired, set <varname>DefaultDependencies=no</varname> in the
+    template unit, and either define your own per-template slice unit file that also sets
+    <varname>DefaultDependencies=no</varname>, or set <varname>Slice=system.slice</varname> (or another suitable slice)
+    in the template unit. Also see
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
     <para>Additional implicit dependencies may be added as result of
     execution and resource control parameters as documented in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
