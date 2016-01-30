@@ -1,0 +1,11 @@
+[Unit]
+Description=Test for SystemCallFilter in system mode with User set
+
+[Service]
+ExecStart=/bin/echo "Foo bar"
+Type=oneshot
+User=nobody
+SystemCallFilter=~read write open execve ioperm
+SystemCallFilter=ioctl
+SystemCallFilter=read write open execve
+SystemCallFilter=~ioperm
