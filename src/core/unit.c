@@ -3225,12 +3225,11 @@ int unit_patch_contexts(Unit *u) {
                         ec->working_directory_missing_ok = true;
                 }
 
-                if (u->manager->running_as == MANAGER_USER &&
-                    (ec->syscall_whitelist ||
+                if (ec->syscall_whitelist ||
                      !set_isempty(ec->syscall_filter) ||
                      !set_isempty(ec->syscall_archs) ||
                      ec->address_families_whitelist ||
-                     !set_isempty(ec->address_families)))
+                     !set_isempty(ec->address_families))
                         ec->no_new_privileges = true;
 
                 if (ec->private_devices)
