@@ -1556,6 +1556,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-systemcallfilter-failing.service \
 	test/test-execute/exec-systemcallfilter-not-failing2.service \
 	test/test-execute/exec-systemcallfilter-not-failing.service \
+	test/test-execute/exec-systemcallfilter-system-user.service \
 	test/test-execute/exec-user.service \
 	test/test-execute/exec-workingdirectory.service \
 	test/test-execute/exec-umask-0177.service \
