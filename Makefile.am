@@ -1499,6 +1499,7 @@ tests += \
 	test-af-list \
 	test-arphrd-list \
 	test-dns-domain \
+	test-resolve-tables \
 	test-install-root \
 	test-rlimit-util \
 	test-signal-util
@@ -1661,6 +1662,17 @@ test_dns_domain_SOURCES = \
 
 test_dns_domain_LDADD = \
 	libsystemd-network.la \
+	libshared.la
+
+test_resolve_tables_SOURCES = \
+	src/resolve/test-resolve-tables.c \
+	src/shared/test-tables.h \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h
+
+test_resolve_tables_LDADD = \
 	libshared.la
 
 if ENABLE_EFI
@@ -5286,6 +5298,8 @@ lib_LTLIBRARIES += \
 
 systemd_resolve_SOURCES = \
 	src/resolve/resolve-tool.c \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-dnssec.h \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-packet.h \
 	src/resolve/resolved-dns-rr.c \

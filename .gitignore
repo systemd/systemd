@@ -251,6 +251,7 @@
 /test-rbtree
 /test-replace-var
 /test-resolve
+/test-resolve-tables
 /test-ring
 /test-rlimit-util
 /test-sched-prio

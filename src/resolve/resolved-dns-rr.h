@@ -129,7 +129,7 @@ struct DnsResourceRecord {
         union {
                 struct {
                         void *data;
-                        size_t size;
+                        size_t data_size;
                 } generic, opt;
 
                 struct {
@@ -242,6 +242,15 @@ struct DnsResourceRecord {
                         size_t next_hashed_name_size;
                         Bitmap *types;
                 } nsec3;
+
+                /* https://tools.ietf.org/html/draft-ietf-dane-protocol-23 */
+                struct {
+                        uint8_t cert_usage;
+                        uint8_t selector;
+                        uint8_t matching_type;
+                        void *data;
+                        size_t data_size;
+                } tlsa;
         };
 };
 

@@ -131,8 +131,8 @@
         <listitem><para>Takes a boolean argument or
         <literal>allow-downgrade</literal>. If true all DNS lookups are
         DNSSEC-validated locally (excluding LLMNR and Multicast
-        DNS). If a response for a lookup request is detected invalid
-        this is returned as lookup failure to applications. Note that
+        DNS). If the response to a lookup request is detected to be invalid
+        a lookup failure is returned to applications. Note that
         this mode requires a DNS server that supports DNSSEC. If the
         DNS server does not properly support DNSSEC all validations
         will fail. If set to <literal>allow-downgrade</literal> DNSSEC
@@ -153,7 +153,7 @@
         is built into the resolver, additional trust anchors may be
         defined with
         <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        Trust anchors may change in regular intervals, and old trust
+        Trust anchors may change at regular intervals, and old trust
         anchors may be revoked. In such a case DNSSEC validation is
         not possible until new trust anchors are configured locally or
         the resolver software package is updated with the new root

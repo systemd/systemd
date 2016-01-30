@@ -1,11 +1,7 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
-#pragma once
-
 /***
-  This file is part of systemd.
+  This file is part of systemd
 
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,9 +17,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "resolved-manager.h"
+#include "dns-type.h"
+#include "test-tables.h"
 
-#define PRIVATE_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+int main(int argc, char **argv) {
+        test_table_sparse(dns_type, DNS_TYPE);
 
-int manager_read_resolv_conf(Manager *m);
-int manager_write_resolv_conf(Manager *m);
+        return EXIT_SUCCESS;
+}

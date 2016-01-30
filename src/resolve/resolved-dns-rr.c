@@ -25,11 +25,13 @@
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "hexdecoct.h"
+#include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
         DnsResourceKey *k;
@@ -486,6 +488,11 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 case DNS_TYPE_AAAA:
                         break;
 
+                case DNS_TYPE_TLSA:
+                        free(rr->tlsa.data);
+                        break;
+
+                case DNS_TYPE_OPENPGPKEY:
                 default:
                         free(rr->generic.data);
                 }
@@ -563,6 +570,10 @@ int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const u
 
         return 0;
 }
+
+#define FIELD_EQUAL(a, b, field) \
+        ((a).field ## _size == (b).field ## _size &&  \
+         memcmp((a).field, (b).field, (a).field ## _size) == 0)
 
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
         int r;
@@ -645,36 +656,30 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                 return a->ds.key_tag == b->ds.key_tag &&
                        a->ds.algorithm == b->ds.algorithm &&
                        a->ds.digest_type == b->ds.digest_type &&
-                       a->ds.digest_size == b->ds.digest_size &&
-                       memcmp(a->ds.digest, b->ds.digest, a->ds.digest_size) == 0;
+                       FIELD_EQUAL(a->ds, b->ds, digest);
 
         case DNS_TYPE_SSHFP:
                 return a->sshfp.algorithm == b->sshfp.algorithm &&
                        a->sshfp.fptype == b->sshfp.fptype &&
-                       a->sshfp.fingerprint_size == b->sshfp.fingerprint_size &&
-                       memcmp(a->sshfp.fingerprint, b->sshfp.fingerprint, a->sshfp.fingerprint_size) == 0;
+                       FIELD_EQUAL(a->sshfp, b->sshfp, fingerprint);
 
         case DNS_TYPE_DNSKEY:
                 return a->dnskey.flags == b->dnskey.flags &&
                        a->dnskey.protocol == b->dnskey.protocol &&
                        a->dnskey.algorithm == b->dnskey.algorithm &&
-                       a->dnskey.key_size == b->dnskey.key_size &&
-                       memcmp(a->dnskey.key, b->dnskey.key, a->dnskey.key_size) == 0;
+                       FIELD_EQUAL(a->dnskey, b->dnskey, key);
 
         case DNS_TYPE_RRSIG:
                 /* do the fast comparisons first */
-                if (a->rrsig.type_covered != b->rrsig.type_covered ||
-                    a->rrsig.algorithm != b->rrsig.algorithm ||
-                    a->rrsig.labels != b->rrsig.labels ||
-                    a->rrsig.original_ttl != b->rrsig.original_ttl ||
-                    a->rrsig.expiration != b->rrsig.expiration ||
-                    a->rrsig.inception != b->rrsig.inception ||
-                    a->rrsig.key_tag != b->rrsig.key_tag ||
-                    a->rrsig.signature_size != b->rrsig.signature_size ||
-                    memcmp(a->rrsig.signature, b->rrsig.signature, a->rrsig.signature_size) != 0)
-                        return false;
-
-                return dns_name_equal(a->rrsig.signer, b->rrsig.signer);
+                return a->rrsig.type_covered == b->rrsig.type_covered &&
+                       a->rrsig.algorithm == b->rrsig.algorithm &&
+                       a->rrsig.labels == b->rrsig.labels &&
+                       a->rrsig.original_ttl == b->rrsig.original_ttl &&
+                       a->rrsig.expiration == b->rrsig.expiration &&
+                       a->rrsig.inception == b->rrsig.inception &&
+                       a->rrsig.key_tag == b->rrsig.key_tag &&
+                       FIELD_EQUAL(a->rrsig, b->rrsig, signature) &&
+                       dns_name_equal(a->rrsig.signer, b->rrsig.signer);
 
         case DNS_TYPE_NSEC:
                 return dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name) &&
@@ -682,16 +687,20 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
         case DNS_TYPE_NSEC3:
                 return a->nsec3.algorithm == b->nsec3.algorithm &&
-                    a->nsec3.flags == b->nsec3.flags &&
-                    a->nsec3.iterations == b->nsec3.iterations &&
-                    a->nsec3.salt_size == b->nsec3.salt_size &&
-                    memcmp(a->nsec3.salt, b->nsec3.salt, a->nsec3.salt_size) == 0 &&
-                    memcmp(a->nsec3.next_hashed_name, b->nsec3.next_hashed_name, a->nsec3.next_hashed_name_size) == 0 &&
-                    bitmap_equal(a->nsec3.types, b->nsec3.types);
+                       a->nsec3.flags == b->nsec3.flags &&
+                       a->nsec3.iterations == b->nsec3.iterations &&
+                       FIELD_EQUAL(a->nsec3, b->nsec3, salt) &&
+                       FIELD_EQUAL(a->nsec3, b->nsec3, next_hashed_name) &&
+                       bitmap_equal(a->nsec3.types, b->nsec3.types);
+
+        case DNS_TYPE_TLSA:
+                return a->tlsa.cert_usage == b->tlsa.cert_usage &&
+                       a->tlsa.selector == b->tlsa.selector &&
+                       a->tlsa.matching_type == b->tlsa.matching_type &&
+                       FIELD_EQUAL(a->tlsa, b->tlsa, data);
 
         default:
-                return a->generic.size == b->generic.size &&
-                        memcmp(a->generic.data, b->generic.data, a->generic.size) == 0;
+                return FIELD_EQUAL(a->generic, b->generic, data);
         }
 }
 
@@ -958,23 +967,47 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
+                char *ss;
+                int n, n1;
+                uint16_t key_tag;
+
+                key_tag = dnssec_keytag(rr, true);
 
                 r = dnssec_algorithm_to_string_alloc(rr->dnskey.algorithm, &alg);
                 if (r < 0)
                         return NULL;
 
-                t = base64mem(rr->dnskey.key, rr->dnskey.key_size);
-                if (!t)
-                        return NULL;
-
-                r = asprintf(&s, "%s %u %u %s %s",
+                r = asprintf(&s, "%s %n%u %u %s %n",
                              k,
+                             &n1,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
                              alg,
-                             t);
+                             &n);
                 if (r < 0)
                         return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->dnskey.key, rr->dnskey.key_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+
+                r = asprintf(&ss, "%s\n"
+                             "%*s-- Flags:%s%s%s\n"
+                             "%*s-- Key tag: %u",
+                             s,
+                             n1, "",
+                             rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
+                             rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
+                             rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "",
+                             n1, "",
+                             key_tag);
+                if (r < 0)
+                        return NULL;
+                free(s);
+                s = ss;
+
                 break;
         }
 
@@ -982,15 +1015,12 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 _cleanup_free_ char *alg = NULL;
                 char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
                 const char *type;
+                int n;
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
 
                 r = dnssec_algorithm_to_string_alloc(rr->rrsig.algorithm, &alg);
                 if (r < 0)
-                        return NULL;
-
-                t = base64mem(rr->rrsig.signature, rr->rrsig.signature_size);
-                if (!t)
                         return NULL;
 
                 r = format_timestamp_dns(expiration, sizeof(expiration), rr->rrsig.expiration);
@@ -1004,7 +1034,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s %s",
+                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s %n",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
@@ -1015,9 +1045,16 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                              inception,
                              rr->rrsig.key_tag,
                              rr->rrsig.signer,
-                             t);
+                             &n);
                 if (r < 0)
                         return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->rrsig.signature, rr->rrsig.signature_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+
                 break;
         }
 
@@ -1065,13 +1102,70 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
         }
 
+        case DNS_TYPE_TLSA: {
+                const char *cert_usage, *selector, *matching_type;
+                char *ss;
+                int n;
+
+                cert_usage = tlsa_cert_usage_to_string(rr->tlsa.cert_usage);
+                selector = tlsa_selector_to_string(rr->tlsa.selector);
+                matching_type = tlsa_matching_type_to_string(rr->tlsa.matching_type);
+
+                r = asprintf(&s, "%s %u %u %u %n",
+                             k,
+                             rr->tlsa.cert_usage,
+                             rr->tlsa.selector,
+                             rr->tlsa.matching_type,
+                             &n);
+                if (r < 0)
+                        return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->tlsa.data, rr->tlsa.data_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+
+                r = asprintf(&ss, "%s\n"
+                             "%*s-- Cert. usage: %s\n"
+                             "%*s-- Selector: %s\n"
+                             "%*s-- Matching type: %s",
+                             s,
+                             n - 6, "", cert_usage,
+                             n - 6, "", selector,
+                             n - 6, "", matching_type);
+                if (r < 0)
+                        return NULL;
+                free(s);
+                s = ss;
+
+                break;
+        }
+
+        case DNS_TYPE_OPENPGPKEY: {
+                int n;
+
+                r = asprintf(&s, "%s %n",
+                             k,
+                             &n);
+                if (r < 0)
+                        return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->generic.data, rr->generic.data_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+                break;
+        }
+
         default:
-                t = hexmem(rr->generic.data, rr->generic.size);
+                t = hexmem(rr->generic.data, rr->generic.data_size);
                 if (!t)
                         return NULL;
 
                 /* Format as documented in RFC 3597, Section 5 */
-                r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.size, t);
+                r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.data_size, t);
                 if (r < 0)
                         return NULL;
                 break;
@@ -1331,8 +1425,16 @@ static void dns_resource_record_hash_func(const void *i, struct siphash *state) 
                 /* FIXME: We leave the bitmaps out */
                 break;
 
+        case DNS_TYPE_TLSA:
+                siphash24_compress(&rr->tlsa.cert_usage, sizeof(rr->tlsa.cert_usage), state);
+                siphash24_compress(&rr->tlsa.selector, sizeof(rr->tlsa.selector), state);
+                siphash24_compress(&rr->tlsa.matching_type, sizeof(rr->tlsa.matching_type), state);
+                siphash24_compress(&rr->tlsa.data, rr->tlsa.data_size, state);
+                break;
+
+        case DNS_TYPE_OPENPGPKEY:
         default:
-                siphash24_compress(rr->generic.data, rr->generic.size, state);
+                siphash24_compress(rr->generic.data, rr->generic.data_size, state);
                 break;
         }
 }

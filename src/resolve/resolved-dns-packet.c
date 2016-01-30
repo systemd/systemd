@@ -1058,11 +1058,28 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
                 break;
 
+        case DNS_TYPE_TLSA:
+                r = dns_packet_append_uint8(p, rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, NULL);
+                break;
+
         case DNS_TYPE_OPT:
+        case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
-                r = dns_packet_append_blob(p, rr->generic.data, rr->generic.size, NULL);
+                r = dns_packet_append_blob(p, rr->generic.data, rr->generic.data_size, NULL);
                 break;
         }
         if (r < 0)
@@ -1976,10 +1993,36 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 break;
         }
 
+        case DNS_TYPE_TLSA:
+                r = dns_packet_read_uint8(p, &rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_memdup(p, rdlength - 3,
+                                           &rr->tlsa.data, &rr->tlsa.data_size,
+                                           NULL);
+                if (rr->tlsa.data_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                break;
+
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
+        case DNS_TYPE_OPENPGPKEY:
         default:
         unparseable:
-                r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.size, NULL);
+                r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.data_size, NULL);
                 if (r < 0)
                         goto fail;
                 break;
@@ -2021,7 +2064,7 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
                 return false;
 
         p = rr->opt.data;
-        l = rr->opt.size;
+        l = rr->opt.data_size;
         while (l > 0) {
                 uint16_t option_code, option_length;
 
