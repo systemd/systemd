@@ -1302,7 +1302,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
         return !r;
 }
 
-static void dns_resource_record_hash_func(const void *i, struct siphash *state) {
+void dns_resource_record_hash_func(const void *i, struct siphash *state) {
         const DnsResourceRecord *rr = i;
 
         assert(rr);
