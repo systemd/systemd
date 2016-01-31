@@ -94,7 +94,6 @@ typedef enum DnssecNsecResult {
 
 int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl);
 
-int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name, const char *zone, bool *authenticated);
 
 int dnssec_test_positive_wildcard(DnsAnswer *a, const char *name, const char *source, const char *zone, bool *authenticated);
 

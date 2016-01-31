@@ -1882,7 +1882,7 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
         return 0;
 }
 
-int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name, const char *zone, bool *authenticated) {
+static int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name, const char *zone, bool *authenticated) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
         int r;
