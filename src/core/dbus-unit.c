@@ -460,8 +460,8 @@ int bus_unit_method_start_generic(
 
         r = mac_selinux_unit_access_check(
                         u, message,
-                        (job_type == JOB_START || job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) ? "start" :
-                        job_type == JOB_STOP ? "stop" : "reload", error);
+                        job_type_to_access_method(job_type),
+                        error);
         if (r < 0)
                 return r;
 
@@ -995,8 +995,8 @@ int bus_unit_queue_job(
 
         r = mac_selinux_unit_access_check(
                         u, message,
-                        (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
-                        type == JOB_STOP ? "stop" : "reload", error);
+                        job_type_to_access_method(type),
+                        error);
         if (r < 0)
                 return r;
 
