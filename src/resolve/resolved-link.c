@@ -515,14 +515,17 @@ int link_update_monitor(Link *l) {
         return 0;
 }
 
-bool link_relevant(Link *l, int family, bool multicast) {
+bool link_relevant(Link *l, int family, bool local_multicast) {
         _cleanup_free_ char *state = NULL;
         LinkAddress *a;
 
         assert(l);
 
-        /* A link is relevant for multicast traffic if it isn't a loopback or pointopoint device, has a link beat, can
-         * do multicast and has at least one relevant IP address */
+        /* A link is relevant for local multicast traffic if it isn't a loopback or pointopoint device, has a link
+         * beat, can do multicast and has at least one link-local (or better) IP address.
+         *
+         * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and has at
+         * least one routable address.*/
 
         if (l->flags & (IFF_LOOPBACK|IFF_DORMANT))
                 return false;
@@ -530,7 +533,7 @@ bool link_relevant(Link *l, int family, bool multicast) {
         if ((l->flags & (IFF_UP|IFF_LOWER_UP)) != (IFF_UP|IFF_LOWER_UP))
                 return false;
 
-        if (multicast) {
+        if (local_multicast) {
                 if (l->flags & IFF_POINTOPOINT)
                         return false;
 
@@ -548,7 +551,7 @@ bool link_relevant(Link *l, int family, bool multicast) {
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
-                if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a))
+                if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a, local_multicast))
                         return true;
 
         return false;
@@ -692,7 +695,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         if (a->family == AF_INET) {
 
                 if (!force_remove &&
-                    link_address_relevant(a) &&
+                    link_address_relevant(a, true) &&
                     a->link->llmnr_ipv4_scope &&
                     a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
                     a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
@@ -749,7 +752,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         if (a->family == AF_INET6) {
 
                 if (!force_remove &&
-                    link_address_relevant(a) &&
+                    link_address_relevant(a, true) &&
                     a->link->llmnr_ipv6_scope &&
                     a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
                     a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
@@ -826,13 +829,13 @@ int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
         return 0;
 }
 
-bool link_address_relevant(LinkAddress *a) {
+bool link_address_relevant(LinkAddress *a, bool local_multicast) {
         assert(a);
 
         if (a->flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE))
                 return false;
 
-        if (IN_SET(a->scope, RT_SCOPE_HOST, RT_SCOPE_NOWHERE))
+        if (a->scope >= (local_multicast ? RT_SCOPE_HOST : RT_SCOPE_LINK))
                 return false;
 
         return true;

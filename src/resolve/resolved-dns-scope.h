@@ -87,7 +87,7 @@ int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *add
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
-int dns_scope_good_key(DnsScope *s, DnsResourceKey *key);
+bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key);
 
 DnsServer *dns_scope_get_dns_server(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
