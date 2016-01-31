@@ -48,19 +48,6 @@
  *            Normal RR → RRSIG/DNSKEY+ → DS → RRSIG/DNSKEY+ → DS → ... → DS → RRSIG/DNSKEY+ → DS
  */
 
-static void initialize_libgcrypt(void) {
-        const char *p;
-
-        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
-                return;
-
-        p = gcry_check_version("1.4.5");
-        assert(p);
-
-        gcry_control(GCRYCTL_DISABLE_SECMEM);
-        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-}
-
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         const uint8_t *p;
         uint32_t sum, f;
@@ -86,6 +73,68 @@ uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         sum += (sum >> 16) & UINT32_C(0xFFFF);
 
         return sum & UINT32_C(0xFFFF);
+}
+
+int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
+        size_t c = 0;
+        int r;
+
+        /* Converts the specified hostname into DNSSEC canonicalized
+         * form. */
+
+        if (buffer_max < 2)
+                return -ENOBUFS;
+
+        for (;;) {
+                r = dns_label_unescape(&n, buffer, buffer_max);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (buffer_max < (size_t) r + 2)
+                        return -ENOBUFS;
+
+                /* The DNSSEC canonical form is not clear on what to
+                 * do with dots appearing in labels, the way DNS-SD
+                 * does it. Refuse it for now. */
+
+                if (memchr(buffer, '.', r))
+                        return -EINVAL;
+
+                ascii_strlower_n(buffer, (size_t) r);
+                buffer[r] = '.';
+
+                buffer += r + 1;
+                c += r + 1;
+
+                buffer_max -= r + 1;
+        }
+
+        if (c <= 0) {
+                /* Not even a single label: this is the root domain name */
+
+                assert(buffer_max > 2);
+                buffer[0] = '.';
+                buffer[1] = 0;
+
+                return 1;
+        }
+
+        return (int) c;
+}
+
+static void initialize_libgcrypt(void) {
+        const char *p;
+
+        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
+                return;
+
+        p = gcry_check_version("1.4.5");
+        assert(p);
+
+        gcry_control(GCRYCTL_DISABLE_SECMEM);
+        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
 static int rr_compare(const void *a, const void *b) {
@@ -969,55 +1018,6 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         }
 
         return 0;
-}
-
-int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
-        size_t c = 0;
-        int r;
-
-        /* Converts the specified hostname into DNSSEC canonicalized
-         * form. */
-
-        if (buffer_max < 2)
-                return -ENOBUFS;
-
-        for (;;) {
-                r = dns_label_unescape(&n, buffer, buffer_max);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                if (buffer_max < (size_t) r + 2)
-                        return -ENOBUFS;
-
-                /* The DNSSEC canonical form is not clear on what to
-                 * do with dots appearing in labels, the way DNS-SD
-                 * does it. Refuse it for now. */
-
-                if (memchr(buffer, '.', r))
-                        return -EINVAL;
-
-                ascii_strlower_n(buffer, (size_t) r);
-                buffer[r] = '.';
-
-                buffer += r + 1;
-                c += r + 1;
-
-                buffer_max -= r + 1;
-        }
-
-        if (c <= 0) {
-                /* Not even a single label: this is the root domain name */
-
-                assert(buffer_max > 2);
-                buffer[0] = '.';
-                buffer[1] = 0;
-
-                return 1;
-        }
-
-        return (int) c;
 }
 
 static int digest_to_gcrypt_md(uint8_t algorithm) {
