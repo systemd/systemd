@@ -327,6 +327,10 @@ static int earliest_time_prioq_compare(const void *a, const void *b) {
         return 0;
 }
 
+static usec_t time_event_source_latest(const sd_event_source *s) {
+        return usec_add(s->time.next, s->time.accuracy);
+}
+
 static int latest_time_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
 
@@ -346,9 +350,9 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Order by time */
-        if (x->time.next + x->time.accuracy < y->time.next + y->time.accuracy)
+        if (time_event_source_latest(x) < time_event_source_latest(y))
                 return -1;
-        if (x->time.next + x->time.accuracy > y->time.next + y->time.accuracy)
+        if (time_event_source_latest(x) > time_event_source_latest(y))
                 return 1;
 
         return 0;
@@ -1995,7 +1999,7 @@ static int event_arm_timer(
         b = prioq_peek(d->latest);
         assert_se(b && b->enabled != SD_EVENT_OFF);
 
-        t = sleep_between(e, a->time.next, b->time.next + b->time.accuracy);
+        t = sleep_between(e, a->time.next, time_event_source_latest(b));
         if (d->next == t)
                 return 0;
 
