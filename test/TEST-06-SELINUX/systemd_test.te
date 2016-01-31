@@ -1,0 +1,50 @@
+policy_module(systemd_test, 0.0.1)
+
+# declarations
+attribute systemd_test_domain_type;
+
+systemd_test_base_template(systemd_test)
+systemd_test_base_template(systemd_test_status)
+systemd_test_base_template(systemd_test_start)
+systemd_test_base_template(systemd_test_stop)
+systemd_test_base_template(systemd_test_reload)
+
+# systemd_test_domain_type
+
+require {
+	role system_r;
+	role unconfined_r;
+	type bin_t;
+	type initrc_t;
+	type systemd_systemctl_exec_t;
+	type unconfined_service_t;
+}
+
+role system_r types systemd_test_domain_type;
+role unconfined_r types systemd_test_domain_type;
+
+allow systemd_test_domain_type bin_t: file entrypoint;
+allow systemd_test_domain_type systemd_systemctl_exec_t: file entrypoint;
+allow initrc_t systemd_test_domain_type: process transition;
+allow unconfined_service_t systemd_test_domain_type: process transition;
+corecmd_exec_bin(systemd_test_domain_type)
+init_signal_script(systemd_test_domain_type)
+init_sigchld_script(systemd_test_domain_type)
+systemd_exec_systemctl(systemd_test_domain_type)
+userdom_use_user_ttys(systemd_test_domain_type)
+userdom_use_user_ptys(systemd_test_domain_type)
+
+optional_policy(`
+	dbus_system_bus_client(systemd_test_domain_type)
+	init_dbus_chat(systemd_test_domain_type)
+')
+
+# systemd_test_*_t
+require {
+	type systemd_unit_file_t;
+}
+
+allow systemd_test_status_t systemd_unit_file_t: service { status };
+allow systemd_test_start_t systemd_unit_file_t: service { start };
+allow systemd_test_stop_t systemd_unit_file_t: service { stop };
+allow systemd_test_reload_t systemd_unit_file_t: service { reload };
