@@ -39,6 +39,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "dirent-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -249,12 +250,9 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 return log_error_errno(errno, "Failed to read \"%s\": %m", p);
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, break) {
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *v = NULL;
-
-                if (de->d_name[0] == '.')
-                        continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
@@ -614,11 +612,8 @@ static int install_binaries(const char *esp_path, bool force) {
         if (!d)
                 return log_error_errno(errno, "Failed to open \""BOOTLIBDIR"\": %m");
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, break) {
                 int k;
-
-                if (de->d_name[0] == '.')
-                        continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
@@ -797,12 +792,9 @@ static int remove_boot_efi(const char *esp_path) {
                 return log_error_errno(errno, "Failed to open directory \"%s\": %m", p);
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, break) {
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *v = NULL;
-
-                if (de->d_name[0] == '.')
-                        continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
