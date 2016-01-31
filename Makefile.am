@@ -5184,7 +5184,6 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_RESOLVED
-if HAVE_GCRYPT
 
 systemd_resolved_SOURCES = \
 	src/resolve/resolved.c \
@@ -5354,7 +5353,6 @@ test_dnssec_complex_SOURCES = \
 test_dnssec_complex_LDADD = \
 	libshared.la
 
-endif
 endif
 
 gperf_txt_sources += \

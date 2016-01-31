@@ -19,7 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_GCRYPT
 #include <gcrypt.h>
+#endif
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -123,6 +125,8 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
 
         return (int) c;
 }
+
+#ifdef HAVE_GCRYPT
 
 static void initialize_libgcrypt(void) {
         const char *p;
@@ -2113,6 +2117,77 @@ int dnssec_test_positive_wildcard(
         else
                 return dnssec_test_positive_wildcard_nsec(answer, name, source, zone, authenticated);
 }
+
+#else
+
+int dnssec_verify_rrset(
+                DnsAnswer *a,
+                const DnsResourceKey *key,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey,
+                usec_t realtime,
+                DnssecResult *result) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_verify_rrset_search(
+                DnsAnswer *a,
+                const DnsResourceKey *key,
+                DnsAnswer *validated_dnskeys,
+                usec_t realtime,
+                DnssecResult *result,
+                DnsResourceRecord **ret_rrsig) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_test_positive_wildcard(
+                DnsAnswer *answer,
+                const char *name,
+                const char *source,
+                const char *zone,
+                bool *authenticated) {
+
+        return -EOPNOTSUPP;
+}
+
+#endif
 
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_VALIDATED] = "validated",
