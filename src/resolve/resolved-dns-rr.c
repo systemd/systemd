@@ -24,6 +24,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
+#include "escape.h"
 #include "hexdecoct.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
@@ -492,6 +493,11 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->tlsa.data);
                         break;
 
+                case DNS_TYPE_CAA:
+                        free(rr->caa.tag);
+                        free(rr->caa.value);
+                        break;
+
                 case DNS_TYPE_OPENPGPKEY:
                 default:
                         free(rr->generic.data);
@@ -699,6 +705,12 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->tlsa.matching_type == b->tlsa.matching_type &&
                        FIELD_EQUAL(a->tlsa, b->tlsa, data);
 
+        case DNS_TYPE_CAA:
+                return a->caa.flags == b->caa.flags &&
+                       streq(a->caa.tag, b->caa.tag) &&
+                       FIELD_EQUAL(a->caa, b->caa, value);
+
+        case DNS_TYPE_OPENPGPKEY:
         default:
                 return FIELD_EQUAL(a->generic, b->generic, data);
         }
@@ -1142,6 +1154,24 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
         }
 
+        case DNS_TYPE_CAA: {
+                _cleanup_free_ char *value;
+
+                value = octescape(rr->caa.value, rr->caa.value_size);
+                if (!value)
+                        return NULL;
+
+                r = asprintf(&s, "%s %u %s \"%s\"",
+                             k,
+                             rr->caa.flags,
+                             rr->caa.tag,
+                             value);
+                if (r < 0)
+                        return NULL;
+
+                break;
+        }
+
         case DNS_TYPE_OPENPGPKEY: {
                 int n;
 
@@ -1430,6 +1460,12 @@ void dns_resource_record_hash_func(const void *i, struct siphash *state) {
                 siphash24_compress(&rr->tlsa.selector, sizeof(rr->tlsa.selector), state);
                 siphash24_compress(&rr->tlsa.matching_type, sizeof(rr->tlsa.matching_type), state);
                 siphash24_compress(rr->tlsa.data, rr->tlsa.data_size, state);
+                break;
+
+        case DNS_TYPE_CAA:
+                siphash24_compress(&rr->caa.flags, sizeof(rr->caa.flags), state);
+                string_hash_func(rr->caa.tag, state);
+                siphash24_compress(rr->caa.value, rr->caa.value_size, state);
                 break;
 
         case DNS_TYPE_OPENPGPKEY:

@@ -1087,6 +1087,18 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, NULL);
                 break;
 
+        case DNS_TYPE_CAA:
+                r = dns_packet_append_uint8(p, rr->caa.flags, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_string(p, rr->caa.tag, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->caa.value, rr->caa.value_size, NULL);
+                break;
+
         case DNS_TYPE_OPT:
         case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparseable */
@@ -1965,6 +1977,21 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                         /* the accepted size depends on the algorithm, but for now
                            just ensure that the value is greater than zero */
                         return -EBADMSG;
+
+                break;
+
+        case DNS_TYPE_CAA:
+                r = dns_packet_read_uint8(p, &rr->caa.flags, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_string(p, &rr->caa.tag, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_memdup(p,
+                                           rdlength + offset - p->rindex,
+                                           &rr->caa.value, &rr->caa.value_size, NULL);
 
                 break;
 

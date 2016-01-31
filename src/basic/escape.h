@@ -50,6 +50,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit);
 
 char *xescape(const char *s, const char *bad);
+char *octescape(const char *s, size_t len);
 
 char *shell_escape(const char *s, const char *bad);
 char *shell_maybe_quote(const char *s);
