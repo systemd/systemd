@@ -114,41 +114,28 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_event_add_time()</function> adds a new timer
-    event source to an event loop. The event loop object is specified
-    in the <parameter>event</parameter> parameter, the event source
-    object is returned in the <parameter>source</parameter>
-    parameter. The <parameter>clock</parameter> parameter takes a
-    clock identifier, one of <constant>CLOCK_REALTIME</constant>,
-    <constant>CLOCK_MONOTONIC</constant>,
-    <constant>CLOCK_BOOTTIME</constant>,
-    <constant>CLOCK_REALTIME_ALARM</constant>, or
-    <constant>CLOCK_BOOTTIME_ALARM</constant>. See
-    <citerefentry><refentrytitle>timerfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    for details regarding the various types of clocks. The
-    <parameter>usec</parameter> parameter specifies the earliest time,
-    in microseconds (µs), relative to the clock's epoch, when
-    the timer shall be triggered. If a time already in the past is
-    specified (including <constant>0</constant>), this timer source
-    "fires" immediately and is ready to be dispatched. The
-    <parameter>accuracy</parameter> parameter specifies an additional
-    accuracy value in µs specifying how much the timer event may be
-    delayed. Use <constant>0</constant> to select the default accuracy
-    (250ms). Use 1µs for maximum accuracy. Consider specifying
-    60000000µs (1min) or larger for long-running events that may be
-    delayed substantially. Picking higher accuracy values allows the
-    system to coalesce timer events more aggressively, improving
-    power efficiency. The <parameter>handler</parameter> parameter
-    shall reference a function to call when the timer elapses. The
-    handler function will be passed the
-    <parameter>userdata</parameter> pointer, which may be chosen
-    freely by the caller. The handler is also passed the configured
-    trigger time, even if it is actually called
-    slightly later, subject to the specified accuracy value,
-    the kernel timer slack (see
-    <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>),
-    and additional scheduling latencies. To query the actual time the
-    handler was called use
+    <para><function>sd_event_add_time()</function> adds a new timer event source to an event loop. The event loop
+    object is specified in the <parameter>event</parameter> parameter, the event source object is returned in the
+    <parameter>source</parameter> parameter. The <parameter>clock</parameter> parameter takes a clock identifier, one
+    of <constant>CLOCK_REALTIME</constant>, <constant>CLOCK_MONOTONIC</constant>, <constant>CLOCK_BOOTTIME</constant>,
+    <constant>CLOCK_REALTIME_ALARM</constant>, or <constant>CLOCK_BOOTTIME_ALARM</constant>. See
+    <citerefentry><refentrytitle>timerfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details
+    regarding the various types of clocks. The <parameter>usec</parameter> parameter specifies the earliest time, in
+    microseconds (µs), relative to the clock's epoch, when the timer shall be triggered. If a time already in the past
+    is specified (including <constant>0</constant>), this timer source "fires" immediately and is ready to be
+    dispatched. If the paramater is specified as <constant>UINT64_MAX</constant> the timer event will never elapse,
+    which may be used as an alternative to explicitly disabling a timer event source with
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+    <parameter>accuracy</parameter> parameter specifies an additional accuracy value in µs specifying how much the
+    timer event may be delayed. Use <constant>0</constant> to select the default accuracy (250ms). Use 1µs for maximum
+    accuracy. Consider specifying 60000000µs (1min) or larger for long-running events that may be delayed
+    substantially. Picking higher accuracy values allows the system to coalesce timer events more aggressively,
+    improving power efficiency. The <parameter>handler</parameter> parameter shall reference a function to call when
+    the timer elapses. The handler function will be passed the <parameter>userdata</parameter> pointer, which may be
+    chosen freely by the caller. The handler is also passed the configured trigger time, even if it is actually called
+    slightly later, subject to the specified accuracy value, the kernel timer slack (see
+    <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), and additional
+    scheduling latencies. To query the actual time the handler was called use
     <citerefentry><refentrytitle>sd_event_now</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>By default, the timer will elapse once
