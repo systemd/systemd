@@ -1429,7 +1429,7 @@ void dns_resource_record_hash_func(const void *i, struct siphash *state) {
                 siphash24_compress(&rr->tlsa.cert_usage, sizeof(rr->tlsa.cert_usage), state);
                 siphash24_compress(&rr->tlsa.selector, sizeof(rr->tlsa.selector), state);
                 siphash24_compress(&rr->tlsa.matching_type, sizeof(rr->tlsa.matching_type), state);
-                siphash24_compress(&rr->tlsa.data, rr->tlsa.data_size, state);
+                siphash24_compress(rr->tlsa.data, rr->tlsa.data_size, state);
                 break;
 
         case DNS_TYPE_OPENPGPKEY:
