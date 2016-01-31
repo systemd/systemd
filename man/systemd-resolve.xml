@@ -233,6 +233,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--raw</option><optional>=data|packet</optional></term>
+
+        <listitem><para>Dump the answer as binary data. If there is no argument or if the argument is
+        <literal>data</literal>, the payload of the packat is exported. If the argument is
+        <literal>packet</literal>, the whole packet is dumped in wire format, prefixed by
+        length specified as a little-endian 64-bit number. This format allows multiple packets
+        to be dumped an unambigously parsed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--legend=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), column headers and meta information about the
