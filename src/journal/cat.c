@@ -82,16 +82,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't':
-                        free(arg_identifier);
-                        if (isempty(optarg))
-                                arg_identifier = NULL;
-                        else {
-                                arg_identifier = strdup(optarg);
-                                if (!arg_identifier)
-                                        return log_oom();
-                        }
+                        if (!isempty(optarg))
+                                arg_identifier = optarg;
                         break;
-
                 case 'p':
                         arg_priority = log_level_from_string(optarg);
                         if (arg_priority < 0) {
