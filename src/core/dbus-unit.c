@@ -458,7 +458,10 @@ int bus_unit_method_start_generic(
         assert(u);
         assert(job_type >= 0 && job_type < _JOB_TYPE_MAX);
 
-        r = mac_selinux_unit_access_check(u, message, job_type == JOB_STOP ? "stop" : "start", error);
+        r = mac_selinux_unit_access_check(
+                        u, message,
+                        (job_type == JOB_START || job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) ? "start" :
+                        job_type == JOB_STOP ? "stop" : "reload", error);
         if (r < 0)
                 return r;
 
