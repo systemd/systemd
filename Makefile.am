@@ -5324,7 +5324,9 @@ EXTRA_DIST += \
 	src/resolve/test-data/root.pkts \
 	src/resolve/test-data/sw1a1aa-sw1a2aa-sw1a2ab-sw1a2ac.find.me.uk.pkts \
 	src/resolve/test-data/teamits.com.pkts \
-	src/resolve/test-data/zbyszek@fedoraproject.org.pkts
+	src/resolve/test-data/zbyszek@fedoraproject.org.pkts \
+	src/resolve/test-data/_443._tcp.fedoraproject.org.pkts \
+	src/resolve/test-data/kyhwana.org.pkts
 
 test_dnssec_SOURCES = \
 	src/resolve/test-dnssec.c \
