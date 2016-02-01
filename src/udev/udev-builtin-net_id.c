@@ -36,7 +36,7 @@
  *
  * Type of names:
  *   b<number>                             -- BCMA bus core number
- *   ccw<name>                             -- CCW bus group name
+ *   c<bus_id>                             -- CCW bus group name, without leading zeros [s390]
  *   o<index>[d<dev_port>]                 -- on-board device index number
  *   s<slot>[f<function>][d<dev_port>]     -- hotplug slot index number
  *   x<MAC>                                -- MAC address
@@ -430,8 +430,15 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         if (!bus_id_len || bus_id_len < 8 || bus_id_len > 9)
                 return -EINVAL;
 
+        /* Strip leading zeros from the bus id for aesthetic purposes. This
+         * keeps the ccw names stable, yet much shorter in general case of
+         * bus_id 0.0.0600 -> 600. This is similar to e.g. how PCI domain is
+         * not prepended when it is zero.
+         */
+        bus_id += strspn(bus_id, ".0");
+
         /* Store the CCW bus-ID for use as network device name */
-        rc = snprintf(names->ccw_group, sizeof(names->ccw_group), "ccw%s", bus_id);
+        rc = snprintf(names->ccw_group, sizeof(names->ccw_group), "c%s", bus_id);
         if (rc >= 0 && rc < (int)sizeof(names->ccw_group))
                 names->type = NET_CCWGROUP;
         return 0;
