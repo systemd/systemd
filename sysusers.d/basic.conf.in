@@ -19,7 +19,6 @@ g wheel   -     -            -
 
 # Access to certain kernel and userspace facilities
 g kmem    -     -            -
-g lock    -     -            -
 g tty     @TTY_GID@     -            -
 g utmp    -     -            -
 

@@ -1,5 +1,18 @@
 systemd System and Service Manager
 
+CHANGES WITH 229:
+
+        * Creation of the legacy /run/lock/lockdev/ directory was
+          dropped from tmpfiles.d/legacy.conf. Hardly any software uses
+          that any more, and better locking mechanisms like flock() have
+          been available for many years. If you still need this, you need to
+          create your own tmpfiles.d config file with:
+            d /run/lock/lockdev 0775 root lock -
+
+        Contributions from: ...
+
+        -- Berlin, 2016-MM-DD
+
 CHANGES WITH 228:
 
         * A number of properties previously only settable in unit
