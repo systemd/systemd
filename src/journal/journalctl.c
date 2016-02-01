@@ -69,6 +69,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
+#include "udev.h"
+#include "udev-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -144,6 +146,80 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
+
+static int add_matches_for_device(sd_journal *j, const char *devpath) {
+        int r;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        struct udev_device *d = NULL;
+        struct stat st;
+
+        assert(j);
+        assert(devpath);
+
+        if (!path_startswith(devpath, "/dev/")) {
+                log_error("Devpath does not start with /dev/");
+                return -EINVAL;
+        }
+
+        udev = udev_new();
+        if (!udev)
+                return -ENOMEM;
+
+        r = stat(devpath, &st);
+        if (r < 0)
+                return r;
+
+        d = device = udev_device_new_from_devnum(udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
+        if (!device)
+                return -ENOMEM;
+
+        while (d) {
+                _cleanup_free_ char *match = NULL;
+                const char *subsys, *sysname, *devnode;
+
+                subsys = udev_device_get_subsystem(d);
+                if (!subsys) {
+                        d = udev_device_get_parent(d);
+                        continue;
+                }
+
+                sysname = udev_device_get_sysname(d);
+                if (!sysname) {
+                        d = udev_device_get_parent(d);
+                        continue;
+                }
+
+                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname, NULL);
+                if (!match)
+                        return -ENOMEM;
+
+                r = sd_journal_add_match(j, match, 0);
+                if (r < 0)
+                        return r;
+
+                devnode = udev_device_get_devnode(d);
+                if (devnode) {
+                        _cleanup_free_ char *match1 = NULL;
+
+                        r = stat(devnode, &st);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to stat() device node \"%s\": %m", devnode);
+
+                        (void) asprintf(&match1, "_KERNEL_DEVICE=%c%u:%u", S_ISBLK(st.st_mode) ? 'b' : 'c', major(st.st_rdev), minor(st.st_rdev));
+                        if (!match1)
+                                return -ENOMEM;
+
+                        r = sd_journal_add_match(j, match1, 0);
+                        if (r < 0)
+                                return r;
+                }
+
+                d = udev_device_get_parent(d);
+        }
+
+        return 0;
+}
 
 static void pager_open_if_enabled(void) {
 
@@ -845,6 +921,8 @@ static int add_matches(sd_journal *j, char **args) {
                                                 return log_oom();
 
                                         t = strappend("_COMM=", comm);
+                                        if (!t)
+                                                return log_oom();
 
                                         /* Append _EXE only if the interpreter is not a link.
                                            Otherwise, it might be outdated often. */
@@ -856,19 +934,22 @@ static int add_matches(sd_journal *j, char **args) {
                                         }
                                 } else
                                         t = strappend("_EXE=", path);
-                        } else if (S_ISCHR(st.st_mode))
+                        } else if (S_ISCHR(st.st_mode)) {
                                 (void) asprintf(&t, "_KERNEL_DEVICE=c%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else if (S_ISBLK(st.st_mode))
-                                (void) asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else {
+                                if (!t)
+                                        return log_oom();
+                        } else if (S_ISBLK(st.st_mode)) {
+                                r = add_matches_for_device(j, path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add matches for the block device \"%s\": %m", path);
+                        } else {
                                 log_error("File is neither a device node, nor regular file, nor executable: %s", *i);
                                 return -EINVAL;
                         }
 
-                        if (!t)
-                                return log_oom();
+                        if (t)
+                                r = sd_journal_add_match(j, t, 0);
 
-                        r = sd_journal_add_match(j, t, 0);
                         if (t2)
                                 r = sd_journal_add_match(j, t2, 0);
                         have_term = true;
