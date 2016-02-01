@@ -69,6 +69,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
+#include "udev.h"
+#include "udev-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -144,6 +146,64 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
+
+static int device_add_kernel_names_match(sd_journal *j, const char *devpath) {
+        int r;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        struct udev_device *d = NULL;
+        struct stat st;
+
+        assert(j);
+        assert(devpath);
+
+        if (!path_startswith(devpath, "/dev/"))
+                return -EINVAL;
+
+        udev = udev_new();
+        if (!udev)
+                return -ENOMEM;
+
+        r = stat(devpath, &st);
+        if (r < 0)
+                return r;
+
+        device = udev_device_new_from_devnum(udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
+        if (!device)
+                return -ENOMEM;
+
+        d = device;
+
+        while (true) {
+                _cleanup_free_ char *match = NULL;
+                const char *subsys, *sysname;
+
+                if (!d)
+                        break;
+
+                subsys = udev_device_get_subsystem(d);
+                if (!subsys) {
+                        d = udev_device_get_parent(d);
+                        continue;
+                }
+
+                sysname = udev_device_get_sysname(d);
+                if (!sysname) {
+                        d = udev_device_get_parent(d);
+                        continue;
+                }
+
+                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname, NULL);
+                if (!match)
+                        return -ENOMEM;
+
+                (void) sd_journal_add_match(j, match, 0);
+
+                d = udev_device_get_parent(d);
+        }
+
+        return 0;
+}
 
 static void pager_open_if_enabled(void) {
 
@@ -858,9 +918,11 @@ static int add_matches(sd_journal *j, char **args) {
                                         t = strappend("_EXE=", path);
                         } else if (S_ISCHR(st.st_mode))
                                 (void) asprintf(&t, "_KERNEL_DEVICE=c%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else if (S_ISBLK(st.st_mode))
+                        else if (S_ISBLK(st.st_mode)) {
+                                (void) device_add_kernel_names_match(j, path);
                                 (void) asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else {
+
+                        } else {
                                 log_error("File is neither a device node, nor regular file, nor executable: %s", *i);
                                 return -EINVAL;
                         }

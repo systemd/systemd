@@ -4027,7 +4027,8 @@ journalctl_SOURCES = \
 	src/journal/journalctl.c
 
 journalctl_LDADD = \
-	libshared.la
+	libshared.la \
+	libudev-core.la
 
 if HAVE_QRENCODE
 journalctl_SOURCES += \
