@@ -835,7 +835,8 @@ int bus_exec_context_set_transient_property(
                 UnitSetPropertiesMode mode,
                 sd_bus_error *error) {
 
-        int r;
+        const char *soft = NULL;
+        int r, ri;
 
         assert(u);
         assert(c);
@@ -1492,7 +1493,23 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (rlimit_from_string(name) >= 0) {
+        }
+
+        ri = rlimit_from_string(name);
+        if (ri < 0) {
+                soft = endswith(name, "Soft");
+                if (soft) {
+                        const char *n;
+
+                        n = strndupa(name, soft - name);
+                        ri = rlimit_from_string(n);
+                        if (ri >= 0)
+                                name = n;
+
+                }
+        }
+
+        if (ri >= 0) {
                 uint64_t rl;
                 rlim_t x;
 
@@ -1510,22 +1527,36 @@ int bus_exec_context_set_transient_property(
                 }
 
                 if (mode != UNIT_CHECK) {
-                        int z;
+                        _cleanup_free_ char *f = NULL;
+                        struct rlimit nl;
 
-                        z = rlimit_from_string(name);
+                        if (c->rlimit[ri]) {
+                                nl = *c->rlimit[ri];
 
-                        if (!c->rlimit[z]) {
-                                c->rlimit[z] = new(struct rlimit, 1);
-                                if (!c->rlimit[z])
+                                if (soft)
+                                        nl.rlim_cur = x;
+                                else
+                                        nl.rlim_max = x;
+                        } else
+                                /* When the resource limit is not initialized yet, then assign the value to both fields */
+                                nl = (struct rlimit) {
+                                        .rlim_cur = x,
+                                        .rlim_max = x,
+                                };
+
+                        r = rlimit_format(&nl, &f);
+                        if (r < 0)
+                                return r;
+
+                        if (c->rlimit[ri])
+                                *c->rlimit[ri] = nl;
+                        else {
+                                c->rlimit[ri] = newdup(struct rlimit, &nl, 1);
+                                if (!c->rlimit[ri])
                                         return -ENOMEM;
                         }
 
-                        c->rlimit[z]->rlim_cur = c->rlimit[z]->rlim_max = x;
-
-                        if (x == RLIM_INFINITY)
-                                unit_write_drop_in_private_format(u, mode, name, "%s=infinity\n", name);
-                        else
-                                unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64 "\n", name, rl);
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, f);
                 }
 
                 return 1;

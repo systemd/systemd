@@ -422,15 +422,7 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
                 return r;
 
         STRV_FOREACH(i, properties) {
-                r = sd_bus_message_open_container(m, 'r', "sv");
-                if (r < 0)
-                        return r;
-
                 r = bus_append_unit_property_assignment(m, *i);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_close_container(m);
                 if (r < 0)
                         return r;
         }

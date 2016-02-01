@@ -1398,7 +1398,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
 
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment) {
         const char *eq, *field;
-        int r;
+        int r, rl;
 
         assert(m);
         assert(assignment);
@@ -1408,6 +1408,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 log_error("Not an assignment: %s", assignment);
                 return -EINVAL;
         }
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
 
         field = strndupa(assignment, eq - assignment);
         eq ++;
@@ -1430,20 +1434,14 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return -EINVAL;
                 }
 
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 0;
+                goto finish;
 
         } else if (streq(field, "EnvironmentFile")) {
 
                 r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 1,
                                           eq[0] == '-' ? eq + 1 : eq,
                                           eq[0] == '-');
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 0;
+                goto finish;
 
         } else if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec")) {
                 char *n;
@@ -1461,17 +1459,38 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 /* Change suffix Sec → USec */
                 strcpy(mempcpy(n, field, l - 3), "USec");
                 r = sd_bus_message_append(m, "sv", n, "t", t);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 0;
+                goto finish;
         }
 
         r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (STR_IN_SET(field,
+        rl = rlimit_from_string(field);
+        if (rl >= 0) {
+                const char *sn;
+                struct rlimit l;
+
+                r = rlimit_parse(rl, eq, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse resource limit: %s", eq);
+
+                r = sd_bus_message_append(m, "v", "t", l.rlim_max);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                sn = strjoina(field, "Soft");
+                r = sd_bus_message_append(m, "sv", sn, "t", l.rlim_cur);
+
+        } else if (STR_IN_SET(field,
                        "CPUAccounting", "MemoryAccounting", "BlockIOAccounting", "TasksAccounting",
                        "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
                        "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
@@ -1651,21 +1670,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         }
                         r = sd_bus_message_append(m, "v", "a(st)", path, u);
                 }
-
-        } else if (rlimit_from_string(field) >= 0) {
-                uint64_t rl;
-
-                if (streq(eq, "infinity"))
-                        rl = (uint64_t) -1;
-                else {
-                        r = safe_atou64(eq, &rl);
-                        if (r < 0) {
-                                log_error("Invalid resource limit: %s", eq);
-                                return -EINVAL;
-                        }
-                }
-
-                r = sd_bus_message_append(m, "v", "t", rl);
 
         } else if (streq(field, "Nice")) {
                 int32_t i;
@@ -1849,6 +1853,11 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 return -EINVAL;
         }
 
+finish:
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
         if (r < 0)
                 return bus_log_create_error(r);
 

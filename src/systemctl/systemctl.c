@@ -4873,17 +4873,9 @@ static int set_property(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         STRV_FOREACH(i, strv_skip(argv, 2)) {
-                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
                 r = bus_append_unit_property_assignment(m, *i);
                 if (r < 0)
                         return r;
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
         }
 
         r = sd_bus_message_close_container(m);
