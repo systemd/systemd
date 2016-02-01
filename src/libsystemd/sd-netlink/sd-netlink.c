@@ -44,11 +44,8 @@ static int sd_netlink_new(sd_netlink **ret) {
                 return -ENOMEM;
 
         rtnl->n_ref = REFCNT_INIT;
-
         rtnl->fd = -1;
-
         rtnl->sockaddr.nl.nl_family = AF_NETLINK;
-
         rtnl->original_pid = getpid();
 
         LIST_HEAD_INIT(rtnl->match_callbacks);
@@ -86,6 +83,9 @@ int sd_netlink_new_from_netlink(sd_netlink **ret, int fd) {
         r = getsockname(fd, &rtnl->sockaddr.sa, &addrlen);
         if (r < 0)
                 return -errno;
+
+        if (rtnl->sockaddr.nl.nl_family != AF_NETLINK)
+                return -EINVAL;
 
         rtnl->fd = fd;
 
