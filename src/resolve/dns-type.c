@@ -240,31 +240,69 @@ int dns_class_from_string(const char *s) {
 }
 
 const char* tlsa_cert_usage_to_string(uint8_t cert_usage) {
-        switch(cert_usage) {
-        case 0:         return "CA constraint";
-        case 1:         return "Service certificate constraint";
-        case 2:         return "Trust anchor assertion";
-        case 3:         return "Domain-issued certificate";
-        case 4 ... 254: return "Unassigned";
-        case 255:       return "Private use";
+
+        switch (cert_usage) {
+
+        case 0:
+                return "CA constraint";
+
+        case 1:
+                return "Service certificate constraint";
+
+        case 2:
+                return "Trust anchor assertion";
+
+        case 3:
+                return "Domain-issued certificate";
+
+        case 4 ... 254:
+                return "Unassigned";
+
+        case 255:
+                return "Private use";
         }
+
+        return NULL;  /* clang cannot count that we covered everything */
 }
 
 const char* tlsa_selector_to_string(uint8_t selector) {
-        switch(selector) {
-        case 0:         return "Full Certificate";
-        case 1:         return "SubjectPublicKeyInfo";
-        case 2 ... 254: return "Unassigned";
-        case 255:       return "Private use";
+        switch (selector) {
+
+        case 0:
+                return "Full Certificate";
+
+        case 1:
+                return "SubjectPublicKeyInfo";
+
+        case 2 ... 254:
+                return "Unassigned";
+
+        case 255:
+                return "Private use";
         }
+
+        return NULL;
 }
 
 const char* tlsa_matching_type_to_string(uint8_t selector) {
-        switch(selector) {
-        case 0:         return "No hash used";
-        case 1:         return "SHA-256";
-        case 2:         return "SHA-512";
-        case 3 ... 254: return "Unassigned";
-        case 255:       return "Private use";
+
+        switch (selector) {
+
+        case 0:
+                return "No hash used";
+
+        case 1:
+                return "SHA-256";
+
+        case 2:
+                return "SHA-512";
+
+        case 3 ... 254:
+                return "Unassigned";
+
+        case 255:
+                return "Private use";
         }
+
+        return NULL;
 }
