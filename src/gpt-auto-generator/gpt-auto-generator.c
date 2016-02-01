@@ -635,16 +635,19 @@ static int enumerate_partitions(dev_t devnum) {
         if (r == 1)
                 return 0; /* no results */
         else if (r == -2) {
-                log_warning("%s: probe gave ambiguous results, ignoring", node);
+                log_warning("%s: probe gave ambiguous results, ignoring.", node);
                 return 0;
         } else if (r != 0)
                 return log_error_errno(errno ?: EIO, "%s: failed to probe: %m", node);
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO,
-                                       "%s: failed to determine partition table type: %m", node);
+        if (r != 0) {
+                if (errno == 0)
+                        return 0; /* No partition table found. */
+
+                return log_error_errno(errno, "%s: failed to determine partition table type: %m", node);
+        }
 
         /* We only do this all for GPT... */
         if (!streq_ptr(pttype, "gpt")) {
