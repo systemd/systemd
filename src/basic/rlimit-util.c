@@ -227,6 +227,30 @@ int rlimit_parse(int resource, const char *val, struct rlimit *ret) {
         return 0;
 }
 
+int rlimit_format(const struct rlimit *rl, char **ret) {
+        char *s = NULL;
+
+        assert(rl);
+        assert(ret);
+
+        if (rl->rlim_cur >= RLIM_INFINITY && rl->rlim_max >= RLIM_INFINITY)
+                s = strdup("infinity");
+        else if (rl->rlim_cur >= RLIM_INFINITY)
+                (void) asprintf(&s, "infinity:" RLIM_FMT, rl->rlim_max);
+        else if (rl->rlim_max >= RLIM_INFINITY)
+                (void) asprintf(&s, RLIM_FMT ":infinity", rl->rlim_cur);
+        else if (rl->rlim_cur == rl->rlim_max)
+                (void) asprintf(&s, RLIM_FMT, rl->rlim_cur);
+        else
+                (void) asprintf(&s, RLIM_FMT ":" RLIM_FMT, rl->rlim_cur, rl->rlim_max);
+
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+        return 0;
+}
+
 static const char* const rlimit_table[_RLIMIT_MAX] = {
         [RLIMIT_CPU] = "LimitCPU",
         [RLIMIT_FSIZE] = "LimitFSIZE",
