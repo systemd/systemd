@@ -267,9 +267,11 @@ static int bus_timer_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "AccuracySec")) {
-
+        } else if (STR_IN_SET(name, "AccuracyUSec", "AccuracySec")) {
                 usec_t u = 0;
+
+                if (streq(name, "AccuracySec"))
+                        log_notice("Client is using obsolete AccuracySec= transient property, please use AccuracyUSec= instead.");
 
                 r = sd_bus_message_read(message, "t", &u);
                 if (r < 0)

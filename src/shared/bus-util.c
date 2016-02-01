@@ -1459,18 +1459,22 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 return 0;
 
-        } else if (streq(field, "RandomizedDelaySec")) {
+        } else if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec")) {
+                char *n;
                 usec_t t;
-
+                size_t l;
                 r = parse_sec(eq, &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse RandomizedDelaySec= parameter: %s", eq);
+                        return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
 
-                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "RandomizedDelayUSec");
-                if (r < 0)
-                        return bus_log_create_error(r);
+                l = strlen(field);
+                n = newa(char, l + 2);
+                if (!n)
+                        return log_oom();
 
-                r = sd_bus_message_append(m, "v", "t", t);
+                /* Change suffix Sec → USec */
+                strcpy(mempcpy(n, field, l - 3), "USec");
+                r = sd_bus_message_append(m, "sv", n, "t", t);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1746,16 +1750,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "i", sig);
 
-        } else if (streq(field, "AccuracySec")) {
-                usec_t u;
-
-                r = parse_sec(eq, &u);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s", field, eq);
-                        return -EINVAL;
-                }
-
-                r = sd_bus_message_append(m, "v", "t", u);
         } else if (streq(field, "TimerSlackNSec")) {
                 nsec_t n;
 
