@@ -118,8 +118,10 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         rtnl->fd = fd;
 
         r = socket_bind(rtnl);
-        if (r < 0)
+        if (r < 0) {
+                rtnl->fd = -1; /* on failure, the caller remains owner of the fd, hence don't close it here */
                 return r;
+        }
 
         *ret = rtnl;
         rtnl = NULL;
