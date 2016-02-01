@@ -56,8 +56,7 @@
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
-#   udevadm info /dev/input/eventXX
-# (or /dev/input/event*).
+#   udevadm info /dev/input/eventXX.
 
 ##########################################
 # Acer
@@ -499,6 +498,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook450G0:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard:pnHPProBook6555b:*
  KEYBOARD_KEY_b2=www                                    # Earth
 
+# HP ProBook 440 G3
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*440*G3*
+ KEYBOARD_KEY_92=brightnessdown
+ KEYBOARD_KEY_97=brightnessup
+ KEYBOARD_KEY_ee=switchvideomode
+ KEYBOARD_KEY_81=f20                                    # micmute
+
 ###########################################################
 # IBM
 ###########################################################
@@ -651,6 +657,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 # V480
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
+
+# Lenovo Thinkcentre M800z AIO machine
+# key_scancode 00 is KEY_MICMUTE
+keyboard:name:Microphone Mute Button:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
+ KEYBOARD_KEY_00=f20
 
 # enhanced USB keyboard
 evdev:input:b0003v04B3p301B*

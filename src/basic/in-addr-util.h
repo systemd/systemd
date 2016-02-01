@@ -33,6 +33,11 @@ union in_addr_union {
         struct in6_addr in6;
 };
 
+struct in_addr_data {
+        int family;
+        union in_addr_union address;
+};
+
 int in_addr_is_null(int family, const union in_addr_union *u);
 int in_addr_is_link_local(int family, const union in_addr_union *u);
 int in_addr_is_localhost(int family, const union in_addr_union *u);

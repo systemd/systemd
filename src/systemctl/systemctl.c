@@ -247,7 +247,7 @@ static OutputFlags get_output_flags(void) {
                 arg_all * OUTPUT_SHOW_ALL |
                 arg_full * OUTPUT_FULL_WIDTH |
                 (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                on_tty() * OUTPUT_COLOR |
+                colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
 
@@ -1979,7 +1979,7 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
 
         for (i = 0; i < n_changes; i++) {
                 if (changes[i].type == UNIT_FILE_SYMLINK)
-                        log_info("Created symlink from %s to %s.", changes[i].path, changes[i].source);
+                        log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
                 else
                         log_info("Removed symlink %s.", changes[i].path);
         }
@@ -2325,41 +2325,11 @@ static int unit_find_paths(
 
         if (!install_client_side() && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
-                char *unit_load_error_name, *unit_load_error_message;
 
                 unit = unit_dbus_path_from_name(unit_name);
                 if (!unit)
                         return log_oom();
-
-                if (need_daemon_reload(bus, unit_name) > 0)
-                        warn_unit_file_changed(unit_name);
-
-                r = sd_bus_get_property(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "LoadError",
-                                &error,
-                                &unit_load_error,
-                                "(ss)");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get LoadError: %s", bus_error_message(&error, r));
-
-                r = sd_bus_message_read(
-                                unit_load_error,
-                                "(ss)",
-                                &unit_load_error_name,
-                                &unit_load_error_message);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (!isempty(unit_load_error_name)) {
-                        log_error("Unit %s is not loaded: %s", unit_name, unit_load_error_message);
-                        return 0;
-                }
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -2440,19 +2410,16 @@ static int unit_find_paths(
 }
 
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *n = NULL, *state = NULL;
-        const char *path;
+        _cleanup_free_ char *buf = NULL;
+        const char *path, *state;
         int r;
 
         assert(name);
 
-        r = unit_name_mangle(name, UNIT_NAME_NOGLOB, &n);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mangle unit name: %m");
-
-        /* We don't use unit_dbus_path_from_name() directly since we
-         * don't want to load the unit if it isn't loaded. */
+        /* We don't use unit_dbus_path_from_name() directly since we don't want to load the unit unnecessarily, if it
+         * isn't loaded. */
 
         r = sd_bus_call_method(
                         bus,
@@ -2460,31 +2427,34 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "GetUnit",
-                        NULL,
+                        &error,
                         &reply,
-                        "s", n);
+                        "s", name);
         if (r < 0) {
-                if (!quiet)
-                        puts("unknown");
-                return 0;
-        }
+                if (!sd_bus_error_has_name(&error,  BUS_ERROR_NO_SUCH_UNIT))
+                        return log_error_errno(r, "Failed to retrieve unit: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
+                /* The unit is currently not loaded, hence say it's "inactive", since all units that aren't loaded are
+                 * considered inactive. */
+                state = "inactive";
 
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Unit",
-                        "ActiveState",
-                        NULL,
-                        &state);
-        if (r < 0) {
-                if (!quiet)
-                        puts("unknown");
-                return 0;
+        } else {
+                r = sd_bus_message_read(reply, "o", &path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Unit",
+                                "ActiveState",
+                                &error,
+                                &buf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
+
+                state = buf;
         }
 
         if (!quiet)
@@ -2568,6 +2538,7 @@ static const struct {
         { "try-restart",           "TryRestartUnit" },
         { "condrestart",           "TryRestartUnit" },
         { "reload-or-restart",     "ReloadOrRestartUnit" },
+        { "try-reload-or-restart", "ReloadOrTryRestartUnit" },
         { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
         { "condreload",            "ReloadOrTryRestartUnit" },
         { "force-reload",          "ReloadOrTryRestartUnit" }
@@ -2631,7 +2602,13 @@ static int start_unit_one(
 
                 verb = method_to_verb(method);
 
-                return log_error_errno(r, "Failed to %s %s: %s", verb, name, bus_error_message(error, r));
+                log_error("Failed to %s %s: %s", verb, name, bus_error_message(error, r));
+
+                if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
+                    !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED))
+                        log_error("See system logs and 'systemctl status %s' for details.", name);
+
+                return r;
         }
 
         r = sd_bus_message_read(reply, "o", &path);
@@ -2682,14 +2659,25 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         if (!strv_isempty(globs)) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
+                size_t allocated, n;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
-                for (i = 0; i < r; i++)
-                        if (strv_extend(&mangled, unit_infos[i].id) < 0)
+                n = strv_length(mangled);
+                allocated = n + 1;
+
+                for (i = 0; i < r; i++) {
+                        if (!GREEDY_REALLOC(mangled, allocated, n+2))
                                 return log_oom();
+
+                        mangled[n] = strdup(unit_infos[i].id);
+                        if (!mangled[n])
+                                return log_oom();
+
+                        mangled[++n] = NULL;
+                }
         }
 
         *ret = mangled;
@@ -2794,7 +2782,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         if (!arg_no_block) {
                 int q;
 
-                q = bus_wait_for_jobs(w, arg_quiet);
+                q = bus_wait_for_jobs(w, arg_quiet, arg_scope != UNIT_FILE_SYSTEM ? "--user" : NULL);
                 if (q < 0)
                         return q;
 
@@ -3177,6 +3165,7 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
         sd_bus *bus;
         char **name;
         int r;
+        bool found = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -3192,11 +3181,13 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
                 state = check_one_unit(bus, *name, good_states, arg_quiet);
                 if (state < 0)
                         return state;
-                if (state == 0)
-                        r = code;
+                if (state > 0)
+                        found = true;
         }
 
-        return r;
+        /* use the given return code for the case that we won't find
+         * any unit which matches the list */
+        return found ? 0 : code;
 }
 
 static int check_unit_active(int argc, char *argv[], void *userdata) {
@@ -5801,7 +5792,7 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted()) {
+        if (running_in_chroot() > 0 || (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted())) {
                 if (!arg_quiet)
                         puts("offline");
                 return EXIT_FAILURE;
@@ -6244,8 +6235,8 @@ static void systemctl_help(void) {
                "  try-restart NAME...             Restart one or more units if active\n"
                "  reload-or-restart NAME...       Reload one or more units if possible,\n"
                "                                  otherwise start or restart\n"
-               "  reload-or-try-restart NAME...   Reload one or more units if possible,\n"
-               "                                  otherwise restart if active\n"
+               "  try-reload-or-restart NAME...   If active, reload one or more units,\n"
+               "                                  if supported, otherwise restart\n"
                "  isolate NAME                    Start one unit and stop all others\n"
                "  kill NAME...                    Send signal to processes of a unit\n"
                "  is-active PATTERN...            Check whether units are active\n"
@@ -7334,70 +7325,71 @@ static int talk_initctl(void) {
 static int systemctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT, list_units        },
-                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,            list_unit_files   },
-                { "list-sockets",          VERB_ANY, VERB_ANY, 0,            list_sockets      },
-                { "list-timers",           VERB_ANY, VERB_ANY, 0,            list_timers       },
-                { "list-jobs",             VERB_ANY, VERB_ANY, 0,            list_jobs         },
-                { "list-machines",         VERB_ANY, VERB_ANY, 0,            list_machines     },
-                { "clear-jobs",            VERB_ANY, 1,        0,            daemon_reload     },
-                { "cancel",                VERB_ANY, VERB_ANY, 0,            cancel_job        },
-                { "start",                 2,        VERB_ANY, 0,            start_unit        },
-                { "stop",                  2,        VERB_ANY, 0,            start_unit        },
-                { "condstop",              2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with ALTLinux */
-                { "reload",                2,        VERB_ANY, 0,            start_unit        },
-                { "restart",               2,        VERB_ANY, 0,            start_unit        },
-                { "try-restart",           2,        VERB_ANY, 0,            start_unit        },
-                { "reload-or-restart",     2,        VERB_ANY, 0,            start_unit        },
-                { "reload-or-try-restart", 2,        VERB_ANY, 0,            start_unit        },
-                { "force-reload",          2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with SysV */
-                { "condreload",            2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with ALTLinux */
-                { "condrestart",           2,        VERB_ANY, 0,            start_unit        }, /* For compatibility with RH */
-                { "isolate",               2,        2,        0,            start_unit        },
-                { "kill",                  2,        VERB_ANY, 0,            kill_unit         },
-                { "is-active",             2,        VERB_ANY, 0,            check_unit_active },
-                { "check",                 2,        VERB_ANY, 0,            check_unit_active },
-                { "is-failed",             2,        VERB_ANY, 0,            check_unit_failed },
-                { "show",                  VERB_ANY, VERB_ANY, 0,            show              },
-                { "cat",                   2,        VERB_ANY, 0,            cat               },
-                { "status",                VERB_ANY, VERB_ANY, 0,            show              },
-                { "help",                  VERB_ANY, VERB_ANY, 0,            show              },
-                { "daemon-reload",         VERB_ANY, 1,        0,            daemon_reload     },
-                { "daemon-reexec",         VERB_ANY, 1,        0,            daemon_reload     },
-                { "show-environment",      VERB_ANY, 1,        0,            show_environment  },
-                { "set-environment",       2,        VERB_ANY, 0,            set_environment   },
-                { "unset-environment",     2,        VERB_ANY, 0,            set_environment   },
-                { "import-environment",    VERB_ANY, VERB_ANY, 0,            import_environment},
-                { "halt",                  VERB_ANY, 1,        0,            start_special     },
-                { "poweroff",              VERB_ANY, 1,        0,            start_special     },
-                { "reboot",                VERB_ANY, 2,        0,            start_special     },
-                { "kexec",                 VERB_ANY, 1,        0,            start_special     },
-                { "suspend",               VERB_ANY, 1,        0,            start_special     },
-                { "hibernate",             VERB_ANY, 1,        0,            start_special     },
-                { "hybrid-sleep",          VERB_ANY, 1,        0,            start_special     },
-                { "default",               VERB_ANY, 1,        0,            start_special     },
-                { "rescue",                VERB_ANY, 1,        0,            start_special     },
-                { "emergency",             VERB_ANY, 1,        0,            start_special     },
-                { "exit",                  VERB_ANY, 2,        0,            start_special     },
-                { "reset-failed",          VERB_ANY, VERB_ANY, 0,            reset_failed      },
-                { "enable",                2,        VERB_ANY, 0,            enable_unit       },
-                { "disable",               2,        VERB_ANY, 0,            enable_unit       },
-                { "is-enabled",            2,        VERB_ANY, 0,            unit_is_enabled   },
-                { "reenable",              2,        VERB_ANY, 0,            enable_unit       },
-                { "preset",                2,        VERB_ANY, 0,            enable_unit       },
-                { "preset-all",            VERB_ANY, 1,        0,            preset_all        },
-                { "mask",                  2,        VERB_ANY, 0,            enable_unit       },
-                { "unmask",                2,        VERB_ANY, 0,            enable_unit       },
-                { "link",                  2,        VERB_ANY, 0,            enable_unit       },
-                { "switch-root",           2,        VERB_ANY, 0,            switch_root       },
-                { "list-dependencies",     VERB_ANY, 2,        0,            list_dependencies },
-                { "set-default",           2,        2,        0,            set_default       },
-                { "get-default",           VERB_ANY, 1,        0,            get_default,      },
-                { "set-property",          3,        VERB_ANY, 0,            set_property      },
-                { "is-system-running",     VERB_ANY, 1,        0,            is_system_running },
-                { "add-wants",             3,        VERB_ANY, 0,            add_dependency    },
-                { "add-requires",          3,        VERB_ANY, 0,            add_dependency    },
-                { "edit",                  2,        VERB_ANY, 0,            edit              },
+                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_NOCHROOT, list_units },
+                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,             list_unit_files   },
+                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_sockets      },
+                { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers       },
+                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs         },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines     },
+                { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
+                { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job        },
+                { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "stop",                  2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "condstop",              2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with ALTLinux */
+                { "reload",                2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "restart",               2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "try-restart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "reload-or-restart",     2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "reload-or-try-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatbility with old systemctl <= 228 */
+                { "try-reload-or-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
+                { "force-reload",          2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with SysV */
+                { "condreload",            2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with ALTLinux */
+                { "condrestart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with RH */
+                { "isolate",               2,        2,        VERB_NOCHROOT, start_unit        },
+                { "kill",                  2,        VERB_ANY, VERB_NOCHROOT, kill_unit         },
+                { "is-active",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_active },
+                { "check",                 2,        VERB_ANY, VERB_NOCHROOT, check_unit_active },
+                { "is-failed",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_failed },
+                { "show",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
+                { "cat",                   2,        VERB_ANY, VERB_NOCHROOT, cat               },
+                { "status",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
+                { "help",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
+                { "daemon-reload",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
+                { "daemon-reexec",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
+                { "show-environment",      VERB_ANY, 1,        VERB_NOCHROOT, show_environment  },
+                { "set-environment",       2,        VERB_ANY, VERB_NOCHROOT, set_environment   },
+                { "unset-environment",     2,        VERB_ANY, VERB_NOCHROOT, set_environment   },
+                { "import-environment",    VERB_ANY, VERB_ANY, VERB_NOCHROOT, import_environment},
+                { "halt",                  VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "poweroff",              VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "reboot",                VERB_ANY, 2,        VERB_NOCHROOT, start_special     },
+                { "kexec",                 VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "suspend",               VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "hibernate",             VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "hybrid-sleep",          VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "default",               VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "rescue",                VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "emergency",             VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
+                { "exit",                  VERB_ANY, 2,        VERB_NOCHROOT, start_special     },
+                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, reset_failed      },
+                { "enable",                2,        VERB_ANY, 0,             enable_unit       },
+                { "disable",               2,        VERB_ANY, 0,             enable_unit       },
+                { "is-enabled",            2,        VERB_ANY, 0,             unit_is_enabled   },
+                { "reenable",              2,        VERB_ANY, 0,             enable_unit       },
+                { "preset",                2,        VERB_ANY, 0,             enable_unit       },
+                { "preset-all",            VERB_ANY, 1,        0,             preset_all        },
+                { "mask",                  2,        VERB_ANY, 0,             enable_unit       },
+                { "unmask",                2,        VERB_ANY, 0,             enable_unit       },
+                { "link",                  2,        VERB_ANY, 0,             enable_unit       },
+                { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root       },
+                { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies },
+                { "set-default",           2,        2,        0,             set_default       },
+                { "get-default",           VERB_ANY, 1,        0,             get_default,      },
+                { "set-property",          3,        VERB_ANY, VERB_NOCHROOT, set_property      },
+                { "is-system-running",     VERB_ANY, 1,        0,             is_system_running },
+                { "add-wants",             3,        VERB_ANY, 0,             add_dependency    },
+                { "add-requires",          3,        VERB_ANY, 0,             add_dependency    },
+                { "edit",                  2,        VERB_ANY, VERB_NOCHROOT, edit              },
                 {}
         };
 
@@ -7651,7 +7643,7 @@ int main(int argc, char*argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (running_in_chroot() > 0 && arg_action != ACTION_SYSTEMCTL) {
+        if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {
                 log_info("Running in chroot, ignoring request.");
                 r = 0;
                 goto finish;

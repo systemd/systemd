@@ -92,7 +92,7 @@ $KERNEL_APPEND \
 
 run_nspawn() {
     set -x
-    ../../systemd-nspawn --register=no --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
+    ../../systemd-nspawn --register=no --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
 }
 
 setup_basic_environment() {
@@ -111,21 +111,105 @@ setup_basic_environment() {
     install_keymaps
     install_terminfo
     install_execs
+    install_fsck
     install_plymouth
     install_debug_tools
     install_ld_so_conf
+    setup_selinux
     strip_binaries
     install_depmod_files
     generate_module_dependencies
-    # softlink mtab
-    ln -fs /proc/self/mounts $initdir/etc/mtab
+}
+
+setup_selinux() {
+    # don't forget KERNEL_APPEND='... selinux=1 ...'
+    if [[ "$SETUP_SELINUX" != "yes" ]]; then
+        ddebug "Don't setup SELinux"
+        return 0
+    fi
+    ddebug "Setup SELinux"
+    local _conf_dir=/etc/selinux
+    local _fixfiles_tools="bash uname cat sort uniq awk grep egrep head expr find rm secon setfiles"
+
+    rm -rf $initdir/$_conf_dir
+    if ! cp -ar $_conf_dir $initdir/$_conf_dir; then
+        dfatal "Failed to copy $_conf_dir"
+        exit 1
+    fi
+
+    cat <<EOF >$initdir/etc/systemd/system/autorelabel.service
+[Unit]
+Description=Relabel all filesystems
+DefaultDependencies=no
+Requires=local-fs.target
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target shutdown.target
+ConditionSecurity=selinux
+ConditionPathExists=|/.autorelabel
+
+[Service]
+ExecStart=/bin/sh -x -c 'echo 0 >/sys/fs/selinux/enforce && fixfiles -f -F relabel && rm /.autorelabel && systemctl --force reboot'
+Type=oneshot
+TimeoutSec=0
+RemainAfterExit=yes
+EOF
+
+    touch $initdir/.autorelabel
+    mkdir -p $initdir/etc/systemd/system/basic.target.wants
+    ln -fs autorelabel.service $initdir/etc/systemd/system/basic.target.wants/autorelabel.service
+
+    dracut_install $_fixfiles_tools
+    dracut_install fixfiles
+    dracut_install sestatus
+}
+
+install_valgrind() {
+    if ! type -p valgrind; then
+        dfatal "Failed to install valgrind"
+        exit 1
+    fi
+
+    local _valgrind_bins=$(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')
+    dracut_install $_valgrind_bins
+
+    local _valgrind_libs=$(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')
+    dracut_install $_valgrind_libs
+
+    local _valgrind_dbg_and_supp=$(
+        strace -e open valgrind /bin/true 2>&1 >/dev/null |
+        perl -lne 'if (my ($fname) = /^open\("([^"]+).*= (?!-)\d+/) { print $fname if $fname =~ /debug|\.supp$/ }'
+    )
+    dracut_install $_valgrind_dbg_and_supp
+}
+
+create_valgrind_wrapper() {
+    local _valgrind_wrapper=$initdir/$ROOTLIBDIR/systemd-under-valgrind
+    ddebug "Create $_valgrind_wrapper"
+    cat >$_valgrind_wrapper <<EOF
+#!/bin/bash
+
+exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
+EOF
+    chmod 0755 $_valgrind_wrapper
+}
+
+install_fsck() {
+    dracut_install /sbin/fsck*
+    dracut_install -o /bin/fsck*
 }
 
 install_dmevent() {
     instmods dm_crypt =crypto
     type -P dmeventd >/dev/null && dracut_install dmeventd
     inst_libdir_file "libdevmapper-event.so*"
-    inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
+    if [[ "$LOOKS_LIKE_DEBIAN" ]]; then
+        # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
+        # see https://anonscm.debian.org/cgit/pkg-lvm/lvm2.git/tree/debian/patches/0007-udev.patch
+        inst_rules 55-dm.rules 60-persistent-storage-dm.rules
+    else
+        inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
+    fi
 }
 
 install_systemd() {
@@ -172,6 +256,10 @@ check_result_nspawn() {
 }
 
 strip_binaries() {
+    if [[ "$STRIP_BINARIES" = "no" ]]; then
+        ddebug "Don't strip binaries"
+        return 0
+    fi
     ddebug "Strip binaries"
     find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | xargs strip --strip-unneeded | ddebug
 }
@@ -290,6 +378,10 @@ install_pam() {
     ) | while read file; do
         inst $file
     done
+
+    # pam_unix depends on unix_chkpwd.
+    # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
+    dracut_install -o unix_chkpwd
 
     [[ "$LOOKS_LIKE_DEBIAN" ]] &&
         cp /etc/pam.d/systemd-user $initdir/etc/pam.d/

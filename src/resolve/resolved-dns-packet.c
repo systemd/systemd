@@ -58,6 +58,7 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         p->size = p->rindex = DNS_PACKET_HEADER_SIZE;
         p->allocated = a;
         p->protocol = protocol;
+        p->opt_start = p->opt_size = (size_t) -1;
         p->n_ref = 1;
 
         *ret = p;
@@ -465,12 +466,8 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonica
                 /* Generate in canonical form, as defined by DNSSEC
                  * RFC 4034, Section 6.2, i.e. all lower-case. */
 
-                for (i = 0; i < l; i++) {
-                        if (d[i] >= 'A' && d[i] <= 'Z')
-                                w[i] = (uint8_t) (d[i] - 'A' + 'a');
-                        else
-                                w[i] = (uint8_t) d[i];
-                }
+                for (i = 0; i < l; i++)
+                        w[i] = (uint8_t) ascii_tolower(d[i]);
         } else
                 /* Otherwise, just copy the string unaltered. This is
                  * essential for DNS-SD, where the casing of labels
@@ -498,11 +495,10 @@ int dns_packet_append_name(
 
         saved_size = p->size;
 
-        while (*name) {
-                _cleanup_free_ char *s = NULL;
+        while (!dns_name_is_root(name)) {
+                const char *z = name;
                 char label[DNS_LABEL_MAX];
                 size_t n = 0;
-                int k;
 
                 if (allow_compression)
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
@@ -518,32 +514,23 @@ int dns_packet_append_name(
                         }
                 }
 
-                s = strdup(name);
-                if (!s) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
                 r = dns_label_unescape(&name, label, sizeof(label));
                 if (r < 0)
                         goto fail;
-
-                if (p->protocol == DNS_PROTOCOL_DNS)
-                        k = dns_label_apply_idna(label, r, label, sizeof(label));
-                else
-                        k = dns_label_undo_idna(label, r, label, sizeof(label));
-                if (k < 0) {
-                        r = k;
-                        goto fail;
-                }
-                if (k > 0)
-                        r = k;
 
                 r = dns_packet_append_label(p, label, r, canonical_candidate, &n);
                 if (r < 0)
                         goto fail;
 
                 if (allow_compression) {
+                        _cleanup_free_ char *s = NULL;
+
+                        s = strdup(z);
+                        if (!s) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
                         r = hashmap_ensure_allocated(&p->names, &dns_name_hash_ops);
                         if (r < 0)
                                 goto fail;
@@ -643,7 +630,6 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
         int r;
 
         assert(p);
-        assert(types);
 
         saved_size = p->size;
 
@@ -680,13 +666,18 @@ fail:
 }
 
 /* Append the OPT pseudo-RR described in RFC6891 */
-int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
         size_t saved_size;
         int r;
 
         assert(p);
         /* we must never advertise supported packet size smaller than the legacy max */
         assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+
+        if (p->opt_start != (size_t) -1)
+                return -EBUSY;
+
+        assert(p->opt_size == (size_t) -1);
 
         saved_size = p->size;
 
@@ -716,9 +707,47 @@ int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do,
                 goto fail;
 
         /* RDLENGTH */
-        r = dns_packet_append_uint16(p, 0, NULL);
+
+        if (edns0_do) {
+                /* If DO is on, also append RFC6975 Algorithm data */
+
+                static const uint8_t rfc6975[] = {
+
+                        0, 5, /* OPTION_CODE: DAU */
+                        0, 6, /* LIST_LENGTH */
+                        DNSSEC_ALGORITHM_RSASHA1,
+                        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
+                        DNSSEC_ALGORITHM_RSASHA256,
+                        DNSSEC_ALGORITHM_RSASHA512,
+                        DNSSEC_ALGORITHM_ECDSAP256SHA256,
+                        DNSSEC_ALGORITHM_ECDSAP384SHA384,
+
+                        0, 6, /* OPTION_CODE: DHU */
+                        0, 3, /* LIST_LENGTH */
+                        DNSSEC_DIGEST_SHA1,
+                        DNSSEC_DIGEST_SHA256,
+                        DNSSEC_DIGEST_SHA384,
+
+                        0, 7, /* OPTION_CODE: N3U */
+                        0, 1, /* LIST_LENGTH */
+                        NSEC3_ALGORITHM_SHA1,
+                };
+
+                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL);
+        } else
+                r = dns_packet_append_uint16(p, 0, NULL);
+
         if (r < 0)
                 goto fail;
+
+        DNS_PACKET_HEADER(p)->arcount = htobe16(DNS_PACKET_ARCOUNT(p) + 1);
+
+        p->opt_start = saved_size;
+        p->opt_size = p->size - saved_size;
 
         if (start)
                 *start = saved_size;
@@ -728,6 +757,27 @@ int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do,
 fail:
         dns_packet_truncate(p, saved_size);
         return r;
+}
+
+int dns_packet_truncate_opt(DnsPacket *p) {
+        assert(p);
+
+        if (p->opt_start == (size_t) -1) {
+                assert(p->opt_size == (size_t) -1);
+                return 0;
+        }
+
+        assert(p->opt_size != (size_t) -1);
+        assert(DNS_PACKET_ARCOUNT(p) > 0);
+
+        if (p->opt_start + p->opt_size != p->size)
+                return -EBUSY;
+
+        dns_packet_truncate(p, p->opt_start);
+        DNS_PACKET_HEADER(p)->arcount = htobe16(DNS_PACKET_ARCOUNT(p) - 1);
+        p->opt_start = p->opt_size = (size_t) -1;
+
+        return 1;
 }
 
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start) {
@@ -1008,11 +1058,28 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
                 break;
 
+        case DNS_TYPE_TLSA:
+                r = dns_packet_append_uint8(p, rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, NULL);
+                break;
+
         case DNS_TYPE_OPT:
+        case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
-                r = dns_packet_append_blob(p, rr->generic.data, rr->generic.size, NULL);
+                r = dns_packet_append_blob(p, rr->generic.data, rr->generic.data_size, NULL);
                 break;
         }
         if (r < 0)
@@ -1021,7 +1088,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
         /* Let's calculate the actual data size and update the field */
         rdlength = p->size - rdlength_offset - sizeof(uint16_t);
         if (rdlength > 0xFFFF) {
-                r = ENOSPC;
+                r = -ENOSPC;
                 goto fail;
         }
 
@@ -1044,7 +1111,6 @@ fail:
         dns_packet_truncate(p, saved_size);
         return r;
 }
-
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {
         assert(p);
@@ -1548,6 +1614,11 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         if (r < 0)
                 goto fail;
 
+        /* RFC 2181, Section 8, suggests to
+         * treat a TTL with the MSB set as a zero TTL. */
+        if (rr->ttl & UINT32_C(0x80000000))
+                rr->ttl = 0;
+
         r = dns_packet_read_uint16(p, &rdlength, NULL);
         if (r < 0)
                 goto fail;
@@ -1922,10 +1993,36 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 break;
         }
 
+        case DNS_TYPE_TLSA:
+                r = dns_packet_read_uint8(p, &rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_memdup(p, rdlength - 3,
+                                           &rr->tlsa.data, &rr->tlsa.data_size,
+                                           NULL);
+                if (rr->tlsa.data_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                break;
+
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
+        case DNS_TYPE_OPENPGPKEY:
         default:
         unparseable:
-                r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.size, NULL);
+                r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.data_size, NULL);
                 if (r < 0)
                         goto fail;
                 break;
@@ -1949,6 +2046,48 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
 fail:
         dns_packet_rewind(p, saved_rindex);
         return r;
+}
+
+static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
+        const uint8_t* p;
+        bool found_dau_dhu_n3u = false;
+        size_t l;
+
+        /* Checks whether the specified OPT RR is well-formed and whether it contains RFC6975 data (which is not OK in
+         * a reply). */
+
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_OPT);
+
+        /* Check that the version is 0 */
+        if (((rr->ttl >> 16) & UINT32_C(0xFF)) != 0)
+                return false;
+
+        p = rr->opt.data;
+        l = rr->opt.data_size;
+        while (l > 0) {
+                uint16_t option_code, option_length;
+
+                /* At least four bytes for OPTION-CODE and OPTION-LENGTH are required */
+                if (l < 4U)
+                        return false;
+
+                option_code = unaligned_read_be16(p);
+                option_length = unaligned_read_be16(p + 2);
+
+                if (l < option_length + 4U)
+                        return false;
+
+                /* RFC 6975 DAU, DHU or N3U fields found. */
+                if (IN_SET(option_code, 5, 6, 7))
+                        found_dau_dhu_n3u = true;
+
+                p += option_length + 4U;
+                l -= option_length + 4U;
+        }
+
+        *rfc6975 = found_dau_dhu_n3u;
+        return true;
 }
 
 int dns_packet_extract(DnsPacket *p) {
@@ -1998,6 +2137,9 @@ int dns_packet_extract(DnsPacket *p) {
 
         n = DNS_PACKET_RRCOUNT(p);
         if (n > 0) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
+                bool bad_opt = false;
+
                 answer = dns_answer_new(n);
                 if (!answer) {
                         r = -ENOMEM;
@@ -2012,35 +2154,62 @@ int dns_packet_extract(DnsPacket *p) {
                         if (r < 0)
                                 goto finish;
 
+                        /* Try to reduce memory usage a bit */
+                        if (previous)
+                                dns_resource_key_reduce(&rr->key, &previous->key);
+
                         if (rr->key->type == DNS_TYPE_OPT) {
+                                bool has_rfc6975;
+
+                                if (p->opt || bad_opt) {
+                                        /* Multiple OPT RRs? if so, let's ignore all, because there's something wrong
+                                         * with the server, and if one is valid we wouldn't know which one. */
+                                        log_debug("Multiple OPT RRs detected, ignoring all.");
+                                        bad_opt = true;
+                                        continue;
+                                }
 
                                 if (!dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key))) {
-                                        r = -EBADMSG;
-                                        goto finish;
+                                        /* If the OPT RR qis not owned by the root domain, then it is bad, let's ignore
+                                         * it. */
+                                        log_debug("OPT RR is not owned by root domain, ignoring.");
+                                        bad_opt = true;
+                                        continue;
                                 }
 
-                                /* The OPT RR is only valid in the Additional section */
                                 if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
-                                        r = -EBADMSG;
-                                        goto finish;
+                                        /* OPT RR is in the wrong section? Some Belkin routers do this. This is a hint
+                                         * the EDNS implementation is borked, like the Belkin one is, hence ignore
+                                         * it. */
+                                        log_debug("OPT RR in wrong section, ignoring.");
+                                        bad_opt = true;
+                                        continue;
                                 }
 
-                                /* Two OPT RRs? */
-                                if (p->opt) {
-                                        r = -EBADMSG;
-                                        goto finish;
+                                if (!opt_is_good(rr, &has_rfc6975)) {
+                                        log_debug("Malformed OPT RR, ignoring.");
+                                        bad_opt = true;
+                                        continue;
+                                }
+
+                                if (has_rfc6975) {
+                                        /* If the OPT RR contains RFC6975 algorithm data, then this is indication that
+                                         * the server just copied the OPT it got from us (which contained that data)
+                                         * back into the reply. If so, then it doesn't properly support EDNS, as
+                                         * RFC6975 makes it very clear that the algorithm data should only be contained
+                                         * in questions, never in replies. Crappy Belkin routers copy the OPT data for
+                                         * example, hence let's detect this so that we downgrade early. */
+                                        log_debug("OPT RR contained RFC6975 data, ignoring.");
+                                        bad_opt = true;
+                                        continue;
                                 }
 
                                 p->opt = dns_resource_record_ref(rr);
                         } else {
 
-                                /* According to RFC 4795, section
-                                 * 2.9. only the RRs from the Answer
-                                 * section shall be cached. Hence mark
-                                 * only those RRs as cacheable by
-                                 * default, but not the ones from the
-                                 * Additional or Authority
-                                 * sections. */
+                                /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
+                                 * cached. Hence mark only those RRs as cacheable by default, but not the ones from the
+                                 * Additional or Authority sections. */
 
                                 r = dns_answer_add(answer, rr, p->ifindex,
                                                    (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
@@ -2048,7 +2217,15 @@ int dns_packet_extract(DnsPacket *p) {
                                 if (r < 0)
                                         goto finish;
                         }
+
+                        /* Remember this RR, so that we potentically can merge it's ->key object with the next RR. Note
+                         * that we only do this if we actually decided to keep the RR around. */
+                        dns_resource_record_unref(previous);
+                        previous = dns_resource_record_ref(rr);
                 }
+
+                if (bad_opt)
+                        p->opt = dns_resource_record_unref(p->opt);
         }
 
         p->question = question;

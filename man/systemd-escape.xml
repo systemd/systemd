@@ -64,7 +64,7 @@
     used to escape and to undo escaping of strings.</para>
 
     <para>The command takes any number of strings on the command line,
-    and will process them individually, one after the other. It will
+    and will process them individually, one after another. It will
     output them separated by spaces to stdout.</para>
 
     <para>By default, this command will escape the strings passed,

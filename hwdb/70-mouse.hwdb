@@ -41,8 +41,7 @@
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
-#   udevadm info /dev/input/eventXX
-# (or /dev/input/event*).
+#   udevadm info /dev/input/eventXX.
 #
 # Allowed properties are:
 #    MOUSE_DPI
@@ -309,6 +308,8 @@ mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
 # Logitech USB Laser Mouse M-U0011-O rebranded as "terra Laser"
 mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
+# Logitech USB Laser Mouse M-U0007 [M500]
+mouse:usb:v046dpc069:name:Logitech USB Laser Mouse:
 # Logitech V500 Cordless Notebook Mouse
 mouse:usb:v046dpc510:name:Logitech USB Receiver:
 # Logitech M560 Wireless Mouse
@@ -340,8 +341,6 @@ mouse:usb:v046dp1024:name:Logitech M310:
 
 # Logitech USB Laser Mouse M-UAS144 [LS1 Laser Mouse]
 mouse:usb:v046dpc062:name:Logitech USB Laser Mouse:
-# Logitech USB Laser Mouse M-U0007
-mouse:usb:v046dpc069:name:Logitech USB Laser Mouse:
  MOUSE_DPI=1200@125
 
 # Logitech T620 (or, the soap)

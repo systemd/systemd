@@ -51,6 +51,7 @@
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -1412,7 +1413,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         format = unit_get_status_message_format(u, t);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        snprintf(buf, sizeof(buf), format, unit_description(u));
+        xsprintf(buf, format, unit_description(u));
         REENABLE_WARNING;
 
         mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
@@ -1893,6 +1894,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 case JOB_RELOAD:
                 case JOB_RELOAD_OR_START:
+                case JOB_TRY_RELOAD:
 
                         if (u->job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
@@ -2106,6 +2108,7 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
                 return unit_can_start(u);
 
         case JOB_RELOAD:
+        case JOB_TRY_RELOAD:
                 return unit_can_reload(u);
 
         case JOB_RELOAD_OR_START:
@@ -3119,7 +3122,7 @@ int unit_kill_common(
                         killed = true;
         }
 
-        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_ALL_FAIL))
+        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL))
                 return -ESRCH;
 
         return r;
@@ -3231,7 +3234,7 @@ int unit_patch_contexts(Unit *u) {
                         ec->no_new_privileges = true;
 
                 if (ec->private_devices)
-                        ec->capability_bounding_set_drop |= (uint64_t) 1ULL << (uint64_t) CAP_MKNOD;
+                        ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_MKNOD);
         }
 
         cc = unit_get_cgroup_context(u);

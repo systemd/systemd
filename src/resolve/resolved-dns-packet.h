@@ -76,6 +76,7 @@ struct DnsPacket {
         size_t size, allocated, rindex;
         void *_data; /* don't access directly, use DNS_PACKET_DATA()! */
         Hashmap *names; /* For name compression */
+        size_t opt_start, opt_size;
 
         /* Parsed data */
         DnsQuestion *question;
@@ -118,7 +119,17 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
 #define DNS_PACKET_RA(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 7) & 1)
 #define DNS_PACKET_AD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 5) & 1)
 #define DNS_PACKET_CD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 4) & 1)
-#define DNS_PACKET_RCODE(p) (be16toh(DNS_PACKET_HEADER(p)->flags) & 15)
+
+static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
+        uint16_t rcode;
+
+        if (p->opt)
+                rcode = (uint16_t) (p->opt->ttl >> 24);
+        else
+                rcode = 0;
+
+        return rcode | (be16toh(DNS_PACKET_HEADER(p)->flags) & 15);
+}
 
 /* LLMNR defines some bits differently */
 #define DNS_PACKET_LLMNR_C(p) DNS_PACKET_AA(p)
@@ -173,9 +184,10 @@ int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, bool canonica
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start);
-int dns_packet_append_opt_rr(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
+int dns_packet_truncate_opt(DnsPacket *p);
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start);
 int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start);
@@ -201,6 +213,7 @@ static inline bool DNS_PACKET_SHALL_CACHE(DnsPacket *p) {
         return in_addr_is_localhost(p->family, &p->sender) == 0;
 }
 
+/* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
 enum {
         DNS_RCODE_SUCCESS = 0,
         DNS_RCODE_FORMERR = 1,
@@ -234,7 +247,7 @@ DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 #define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
 
 #define MDNS_MULTICAST_IPV4_ADDRESS  ((struct in_addr) { .s_addr = htobe32(224U << 24 | 251U) })
-#define MDNS_MULTICAST_IPV6_ADDRESS  ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0xfb } })
+#define MDNS_MULTICAST_IPV6_ADDRESS  ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb } })
 
 static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family, bool authenticated) {
         uint64_t f;

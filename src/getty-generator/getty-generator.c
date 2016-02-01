@@ -112,7 +112,7 @@ static int verify_tty(const char *name) {
 
         errno = 0;
         if (isatty(fd) <= 0)
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         return 0;
 }

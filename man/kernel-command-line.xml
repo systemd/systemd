@@ -91,6 +91,7 @@
         <term><varname>systemd.default_standard_output=</varname></term>
         <term><varname>systemd.default_standard_error=</varname></term>
         <term><varname>systemd.setenv=</varname></term>
+        <term><varname>systemd.machine_id=</varname></term>
         <listitem>
           <para>Parameters understood by the system and service
           manager to control system behavior. For details, see

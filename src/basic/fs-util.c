@@ -341,7 +341,8 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         if (parents)
                 mkdir_parents(path, 0755);
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode > 0 ? mode : 0644);
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
+                        (mode == 0 || mode == MODE_INVALID) ? 0644 : mode);
         if (fd < 0)
                 return -errno;
 
@@ -481,7 +482,7 @@ int get_files_in_directory(const char *path, char ***list) {
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return -errno;
                 if (!de)
                         break;

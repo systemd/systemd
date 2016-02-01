@@ -37,10 +37,11 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
+#include "resolved-etc-hosts.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
-#include "resolved-resolv-conf.h"
 #include "resolved-mdns.h"
+#include "resolved-resolv-conf.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -205,7 +206,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, SD_EVENT_PRIORITY_IMPORTANT);
         if (r < 0)
                 return r;
 
@@ -287,7 +288,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         r = manager_write_resolv_conf(m);
         if (r < 0)
-                log_warning_errno(r, "Could not update resolv.conf: %m");
+                log_warning_errno(r, "Could not update "PRIVATE_RESOLV_CONF": %m");
 
         return 0;
 }
@@ -312,6 +313,12 @@ static int manager_network_monitor_listen(Manager *m) {
         r = sd_event_add_io(m->event, &m->network_event_source, fd, events, &on_network_event, m);
         if (r < 0)
                 return r;
+
+        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT+5);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(m->network_event_source, "network-monitor");
 
         return 0;
 }
@@ -420,6 +427,8 @@ static int manager_watch_hostname(Manager *m) {
                         return log_error_errno(r, "Failed to add hostname event source: %m");
         }
 
+        (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
+
         r = determine_hostname(&m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
                 log_info("Defaulting to hostname 'linux'.");
@@ -476,11 +485,18 @@ int manager_new(Manager **ret) {
         m->mdns_ipv4_fd = m->mdns_ipv6_fd = -1;
         m->hostname_fd = -1;
 
-        m->llmnr_support = SUPPORT_YES;
+        m->llmnr_support = RESOLVE_SUPPORT_YES;
+        m->mdns_support = RESOLVE_SUPPORT_NO;
+        m->dnssec_mode = DNSSEC_NO;
         m->read_resolv_conf = true;
         m->need_builtin_fallbacks = true;
+        m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;
 
         r = dns_trust_anchor_load(&m->trust_anchor);
+        if (r < 0)
+                return r;
+
+        r = manager_parse_config_file(m);
         if (r < 0)
                 return r;
 
@@ -584,6 +600,7 @@ Manager *manager_free(Manager *m) {
         free(m->mdns_hostname);
 
         dns_trust_anchor_flush(&m->trust_anchor);
+        manager_etc_hosts_flush(m);
 
         free(m);
 
@@ -1164,9 +1181,48 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
         return 0;
 }
 
-static const char* const support_table[_SUPPORT_MAX] = {
-        [SUPPORT_NO] = "no",
-        [SUPPORT_YES] = "yes",
-        [SUPPORT_RESOLVE] = "resolve",
-};
-DEFINE_STRING_TABLE_LOOKUP(support, Support);
+DnssecMode manager_get_dnssec_mode(Manager *m) {
+        assert(m);
+
+        if (m->dnssec_mode != _DNSSEC_MODE_INVALID)
+                return m->dnssec_mode;
+
+        return DNSSEC_NO;
+}
+
+bool manager_dnssec_supported(Manager *m) {
+        DnsServer *server;
+        Iterator i;
+        Link *l;
+
+        assert(m);
+
+        if (manager_get_dnssec_mode(m) == DNSSEC_NO)
+                return false;
+
+        server = manager_get_dns_server(m);
+        if (server && !dns_server_dnssec_supported(server))
+                return false;
+
+        HASHMAP_FOREACH(l, m->links, i)
+                if (!link_dnssec_supported(l))
+                        return false;
+
+        return true;
+}
+
+void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key) {
+
+        assert(verdict >= 0);
+        assert(verdict < _DNSSEC_VERDICT_MAX);
+
+        if (log_get_max_level() >= LOG_DEBUG) {
+                _cleanup_free_ char *s = NULL;
+
+                (void) dns_resource_key_to_string(key, &s);
+
+                log_debug("Found verdict for lookup %s: %s", s ? strstrip(s) : "n/a", dnssec_verdict_to_string(verdict));
+        }
+
+        m->n_dnssec_verdict[verdict]++;
+}

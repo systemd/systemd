@@ -130,7 +130,12 @@ char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
 char *truncate_nl(char *s);
 
-char *ascii_strlower(char *path);
+char ascii_tolower(char x);
+char *ascii_strlower(char *s);
+char *ascii_strlower_n(char *s, size_t n);
+
+int ascii_strcasecmp_n(const char *a, const char *b, size_t n);
+int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m);
 
 bool chars_intersect(const char *a, const char *b) _pure_;
 

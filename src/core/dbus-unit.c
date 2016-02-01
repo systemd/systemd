@@ -987,7 +987,7 @@ int bus_unit_queue_job(
                 if (type == JOB_RESTART)
                         type = JOB_RELOAD_OR_START;
                 else if (type == JOB_TRY_RESTART)
-                        type = JOB_RELOAD;
+                        type = JOB_TRY_RELOAD;
         }
 
         r = mac_selinux_unit_access_check(

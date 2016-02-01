@@ -246,6 +246,8 @@ int main(int argc, char *argv[]) {
                         log_error("%s", error.message);
                 else
                         dbus_message_unref(w);
+
+                dbus_error_free(&error);
         }
 #endif
 

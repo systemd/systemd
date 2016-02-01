@@ -770,8 +770,8 @@
         <option>yes</option>, full volatile mode is enabled. This
         means the root directory is mounted as a mostly unpopulated
         <literal>tmpfs</literal> instance, and
-        <filename>/usr</filename> from the OS tree is mounted into it,
-        read-only (the system thus starts up with read-only OS
+        <filename>/usr</filename> from the OS tree is mounted into it
+        in read-only mode (the system thus starts up with read-only OS
         resources, but pristine state and configuration, any changes
         to the either are lost on shutdown). When the mode parameter
         is specified as <option>state</option>, the OS tree is

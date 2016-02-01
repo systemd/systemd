@@ -96,7 +96,62 @@ unsigned long cap_last_cap(void) {
         return p;
 }
 
-int capability_bounding_set_drop(uint64_t drop, bool right_now) {
+int capability_update_inherited_set(cap_t caps, uint64_t set) {
+        unsigned long i;
+
+        /* Add capabilities in the set to the inherited caps. Do not apply
+         * them yet. */
+
+        for (i = 0; i < cap_last_cap(); i++) {
+
+                if (set & (UINT64_C(1) << i)) {
+                        cap_value_t v;
+
+                        v = (cap_value_t) i;
+
+                        /* Make the capability inheritable. */
+                        if (cap_set_flag(caps, CAP_INHERITABLE, 1, &v, CAP_SET) < 0)
+                                return -errno;
+                }
+        }
+
+        return 0;
+}
+
+int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
+        unsigned long i;
+        _cleanup_cap_free_ cap_t caps = NULL;
+
+        /* Add the capabilities to the ambient set. */
+
+        if (also_inherit) {
+                int r;
+                caps = cap_get_proc();
+                if (!caps)
+                        return -errno;
+
+                r = capability_update_inherited_set(caps, set);
+                if (r < 0)
+                        return -errno;
+
+                if (cap_set_proc(caps) < 0)
+                        return -errno;
+        }
+
+        for (i = 0; i < cap_last_cap(); i++) {
+
+                if (set & (UINT64_C(1) << i)) {
+
+                        /* Add the capability to the ambient set. */
+                        if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0) < 0)
+                                return -errno;
+                }
+        }
+
+        return 0;
+}
+
+int capability_bounding_set_drop(uint64_t keep, bool right_now) {
         _cleanup_cap_free_ cap_t after_cap = NULL;
         cap_flag_value_t fv;
         unsigned long i;
@@ -137,7 +192,7 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
 
         for (i = 0; i <= cap_last_cap(); i++) {
 
-                if (drop & ((uint64_t) 1ULL << (uint64_t) i)) {
+                if (!(keep & (UINT64_C(1) << i))) {
                         cap_value_t v;
 
                         /* Drop it from the bounding set */
@@ -176,7 +231,7 @@ finish:
         return r;
 }
 
-static int drop_from_file(const char *fn, uint64_t drop) {
+static int drop_from_file(const char *fn, uint64_t keep) {
         int r, k;
         uint32_t hi, lo;
         uint64_t current, after;
@@ -196,7 +251,7 @@ static int drop_from_file(const char *fn, uint64_t drop) {
                 return -EIO;
 
         current = (uint64_t) lo | ((uint64_t) hi << 32ULL);
-        after = current & ~drop;
+        after = current & keep;
 
         if (current == after)
                 return 0;
@@ -213,14 +268,14 @@ static int drop_from_file(const char *fn, uint64_t drop) {
         return r;
 }
 
-int capability_bounding_set_drop_usermode(uint64_t drop) {
+int capability_bounding_set_drop_usermode(uint64_t keep) {
         int r;
 
-        r = drop_from_file("/proc/sys/kernel/usermodehelper/inheritable", drop);
+        r = drop_from_file("/proc/sys/kernel/usermodehelper/inheritable", keep);
         if (r < 0)
                 return r;
 
-        r = drop_from_file("/proc/sys/kernel/usermodehelper/bset", drop);
+        r = drop_from_file("/proc/sys/kernel/usermodehelper/bset", keep);
         if (r < 0)
                 return r;
 
@@ -257,7 +312,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 return log_error_errno(errno, "Failed to disable keep capabilities flag: %m");
 
         /* Drop all caps from the bounding set, except the ones we want */
-        r = capability_bounding_set_drop(~keep_capabilities, true);
+        r = capability_bounding_set_drop(keep_capabilities, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop capabilities: %m");
 

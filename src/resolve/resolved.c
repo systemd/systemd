@@ -81,12 +81,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = manager_parse_config_file(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse configuration file: %m");
-                goto finish;
-        }
-
         r = manager_start(m);
         if (r < 0) {
                 log_error_errno(r, "Failed to start manager: %m");
@@ -97,7 +91,7 @@ int main(int argc, char *argv[]) {
          * symlink */
         r = manager_write_resolv_conf(m);
         if (r < 0)
-                log_warning_errno(r, "Could not create resolv.conf: %m");
+                log_warning_errno(r, "Could not create "PRIVATE_RESOLV_CONF": %m");
 
         sd_notify(false,
                   "READY=1\n"

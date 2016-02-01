@@ -513,7 +513,7 @@ int on_ac_power(void) {
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return -errno;
 
                 if (!de)

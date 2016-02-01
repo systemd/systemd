@@ -87,7 +87,7 @@
     <para>For I/O event sources, as created with
     <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     the call
-    <citerefentry><refentrytitle>sd_event_get_io_revents</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_event_source_get_io_revents</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     may be used to query the type of event pending in more
     detail.</para>
 

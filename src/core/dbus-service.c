@@ -153,6 +153,8 @@ static int bus_service_set_transient_property(
                                 asynchronous_close(s->stderr_fd);
                                 s->stderr_fd = copy;
                         }
+
+                        s->exec_context.stdio_as_fds = true;
                 }
 
                 return 1;

@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#include <uchar.h>
 #include <unistd.h>
 
 #ifdef HAVE_AUDIT
@@ -129,6 +130,10 @@
 
 #ifndef NETLINK_LIST_MEMBERSHIPS
 #define NETLINK_LIST_MEMBERSHIPS 9
+#endif
+
+#ifndef SOL_SCTP
+#define SOL_SCTP 132
 #endif
 
 #if !HAVE_DECL_PIVOT_ROOT
@@ -970,6 +975,10 @@ static inline int setns(int fd, int nstype) {
 #define IFA_FLAGS 8
 #endif
 
+#ifndef IFA_F_MANAGETEMPADDR
+#define IFA_F_MANAGETEMPADDR 0x100
+#endif
+
 #ifndef IFA_F_NOPREFIXROUTE
 #define IFA_F_NOPREFIXROUTE 0x200
 #endif
@@ -1124,4 +1133,40 @@ static inline key_serial_t request_key(const char *type, const char *description
 
 #ifndef KEY_SPEC_USER_KEYRING
 #define KEY_SPEC_USER_KEYRING -4
+#endif
+
+#ifndef PR_CAP_AMBIENT
+#define PR_CAP_AMBIENT 47
+#endif
+
+#ifndef PR_CAP_AMBIENT_IS_SET
+#define PR_CAP_AMBIENT_IS_SET 1
+#endif
+
+#ifndef PR_CAP_AMBIENT_RAISE
+#define PR_CAP_AMBIENT_RAISE 2
+#endif
+
+#ifndef PR_CAP_AMBIENT_CLEAR_ALL
+#define PR_CAP_AMBIENT_CLEAR_ALL 4
+#endif
+
+/* The following two defines are actually available in the kernel headers for longer, but we define them here anyway,
+ * since that makes it easier to use them in conjunction with the glibc net/if.h header which conflicts with
+ * linux/if.h. */
+#ifndef IF_OPER_UNKNOWN
+#define IF_OPER_UNKNOWN 0
+#endif
+
+#ifndef IF_OPER_UP
+#define IF_OPER_UP 6
+
+#ifndef HAVE_DECL_CHAR32_T
+#define char32_t uint32_t
+#endif
+
+#ifndef HAVE_DECL_CHAR16_T
+#define char16_t uint16_t
+#endif
+
 #endif

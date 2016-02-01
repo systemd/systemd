@@ -26,6 +26,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "signal-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -234,9 +235,9 @@ const char *signal_to_string(int signo) {
                 return name;
 
         if (signo >= SIGRTMIN && signo <= SIGRTMAX)
-                snprintf(buf, sizeof(buf), "RTMIN+%d", signo - SIGRTMIN);
+                xsprintf(buf, "RTMIN+%d", signo - SIGRTMIN);
         else
-                snprintf(buf, sizeof(buf), "%d", signo);
+                xsprintf(buf, "%d", signo);
 
         return buf;
 }

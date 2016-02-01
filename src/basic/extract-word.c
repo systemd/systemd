@@ -107,9 +107,10 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         }
 
                         if (flags & EXTRACT_CUNESCAPE) {
-                                uint32_t u;
+                                bool eight_bit = false;
+                                char32_t u;
 
-                                r = cunescape_one(*p, (size_t) -1, &c, &u);
+                                r = cunescape_one(*p, (size_t) -1, &u, &eight_bit);
                                 if (r < 0) {
                                         if (flags & EXTRACT_CUNESCAPE_RELAX) {
                                                 s[sz++] = '\\';
@@ -119,10 +120,10 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 } else {
                                         (*p) += r - 1;
 
-                                        if (c != 0)
-                                                s[sz++] = c; /* normal explicit char */
+                                        if (eight_bit)
+                                                s[sz++] = u;
                                         else
-                                                sz += utf8_encode_unichar(s + sz, u); /* unicode chars we'll encode as utf8 */
+                                                sz += utf8_encode_unichar(s + sz, u);
                                 }
                         } else
                                 s[sz++] = c;

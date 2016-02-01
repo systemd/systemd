@@ -459,6 +459,12 @@
           this setting is the parent slice. Since the name of a slice
           unit implies the parent slice, it is hence redundant to ever
           set this parameter directly for slice units.</para>
+
+          <para>Special care should be taken when relying on the default slice assignment in templated service units
+          that have <varname>DefaultDependencies=no</varname> set, see
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>, section
+          "Automatic Dependencies" for details.</para>
+
         </listitem>
       </varlistentry>
 

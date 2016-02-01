@@ -247,7 +247,7 @@
         <literal>checksum</literal> is specified, the download is
         checked for integrity after the transfer is complete, but no
         signatures are verified. If <literal>signature</literal> is
-        specified, the checksum is verified and the images's signature
+        specified, the checksum is verified and the image's signature
         is checked against a local keyring of trustable vendors. It is
         strongly recommended to set this option to
         <literal>signature</literal> if the server and protocol
@@ -768,10 +768,9 @@
         image is read from standard input, in which case the second
         argument is mandatory.</para>
 
-        <para>Similar as with <command>pull-tar</command>,
-        <command>pull-raw</command> the file system
-        <filename>/var/lib/machines.raw</filename> is increased in
-        size of necessary and appropriate. Optionally, the
+        <para>Both <command>pull-tar</command> and <command>pull-raw</command>
+        will resize <filename>/var/lib/machines.raw</filename> and the
+        filesystem therein as necessary. Optionally, the
         <option>--read-only</option> switch may be used to create a
         read-only container or VM image. No cryptographic validation
         is done when importing the images.</para>

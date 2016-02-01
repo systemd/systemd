@@ -57,6 +57,15 @@ ExecStart=/test-journal.sh
 Type=oneshot
 EOF
 
+        cat >$initdir/etc/systemd/system/forever-print-hola.service <<EOF
+[Unit]
+Description=ForeverPrintHola service
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -x -c 'while :; do printf "Hola\n" || touch /i-lose-my-logs; sleep 1; done'
+EOF
+
         cp test-journal.sh $initdir/
 
         setup_testsuite

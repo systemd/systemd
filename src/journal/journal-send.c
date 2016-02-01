@@ -372,6 +372,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
 
                         xsprintf(error, "ERRNO=%i", _saved_errno_);
 
+                        assert_cc(3 == LOG_ERR);
                         IOVEC_SET_STRING(iov[skip+0], "PRIORITY=3");
                         IOVEC_SET_STRING(iov[skip+1], buffer);
                         IOVEC_SET_STRING(iov[skip+2], error);

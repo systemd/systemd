@@ -150,7 +150,7 @@ static int spawn_curl(const char* url) {
         return r;
 }
 
-static int spawn_getter(const char *getter, const char *url) {
+static int spawn_getter(const char *getter) {
         int r;
         _cleanup_strv_free_ char **words = NULL;
 
@@ -158,10 +158,6 @@ static int spawn_getter(const char *getter, const char *url) {
         r = strv_split_extract(&words, getter, WHITESPACE, EXTRACT_QUOTES);
         if (r < 0)
                 return log_error_errno(r, "Failed to split getter option: %m");
-
-        r = strv_extend(&words, url);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create command line: %m");
 
         r = spawn_child(words[0], words);
         if (r < 0)
@@ -447,7 +443,7 @@ static int add_raw_socket(RemoteServer *s, int fd) {
 static int setup_raw_socket(RemoteServer *s, const char *address) {
         int fd;
 
-        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM | SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM, SOCK_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -587,7 +583,7 @@ static int request_handler(
                                            *connection_cls);
 
         if (!streq(method, "POST"))
-                return mhd_respond(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
+                return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE,
                                    "Unsupported method.\n");
 
         if (!streq(url, "/upload"))
@@ -621,7 +617,7 @@ static int request_handler(
                 if (r < 0)
                         return code;
         } else {
-                r = getnameinfo_pretty(fd, &hostname);
+                r = getpeername_pretty(fd, false, &hostname);
                 if (r < 0)
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
                                            "Cannot check remote hostname");
@@ -765,7 +761,7 @@ static int setup_microhttpd_socket(RemoteServer *s,
                                    const char *trust) {
         int fd;
 
-        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM | SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, SOCK_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -879,7 +875,7 @@ static int remoteserver_init(RemoteServer *s,
                 } else if (sd_is_socket(fd, AF_UNSPEC, 0, false)) {
                         char *hostname;
 
-                        r = getnameinfo_pretty(fd, &hostname);
+                        r = getpeername_pretty(fd, false, &hostname);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to retrieve remote name: %m");
 
@@ -897,18 +893,32 @@ static int remoteserver_init(RemoteServer *s,
                                                fd);
         }
 
+        if (arg_getter) {
+                log_info("Spawning getter %s...", arg_getter);
+                fd = spawn_getter(arg_getter);
+                if (fd < 0)
+                        return fd;
+
+                r = add_source(s, fd, (char*) arg_output, false);
+                if (r < 0)
+                        return r;
+        }
+
         if (arg_url) {
-                const char *url, *hostname;
+                const char *url;
+                char *hostname, *p;
 
-                url = strjoina(arg_url, "/entries");
-
-                if (arg_getter) {
-                        log_info("Spawning getter %s...", url);
-                        fd = spawn_getter(arg_getter, url);
-                } else {
-                        log_info("Spawning curl %s...", url);
-                        fd = spawn_curl(url);
+                if (!strstr(arg_url, "/entries")) {
+                        if (endswith(arg_url, "/"))
+                                url = strjoina(arg_url, "entries");
+                        else
+                                url = strjoina(arg_url, "/entries");
                 }
+                else
+                        url = strdupa(arg_url);
+
+                log_info("Spawning curl %s...", url);
+                fd = spawn_curl(url);
                 if (fd < 0)
                         return fd;
 
@@ -917,7 +927,13 @@ static int remoteserver_init(RemoteServer *s,
                         startswith(arg_url, "http://") ?:
                         arg_url;
 
-                r = add_source(s, fd, (char*) hostname, false);
+                hostname = strdupa(hostname);
+                if ((p = strchr(hostname, '/')))
+                        *p = '\0';
+                if ((p = strchr(hostname, ':')))
+                        *p = '\0';
+
+                r = add_source(s, fd, hostname, false);
                 if (r < 0)
                         return r;
         }
@@ -1181,6 +1197,7 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode,
 
 static int parse_config(void) {
         const ConfigTableItem items[] = {
+                { "Remote",  "Seal",                   config_parse_bool,             0, &arg_seal       },
                 { "Remote",  "SplitMode",              config_parse_write_split_mode, 0, &arg_split_mode },
                 { "Remote",  "ServerKeyFile",          config_parse_path,             0, &arg_key        },
                 { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert       },

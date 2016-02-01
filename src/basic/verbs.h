@@ -22,7 +22,8 @@
 ***/
 
 #define VERB_ANY ((unsigned) -1)
-#define VERB_DEFAULT 1
+#define VERB_DEFAULT 1U
+#define VERB_NOCHROOT 2U
 
 typedef struct {
         const char *verb;

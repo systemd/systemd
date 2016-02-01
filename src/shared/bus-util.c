@@ -2041,12 +2041,20 @@ static const struct {
         { "start-limit", "start of the service was attempted too often" }
 };
 
-static void log_job_error_with_service_result(const char* service, const char *result) {
-        _cleanup_free_ char *service_shell_quoted = NULL;
+static void log_job_error_with_service_result(const char* service, const char *result, const char *extra_args) {
+        _cleanup_free_ char *service_shell_quoted = NULL, *systemctl_extra_args = NULL;
 
         assert(service);
 
         service_shell_quoted = shell_maybe_quote(service);
+
+        systemctl_extra_args = strjoin("systemctl ", extra_args, " ", NULL);
+        if (!systemctl_extra_args) {
+                log_oom();
+                return;
+        }
+
+        systemctl_extra_args = strstrip(systemctl_extra_args);
 
         if (!isempty(result)) {
                 unsigned i;
@@ -2056,27 +2064,30 @@ static void log_job_error_with_service_result(const char* service, const char *r
                                 break;
 
                 if (i < ELEMENTSOF(explanations)) {
-                        log_error("Job for %s failed because %s. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+                        log_error("Job for %s failed because %s. See \"%s status %s\" and \"journalctl -xe\" for details.\n",
                                   service,
                                   explanations[i].explanation,
+                                  systemctl_extra_args,
                                   strna(service_shell_quoted));
 
                         goto finish;
                 }
         }
 
-        log_error("Job for %s failed. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+        log_error("Job for %s failed. See \"%s status %s\" and \"journalctl -xe\" for details.\n",
                   service,
+                  systemctl_extra_args,
                   strna(service_shell_quoted));
 
 finish:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
-                log_info("To force a start use \"systemctl reset-failed %1$s\" followed by \"systemctl start %1$s\" again.",
+                log_info("To force a start use \"%1$s reset-failed %2$s\" followed by \"%1$s start %2$s\" again.",
+                         systemctl_extra_args,
                          strna(service_shell_quoted));
 }
 
-static int check_wait_response(BusWaitForJobs *d, bool quiet) {
+static int check_wait_response(BusWaitForJobs *d, bool quiet, const char *extra_args) {
         int r = 0;
 
         assert(d->result);
@@ -2089,7 +2100,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
                 else if (streq(d->result, "dependency"))
                         log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", strna(d->name));
                 else if (streq(d->result, "invalid"))
-                        log_error("Job for %s invalid.", strna(d->name));
+                        log_error("%s is not active, cannot reload.", strna(d->name));
                 else if (streq(d->result, "assert"))
                         log_error("Assertion failed on job for %s.", strna(d->name));
                 else if (streq(d->result, "unsupported"))
@@ -2103,7 +2114,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
                                 if (q < 0)
                                         log_debug_errno(q, "Failed to get Result property of service %s: %m", d->name);
 
-                                log_job_error_with_service_result(d->name, result);
+                                log_job_error_with_service_result(d->name, result, extra_args);
                         } else
                                 log_error("Job failed. See \"journalctl -xe\" for details.");
                 }
@@ -2127,7 +2138,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
         return r;
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet) {
+int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char *extra_args) {
         int r = 0;
 
         assert(d);
@@ -2140,7 +2151,7 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet) {
                         return log_error_errno(q, "Failed to wait for response: %m");
 
                 if (d->result) {
-                        q = check_wait_response(d, quiet);
+                        q = check_wait_response(d, quiet, extra_args);
                         /* Return the first error as it is most likely to be
                          * meaningful. */
                         if (q < 0 && r == 0)
@@ -2175,7 +2186,7 @@ int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet) {
         if (r < 0)
                 return log_oom();
 
-        return bus_wait_for_jobs(d, quiet);
+        return bus_wait_for_jobs(d, quiet, NULL);
 }
 
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, UnitFileChange **changes, unsigned *n_changes) {

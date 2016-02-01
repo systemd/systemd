@@ -128,7 +128,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
 
         errno = 0;
         if (!fgets(line, sizeof(line), f))
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
 
         truncate_nl(line);
 
@@ -212,7 +212,7 @@ int ask_string(char **ret, const char *text, ...) {
 
                 errno = 0;
                 if (!fgets(line, sizeof(line), stdin))
-                        return errno ? -errno : -EIO;
+                        return errno > 0 ? -errno : -EIO;
 
                 if (!endswith(line, "\n"))
                         putchar('\n');
@@ -726,9 +726,7 @@ bool tty_is_vc_resolve(const char *tty) {
 }
 
 const char *default_term_for_tty(const char *tty) {
-        assert(tty);
-
-        return tty_is_vc_resolve(tty) ? "TERM=linux" : "TERM=vt220";
+        return tty && tty_is_vc_resolve(tty) ? "TERM=linux" : "TERM=vt220";
 }
 
 int fd_columns(int fd) {
@@ -1134,4 +1132,17 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
                 return -EIO;
 
         return receive_one_fd(pair[0], 0);
+}
+
+bool colors_enabled(void) {
+        const char *colors;
+
+        colors = getenv("SYSTEMD_COLORS");
+        if (!colors) {
+                if (streq_ptr(getenv("TERM"), "dumb"))
+                        return false;
+                return on_tty();
+        }
+
+        return parse_boolean(colors) != 0;
 }

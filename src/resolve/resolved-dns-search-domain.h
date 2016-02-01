@@ -44,6 +44,7 @@ struct DnsSearchDomain {
         char *name;
 
         bool marked:1;
+        bool route_only:1;
 
         bool linked:1;
         LIST_FIELDS(DnsSearchDomain, domains);

@@ -80,20 +80,34 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
 
 int manager_add_search_domain_by_string(Manager *m, const char *domain) {
         DnsSearchDomain *d;
+        bool route_only;
         int r;
 
         assert(m);
         assert(domain);
 
+        route_only = *domain == '~';
+        if (route_only)
+                domain++;
+
+        if (dns_name_is_root(domain) || streq(domain, "*")) {
+                route_only = true;
+                domain = ".";
+        }
+
         r = dns_search_domain_find(m->search_domains, domain, &d);
         if (r < 0)
                 return r;
-        if (r > 0) {
+        if (r > 0)
                 dns_search_domain_move_back_and_unmark(d);
-                return 0;
+        else {
+                r = dns_search_domain_new(m, &d, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
+                if (r < 0)
+                        return r;
         }
 
-        return dns_search_domain_new(m, NULL, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
+        d->route_only = route_only;
+        return 0;
 }
 
 int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
@@ -197,75 +211,6 @@ int config_parse_search_domains(
          * /etc/resolv.conf */
         m->read_resolv_conf = false;
 
-        return 0;
-}
-
-int config_parse_support(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Support support, *v = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        support = support_from_string(rvalue);
-        if (support < 0) {
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse support level '%s'. Ignoring.", rvalue);
-                        return 0;
-                }
-
-                support = r ? SUPPORT_YES : SUPPORT_NO;
-        }
-
-        *v = support;
-        return 0;
-}
-
-int config_parse_dnssec(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Manager *m = data;
-        DnssecMode mode;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        mode = dnssec_mode_from_string(rvalue);
-        if (mode < 0) {
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNSSEC mode '%s'. Ignoring.", rvalue);
-                        return 0;
-                }
-
-                mode = r ? DNSSEC_YES : DNSSEC_NO;
-        }
-
-        m->unicast_scope->dnssec_mode = mode;
         return 0;
 }
 

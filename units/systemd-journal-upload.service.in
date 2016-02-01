@@ -14,6 +14,7 @@ After=network.target
 ExecStart=@rootlibexecdir@/systemd-journal-upload \
           --save-state
 User=systemd-journal-upload
+SupplementaryGroups=systemd-journal
 PrivateTmp=yes
 PrivateDevices=yes
 WatchdogSec=3min

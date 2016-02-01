@@ -42,6 +42,9 @@
 /* Maximum length of a full hostname, on the wire, including the final NUL byte */
 #define DNS_WIRE_FOMAT_HOSTNAME_MAX 255
 
+/* Maximum number of labels per valid hostname */
+#define DNS_N_LABELS_MAX 127
+
 int dns_label_unescape(const char **name, char *dest, size_t sz);
 int dns_label_unescape_suffix(const char *name, const char **label_end, char *dest, size_t sz);
 int dns_label_escape(const char *p, size_t l, char *dest, size_t sz);
@@ -80,6 +83,7 @@ extern const struct hash_ops dns_name_hash_ops;
 int dns_name_between(const char *a, const char *b, const char *c);
 int dns_name_equal(const char *x, const char *y);
 int dns_name_endswith(const char *name, const char *suffix);
+int dns_name_startswith(const char *name, const char *prefix);
 
 int dns_name_change_suffix(const char *name, const char *old_suffix, const char *new_suffix, char **ret);
 
@@ -96,3 +100,13 @@ bool dns_service_name_is_valid(const char *name);
 
 int dns_service_join(const char *name, const char *type, const char *domain, char **ret);
 int dns_service_split(const char *joined, char **name, char **type, char **domain);
+
+int dns_name_suffix(const char *name, unsigned n_labels, const char **ret);
+int dns_name_count_labels(const char *name);
+
+int dns_name_skip(const char *a, unsigned n_labels, const char **ret);
+int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b);
+
+int dns_name_common_suffix(const char *a, const char *b, const char **ret);
+
+int dns_name_apply_idna(const char *name, char **ret);

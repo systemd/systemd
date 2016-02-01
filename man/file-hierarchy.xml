@@ -63,7 +63,7 @@
     and restrictions systemd makes on the file system
     hierarchy.</para>
 
-    <para>Many of the paths described here are queriable
+    <para>Many of the paths described here can be queried
     with the
     <citerefentry><refentrytitle>systemd-path</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     tool.</para>

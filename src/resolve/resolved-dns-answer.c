@@ -125,10 +125,13 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFl
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        /* Entry already exists, keep the entry with
-                         * the higher RR, or the one with TTL 0 */
+                        /* Don't mix contradicting TTLs (see below) */
+                        if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
+                                return -EINVAL;
 
-                        if (rr->ttl == 0 || (rr->ttl > a->items[i].rr->ttl && a->items[i].rr->ttl != 0)) {
+                        /* Entry already exists, keep the entry with
+                         * the higher RR. */
+                        if (rr->ttl > a->items[i].rr->ttl) {
                                 dns_resource_record_ref(rr);
                                 dns_resource_record_unref(a->items[i].rr);
                                 a->items[i].rr = rr;
@@ -136,6 +139,21 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFl
 
                         a->items[i].flags |= flags;
                         return 0;
+                }
+
+                r = dns_resource_key_equal(a->items[i].rr->key, rr->key);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* There's already an RR of the same RRset in
+                         * place! Let's see if the TTLs more or less
+                         * match. We don't really care if they match
+                         * precisely, but we do care whether one is 0
+                         * and the other is not. See RFC 2181, Section
+                         * 5.2.*/
+
+                        if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
+                                return -EINVAL;
                 }
         }
 
@@ -302,9 +320,36 @@ int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
         return false;
 }
 
-int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
+int dns_answer_contains_zone_nsec3(DnsAnswer *answer, const char *zone) {
         DnsResourceRecord *rr;
-        DnsAnswerFlags rr_flags;
+        int r;
+
+        /* Checks whether the specified answer contains at least one NSEC3 RR in the specified zone */
+
+        DNS_ANSWER_FOREACH(rr, answer) {
+                const char *p;
+
+                if (rr->key->type != DNS_TYPE_NSEC3)
+                        continue;
+
+                p = DNS_RESOURCE_KEY_NAME(rr->key);
+                r = dns_name_parent(&p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = dns_name_equal(p, zone);
+                if (r != 0)
+                        return r;
+        }
+
+        return false;
+}
+
+int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
+        DnsResourceRecord *rr, *soa = NULL;
+        DnsAnswerFlags rr_flags, soa_flags = 0;
         int r;
 
         assert(key);
@@ -318,15 +363,29 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        if (ret)
-                                *ret = rr;
-                        if (flags)
-                                *flags = rr_flags;
-                        return 1;
+
+                        if (soa) {
+                                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(soa->key));
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
+
+                        soa = rr;
+                        soa_flags = rr_flags;
                 }
         }
 
-        return 0;
+        if (!soa)
+                return 0;
+
+        if (ret)
+                *ret = soa;
+        if (flags)
+                *flags = soa_flags;
+
+        return 1;
 }
 
 int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
@@ -337,7 +396,7 @@ int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsR
         assert(key);
 
         /* For a {C,D}NAME record we can never find a matching {C,D}NAME record */
-        if (key->type == DNS_TYPE_CNAME || key->type == DNS_TYPE_DNAME)
+        if (!dns_type_may_redirect(key->type))
                 return 0;
 
         DNS_ANSWER_FOREACH_FLAGS(rr, rr_flags, a) {
@@ -474,6 +533,92 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
                         break;
 
                 r = dns_resource_key_equal((*a)->items[i].rr->key, key);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* Kill this entry */
+
+                        dns_resource_record_unref((*a)->items[i].rr);
+                        memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
+                        (*a)->n_rrs --;
+                        continue;
+
+                } else
+                        /* Keep this entry */
+                        i++;
+        }
+
+        return 1;
+}
+
+int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
+        bool found = false, other = false;
+        DnsResourceRecord *rr;
+        unsigned i;
+        int r;
+
+        assert(a);
+        assert(rm);
+
+        /* Remove all entries matching the specified RR from *a */
+
+        DNS_ANSWER_FOREACH(rr, *a) {
+                r = dns_resource_record_equal(rr, rm);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        found = true;
+                else
+                        other = true;
+
+                if (found && other)
+                        break;
+        }
+
+        if (!found)
+                return 0;
+
+        if (!other) {
+                *a = dns_answer_unref(*a); /* Return NULL for the empty answer */
+                return 1;
+        }
+
+        if ((*a)->n_ref > 1) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *copy = NULL;
+                DnsAnswerFlags flags;
+                int ifindex;
+
+                copy = dns_answer_new((*a)->n_rrs);
+                if (!copy)
+                        return -ENOMEM;
+
+                DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, *a) {
+                        r = dns_resource_record_equal(rr, rm);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
+                        r = dns_answer_add_raw(copy, rr, ifindex, flags);
+                        if (r < 0)
+                                return r;
+                }
+
+                dns_answer_unref(*a);
+                *a = copy;
+                copy = NULL;
+
+                return 1;
+        }
+
+        /* Only a single reference, edit in-place */
+
+        i = 0;
+        for (;;) {
+                if (i >= (*a)->n_rrs)
+                        break;
+
+                r = dns_resource_record_equal((*a)->items[i].rr, rm);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -643,18 +788,18 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
 void dns_answer_dump(DnsAnswer *answer, FILE *f) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
-        int ifindex, r;
+        int ifindex;
 
         if (!f)
                 f = stdout;
 
         DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
-                _cleanup_free_ char *t = NULL;
+                const char *t;
 
                 fputc('\t', f);
 
-                r = dns_resource_record_to_string(rr, &t);
-                if (r < 0) {
+                t = dns_resource_record_to_string(rr);
+                if (!t) {
                         log_oom();
                         continue;
                 }
@@ -675,4 +820,41 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
 
                 fputc('\n', f);
         }
+}
+
+bool dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(cname);
+
+        /* Checks whether the answer contains a DNAME record that indicates that the specified CNAME record is
+         * synthesized from it */
+
+        if (cname->key->type != DNS_TYPE_CNAME)
+                return 0;
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                _cleanup_free_ char *n = NULL;
+
+                if (rr->key->type != DNS_TYPE_DNAME)
+                        continue;
+                if (rr->key->class != cname->key->class)
+                        continue;
+
+                r = dns_name_change_suffix(cname->cname.name, rr->dname.name, DNS_RESOURCE_KEY_NAME(rr->key), &n);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = dns_name_equal(n, DNS_RESOURCE_KEY_NAME(cname->key));
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+
+        }
+
+        return 0;
 }

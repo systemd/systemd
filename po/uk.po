@@ -2,21 +2,21 @@
 # Copyright (C) 2014 systemd's COPYRIGHT HOLDER
 # This file is distributed under the same license as the systemd package.
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
-# Daniel Korostil <ted.korostiled@gmail.com>, 2014.
+# Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-11-22 16:37+0100\n"
-"PO-Revision-Date: 2014-07-16 19:13+0300\n"
+"POT-Creation-Date: 2016-01-11 09:21+0200\n"
+"PO-Revision-Date: 2016-01-11 11:00+0300\n"
 "Last-Translator: Daniel Korostil <ted.korostiled@gmail.com>\n"
 "Language-Team: linux.org.ua\n"
 "Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 "X-Generator: Virtaal 0.7.1\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
@@ -30,43 +30,42 @@ msgstr "Засвідчення потрібно, щоб надіслати вв�
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
 msgid "Manage system services or other units"
-msgstr ""
+msgstr "Керувати системними службами й іншими одиницями"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-#, fuzzy
 msgid "Authentication is required to manage system services or other units."
-msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
+msgstr ""
+"Засвідчення потрібно, щоб керувати системними службами й іншими одиницями."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
 msgid "Manage system service or unit files"
-msgstr ""
+msgstr "Керувати системними службами й файлами одиниць"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
-#, fuzzy
 msgid "Authentication is required to manage system service or unit files."
-msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
+msgstr ""
+"Засвідчення потрібно, щоб керувати системними службами й файлами одиниць."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
-#, fuzzy
 msgid "Set or unset system and service manager environment variables"
-msgstr "Привілейований доступ до менеджера системи і служб"
+msgstr ""
+"Встановити або забрати змінну середовища з керування службами і системою"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-#, fuzzy
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
-msgstr "Засвідчення потрібно, щоб доступитись до менеджера системи і служб."
+msgstr ""
+"Засвідчення потрібно, щоб установити або забрати змінні середовища з "
+"керування службами і системою."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
-#, fuzzy
 msgid "Reload the systemd state"
-msgstr "Перезавантажити систему"
+msgstr "Перезапустити стан системи"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
-#, fuzzy
 msgid "Authentication is required to reload the systemd state."
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr "Засвідчення потрібно, щоб перезапустити стан системи."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
 msgid "Set host name"
@@ -98,30 +97,31 @@ msgstr "Засвідчення потрібно, щоб вказати лока�
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:1
 msgid "Import a VM or container image"
-msgstr ""
+msgstr "Імпортувати образ контейнера або віртуальної машини"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:2
-#, fuzzy
 msgid "Authentication is required to import a VM or container image"
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr ""
+"Засвідчення потрібно, щоб імпортувати образ контейнера або віртуальної машини"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:3
 msgid "Export a VM or container image"
-msgstr ""
+msgstr "Експортувати образ контейнера або віртуальної машини"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:4
-#, fuzzy
 msgid "Authentication is required to export a VM or container image"
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr ""
+"Засвідчення потрібно, щоб експортувати образ контейнера або віртуальної "
+"машини"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:5
 msgid "Download a VM or container image"
-msgstr ""
+msgstr "Звантажити образ контейнера або віртуальної машини"
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:6
-#, fuzzy
 msgid "Authentication is required to download a VM or container image"
-msgstr "Засвідчення потрібно, щоб вказати локальну інформацію про машини."
+msgstr ""
+"Засвідчення потрібно, щоб звантажити образ контейнера або віртуальної машини"
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -277,7 +277,7 @@ msgstr "Засвідчення потрібно, щоб вимкнути сис�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:27
 msgid "Power off the system while other users are logged in"
-msgstr "Вимикнути систему, коли інші користувачі ще в ній"
+msgstr "Вимкнути систему, коли інші користувачі ще в ній"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid ""
@@ -288,7 +288,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
 msgid "Power off the system while an application asked to inhibit it"
-msgstr "Вимкнути систему, коли програми намагаються першкодити цьому"
+msgstr "Вимкнути систему, коли програми намагаються перешкодити цьому"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
@@ -296,7 +296,7 @@ msgid ""
 "asked to inhibit it."
 msgstr ""
 "Засвідчення потрібно, щоб вимкнути систему, коли програми намагаються "
-"першкодити цьому."
+"перешкодити цьому."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Reboot the system"
@@ -308,7 +308,7 @@ msgstr "Для перезавантаження системи необхідн�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
 msgid "Reboot the system while other users are logged in"
-msgstr "Перезавантажити, якщо інщі користувачі в системі"
+msgstr "Перезавантажити, якщо інші користувачі в системі"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid ""
@@ -319,7 +319,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while an application asked to inhibit it"
-msgstr "Перезапустити систему, коли програми намагаються першкодити цьому"
+msgstr "Перезапустити систему, коли програми намагаються перешкодити цьому"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
@@ -327,7 +327,7 @@ msgid ""
 "asked to inhibit it."
 msgstr ""
 "Засвідчення потрібно, щоб перезапустити систему, коли програми намагаються "
-"першкодити цьому."
+"перешкодити цьому."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Suspend the system"
@@ -350,15 +350,15 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while an application asked to inhibit it"
-msgstr "Призупинити систему, коли програми намагаються першкодити цьому"
+msgstr "Призупинити систему, коли програми намагаються перешкодити цьому"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required for suspending the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Засвідчення потрібно, щоб призупнити систему, коли програми намагаються "
-"першкодити цьому."
+"Засвідчення потрібно, щоб призупинити систему, коли програми намагаються "
+"перешкодити цьому."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Hibernate the system"
@@ -381,7 +381,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while an application asked to inhibit it"
-msgstr "Приспати систему, коли програми намагаються першкодити цьому"
+msgstr "Приспати систему, коли програми намагаються перешкодити цьому"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
@@ -389,124 +389,118 @@ msgid ""
 "asked to inhibit it."
 msgstr ""
 "Засвідчення потрібно, щоб приспати систему, коли програми намагаються "
-"першкодити цьому."
+"перешкодити цьому."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Manage active sessions, users and seats"
-msgstr ""
+msgstr "Керувати сеансами, користувачами і робочими місцями"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
-#, fuzzy
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
-msgstr "Засвідчення потрібно, щоб під'єднувати пристрої до місць."
+msgstr ""
+"Засвідчення потрібно, щоб керувати сеансами, користувачами і робочими "
+"місцями."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "Заблокувати або розблокувати сеанси"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
-#, fuzzy
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr "Засвідчення потрібно, щоб вказати локальну інформацію про машини."
+msgstr "Засвідчення потрібно, щоб заблокувати або розблокувати сеанси."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Allow indication to the firmware to boot to setup interface"
-msgstr ""
+msgstr "Дозволити мікрокоду визначати, чи завантажувати інтерфейс встановлення"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:54
-#, fuzzy
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr ""
+"Засвідчення потрібне, щоб дозволити мікрокоду визначати, чи завантажувати "
+"інтерфейс встановлення."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Set a wall message"
-msgstr ""
+msgstr "Вказати повідомлення на стіні"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:56
-#, fuzzy
 msgid "Authentication is required to set a wall message"
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб вказати повідомлення на стіні"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
-msgstr ""
+msgstr "Увійти в локальний контейнер"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-#, fuzzy
 msgid "Authentication is required to log into a local container."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб увійти в локальний контейнер."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:3
 msgid "Log into the local host"
-msgstr ""
+msgstr "Увійти в локальний вузол"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:4
-#, fuzzy
 msgid "Authentication is required to log into the local host."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб увійти в локальний вузол."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:5
-#, fuzzy
 msgid "Acquire a shell in a local container"
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Перейняти оболонку в локальному контейнері"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:6
-#, fuzzy
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб перейняти оболонку в локальному контейнері."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:7
 msgid "Acquire a shell on the local host"
-msgstr ""
+msgstr "Перейняти оболонку на локальному вузлі"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:8
-#, fuzzy
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб перейняти оболонку на локальному вузлі."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:9
-#, fuzzy
 msgid "Acquire a pseudo TTY in a local container"
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Перейняти псевдо TTY в локальному контейнері"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:10
-#, fuzzy
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб перейняти псевдо TTY в локальному контейнері."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:11
 msgid "Acquire a pseudo TTY on the local host"
-msgstr ""
+msgstr "Перейняти псевдо TTY на локальному вузлі"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:12
-#, fuzzy
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб перейняти псевдо TTY на локальному вузлі."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
-msgstr ""
+msgstr "Керувати локальними віртуальними машинами і контейнерами"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:14
-#, fuzzy
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
-msgstr "Засвідчення потрібно, щоб вказати локальну інформацію про машини."
+msgstr ""
+"Засвідчення потрібно, щоб керувати локальними віртуальними машинами і "
+"контейнерами."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
-msgstr ""
+msgstr "Керувати локальними образами віртуальних машин і контейнерів"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:16
-#, fuzzy
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "Засвідчення потрібно, щоб вказати локальну інформацію про машини."
+msgstr ""
+"Засвідчення потрібно, щоб керувати локальними образами віртуальних машин і "
+"контейнерів."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -546,37 +540,30 @@ msgstr ""
 "Засвідчення потрібно, щоб контролювати, чи синхронізування часу через мережу "
 "запущено."
 
-#: ../src/core/dbus-unit.c:428
-#, fuzzy
+#: ../src/core/dbus-unit.c:449
 msgid "Authentication is required to start '$(unit)'."
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr "Засвідчення потрібно, щоб запустити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:429
-#, fuzzy
+#: ../src/core/dbus-unit.c:450
 msgid "Authentication is required to stop '$(unit)'."
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr "Засвідчення потрібно, щоб зупинити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:430
-#, fuzzy
+#: ../src/core/dbus-unit.c:451
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr "Засвідчення потрібно, щоб перезавантажити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
-#, fuzzy
+#: ../src/core/dbus-unit.c:452 ../src/core/dbus-unit.c:453
 msgid "Authentication is required to restart '$(unit)'."
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr "Засвідчення потрібно, щоб перезапустити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:535
-#, fuzzy
+#: ../src/core/dbus-unit.c:556
 msgid "Authentication is required to kill '$(unit)'."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб вбити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:565
-#, fuzzy
+#: ../src/core/dbus-unit.c:586
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "Засвідчення потрібне, щоб встановити назву локального вузла."
+msgstr "Засвідчення потрібне, щоб скинути «пошкоджений» стан з «$(unit)»."
 
-#: ../src/core/dbus-unit.c:597
-#, fuzzy
+#: ../src/core/dbus-unit.c:618
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Засвідчення потрібно, щоб вказати системний час."
+msgstr "Засвідчення потрібно, щоб вказати властивості на «$(unit)»."

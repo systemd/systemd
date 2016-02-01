@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
         new.rlim_cur = MIN(5U, old.rlim_max);
-        new.rlim_max = MIN(10U, old.rlim_max);
+        new.rlim_max = old.rlim_max;
         assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
         assert_se(rlimit_from_string("LimitNOFILE") == RLIMIT_NOFILE);
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
         assert_se(old.rlim_max == new.rlim_max);
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
-        high = RLIMIT_MAKE_CONST(old.rlim_max + 1);
+        high = RLIMIT_MAKE_CONST(old.rlim_max == RLIM_INFINITY ? old.rlim_max : old.rlim_max + 1);
         assert_se(setrlimit_closest(RLIMIT_NOFILE, &high) == 0);
         assert_se(getrlimit(RLIMIT_NOFILE, &new) == 0);
         assert_se(new.rlim_max == old.rlim_max);

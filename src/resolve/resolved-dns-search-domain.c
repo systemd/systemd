@@ -42,9 +42,6 @@ int dns_search_domain_new(
         if (r < 0)
                 return r;
 
-        if (dns_name_is_root(normalized))
-                return -EINVAL;
-
         if (l) {
                 if (l->n_search_domains >= LINK_SEARCH_DOMAINS_MAX)
                         return -E2BIG;

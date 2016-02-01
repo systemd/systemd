@@ -30,6 +30,47 @@
 #include "pager.h"
 #include "path-util.h"
 #include "strv.h"
+#include "unit-name.h"
+
+static int prepare_filename(const char *filename, char **ret) {
+        int r;
+        const char *name;
+        _cleanup_free_ char *abspath = NULL;
+        _cleanup_free_ char *dir = NULL;
+        _cleanup_free_ char *with_instance = NULL;
+        char *c;
+
+        assert(filename);
+        assert(ret);
+
+        r = path_make_absolute_cwd(filename, &abspath);
+        if (r < 0)
+                return r;
+
+        name = basename(abspath);
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
+                r = unit_name_replace_instance(name, "i", &with_instance);
+                if (r < 0)
+                        return r;
+        }
+
+        dir = dirname_malloc(abspath);
+        if (!dir)
+                return -ENOMEM;
+
+        if (with_instance)
+                c = path_join(NULL, dir, with_instance);
+        else
+                c = path_join(NULL, dir, name);
+        if (!c)
+                return -ENOMEM;
+
+        *ret = c;
+        return 0;
+}
 
 static int generate_path(char **var, char **filenames) {
         char **filename;
@@ -233,18 +274,19 @@ int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man) 
         log_debug("Loading remaining units from the command line...");
 
         STRV_FOREACH(filename, filenames) {
-                char fname[UNIT_NAME_MAX + 2 + 1] = "./";
+                _cleanup_free_ char *prepared = NULL;
 
                 log_debug("Handling %s...", *filename);
 
-                /* manager_load_unit does not like pure basenames, so prepend
-                 * the local directory, but only for valid names. manager_load_unit
-                 * will print the error for other ones. */
-                if (!strchr(*filename, '/') && strlen(*filename) <= UNIT_NAME_MAX) {
-                        strncat(fname + 2, *filename, UNIT_NAME_MAX);
-                        k = manager_load_unit(m, NULL, fname, &err, &units[count]);
-                } else
-                        k = manager_load_unit(m, NULL, *filename, &err, &units[count]);
+                k = prepare_filename(*filename, &prepared);
+                if (k < 0) {
+                        log_error_errno(k, "Failed to prepare filename %s: %m", *filename);
+                        if (r == 0)
+                                r = k;
+                        continue;
+                }
+
+                k = manager_load_unit(m, NULL, prepared, &err, &units[count]);
                 if (k < 0) {
                         log_error_errno(k, "Failed to load %s: %m", *filename);
                         if (r == 0)

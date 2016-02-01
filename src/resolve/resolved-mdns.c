@@ -42,7 +42,7 @@ int manager_mdns_start(Manager *m) {
 
         assert(m);
 
-        if (m->mdns_support == SUPPORT_NO)
+        if (m->mdns_support == RESOLVE_SUPPORT_NO)
                 return 0;
 
         r = manager_mdns_ipv4_fd(m);
@@ -63,7 +63,7 @@ int manager_mdns_start(Manager *m) {
 
 eaddrinuse:
         log_warning("There appears to be another mDNS responder running. Turning off mDNS support.");
-        m->mdns_support = SUPPORT_NO;
+        m->mdns_support = RESOLVE_SUPPORT_NO;
         manager_mdns_stop(m);
 
         return 0;
@@ -122,7 +122,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 dns_transaction_process_reply(t, p);
                 }
 
-                dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, 0, p->family, &p->sender);
+                dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, (uint32_t) -1, 0, p->family, &p->sender);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));

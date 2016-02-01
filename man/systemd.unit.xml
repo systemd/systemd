@@ -191,6 +191,17 @@
     <literal>.d/</literal> subdirectory and reads its
     <literal>.conf</literal> files.</para>
 
+    <para>In addition to <filename>/etc/systemd/system</filename>,
+    the drop-in <literal>.conf</literal> files for system services
+    can be placed in <filename>/usr/lib/systemd/system</filename> or
+    <filename>/run/systemd/system</filename> directories. Drop-in
+    files in <filename>/etc</filename> take precedence over those in
+    <filename>/run</filename> which in turn take precedence over
+    those in <filename>/usr/lib</filename>. Drop-in files under any of
+    these directories take precedence over unit files wherever located.
+    (Of course, since <filename>/run</filename> is temporary and
+    <filename>/usr/lib</filename> is for vendors, it is unlikely
+    drop-ins should be used in either of those places.)</para>
     <!-- Note that we do not document .include here, as we
          consider it mostly obsolete, and want people to
          use .d/ drop-ins instead. -->
@@ -875,7 +886,7 @@
 
         <para><varname>ConditionSecurity=</varname> may be used to
         check whether the given security module is enabled on the
-        system. Currently, the recognized values values are
+        system. Currently, the recognized values are
         <varname>selinux</varname>,
         <varname>apparmor</varname>,
         <varname>ima</varname>,
@@ -918,7 +929,7 @@
         <filename>/var</filename> on the next following boot. Units
         making use of this condition should order themselves before
         <citerefentry><refentrytitle>systemd-update-done.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        to make sure they run before the stamp files's modification
+        to make sure they run before the stamp file's modification
         time gets reset indicating a completed update.</para>
 
         <para><varname>ConditionFirstBoot=</varname> takes a boolean
@@ -1402,6 +1413,7 @@ PrivateTmp=yes</programlisting>
       cannot be reset to an empty list, so dependencies can only be
       added in drop-ins. If you want to remove dependencies, you have
       to override the entire unit.</para>
+
     </example>
   </refsect1>
 

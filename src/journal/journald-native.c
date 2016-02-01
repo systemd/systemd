@@ -495,5 +495,9 @@ int server_open_native_socket(Server*s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add native server fd to event loop: %m");
 
+        r = sd_event_source_set_priority(s->native_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust native event source priority: %m");
+
         return 0;
 }

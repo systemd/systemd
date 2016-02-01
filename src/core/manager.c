@@ -233,7 +233,7 @@ static int have_ask_password(void) {
 
                 errno = 0;
                 de = readdir(dir);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return -errno;
                 if (!de)
                         return false;
@@ -379,6 +379,9 @@ static int enable_special_signals(Manager *m) {
         _cleanup_close_ int fd = -1;
 
         assert(m);
+
+        if (m->test_run)
+                return 0;
 
         /* Enable that we get SIGINT on control-alt-del. In containers
          * this will fail with EPERM (older) or EINVAL (newer), so
@@ -986,7 +989,7 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root_init);
 
         for (i = 0; i < _RLIMIT_MAX; i++)
-                free(m->rlimit[i]);
+                m->rlimit[i] = mfree(m->rlimit[i]);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
         hashmap_free(m->units_requiring_mounts_for);
@@ -2574,6 +2577,10 @@ int manager_reload(Manager *m) {
         /* Third, fire things up! */
         manager_coldplug(m);
 
+        /* Sync current state of bus names with our set of listening units */
+        if (m->api_bus)
+                manager_sync_bus_names(m, m->api_bus);
+
         assert(m->n_reloading > 0);
         m->n_reloading--;
 
@@ -2916,6 +2923,8 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         assert(m);
 
         for (i = 0; i < _RLIMIT_MAX; i++) {
+                m->rlimit[i] = mfree(m->rlimit[i]);
+
                 if (!default_rlimit[i])
                         continue;
 
@@ -3088,18 +3097,18 @@ ManagerState manager_state(Manager *m) {
 
         /* Is the special shutdown target queued? If so, we are in shutdown state */
         u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if (u && u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))
+        if (u && u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_RELOAD_OR_START))
                 return MANAGER_STOPPING;
 
         /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
         u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
         if (u && (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)) ||
-                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))))
+                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_RELOAD_OR_START))))
                 return MANAGER_MAINTENANCE;
 
         u = manager_get_unit(m, SPECIAL_EMERGENCY_TARGET);
         if (u && (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)) ||
-                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_TRY_RESTART, JOB_RELOAD_OR_START))))
+                  (u->job && IN_SET(u->job->type, JOB_START, JOB_RESTART, JOB_RELOAD_OR_START))))
                 return MANAGER_MAINTENANCE;
 
         /* Are there any failed units? If so, we are in degraded mode */

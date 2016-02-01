@@ -88,7 +88,7 @@ static OutputFlags get_output_flags(void) {
                 arg_all * OUTPUT_SHOW_ALL |
                 arg_full * OUTPUT_FULL_WIDTH |
                 (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                on_tty() * OUTPUT_COLOR;
+                colors_enabled() * OUTPUT_COLOR;
 }
 
 static int list_sessions(int argc, char *argv[], void *userdata) {

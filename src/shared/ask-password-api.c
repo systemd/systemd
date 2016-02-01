@@ -59,6 +59,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "umask-util.h"
+#include "utf8.h"
 #include "util.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
@@ -71,7 +72,7 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 
         serial = request_key("user", keyname, NULL, 0);
         if (serial == -1)
-                return -errno;
+                return negative_errno();
 
         *ret = serial;
         return 0;
@@ -213,8 +214,8 @@ int ask_password_tty(
                 char **ret) {
 
         struct termios old_termios, new_termios;
-        char passphrase[LINE_MAX], *x;
-        size_t p = 0;
+        char passphrase[LINE_MAX + 1] = {}, *x;
+        size_t p = 0, codepoint = 0;
         int r;
         _cleanup_close_ int ttyfd = -1, notify = -1;
         struct pollfd pollfd[2];
@@ -378,8 +379,13 @@ int ask_password_tty(
 
                         passphrase[p++] = c;
 
-                        if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0)
-                                loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
+                        if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0) {
+                                n = utf8_encoded_valid_unichar(passphrase + codepoint);
+                                if (n >= 0) {
+                                        codepoint = p;
+                                        loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
+                                }
+                        }
 
                         dirty = true;
                 }

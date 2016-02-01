@@ -30,6 +30,10 @@ typedef enum DnsServerType {
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
 } DnsServerType;
+#define _DNS_SERVER_TYPE_MAX (DNS_SERVER_LINK + 1)
+
+const char* dns_server_type_to_string(DnsServerType i) _const_;
+DnsServerType dns_server_type_from_string(const char *s) _pure_;
 
 typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_TCP,
@@ -61,17 +65,32 @@ struct DnsServer {
         int family;
         union in_addr_union address;
 
-        bool marked:1;
+        char *server_string;
 
         usec_t resend_timeout;
         usec_t max_rtt;
 
-        DnsServerFeatureLevel verified_features;
-        DnsServerFeatureLevel possible_features;
+        DnsServerFeatureLevel verified_feature_level;
+        DnsServerFeatureLevel possible_feature_level;
+
         size_t received_udp_packet_max;
-        unsigned n_failed_attempts;
+
+        unsigned n_failed_udp;
+        unsigned n_failed_tcp;
+
+        bool packet_failed:1;
+        bool packet_truncated:1;
+        bool packet_bad_opt:1;
+        bool packet_rrsig_missing:1;
+
         usec_t verified_usec;
         usec_t features_grace_period_usec;
+
+        /* Whether we already warned about downgrading to non-DNSSEC mode for this server */
+        bool warned_downgrade:1;
+
+        /* Used when GC'ing old DNS servers when configuration changes. */
+        bool marked:1;
 
         /* If linked is set, then this server appears in the servers linked list */
         bool linked:1;
@@ -92,9 +111,22 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, DnsServerFeatureLevel features, usec_t rtt, size_t size);
-void dns_server_packet_lost(DnsServer *s, DnsServerFeatureLevel features, usec_t usec);
-void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel features);
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t rtt, size_t size);
+void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec);
+void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
+
+DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
+
+int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
+
+const char *dns_server_string(DnsServer *server);
+
+bool dns_server_dnssec_supported(DnsServer *server);
+
+void dns_server_warn_downgrade(DnsServer *server);
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr);
 
@@ -109,7 +141,5 @@ DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
-
-DnsServerFeatureLevel dns_server_possible_features(DnsServer *s);
 
 extern const struct hash_ops dns_server_hash_ops;

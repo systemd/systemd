@@ -109,7 +109,7 @@
 /systemd-remount-api-vfs
 /systemd-remount-fs
 /systemd-reply-password
-/systemd-resolve-host
+/systemd-resolve
 /systemd-resolved
 /systemd-rfkill
 /systemd-run
@@ -137,6 +137,7 @@
 /test-af-list
 /test-architecture
 /test-arphrd-list
+/test-ask-password-api
 /test-async
 /test-audit-type
 /test-barrier
@@ -177,6 +178,7 @@
 /test-daemon
 /test-date
 /test-device-nodes
+/test-dnssec-complex
 /test-dhcp-client
 /test-dhcp-option
 /test-dhcp-server
@@ -249,11 +251,13 @@
 /test-rbtree
 /test-replace-var
 /test-resolve
+/test-resolve-tables
 /test-ring
 /test-rlimit-util
 /test-sched-prio
 /test-set
 /test-sigbus
+/test-signal-util
 /test-siphash24
 /test-sleep
 /test-socket-util

@@ -101,11 +101,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 
-        /* Wait until the two queries are completed */
-        while (sd_resolve_query_is_done(q1) == 0 ||
-               sd_resolve_query_is_done(q2) == 0) {
-
+        /* Wait until all queries are completed */
+        for (;;) {
                 r = sd_resolve_wait(resolve, (uint64_t) -1);
+                if (r == 0)
+                        break;
                 if (r < 0) {
                         log_error_errno(r, "sd_resolve_wait(): %m");
                         assert_not_reached("sd_resolve_wait() failed");

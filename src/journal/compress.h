@@ -28,17 +28,20 @@
 const char* object_compressed_to_string(int compression);
 int object_compressed_from_string(const char *compression);
 
-int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t *dst_size);
-int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, size_t *dst_size);
+int compress_blob_xz(const void *src, uint64_t src_size,
+                     void *dst, size_t dst_alloc_size, size_t *dst_size);
+int compress_blob_lz4(const void *src, uint64_t src_size,
+                      void *dst, size_t dst_alloc_size, size_t *dst_size);
 
-static inline int compress_blob(const void *src, uint64_t src_size, void *dst, size_t *dst_size) {
+static inline int compress_blob(const void *src, uint64_t src_size,
+                                void *dst, size_t dst_alloc_size, size_t *dst_size) {
         int r;
 #ifdef HAVE_LZ4
-        r = compress_blob_lz4(src, src_size, dst, dst_size);
+        r = compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_LZ4;
 #else
-        r = compress_blob_xz(src, src_size, dst, dst_size);
+        r = compress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_XZ;
 #endif

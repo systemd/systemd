@@ -119,16 +119,18 @@ char *cescape(const char *s) {
         return cescape_length(s, strlen(s));
 }
 
-int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode) {
+int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) {
         int r = 1;
 
         assert(p);
         assert(*p);
         assert(ret);
 
-        /* Unescapes C style. Returns the unescaped character in ret,
-         * unless we encountered a \u sequence in which case the full
-         * unicode character is returned in ret_unicode, instead. */
+        /* Unescapes C style. Returns the unescaped character in ret.
+         * Sets *eight_bit to true if the escaped sequence either fits in
+         * one byte in UTF-8 or is a non-unicode literal byte and should
+         * instead be copied directly.
+         */
 
         if (length != (size_t) -1 && length < 1)
                 return -EINVAL;
@@ -190,7 +192,8 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
                 if (a == 0 && b == 0)
                         return -EINVAL;
 
-                *ret = (char) ((a << 4U) | b);
+                *ret = (a << 4U) | b;
+                *eight_bit = true;
                 r = 3;
                 break;
         }
@@ -217,16 +220,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
                 if (c == 0)
                         return -EINVAL;
 
-                if (c < 128)
-                        *ret = c;
-                else {
-                        if (!ret_unicode)
-                                return -EINVAL;
-
-                        *ret = 0;
-                        *ret_unicode = c;
-                }
-
+                *ret = c;
                 r = 5;
                 break;
         }
@@ -236,7 +230,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
 
                 int a[8];
                 unsigned i;
-                uint32_t c;
+                char32_t c;
 
                 if (length != (size_t) -1 && length < 9)
                         return -EINVAL;
@@ -258,16 +252,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
                 if (!unichar_is_valid(c))
                         return -EINVAL;
 
-                if (c < 128)
-                        *ret = c;
-                else {
-                        if (!ret_unicode)
-                                return -EINVAL;
-
-                        *ret = 0;
-                        *ret_unicode = c;
-                }
-
+                *ret = c;
                 r = 9;
                 break;
         }
@@ -282,7 +267,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
         case '7': {
                 /* octal encoding */
                 int a, b, c;
-                uint32_t m;
+                char32_t m;
 
                 if (length != (size_t) -1 && length < 3)
                         return -EINVAL;
@@ -309,6 +294,7 @@ int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode
                         return -EINVAL;
 
                 *ret = m;
+                *eight_bit = true;
                 r = 3;
                 break;
         }
@@ -341,8 +327,8 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 
         for (f = s, t = r + pl; f < s + length; f++) {
                 size_t remaining;
-                uint32_t u;
-                char c;
+                bool eight_bit = false;
+                char32_t u;
                 int k;
 
                 remaining = s + length - f;
@@ -365,7 +351,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                         return -EINVAL;
                 }
 
-                k = cunescape_one(f + 1, remaining - 1, &c, &u);
+                k = cunescape_one(f + 1, remaining - 1, &u, &eight_bit);
                 if (k < 0) {
                         if (flags & UNESCAPE_RELAX) {
                                 /* Invalid escape code, let's take it literal then */
@@ -377,14 +363,13 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                         return k;
                 }
 
-                if (c != 0)
-                        /* Non-Unicode? Let's encode this directly */
-                        *(t++) = c;
-                else
-                        /* Unicode? Then let's encode this in UTF-8 */
-                        t += utf8_encode_unichar(t, u);
-
                 f += k;
+                if (eight_bit)
+                        /* One byte? Set directly as specified */
+                        *(t++) = u;
+                else
+                        /* Otherwise encode as multi-byte UTF-8 */
+                        t += utf8_encode_unichar(t, u);
         }
 
         *t = 0;

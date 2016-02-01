@@ -35,6 +35,7 @@
 #include "parse-util.h"
 #include "set.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -404,6 +405,13 @@ JobType job_type_collapse(JobType t, Unit *u) {
 
                 return JOB_RESTART;
 
+        case JOB_TRY_RELOAD:
+                s = unit_active_state(u);
+                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
+                        return JOB_NOP;
+
+                return JOB_RELOAD;
+
         case JOB_RELOAD_OR_START:
                 s = unit_active_state(u);
                 if (UNIT_IS_INACTIVE_OR_DEACTIVATING(s))
@@ -754,7 +762,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        snprintf(buf, sizeof(buf), format, unit_description(u));
+        xsprintf(buf, format, unit_description(u));
         REENABLE_WARNING;
 
         switch (t) {
@@ -1201,6 +1209,7 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_RELOAD_OR_START] = "reload-or-start",
         [JOB_RESTART] = "restart",
         [JOB_TRY_RESTART] = "try-restart",
+        [JOB_TRY_RELOAD] = "try-reload",
         [JOB_NOP] = "nop",
 };
 

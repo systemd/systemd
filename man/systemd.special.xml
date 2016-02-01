@@ -92,6 +92,7 @@
     <filename>shutdown.target</filename>,
     <filename>sigpwr.target</filename>,
     <filename>sleep.target</filename>,
+    <filename>slices.target</filename>,
     <filename>smartcard.target</filename>,
     <filename>sockets.target</filename>,
     <filename>sound.target</filename>,
@@ -503,10 +504,23 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><filename>slices.target</filename></term>
+        <listitem>
+          <para>A special target unit that sets up all slice units (see
+          <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details) that shall be active after boot. By default the generic <filename>user.slice</filename>,
+          <filename>system.slice</filename>, <filename>machines.slice</filename> slice units, as well as the the root
+          slice unit <filename>-.slice</filename> are pulled in and ordered before this unit (see below).</para>
+
+          <para>It's a good idea to add <varname>WantedBy=slices.target</varname> lines to the <literal>[Install]</literal>
+          section of all slices units that may be installed dynamically.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><filename>sockets.target</filename></term>
         <listitem>
           <para>A special target unit that sets up all socket
-          units.(see
+          units (see
           <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details) that shall be active after boot.</para>
 
@@ -587,7 +601,7 @@
       <varlistentry>
         <term><filename>umount.target</filename></term>
         <listitem>
-          <para>A special target unit that umounts all mount and
+          <para>A special target unit that unmounts all mount and
           automount points on system shutdown.</para>
 
           <para>Mounts that shall be unmounted on system shutdown

@@ -264,7 +264,8 @@
           be removed and be replaced by the symlink. If the argument
           is omitted, symlinks to files with the same name residing in
           the directory <filename>/usr/share/factory/</filename> are
-          created.</para></listitem>
+          created. Note that permissions and ownership on symlinks
+          are ignored.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -421,7 +422,7 @@
           <command>systemd-tmpfiles</command> will automatically add
           the required base entries for user and group based on the
           access mode of the file, unless base entries already exist
-          or are explictly specified. The mask will be added if not
+          or are explicitly specified. The mask will be added if not
           specified explicitly or already present. Lines of this type
           accept shell-style globs in place of normal path names. This
           can be useful for allowing additional access to certain

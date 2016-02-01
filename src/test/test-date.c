@@ -27,14 +27,16 @@
 
 static void test_should_pass(const char *p) {
         usec_t t, q;
-        char buf[FORMAT_TIMESTAMP_MAX], buf_relative[FORMAT_TIMESTAMP_RELATIVE_MAX];
+        char buf[FORMAT_TIMESTAMP_MAX], buf_relative[FORMAT_TIMESTAMP_RELATIVE_MAX], *sp;
 
         assert_se(parse_timestamp(p, &t) >= 0);
         format_timestamp_us(buf, sizeof(buf), t);
         log_info("%s", buf);
 
         /* Chop off timezone */
-        *strrchr(buf, ' ') = 0;
+        sp = strrchr(buf, ' ');
+        assert_se(sp);
+        *sp = 0;
 
         assert_se(parse_timestamp(buf, &q) >= 0);
         assert_se(q == t);

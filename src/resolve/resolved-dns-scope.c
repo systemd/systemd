@@ -57,6 +57,21 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         s->family = family;
         s->resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC;
 
+        s->dnssec_mode = _DNSSEC_MODE_INVALID;
+
+        if (protocol == DNS_PROTOCOL_DNS) {
+                /* Copy DNSSEC mode from the link if it is set there,
+                 * otherwise take the manager's DNSSEC mode. Note that
+                 * we copy this only at scope creation time, and do
+                 * not update it from the on, even if the setting
+                 * changes. */
+
+                if (l)
+                        s->dnssec_mode = link_get_dnssec_mode(l);
+                else
+                        s->dnssec_mode = manager_get_dnssec_mode(m);
+        }
+
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
         dns_scope_llmnr_membership(s, true);
@@ -162,17 +177,15 @@ void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
                 s->resend_timeout = MIN(s->resend_timeout * 2, MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
-static int dns_scope_emit_one(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
+static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
         union in_addr_union addr;
         int ifindex = 0, r;
         int family;
         uint32_t mtu;
-        size_t saved_size = 0;
 
         assert(s);
         assert(p);
         assert(p->protocol == s->protocol);
-        assert((s->protocol == DNS_PROTOCOL_DNS) != (fd < 0));
 
         if (s->link) {
                 mtu = s->link->mtu;
@@ -181,29 +194,12 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsServer *server, DnsPacket 
                 mtu = manager_find_mtu(s->manager);
 
         switch (s->protocol) {
+
         case DNS_PROTOCOL_DNS:
-                assert(server);
+                assert(fd >= 0);
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
-
-                if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
-                        bool edns_do;
-                        size_t packet_size;
-
-                        edns_do = server->possible_features >= DNS_SERVER_FEATURE_LEVEL_DO;
-
-                        if (server->possible_features >= DNS_SERVER_FEATURE_LEVEL_LARGE)
-                                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
-                        else
-                                packet_size = server->received_udp_packet_max;
-
-                        r = dns_packet_append_opt_rr(p, packet_size, edns_do, &saved_size);
-                        if (r < 0)
-                                return r;
-
-                        DNS_PACKET_HEADER(p)->arcount = htobe16(be16toh(DNS_PACKET_HEADER(p)->arcount) + 1);
-                }
 
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
@@ -215,15 +211,11 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsServer *server, DnsPacket 
                 if (r < 0)
                         return r;
 
-                if (saved_size > 0) {
-                        dns_packet_truncate(p, saved_size);
-
-                        DNS_PACKET_HEADER(p)->arcount = htobe16(be16toh(DNS_PACKET_HEADER(p)->arcount) - 1);
-                }
-
                 break;
 
         case DNS_PROTOCOL_LLMNR:
+                assert(fd < 0);
+
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
@@ -250,6 +242,8 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsServer *server, DnsPacket 
                 break;
 
         case DNS_PROTOCOL_MDNS:
+                assert(fd < 0);
+
                 if (!ratelimit_test(&s->ratelimit))
                         return -EBUSY;
 
@@ -279,13 +273,13 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsServer *server, DnsPacket 
         return 1;
 }
 
-int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
+int dns_scope_emit_udp(DnsScope *s, int fd, DnsPacket *p) {
         int r;
 
         assert(s);
         assert(p);
         assert(p->protocol == s->protocol);
-        assert((s->protocol == DNS_PROTOCOL_DNS) != (fd < 0));
+        assert((s->protocol == DNS_PROTOCOL_DNS) == (fd >= 0));
 
         do {
                 /* If there are multiple linked packets, set the TC bit in all but the last of them */
@@ -294,18 +288,24 @@ int dns_scope_emit(DnsScope *s, int fd, DnsServer *server, DnsPacket *p) {
                         dns_packet_set_flags(p, true, true);
                 }
 
-                r = dns_scope_emit_one(s, fd, server, p);
+                r = dns_scope_emit_one(s, fd, p);
                 if (r < 0)
                         return r;
 
                 p = p->more;
-        } while(p);
+        } while (p);
 
         return 0;
 }
 
-static int dns_scope_socket(DnsScope *s, int type, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
-        DnsServer *srv = NULL;
+static int dns_scope_socket(
+                DnsScope *s,
+                int type,
+                int family,
+                const union in_addr_union *address,
+                DnsServer *server,
+                uint16_t port) {
+
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {};
         socklen_t salen;
@@ -313,31 +313,27 @@ static int dns_scope_socket(DnsScope *s, int type, int family, const union in_ad
         int ret, r;
 
         assert(s);
-        assert((family == AF_UNSPEC) == !address);
 
-        if (family == AF_UNSPEC) {
-                srv = dns_scope_get_dns_server(s);
-                if (!srv)
-                        return -ESRCH;
+        if (server) {
+                assert(family == AF_UNSPEC);
+                assert(!address);
 
-                srv->possible_features = dns_server_possible_features(srv);
-
-                if (type == SOCK_DGRAM && srv->possible_features < DNS_SERVER_FEATURE_LEVEL_UDP)
-                        return -EAGAIN;
-
-                sa.sa.sa_family = srv->family;
-                if (srv->family == AF_INET) {
+                sa.sa.sa_family = server->family;
+                if (server->family == AF_INET) {
                         sa.in.sin_port = htobe16(port);
-                        sa.in.sin_addr = srv->address.in;
+                        sa.in.sin_addr = server->address.in;
                         salen = sizeof(sa.in);
-                } else if (srv->family == AF_INET6) {
+                } else if (server->family == AF_INET6) {
                         sa.in6.sin6_port = htobe16(port);
-                        sa.in6.sin6_addr = srv->address.in6;
+                        sa.in6.sin6_addr = server->address.in6;
                         sa.in6.sin6_scope_id = s->link ? s->link->ifindex : 0;
                         salen = sizeof(sa.in6);
                 } else
                         return -EAFNOSUPPORT;
         } else {
+                assert(family != AF_UNSPEC);
+                assert(address);
+
                 sa.sa.sa_family = family;
 
                 if (family == AF_INET) {
@@ -395,21 +391,18 @@ static int dns_scope_socket(DnsScope *s, int type, int family, const union in_ad
         if (r < 0 && errno != EINPROGRESS)
                 return -errno;
 
-        if (server)
-                *server = srv;
-
         ret = fd;
         fd = -1;
 
         return ret;
 }
 
-int dns_scope_udp_dns_socket(DnsScope *s, DnsServer **server) {
-        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, 53, server);
+int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port) {
+        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, port);
 }
 
-int dns_scope_tcp_socket(DnsScope *s, int family, const union in_addr_union *address, uint16_t port, DnsServer **server) {
-        return dns_scope_socket(s, SOCK_STREAM, family, address, port, server);
+int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port) {
+        return dns_scope_socket(s, SOCK_STREAM, family, address, server, port);
 }
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
@@ -868,7 +861,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit(scope, -1, NULL, p);
+                r = dns_scope_emit_udp(scope, -1, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }
@@ -916,6 +909,8 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
                               on_conflict_dispatch, scope);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add conflict dispatch event: %m");
+
+        (void) sd_event_source_set_description(scope->conflict_event_source, "scope-conflict");
 
         return 0;
 }
@@ -1019,4 +1014,23 @@ bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {
                 return false;
 
         return dns_name_is_single_label(name);
+}
+
+bool dns_scope_network_good(DnsScope *s) {
+        Iterator i;
+        Link *l;
+
+        /* Checks whether the network is in good state for lookups on this scope. For mDNS/LLMNR/Classic DNS scopes
+         * bound to links this is easy, as they don't even exist if the link isn't in a suitable state. For the global
+         * DNS scope we check whether there are any links that are up and have an address. */
+
+        if (s->link)
+                return true;
+
+        HASHMAP_FOREACH(l, s->manager->links, i) {
+                if (link_relevant(l, AF_UNSPEC, false))
+                        return true;
+        }
+
+        return false;
 }

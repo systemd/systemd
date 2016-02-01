@@ -16,7 +16,7 @@ Before=getty.target
 
 [Service]
 Environment=HOME=/root
-WorkingDirectory=/root
+WorkingDirectory=-/root
 ExecStart=-@SULOGIN@
 ExecStopPost=-@SYSTEMCTL@ poweroff
 Type=idle

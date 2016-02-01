@@ -28,9 +28,9 @@
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <linux/sctp.h>
 
 #include "sd-event.h"
-
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -156,14 +156,16 @@ static void socket_done(Unit *u) {
         s->tcp_congestion = mfree(s->tcp_congestion);
         s->bind_to_device = mfree(s->bind_to_device);
 
-        free(s->smack);
-        free(s->smack_ip_in);
-        free(s->smack_ip_out);
+        s->smack = mfree(s->smack);
+        s->smack_ip_in = mfree(s->smack_ip_in);
+        s->smack_ip_out = mfree(s->smack_ip_out);
 
         strv_free(s->symlinks);
 
-        free(s->user);
-        free(s->group);
+        s->user = mfree(s->user);
+        s->group = mfree(s->group);
+
+        s->fdname = mfree(s->fdname);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
@@ -875,8 +877,14 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
         if (s->no_delay) {
                 int b = s->no_delay;
-                if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
+
+                if (s->socket_protocol == IPPROTO_SCTP) {
+                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &b, sizeof(b)) < 0)
+                                log_unit_warning_errno(UNIT(s), errno, "SCTP_NODELAY failed: %m");
+                } else {
+                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
+                                log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
+                }
         }
 
         if (s->broadcast) {

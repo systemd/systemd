@@ -33,20 +33,8 @@ typedef enum AddressFamilyBoolean {
         _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
 } AddressFamilyBoolean;
 
-typedef enum ResolveSupport {
-        RESOLVE_SUPPORT_NO,
-        RESOLVE_SUPPORT_YES,
-        RESOLVE_SUPPORT_RESOLVE,
-        _RESOLVE_SUPPORT_MAX,
-        _RESOLVE_SUPPORT_INVALID = -1,
-} ResolveSupport;
-
-int config_parse_resolve(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_address_family_boolean(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_address_family_boolean_with_kernel(const char* unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-
-const char* resolve_support_to_string(ResolveSupport i) _const_;
-ResolveSupport resolve_support_from_string(const char *s) _pure_;
 
 const char *address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
 AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;

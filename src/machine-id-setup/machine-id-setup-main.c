@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
         if (arg_commit)
                 r = machine_id_commit(arg_root);
         else
-                r = machine_id_setup(arg_root);
+                r = machine_id_setup(arg_root, SD_ID128_NULL);
 
 finish:
         free(arg_root);

@@ -15,7 +15,6 @@ GITWEB:
 
 MAILING LIST:
         http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-        http://lists.freedesktop.org/mailman/listinfo/systemd-commits
 
 IRC:
         #systemd on irc.freenode.org
@@ -237,10 +236,6 @@ SYSV INIT.D SCRIPTS:
         needs to look like, and provide an implementation at the marked places.
 
 WARNINGS:
-        systemd will freeze execution during boot if /etc/mtab exists
-        but is not a symlink to /proc/mounts. Please ensure that
-        /etc/mtab is a proper symlink.
-
         systemd will warn you during boot if /usr is on a different
         file system than /. While in systemd itself very little will
         break if /usr is on a separate partition, many of its

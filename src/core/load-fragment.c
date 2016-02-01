@@ -38,6 +38,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
 #include "cgroup.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
@@ -574,7 +575,9 @@ int config_parse_exec(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ char *cmd = NULL;
         ExecCommand **e = data;
+        Unit *u = userdata;
         const char *p;
         bool semicolon;
         int r;
@@ -583,6 +586,7 @@ int config_parse_exec(
         assert(lvalue);
         assert(rvalue);
         assert(e);
+        assert(u);
 
         e += ltype;
         rvalue += strspn(rvalue, WHITESPACE);
@@ -593,7 +597,13 @@ int config_parse_exec(
                 return 0;
         }
 
-        p = rvalue;
+        r = unit_full_printf(u, rvalue, &cmd);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", rvalue);
+                return 0;
+        }
+
+        p = cmd;
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
                 bool separate_argv0 = false, ignore = false;
@@ -1024,7 +1034,7 @@ int config_parse_exec_secure_bits(const char *unit,
         return 0;
 }
 
-int config_parse_bounding_set(
+int config_parse_capability_set(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1036,8 +1046,8 @@ int config_parse_bounding_set(
                 void *data,
                 void *userdata) {
 
-        uint64_t *capability_bounding_set_drop = data;
-        uint64_t capability_bounding_set, sum = 0;
+        uint64_t *capability_set = data;
+        uint64_t sum = 0, initial = 0;
         bool invert = false;
         const char *p;
 
@@ -1051,10 +1061,9 @@ int config_parse_bounding_set(
                 rvalue++;
         }
 
-        /* Note that we store this inverted internally, since the
-         * kernel wants it like this. But we actually expose it
-         * non-inverted everywhere to have a fully normalized
-         * interface. */
+        if (strcmp(lvalue, "CapabilityBoundingSet") == 0)
+                initial = CAP_ALL; /* initialized to all bits on */
+        /* else "AmbientCapabilities" initialized to all bits off */
 
         p = rvalue;
         for (;;) {
@@ -1073,18 +1082,21 @@ int config_parse_bounding_set(
 
                 cap = capability_from_name(word);
                 if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding set, ignoring: %s", word);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability in bounding/ambient set, ignoring: %s", word);
                         continue;
                 }
 
                 sum |= ((uint64_t) UINT64_C(1)) << (uint64_t) cap;
         }
 
-        capability_bounding_set = invert ? ~sum : sum;
-        if (*capability_bounding_set_drop != 0 && capability_bounding_set != 0)
-                *capability_bounding_set_drop = ~(~*capability_bounding_set_drop | capability_bounding_set);
+        sum = invert ? ~sum : sum;
+
+        if (sum == 0 || *capability_set == initial)
+                /* "" or uninitialized data -> replace */
+                *capability_set = sum;
         else
-                *capability_bounding_set_drop = ~capability_bounding_set;
+                /* previous data -> merge */
+                *capability_set |= sum;
 
         return 0;
 }
@@ -4002,7 +4014,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_log_level,             "LEVEL" },
                 { config_parse_exec_capabilities,     "CAPABILITIES" },
                 { config_parse_exec_secure_bits,      "SECUREBITS" },
-                { config_parse_bounding_set,          "BOUNDINGSET" },
+                { config_parse_capability_set,        "BOUNDINGSET" },
                 { config_parse_limit,                 "LIMIT" },
                 { config_parse_unit_deps,             "UNIT [...]" },
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },

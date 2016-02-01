@@ -545,38 +545,31 @@ static void test_unbase32hexmem(void) {
 static void test_base64mem(void) {
         char *b64;
 
-        b64 = base64mem("", strlen(""));
-        assert_se(b64);
+        assert_se(base64mem("", strlen(""), &b64) == 0);
         assert_se(streq(b64, ""));
         free(b64);
 
-        b64 = base64mem("f", strlen("f"));
-        assert_se(b64);
+        assert_se(base64mem("f", strlen("f"), &b64) == 4);
         assert_se(streq(b64, "Zg=="));
         free(b64);
 
-        b64 = base64mem("fo", strlen("fo"));
-        assert_se(b64);
+        assert_se(base64mem("fo", strlen("fo"), &b64) == 4);
         assert_se(streq(b64, "Zm8="));
         free(b64);
 
-        b64 = base64mem("foo", strlen("foo"));
-        assert_se(b64);
+        assert_se(base64mem("foo", strlen("foo"), &b64) == 4);
         assert_se(streq(b64, "Zm9v"));
         free(b64);
 
-        b64 = base64mem("foob", strlen("foob"));
-        assert_se(b64);
+        assert_se(base64mem("foob", strlen("foob"), &b64) == 8);
         assert_se(streq(b64, "Zm9vYg=="));
         free(b64);
 
-        b64 = base64mem("fooba", strlen("fooba"));
-        assert_se(b64);
+        assert_se(base64mem("fooba", strlen("fooba"), &b64) == 8);
         assert_se(streq(b64, "Zm9vYmE="));
         free(b64);
 
-        b64 = base64mem("foobar", strlen("foobar"));
-        assert_se(b64);
+        assert_se(base64mem("foobar", strlen("foobar"), &b64) == 8);
         assert_se(streq(b64, "Zm9vYmFy"));
         free(b64);
 }

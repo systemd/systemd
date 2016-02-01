@@ -412,13 +412,12 @@ static int user_start_slice(User *u) {
                         u->manager->user_tasks_max,
                         &error,
                         &job);
-        if (r < 0) {
-                /* we don't fail due to this, let's try to continue */
-                if (!sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
-                        log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)", u->slice, bus_error_message(&error, r), error.name);
-        } else {
+        if (r >= 0)
                 u->slice_job = job;
-        }
+        else if (!sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
+                /* we don't fail due to this, let's try to continue */
+                log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)",
+                                u->slice, bus_error_message(&error, r), error.name);
 
         return 0;
 }
@@ -868,7 +867,7 @@ int config_parse_tmpfs_size(
 
                 errno = 0;
                 ul = strtoul(rvalue, &f, 10);
-                if (errno != 0 || f != e) {
+                if (errno > 0 || f != e) {
                         log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse percentage value, ignoring: %s", rvalue);
                         return 0;
                 }

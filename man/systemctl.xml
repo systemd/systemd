@@ -683,14 +683,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Start (activate) one or more units specified on the
             command line.</para>
 
-            <para>Note that glob patterns operate on a list of currently
-            loaded units. Units which are not active and are not in a
-            failed state usually are not loaded, and would not be
-            matched by any pattern. In addition, in case of
-            instantiated units, systemd is often unaware of the
-            instance name until the instance has been started. Therefore,
-            using glob patterns with <command>start</command>
-            has limited usefulness.</para>
+            <para>Note that glob patterns operate on the set of primary names of currently loaded units. Units which
+            are not active and are not in a failed state usually are not loaded, and will not be matched by any
+            pattern. In addition, in case of instantiated units, systemd is often unaware of the instance name until
+            the instance has been started. Therefore, using glob patterns with <command>start</command> has limited
+            usefulness. Also, secondary alias names of units are not considered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -736,9 +733,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Restart one or more units specified on the command
             line if the units are running. This does nothing if units are not
-            running.  Note that, for compatibility with Red Hat init
-            scripts, <command>condrestart</command> is equivalent to this
-            command.</para>
+            running.</para>
+            <!-- Note that we don't document condrestart here, as that is just compatibility support, and we generally
+                 don't document that. -->
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -751,14 +748,14 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reload-or-try-restart <replaceable>PATTERN</replaceable>...</command></term>
+          <term><command>try-reload-or-restart <replaceable>PATTERN</replaceable>...</command></term>
 
           <listitem>
             <para>Reload one or more units if they support it. If not,
             restart them instead. This does nothing if the units are not
-            running. Note that, for compatibility with SysV init scripts,
-            <command>force-reload</command> is equivalent to this
-            command.</para>
+            running.</para>
+            <!-- Note that we don't document force-reload here, as that is just compatibility support, and we generally
+                 don't document that. -->
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1137,7 +1134,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                 <tbody>
                   <row>
                     <entry><literal>enabled</literal></entry>
-                    <entry morerows='1'>Enabled through a symlink in a <filename>.wants/</filename> or <filename>.requires/</filename> subdirectory of <filename>/etc/systemd/system/</filename> (persistently) or <filename>/run/systemd/system/</filename> (transiently).</entry>
+                    <entry morerows='1'>Enabled through creating symlinks encoded in the <literal>[Install]</literal> section (permanently or just in <filename>/run</filename>).</entry>
                     <entry morerows='1'>0</entry>
                   </row>
                   <row>
@@ -1176,7 +1173,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>bad</literal></entry>
-                    <entry>Unit file is invalid or another error occured. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
+                    <entry>Unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                 </tbody>
@@ -1724,11 +1721,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       are equivalent to:
       <programlisting># systemctl status dev-sda.device
 # systemctl status home.mount</programlisting>
-      In the second case, shell-style globs will be matched against
-      currently loaded units; literal unit names, with or without
-      a suffix, will be treated as in the first case. This means that
-      literal unit names always refer to exactly one unit, but globs
-      may match zero units and this is not considered an error.</para>
+      In the second case, shell-style globs will be matched against the primary names of all currently loaded units;
+      literal unit names, with or without a suffix, will be treated as in the first case. This means that literal unit
+      names always refer to exactly one unit, but globs may match zero units and this is not considered an
+      error.</para>
 
       <para>Glob patterns use
       <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
@@ -1736,11 +1732,12 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <literal>*</literal>, <literal>?</literal>,
       <literal>[]</literal> may be used. See
       <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-      for more details. The patterns are matched against the names of
+      for more details. The patterns are matched against the primary names of
       currently loaded units, and patterns which do not match anything
       are silently skipped. For example:
       <programlisting># systemctl stop sshd@*.service</programlisting>
-      will stop all <filename>sshd@.service</filename> instances.
+      will stop all <filename>sshd@.service</filename> instances. Note that alias names of units, and units that aren't
+      loaded are not considered for glob expansion.
       </para>
 
       <para>For unit file commands, the specified

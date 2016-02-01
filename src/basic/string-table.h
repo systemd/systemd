@@ -47,15 +47,33 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 return (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
         }
 
+#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope) \
+        scope type name##_from_string(const char *s) {                  \
+                int b;                                                  \
+                b = parse_boolean(s);                                   \
+                if (b == 0)                                             \
+                        return (type) 0;                                \
+                else if (b > 0)                                         \
+                        return yes;                                     \
+                return (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
+        }
+
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
+        struct __useless_struct_to_allow_trailing_semicolon__
+
+#define _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes,scope)   \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope) \
         struct __useless_struct_to_allow_trailing_semicolon__
 
 #define DEFINE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(name,type) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(name,type) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,static)
+
+#define DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes) _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes,)
 
 /* For string conversions where numbers are also acceptable */
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \

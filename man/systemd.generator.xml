@@ -315,7 +315,7 @@
     </example>
 
     <example>
-      <title>Debuging a generator</title>
+      <title>Debugging a generator</title>
 
       <programlisting>dir=$(mktemp -d)
 SYSTEMD_LOG_LEVEL=debug &systemgeneratordir;/systemd-fstab-generator \

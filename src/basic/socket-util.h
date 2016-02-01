@@ -89,7 +89,7 @@ int socket_address_listen(
                 mode_t directory_mode,
                 mode_t socket_mode,
                 const char *label);
-int make_socket_fd(int log_level, const char* address, int flags);
+int make_socket_fd(int log_level, const char* address, int type, int flags);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);
 bool socket_address_is_netlink(const SocketAddress *a, const char *s);
@@ -105,7 +105,7 @@ bool socket_ipv6_is_supported(void);
 int sockaddr_port(const struct sockaddr *_sa) _pure_;
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
-int getpeername_pretty(int fd, char **ret);
+int getpeername_pretty(int fd, bool include_port, char **ret);
 int getsockname_pretty(int fd, char **ret);
 
 int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret);

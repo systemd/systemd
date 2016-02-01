@@ -84,6 +84,12 @@
     at install time. Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     to initialize it on mounted (but not booted) system images.</para>
+
+    <para>The machine-id may also be set, for example when network
+    booting, by setting the <varname>systemd.machine_id=</varname>
+    kernel command line parameter or passing the option
+    <option>--machine-id=</option> to systemd. A machine-id may not
+    be set to all zeros.</para>
   </refsect1>
 
   <refsect1>

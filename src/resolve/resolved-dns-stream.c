@@ -347,7 +347,6 @@ DnsStream *dns_stream_free(DnsStream *s) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_free);
 
 int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
-        static const int one = 1;
         _cleanup_(dns_stream_freep) DnsStream *s = NULL;
         int r;
 
@@ -364,13 +363,11 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         s->fd = -1;
         s->protocol = protocol;
 
-        r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-        if (r < 0)
-                return -errno;
-
         r = sd_event_add_io(m->event, &s->io_event_source, fd, EPOLLIN, on_stream_io, s);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(s->io_event_source, "dns-stream-io");
 
         r = sd_event_add_time(
                         m->event,
@@ -380,6 +377,8 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
                         on_stream_timeout, s);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(s->timeout_event_source, "dns-stream-timeout");
 
         LIST_PREPEND(streams, m->dns_streams, s);
         s->manager = m;

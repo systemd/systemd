@@ -810,7 +810,7 @@ _public_ int sd_get_uids(uid_t **users) {
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0)
+                if (!de && errno > 0)
                         return -errno;
 
                 if (!de)

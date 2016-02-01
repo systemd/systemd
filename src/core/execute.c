@@ -183,8 +183,11 @@ static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
         return 0;
 }
 
-_pure_ static const char *tty_path(const ExecContext *context) {
+static const char *exec_context_tty_path(const ExecContext *context) {
         assert(context);
+
+        if (context->stdio_as_fds)
+                return NULL;
 
         if (context->tty_path)
                 return context->tty_path;
@@ -192,17 +195,29 @@ _pure_ static const char *tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
-static void exec_context_tty_reset(const ExecContext *context) {
+static void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
+        const char *path;
+
         assert(context);
 
-        if (context->tty_vhangup)
-                terminal_vhangup(tty_path(context));
+        path = exec_context_tty_path(context);
 
-        if (context->tty_reset)
-                reset_terminal(tty_path(context));
+        if (context->tty_vhangup) {
+                if (p && p->stdin_fd >= 0)
+                        (void) terminal_vhangup_fd(p->stdin_fd);
+                else if (path)
+                        (void) terminal_vhangup(path);
+        }
 
-        if (context->tty_vt_disallocate && context->tty_path)
-                vt_disallocate(context->tty_path);
+        if (context->tty_reset) {
+                if (p && p->stdin_fd >= 0)
+                        (void) reset_terminal_fd(p->stdin_fd, true);
+                else if (path)
+                        (void) reset_terminal(path);
+        }
+
+        if (context->tty_vt_disallocate && path)
+                (void) vt_disallocate(path);
 }
 
 static bool is_terminal_output(ExecOutput o) {
@@ -400,7 +415,7 @@ static int setup_input(
         case EXEC_INPUT_TTY_FAIL: {
                 int fd, r;
 
-                fd = acquire_terminal(tty_path(context),
+                fd = acquire_terminal(exec_context_tty_path(context),
                                       i == EXEC_INPUT_TTY_FAIL,
                                       i == EXEC_INPUT_TTY_FORCE,
                                       false,
@@ -485,7 +500,7 @@ static int setup_output(
         } else if (o == EXEC_OUTPUT_INHERIT) {
                 /* If input got downgraded, inherit the original value */
                 if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
-                        return open_terminal_as(tty_path(context), O_WRONLY, fileno);
+                        return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null, inherit that... */
                 if (i != EXEC_INPUT_NULL)
@@ -509,7 +524,7 @@ static int setup_output(
                         return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
                 /* We don't reset the terminal if this is just about output */
-                return open_terminal_as(tty_path(context), O_WRONLY, fileno);
+                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
         case EXEC_OUTPUT_SYSLOG:
         case EXEC_OUTPUT_SYSLOG_AND_CONSOLE:
@@ -737,12 +752,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
         /* Sets (but doesn't lookup) the uid and make sure we keep the
          * capabilities while doing so. */
 
-        if (context->capabilities) {
-                _cleanup_cap_free_ cap_t d = NULL;
-                static const cap_value_t bits[] = {
-                        CAP_SETUID,   /* Necessary so that we can run setresuid() below */
-                        CAP_SETPCAP   /* Necessary so that we can set PR_SET_SECUREBITS later on */
-                };
+        if (context->capabilities || context->capability_ambient_set != 0) {
 
                 /* First step: If we need to keep capabilities but
                  * drop privileges we need to make sure we keep our
@@ -758,16 +768,24 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
                 /* Second step: set the capabilities. This will reduce
                  * the capabilities to the minimum we need. */
 
-                d = cap_dup(context->capabilities);
-                if (!d)
-                        return -errno;
+                if (context->capabilities) {
+                        _cleanup_cap_free_ cap_t d = NULL;
+                        static const cap_value_t bits[] = {
+                                CAP_SETUID,   /* Necessary so that we can run setresuid() below */
+                                CAP_SETPCAP   /* Necessary so that we can set PR_SET_SECUREBITS later on */
+                        };
 
-                if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
-                    cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0)
-                        return -errno;
+                        d = cap_dup(context->capabilities);
+                        if (!d)
+                                return -errno;
 
-                if (cap_set_proc(d) < 0)
-                        return -errno;
+                        if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
+                            cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0)
+                                return -errno;
+
+                        if (cap_set_proc(d) < 0)
+                                return -errno;
+                }
         }
 
         /* Third step: actually set the uids */
@@ -811,8 +829,7 @@ static int setup_pam(
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
-        int pam_code = PAM_SUCCESS;
-        int err = 0;
+        int pam_code = PAM_SUCCESS, r;
         char **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
@@ -829,8 +846,8 @@ static int setup_pam(
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
 
-        err = barrier_create(&barrier);
-        if (err < 0)
+        r = barrier_create(&barrier);
+        if (r < 0)
                 goto fail;
 
         if (log_get_max_level() < LOG_DEBUG)
@@ -872,12 +889,13 @@ static int setup_pam(
         parent_pid = getpid();
 
         pam_pid = fork();
-        if (pam_pid < 0)
+        if (pam_pid < 0) {
+                r = -errno;
                 goto fail;
+        }
 
         if (pam_pid == 0) {
-                int sig;
-                int r = EXIT_PAM;
+                int sig, ret = EXIT_PAM;
 
                 /* The child's job is to reset the PAM session on
                  * termination */
@@ -942,11 +960,11 @@ static int setup_pam(
                                 goto child_finish;
                 }
 
-                r = 0;
+                ret = 0;
 
         child_finish:
                 pam_end(handle, pam_code | flags);
-                _exit(r);
+                _exit(ret);
         }
 
         barrier_set_role(&barrier, BARRIER_PARENT);
@@ -975,10 +993,9 @@ static int setup_pam(
 fail:
         if (pam_code != PAM_SUCCESS) {
                 log_error("PAM failed: %s", pam_strerror(handle, pam_code));
-                err = -EPERM;  /* PAM errors do not map to errno */
-        } else {
-                err = log_error_errno(err < 0 ? err : errno, "PAM failed: %m");
-        }
+                r = -EPERM;  /* PAM errors do not map to errno */
+        } else
+                log_error_errno(r, "PAM failed: %m");
 
         if (handle) {
                 if (close_session)
@@ -988,15 +1005,9 @@ fail:
         }
 
         strv_free(e);
-
         closelog();
 
-        if (pam_pid > 1) {
-                kill(pam_pid, SIGTERM);
-                kill(pam_pid, SIGCONT);
-        }
-
-        return err;
+        return r;
 }
 #endif
 
@@ -1236,9 +1247,8 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 
 static int build_environment(
                 const ExecContext *c,
+                const ExecParameters *p,
                 unsigned n_fds,
-                char ** fd_names,
-                usec_t watchdog_usec,
                 const char *home,
                 const char *username,
                 const char *shell,
@@ -1266,7 +1276,7 @@ static int build_environment(
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
-                joined = strv_join(fd_names, ":");
+                joined = strv_join(p->fd_names, ":");
                 if (!joined)
                         return -ENOMEM;
 
@@ -1276,12 +1286,12 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (watchdog_usec > 0) {
+        if (p->watchdog_usec > 0) {
                 if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
-                if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, watchdog_usec) < 0)
+                if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
@@ -1317,7 +1327,7 @@ static int build_environment(
             c->std_error == EXEC_OUTPUT_TTY ||
             c->tty_path) {
 
-                x = strdup(default_term_for_tty(tty_path(c)));
+                x = strdup(default_term_for_tty(exec_context_tty_path(c)));
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
@@ -1494,7 +1504,7 @@ static int exec_child(
                         return -errno;
                 }
 
-        exec_context_tty_reset(context);
+        exec_context_tty_reset(context, params);
 
         if (params->confirm_spawn) {
                 char response;
@@ -1856,6 +1866,8 @@ static int exec_child(
 
         if (params->apply_permissions) {
 
+                int secure_bits = context->secure_bits;
+
                 for (i = 0; i < _RLIMIT_MAX; i++) {
                         if (!context->rlimit[i])
                                 continue;
@@ -1866,11 +1878,36 @@ static int exec_child(
                         }
                 }
 
-                if (context->capability_bounding_set_drop) {
-                        r = capability_bounding_set_drop(context->capability_bounding_set_drop, false);
+                if (!cap_test_all(context->capability_bounding_set)) {
+                        r = capability_bounding_set_drop(context->capability_bounding_set, false);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return r;
+                        }
+                }
+
+                /* This is done before enforce_user, but ambient set
+                 * does not survive over setresuid() if keep_caps is not set. */
+                if (context->capability_ambient_set != 0) {
+                        r = capability_ambient_set_apply(context->capability_ambient_set, true);
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return r;
+                        }
+
+                        if (context->capabilities) {
+
+                                /* The capabilities in ambient set need to be also in the inherited
+                                 * set. If they aren't, trying to get them will fail. Add the ambient
+                                 * set inherited capabilities to the capability set in the context.
+                                 * This is needed because if capabilities are set (using "Capabilities="
+                                 * keyword), they will override whatever we set now. */
+
+                                r = capability_update_inherited_set(context->capabilities, context->capability_ambient_set);
+                                if (r < 0) {
+                                        *exit_status = EXIT_CAPABILITIES;
+                                        return r;
+                                }
                         }
                 }
 
@@ -1880,14 +1917,32 @@ static int exec_child(
                                 *exit_status = EXIT_USER;
                                 return r;
                         }
+                        if (context->capability_ambient_set != 0) {
+
+                                /* Fix the ambient capabilities after user change. */
+                                r = capability_ambient_set_apply(context->capability_ambient_set, false);
+                                if (r < 0) {
+                                        *exit_status = EXIT_CAPABILITIES;
+                                        return r;
+                                }
+
+                                /* If we were asked to change user and ambient capabilities
+                                 * were requested, we had to add keep-caps to the securebits
+                                 * so that we would maintain the inherited capability set
+                                 * through the setresuid(). Make sure that the bit is added
+                                 * also to the context secure_bits so that we don't try to
+                                 * drop the bit away next. */
+
+                                 secure_bits |= 1<<SECURE_KEEP_CAPS;
+                        }
                 }
 
                 /* PR_GET_SECUREBITS is not privileged, while
                  * PR_SET_SECUREBITS is. So to suppress
                  * potential EPERMs we'll try not to call
                  * PR_SET_SECUREBITS unless necessary. */
-                if (prctl(PR_GET_SECUREBITS) != context->secure_bits)
-                        if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
+                if (prctl(PR_GET_SECUREBITS) != secure_bits)
+                        if (prctl(PR_SET_SECUREBITS, secure_bits) < 0) {
                                 *exit_status = EXIT_SECUREBITS;
                                 return -errno;
                         }
@@ -1950,7 +2005,7 @@ static int exec_child(
 #endif
         }
 
-        r = build_environment(context, n_fds, params->fd_names, params->watchdog_usec, home, username, shell, &our_env);
+        r = build_environment(context, params, n_fds, home, username, shell, &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
                 return r;
@@ -2114,6 +2169,7 @@ void exec_context_init(ExecContext *c) {
         c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = PERSONALITY_INVALID;
         c->runtime_directory_mode = 0755;
+        c->capability_bounding_set = CAP_ALL;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -2270,7 +2326,7 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
                                 continue;
 
                         strv_free(r);
-                        return errno ? -errno : -EINVAL;
+                        return errno > 0 ? -errno : -EINVAL;
                 }
                 count = pglob.gl_pathc;
                 if (count == 0) {
@@ -2324,6 +2380,9 @@ static bool tty_may_match_dev_console(const char *tty) {
         _cleanup_free_ char *active = NULL;
         char *console;
 
+        if (!tty)
+                return true;
+
         if (startswith(tty, "/dev/"))
                 tty += 5;
 
@@ -2341,11 +2400,14 @@ static bool tty_may_match_dev_console(const char *tty) {
 }
 
 bool exec_context_may_touch_console(ExecContext *ec) {
-        return (ec->tty_reset || ec->tty_vhangup || ec->tty_vt_disallocate ||
+
+        return (ec->tty_reset ||
+                ec->tty_vhangup ||
+                ec->tty_vt_disallocate ||
                 is_terminal_input(ec->std_input) ||
                 is_terminal_output(ec->std_output) ||
                 is_terminal_output(ec->std_error)) &&
-               tty_may_match_dev_console(tty_path(ec));
+               tty_may_match_dev_console(exec_context_tty_path(ec));
 }
 
 static void strv_fprintf(FILE *f, char **l) {
@@ -2517,12 +2579,23 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         (c->secure_bits & 1<<SECURE_NOROOT) ? " noroot" : "",
                         (c->secure_bits & 1<<SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
-        if (c->capability_bounding_set_drop) {
+        if (c->capability_bounding_set != CAP_ALL) {
                 unsigned long l;
                 fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
                 for (l = 0; l <= cap_last_cap(); l++)
-                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l)))
+                        if (c->capability_bounding_set & (UINT64_C(1) << l))
+                                fprintf(f, " %s", strna(capability_to_name(l)));
+
+                fputs("\n", f);
+        }
+
+        if (c->capability_ambient_set != 0) {
+                unsigned long l;
+                fprintf(f, "%sAmbientCapabilities:", prefix);
+
+                for (l = 0; l <= cap_last_cap(); l++)
+                        if (c->capability_ambient_set & (UINT64_C(1) << l))
                                 fprintf(f, " %s", strna(capability_to_name(l)));
 
                 fputs("\n", f);
@@ -2623,7 +2696,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fputc('\n', f);
         }
 
-        if (c->syscall_errno != 0)
+        if (c->syscall_errno > 0)
                 fprintf(f,
                         "%sSystemCallErrorNumber: %s\n",
                         prefix, strna(errno_to_name(c->syscall_errno)));
@@ -2673,7 +2746,7 @@ void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, 
                 if (context->utmp_id)
                         utmp_put_dead_process(context->utmp_id, pid, code, status);
 
-                exec_context_tty_reset(context);
+                exec_context_tty_reset(context, NULL);
         }
 }
 

@@ -134,7 +134,7 @@
     a <filename>uevent</filename> file. <function>udev_device_new_from_devnum</function>
     takes a device type, which can be <constant>b</constant> for block devices or
     <constant>c</constant> for character devices, as well as a devnum (see
-    <citerefentry><refentrytitle>makedev</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    <citerefentry project='man-pages'><refentrytitle>makedev</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
     <function>udev_device_new_from_subsystem_sysname</function> looks up devices based
     on the provided subsystem and sysname
     (see <citerefentry><refentrytitle>udev_device_get_subsystem</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -171,7 +171,7 @@
 
     <para><function>udev_device_new_from_environment</function>
     creates a device from the current environment (see
-    <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
+    <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
     Each key-value pair is interpreted in the same way as if it was
     received in an uevent (see
     <citerefentry><refentrytitle>udev_monitor_receive_device</refentrytitle><manvolnum>3</manvolnum></citerefentry>).

@@ -47,6 +47,7 @@
 #include "formats-util.h"
 #include "memfd-util.h"
 #include "parse-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -269,8 +270,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         struct bus_body_part *part;
         struct kdbus_item *d;
         const char *destination;
-        bool well_known;
-        uint64_t unique;
+        bool well_known = false;
+        uint64_t dst_id;
         size_t sz, dl;
         unsigned i;
         int r;
@@ -287,13 +288,21 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         destination = m->destination ?: m->destination_ptr;
 
         if (destination) {
-                r = bus_kernel_parse_unique_name(destination, &unique);
+                r = bus_kernel_parse_unique_name(destination, &dst_id);
                 if (r < 0)
                         return r;
+                if (r == 0) {
+                        well_known = true;
 
-                well_known = r == 0;
+                        /* verify_destination_id will usually be 0, which makes the kernel
+                         * driver only look at the provided well-known name. Otherwise,
+                         * the kernel will make sure the provided destination id matches
+                         * the owner of the provided well-known-name, and fail if they
+                         * differ. Currently, this is only needed for bus-proxyd. */
+                        dst_id = m->verify_destination_id;
+                }
         } else
-                well_known = false;
+                dst_id = KDBUS_DST_ID_BROADCAST;
 
         sz = offsetof(struct kdbus_msg, items);
 
@@ -331,15 +340,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_NO_AUTO_START : 0) |
                 ((m->header->type == SD_BUS_MESSAGE_SIGNAL) ? KDBUS_MSG_SIGNAL : 0);
 
-        if (well_known)
-                /* verify_destination_id will usually be 0, which makes the kernel driver only look
-                 * at the provided well-known name. Otherwise, the kernel will make sure the provided
-                 * destination id matches the owner of the provided weel-known-name, and fail if they
-                 * differ. Currently, this is only needed for bus-proxyd. */
-                m->kdbus->dst_id = m->verify_destination_id;
-        else
-                m->kdbus->dst_id = destination ? unique : KDBUS_DST_ID_BROADCAST;
-
+        m->kdbus->dst_id = dst_id;
         m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS;
         m->kdbus->cookie = m->header->dbus2.cookie;
         m->kdbus->priority = m->priority;
@@ -849,7 +850,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (k->src_id == KDBUS_SRC_ID_KERNEL)
                 bus_message_set_sender_driver(bus, m);
         else {
-                snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
+                xsprintf(m->sender_buffer, ":1.%llu",
+                         (unsigned long long)k->src_id);
                 m->sender = m->creds.unique_name = m->sender_buffer;
         }
 
@@ -860,7 +862,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         else if (k->dst_id == KDBUS_DST_ID_NAME)
                 m->destination = bus->unique_name; /* fill in unique name if the well-known name is missing */
         else {
-                snprintf(m->destination_buffer, sizeof(m->destination_buffer), ":1.%llu", (unsigned long long) k->dst_id);
+                xsprintf(m->destination_buffer, ":1.%llu",
+                         (unsigned long long)k->dst_id);
                 m->destination = m->destination_buffer;
         }
 

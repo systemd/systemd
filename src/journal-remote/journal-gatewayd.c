@@ -45,6 +45,8 @@
 #include "sigbus.h"
 #include "util.h"
 
+#define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
+
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
@@ -181,11 +183,13 @@ static ssize_t request_reader_entries(
                 } else if (r == 0) {
 
                         if (m->follow) {
-                                r = sd_journal_wait(m->journal, (uint64_t) -1);
+                                r = sd_journal_wait(m->journal, (uint64_t) JOURNAL_WAIT_TIMEOUT);
                                 if (r < 0) {
                                         log_error_errno(r, "Couldn't wait for journal event: %m");
                                         return MHD_CONTENT_READER_END_WITH_ERROR;
                                 }
+                                if (r == SD_JOURNAL_NOP)
+                                        break;
 
                                 continue;
                         }
@@ -241,6 +245,8 @@ static ssize_t request_reader_entries(
         }
 
         n = m->size - pos;
+        if (n < 1)
+                return 0;
         if (n > max)
                 n = max;
 
@@ -694,7 +700,7 @@ static int request_handler_file(
         if (fstat(fd, &st) < 0)
                 return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m\n");
 
-        response = MHD_create_response_from_fd_at_offset(st.st_size, fd, 0);
+        response = MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
         if (!response)
                 return respond_oom(connection);
 
@@ -834,7 +840,7 @@ static int request_handler(
         assert(method);
 
         if (!streq(method, "GET"))
-                return mhd_respond(connection, MHD_HTTP_METHOD_NOT_ACCEPTABLE,
+                return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE,
                                    "Unsupported method.\n");
 
 

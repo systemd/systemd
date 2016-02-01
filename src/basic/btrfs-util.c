@@ -43,6 +43,7 @@
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
@@ -912,6 +913,10 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         struct stat st;
         dev_t dev = 0;
         int r;
+
+        /* In contrast to btrfs quota ioctls ftruncate() cannot make sense of "infinity" or file sizes > 2^31 */
+        if (!FILE_SIZE_VALID(new_size))
+                return -EINVAL;
 
         /* btrfs cannot handle file systems < 16M, hence use this as minimum */
         if (new_size < 16*1024*1024)
@@ -2051,7 +2056,7 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
-                        return -errno;
+                        return negative_errno();
 
                 if (args.key.nr_items <= 0)
                         break;

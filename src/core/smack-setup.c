@@ -197,6 +197,75 @@ static int write_cipso2_rules(const char* srcdir) {
         return r;
 }
 
+static int write_netlabel_rules(const char* srcdir) {
+        _cleanup_fclose_ FILE *dst = NULL;
+        _cleanup_closedir_ DIR *dir = NULL;
+        struct dirent *entry;
+        char buf[NAME_MAX];
+        int dfd = -1;
+        int r = 0;
+
+        dst = fopen("/sys/fs/smackfs/netlabel", "we");
+        if (!dst)  {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to open /sys/fs/smackfs/netlabel: %m");
+                return -errno; /* negative error */
+        }
+
+        /* write rules to dst from every file in the directory */
+        dir = opendir(srcdir);
+        if (!dir) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to opendir %s: %m", srcdir);
+                return errno; /* positive on purpose */
+        }
+
+        dfd = dirfd(dir);
+        assert(dfd >= 0);
+
+        FOREACH_DIRENT(entry, dir, return 0) {
+                int fd;
+                _cleanup_fclose_ FILE *policy = NULL;
+
+                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        if (r == 0)
+                                r = -errno;
+                        log_warning_errno(errno, "Failed to open %s: %m", entry->d_name);
+                        continue;
+                }
+
+                policy = fdopen(fd, "re");
+                if (!policy) {
+                        if (r == 0)
+                                r = -errno;
+                        safe_close(fd);
+                        log_error_errno(errno, "Failed to open %s: %m", entry->d_name);
+                        continue;
+                }
+
+                /* load2 write rules in the kernel require a line buffered stream */
+                FOREACH_LINE(buf, policy,
+                             log_error_errno(errno, "Failed to read line from %s: %m",
+                                       entry->d_name)) {
+                        if (!fputs(buf, dst)) {
+                                if (r == 0)
+                                        r = -EINVAL;
+                                log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel");
+                                break;
+                        }
+                        if (fflush(dst)) {
+                                if (r == 0)
+                                        r = -errno;
+                                log_error_errno(errno, "Failed to flush writes to /sys/fs/smackfs/netlabel: %m");
+                                break;
+                        }
+                }
+        }
+
+       return r;
+}
+
 #endif
 
 int mac_smack_setup(bool *loaded_policy) {
@@ -225,8 +294,18 @@ int mac_smack_setup(bool *loaded_policy) {
 
 #ifdef SMACK_RUN_LABEL
         r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL, 0);
-        if (r)
-                log_warning_errno(r, "Failed to set SMACK label \"%s\" on self: %m", SMACK_RUN_LABEL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set SMACK label \"" SMACK_RUN_LABEL "\" on self: %m");
+        r = write_string_file("/sys/fs/smackfs/ambient", SMACK_RUN_LABEL, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set SMACK ambient label \"" SMACK_RUN_LABEL "\": %m");
+        r = write_string_file("/sys/fs/smackfs/netlabel",
+                              "0.0.0.0/0 " SMACK_RUN_LABEL, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set SMACK netlabel rule \"0.0.0.0/0 " SMACK_RUN_LABEL "\": %m");
+        r = write_string_file("/sys/fs/smackfs/netlabel", "127.0.0.1 -CIPSO", 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set SMACK netlabel rule \"127.0.0.1 -CIPSO\": %m");
 #endif
 
         r = write_cipso2_rules("/etc/smack/cipso.d/");
@@ -236,13 +315,29 @@ int mac_smack_setup(bool *loaded_policy) {
                 return 0;
         case ENOENT:
                 log_debug("Smack/CIPSO access rules directory '/etc/smack/cipso.d/' not found");
-                return 0;
+                break;
         case 0:
                 log_info("Successfully loaded Smack/CIPSO policies.");
                 break;
         default:
                 log_warning_errno(r, "Failed to load Smack/CIPSO access rules, ignoring: %m");
+                break;
+        }
+
+        r = write_netlabel_rules("/etc/smack/netlabel.d/");
+        switch(r) {
+        case -ENOENT:
+                log_debug("Smack/CIPSO is not enabled in the kernel.");
                 return 0;
+        case ENOENT:
+                log_debug("Smack network host rules directory '/etc/smack/netlabel.d/' not found");
+                break;
+        case 0:
+                log_info("Successfully loaded Smack network host rules.");
+                break;
+        default:
+                log_warning_errno(r, "Failed to load Smack network host rules: %m, ignoring.");
+                break;
         }
 
         *loaded_policy = true;

@@ -694,29 +694,27 @@ man_MANS = \
 
 noinst_DATA += \
 	$(HTML_FILES) \
-	$(HTML_ALIAS)
+	$(HTML_ALIAS) \
+	docs/html/man
+endif
 
 CLEANFILES += \
 	$(man_MANS) \
 	$(HTML_FILES) \
-	$(HTML_ALIAS)
+	$(HTML_ALIAS) \
+	docs/html/man
 
 docs/html/man:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_LN)$(LN_S) -f ../../man $@
 
-noinst_DATA += \
-	docs/html/man
-
-CLEANFILES += \
-	docs/html/man
-
-if HAVE_PYTHON
 man/index.html: man/systemd.index.html
 	$(AM_V_LN)$(LN_S) -f systemd.index.html $@
 
+if HAVE_PYTHON
 noinst_DATA += \
 	man/index.html
+endif
 
 CLEANFILES += \
 	man/index.html
@@ -744,11 +742,6 @@ man/systemd.directives.xml: $(top_srcdir)/tools/make-directive-index.py man/cust
 CLEANFILES += \
 	man/systemd.index.xml \
 	man/systemd.directives.xml
-
-
-endif
-
-endif
 
 EXTRA_DIST += \
 	$(filter-out man/systemd.directives.xml man/systemd.index.xml,$(XML_FILES)) \
@@ -841,10 +834,13 @@ libbasic_la_SOURCES = \
 	src/basic/mempool.h \
 	src/basic/hashmap.c \
 	src/basic/hashmap.h \
+	src/basic/hash-funcs.c \
+	src/basic/hash-funcs.h \
 	src/basic/siphash24.c \
 	src/basic/siphash24.h \
 	src/basic/set.h \
 	src/basic/ordered-set.h \
+	src/basic/ordered-set.c \
 	src/basic/bitmap.c \
 	src/basic/bitmap.h \
 	src/basic/fdset.c \
@@ -1054,7 +1050,9 @@ libshared_la_SOURCES = \
 	src/shared/machine-image.c \
 	src/shared/machine-image.h \
 	src/shared/machine-pool.c \
-	src/shared/machine-pool.h
+	src/shared/machine-pool.h \
+	src/shared/resolve-util.c \
+	src/shared/resolve-util.h
 
 if HAVE_UTMP
 libshared_la_SOURCES += \
@@ -1420,7 +1418,8 @@ manual_tests += \
 	test-ipcrm \
 	test-btrfs \
 	test-acd \
-	test-ipv4ll-manual
+	test-ipv4ll-manual \
+	test-ask-password-api
 
 if HAVE_LIBIPTC
 manual_tests += \
@@ -1500,8 +1499,10 @@ tests += \
 	test-af-list \
 	test-arphrd-list \
 	test-dns-domain \
+	test-resolve-tables \
 	test-install-root \
-	test-rlimit-util
+	test-rlimit-util \
+	test-signal-util
 
 if HAVE_ACL
 tests += \
@@ -1661,6 +1662,17 @@ test_dns_domain_SOURCES = \
 
 test_dns_domain_LDADD = \
 	libsystemd-network.la \
+	libshared.la
+
+test_resolve_tables_SOURCES = \
+	src/resolve/test-resolve-tables.c \
+	src/shared/test-tables.h \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h
+
+test_resolve_tables_LDADD = \
 	libshared.la
 
 if ENABLE_EFI
@@ -1874,6 +1886,18 @@ test_rlimit_util_SOURCES = \
 	src/test/test-rlimit-util.c
 
 test_rlimit_util_LDADD = \
+	libshared.la
+
+test_ask_password_api_SOURCES = \
+	src/test/test-ask-password-api.c
+
+test_ask_password_api_LDADD = \
+	libshared.la
+
+test_signal_util_SOURCES = \
+	src/test/test-signal-util.c
+
+test_signal_util_LDADD = \
 	libshared.la
 
 BUILT_SOURCES += \
@@ -4879,7 +4903,7 @@ libnss_myhostname_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-myhostname/nss-myhostname.sym
 
 libnss_myhostname_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_myhostname.la
@@ -4979,7 +5003,7 @@ libnss_mymachines_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-mymachines/nss-mymachines.sym
 
 libnss_mymachines_la_LIBADD = \
-	libshared.la
+	libsystemd-internal.la
 
 lib_LTLIBRARIES += \
 	libnss_mymachines.la
@@ -5174,6 +5198,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-bus.h \
 	src/resolve/resolved-link.h \
 	src/resolve/resolved-link.c \
+	src/resolve/resolved-link-bus.c \
+	src/resolve/resolved-link-bus.h \
 	src/resolve/resolved-llmnr.h \
 	src/resolve/resolved-llmnr.c \
 	src/resolve/resolved-mdns.h \
@@ -5189,6 +5215,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-query.h \
 	src/resolve/resolved-dns-query.c \
+	src/resolve/resolved-dns-synthesize.h \
+	src/resolve/resolved-dns-synthesize.c \
 	src/resolve/resolved-dns-transaction.h \
 	src/resolve/resolved-dns-transaction.c \
 	src/resolve/resolved-dns-scope.h \
@@ -5207,6 +5235,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-dnssec.c \
 	src/resolve/resolved-dns-trust-anchor.h \
 	src/resolve/resolved-dns-trust-anchor.c \
+	src/resolve/resolved-etc-hosts.h \
+	src/resolve/resolved-etc-hosts.c \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
@@ -5260,14 +5290,16 @@ libnss_resolve_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
 
 libnss_resolve_la_LIBADD = \
-	libshared.la \
+	libsystemd-internal.la \
         -ldl
 
 lib_LTLIBRARIES += \
 	libnss_resolve.la
 
-systemd_resolve_host_SOURCES = \
-	src/resolve-host/resolve-host.c \
+systemd_resolve_SOURCES = \
+	src/resolve/resolve-tool.c \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-dnssec.h \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-packet.h \
 	src/resolve/resolved-dns-rr.c \
@@ -5279,19 +5311,22 @@ systemd_resolve_host_SOURCES = \
 	src/resolve/dns-type.c \
 	src/resolve/dns-type.h
 
-nodist_systemd_resolve_host_SOURCES = \
+nodist_systemd_resolve_SOURCES = \
 	src/resolve/dns_type-from-name.h \
 	src/resolve/dns_type-to-name.h
 
-systemd_resolve_host_LDADD = \
+systemd_resolve_LDADD = \
 	libshared.la
 
-rootlibexec_PROGRAMS += \
-	systemd-resolve-host
+bin_PROGRAMS += \
+	systemd-resolve
 
 tests += \
 	test-dns-domain \
 	test-dnssec
+
+manual_tests += \
+	test-dnssec-complex
 
 test_dnssec_SOURCES = \
 	src/resolve/test-dnssec.c \
@@ -5309,6 +5344,14 @@ test_dnssec_SOURCES = \
 	src/resolve/dns-type.h
 
 test_dnssec_LDADD = \
+	libshared.la
+
+test_dnssec_complex_SOURCES = \
+	src/resolve/test-dnssec-complex.c \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h
+
+test_dnssec_complex_LDADD = \
 	libshared.la
 
 endif
@@ -5978,24 +6021,24 @@ src/%.c: src/%.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GPERF)$(GPERF) < $< > $@
 
-src/%: src/%.m4
+src/%: src/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
-sysusers.d/%: sysusers.d/%.m4
+sysusers.d/%: sysusers.d/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
-tmpfiles.d/%: tmpfiles.d/%.m4
+tmpfiles.d/%: tmpfiles.d/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
 
-units/%: units/%.m4
+units/%: units/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
 
-units/user/%: units/user/%.m4
+units/user/%: units/user/%.m4 $(top_builddir)/config.status
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
@@ -6010,7 +6053,6 @@ EXTRA_DIST += \
 	$(polkitpolicy_in_in_files)
 
 # ------------------------------------------------------------------------------
-if ENABLE_MANPAGES
 man/custom-entities.ent: configure.ac
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
@@ -6030,11 +6072,12 @@ XSLTPROC_FLAGS = \
 	--stringparam systemd.version $(VERSION) \
 	--path '$(builddir)/man:$(srcdir)/man'
 
+XSLT = $(if $(XSLTPROC), $(XSLTPROC), xsltproc)
 XSLTPROC_PROCESS_MAN = \
-	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
+	$(AM_V_XSLT)$(XSLT) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
 
 XSLTPROC_PROCESS_HTML = \
-	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
+	$(AM_V_XSLT)$(XSLT) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
 man/%.1: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
@@ -6057,8 +6100,6 @@ man/%.html: man/%.xml man/custom-html.xsl man/custom-entities.ent
 define html-alias
 	$(AM_V_LN)$(LN_S) -f $(notdir $<) $@
 endef
-
-endif
 
 EXTRA_DIST += \
 	man/custom-html.xsl \
@@ -6285,14 +6326,14 @@ install-tree: all
 	tree $(abs_srcdir)/install-tree
 
 # Let's run all tests of the test suite, but under valgrind. Let's
-# exclude the one perl script we have in there
+# exclude perl/python/shell scripts we have in there
 .PHONY: valgrind-tests
 valgrind-tests: $(TESTS)
-	$(AM_V_GEN)for f in $(filter-out %.pl, $^); do \
+	$(AM_V_GEN)for f in $(filter-out %.pl %.py, $^); do \
 		if file $$f | grep -q shell; then \
 		echo -e "$${x}Skipping non-binary $$f"; else \
 		echo -e "$${x}Running $$f"; \
-		libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
+		$(LIBTOOL) --mode=execute valgrind -q --leak-check=full --max-stackframe=5242880 --error-exitcode=55 $(builddir)/$$f ; fi; \
 		x="\n\n"; \
 	done
 

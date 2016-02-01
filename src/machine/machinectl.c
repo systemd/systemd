@@ -108,7 +108,7 @@ static OutputFlags get_output_flags(void) {
                 arg_all * OUTPUT_SHOW_ALL |
                 arg_full * OUTPUT_FULL_WIDTH |
                 (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                on_tty() * OUTPUT_COLOR |
+                colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
 
@@ -1571,7 +1571,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        r = bus_wait_for_jobs(w, arg_quiet);
+        r = bus_wait_for_jobs(w, arg_quiet, NULL);
         if (r < 0)
                 return r;
 

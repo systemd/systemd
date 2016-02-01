@@ -33,6 +33,7 @@
 #include "parse-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "terminal-util.h"
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
@@ -42,7 +43,14 @@ static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
-static bool arg_resolve_service = false;
+
+static enum {
+        MODE_RESOLVE_HOST,
+        MODE_RESOLVE_RECORD,
+        MODE_RESOLVE_SERVICE,
+        MODE_STATISTICS,
+        MODE_RESET_STATISTICS,
+} arg_mode = MODE_RESOLVE_HOST;
 
 static void print_source(uint64_t flags, usec_t rtt) {
         char rtt_str[FORMAT_TIMESTAMP_MAX];
@@ -56,10 +64,12 @@ static void print_source(uint64_t flags, usec_t rtt) {
         fputs("\n-- Information acquired via", stdout);
 
         if (flags != 0)
-                printf(" protocol%s%s%s",
+                printf(" protocol%s%s%s%s%s",
                        flags & SD_RESOLVED_DNS ? " DNS" :"",
                        flags & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
-                       flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "");
+                       flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "",
+                       flags & SD_RESOLVED_MDNS_IPV4 ? "mDNS/IPv4" : "",
+                       flags & SD_RESOLVED_MDNS_IPV6 ? "mDNS/IPv6" : "");
 
         assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
 
@@ -320,8 +330,7 @@ static int parse_address(const char *s, int *family, union in_addr_union *addres
         return 0;
 }
 
-static int resolve_record(sd_bus *bus, const char *name) {
-
+static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_t type) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char ifname[IF_NAMESIZE] = "";
@@ -335,7 +344,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (arg_ifindex > 0 && !if_indextoname(arg_ifindex, ifname))
                 return log_error_errno(errno, "Failed to resolve interface name for index %i: %m", arg_ifindex);
 
-        log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(arg_class), dns_type_to_string(arg_type), isempty(ifname) ? "*" : ifname);
+        log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(ifname) ? "*" : ifname);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -347,7 +356,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "isqqt", arg_ifindex, name, arg_class, arg_type, arg_flags);
+        r = sd_bus_message_append(req, "isqqt", arg_ifindex, name, class, type, arg_flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -368,7 +377,7 @@ static int resolve_record(sd_bus *bus, const char *name) {
         while ((r = sd_bus_message_enter_container(reply, 'r', "iqqay")) > 0) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-                _cleanup_free_ char *s = NULL;
+                const char *s;
                 uint16_t c, t;
                 int ifindex;
                 const void *d;
@@ -399,16 +408,12 @@ static int resolve_record(sd_bus *bus, const char *name) {
                         return log_oom();
 
                 r = dns_packet_read_rr(p, &rr, NULL, NULL);
-                if (r < 0) {
-                        log_error("Failed to parse RR.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse RR: %m");
 
-                r = dns_resource_record_to_string(rr, &s);
-                if (r < 0) {
-                        log_error("Failed to format RR.");
-                        return r;
-                }
+                s = dns_resource_record_to_string(rr);
+                if (!s)
+                        return log_oom();
 
                 ifname[0] = 0;
                 if (ifindex > 0 && !if_indextoname(ifindex, ifname))
@@ -436,6 +441,127 @@ static int resolve_record(sd_bus *bus, const char *name) {
         print_source(flags, ts);
 
         return 0;
+}
+
+static int resolve_rfc4501(sd_bus *bus, const char *name) {
+        uint16_t type = 0, class = 0;
+        const char *p, *q, *n;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(startswith(name, "dns:"));
+
+        /* Parse RFC 4501 dns: URIs */
+
+        p = name + 4;
+
+        if (p[0] == '/') {
+                const char *e;
+
+                if (p[1] != '/')
+                        goto invalid;
+
+                e = strchr(p + 2, '/');
+                if (!e)
+                        goto invalid;
+
+                if (e != p + 2)
+                        log_warning("DNS authority specification not supported; ignoring specified authority.");
+
+                p = e + 1;
+        }
+
+        q = strchr(p, '?');
+        if (q) {
+                n = strndupa(p, q - p);
+                q++;
+
+                for (;;) {
+                        const char *f;
+
+                        f = startswith_no_case(q, "class=");
+                        if (f) {
+                                _cleanup_free_ char *t = NULL;
+                                const char *e;
+
+                                if (class != 0) {
+                                        log_error("DNS class specified twice.");
+                                        return -EINVAL;
+                                }
+
+                                e = strchrnul(f, ';');
+                                t = strndup(f, e - f);
+                                if (!t)
+                                        return log_oom();
+
+                                r = dns_class_from_string(t);
+                                if (r < 0) {
+                                        log_error("Unknown DNS class %s.", t);
+                                        return -EINVAL;
+                                }
+
+                                class = r;
+
+                                if (*e == ';') {
+                                        q = e + 1;
+                                        continue;
+                                }
+
+                                break;
+                        }
+
+                        f = startswith_no_case(q, "type=");
+                        if (f) {
+                                _cleanup_free_ char *t = NULL;
+                                const char *e;
+
+                                if (type != 0) {
+                                        log_error("DNS type specified twice.");
+                                        return -EINVAL;
+                                }
+
+                                e = strchrnul(f, ';');
+                                t = strndup(f, e - f);
+                                if (!t)
+                                        return log_oom();
+
+                                r = dns_type_from_string(t);
+                                if (r < 0) {
+                                        log_error("Unknown DNS type %s.", t);
+                                        return -EINVAL;
+                                }
+
+                                type = r;
+
+                                if (*e == ';') {
+                                        q = e + 1;
+                                        continue;
+                                }
+
+                                break;
+                        }
+
+                        goto invalid;
+                }
+        } else
+                n = p;
+
+        if (type == 0)
+                type = arg_type;
+        if (type == 0)
+                type = DNS_TYPE_A;
+
+        if (class == 0)
+                class = arg_class;
+        if (class == 0)
+                class = DNS_CLASS_IN;
+
+        return resolve_record(bus, n, class, type);
+
+invalid:
+        log_error("Invalid DNS URI: %s", name);
+        return -EINVAL;
 }
 
 static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
@@ -639,6 +765,147 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         return 0;
 }
 
+static int show_statistics(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint64_t n_current_transactions, n_total_transactions,
+                cache_size, n_cache_hit, n_cache_miss,
+                n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
+        int r, dnssec_supported;
+
+        assert(bus);
+
+        r = sd_bus_get_property_trivial(bus,
+                                        "org.freedesktop.resolve1",
+                                        "/org/freedesktop/resolve1",
+                                        "org.freedesktop.resolve1.Manager",
+                                        "DNSSECSupported",
+                                        &error,
+                                        'b',
+                                        &dnssec_supported);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get DNSSEC supported state: %s", bus_error_message(&error, r));
+
+        printf("DNSSEC supported by current servers: %s%s%s\n\n",
+               ansi_highlight(),
+               yes_no(dnssec_supported),
+               ansi_normal());
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "TransactionStatistics",
+                                &error,
+                                &reply,
+                                "(tt)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get transaction statistics: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "(tt)",
+                                &n_current_transactions,
+                                &n_total_transactions);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        printf("%sTransactions%s\n"
+               "Current Transactions: %" PRIu64 "\n"
+               "  Total Transactions: %" PRIu64 "\n",
+               ansi_highlight(),
+               ansi_normal(),
+               n_current_transactions,
+               n_total_transactions);
+
+        reply = sd_bus_message_unref(reply);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "CacheStatistics",
+                                &error,
+                                &reply,
+                                "(ttt)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cache statistics: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "(ttt)",
+                                &cache_size,
+                                &n_cache_hit,
+                                &n_cache_miss);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        printf("\n%sCache%s\n"
+               "  Current Cache Size: %" PRIu64 "\n"
+               "          Cache Hits: %" PRIu64 "\n"
+               "        Cache Misses: %" PRIu64 "\n",
+               ansi_highlight(),
+               ansi_normal(),
+               cache_size,
+               n_cache_hit,
+               n_cache_miss);
+
+        reply = sd_bus_message_unref(reply);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "DNSSECStatistics",
+                                &error,
+                                &reply,
+                                "(tttt)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get DNSSEC statistics: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "(tttt)",
+                                &n_dnssec_secure,
+                                &n_dnssec_insecure,
+                                &n_dnssec_bogus,
+                                &n_dnssec_indeterminate);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        printf("\n%sDNSSEC Verdicts%s\n"
+               "              Secure: %" PRIu64 "\n"
+               "            Insecure: %" PRIu64 "\n"
+               "               Bogus: %" PRIu64 "\n"
+               "       Indeterminate: %" PRIu64 "\n",
+               ansi_highlight(),
+               ansi_normal(),
+               n_dnssec_secure,
+               n_dnssec_insecure,
+               n_dnssec_bogus,
+               n_dnssec_indeterminate);
+
+        return 0;
+}
+
+static int reset_statistics(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.resolve1",
+                               "/org/freedesktop/resolve1",
+                               "org.freedesktop.resolve1.Manager",
+                               "ResetStatistics",
+                               &error,
+                               NULL,
+                               NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset statistics: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static void help_protocol_types(void) {
+        if (arg_legend)
+                puts("Known protocol types:");
+        puts("dns\nllmnr\nllmnr-ipv4\nllmnr-ipv6");
+}
+
 static void help_dns_types(void) {
         int i;
         const char *t;
@@ -668,21 +935,23 @@ static void help_dns_classes(void) {
 static void help(void) {
         printf("%s [OPTIONS...] NAME...\n"
                "%s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n\n"
-               "Resolve domain names, IPv4 or IPv6 addresses, resource records, and services.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -4                        Resolve IPv4 addresses\n"
-               "  -6                        Resolve IPv6 addresses\n"
-               "  -i INTERFACE              Look on interface\n"
-               "  -p --protocol=PROTOCOL    Look via protocol\n"
-               "  -t --type=TYPE            Query RR with DNS type\n"
-               "  -c --class=CLASS          Query RR with DNS class\n"
-               "     --service              Resolve service (SRV)\n"
-               "     --service-address=BOOL Do [not] resolve address for services\n"
-               "     --service-txt=BOOL     Do [not] resolve TXT records for services\n"
-               "     --cname=BOOL           Do [not] follow CNAME redirects\n"
-               "     --search=BOOL          Do [not] use search domains\n"
-               "     --legend=BOOL          Do [not] print column headers\n"
+               "Resolve domain names, IPv4 and IPv6 addresses, DNS resource records, and services.\n\n"
+               "  -h --help                   Show this help\n"
+               "     --version                Show package version\n"
+               "  -4                          Resolve IPv4 addresses\n"
+               "  -6                          Resolve IPv6 addresses\n"
+               "  -i --interface=INTERFACE    Look on interface\n"
+               "  -p --protocol=PROTOCOL|help Look via protocol\n"
+               "  -t --type=TYPE|help         Query RR with DNS type\n"
+               "  -c --class=CLASS|help       Query RR with DNS class\n"
+               "     --service                Resolve service (SRV)\n"
+               "     --service-address=BOOL   Do [not] resolve address for services\n"
+               "     --service-txt=BOOL       Do [not] resolve TXT records for services\n"
+               "     --cname=BOOL             Do [not] follow CNAME redirects\n"
+               "     --search=BOOL            Do [not] use search domains\n"
+               "     --legend=BOOL            Do [not] print column headers and meta information\n"
+               "     --statistics             Show resolver statistics\n"
+               "     --reset-statistics       Reset resolver statistics\n"
                , program_invocation_short_name, program_invocation_short_name);
 }
 
@@ -695,20 +964,25 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
                 ARG_SEARCH,
+                ARG_STATISTICS,
+                ARG_RESET_STATISTICS,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "type",            required_argument, NULL, 't'                 },
-                { "class",           required_argument, NULL, 'c'                 },
-                { "legend",          required_argument, NULL, ARG_LEGEND          },
-                { "protocol",        required_argument, NULL, 'p'                 },
-                { "cname",           required_argument, NULL, ARG_CNAME           },
-                { "service",         no_argument,       NULL, ARG_SERVICE         },
-                { "service-address", required_argument, NULL, ARG_SERVICE_ADDRESS },
-                { "service-txt",     required_argument, NULL, ARG_SERVICE_TXT     },
-                { "search",          required_argument, NULL, ARG_SEARCH          },
+                { "help",             no_argument,       NULL, 'h'                  },
+                { "version",          no_argument,       NULL, ARG_VERSION          },
+                { "type",             required_argument, NULL, 't'                  },
+                { "class",            required_argument, NULL, 'c'                  },
+                { "legend",           required_argument, NULL, ARG_LEGEND           },
+                { "interface",        required_argument, NULL, 'i'                  },
+                { "protocol",         required_argument, NULL, 'p'                  },
+                { "cname",            required_argument, NULL, ARG_CNAME            },
+                { "service",          no_argument,       NULL, ARG_SERVICE          },
+                { "service-address",  required_argument, NULL, ARG_SERVICE_ADDRESS  },
+                { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
+                { "search",           required_argument, NULL, ARG_SEARCH           },
+                { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
+                { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
                 {}
         };
 
@@ -765,6 +1039,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_type = (uint16_t) r;
                         assert((int) arg_type == r);
 
+                        arg_mode = MODE_RESOLVE_RECORD;
                         break;
 
                 case 'c':
@@ -792,7 +1067,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
-                        if (streq(optarg, "dns"))
+                        if (streq(optarg, "help")) {
+                                help_protocol_types();
+                                return 0;
+                        } else if (streq(optarg, "dns"))
                                 arg_flags |= SD_RESOLVED_DNS;
                         else if (streq(optarg, "llmnr"))
                                 arg_flags |= SD_RESOLVED_LLMNR;
@@ -808,7 +1086,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SERVICE:
-                        arg_resolve_service = true;
+                        arg_mode = MODE_RESOLVE_SERVICE;
                         break;
 
                 case ARG_CNAME:
@@ -851,6 +1129,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_flags &= ~SD_RESOLVED_NO_SEARCH;
                         break;
 
+                case ARG_STATISTICS:
+                        arg_mode = MODE_STATISTICS;
+                        break;
+
+                case ARG_RESET_STATISTICS:
+                        arg_mode = MODE_RESET_STATISTICS;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -863,13 +1149,16 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_type != 0 && arg_resolve_service) {
+        if (arg_type != 0 && arg_mode != MODE_RESOLVE_RECORD) {
                 log_error("--service and --type= may not be combined.");
                 return -EINVAL;
         }
 
         if (arg_type != 0 && arg_class == 0)
                 arg_class = DNS_CLASS_IN;
+
+        if (arg_class != 0 && arg_type == 0)
+                arg_type = DNS_TYPE_A;
 
         return 1 /* work to do */;
 }
@@ -885,20 +1174,61 @@ int main(int argc, char **argv) {
         if (r <= 0)
                 goto finish;
 
-        if (optind >= argc) {
-                log_error("No arguments passed");
-                r = -EINVAL;
-                goto finish;
-        }
-
         r = sd_bus_open_system(&bus);
         if (r < 0) {
                 log_error_errno(r, "sd_bus_open_system: %m");
                 goto finish;
         }
 
-        if (arg_resolve_service) {
+        switch (arg_mode) {
 
+        case MODE_RESOLVE_HOST:
+                if (optind >= argc) {
+                        log_error("No arguments passed.");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                while (argv[optind]) {
+                        int family, ifindex, k;
+                        union in_addr_union a;
+
+                        if (startswith(argv[optind], "dns:"))
+                                k = resolve_rfc4501(bus, argv[optind]);
+                        else {
+                                k = parse_address(argv[optind], &family, &a, &ifindex);
+                                if (k >= 0)
+                                        k = resolve_address(bus, family, &a, ifindex);
+                                else
+                                        k = resolve_host(bus, argv[optind]);
+                        }
+
+                        if (r == 0)
+                                r = k;
+
+                        optind++;
+                }
+                break;
+
+        case MODE_RESOLVE_RECORD:
+                if (optind >= argc) {
+                        log_error("No arguments passed.");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                while (argv[optind]) {
+                        int k;
+
+                        k = resolve_record(bus, argv[optind], arg_class, arg_type);
+                        if (r == 0)
+                                r = k;
+
+                        optind++;
+                }
+                break;
+
+        case MODE_RESOLVE_SERVICE:
                 if (argc < optind + 1) {
                         log_error("Domain specification required.");
                         r = -EINVAL;
@@ -911,32 +1241,32 @@ int main(int argc, char **argv) {
                 else if (argc == optind + 3)
                         r = resolve_service(bus, argv[optind], argv[optind+1], argv[optind+2]);
                 else {
-                        log_error("Too many arguments");
+                        log_error("Too many arguments.");
                         r = -EINVAL;
                         goto finish;
                 }
 
-                goto finish;
-        }
+                break;
 
-        while (argv[optind]) {
-                int family, ifindex, k;
-                union in_addr_union a;
-
-                if (arg_type != 0)
-                        k = resolve_record(bus, argv[optind]);
-                else {
-                        k = parse_address(argv[optind], &family, &a, &ifindex);
-                        if (k >= 0)
-                                k = resolve_address(bus, family, &a, ifindex);
-                        else
-                                k = resolve_host(bus, argv[optind]);
+        case MODE_STATISTICS:
+                if (argc > optind) {
+                        log_error("Too many arguments.");
+                        r = -EINVAL;
+                        goto finish;
                 }
 
-                if (r == 0)
-                        r = k;
+                r = show_statistics(bus);
+                break;
 
-                optind++;
+        case MODE_RESET_STATISTICS:
+                if (argc > optind) {
+                        log_error("Too many arguments.");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                r = reset_statistics(bus);
+                break;
         }
 
 finish:

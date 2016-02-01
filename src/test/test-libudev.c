@@ -25,6 +25,7 @@
 
 #include "libudev.h"
 
+#include "stdio-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
@@ -460,7 +461,7 @@ int main(int argc, char *argv[]) {
 
         /* add sys path if needed */
         if (!startswith(syspath, "/sys")) {
-                snprintf(path, sizeof(path), "/sys/%s", syspath);
+                xsprintf(path, "/sys/%s", syspath);
                 syspath = path;
         }
 

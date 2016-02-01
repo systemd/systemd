@@ -117,7 +117,7 @@ static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
 static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
-static uint64_t arg_capability_bounding_set_drop = 0;
+static uint64_t arg_capability_bounding_set = CAP_ALL;
 static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
 static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
@@ -127,6 +127,7 @@ static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_C(512);
+static sd_id128_t arg_machine_id = {};
 
 static void pager_open_if_enabled(void) {
 
@@ -300,6 +301,17 @@ static int parse_crash_chvt(const char *value) {
         return 0;
 }
 
+static int set_machine_id(const char *m) {
+
+        if (sd_id128_from_string(m, &arg_machine_id) < 0)
+                return -EINVAL;
+
+        if (sd_id128_is_null(arg_machine_id))
+                return -EINVAL;
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         int r;
@@ -387,6 +399,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                                 log_warning_errno(ENOMEM, "Setting environment variable '%s' failed, ignoring: %m", value);
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
+
+        } else if (streq(key, "systemd.machine_id") && value) {
+
+               r = set_machine_id(value);
+               if (r < 0)
+                       log_warning("MachineID '%s' is not valid. Ignoring.", value);
 
         } else if (streq(key, "quiet") && !value) {
 
@@ -644,7 +662,7 @@ static int parse_config_file(void) {
                 { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
-                { "Manager", "CapabilityBoundingSet",     config_parse_bounding_set,     0, &arg_capability_bounding_set_drop      },
+                { "Manager", "CapabilityBoundingSet",     config_parse_capability_set,   0, &arg_capability_bounding_set           },
 #ifdef HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
 #endif
@@ -743,7 +761,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DESERIALIZE,
                 ARG_SWITCHED_ROOT,
                 ARG_DEFAULT_STD_OUTPUT,
-                ARG_DEFAULT_STD_ERROR
+                ARG_DEFAULT_STD_ERROR,
+                ARG_MACHINE_ID
         };
 
         static const struct option options[] = {
@@ -769,6 +788,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
+                { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
                 {}
         };
 
@@ -962,6 +982,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SWITCHED_ROOT:
                         arg_switched_root = true;
+                        break;
+
+                case ARG_MACHINE_ID:
+                        r = set_machine_id(optarg);
+                        if (r < 0) {
+                                log_error("MachineID '%s' is not valid.", optarg);
+                                return r;
+                        }
                         break;
 
                 case 'h':
@@ -1617,7 +1645,7 @@ int main(int argc, char *argv[]) {
                         status_welcome();
 
                 hostname_setup();
-                machine_id_setup(NULL);
+                machine_id_setup(NULL, arg_machine_id);
                 loopback_setup();
                 bump_unix_max_dgram_qlen();
 
@@ -1631,14 +1659,14 @@ int main(int argc, char *argv[]) {
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_error_errno(errno, "Failed to adjust timer slack: %m");
 
-        if (arg_capability_bounding_set_drop) {
-                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
+        if (!cap_test_all(arg_capability_bounding_set)) {
+                r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
                         error_message = "Failed to drop capability bounding set of usermode helpers";
                         goto finish;
                 }
-                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
+                r = capability_bounding_set_drop(arg_capability_bounding_set, true);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to drop capability bounding set: %m");
                         error_message = "Failed to drop capability bounding set";
@@ -1940,6 +1968,15 @@ finish:
                                 (void) clearenv();
 
                         assert(i <= args_size);
+
+                        /*
+                         * We want valgrind to print its memory usage summary before reexecution.
+                         * Valgrind won't do this is on its own on exec(), but it will do it on exit().
+                         * Hence, to ensure we get a summary here, fork() off a child, let it exit() cleanly,
+                         * so that it prints the summary, and wait() for it in the parent, before proceeding into the exec().
+                         */
+                        valgrind_summary_hack();
+
                         (void) execv(args[0], (char* const*) args);
                 }
 

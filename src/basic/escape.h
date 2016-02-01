@@ -25,8 +25,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <uchar.h>
 
 #include "string-util.h"
+#include "missing.h"
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */
@@ -45,7 +47,7 @@ size_t cescape_char(char c, char *buf);
 int cunescape(const char *s, UnescapeFlags flags, char **ret);
 int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret);
 int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret);
-int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode);
+int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit);
 
 char *xescape(const char *s, const char *bad);
 

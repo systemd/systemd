@@ -225,6 +225,7 @@ struct sd_event {
         bool exit_requested:1;
         bool need_process_child:1;
         bool watchdog:1;
+        bool profile_delays:1;
 
         int exit_code;
 
@@ -236,6 +237,9 @@ struct sd_event {
         unsigned n_sources;
 
         LIST_HEAD(sd_event_source, sources);
+
+        usec_t last_run, last_log;
+        unsigned delays[sizeof(usec_t) * 8];
 };
 
 static void source_disconnect(sd_event_source *s);
@@ -442,6 +446,11 @@ _public_ int sd_event_new(sd_event** ret) {
         if (e->epoll_fd < 0) {
                 r = -errno;
                 goto fail;
+        }
+
+        if (secure_getenv("SD_EVENT_PROFILE_DELAYS")) {
+                log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 ... 2^63 us will be logged every 5s.");
+                e->profile_delays = true;
         }
 
         *ret = e;
@@ -652,8 +661,10 @@ static int event_make_signal_data(
                 d->priority = priority;
 
                 r = hashmap_put(e->signal_data, &d->priority, d);
-                if (r < 0)
+                if (r < 0) {
+                        free(d);
                         return r;
+                }
 
                 added = true;
         }
@@ -2622,6 +2633,18 @@ _public_ int sd_event_dispatch(sd_event *e) {
         return 1;
 }
 
+static void event_log_delays(sd_event *e) {
+        char b[ELEMENTSOF(e->delays) * DECIMAL_STR_MAX(unsigned) + 1];
+        unsigned i;
+        int o;
+
+        for (i = o = 0; i < ELEMENTSOF(e->delays); i++) {
+                o += snprintf(&b[o], sizeof(b) - o, "%u ", e->delays[i]);
+                e->delays[i] = 0;
+        }
+        log_debug("Event loop iterations: %.*s", o, b);
+}
+
 _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         int r;
 
@@ -2630,10 +2653,29 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
+        if (e->profile_delays && e->last_run) {
+                usec_t this_run;
+                unsigned l;
+
+                this_run = now(CLOCK_MONOTONIC);
+
+                l = u64log2(this_run - e->last_run);
+                assert(l < sizeof(e->delays));
+                e->delays[l]++;
+
+                if (this_run - e->last_log >= 5*USEC_PER_SEC) {
+                        event_log_delays(e);
+                        e->last_log = this_run;
+                }
+        }
+
         r = sd_event_prepare(e);
         if (r == 0)
                 /* There was nothing? Then wait... */
                 r = sd_event_wait(e, timeout);
+
+        if (e->profile_delays)
+                e->last_run = now(CLOCK_MONOTONIC);
 
         if (r > 0) {
                 /* There's something now, then let's dispatch it */
@@ -2711,6 +2753,12 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
         assert_return(e, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
+        assert_return(IN_SET(clock,
+                             CLOCK_REALTIME,
+                             CLOCK_REALTIME_ALARM,
+                             CLOCK_MONOTONIC,
+                             CLOCK_BOOTTIME,
+                             CLOCK_BOOTTIME_ALARM), -EOPNOTSUPP);
 
         if (!dual_timestamp_is_set(&e->timestamp)) {
                 /* Implicitly fall back to now() if we never ran
@@ -2730,8 +2778,7 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                 *usec = e->timestamp.monotonic;
                 break;
 
-        case CLOCK_BOOTTIME:
-        case CLOCK_BOOTTIME_ALARM:
+        default:
                 *usec = e->timestamp_boottime;
                 break;
         }

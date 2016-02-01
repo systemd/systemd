@@ -39,6 +39,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "dirent-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -249,12 +250,9 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 return log_error_errno(errno, "Failed to read \"%s\": %m", p);
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, break) {
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *v = NULL;
-
-                if (de->d_name[0] == '.')
-                        continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
@@ -270,9 +268,9 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        printf("         File: └─/%s/%s (%s)\n", path, de->d_name, v);
+                        printf("         File: %s/%s/%s (%s)\n", draw_special_char(DRAW_TREE_RIGHT), path, de->d_name, v);
                 else
-                        printf("         File: └─/%s/%s\n", path, de->d_name);
+                        printf("         File: %s/%s/%s\n", draw_special_char(DRAW_TREE_RIGHT), path, de->d_name);
                 c++;
         }
 
@@ -324,7 +322,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("           ID: 0x%04X\n", id);
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
-        printf("         File: └─%s\n", path);
+        printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), path);
         printf("\n");
 
         return 0;
@@ -614,11 +612,8 @@ static int install_binaries(const char *esp_path, bool force) {
         if (!d)
                 return log_error_errno(errno, "Failed to open \""BOOTLIBDIR"\": %m");
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, break) {
                 int k;
-
-                if (de->d_name[0] == '.')
-                        continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
@@ -797,12 +792,9 @@ static int remove_boot_efi(const char *esp_path) {
                 return log_error_errno(errno, "Failed to open directory \"%s\": %m", p);
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, break) {
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *v = NULL;
-
-                if (de->d_name[0] == '.')
-                        continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;

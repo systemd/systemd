@@ -53,6 +53,7 @@
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "unit-name.h"
@@ -92,7 +93,7 @@ int cg_read_pid(FILE *f, pid_t *_pid) {
                 if (feof(f))
                         return 0;
 
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
         }
 
         if (ul <= 0)
@@ -647,7 +648,7 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) != 0) {
                 if (errno == ENOENT)
                         r = 0;
-                else if (errno != 0)
+                else if (errno > 0)
                         r = -errno;
                 else
                         r = -EIO;
@@ -716,7 +717,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         if (pid == 0)
                 pid = getpid();
 
-        snprintf(c, sizeof(c), PID_FMT"\n", pid);
+        xsprintf(c, PID_FMT "\n", pid);
 
         return write_string_file(fs, c, 0);
 }
@@ -2090,7 +2091,7 @@ int cg_kernel_controllers(Set *controllers) {
                         if (feof(f))
                                 break;
 
-                        if (ferror(f) && errno != 0)
+                        if (ferror(f) && errno > 0)
                                 return -errno;
 
                         return -EBADMSG;

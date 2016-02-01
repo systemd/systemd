@@ -115,10 +115,10 @@ static void test_message_handler(void) {
                 .message.hlen = ETHER_ADDR_LEN,
                 .message.xid = htobe32(0x12345678),
                 .message.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
-                .option_type.code = DHCP_OPTION_MESSAGE_TYPE,
+                .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
                 .option_type.length = 1,
                 .option_type.type = DHCP_DISCOVER,
-                .end = DHCP_OPTION_END,
+                .end = SD_DHCP_OPTION_END,
         };
         struct in_addr address_lo = {
                 .s_addr = htonl(INADDR_LOOPBACK),
@@ -134,14 +134,14 @@ static void test_message_handler(void) {
         test.end = 0;
         /* TODO, shouldn't this fail? */
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
-        test.end = DHCP_OPTION_END;
+        test.end = SD_DHCP_OPTION_END;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
 
         test.option_type.code = 0;
         test.option_type.length = 0;
         test.option_type.type = 0;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
-        test.option_type.code = DHCP_OPTION_MESSAGE_TYPE;
+        test.option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE;
         test.option_type.length = 1;
         test.option_type.type = DHCP_DISCOVER;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_OFFER);
@@ -163,11 +163,11 @@ static void test_message_handler(void) {
 
         test.option_type.type = DHCP_REQUEST;
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
-        test.option_requested_ip.code = DHCP_OPTION_REQUESTED_IP_ADDRESS;
+        test.option_requested_ip.code = SD_DHCP_OPTION_REQUESTED_IP_ADDRESS;
         test.option_requested_ip.length = 4;
         test.option_requested_ip.address = htobe32(0x12345678);
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_NAK);
-        test.option_server_id.code = DHCP_OPTION_SERVER_IDENTIFIER;
+        test.option_server_id.code = SD_DHCP_OPTION_SERVER_IDENTIFIER;
         test.option_server_id.length = 4;
         test.option_server_id.address = htobe32(INADDR_LOOPBACK);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
@@ -182,7 +182,7 @@ static void test_message_handler(void) {
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_ACK);
 
-        test.option_client_id.code = DHCP_OPTION_CLIENT_IDENTIFIER;
+        test.option_client_id.code = SD_DHCP_OPTION_CLIENT_IDENTIFIER;
         test.option_client_id.length = 7;
         test.option_client_id.id[0] = 0x01;
         test.option_client_id.id[1] = 'A';

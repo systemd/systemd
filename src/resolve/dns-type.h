@@ -87,6 +87,7 @@ enum {
         DNS_TYPE_TALINK,
         DNS_TYPE_CDS,
         DNS_TYPE_CDNSKEY,
+        DNS_TYPE_OPENPGPKEY,
 
         DNS_TYPE_SPF        = 0x63,
         DNS_TYPE_NID,
@@ -128,12 +129,28 @@ enum {
 bool dns_type_is_pseudo(uint16_t type);
 bool dns_type_is_valid_query(uint16_t type);
 bool dns_type_is_valid_rr(uint16_t type);
+bool dns_type_may_redirect(uint16_t type);
+bool dns_type_is_dnssec(uint16_t type);
+bool dns_type_is_obsolete(uint16_t type);
+bool dns_type_may_wildcard(uint16_t type);
+bool dns_type_apex_only(uint16_t type);
+int dns_type_to_af(uint16_t t);
 
 bool dns_class_is_pseudo(uint16_t class);
 bool dns_class_is_valid_rr(uint16_t class);
 
+/* TYPE?? follows http://tools.ietf.org/html/rfc3597#section-5 */
 const char *dns_type_to_string(int type);
 int dns_type_from_string(const char *s);
 
 const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name);
+
+/* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.2 */
+const char *tlsa_cert_usage_to_string(uint8_t cert_usage);
+
+/* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.3 */
+const char *tlsa_selector_to_string(uint8_t selector);
+
+/* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.4 */
+const char *tlsa_matching_type_to_string(uint8_t selector);

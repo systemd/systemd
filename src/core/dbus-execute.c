@@ -141,7 +141,7 @@ static int property_get_nice(
         else {
                 errno = 0;
                 n = getpriority(PRIO_PROCESS, 0);
-                if (errno != 0)
+                if (errno > 0)
                         n = 0;
         }
 
@@ -293,9 +293,25 @@ static int property_get_capability_bounding_set(
         assert(reply);
         assert(c);
 
-        /* We store this negated internally, to match the kernel, but
-         * we expose it normalized. */
-        return sd_bus_message_append(reply, "t", ~c->capability_bounding_set_drop);
+        return sd_bus_message_append(reply, "t", c->capability_bounding_set);
+}
+
+static int property_get_ambient_capabilities(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "t", c->capability_ambient_set);
 }
 
 static int property_get_capabilities(
@@ -689,6 +705,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("Capabilities", "s", property_get_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", property_get_capability_bounding_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("AmbientCapabilities", "t", property_get_ambient_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1365,7 +1382,7 @@ int bus_exec_context_set_transient_property(
                                 dirs = &c->read_write_dirs;
                         else if (streq(name, "ReadOnlyDirectories"))
                                 dirs = &c->read_only_dirs;
-                        else if (streq(name, "InaccessibleDirectories"))
+                        else /* "InaccessibleDirectories" */
                                 dirs = &c->inaccessible_dirs;
 
                         if (strv_length(l) == 0) {

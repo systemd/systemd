@@ -34,6 +34,7 @@
 #include "formats-util.h"
 #include "hostname-util.h"
 #include "image-dbus.h"
+#include "io-util.h"
 #include "machine-dbus.h"
 #include "machine-image.h"
 #include "machine-pool.h"
@@ -813,6 +814,8 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         r = sd_bus_message_read(message, "t", &limit);
         if (r < 0)
                 return r;
+        if (!FILE_SIZE_VALID_OR_INFINITY(limit))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         r = bus_verify_polkit_async(
                         message,
@@ -833,11 +836,14 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        r = btrfs_resize_loopback("/var/lib/machines", limit, false);
-        if (r == -ENOTTY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
-        if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
-                return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
+        /* Resize the backing loopback device, if there is one, except if we asked to drop any limit */
+        if (limit != (uint64_t) -1) {
+                r = btrfs_resize_loopback("/var/lib/machines", limit, false);
+                if (r == -ENOTTY)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
+                if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
+                        return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
+        }
 
         (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
 
@@ -910,7 +916,7 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno != 0)
+                        if (ferror(f) && errno > 0)
                                 return -errno;
 
                         return -EIO;
@@ -968,7 +974,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno != 0)
+                                if (ferror(f) && errno > 0)
                                         return -errno;
 
                                 return -EIO;
@@ -1028,7 +1034,7 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno != 0)
+                        if (ferror(f) && errno > 0)
                                 return -errno;
 
                         return -EIO;
@@ -1086,7 +1092,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno != 0)
+                                if (ferror(f) && errno > 0)
                                         return -errno;
 
                                 return -EIO;
@@ -1325,7 +1331,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", 8192);
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", UINT64_C(16384));
         if (r < 0)
                 return bus_log_create_error(r);
 

@@ -65,45 +65,44 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_event_now()</function> returns the timestamp
-    the most recent event loop iteration began. This timestamp is
-    taken right after after returning from the event sleep, and before
+    <para><function>sd_event_now()</function> returns the time when
+    the most recent event loop iteration began. A timestamp
+    is taken right after returning from the event sleep, and before
     dispatching any event sources. The <parameter>event</parameter>
-    parameter takes the even loop object to retrieve the timestamp
+    parameter specifies the event loop object to retrieve the timestamp
     from. The <parameter>clock</parameter> parameter specifies the clock to
     retrieve the timestamp for, and is one of
-    <constant>CLOCK_REALTIME</constant> (or its equivalent
+    <constant>CLOCK_REALTIME</constant> (or equivalently
     <constant>CLOCK_REALTIME_ALARM</constant>),
-    <constant>CLOCK_MONOTONIC</constant> or
-    <constant>CLOCK_BOOTTIME</constant> (or its equivalent
-    <constant>CLOCK_BOOTTIME_ALARM</constant>), see <citerefentry
-    project='man-pages'><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    <constant>CLOCK_MONOTONIC</constant>, or
+    <constant>CLOCK_BOOTTIME</constant> (or equivalently
+    <constant>CLOCK_BOOTTIME_ALARM</constant>), see
+    <citerefentry project='man-pages'><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for more information on the various clocks. The retrieved
     timestamp is stored in the <parameter>usec</parameter> parameter,
     in µs since the clock's epoch. If this function is invoked before
-    the first event loop iteration the current time is returned, as
+    the first event loop iteration, the current time is returned, as
     reported by <function>clock_gettime()</function>. To distinguish
     this case from a regular invocation the return value will be
-    positive non-zero in this case, while it is zero when the returned
-    timestamp refers to the actual event loop iteration.</para>
+    positive, and zero when the returned timestamp refers to an actual
+    event loop iteration.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
     <para>If the first event loop iteration has not run yet
-    <function>sd_event_now()</function> returns the requested
-    timestamp in <parameter>usec</parameter> and returns a positive,
-    non-zero return value. Otherwise, on success it will return the
-    iteration's timestamp in <parameter>usec</parameter> and 0 as
-    return value. On failure, the call returns a negative errno-style
+    <function>sd_event_now()</function> writes current time to
+    <parameter>usec</parameter> and returns a positive return value.
+    Otherwise, it will write the requested timestamp to <parameter>usec</parameter>
+    and return 0. On failure, the call returns a negative errno-style
     error code.</para>
   </refsect1>
 
   <refsect1>
     <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+    <para>Returned values may indicate the following problems:</para>
 
     <variablelist>
       <varlistentry>
@@ -115,12 +114,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>-EOPNOTSUPP</constant></term>
+
+        <listitem><para>Unsupported clock type.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>-ECHILD</constant></term>
 
         <listitem><para>The event loop object was created in a
         different process.</para></listitem>
       </varlistentry>
-
     </variablelist>
   </refsect1>
 

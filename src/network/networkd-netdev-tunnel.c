@@ -56,7 +56,7 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         assert(link);
         assert(m);
         assert(t);
-        assert(t->family == AF_INET);
+        assert(t->family == AF_INET || t->family != -1);
 
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0)
@@ -89,7 +89,7 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         assert(link);
         assert(m);
         assert(t);
-        assert(t->family == AF_INET);
+        assert(t->family == AF_INET || t->family != -1);
 
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0)
@@ -126,7 +126,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink
                 t = GRETAP(netdev);
 
         assert(t);
-        assert(t->family == AF_INET);
+        assert(t->family == AF_INET || t->family != -1);
         assert(link);
         assert(m);
 
@@ -358,12 +358,7 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (t->remote.in.s_addr == INADDR_ANY) {
-                log_warning("Tunnel without remote address configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
-
-        if (t->family != AF_INET && t->family != AF_INET6) {
+        if (t->family != AF_INET && t->family != AF_INET6 && t->family != 0) {
                 log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
@@ -397,15 +392,21 @@ int config_parse_tunnel_address(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = in_addr_from_string_auto(rvalue, &f, &buffer);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel address is invalid, ignoring assignment: %s", rvalue);
+        if (streq(rvalue, "any")) {
+                t->family = 0;
                 return 0;
-        }
+        } else {
 
-        if (t->family != AF_UNSPEC && t->family != f) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
-                return 0;
+                r = in_addr_from_string_auto(rvalue, &f, &buffer);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel address is invalid, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+
+                if (t->family != AF_UNSPEC && t->family != f) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
         }
 
         t->family = f;
@@ -498,6 +499,7 @@ static void ipip_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
+        t->family = -1;
 }
 
 static void sit_init(NetDev *n) {
@@ -507,6 +509,7 @@ static void sit_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
+        t->family = -1;
 }
 
 static void vti_init(NetDev *n) {
@@ -537,6 +540,7 @@ static void gre_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
+        t->family = -1;
 }
 
 static void ip6gre_init(NetDev *n) {

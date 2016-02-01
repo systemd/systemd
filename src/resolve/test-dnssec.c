@@ -56,7 +56,6 @@ static void test_dnssec_verify_rrset2(void) {
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *nsec = NULL, *rrsig = NULL, *dnskey = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
         DnssecResult result;
 
         nsec = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "nasa.gov");
@@ -77,8 +76,7 @@ static void test_dnssec_verify_rrset2(void) {
         assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_DNSKEY) >= 0);
         assert_se(bitmap_set(nsec->nsec.types, 65534) >= 0);
 
-        assert_se(dns_resource_record_to_string(nsec, &x) >= 0);
-        log_info("NSEC: %s", x);
+        log_info("NSEC: %s", strna(dns_resource_record_to_string(nsec)));
 
         rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "NaSa.GOV.");
         assert_se(rrsig);
@@ -96,8 +94,7 @@ static void test_dnssec_verify_rrset2(void) {
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
         assert_se(rrsig->rrsig.signature);
 
-        assert_se(dns_resource_record_to_string(rrsig, &y) >= 0);
-        log_info("RRSIG: %s", y);
+        log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nASA.gOV");
         assert_se(dnskey);
@@ -109,12 +106,11 @@ static void test_dnssec_verify_rrset2(void) {
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
         assert_se(dnskey->dnskey.key);
 
-        assert_se(dns_resource_record_to_string(dnskey, &z) >= 0);
-        log_info("DNSKEY: %s", z);
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey));
+        log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
         assert_se(dnssec_key_match_rrsig(nsec->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
@@ -152,7 +148,6 @@ static void test_dnssec_verify_rrset(void) {
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *rrsig = NULL, *dnskey = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
         DnssecResult result;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "nAsA.gov");
@@ -160,8 +155,7 @@ static void test_dnssec_verify_rrset(void) {
 
         a->a.in_addr.s_addr = inet_addr("52.0.14.116");
 
-        assert_se(dns_resource_record_to_string(a, &x) >= 0);
-        log_info("A: %s", x);
+        log_info("A: %s", strna(dns_resource_record_to_string(a)));
 
         rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "NaSa.GOV.");
         assert_se(rrsig);
@@ -179,8 +173,7 @@ static void test_dnssec_verify_rrset(void) {
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
         assert_se(rrsig->rrsig.signature);
 
-        assert_se(dns_resource_record_to_string(rrsig, &y) >= 0);
-        log_info("RRSIG: %s", y);
+        log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nASA.gOV");
         assert_se(dnskey);
@@ -192,12 +185,11 @@ static void test_dnssec_verify_rrset(void) {
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
         assert_se(dnskey->dnskey.key);
 
-        assert_se(dns_resource_record_to_string(dnskey, &z) >= 0);
-        log_info("DNSKEY: %s", z);
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey));
+        log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
@@ -239,7 +231,6 @@ static void test_dnssec_verify_dns_key(void) {
         };
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds1 = NULL, *ds2 = NULL;
-        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL;
 
         /* The two DS RRs in effect for nasa.gov on 2015-12-01. */
         ds1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "nasa.gov");
@@ -252,8 +243,7 @@ static void test_dnssec_verify_dns_key(void) {
         ds1->ds.digest = memdup(ds1_fprint, ds1->ds.digest_size);
         assert_se(ds1->ds.digest);
 
-        assert_se(dns_resource_record_to_string(ds1, &a) >= 0);
-        log_info("DS1: %s", a);
+        log_info("DS1: %s", strna(dns_resource_record_to_string(ds1)));
 
         ds2 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "NASA.GOV");
         assert_se(ds2);
@@ -265,8 +255,7 @@ static void test_dnssec_verify_dns_key(void) {
         ds2->ds.digest = memdup(ds2_fprint, ds2->ds.digest_size);
         assert_se(ds2->ds.digest);
 
-        assert_se(dns_resource_record_to_string(ds2, &b) >= 0);
-        log_info("DS2: %s", b);
+        log_info("DS2: %s", strna(dns_resource_record_to_string(ds2)));
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nasa.GOV");
         assert_se(dnskey);
@@ -278,12 +267,11 @@ static void test_dnssec_verify_dns_key(void) {
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
         assert_se(dnskey->dnskey.key);
 
-        assert_se(dns_resource_record_to_string(dnskey, &c) >= 0);
-        log_info("DNSKEY: %s", c);
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey));
+        log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
-        assert_se(dnssec_verify_dnskey(dnskey, ds1) > 0);
-        assert_se(dnssec_verify_dnskey(dnskey, ds2) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, false) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, false) > 0);
 }
 
 static void test_dnssec_canonicalize_one(const char *original, const char *canonical, int r) {
@@ -310,8 +298,8 @@ static void test_dnssec_nsec3_hash(void) {
         static const uint8_t salt[] = { 0xB0, 0x1D, 0xFA, 0xCE };
         static const uint8_t next_hashed_name[] = { 0x84, 0x10, 0x26, 0x53, 0xc9, 0xfa, 0x4d, 0x85, 0x6c, 0x97, 0x82, 0xe2, 0x8f, 0xdf, 0x2d, 0x5e, 0x87, 0x69, 0xc4, 0x52 };
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        _cleanup_free_ char *a = NULL, *b = NULL;
         uint8_t h[DNSSEC_HASH_SIZE_MAX];
+        _cleanup_free_ char *b = NULL;
         int k;
 
         /* The NSEC3 RR for eurid.eu on 2015-12-14. */
@@ -328,8 +316,7 @@ static void test_dnssec_nsec3_hash(void) {
         assert_se(rr->nsec3.next_hashed_name);
         rr->nsec3.next_hashed_name_size = sizeof(next_hashed_name);
 
-        assert_se(dns_resource_record_to_string(rr, &a) >= 0);
-        log_info("NSEC3: %s", a);
+        log_info("NSEC3: %s", strna(dns_resource_record_to_string(rr)));
 
         k = dnssec_nsec3_hash(rr, "eurid.eu", &h);
         assert_se(k >= 0);

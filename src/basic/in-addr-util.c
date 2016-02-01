@@ -219,7 +219,7 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
         errno = 0;
         if (!inet_ntop(family, u, x, l)) {
                 free(x);
-                return errno ? -errno : -EINVAL;
+                return errno > 0 ? -errno : -EINVAL;
         }
 
         *ret = x;
@@ -236,7 +236,7 @@ int in_addr_from_string(int family, const char *s, union in_addr_union *ret) {
 
         errno = 0;
         if (inet_pton(family, s, ret) <= 0)
-                return errno ? -errno : -EINVAL;
+                return errno > 0 ? -errno : -EINVAL;
 
         return 0;
 }

@@ -2363,6 +2363,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else {
                         asynchronous_close(s->stdin_fd);
                         s->stdin_fd = fdset_remove(fds, fd);
+                        s->exec_context.stdio_as_fds = true;
                 }
         } else if (streq(key, "stdout-fd")) {
                 int fd;
@@ -2372,6 +2373,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else {
                         asynchronous_close(s->stdout_fd);
                         s->stdout_fd = fdset_remove(fds, fd);
+                        s->exec_context.stdio_as_fds = true;
                 }
         } else if (streq(key, "stderr-fd")) {
                 int fd;
@@ -2381,6 +2383,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else {
                         asynchronous_close(s->stderr_fd);
                         s->stderr_fd = fdset_remove(fds, fd);
+                        s->exec_context.stdio_as_fds = true;
                 }
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
@@ -3201,7 +3204,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         if (s->state != SERVICE_DEAD)
                 return -EAGAIN;
 
-        if (getpeername_pretty(fd, &peer) >= 0) {
+        if (getpeername_pretty(fd, true, &peer) >= 0) {
 
                 if (UNIT(s)->description) {
                         _cleanup_free_ char *a;

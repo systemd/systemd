@@ -35,9 +35,13 @@ enum DnsTransactionState {
         DNS_TRANSACTION_TIMEOUT,
         DNS_TRANSACTION_ATTEMPTS_MAX_REACHED,
         DNS_TRANSACTION_INVALID_REPLY,
-        DNS_TRANSACTION_RESOURCES,
+        DNS_TRANSACTION_ERRNO,
         DNS_TRANSACTION_ABORTED,
         DNS_TRANSACTION_DNSSEC_FAILED,
+        DNS_TRANSACTION_NO_TRUST_ANCHOR,
+        DNS_TRANSACTION_RR_TYPE_UNSUPPORTED,
+        DNS_TRANSACTION_NETWORK_DOWN,
+        DNS_TRANSACTION_NOT_FOUND, /* like NXDOMAIN, but when LLMNR/TCP connections fail */
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -1
 };
@@ -68,6 +72,8 @@ struct DnsTransaction {
 
         uint16_t id;
 
+        bool tried_stream:1;
+
         bool initial_jitter_scheduled:1;
         bool initial_jitter_elapsed:1;
 
@@ -77,6 +83,8 @@ struct DnsTransaction {
         int answer_rcode;
         DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
+        uint32_t answer_nsec_ttl;
+        int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
 
         /* Indicates whether the primary answer is authenticated,
          * i.e. whether the RRs from answer which directly match the
@@ -97,17 +105,18 @@ struct DnsTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
+        /* UDP connection logic, if we need it */
         int dns_udp_fd;
         sd_event_source *dns_udp_event_source;
+
+        /* TCP connection logic, if we need it */
+        DnsStream *stream;
 
         /* The active server */
         DnsServer *server;
 
         /* The features of the DNS server at time of transaction start */
-        DnsServerFeatureLevel current_features;
-
-        /* TCP connection logic, if we need it */
-        DnsStream *stream;
+        DnsServerFeatureLevel current_feature_level;
 
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction
@@ -136,7 +145,7 @@ struct DnsTransaction {
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);
 
-void dns_transaction_gc(DnsTransaction *t);
+bool dns_transaction_gc(DnsTransaction *t);
 int dns_transaction_go(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p);

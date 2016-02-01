@@ -28,17 +28,9 @@
 #include "hashmap.h"
 #include "list.h"
 #include "ordered-set.h"
+#include "resolve-util.h"
 
 typedef struct Manager Manager;
-typedef enum Support Support;
-
-enum Support {
-        SUPPORT_NO,
-        SUPPORT_YES,
-        SUPPORT_RESOLVE,
-        _SUPPORT_MAX,
-        _SUPPORT_INVALID = -1
-};
 
 #include "resolved-dns-query.h"
 #include "resolved-dns-search-domain.h"
@@ -53,8 +45,9 @@ enum Support {
 struct Manager {
         sd_event *event;
 
-        Support llmnr_support;
-        Support mdns_support;
+        ResolveSupport llmnr_support;
+        ResolveSupport mdns_support;
+        DnssecMode dnssec_mode;
 
         /* Network */
         Hashmap *links;
@@ -81,6 +74,7 @@ struct Manager {
 
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
+        bool permit_domain_search;
 
         bool need_builtin_fallbacks:1;
 
@@ -128,6 +122,14 @@ struct Manager {
         sd_bus_slot *prepare_for_sleep_slot;
 
         sd_event_source *sigusr1_event_source;
+
+        unsigned n_transactions_total;
+        unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
+
+        /* Data from /etc/hosts */
+        Set* etc_hosts_by_address;
+        Hashmap* etc_hosts_by_name;
+        usec_t etc_hosts_last, etc_hosts_mtime;
 };
 
 /* Manager */
@@ -163,5 +165,7 @@ int manager_is_own_hostname(Manager *m, const char *name);
 int manager_compile_dns_servers(Manager *m, OrderedSet **servers);
 int manager_compile_search_domains(Manager *m, OrderedSet **domains);
 
-const char* support_to_string(Support p) _const_;
-int support_from_string(const char *s) _pure_;
+DnssecMode manager_get_dnssec_mode(Manager *m);
+bool manager_dnssec_supported(Manager *m);
+
+void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);

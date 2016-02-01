@@ -24,3 +24,4 @@
 #include "resolved-manager.h"
 
 int manager_connect_bus(Manager *m);
+int bus_dns_server_append(sd_bus_message *reply, DnsServer *s, bool with_ifindex);

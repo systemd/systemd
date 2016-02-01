@@ -261,10 +261,10 @@ int change_uid_gid(const char *user, char **_home) {
                 return log_error_errno(errno, "Failed to set auxiliary groups: %m");
 
         if (setresgid(gid, gid, gid) < 0)
-                return log_error_errno(errno, "setregid() failed: %m");
+                return log_error_errno(errno, "setresgid() failed: %m");
 
         if (setresuid(uid, uid, uid) < 0)
-                return log_error_errno(errno, "setreuid() failed: %m");
+                return log_error_errno(errno, "setresuid() failed: %m");
 
         if (_home) {
                 *_home = home;
