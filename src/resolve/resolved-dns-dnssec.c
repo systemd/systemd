@@ -19,7 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_GCRYPT
 #include <gcrypt.h>
+#endif
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -48,19 +50,6 @@
  *            Normal RR → RRSIG/DNSKEY+ → DS → RRSIG/DNSKEY+ → DS → ... → DS → RRSIG/DNSKEY+ → DS
  */
 
-static void initialize_libgcrypt(void) {
-        const char *p;
-
-        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
-                return;
-
-        p = gcry_check_version("1.4.5");
-        assert(p);
-
-        gcry_control(GCRYCTL_DISABLE_SECMEM);
-        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-}
-
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         const uint8_t *p;
         uint32_t sum, f;
@@ -86,6 +75,70 @@ uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         sum += (sum >> 16) & UINT32_C(0xFFFF);
 
         return sum & UINT32_C(0xFFFF);
+}
+
+int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
+        size_t c = 0;
+        int r;
+
+        /* Converts the specified hostname into DNSSEC canonicalized
+         * form. */
+
+        if (buffer_max < 2)
+                return -ENOBUFS;
+
+        for (;;) {
+                r = dns_label_unescape(&n, buffer, buffer_max);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (buffer_max < (size_t) r + 2)
+                        return -ENOBUFS;
+
+                /* The DNSSEC canonical form is not clear on what to
+                 * do with dots appearing in labels, the way DNS-SD
+                 * does it. Refuse it for now. */
+
+                if (memchr(buffer, '.', r))
+                        return -EINVAL;
+
+                ascii_strlower_n(buffer, (size_t) r);
+                buffer[r] = '.';
+
+                buffer += r + 1;
+                c += r + 1;
+
+                buffer_max -= r + 1;
+        }
+
+        if (c <= 0) {
+                /* Not even a single label: this is the root domain name */
+
+                assert(buffer_max > 2);
+                buffer[0] = '.';
+                buffer[1] = 0;
+
+                return 1;
+        }
+
+        return (int) c;
+}
+
+#ifdef HAVE_GCRYPT
+
+static void initialize_libgcrypt(void) {
+        const char *p;
+
+        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
+                return;
+
+        p = gcry_check_version("1.4.5");
+        assert(p);
+
+        gcry_control(GCRYCTL_DISABLE_SECMEM);
+        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
 static int rr_compare(const void *a, const void *b) {
@@ -971,55 +1024,6 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         return 0;
 }
 
-int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
-        size_t c = 0;
-        int r;
-
-        /* Converts the specified hostname into DNSSEC canonicalized
-         * form. */
-
-        if (buffer_max < 2)
-                return -ENOBUFS;
-
-        for (;;) {
-                r = dns_label_unescape(&n, buffer, buffer_max);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                if (buffer_max < (size_t) r + 2)
-                        return -ENOBUFS;
-
-                /* The DNSSEC canonical form is not clear on what to
-                 * do with dots appearing in labels, the way DNS-SD
-                 * does it. Refuse it for now. */
-
-                if (memchr(buffer, '.', r))
-                        return -EINVAL;
-
-                ascii_strlower_n(buffer, (size_t) r);
-                buffer[r] = '.';
-
-                buffer += r + 1;
-                c += r + 1;
-
-                buffer_max -= r + 1;
-        }
-
-        if (c <= 0) {
-                /* Not even a single label: this is the root domain name */
-
-                assert(buffer_max > 2);
-                buffer[0] = '.';
-                buffer[1] = 0;
-
-                return 1;
-        }
-
-        return (int) c;
-}
-
 static int digest_to_gcrypt_md(uint8_t algorithm) {
 
         /* Translates a DNSSEC digest algorithm into a gcrypt digest identifier */
@@ -1882,7 +1886,7 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
         return 0;
 }
 
-int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name, const char *zone, bool *authenticated) {
+static int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const char *name, const char *zone, bool *authenticated) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
         int r;
@@ -2113,6 +2117,77 @@ int dnssec_test_positive_wildcard(
         else
                 return dnssec_test_positive_wildcard_nsec(answer, name, source, zone, authenticated);
 }
+
+#else
+
+int dnssec_verify_rrset(
+                DnsAnswer *a,
+                const DnsResourceKey *key,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey,
+                usec_t realtime,
+                DnssecResult *result) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_verify_rrset_search(
+                DnsAnswer *a,
+                const DnsResourceKey *key,
+                DnsAnswer *validated_dnskeys,
+                usec_t realtime,
+                DnssecResult *result,
+                DnsResourceRecord **ret_rrsig) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
+
+        return -EOPNOTSUPP;
+}
+
+int dnssec_test_positive_wildcard(
+                DnsAnswer *answer,
+                const char *name,
+                const char *source,
+                const char *zone,
+                bool *authenticated) {
+
+        return -EOPNOTSUPP;
+}
+
+#endif
 
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_VALIDATED] = "validated",
