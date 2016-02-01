@@ -79,6 +79,7 @@ MANPAGES += \
 	man/sd_journal_get_fd.3 \
 	man/sd_journal_get_realtime_usec.3 \
 	man/sd_journal_get_usage.3 \
+	man/sd_journal_has_runtime_files.3 \
 	man/sd_journal_next.3 \
 	man/sd_journal_open.3 \
 	man/sd_journal_print.3 \
@@ -384,6 +385,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_get_events.3 \
 	man/sd_journal_get_monotonic_usec.3 \
 	man/sd_journal_get_timeout.3 \
+	man/sd_journal_has_persistent_files.3 \
 	man/sd_journal_next_skip.3 \
 	man/sd_journal_open_container.3 \
 	man/sd_journal_open_directory.3 \
@@ -711,6 +713,7 @@ man/sd_journal_get_data_threshold.3: man/sd_journal_get_data.3
 man/sd_journal_get_events.3: man/sd_journal_get_fd.3
 man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
 man/sd_journal_get_timeout.3: man/sd_journal_get_fd.3
+man/sd_journal_has_persistent_files.3: man/sd_journal_has_runtime_files.3
 man/sd_journal_next_skip.3: man/sd_journal_next.3
 man/sd_journal_open_container.3: man/sd_journal_open.3
 man/sd_journal_open_directory.3: man/sd_journal_open.3
@@ -1456,6 +1459,9 @@ man/sd_journal_get_monotonic_usec.html: man/sd_journal_get_realtime_usec.html
 	$(html-alias)
 
 man/sd_journal_get_timeout.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/sd_journal_has_persistent_files.html: man/sd_journal_has_runtime_files.html
 	$(html-alias)
 
 man/sd_journal_next_skip.html: man/sd_journal_next.html
@@ -2535,6 +2541,7 @@ EXTRA_DIST += \
 	man/sd_journal_get_fd.xml \
 	man/sd_journal_get_realtime_usec.xml \
 	man/sd_journal_get_usage.xml \
+	man/sd_journal_has_runtime_files.xml \
 	man/sd_journal_next.xml \
 	man/sd_journal_open.xml \
 	man/sd_journal_print.xml \

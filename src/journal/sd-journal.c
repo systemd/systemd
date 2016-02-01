@@ -1292,6 +1292,12 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
                 return 0;
 
         path = strjoina(prefix, "/", filename);
+
+        if (!j->has_runtime_files && path_startswith(path, "/run/log/journal"))
+                j->has_runtime_files = true;
+        else if (!j->has_persistent_files && path_startswith(path, "/var/log/journal"))
+                j->has_persistent_files = true;
+
         return add_any_file(j, path);
 }
 
@@ -2629,4 +2635,16 @@ _public_ int sd_journal_get_data_threshold(sd_journal *j, size_t *sz) {
 
         *sz = j->data_threshold;
         return 0;
+}
+
+_public_ int sd_journal_has_runtime_files(sd_journal *j) {
+        assert_return(j, -EINVAL);
+
+        return j->has_runtime_files;
+}
+
+_public_ int sd_journal_has_persistent_files(sd_journal *j) {
+        assert_return(j, -EINVAL);
+
+        return j->has_persistent_files;
 }

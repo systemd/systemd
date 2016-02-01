@@ -1136,10 +1136,11 @@ static int add_boot(sd_journal *j) {
                 const char *reason = (r == 0) ? "No such boot ID in journal" : strerror(-r);
 
                 if (sd_id128_is_null(arg_boot_id))
-                        log_error("Failed to look up boot %+i: %s", arg_boot_offset, reason);
+                        log_error("Data from the specified boot (%+i) is not available: %s",
+                                  arg_boot_offset, reason);
                 else
-                        log_error("Failed to look up boot ID "SD_ID128_FORMAT_STR"%+i: %s",
-                                  SD_ID128_FORMAT_VAL(arg_boot_id), arg_boot_offset, reason);
+                        log_error("Data from the specified boot ("SD_ID128_FORMAT_STR") is not available: %s",
+                                  SD_ID128_FORMAT_VAL(arg_boot_id), reason);
 
                 return r == 0 ? -ENODATA : r;
         }
@@ -2091,6 +2092,13 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown action");
         }
 
+        if (arg_boot_offset != 0 &&
+            sd_journal_has_runtime_files(j) > 0 &&
+            sd_journal_has_persistent_files(j) == 0) {
+                log_info("Specifying boot ID has no effect, no persistent journal was found");
+                r = 0;
+                goto finish;
+        }
         /* add_boot() must be called first!
          * It may need to seek the journal to find parent boot IDs. */
         r = add_boot(j);
