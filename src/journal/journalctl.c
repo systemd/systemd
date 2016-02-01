@@ -69,6 +69,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
+#include "udev.h"
+#include "udev-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -144,6 +146,61 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
+
+static int scsi_device_get_kernel_name(const char *devpath, char **ret) {
+        int r;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL, *parent_device = NULL;
+        const char *subsys, *devtype, *sysname;
+        char *s = NULL;
+        struct stat st;
+
+        assert(devpath);
+        assert(ret);
+
+        if (!path_startswith(devpath, "/dev/"))
+                return -EINVAL;
+
+        r = stat(devpath, &st);
+        if (r < 0)
+                return r;
+
+        udev = udev_new();
+        if (!udev)
+                return -ENOMEM;
+
+        device = udev_device_new_from_devnum(udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
+        if (!device)
+                return -ENOMEM;
+
+        subsys = udev_device_get_subsystem(device);
+        if (!streq_ptr(subsys, "block"))
+                return -EINVAL;
+
+        devtype = udev_device_get_devtype(device);
+        if (!streq_ptr(devtype, "disk"))
+                return -EINVAL;
+
+        parent_device = udev_device_get_parent(device);
+        if (!parent_device)
+                return -ENOMEM;
+
+        devtype = udev_device_get_devtype(parent_device);
+        if (!streq_ptr(devtype, "scsi_device"))
+                return -EINVAL;
+
+        sysname = udev_device_get_sysname(parent_device);
+        if (!sysname)
+                return -EINVAL;
+
+        (void) asprintf(&s, "_KERNEL_DEVICE=+scsi:%s", sysname);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+
+        return 0;
+}
 
 static void pager_open_if_enabled(void) {
 
@@ -858,9 +915,11 @@ static int add_matches(sd_journal *j, char **args) {
                                         t = strappend("_EXE=", path);
                         } else if (S_ISCHR(st.st_mode))
                                 (void) asprintf(&t, "_KERNEL_DEVICE=c%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else if (S_ISBLK(st.st_mode))
-                                (void) asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                        else {
+                        else if (S_ISBLK(st.st_mode)) {
+                                r = scsi_device_get_kernel_name(path, &t);
+                                if (r < 0)
+                                        (void) asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                        } else {
                                 log_error("File is neither a device node, nor regular file, nor executable: %s", *i);
                                 return -EINVAL;
                         }
