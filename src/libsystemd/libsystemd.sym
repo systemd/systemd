@@ -484,6 +484,8 @@ global:
 
 LIBSYSTEMD_229 {
 global:
+        sd_journal_has_runtime_files;
+        sd_journal_has_persistent_files;
         sd_journal_enumerate_fields;
         sd_journal_restart_fields;
 } LIBSYSTEMD_227;
