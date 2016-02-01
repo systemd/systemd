@@ -139,6 +139,9 @@ int sd_journal_reliable_fd(sd_journal *j);
 int sd_journal_get_catalog(sd_journal *j, char **text);
 int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **text);
 
+int sd_journal_has_runtime_files(sd_journal *j);
+int sd_journal_has_persistent_files(sd_journal *j);
+
 /* the inverse condition avoids ambiguity of danling 'else' after the macro */
 #define SD_JOURNAL_FOREACH(j)                                           \
         if (sd_journal_seek_head(j) < 0) { }                            \
