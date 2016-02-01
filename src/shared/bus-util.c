@@ -1443,7 +1443,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                           eq[0] == '-');
                 goto finish;
 
-        } else if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec")) {
+        } else if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec", "RuntimeMaxSec")) {
                 char *n;
                 usec_t t;
                 size_t l;

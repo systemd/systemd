@@ -49,6 +49,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("RestartUSec", "t", bus_property_get_usec, offsetof(Service, restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStartUSec", "t", bus_property_get_usec, offsetof(Service, timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Service, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Service, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WatchdogUSec", "t", bus_property_get_usec, offsetof(Service, watchdog_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("WatchdogTimestamp", offsetof(Service, watchdog_timestamp), 0),
         SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Service, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -122,6 +123,19 @@ static int bus_service_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         s->type = k;
                         unit_write_drop_in_private_format(UNIT(s), mode, name, "Type=%s\n", service_type_to_string(s->type));
+                }
+
+                return 1;
+        } else if (streq(name, "RuntimeMaxUSec")) {
+                usec_t u;
+
+                r = sd_bus_message_read(message, "t", &u);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        s->runtime_max_usec = u;
+                        unit_write_drop_in_private_format(UNIT(s), mode, name, "RuntimeMaxSec=" USEC_FMT "us\n", u);
                 }
 
                 return 1;

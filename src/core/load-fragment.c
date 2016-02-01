@@ -1743,6 +1743,15 @@ int config_parse_service_timeout(const char *unit,
         } else if (streq(lvalue, "TimeoutStartSec"))
                 s->start_timeout_defined = true;
 
+        /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
+         * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
+         * all other timeouts. */
+
+        if (s->timeout_start_usec <= 0)
+                s->timeout_start_usec = USEC_INFINITY;
+        if (s->timeout_stop_usec <= 0)
+                s->timeout_stop_usec = USEC_INFINITY;
+
         return 0;
 }
 

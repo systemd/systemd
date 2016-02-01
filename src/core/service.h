@@ -118,6 +118,7 @@ struct Service {
         usec_t restart_usec;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
+        usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;

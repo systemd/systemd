@@ -66,29 +66,27 @@ static void scope_done(Unit *u) {
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
 
-static int scope_arm_timer(Scope *s) {
+static int scope_arm_timer(Scope *s, usec_t usec) {
         int r;
 
         assert(s);
 
-        if (s->timeout_stop_usec <= 0) {
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-                return 0;
-        }
-
         if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, now(CLOCK_MONOTONIC) + s->timeout_stop_usec);
+                r = sd_event_source_set_time(s->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
+        if (usec == USEC_INFINITY)
+                return 0;
+
         r = sd_event_add_time(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + s->timeout_stop_usec, 0,
+                        usec, 0,
                         scope_dispatch_timer, s);
         if (r < 0)
                 return r;
@@ -190,20 +188,19 @@ static int scope_coldplug(Unit *u) {
         assert(s);
         assert(s->state == SCOPE_DEAD);
 
-        if (s->deserialized_state != s->state) {
+        if (s->deserialized_state == s->state)
+                return 0;
 
-                if (IN_SET(s->deserialized_state, SCOPE_STOP_SIGKILL, SCOPE_STOP_SIGTERM)) {
-                        r = scope_arm_timer(s);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
-                        unit_watch_all_pids(UNIT(s));
-
-                scope_set_state(s, s->deserialized_state);
+        if (IN_SET(s->deserialized_state, SCOPE_STOP_SIGKILL, SCOPE_STOP_SIGTERM)) {
+                r = scope_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_stop_usec));
+                if (r < 0)
+                        return r;
         }
 
+        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
+                unit_watch_all_pids(UNIT(s));
+
+        scope_set_state(s, s->deserialized_state);
         return 0;
 }
 
@@ -261,7 +258,7 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                 r = 1;
 
         if (r > 0) {
-                r = scope_arm_timer(s);
+                r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_stop_usec));
                 if (r < 0)
                         goto fail;
 
