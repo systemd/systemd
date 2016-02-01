@@ -1414,15 +1414,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         if (streq(field, "CPUQuota")) {
 
-                if (isempty(eq)) {
-
-                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "CPUQuotaPerSecUSec");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append(m, "v", "t", USEC_INFINITY);
-
-                } else if (endswith(eq, "%")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "sv", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
+                else if (endswith(eq, "%")) {
                         double percent;
 
                         if (sscanf(eq, "%lf%%", &percent) != 1 || percent <= 0) {
@@ -1430,11 +1424,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 return -EINVAL;
                         }
 
-                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "CPUQuotaPerSecUSec");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append(m, "v", "t", (usec_t) percent * USEC_PER_SEC / 100);
+                        r = sd_bus_message_append(m, "sv", "CPUQuotaPerSecUSec", "t", (usec_t) percent * USEC_PER_SEC / 100);
                 } else {
                         log_error("CPU quota needs to be in percent.");
                         return -EINVAL;
@@ -1447,11 +1437,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         } else if (streq(field, "EnvironmentFile")) {
 
-                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, "EnvironmentFiles");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "v", "a(sb)", 1,
+                r = sd_bus_message_append(m, "sv", "EnvironmentFiles", "a(sb)", 1,
                                           eq[0] == '-' ? eq + 1 : eq,
                                           eq[0] == '-');
                 if (r < 0)
