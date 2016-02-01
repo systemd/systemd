@@ -278,10 +278,8 @@ static int bus_timer_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        char time[FORMAT_TIMESPAN_MAX];
-
                         t->accuracy_usec = u;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "AccuracySec=" USEC_FMT "us\n", u);
                 }
 
                 return 1;
@@ -294,10 +292,8 @@ static int bus_timer_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        char time[FORMAT_TIMESPAN_MAX];
-
                         t->random_usec = u;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "RandomizedDelaySec=%s\n", format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "RandomizedDelaySec=" USEC_FMT "us\n", u);
                 }
 
                 return 1;
