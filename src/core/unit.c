@@ -869,6 +869,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         Iterator i;
         const char *prefix2;
         char
+                timestamp0[FORMAT_TIMESTAMP_MAX],
                 timestamp1[FORMAT_TIMESTAMP_MAX],
                 timestamp2[FORMAT_TIMESTAMP_MAX],
                 timestamp3[FORMAT_TIMESTAMP_MAX],
@@ -890,6 +891,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
+                "%s\nState Change Timestamp: %s\n"
                 "%s\tInactive Exit Timestamp: %s\n"
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
@@ -907,6 +909,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(u->instance),
                 prefix, unit_load_state_to_string(u->load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
+                prefix, strna(format_timestamp(timestamp0, sizeof(timestamp0), u->state_change_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->inactive_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->active_exit_timestamp.realtime)),
@@ -1821,19 +1824,17 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Update timestamps for state changes */
         if (m->n_reloading <= 0) {
-                dual_timestamp ts;
-
-                dual_timestamp_get(&ts);
+                dual_timestamp_get(&u->state_change_timestamp);
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
-                        u->inactive_exit_timestamp = ts;
+                        u->inactive_exit_timestamp = u->state_change_timestamp;
                 else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_INACTIVE_OR_FAILED(ns))
-                        u->inactive_enter_timestamp = ts;
+                        u->inactive_enter_timestamp = u->state_change_timestamp;
 
                 if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        u->active_enter_timestamp = ts;
+                        u->active_enter_timestamp = u->state_change_timestamp;
                 else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        u->active_exit_timestamp = ts;
+                        u->active_exit_timestamp = u->state_change_timestamp;
         }
 
         /* Keep track of failed units */
@@ -2553,10 +2554,13 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 }
         }
 
+        dual_timestamp_serialize(f, "state-change-timestamp", &u->state_change_timestamp);
+
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
         dual_timestamp_serialize(f, "active-enter-timestamp", &u->active_enter_timestamp);
         dual_timestamp_serialize(f, "active-exit-timestamp", &u->active_exit_timestamp);
         dual_timestamp_serialize(f, "inactive-enter-timestamp", &u->inactive_enter_timestamp);
+
         dual_timestamp_serialize(f, "condition-timestamp", &u->condition_timestamp);
         dual_timestamp_serialize(f, "assert-timestamp", &u->assert_timestamp);
 
@@ -2695,7 +2699,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                 /* End marker */
                 if (isempty(l))
-                        return 0;
+                        break;
 
                 k = strcspn(l, "=");
 
@@ -2734,6 +2738,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 }
                         } else  /* legacy for pre-44 */
                                 log_unit_warning(u, "Update from too old systemd versions are unsupported, cannot deserialize job: %s", v);
+                        continue;
+                } else if (streq(l, "state-change-timestamp")) {
+                        dual_timestamp_deserialize(v, &u->state_change_timestamp);
                         continue;
                 } else if (streq(l, "inactive-exit-timestamp")) {
                         dual_timestamp_deserialize(v, &u->inactive_exit_timestamp);
@@ -2841,6 +2848,15 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
                 }
         }
+
+        /* Versions before 228 did not carry a state change timestamp. In this case, take the current time. This is
+         * useful, so that timeouts based on this timestamp don't trigger too early, and is in-line with the logic from
+         * before 228 where the base for timeouts was not peristet across reboots. */
+
+        if (!dual_timestamp_is_set(&u->state_change_timestamp))
+                dual_timestamp_get(&u->state_change_timestamp);
+
+        return 0;
 }
 
 int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep) {

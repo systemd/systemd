@@ -121,6 +121,10 @@ struct Unit {
         dual_timestamp condition_timestamp;
         dual_timestamp assert_timestamp;
 
+        /* Updated whenever the low-level state changes */
+        dual_timestamp state_change_timestamp;
+
+        /* Updated whenever the (high-level) active state enters or leaves the active or inactive states */
         dual_timestamp inactive_exit_timestamp;
         dual_timestamp active_enter_timestamp;
         dual_timestamp active_exit_timestamp;
