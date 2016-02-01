@@ -2091,6 +2091,13 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown action");
         }
 
+        if (arg_boot_offset != 0 &&
+            sd_journal_has_runtime_files(j) > 0 &&
+            sd_journal_has_persistent_files(j) == 0) {
+                log_info("Specifying boot ID has no effect, no persistent journal was found");
+                r = 0;
+                goto finish;
+        }
         /* add_boot() must be called first!
          * It may need to seek the journal to find parent boot IDs. */
         r = add_boot(j);
