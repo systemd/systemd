@@ -1240,3 +1240,15 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
+
+const char* job_type_to_access_method(JobType t) {
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
+
+        if (IN_SET(t, JOB_START, JOB_RESTART, JOB_TRY_RESTART))
+                return "start";
+        else if (t == JOB_STOP)
+                return "stop";
+        else
+                return "reload";
+}

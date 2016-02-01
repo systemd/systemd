@@ -1,0 +1,8 @@
+template(`systemd_test_base_template', `
+	gen_require(`
+		attribute systemd_test_domain_type;
+	')
+
+	type $1_t, systemd_test_domain_type;
+	domain_type($1_t)
+')
