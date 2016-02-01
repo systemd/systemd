@@ -127,3 +127,16 @@ time_t mktime_or_timegm(struct tm *tm, bool utc);
 struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc);
 
 unsigned long usec_to_jiffies(usec_t usec);
+
+static inline usec_t usec_add(usec_t a, usec_t b) {
+        usec_t c;
+
+        /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output, and doesn't
+         * overflow. */
+
+        c = a + b;
+        if (c < a || c < b) /* overflow check */
+                return USEC_INFINITY;
+
+        return c;
+}
