@@ -1369,7 +1369,11 @@ int main(int argc, char *argv[]) {
                         initrd_timestamp = userspace_timestamp;
 
                 if (!skip_setup) {
-                        mount_setup_early();
+                        r = mount_setup_early();
+                        if (r < 0) {
+                                error_message = "Failed to early mount API filesystems";
+                                goto finish;
+                        }
                         dual_timestamp_get(&security_start_timestamp);
                         if (mac_selinux_setup(&loaded_policy) < 0) {
                                 error_message = "Failed to load SELinux policy";
