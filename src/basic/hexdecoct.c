@@ -574,7 +574,8 @@ static int base64_append_width(char **prefix, int plen,
         if (!t)
                 return -ENOMEM;
 
-        memcpy(t + plen, sep, slen);
+        if (slen)
+                memcpy(t + plen, sep, slen);
 
         for (line = 0, s = t + plen + slen, avail = len; line < lines; line++) {
                 int act = MIN(width, avail);
