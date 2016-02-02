@@ -155,6 +155,14 @@ else
 noinst_PROGRAMS =
 TESTS =
 endif
+if ENABLE_BASH_COMPLETION
+dist_bashcompletion_DATA = $(dist_bashcompletion_data)
+nodist_bashcompletion_DATA = $(nodist_bashcompletion_data)
+endif
+if ENABLE_ZSH_COMPLETION
+dist_zshcompletion_DATA = $(dist_zshcompletion_data)
+nodist_zshcompletion_DATA = $(nodist_zshcompletion_data)
+endif
 udevlibexec_PROGRAMS =
 gperf_gperf_sources =
 
@@ -165,6 +173,8 @@ m4_files = $(filter %.m4,$(EXTRA_DIST) $(in_files:.m4.in=.m4))
 CLEANFILES = $(BUILT_SOURCES) \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
+	$(nodist_bashcompletion_data) \
+	$(nodist_zshcompletion_data) \
 	$(in_files:.in=) $(in_in_files:.in.in=) \
 	$(m4_files:.m4=)
 
@@ -416,8 +426,7 @@ systemgenerator_PROGRAMS = \
 	systemd-system-update-generator \
 	systemd-debug-generator
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA = \
+dist_bashcompletion_data = \
 	shell-completion/bash/busctl \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemd-analyze \
@@ -432,12 +441,10 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/udevadm \
 	shell-completion/bash/kernel-install
 
-nodist_bashcompletion_DATA = \
+nodist_bashcompletion_data = \
 	shell-completion/bash/systemctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA = \
+dist_zshcompletion_data = \
 	shell-completion/zsh/_busctl \
 	shell-completion/zsh/_journalctl \
 	shell-completion/zsh/_udevadm \
@@ -451,17 +458,12 @@ dist_zshcompletion_DATA = \
 	shell-completion/zsh/_systemd-delta \
 	shell-completion/zsh/_systemd
 
-nodist_zshcompletion_DATA = \
+nodist_zshcompletion_data = \
 	shell-completion/zsh/_systemctl
-endif
 
 EXTRA_DIST += \
 	shell-completion/bash/systemctl.in \
 	shell-completion/zsh/_systemctl.in
-
-CLEANFILES += \
-	$(nodist_bashcompletion_DATA) \
-	$(nodist_zshcompletion_DATA)
 
 dist_sysctl_DATA = \
 	sysctl.d/50-default.conf
@@ -2396,10 +2398,8 @@ SYSINIT_TARGET_WANTS += \
 	systemd-tmpfiles-setup-dev.service \
 	systemd-tmpfiles-setup.service
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_systemd-tmpfiles
-endif
 
 TIMERS_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
@@ -2627,15 +2627,11 @@ bootctl_LDADD = \
 bin_PROGRAMS += \
 	bootctl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/bootctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_bootctl
-endif
 endif
 
 # ------------------------------------------------------------------------------
@@ -4440,15 +4436,11 @@ test_coredump_vacuum_SOURCES = \
 test_coredump_vacuum_LDADD = \
 	libshared.la
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/coredumpctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_coredumpctl
-endif
 
 nodist_sysctl_DATA = \
 	sysctl.d/50-coredump.conf
@@ -4699,15 +4691,11 @@ hostnamectl_LDADD = \
 bin_PROGRAMS += \
 	hostnamectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/hostnamectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_hostnamectl
-endif
 endif
 
 polkitpolicy_in_files += \
@@ -4773,15 +4761,11 @@ localectl_LDADD = \
 bin_PROGRAMS += \
 	localectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/localectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_localectl
-endif
 endif
 
 .PHONY: update-kbd-model-map
@@ -4833,15 +4817,11 @@ timedatectl_LDADD = \
 bin_PROGRAMS += \
 	timedatectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/timedatectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_timedatectl
-endif
 endif
 
 polkitpolicy_in_files += \
@@ -4948,11 +4928,6 @@ machinectl_LDADD = \
 rootbin_PROGRAMS += \
 	machinectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
-	shell-completion/bash/machinectl
-endif
-
 test_machine_tables_SOURCES = \
 	src/machine/test-machine-tables.c
 
@@ -4980,11 +4955,12 @@ dist_dbuspolicy_DATA += \
 polkitpolicy_files += \
 	src/machine/org.freedesktop.machine1.policy
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_bashcompletion_data += \
+	shell-completion/bash/machinectl
+
+dist_zshcompletion_data += \
 	shell-completion/zsh/_machinectl \
 	shell-completion/zsh/_sd_machines
-endif
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-machined.service dbus-org.freedesktop.machine1.service
@@ -5474,10 +5450,8 @@ networkctl_LDADD = \
 	libshared.la \
 	libsystemd-network.la
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/networkctl
-endif
 
 test_network_SOURCES = \
 	src/network/test-network.c
@@ -5607,16 +5581,12 @@ loginctl_LDADD = \
 rootbin_PROGRAMS += \
 	loginctl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/loginctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_loginctl \
 	shell-completion/zsh/_systemd-inhibit
-endif
 
 systemd_inhibit_SOURCES = \
 	src/login/inhibit.c
