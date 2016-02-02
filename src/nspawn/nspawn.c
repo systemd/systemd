@@ -114,6 +114,7 @@ typedef enum LinkJournal {
 
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
+static char *arg_chdir = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
@@ -193,6 +194,7 @@ static void help(void) {
                "                            remove it after exit\n"
                "  -i --image=PATH           File system device or disk image for the container\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
+               "     --chdir=PATH           Set working directory in the container\n"
                "  -u --user=USER            Run the command under specified user or uid\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
@@ -345,6 +347,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_USERS,
                 ARG_KILL_SIGNAL,
                 ARG_SETTINGS,
+                ARG_CHDIR,
         };
 
         static const struct option options[] = {
@@ -389,6 +392,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS     },
                 { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL       },
                 { "settings",              required_argument, NULL, ARG_SETTINGS          },
+                { "chdir",                 required_argument, NULL, ARG_CHDIR             },
                 {}
         };
 
@@ -847,6 +851,19 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_settings_trusted = false;
                         }
 
+                        break;
+
+                case ARG_CHDIR:
+                        if (!path_is_absolute(optarg)) {
+                                log_error("Working directory %s is not an absolute path.", optarg);
+                                return -EINVAL;
+                        }
+
+                        r = free_and_strdup(&arg_chdir, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        arg_settings_mask |= SETTING_WORKING_DIRECTORY;
                         break;
 
                 case '?':
@@ -2563,6 +2580,10 @@ static int inner_child(
                 return -ESRCH;
         }
 
+        if (arg_chdir)
+                if (chdir(arg_chdir) < 0)
+                        return log_error_errno(errno, "Failed to change to specified working directory %s: %m", arg_chdir);
+
         /* Now, explicitly close the log, so that we
          * then can close all remaining fds. Closing
          * the log explicitly first has the benefit
@@ -2598,7 +2619,9 @@ static int inner_child(
         } else if (!strv_isempty(arg_parameters))
                 execvpe(arg_parameters[0], arg_parameters, env_use);
         else {
-                chdir(home ?: "/root");
+                if (!arg_chdir)
+                        chdir(home ?: "/root");
+
                 execle("/bin/bash", "-bash", NULL, env_use);
                 execle("/bin/sh", "-sh", NULL, env_use);
         }
@@ -2901,6 +2924,13 @@ static int load_settings(void) {
                 strv_free(arg_parameters);
                 arg_parameters = settings->parameters;
                 settings->parameters = NULL;
+        }
+
+        if ((arg_settings_mask & SETTING_WORKING_DIRECTORY) == 0 &&
+            settings->working_directory) {
+                free(arg_chdir);
+                arg_chdir = settings->working_directory;
+                settings->working_directory = NULL;
         }
 
         if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
@@ -3629,6 +3659,7 @@ finish:
         free(arg_image);
         free(arg_machine);
         free(arg_user);
+        free(arg_chdir);
         strv_free(arg_setenv);
         free(arg_network_bridge);
         strv_free(arg_network_interfaces);

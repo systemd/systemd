@@ -74,6 +74,7 @@ Settings* settings_free(Settings *s) {
         strv_free(s->parameters);
         strv_free(s->environment);
         free(s->user);
+        free(s->working_directory);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);

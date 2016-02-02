@@ -261,6 +261,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--chdir=</option></term>
+
+        <listitem><para>Change to the specified working directory before invoking the process in the container. Expects
+        an absolute path in the container's file system namespace.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-u</option></term>
         <term><option>--user=</option></term>
 

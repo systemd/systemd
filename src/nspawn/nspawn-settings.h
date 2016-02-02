@@ -40,7 +40,8 @@ typedef enum SettingsMask {
         SETTING_READ_ONLY     = 1 << 9,
         SETTING_VOLATILE_MODE = 1 << 10,
         SETTING_CUSTOM_MOUNTS = 1 << 11,
-        _SETTINGS_MASK_ALL    = (1 << 12) -1
+        SETTING_WORKING_DIRECTORY = 1 << 12,
+        _SETTINGS_MASK_ALL    = (1 << 13) -1
 } SettingsMask;
 
 typedef struct Settings {
@@ -54,6 +55,7 @@ typedef struct Settings {
         int kill_signal;
         unsigned long personality;
         sd_id128_t machine_id;
+        char *working_directory;
 
         /* [Image] */
         int read_only;
