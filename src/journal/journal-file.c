@@ -1110,8 +1110,8 @@ static int journal_file_append_data(
         }
 #endif
 
-        if (compression == 0 && size > 0)
-                memcpy(o->data.payload, data, size);
+        if (compression == 0)
+                memcpy_safe(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
         if (r < 0)
@@ -1373,7 +1373,7 @@ static int journal_file_append_entry_internal(
                 return r;
 
         o->entry.seqnum = htole64(journal_file_entry_seqnum(f, seqnum));
-        memcpy(o->entry.items, items, n_items * sizeof(EntryItem));
+        memcpy_safe(o->entry.items, items, n_items * sizeof(EntryItem));
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);

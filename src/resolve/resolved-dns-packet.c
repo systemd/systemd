@@ -433,8 +433,7 @@ int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_
 
         ((uint8_t*) d)[0] = (uint8_t) size;
 
-        if (size > 0)
-                memcpy(((uint8_t*) d) + 1, s, size);
+        memcpy_safe(((uint8_t*) d) + 1, s, size);
 
         return 0;
 }

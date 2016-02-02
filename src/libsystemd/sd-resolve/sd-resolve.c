@@ -219,9 +219,8 @@ static void *serialize_addrinfo(void *p, const struct addrinfo *ai, size_t *leng
 
         memcpy((uint8_t*) p, &s, sizeof(AddrInfoSerialization));
         memcpy((uint8_t*) p + sizeof(AddrInfoSerialization), ai->ai_addr, ai->ai_addrlen);
-
-        if (ai->ai_canonname)
-                memcpy((char*) p + sizeof(AddrInfoSerialization) + ai->ai_addrlen, ai->ai_canonname, cnl);
+        memcpy_safe((char*) p + sizeof(AddrInfoSerialization) + ai->ai_addrlen,
+                    ai->ai_canonname, cnl);
 
         *length += l;
         return (uint8_t*) p + l;

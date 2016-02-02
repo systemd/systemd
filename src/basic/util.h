@@ -104,6 +104,16 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
         qsort(base, nmemb, size, compar);
 }
 
+/**
+ * Normal memcpy requires src to be nonnull. We do nothing if n is 0.
+ */
+static inline void memcpy_safe(void *dst, const void *src, size_t n) {
+        if (n == 0)
+                return;
+        assert(src);
+        memcpy(dst, src, n);
+}
+
 int on_ac_power(void);
 
 #define memzero(x,l) (memset((x), 0, (l)))

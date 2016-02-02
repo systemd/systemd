@@ -2633,8 +2633,7 @@ _public_ int sd_bus_message_append_array(
         if (r < 0)
                 return r;
 
-        if (size > 0)
-                memcpy(p, ptr, size);
+        memcpy_safe(p, ptr, size);
 
         return 0;
 }
