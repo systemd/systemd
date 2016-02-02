@@ -980,7 +980,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
                 char *ss;
-                int n, n1;
+                int n;
                 uint16_t key_tag;
 
                 key_tag = dnssec_keytag(rr, true);
@@ -989,9 +989,8 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&s, "%s %n%u %u %s %n",
+                r = asprintf(&s, "%s %u %u %s %n",
                              k,
-                             &n1,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
                              alg,
@@ -1006,14 +1005,12 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 r = asprintf(&ss, "%s\n"
-                             "%*s-- Flags:%s%s%s\n"
-                             "%*s-- Key tag: %u",
+                             "        -- Flags:%s%s%s\n"
+                             "        -- Key tag: %u",
                              s,
-                             n1, "",
                              rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "",
-                             n1, "",
                              key_tag);
                 if (r < 0)
                         return NULL;
@@ -1139,13 +1136,13 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 r = asprintf(&ss, "%s\n"
-                             "%*s-- Cert. usage: %s\n"
-                             "%*s-- Selector: %s\n"
-                             "%*s-- Matching type: %s",
+                             "        -- Cert. usage: %s\n"
+                             "        -- Selector: %s\n"
+                             "        -- Matching type: %s",
                              s,
-                             n - 6, "", cert_usage,
-                             n - 6, "", selector,
-                             n - 6, "", matching_type);
+                             cert_usage,
+                             selector,
+                             matching_type);
                 if (r < 0)
                         return NULL;
                 free(s);
@@ -1161,11 +1158,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!value)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %s \"%s\"",
+                r = asprintf(&s, "%s %u %s \"%s\"%s%s%s%.0u",
                              k,
                              rr->caa.flags,
                              rr->caa.tag,
-                             value);
+                             value,
+                             rr->caa.flags ? "\n        -- Flags:" : "",
+                             rr->caa.flags & CAA_FLAG_CRITICAL ? " critical" : "",
+                             rr->caa.flags & ~CAA_FLAG_CRITICAL ? " " : "",
+                             rr->caa.flags & ~CAA_FLAG_CRITICAL);
                 if (r < 0)
                         return NULL;
 
