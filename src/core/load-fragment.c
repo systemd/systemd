@@ -54,6 +54,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
@@ -1101,122 +1102,6 @@ int config_parse_capability_set(
         return 0;
 }
 
-static int rlim_parse_u64(const char *val, rlim_t *res) {
-        int r = 0;
-
-        if (streq(val, "infinity"))
-                *res = RLIM_INFINITY;
-        else {
-                uint64_t u;
-
-                /* setrlimit(2) suggests rlim_t is always 64bit on Linux. */
-                assert_cc(sizeof(rlim_t) == sizeof(uint64_t));
-
-                r = safe_atou64(val, &u);
-                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
-                        r = -ERANGE;
-                if (r == 0)
-                        *res = (rlim_t) u;
-        }
-        return r;
-}
-
-static int rlim_parse_size(const char *val, rlim_t *res) {
-        int r = 0;
-
-        if (streq(val, "infinity"))
-                *res = RLIM_INFINITY;
-        else {
-                uint64_t u;
-
-                r = parse_size(val, 1024, &u);
-                if (r >= 0 && u >= (uint64_t) RLIM_INFINITY)
-                        r = -ERANGE;
-                if (r == 0)
-                        *res = (rlim_t) u;
-        }
-        return r;
-}
-
-static int rlim_parse_sec(const char *val, rlim_t *res) {
-        int r = 0;
-
-        if (streq(val, "infinity"))
-                *res = RLIM_INFINITY;
-        else {
-                usec_t t;
-
-                r = parse_sec(val, &t);
-                if (r < 0)
-                        return r;
-                if (t == USEC_INFINITY)
-                        *res = RLIM_INFINITY;
-                else
-                        *res = (rlim_t) (DIV_ROUND_UP(t, USEC_PER_SEC));
-
-        }
-        return r;
-}
-
-static int rlim_parse_usec(const char *val, rlim_t *res) {
-        int r = 0;
-
-        if (streq(val, "infinity"))
-                *res = RLIM_INFINITY;
-        else {
-                usec_t t;
-
-                r = parse_time(val, &t, 1);
-                if (r < 0)
-                        return r;
-                if (t == USEC_INFINITY)
-                        *res = RLIM_INFINITY;
-                else
-                        *res = (rlim_t) t;
-        }
-        return r;
-}
-
-static int parse_rlimit_range(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *value,
-                struct rlimit **rl,
-                int (*rlim_parser)(const char *, rlim_t *)) {
-
-        const char *whole_value = value;
-        rlim_t soft, hard;
-        _cleanup_free_ char *sword = NULL, *hword = NULL;
-        int nwords, r;
-
-        assert(value);
-
-        /* <value> or <soft:hard> */
-        nwords = extract_many_words(&value, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &sword, &hword, NULL);
-        r = nwords < 0 ? nwords : nwords == 0 ? -EINVAL : 0;
-
-        if (r == 0)
-                r = rlim_parser(sword, &soft);
-        if (r == 0 && nwords == 2)
-                r = rlim_parser(hword, &hard);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", whole_value);
-                return 0;
-        }
-        if (nwords == 2 && soft > hard)
-                return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid resource value ("RLIM_FMT" > "RLIM_FMT"), ignoring: %s", soft, hard, whole_value);
-
-        if (!*rl) {
-                *rl = new(struct rlimit, 1);
-                if (!*rl)
-                        return log_oom();
-        }
-        (*rl)->rlim_cur = soft;
-        (*rl)->rlim_max = nwords == 2 ? hard : soft;
-        return 0;
-}
-
 int config_parse_limit(
                 const char *unit,
                 const char *filename,
@@ -1229,87 +1114,34 @@ int config_parse_limit(
                 void *data,
                 void *userdata) {
 
-        struct rlimit **rl = data;
+        struct rlimit **rl = data, d = {};
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        rl += ltype;
-        return parse_rlimit_range(unit, filename, line, rvalue, rl, rlim_parse_u64);
+        r = rlimit_parse(ltype, rvalue, &d);
+        if (r == -EILSEQ) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Soft resource limit chosen higher than hard limit, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (rl[ltype])
+                *rl[ltype] = d;
+        else {
+                rl[ltype] = newdup(struct rlimit, &d, 1);
+                if (!rl[ltype])
+                        return log_oom();
+        }
+
+        return 0;
 }
-
-int config_parse_bytes_limit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct rlimit **rl = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        rl += ltype;
-        return parse_rlimit_range(unit, filename, line, rvalue, rl, rlim_parse_size);
-}
-
-int config_parse_sec_limit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct rlimit **rl = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        rl += ltype;
-        return parse_rlimit_range(unit, filename, line, rvalue, rl, rlim_parse_sec);
-}
-
-int config_parse_usec_limit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct rlimit **rl = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        rl += ltype;
-        return parse_rlimit_range(unit, filename, line, rvalue, rl, rlim_parse_usec);
-}
-
-
 
 #ifdef HAVE_SYSV_COMPAT
 int config_parse_sysv_priority(const char *unit,
@@ -1910,6 +1742,15 @@ int config_parse_service_timeout(const char *unit,
                 s->timeout_stop_usec = s->timeout_start_usec;
         } else if (streq(lvalue, "TimeoutStartSec"))
                 s->start_timeout_defined = true;
+
+        /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
+         * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
+         * all other timeouts. */
+
+        if (s->timeout_start_usec <= 0)
+                s->timeout_start_usec = USEC_INFINITY;
+        if (s->timeout_stop_usec <= 0)
+                s->timeout_stop_usec = USEC_INFINITY;
 
         return 0;
 }

@@ -281,6 +281,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         q->request = sd_bus_message_ref(message);
         q->request_family = family;
         q->complete = bus_method_resolve_hostname_complete;
+        q->suppress_unroutable_family = family == AF_UNSPEC;
 
         r = dns_query_bus_track(q, message);
         if (r < 0)

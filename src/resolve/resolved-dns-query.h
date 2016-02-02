@@ -69,6 +69,10 @@ struct DnsQuery {
         uint64_t flags;
         int ifindex;
 
+        /* If true, A or AAAA RR lookups will be suppressed on links with no routable address of the matching address
+         * family */
+        bool suppress_unroutable_family;
+
         DnsTransactionState state;
         unsigned n_cname_redirects;
 

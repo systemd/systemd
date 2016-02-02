@@ -470,7 +470,7 @@
         configured time, the service will be considered failed and
         will be shut down again. Takes a unit-less value in seconds,
         or a time span value such as "5min 20s". Pass
-        <literal>0</literal> to disable the timeout logic. Defaults to
+        <literal>infinity</literal> to disable the timeout logic. Defaults to
         <varname>DefaultTimeoutStartSec=</varname> from the manager
         configuration file, except when
         <varname>Type=oneshot</varname> is used, in which case the
@@ -489,7 +489,7 @@
         <varname>KillMode=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         Takes a unit-less value in seconds, or a time span value such
-        as "5min 20s". Pass <literal>0</literal> to disable the
+        as "5min 20s". Pass <literal>infinity</literal> to disable the
         timeout logic. Defaults to
         <varname>DefaultTimeoutStopSec=</varname> from the manager
         configuration file (see
@@ -503,6 +503,16 @@
         <varname>TimeoutStartSec=</varname> and
         <varname>TimeoutStopSec=</varname> to the specified value.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeMaxSec=</varname></term>
+
+        <listitem><para>Configures a maximum time for the service to run. If this is used and the service has been
+        active for longer than the specified time it is terminated and put into a failure state. Note that this setting
+        does not have any effect on <varname>Type=oneshot</varname> services, as they terminate immediately after
+        activation completed. Pass <literal>infinity</literal> (the default) to configure no runtime
+        limit.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -170,29 +170,27 @@ static void socket_done(Unit *u) {
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 }
 
-static int socket_arm_timer(Socket *s) {
+static int socket_arm_timer(Socket *s, usec_t usec) {
         int r;
 
         assert(s);
 
-        if (s->timeout_usec <= 0) {
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-                return 0;
-        }
-
         if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, now(CLOCK_MONOTONIC) + s->timeout_usec);
+                r = sd_event_source_set_time(s->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
         }
 
+        if (usec == USEC_INFINITY)
+                return 0;
+
         r = sd_event_add_time(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + s->timeout_usec, 0,
+                        usec, 0,
                         socket_dispatch_timer, s);
         if (r < 0)
                 return r;
@@ -1494,7 +1492,7 @@ static int socket_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = socket_arm_timer(s);
+                r = socket_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -1507,6 +1505,7 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_STOP_PRE,
                    SOCKET_STOP_PRE_SIGTERM,
                    SOCKET_STOP_PRE_SIGKILL)) {
+
                 r = socket_open_fds(s);
                 if (r < 0)
                         return r;
@@ -1548,15 +1547,15 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
-                goto fail;
+                return r;
 
-        r = socket_arm_timer(s);
+        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_full_printf_strv(UNIT(s), c->argv, &argv);
         if (r < 0)
-                goto fail;
+                return r;
 
         exec_params.argv = argv;
         exec_params.environment = UNIT(s)->manager->environment;
@@ -1573,26 +1572,22 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        s->exec_runtime,
                        &pid);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_watch_pid(UNIT(s), pid);
         if (r < 0)
                 /* FIXME: we need to do something here */
-                goto fail;
+                return r;
 
         *_pid = pid;
         return 0;
-
-fail:
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        return r;
 }
 
 static int socket_chown(Socket *s, pid_t *_pid) {
         pid_t pid;
         int r;
 
-        r = socket_arm_timer(s);
+        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
                 goto fail;
 
@@ -1735,7 +1730,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                 goto fail;
 
         if (r > 0) {
-                r = socket_arm_timer(s);
+                r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
                 if (r < 0)
                         goto fail;
 

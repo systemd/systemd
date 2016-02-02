@@ -33,6 +33,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* rework coredump tool to move actual processing into a socket activated service
+
 * cache sd_event_now() result from before the first iteration...
 
 * remove Capabilities=, after all AmbientCapabilities= and CapabilityBoundingSet= should be enough.

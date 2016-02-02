@@ -44,11 +44,8 @@ static int sd_netlink_new(sd_netlink **ret) {
                 return -ENOMEM;
 
         rtnl->n_ref = REFCNT_INIT;
-
         rtnl->fd = -1;
-
         rtnl->sockaddr.nl.nl_family = AF_NETLINK;
-
         rtnl->original_pid = getpid();
 
         LIST_HEAD_INIT(rtnl->match_callbacks);
@@ -87,6 +84,9 @@ int sd_netlink_new_from_netlink(sd_netlink **ret, int fd) {
         if (r < 0)
                 return -errno;
 
+        if (rtnl->sockaddr.nl.nl_family != AF_NETLINK)
+                return -EINVAL;
+
         rtnl->fd = fd;
 
         *ret = rtnl;
@@ -118,8 +118,10 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         rtnl->fd = fd;
 
         r = socket_bind(rtnl);
-        if (r < 0)
+        if (r < 0) {
+                rtnl->fd = -1; /* on failure, the caller remains owner of the fd, hence don't close it here */
                 return r;
+        }
 
         *ret = rtnl;
         rtnl = NULL;

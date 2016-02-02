@@ -676,22 +676,22 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval", config_parse_sec,              0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",    config_parse_unsigned,         0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",        config_parse_environ,          0, &arg_default_environment               },
-                { "Manager", "DefaultLimitCPU",           config_parse_sec_limit,        0, &arg_default_rlimit[RLIMIT_CPU]        },
-                { "Manager", "DefaultLimitFSIZE",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_FSIZE]      },
-                { "Manager", "DefaultLimitDATA",          config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_DATA]       },
-                { "Manager", "DefaultLimitSTACK",         config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_STACK]      },
-                { "Manager", "DefaultLimitCORE",          config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_CORE]       },
-                { "Manager", "DefaultLimitRSS",           config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_RSS]        },
-                { "Manager", "DefaultLimitNOFILE",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NOFILE]     },
-                { "Manager", "DefaultLimitAS",            config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_AS]         },
-                { "Manager", "DefaultLimitNPROC",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NPROC]      },
-                { "Manager", "DefaultLimitMEMLOCK",       config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_MEMLOCK]    },
-                { "Manager", "DefaultLimitLOCKS",         config_parse_limit,            0, &arg_default_rlimit[RLIMIT_LOCKS]      },
-                { "Manager", "DefaultLimitSIGPENDING",    config_parse_limit,            0, &arg_default_rlimit[RLIMIT_SIGPENDING] },
-                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_bytes_limit,      0, &arg_default_rlimit[RLIMIT_MSGQUEUE]   },
-                { "Manager", "DefaultLimitNICE",          config_parse_limit,            0, &arg_default_rlimit[RLIMIT_NICE]       },
-                { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            0, &arg_default_rlimit[RLIMIT_RTPRIO]     },
-                { "Manager", "DefaultLimitRTTIME",        config_parse_usec_limit,       0, &arg_default_rlimit[RLIMIT_RTTIME]     },
+                { "Manager", "DefaultLimitCPU",           config_parse_limit,            RLIMIT_CPU, arg_default_rlimit            },
+                { "Manager", "DefaultLimitFSIZE",         config_parse_limit,            RLIMIT_FSIZE, arg_default_rlimit          },
+                { "Manager", "DefaultLimitDATA",          config_parse_limit,            RLIMIT_DATA, arg_default_rlimit           },
+                { "Manager", "DefaultLimitSTACK",         config_parse_limit,            RLIMIT_STACK, arg_default_rlimit          },
+                { "Manager", "DefaultLimitCORE",          config_parse_limit,            RLIMIT_CORE, arg_default_rlimit           },
+                { "Manager", "DefaultLimitRSS",           config_parse_limit,            RLIMIT_RSS, arg_default_rlimit            },
+                { "Manager", "DefaultLimitNOFILE",        config_parse_limit,            RLIMIT_NOFILE, arg_default_rlimit         },
+                { "Manager", "DefaultLimitAS",            config_parse_limit,            RLIMIT_AS, arg_default_rlimit             },
+                { "Manager", "DefaultLimitNPROC",         config_parse_limit,            RLIMIT_NPROC, arg_default_rlimit          },
+                { "Manager", "DefaultLimitMEMLOCK",       config_parse_limit,            RLIMIT_MEMLOCK, arg_default_rlimit        },
+                { "Manager", "DefaultLimitLOCKS",         config_parse_limit,            RLIMIT_LOCKS, arg_default_rlimit          },
+                { "Manager", "DefaultLimitSIGPENDING",    config_parse_limit,            RLIMIT_SIGPENDING, arg_default_rlimit     },
+                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_limit,            RLIMIT_MSGQUEUE, arg_default_rlimit       },
+                { "Manager", "DefaultLimitNICE",          config_parse_limit,            RLIMIT_NICE, arg_default_rlimit           },
+                { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            RLIMIT_RTPRIO, arg_default_rlimit         },
+                { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            RLIMIT_RTTIME, arg_default_rlimit         },
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
@@ -710,8 +710,14 @@ static int parse_config_file(void) {
                 CONF_PATHS_NULSTR("systemd/system.conf.d") :
                 CONF_PATHS_NULSTR("systemd/user.conf.d");
 
-        config_parse_many(fn, conf_dirs_nulstr, "Manager\0",
-                          config_item_table_lookup, items, false, NULL);
+        config_parse_many(fn, conf_dirs_nulstr, "Manager\0", config_item_table_lookup, items, false, NULL);
+
+        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we used USEC_INFINITY
+         * like everywhere else. */
+        if (arg_default_timeout_start_usec <= 0)
+                arg_default_timeout_start_usec = USEC_INFINITY;
+        if (arg_default_timeout_stop_usec <= 0)
+                arg_default_timeout_stop_usec = USEC_INFINITY;
 
         return 0;
 }

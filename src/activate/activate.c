@@ -151,24 +151,44 @@ static int launch(char* name, char **argv, char **env, int fds) {
                 return log_oom();
 
         STRV_FOREACH(s, arg_setenv) {
-                if (strchr(*s, '='))
-                        envp[n_env++] = *s;
-                else {
+                if (strchr(*s, '=')) {
+                        char *k;
+
+                        k = strdup(*s);
+                        if (!k)
+                                return log_oom();
+
+                        envp[n_env++] = k;
+                } else {
                         _cleanup_free_ char *p;
+                        const char *n;
 
                         p = strappend(*s, "=");
                         if (!p)
                                 return log_oom();
-                        envp[n_env] = strv_find_prefix(env, p);
-                        if (envp[n_env])
-                                n_env ++;
+
+                        n = strv_find_prefix(env, p);
+                        if (!n)
+                                continue;
+
+                        envp[n_env] = strdup(n);
+                        if (!envp[n_env])
+                                return log_oom();
                 }
         }
 
         for (i = 0; i < ELEMENTSOF(tocopy); i++) {
-                envp[n_env] = strv_find_prefix(env, tocopy[i]);
-                if (envp[n_env])
-                        n_env ++;
+                const char *n;
+
+                n = strv_find_prefix(env, tocopy[i]);
+                if (!n)
+                        continue;
+
+                envp[n_env] = strdup(n);
+                if (!envp[n_env])
+                        return log_oom();
+
+                n_env ++;
         }
 
         if ((asprintf((char**)(envp + n_env++), "LISTEN_FDS=%d", fds) < 0) ||
@@ -309,12 +329,12 @@ static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
-               "  -d --datagram            Datagram sockets\n"
-               "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
-               "  -a --accept              Spawn separate child for each connection\n"
                "  -h --help                Show this help and exit\n"
+               "     --version             Print version string and exit\n"
+               "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
+               "  -d --datagram            Listen on datagram instead of stream socket\n"
+               "  -a --accept              Spawn separate child for each connection\n"
                "  -E --setenv=NAME[=VALUE] Pass an environment variable to children\n"
-               "  --version                Print version string and exit\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be passed through.\n"
                , program_invocation_short_name);

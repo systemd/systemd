@@ -112,29 +112,27 @@ static void busname_done(Unit *u) {
         n->timer_event_source = sd_event_source_unref(n->timer_event_source);
 }
 
-static int busname_arm_timer(BusName *n) {
+static int busname_arm_timer(BusName *n, usec_t usec) {
         int r;
 
         assert(n);
 
-        if (n->timeout_usec <= 0) {
-                n->timer_event_source = sd_event_source_unref(n->timer_event_source);
-                return 0;
-        }
-
         if (n->timer_event_source) {
-                r = sd_event_source_set_time(n->timer_event_source, now(CLOCK_MONOTONIC) + n->timeout_usec);
+                r = sd_event_source_set_time(n->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(n->timer_event_source, SD_EVENT_ONESHOT);
         }
 
+        if (usec == USEC_INFINITY)
+                return 0;
+
         r = sd_event_add_time(
                         UNIT(n)->manager->event,
                         &n->timer_event_source,
                         CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + n->timeout_usec, 0,
+                        usec, 0,
                         busname_dispatch_timer, n);
         if (r < 0)
                 return r;
@@ -372,7 +370,7 @@ static int busname_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = busname_arm_timer(n);
+                r = busname_arm_timer(n, usec_add(u->state_change_timestamp.monotonic, n->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -397,7 +395,7 @@ static int busname_make_starter(BusName *n, pid_t *_pid) {
         pid_t pid;
         int r;
 
-        r = busname_arm_timer(n);
+        r = busname_arm_timer(n, usec_add(now(CLOCK_MONOTONIC), n->timeout_usec));
         if (r < 0)
                 goto fail;
 
@@ -475,7 +473,7 @@ static void busname_enter_signal(BusName *n, BusNameState state, BusNameResult f
         }
 
         if (r > 0) {
-                r = busname_arm_timer(n);
+                r = busname_arm_timer(n, usec_add(now(CLOCK_MONOTONIC), n->timeout_usec));
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(n), r, "Failed to arm timer: %m");
                         goto fail;

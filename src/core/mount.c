@@ -152,29 +152,27 @@ static void mount_init(Unit *u) {
         u->ignore_on_isolate = true;
 }
 
-static int mount_arm_timer(Mount *m) {
+static int mount_arm_timer(Mount *m, usec_t usec) {
         int r;
 
         assert(m);
 
-        if (m->timeout_usec <= 0) {
-                m->timer_event_source = sd_event_source_unref(m->timer_event_source);
-                return 0;
-        }
-
         if (m->timer_event_source) {
-                r = sd_event_source_set_time(m->timer_event_source, now(CLOCK_MONOTONIC) + m->timeout_usec);
+                r = sd_event_source_set_time(m->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_ONESHOT);
         }
 
+        if (usec == USEC_INFINITY)
+                return 0;
+
         r = sd_event_add_time(
                         UNIT(m)->manager->event,
                         &m->timer_event_source,
                         CLOCK_MONOTONIC,
-                        now(CLOCK_MONOTONIC) + m->timeout_usec, 0,
+                        usec, 0,
                         mount_dispatch_timer, m);
         if (r < 0)
                 return r;
@@ -653,7 +651,7 @@ static int mount_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = mount_arm_timer(m);
+                r = mount_arm_timer(m, usec_add(u->state_change_timestamp.monotonic, m->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -725,11 +723,11 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
         r = unit_setup_exec_runtime(UNIT(m));
         if (r < 0)
-                goto fail;
+                return r;
 
-        r = mount_arm_timer(m);
+        r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
         if (r < 0)
-                goto fail;
+                return r;
 
         exec_params.environment = UNIT(m)->manager->environment;
         exec_params.confirm_spawn = UNIT(m)->manager->confirm_spawn;
@@ -745,21 +743,16 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                        m->exec_runtime,
                        &pid);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_watch_pid(UNIT(m), pid);
         if (r < 0)
                 /* FIXME: we need to do something here */
-                goto fail;
+                return r;
 
         *_pid = pid;
 
         return 0;
-
-fail:
-        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
-
-        return r;
 }
 
 static void mount_enter_dead(Mount *m, MountResult f) {
@@ -805,7 +798,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                 goto fail;
 
         if (r > 0) {
-                r = mount_arm_timer(m);
+                r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
                 if (r < 0)
                         goto fail;
 

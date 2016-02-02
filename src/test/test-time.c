@@ -176,9 +176,19 @@ static void test_get_timezones(void) {
         r = get_timezones(&zones);
         assert_se(r == 0);
 
-        STRV_FOREACH(zone, zones) {
+        STRV_FOREACH(zone, zones)
                 assert_se(timezone_is_valid(*zone));
-        }
+}
+
+static void test_usec_add(void) {
+        assert_se(usec_add(0, 0) == 0);
+        assert_se(usec_add(1, 4) == 5);
+        assert_se(usec_add(USEC_INFINITY, 5) == USEC_INFINITY);
+        assert_se(usec_add(5, USEC_INFINITY) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY-5, 2) == USEC_INFINITY-3);
+        assert_se(usec_add(USEC_INFINITY-2, 2) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY-1, 2) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY, 2) == USEC_INFINITY);
 }
 
 int main(int argc, char *argv[]) {
@@ -190,6 +200,7 @@ int main(int argc, char *argv[]) {
         test_format_timespan(USEC_PER_SEC);
         test_timezone_is_valid();
         test_get_timezones();
+        test_usec_add();
 
         return 0;
 }

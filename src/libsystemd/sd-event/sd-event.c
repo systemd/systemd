@@ -327,6 +327,10 @@ static int earliest_time_prioq_compare(const void *a, const void *b) {
         return 0;
 }
 
+static usec_t time_event_source_latest(const sd_event_source *s) {
+        return usec_add(s->time.next, s->time.accuracy);
+}
+
 static int latest_time_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
 
@@ -346,9 +350,9 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Order by time */
-        if (x->time.next + x->time.accuracy < y->time.next + y->time.accuracy)
+        if (time_event_source_latest(x) < time_event_source_latest(y))
                 return -1;
-        if (x->time.next + x->time.accuracy > y->time.next + y->time.accuracy)
+        if (time_event_source_latest(x) > time_event_source_latest(y))
                 return 1;
 
         return 0;
@@ -1066,7 +1070,6 @@ _public_ int sd_event_add_time(
         int r;
 
         assert_return(e, -EINVAL);
-        assert_return(usec != (uint64_t) -1, -EINVAL);
         assert_return(accuracy != (uint64_t) -1, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
@@ -1756,7 +1759,6 @@ _public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         struct clock_data *d;
 
         assert_return(s, -EINVAL);
-        assert_return(usec != (uint64_t) -1, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -1886,6 +1888,8 @@ static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
 
         if (a <= 0)
                 return 0;
+        if (a >= USEC_INFINITY)
+                return USEC_INFINITY;
 
         if (b <= a + 1)
                 return a;
@@ -1975,7 +1979,7 @@ static int event_arm_timer(
                 d->needs_rearm = false;
 
         a = prioq_peek(d->earliest);
-        if (!a || a->enabled == SD_EVENT_OFF) {
+        if (!a || a->enabled == SD_EVENT_OFF || a->time.next == USEC_INFINITY) {
 
                 if (d->fd < 0)
                         return 0;
@@ -1995,7 +1999,7 @@ static int event_arm_timer(
         b = prioq_peek(d->latest);
         assert_se(b && b->enabled != SD_EVENT_OFF);
 
-        t = sleep_between(e, a->time.next, b->time.next + b->time.accuracy);
+        t = sleep_between(e, a->time.next, time_event_source_latest(b));
         if (d->next == t)
                 return 0;
 

@@ -21,6 +21,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-type.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "resolved-dns-query.h"
@@ -161,6 +162,7 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
         DnsTransaction *t;
         Iterator i;
         int r;
+        unsigned n = 0;
 
         assert(c);
 
@@ -172,7 +174,13 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
                 r = dns_transaction_go(t);
                 if (r < 0)
                         return r;
+
+                n++;
         }
+
+        /* If there was nothing to start, then let's proceed immediately */
+        if (n == 0)
+                dns_query_candidate_notify(c);
 
         return 0;
 }
@@ -222,6 +230,31 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         return state;
 }
 
+static bool dns_query_candidate_is_routable(DnsQueryCandidate *c, uint16_t type) {
+        int family;
+
+        assert(c);
+
+        /* Checks whether the specified RR type matches an address family that is routable on the link(s) the scope of
+         * this candidate belongs to. Specifically, whether there's a routable IPv4 address on it if we query an A RR,
+         * or a routable IPv6 address if we query an AAAA RR. */
+
+        if (!c->query->suppress_unroutable_family)
+                return true;
+
+        if (c->scope->protocol != DNS_PROTOCOL_DNS)
+                return true;
+
+        family = dns_type_to_af(type);
+        if (family < 0)
+                return true;
+
+        if (c->scope->link)
+                return link_relevant(c->scope->link, family, false);
+        else
+                return manager_routable(c->scope->manager, family);
+}
+
 static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         DnsQuestion *question;
         DnsResourceKey *key;
@@ -236,14 +269,24 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         /* Create one transaction per question key */
         DNS_QUESTION_FOREACH(key, question) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *new_key = NULL;
+                DnsResourceKey *qkey;
+
+                if (!dns_query_candidate_is_routable(c, key->type))
+                        continue;
 
                 if (c->search_domain) {
                         r = dns_resource_key_new_append_suffix(&new_key, key, c->search_domain->name);
                         if (r < 0)
                                 goto fail;
-                }
 
-                r = dns_query_candidate_add_transaction(c, new_key ?: key);
+                        qkey = new_key;
+                } else
+                        qkey = key;
+
+                if (!dns_scope_good_key(c->scope, qkey))
+                        continue;
+
+                r = dns_query_candidate_add_transaction(c, qkey);
                 if (r < 0)
                         goto fail;
 

@@ -1411,12 +1411,6 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
-        r = dns_scope_good_key(t->scope, t->key);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EDOM;
-
         r = dns_packet_append_key(p, t->key, NULL);
         if (r < 0)
                 return r;
@@ -1498,13 +1492,6 @@ int dns_transaction_go(DnsTransaction *t) {
 
         /* Otherwise, we need to ask the network */
         r = dns_transaction_make_packet(t);
-        if (r == -EDOM) {
-                /* Not the right request to make on this network?
-                 * (i.e. an A request made on IPv6 or an AAAA request
-                 * made on IPv4, on LLMNR or mDNS.) */
-                dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
-                return 0;
-        }
         if (r < 0)
                 return r;
 
