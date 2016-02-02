@@ -2717,14 +2717,13 @@ systemd_boot_sources = \
 
 EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
 
-if ENABLE_EFI
-if HAVE_GNUEFI
 systemd_boot_objects = $(addprefix $(top_builddir)/,$(systemd_boot_sources:.c=.o))
 systemd_boot_solib = $(top_builddir)/src/boot/efi/systemd_boot.so
 systemd_boot = systemd-boot$(EFI_MACHINE_TYPE_NAME).efi
 
+if ENABLE_EFI
+if HAVE_GNUEFI
 bootlib_DATA = $(systemd_boot)
-CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(systemd_boot_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
@@ -2740,6 +2739,8 @@ $(systemd_boot): $(systemd_boot_solib)
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 endif
 endif
+
+CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
 
 # ------------------------------------------------------------------------------
 stub_headers = \
@@ -2764,14 +2765,13 @@ EXTRA_DIST += \
 	$(stub_headers) \
 	test/splash.bmp
 
-if ENABLE_EFI
-if HAVE_GNUEFI
 stub_objects = $(addprefix $(top_builddir)/,$(stub_sources:.c=.o))
 stub_solib = $(top_builddir)/src/boot/efi/stub.so
 stub = linux$(EFI_MACHINE_TYPE_NAME).efi.stub
 
+if ENABLE_EFI
+if HAVE_GNUEFI
 bootlib_DATA += $(stub)
-CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
@@ -2785,6 +2785,11 @@ $(stub_solib): $(stub_objects)
 $(stub): $(stub_solib)
 	$(AM_V_GEN)$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic \
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
+endif
+endif
+
+CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
+
 
 # ------------------------------------------------------------------------------
 CLEANFILES += test-efi-disk.img
@@ -2794,8 +2799,6 @@ test-efi-disk.img: $(systemd_boot) $(stub) test/test-efi-create-disk.sh
 
 test-efi: test-efi-disk.img
 	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
-endif
-endif
 
 EXTRA_DIST += test/test-efi-create-disk.sh
 
