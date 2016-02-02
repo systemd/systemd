@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2013 Sergey Ptashnick
+#  Copyright 2013-2016 Sergey Ptashnick
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -42,6 +42,25 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Процесс, отвечающий за журналирование системных событий, завершил работу и
 закрыл все свои файлы.
+
+# Subject: Disk space used by the journal
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Место на диске, занятое журналом
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) сейчас занимает @CURRENT_USE_PRETTY@.
+Максимальный разрешенный размер составляет @MAX_USE_PRETTY@.
+Оставляем свободными как минимум @DISK_KEEP_FREE_PRETTY@ (сейчас на диске 
+свободно @DISK_AVAILABLE_PRETTY@).
+Таким образом, предел использования составляет @LIMIT_PRETTY@, из которых
+@AVAILABLE_PRETTY@ пока свободно.
+
+Ограничения на размер журнала настраиваются при помощи параметров
+SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=, RuntimeMaxUse=, 
+RuntimeKeepFree=, RuntimeMaxFileSize= в файле /etc/systemd/journald.conf.
+Более подробные сведения вы можете получить на справочной странице 
+journald.conf(5).
 
 # Subject: Messages from a service have been suppressed
 -- a596d6fe7bfa4994828e72309e95d61e
@@ -292,3 +311,44 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Виртуальная машина @NAME@ (идентификатор главного процесса: @LEADER@) выключена.
+
+# Subject: DNSSEC mode has been turned off, as server doesn't support it
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: Механизм DNSSEC был отключен, так как DNS-сервер его не поддерживает
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+Служба разрешения имен хостов (systemd-resolved.service) определила, что
+указанный в настойках DNS-сервер не поддерживает технологию DNSSEC, и 
+автоматически отключила DNSSEC-проверки.
+
+Данное событие возникает, если в файле resolved.conf указан параметр
+DNSSEC=allow-downgrade, и вышестоящий DNS-сервер не поддерживает DNSSEC.
+Обратите внимание, что режим allow-downgrade допускает возможность атаки
+"DNSSEC downgrade", в ходе которой атакующий хакер блокирует проверки DNSSEC
+путем отправки ложных сообщений от имени DNS-сервера.
+
+Возникновение данного события может свидетельствовать как о том, что ваш 
+DNS-сервер не поддерживает DNSSEC, так и о том, что некий хакер успешно провел
+против вас атаку, направленную на блокировку DNSSEC-проверок.
+
+# Subject: DNSSEC validation failed
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: Проверка DNSSEC провалена
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+DNS-запрос или отдельная ресурсная запись не прошла проверку DNSSEC.
+Как правило, это свидетельствует о постороннем вмешательстве в канал связи.
+
+# Subject: A DNSSEC trust anchor has been revoked
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: Открытый ключ DNSSEC был отозван
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Открытый ключ (trust ahcnor) DNSSEC был отозван. Необходимо настроить новый 
+открытый ключ, либо обновить систему, чтобы получить обновленный открытый ключ.
