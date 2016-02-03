@@ -220,6 +220,10 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                 d = udev_device_get_parent(d);
         }
 
+        r = add_match_this_boot(j, arg_machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for the current boot: %m");
+
         return 0;
 }
 

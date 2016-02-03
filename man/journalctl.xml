@@ -91,8 +91,14 @@
       paths may be specified. If a file path refers to an executable
       file, this is equivalent to an <literal>_EXE=</literal> match
       for the canonicalized binary path. Similarly, if a path refers
-      to a device node, this is equivalent to a
-      <literal>_KERNEL_DEVICE=</literal> match for the device.</para>
+      to a device node then match is added for the kernel name of the
+      device (<literal>_KERNEL_DEVICE=</literal>). Also, matches for the
+      kernel names of all the parent devices are added automatically.
+      Device node paths are not stable across reboots, therefore match
+      for the current boot id (<literal>_BOOT_ID=</literal>) is
+      always added as well. Note that only the log entries for
+      the existing device nodes maybe queried by providing path to
+      the device node.</para>
 
       <para>Additional constraints may be added using options
       <option>--boot</option>, <option>--unit=</option>, etc., to
