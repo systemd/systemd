@@ -1218,6 +1218,28 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
 AM_CONDITIONAL(HAVE_GNUEFI, [test "x$have_gnuefi" = xyes])
 
 # ------------------------------------------------------------------------------
+have_tpm=no
+AC_ARG_ENABLE([tpm], AS_HELP_STRING([--enable-tpm],[Enable optional TPM support]),
+                [case "${enableval}" in
+                        yes) have_tpm=yes ;;
+                        no) have_tpm=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --enable-tpm) ;;
+                esac],
+                [have_tpm=no])
+
+if test "x${have_tpm}" != xno ; then
+        AC_DEFINE(SD_BOOT_LOG_TPM, 1, [Define if TPM should be used to log events and extend the registers])
+fi
+
+AC_ARG_WITH(tpm-pcrindex,
+        AS_HELP_STRING([--with-tpm-pcrindex=<NUM>],
+                [TPM PCR register number to use]),
+        [SD_TPM_PCR="$withval"],
+        [SD_TPM_PCR="8"])
+
+AC_DEFINE_UNQUOTED(SD_TPM_PCR, [$SD_TPM_PCR], [TPM PCR register number to use])
+
+# ------------------------------------------------------------------------------
 have_kdbus=no
 AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--disable-kdbus], [do not connect to kdbus by default]))
 if test "x$enable_kdbus" != "xno"; then
@@ -1571,6 +1593,7 @@ AC_MSG_RESULT([
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         hwdb:                    ${enable_hwdb}
+        tpm:                     ${have_tpm}
         kdbus:                   ${have_kdbus}
         Python:                  ${have_python}
         man pages:               ${have_manpages}
