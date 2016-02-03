@@ -199,23 +199,27 @@ static int mount_one(const MountPoint *p, bool relabel) {
         return 1;
 }
 
-int mount_setup_early(void) {
+static int mount_points_setup(unsigned n, bool loaded_policy) {
         unsigned i;
         int r = 0;
 
-        assert_cc(N_EARLY_MOUNT <= ELEMENTSOF(mount_table));
-
-        /* Do a minimal mount of /proc and friends to enable the most
-         * basic stuff, such as SELinux */
-        for (i = 0; i < N_EARLY_MOUNT; i ++)  {
+        for (i = 0; i < n; i ++) {
                 int j;
 
-                j = mount_one(mount_table + i, false);
+                j = mount_one(mount_table + i, loaded_policy);
                 if (j != 0 && r >= 0)
                         r = j;
         }
 
         return r;
+}
+
+int mount_setup_early(void) {
+        assert_cc(N_EARLY_MOUNT <= ELEMENTSOF(mount_table));
+
+        /* Do a minimal mount of /proc and friends to enable the most
+         * basic stuff, such as SELinux */
+        return mount_points_setup(N_EARLY_MOUNT, false);
 }
 
 int mount_cgroup_controllers(char ***join_controllers) {
@@ -352,16 +356,9 @@ static int nftw_cb(
 #endif
 
 int mount_setup(bool loaded_policy) {
-        unsigned i;
         int r = 0;
 
-        for (i = 0; i < ELEMENTSOF(mount_table); i ++) {
-                int j;
-
-                j = mount_one(mount_table + i, loaded_policy);
-                if (j != 0 && r >= 0)
-                        r = j;
-        }
+        r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy);
 
         if (r < 0)
                 return r;
