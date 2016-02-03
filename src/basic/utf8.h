@@ -40,7 +40,8 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pu
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
 char *utf8_escape_invalid(const char *s);
-char *utf8_escape_non_printable(const char *str);
+char *utf8_escape_non_printable_newline(const char *str, bool newline);
+#define utf8_escape_non_printable(str) utf8_escape_non_printable_newline(str, true);
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);
 char *utf16_to_utf8(const void *s, size_t length);

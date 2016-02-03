@@ -78,6 +78,7 @@ _arguments -s \
     '--since=[Start showing entries on or newer than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     '--until=[Stop showing entries on or older than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
+    {-G,--fields=}'[List all field names]:Fields:_list_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \
     {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \

@@ -56,6 +56,7 @@
 #include "journal-qrcode.h"
 #include "journal-vacuum.h"
 #include "journal-verify.h"
+#include "journal-fields.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
@@ -114,6 +115,8 @@ static char **arg_syslog_identifier = NULL;
 static char **arg_system_units = NULL;
 static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
+static int arg_fields_n = 0;
+static const char* arg_fields_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
 static int arg_journal_type = 0;
@@ -321,6 +324,7 @@ static void help(void) {
                "  -h --help                Show this help text\n"
                "     --version             Show package version\n"
                "  -F --field=FIELD         List all values that a specified field takes\n"
+               "  -G --fields              List field names and (optionally) values\n"
                "     --disk-usage          Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
                "     --vacuum-files=INT    Leave only the specified number of journal files\n"
@@ -416,6 +420,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unit",           required_argument, NULL, 'u'                },
                 { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
                 { "field",          required_argument, NULL, 'F'                },
+                { "fields",         optional_argument, NULL, 'G'                },
                 { "catalog",        no_argument,       NULL, 'x'                },
                 { "list-catalog",   no_argument,       NULL, ARG_LIST_CATALOG   },
                 { "dump-catalog",   no_argument,       NULL, ARG_DUMP_CATALOG   },
@@ -437,7 +442,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:F:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:F:G::xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -777,6 +782,22 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_field = optarg;
                         break;
 
+                case 'G':
+                        arg_fields_n++;
+                        if (!!optarg) {
+                                if (!!arg_fields_field) {
+                                        log_error("Please specify at most one -G/--fields=");
+                                        return -EINVAL;
+                                }
+                                arg_fields_field = optarg;
+                        }
+                        if ( !!arg_fields_field + arg_fields_n > 2 ) {
+                                log_error("Please do not specify multiple -G/--fields with -G/--fields=<value>");
+                                return -EINVAL;
+                        }
+
+                        break;
+
                 case 'x':
                         arg_catalog = true;
                         break;
@@ -840,6 +861,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_follow && arg_reverse) {
                 log_error("Please specify either --reverse= or --follow=, not both.");
+                return -EINVAL;
+        }
+
+        if (!!arg_field + (arg_fields_n>0) > 1) {
+                log_error("Please specify either -F/--field= or -G/fields, not both.");
                 return -EINVAL;
         }
 
@@ -2249,6 +2275,11 @@ int main(int argc, char *argv[]) {
                 }
 
                 r = 0;
+                goto finish;
+        }
+
+        if (arg_fields_n > 0) {
+                r = journal_fields(j, arg_fields_n, arg_fields_field);
                 goto finish;
         }
 

@@ -4042,6 +4042,10 @@ journalctl_LDADD += \
 	$(QRENCODE_LIBS)
 endif
 
+journalctl_SOURCES += \
+	src/journal/journal-fields.c \
+	src/journal/journal-fields.h
+
 test_journal_SOURCES = \
 	src/journal/test-journal.c
 

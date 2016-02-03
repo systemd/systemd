@@ -218,7 +218,7 @@ char *utf8_escape_invalid(const char *str) {
         return p;
 }
 
-char *utf8_escape_non_printable(const char *str) {
+char *utf8_escape_non_printable_newline(const char *str, bool newline) {
         char *p, *s;
 
         assert(str);
@@ -232,7 +232,7 @@ char *utf8_escape_non_printable(const char *str) {
 
                 len = utf8_encoded_valid_unichar(str);
                 if (len > 0) {
-                        if (utf8_is_printable(str, len)) {
+                        if (utf8_is_printable_newline(str, len, newline)) {
                                 s = mempcpy(s, str, len);
                                 str += len;
                         } else {

@@ -572,6 +572,48 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-G</option></term>
+        <term><option>--fields</option></term>
+        <term><option>--fields=</option></term>
+
+        <listitem>
+          <para>
+            Print all field names in the (selected part of) the journal.
+          </para><para>
+            Prefix each field name with the number of entries
+            having a field with this name,
+            the coverage of the field
+            (number of entires having a field with this name divided
+            by the total number of entries),
+            and the number of distinct values this field takes.
+          </para><para>
+            If the <option>-G</option>/<option>--fields</option>
+            option is specified twice,
+            also print each of the distinct values the field takes,
+            prefixed with the number of times this value occurs,
+            and the coverage of the value
+            (number of entries having this field value divided by
+            the total number of entries having a field with this name).
+          </para><para>
+            In general, field values are only printed for fields
+            with a maximum of 100 distinct values,
+            and the output is ellipsized to the terminal width
+            (unless the output is piped to another command, in which
+            case the output is elipsized to 1024 characters).
+          </para><para>
+            If <option>--fields=</option><replaceable>VALUE</replaceable>
+            is given, print all values this field takes,
+            prefixed with the number of times this value occurs,
+            and the coverage of the value
+            (number of entries having this field value divided by
+            the total number of entries having a field with this name).
+            In this case, all the distinct field values are printed
+            (i.e. not only the first 100 field values).
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--system</option></term>
         <term><option>--user</option></term>
 
