@@ -158,11 +158,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* Relabel first, just in case */
         if (relabel)
-                label_fix(p->where, true, true);
+                (void) label_fix(p->where, true, true);
 
         r = path_is_mount_point(p->where, AT_SYMLINK_FOLLOW);
-        if (r < 0 && r != -ENOENT)
-                return r;
+        if (r < 0 && r != -ENOENT) {
+                log_full_errno((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, r, "Failed to determine whether %s is a mount point: %m", p->where);
+                return (p->mode & MNT_FATAL) ? r : 0;
+        }
         if (r > 0)
                 return 0;
 
@@ -173,9 +175,9 @@ static int mount_one(const MountPoint *p, bool relabel) {
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
         if (relabel)
-                mkdir_p_label(p->where, 0755);
+                (void) mkdir_p_label(p->where, 0755);
         else
-                mkdir_p(p->where, 0755);
+                (void) mkdir_p(p->where, 0755);
 
         log_debug("Mounting %s to %s of type %s with options %s.",
                   p->what,
@@ -188,13 +190,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   p->flags,
                   p->options) < 0) {
-                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s at %s: %m", p->type, p->where);
+                log_full_errno((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, errno, "Failed to mount %s at %s: %m", p->type, p->where);
                 return (p->mode & MNT_FATAL) ? -errno : 0;
         }
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
-                label_fix(p->where, false, false);
+                (void) label_fix(p->where, false, false);
 
         return 1;
 }
