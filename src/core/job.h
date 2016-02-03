@@ -227,6 +227,8 @@ char *job_dbus_path(Job *j);
 
 void job_shutdown_magic(Job *j);
 
+int job_get_timeout(Job *j, usec_t *timeout) _pure_;
+
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;
 
@@ -238,7 +240,5 @@ JobMode job_mode_from_string(const char *s) _pure_;
 
 const char* job_result_to_string(JobResult t) _const_;
 JobResult job_result_from_string(const char *s) _pure_;
-
-int job_get_timeout(Job *j, uint64_t *timeout) _pure_;
 
 const char* job_type_to_access_method(JobType t);

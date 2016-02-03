@@ -3111,17 +3111,21 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 unit_add_to_dbus_queue(u);
 }
 
-static int service_get_timeout(Unit *u, uint64_t *timeout) {
+static int service_get_timeout(Unit *u, usec_t *timeout) {
         Service *s = SERVICE(u);
+        uint64_t t;
         int r;
 
         if (!s->timer_event_source)
                 return 0;
 
-        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        r = sd_event_source_get_time(s->timer_event_source, &t);
         if (r < 0)
                 return r;
+        if (t == USEC_INFINITY)
+                return 0;
 
+        *timeout = t;
         return 1;
 }
 
