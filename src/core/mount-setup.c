@@ -179,7 +179,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         else
                 (void) mkdir_p(p->where, 0755);
 
-        log_debug("Mounting %s to %s of type %s with options %s.",
+        log_info("Mounting %s to %s of type %s with options %s.",
                   p->what,
                   p->where,
                   p->type,
@@ -190,7 +190,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   p->flags,
                   p->options) < 0) {
-                log_full_errno((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, errno, "Failed to mount %s at %s: %m", p->type, p->where);
+                log_full_errno((p->mode & MNT_FATAL) ? LOG_ERR : LOG_INFO, errno, "Failed to mount %s at %s: %m", p->type, p->where);
                 return (p->mode & MNT_FATAL) ? -errno : 0;
         }
 

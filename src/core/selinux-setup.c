@@ -115,7 +115,7 @@ int mac_selinux_setup(bool *loaded_policy) {
 
                         log_warning("Failed to load new SELinux policy. Continuing with old policy.");
                 } else
-                        log_debug("Unable to load SELinux policy. Ignoring.");
+                        log_info("Unable to load SELinux policy. Ignoring.");
         }
 #endif
 
