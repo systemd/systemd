@@ -2878,6 +2878,8 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_START_POST:
                 log_unit_warning(UNIT(s), "Start-post operation timed out. Stopping.");
+                service_unwatch_control_pid(s);
+                service_kill_control_processes(s);
                 service_enter_stop(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
