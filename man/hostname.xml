@@ -64,10 +64,6 @@
     for DNS domain name labels, even though this is not a strict
     requirement.</para>
 
-    <para>Depending on the operating system, other configuration files
-    might be checked for configuration of the hostname as well,
-    however only as fallback.</para>
-
     <para>You may use
     <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     to change the value of this file during runtime from the command
