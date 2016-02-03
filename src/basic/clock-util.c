@@ -146,3 +146,17 @@ int clock_reset_timewarp(void) {
 
         return 0;
 }
+
+#define TIME_EPOCH_USEC ((usec_t) TIME_EPOCH * USEC_PER_SEC)
+
+int clock_apply_epoch(void) {
+        struct timespec ts;
+
+        if (now(CLOCK_REALTIME) >= TIME_EPOCH_USEC)
+                return 0;
+
+        if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, TIME_EPOCH_USEC)) < 0)
+                return -errno;
+
+        return 1;
+}
