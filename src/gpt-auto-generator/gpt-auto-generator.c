@@ -515,14 +515,15 @@ static int add_boot(const char *what) {
                 return log_error_errno(errno ?: EIO, "Failed to probe %s: %m", what);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
-        if (!streq(fstype, "vfat")) {
+        if (!streq_ptr(fstype, "vfat")) {
                 log_debug("Partition for /boot is not a FAT filesystem, ignoring.");
                 return 0;
         }
 
+        errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &uuid, NULL);
         if (r != 0) {
-                log_debug_errno(r, "Partition for /boot does not have a UUID, ignoring. %m");
+                log_debug_errno(errno, "Partition for /boot does not have a UUID, ignoring.");
                 return 0;
         }
 
