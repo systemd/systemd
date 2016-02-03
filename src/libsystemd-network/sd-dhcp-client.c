@@ -43,6 +43,9 @@
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
+#define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
+#define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
+
 struct sd_dhcp_client {
         unsigned n_ref;
 
@@ -101,6 +104,7 @@ struct sd_dhcp_client {
         sd_dhcp_client_cb_t cb;
         void *userdata;
         sd_dhcp_lease *lease;
+        usec_t start_delay;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -945,6 +949,7 @@ error:
 }
 
 static int client_initialize_time_events(sd_dhcp_client *client) {
+        uint64_t usec = 0;
         int r;
 
         assert(client);
@@ -952,10 +957,15 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
+        if (client->start_delay) {
+                sd_event_now(client->event, clock_boottime_or_monotonic(), &usec);
+                usec += client->start_delay;
+        }
+
         r = sd_event_add_time(client->event,
                               &client->timeout_resend,
                               clock_boottime_or_monotonic(),
-                              0, 0,
+                              usec, 0,
                               client_timeout_resend, client);
         if (r < 0)
                 goto error;
@@ -985,7 +995,7 @@ static int client_initialize_events(sd_dhcp_client *client,
         return 0;
 }
 
-static int client_start(sd_dhcp_client *client) {
+static int client_start_delayed(sd_dhcp_client *client) {
         int r;
 
         assert_return(client, -EINVAL);
@@ -1011,6 +1021,11 @@ static int client_start(sd_dhcp_client *client) {
                 client->start_time = now(clock_boottime_or_monotonic());
 
         return client_initialize_events(client, client_receive_message_raw);
+}
+
+static int client_start(sd_dhcp_client *client) {
+        client->start_delay = 0;
+        return client_start_delayed(client);
 }
 
 static int client_timeout_expire(sd_event_source *s, uint64_t usec,
@@ -1362,6 +1377,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                                  int len) {
         DHCP_CLIENT_DONT_DESTROY(client);
+        char time_string[FORMAT_TIMESPAN_MAX];
         int r = 0, notify_event = 0;
 
         assert(client);
@@ -1409,6 +1425,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                 r = client_handle_ack(client, message, len);
                 if (r >= 0) {
+                        client->start_delay = 0;
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
                         client->receive_message =
@@ -1458,11 +1475,15 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         if (r < 0)
                                 goto error;
 
-                        r = client_start(client);
+                        r = client_start_delayed(client);
                         if (r < 0)
                                 goto error;
 
-                        log_dhcp_client(client, "REBOOTED");
+                        log_dhcp_client(client, "REBOOT in %s", format_timespan(time_string, FORMAT_TIMESPAN_MAX,
+                                                                                client->start_delay, USEC_PER_SEC));
+
+                        client->start_delay = CLAMP(client->start_delay * 2,
+                                                    RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
 
                         return 0;
                 } else if (r == -ENOMSG)
