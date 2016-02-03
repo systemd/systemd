@@ -128,6 +128,11 @@
     <para>Note that these functions currently are not influenced by
     matches set with <function>sd_journal_add_match()</function> but
     this might change in a later version of this software.</para>
+
+    <para>To enumerate all field names currently in use (and thus all suitable field parameters for
+    <function>sd_journal_query_unique()</function>), use the
+    <citerefentry><refentrytitle>sd_journal_enumerate_fields</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call.</para>
   </refsect1>
 
   <refsect1>
@@ -167,25 +172,25 @@
 #include &lt;systemd/sd-journal.h&gt;
 
 int main(int argc, char *argv[]) {
-  sd_journal *j;
-  const void *d;
-  size_t l;
-  int r;
+        sd_journal *j;
+        const void *d;
+        size_t l;
+        int r;
 
-  r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
-  if (r &lt; 0) {
-    fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
-    return 1;
-  }
-  r = sd_journal_query_unique(j, "_SYSTEMD_UNIT");
-  if (r &lt; 0) {
-    fprintf(stderr, "Failed to query journal: %s\n", strerror(-r));
-    return 1;
-  }
-  SD_JOURNAL_FOREACH_UNIQUE(j, d, l)
-    printf("%.*s\n", (int) l, (const char*) d);
-  sd_journal_close(j);
-  return 0;
+        r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
+        if (r &lt; 0) {
+                fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
+                return 1;
+        }
+        r = sd_journal_query_unique(j, "_SYSTEMD_UNIT");
+        if (r &lt; 0) {
+                fprintf(stderr, "Failed to query journal: %s\n", strerror(-r));
+                return 1;
+        }
+        SD_JOURNAL_FOREACH_UNIQUE(j, d, l)
+                printf("%.*s\n", (int) l, (const char*) d);
+        sd_journal_close(j);
+        return 0;
 }</programlisting>
 
   </refsect1>
@@ -198,6 +203,7 @@ int main(int argc, char *argv[]) {
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_journal_enumerate_fields</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>

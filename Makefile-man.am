@@ -72,6 +72,7 @@ MANPAGES += \
 	man/sd_id128_to_string.3 \
 	man/sd_is_fifo.3 \
 	man/sd_journal_add_match.3 \
+	man/sd_journal_enumerate_fields.3 \
 	man/sd_journal_get_catalog.3 \
 	man/sd_journal_get_cursor.3 \
 	man/sd_journal_get_cutoff_realtime_usec.3 \
@@ -237,6 +238,7 @@ MANPAGES_ALIAS += \
 	man/SD_JOURNAL_FOREACH.3 \
 	man/SD_JOURNAL_FOREACH_BACKWARDS.3 \
 	man/SD_JOURNAL_FOREACH_DATA.3 \
+	man/SD_JOURNAL_FOREACH_FIELD.3 \
 	man/SD_JOURNAL_FOREACH_UNIQUE.3 \
 	man/SD_JOURNAL_INVALIDATE.3 \
 	man/SD_JOURNAL_LOCAL_ONLY.3 \
@@ -397,6 +399,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_process.3 \
 	man/sd_journal_reliable_fd.3 \
 	man/sd_journal_restart_data.3 \
+	man/sd_journal_restart_fields.3 \
 	man/sd_journal_restart_unique.3 \
 	man/sd_journal_seek_cursor.3 \
 	man/sd_journal_seek_monotonic_usec.3 \
@@ -565,6 +568,7 @@ man/SD_JOURNAL_CURRENT_USER.3: man/sd_journal_open.3
 man/SD_JOURNAL_FOREACH.3: man/sd_journal_next.3
 man/SD_JOURNAL_FOREACH_BACKWARDS.3: man/sd_journal_next.3
 man/SD_JOURNAL_FOREACH_DATA.3: man/sd_journal_get_data.3
+man/SD_JOURNAL_FOREACH_FIELD.3: man/sd_journal_enumerate_fields.3
 man/SD_JOURNAL_FOREACH_UNIQUE.3: man/sd_journal_query_unique.3
 man/SD_JOURNAL_INVALIDATE.3: man/sd_journal_get_fd.3
 man/SD_JOURNAL_LOCAL_ONLY.3: man/sd_journal_open.3
@@ -725,6 +729,7 @@ man/sd_journal_printv.3: man/sd_journal_print.3
 man/sd_journal_process.3: man/sd_journal_get_fd.3
 man/sd_journal_reliable_fd.3: man/sd_journal_get_fd.3
 man/sd_journal_restart_data.3: man/sd_journal_get_data.3
+man/sd_journal_restart_fields.3: man/sd_journal_enumerate_fields.3
 man/sd_journal_restart_unique.3: man/sd_journal_query_unique.3
 man/sd_journal_seek_cursor.3: man/sd_journal_seek_head.3
 man/sd_journal_seek_monotonic_usec.3: man/sd_journal_seek_head.3
@@ -1015,6 +1020,9 @@ man/SD_JOURNAL_FOREACH_BACKWARDS.html: man/sd_journal_next.html
 	$(html-alias)
 
 man/SD_JOURNAL_FOREACH_DATA.html: man/sd_journal_get_data.html
+	$(html-alias)
+
+man/SD_JOURNAL_FOREACH_FIELD.html: man/sd_journal_enumerate_fields.html
 	$(html-alias)
 
 man/SD_JOURNAL_FOREACH_UNIQUE.html: man/sd_journal_query_unique.html
@@ -1495,6 +1503,9 @@ man/sd_journal_reliable_fd.html: man/sd_journal_get_fd.html
 	$(html-alias)
 
 man/sd_journal_restart_data.html: man/sd_journal_get_data.html
+	$(html-alias)
+
+man/sd_journal_restart_fields.html: man/sd_journal_enumerate_fields.html
 	$(html-alias)
 
 man/sd_journal_restart_unique.html: man/sd_journal_query_unique.html
@@ -2534,6 +2545,7 @@ EXTRA_DIST += \
 	man/sd_id128_to_string.xml \
 	man/sd_is_fifo.xml \
 	man/sd_journal_add_match.xml \
+	man/sd_journal_enumerate_fields.xml \
 	man/sd_journal_get_catalog.xml \
 	man/sd_journal_get_cursor.xml \
 	man/sd_journal_get_cutoff_realtime_usec.xml \

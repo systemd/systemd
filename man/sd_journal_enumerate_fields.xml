@@ -1,0 +1,161 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2016 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_journal_enumerate_fields">
+
+  <refentryinfo>
+    <title>sd_journal_enumerate_fields</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_journal_enumerate_fields</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_journal_enumerate_fields</refname>
+    <refname>sd_journal_restart_fields</refname>
+    <refname>SD_JOURNAL_FOREACH_FIELD</refname>
+    <refpurpose>Read used field names from the journal</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-journal.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_enumerate_fields</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>const char **<parameter>field</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_journal_restart_fields</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef><function>SD_JOURNAL_FOREACH_FIELD</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>const char *<parameter>field</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_journal_enumerate_fields()</function> may be used to iterate through all field names used in the
+    opened journal files. On each invocation the next field name is returned. The order of the returned field names is
+    not defined. It takes two arguments: the journal context object, plus a pointer to a constant string pointer where
+    the field name is stored in. The returned data is in a read-only memory map and is only valid until the next
+    invocation of <function>sd_journal_enumerate_fields()</function>. Note that this call is subject to the data field
+    size threshold as controlled by <function>sd_journal_set_data_threshold()</function>.</para>
+
+    <para><function>sd_journal_restart_fields()</function> resets the field name enumeration index to the beginning of
+    the list. The next invocation of <function>sd_journal_enumerate_fields()</function> will return the first field
+    name again.</para>
+
+    <para>The <function>SD_JOURNAL_FOREACH_FIELD()</function> macro may be used as a handy wrapper around
+    <function>sd_journal_restart_fields()</function> and <function>sd_journal_enumerate_fields()</function>.</para>
+
+    <para>These functions currently are not influenced by matches set with <function>sd_journal_add_match()</function>
+    but this might change in a later version of this software.</para>
+
+    <para>To retrieve the possible values a specific field can take use
+    <citerefentry><refentrytitle>sd_journal_query_unique</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para><function>sd_journal_enumerate_fields()</function> returns a
+    positive integer if the next field name has been read, 0 when no
+    more field names are known, or a negative errno-style error code.
+    <function>sd_journal_restart_fields()</function> returns
+    nothing.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para>The <function>sd_journal_enumerate_fields()</function> and <function>sd_journal_restart_fields()</function>
+    interfaces are available as a shared library, which can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Use the <function>SD_JOURNAL_FOREACH_FIELD</function> macro to iterate through all field names in use in the
+    current journal.</para>
+
+    <programlisting>#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;systemd/sd-journal.h&gt;
+
+int main(int argc, char *argv[]) {
+        sd_journal *j;
+        const char *field;
+        int r;
+
+        r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
+        if (r &lt; 0) {
+                fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
+                return 1;
+        }
+        SD_JOURNAL_FOREACH_FIELD(j, field)
+                printf("%s\n", field);
+        sd_journal_close(j);
+        return 0;
+}</programlisting>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_journal_query_unique</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -481,3 +481,11 @@ global:
         sd_bus_path_encode_many;
         sd_listen_fds_with_names;
 } LIBSYSTEMD_226;
+
+LIBSYSTEMD_229 {
+global:
+        sd_journal_has_runtime_files;
+        sd_journal_has_persistent_files;
+        sd_journal_enumerate_fields;
+        sd_journal_restart_fields;
+} LIBSYSTEMD_227;
