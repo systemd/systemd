@@ -1635,6 +1635,8 @@ static void service_enter_running(Service *s, ServiceResult f) {
         if (f != SERVICE_SUCCESS)
                 s->result = f;
 
+        service_unwatch_control_pid(s);
+
         if (service_good(s)) {
 
                 /* If there are any queued up sd_notify()
@@ -2887,8 +2889,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_RELOAD:
-                log_unit_warning(UNIT(s), "Reload operation timed out. Stopping.");
-                service_unwatch_control_pid(s);
+                log_unit_warning(UNIT(s), "Reload operation timed out. Killing reload process.");
                 service_kill_control_processes(s);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
                 service_enter_running(s, SERVICE_SUCCESS);
