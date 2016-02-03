@@ -249,15 +249,68 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--as-pid2</option></term>
+
+        <listitem><para>Invoke the shell or specified program as process ID (PID) 2 instead of PID 1 (init). By
+        default, if neither this option nor <option>--boot</option> is used, the selected binary is run as process with
+        PID 1, a mode only suitable for programs that are aware of the special semantics that the process with PID 1
+        has on UNIX. For example, it needs to reap all processes reparented to it, and should implement
+        <command>sysvinit</command> compatible signal handling (specifically: it needs to reboot on SIGINT, reexecute
+        on SIGTERM, reload configuration on SIGHUP, and so on). With <option>--as-pid2</option> a minimal stub init
+        process is run as PID 1 and the selected binary is executed as PID 2 (and hence does not need to implement any
+        special semantics). The stub init process will reap processes as necessary and react appropriately to
+        signals. It is recommended to use this mode to invoke arbitrary commands in containers, unless they have been
+        modified to run correctly as PID 1. Or in other words: this switch should be used for pretty much all commands,
+        except when the command refers to an init or shell implementation, as these are generally capable of running
+        correctly as PID 1). This option may not be combined with <option>--boot</option> or
+        <option>--share-system</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-b</option></term>
         <term><option>--boot</option></term>
 
-        <listitem><para>Automatically search for an init binary and
-        invoke it instead of a shell or a user supplied program. If
-        this option is used, arguments specified on the command line
-        are used as arguments for the init binary. This option may not
-        be combined with <option>--share-system</option>.
-        </para></listitem>
+        <listitem><para>Automatically search for an init binary and invoke it as PID 1, instead of a shell or a user
+        supplied program. If this option is used, arguments specified on the command line are used as arguments for the
+        init binary. This option may not be combined with <option>--as-pid2</option> or
+        <option>--share-system</option>.</para>
+
+        <para>The following table explains the different modes of invocation and relationship to
+        <option>--as-pid2</option> (see above):</para>
+
+        <table>
+          <title>Invocation Mode</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="switch" />
+            <colspec colname="explanation" />
+            <thead>
+              <row>
+                <entry>Switch</entry>
+                <entry>Explanation</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>Neither <option>--as-pid2</option> nor <option>--boot</option> specified</entry>
+                <entry>The passed parameters are interpreted as command line, which is executed as PID 1 in the container.</entry>
+              </row>
+
+              <row>
+                <entry><option>--as-pid2</option> specified</entry>
+                <entry>The passed parameters are interpreted as command line, which are executed as PID 2 in the container. A stub init process is run as PID 1.</entry>
+              </row>
+
+              <row>
+                <entry><option>--boot</option> specified</entry>
+                <entry>An init binary as automatically searched and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
+              </row>
+
+            </tbody>
+          </tgroup>
+        </table>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
