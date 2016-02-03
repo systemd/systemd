@@ -189,7 +189,8 @@
     <function>udev_device_new_from_device_id()</function> and
     <function>udev_device_new_from_environment()</function> return a
     pointer to the allocated udev device. On failure,
-    <constant>NULL</constant> is returned.
+    <constant>NULL</constant> is returned,
+    and <varname>errno</varname> is set appropriately.
     <function>udev_device_ref()</function> returns the argument
     that it was passed, unmodified.
     <function>udev_device_unref()</function> always returns
