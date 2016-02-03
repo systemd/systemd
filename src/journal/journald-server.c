@@ -546,11 +546,20 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                         return;
         }
 
-        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
-        if (r >= 0) {
-                server_schedule_sync(s, priority);
-                return;
-        }
+        do {
+                r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+                if (r >= 0) {
+                        server_schedule_sync(s, priority);
+                        return;
+                }
+
+                /* ENOMEM won't be uncommon with mremap() growing our
+                 * MAP_PRIVATE mmap without REMAP_MAYMOVE, when that happens
+                 * we'll just synchronously and finalize the offline and
+                 * quietly retry in the MAP_SHARED map. */
+        } while (r == -ENOMEM &&
+                 f->offline_fsync_in_progress &&
+                 !(r = journal_file_set_offline_finalize(f, true)));
 
         if (vacuumed || !shall_try_append_again(f, r)) {
                 log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));

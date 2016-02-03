@@ -37,6 +37,7 @@ int mmap_cache_get(
         MMapCache *m,
         int fd,
         int prot,
+        bool private,
         unsigned context,
         bool keep_always,
         uint64_t offset,
@@ -49,3 +50,4 @@ unsigned mmap_cache_get_hit(MMapCache *m);
 unsigned mmap_cache_get_missed(MMapCache *m);
 
 bool mmap_cache_got_sigbus(MMapCache *m, int fd);
+int mmap_cache_private_to_shared_fd(MMapCache *m, int fd);
