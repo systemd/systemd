@@ -383,6 +383,11 @@
         used to start long-running processes. All processes forked
         off by processes invoked via <varname>ExecStartPre=</varname> will
         be killed before the next service process is run.</para>
+
+        <para>Note that if any of the commands specified in <varname>ExecStartPre=</varname>,
+        <varname>ExecStart=</varname>, or <varname>ExecStartPost=</varname> fail (and are not prefixed with
+        <literal>-</literal>, see above) or time out before the service is fully up, execution continues with commands
+        specified in <varname>ExecStopPost=</varname>, the commands in <varname>ExecStop=</varname> are skipped.</para>
         </listitem>
       </varlistentry>
 
@@ -438,21 +443,36 @@
         <constant>SIGKILL</constant> immediately after the command
         exited, this would not result in a clean stop. The specified
         command should hence be a synchronous operation, not an
-        asynchronous one.</para></listitem>
+        asynchronous one.</para>
+
+        <para>Note that the commands specified in <varname>ExecStop=</varname> are only executed when the service
+        started successfuly first. They are not invoked if the service was never started at all, or in case its
+        start-up failed, for example because any of the commands specified in <varname>ExecStart=</varname>,
+        <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname> failed (and weren't prefixed with
+        <literal>-</literal>, see above) or timed out. Use <varname>ExecStopPost=</varname> to invoke commands when a
+        service failed to start up correctly and is shut down again.</para>
+
+        <para>It is recommended to use this setting for commands that communicate with the service requesting clean
+        termination. When the commands specified with this option are executed it should be assumed that the service is
+        still fully up and is able to react correctly to all commands. For post-mortem clean-up steps use
+        <varname>ExecStopPost=</varname> instead.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ExecStopPost=</varname></term>
-        <listitem><para>Additional commands that are executed after
-        the service was stopped. This includes cases where the
-        commands configured in <varname>ExecStop=</varname> were used,
-        where the service does not have any
-        <varname>ExecStop=</varname> defined, or where the service
-        exited unexpectedly. This argument takes multiple command
-        lines, following the same scheme as described for
-        <varname>ExecStart=</varname>. Use of these settings is
-        optional. Specifier and environment variable substitution is
-        supported.</para></listitem>
+        <listitem><para>Additional commands that are executed after the service is stopped. This includes cases where
+        the commands configured in <varname>ExecStop=</varname> were used, where the service does not have any
+        <varname>ExecStop=</varname> defined, or where the service exited unexpectedly. This argument takes multiple
+        command lines, following the same scheme as described for <varname>ExecStart=</varname>. Use of these settings
+        is optional. Specifier and environment variable substitution is supported. Note that – unlike
+        <varname>ExecStop=</varname> – commands specified with this setting are invoked when a service failed to start
+        up correctly and is shut down again.</para>
+
+        <para>It is recommended to use this setting for clean-up operations that shall be executed even when the
+        service failed to start up correctly. Commands configured with this setting need to be able to operate even if
+        the service failed starting up half-way and left incompletely initialized data around. As the service's
+        processes have been terminated already when the commands specified with this setting are executed they should
+        not attempt to communicate with them.</para></listitem>
       </varlistentry>
 
       <varlistentry>

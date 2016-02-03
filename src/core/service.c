@@ -2788,7 +2788,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_START_POST:
                                 if (f != SERVICE_SUCCESS) {
-                                        service_enter_stop(s, f);
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
                                         break;
                                 }
 
@@ -2878,7 +2878,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_START_POST:
                 log_unit_warning(UNIT(s), "Start-post operation timed out. Stopping.");
-                service_enter_stop(s, SERVICE_FAILURE_TIMEOUT);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_RUNNING:
