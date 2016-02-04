@@ -51,6 +51,7 @@ struct DnsCacheItem {
         bool authenticated:1;
         bool shared_owner:1;
 
+        int ifindex;
         int owner_family;
         union in_addr_union owner_address;
 
@@ -329,6 +330,7 @@ static void dns_cache_item_update_positive(
                 bool authenticated,
                 bool shared_owner,
                 usec_t timestamp,
+                int ifindex,
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
@@ -356,6 +358,8 @@ static void dns_cache_item_update_positive(
         i->authenticated = authenticated;
         i->shared_owner = shared_owner;
 
+        i->ifindex = ifindex;
+
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
 
@@ -368,6 +372,7 @@ static int dns_cache_put_positive(
                 bool authenticated,
                 bool shared_owner,
                 usec_t timestamp,
+                int ifindex,
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
@@ -414,6 +419,7 @@ static int dns_cache_put_positive(
                                 authenticated,
                                 shared_owner,
                                 timestamp,
+                                ifindex,
                                 owner_family,
                                 owner_address);
                 return 0;
@@ -436,6 +442,7 @@ static int dns_cache_put_positive(
         i->until = calculate_until(rr, (uint32_t) -1, timestamp, false);
         i->authenticated = authenticated;
         i->shared_owner = shared_owner;
+        i->ifindex = ifindex;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
         i->prioq_idx = PRIOQ_IDX_NULL;
@@ -615,7 +622,7 @@ int dns_cache_put(
         DnsResourceRecord *soa = NULL, *rr;
         DnsAnswerFlags flags;
         unsigned cache_keys;
-        int r;
+        int r, ifindex;
 
         assert(c);
         assert(owner_address);
@@ -653,7 +660,7 @@ int dns_cache_put(
                 timestamp = now(clock_boottime_or_monotonic());
 
         /* Second, add in positive entries for all contained RRs */
-        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
+        DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
                 if ((flags & DNS_ANSWER_CACHEABLE) == 0)
                         continue;
 
@@ -669,6 +676,7 @@ int dns_cache_put(
                                 flags & DNS_ANSWER_AUTHENTICATED,
                                 flags & DNS_ANSWER_SHARED_OWNER,
                                 timestamp,
+                                ifindex,
                                 owner_family, owner_address);
                 if (r < 0)
                         goto fail;
@@ -922,7 +930,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, int *rcode, DnsAnswer **r
                 if (!j->rr)
                         continue;
 
-                r = dns_answer_add(answer, j->rr, 0, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
+                r = dns_answer_add(answer, j->rr, j->ifindex, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
                 if (r < 0)
                         return r;
         }

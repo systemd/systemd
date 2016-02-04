@@ -1,11 +1,9 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #pragma once
 
 /***
   This file is part of systemd.
 
-  Copyright 2010-2012 Lennart Poettering
+  Copyright 2016 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,11 +19,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <time.h>
-
-int clock_is_localtime(void);
-int clock_set_timezone(int *min);
-int clock_reset_timewarp(void);
-int clock_get_hwclock(struct tm *tm);
-int clock_set_hwclock(const struct tm *tm);
-int clock_apply_epoch(void);
+int stub_pid1(void);

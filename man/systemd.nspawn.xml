@@ -141,15 +141,21 @@
       <varlistentry>
         <term><varname>Boot=</varname></term>
 
-        <listitem><para>Takes a boolean argument, which defaults to off. If
-        enabled, <command>systemd-nspawn</command> will automatically
-        search for an <filename>init</filename> executable and invoke
-        it. In this case, the specified parameters using
-        <varname>Parameters=</varname> are passed as additional
-        arguments to the <filename>init</filename> process. This
-        setting corresponds to the <option>--boot</option> switch on
-        the <command>systemd-nspawn</command> command
-        line. </para></listitem>
+        <listitem><para>Takes a boolean argument, which defaults to off. If enabled, <command>systemd-nspawn</command>
+        will automatically search for an <filename>init</filename> executable and invoke it. In this case, the
+        specified parameters using <varname>Parameters=</varname> are passed as additional arguments to the
+        <filename>init</filename> process. This setting corresponds to the <option>--boot</option> switch on the
+        <command>systemd-nspawn</command> command line. This option may not be combined with
+        <varname>ProcessTwo=yes</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProcessTwo=</varname></term>
+
+        <listitem><para>Takes a boolean argument, which defaults to off. If enabled, the specified program is run as
+        PID 2. A stub init process is run as PID 1. This setting corresponds to the <option>--as-pid2</option> switch
+        on the <command>systemd-nspawn</command> command line. This option may not be combined with
+        <varname>Boot=yes</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -183,6 +189,14 @@
         name to invoke the main process of the container as. This user
         must be known in the container's user database. This
         corresponds to the <option>--user=</option> command line
+        switch.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>WorkingDirectory=</varname></term>
+
+        <listitem><para>Selects the working directory for the process invoked in the container. Expects an absolute
+        path in the container's file system namespace. This corresponds to the <option>--chdir=</option> command line
         switch.</para></listitem>
       </varlistentry>
 

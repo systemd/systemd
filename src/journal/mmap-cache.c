@@ -40,9 +40,9 @@ typedef struct FileDescriptor FileDescriptor;
 struct Window {
         MMapCache *cache;
 
-        bool invalidated;
-        bool keep_always;
-        bool in_unused;
+        bool invalidated:1;
+        bool keep_always:1;
+        bool in_unused:1;
 
         int prot;
         void *ptr;
@@ -77,7 +77,6 @@ struct MMapCache {
         unsigned n_windows;
 
         unsigned n_hit, n_missed;
-
 
         Hashmap *fds;
         Context *contexts[MMAP_CACHE_MAX_CONTEXTS];
@@ -408,7 +407,7 @@ static int try_context(
         if (c->window->fd->sigbus)
                 return -EIO;
 
-        c->window->keep_always |= keep_always;
+        c->window->keep_always = c->window->keep_always || keep_always;
 
         *ret = (uint8_t*) c->window->ptr + (offset - c->window->offset);
         return 1;
@@ -454,7 +453,7 @@ static int find_mmap(
                 return -ENOMEM;
 
         context_attach_window(c, w);
-        w->keep_always += keep_always;
+        w->keep_always = w->keep_always || keep_always;
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 1;

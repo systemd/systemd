@@ -192,6 +192,8 @@ static void test_usec_add(void) {
 }
 
 int main(int argc, char *argv[]) {
+        uintmax_t x;
+
         test_parse_sec();
         test_parse_time();
         test_parse_nsec();
@@ -201,6 +203,14 @@ int main(int argc, char *argv[]) {
         test_timezone_is_valid();
         test_get_timezones();
         test_usec_add();
+
+        /* Ensure time_t is signed */
+        assert_cc((time_t) -1 < (time_t) 1);
+
+        /* Ensure TIME_T_MAX works correctly */
+        x = (uintmax_t) TIME_T_MAX;
+        x ++;
+        assert((time_t) x < 0);
 
         return 0;
 }

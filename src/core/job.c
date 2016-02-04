@@ -1165,10 +1165,10 @@ void job_shutdown_magic(Job *j) {
         asynchronous_sync();
 }
 
-int job_get_timeout(Job *j, uint64_t *timeout) {
+int job_get_timeout(Job *j, usec_t *timeout) {
+        usec_t x = USEC_INFINITY, y = USEC_INFINITY;
         Unit *u = j->unit;
-        uint64_t x = -1, y = -1;
-        int r = 0, q = 0;
+        int r;
 
         assert(u);
 
@@ -1176,20 +1176,18 @@ int job_get_timeout(Job *j, uint64_t *timeout) {
                 r = sd_event_source_get_time(j->timer_event_source, &x);
                 if (r < 0)
                         return r;
-                r = 1;
         }
 
         if (UNIT_VTABLE(u)->get_timeout) {
-                q = UNIT_VTABLE(u)->get_timeout(u, &y);
-                if (q < 0)
-                        return q;
+                r = UNIT_VTABLE(u)->get_timeout(u, &y);
+                if (r < 0)
+                        return r;
         }
 
-        if (r == 0 && q == 0)
+        if (x == USEC_INFINITY && y == USEC_INFINITY)
                 return 0;
 
         *timeout = MIN(x, y);
-
         return 1;
 }
 

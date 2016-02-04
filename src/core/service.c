@@ -1635,6 +1635,8 @@ static void service_enter_running(Service *s, ServiceResult f) {
         if (f != SERVICE_SUCCESS)
                 s->result = f;
 
+        service_unwatch_control_pid(s);
+
         if (service_good(s)) {
 
                 /* If there are any queued up sd_notify()
@@ -2788,7 +2790,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_START_POST:
                                 if (f != SERVICE_SUCCESS) {
-                                        service_enter_stop(s, f);
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
                                         break;
                                 }
 
@@ -2878,7 +2880,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
         case SERVICE_START_POST:
                 log_unit_warning(UNIT(s), "Start-post operation timed out. Stopping.");
-                service_enter_stop(s, SERVICE_FAILURE_TIMEOUT);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_RUNNING:
@@ -2887,8 +2889,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_RELOAD:
-                log_unit_warning(UNIT(s), "Reload operation timed out. Stopping.");
-                service_unwatch_control_pid(s);
+                log_unit_warning(UNIT(s), "Reload operation timed out. Killing reload process.");
                 service_kill_control_processes(s);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
                 service_enter_running(s, SERVICE_SUCCESS);
@@ -3110,17 +3111,21 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 unit_add_to_dbus_queue(u);
 }
 
-static int service_get_timeout(Unit *u, uint64_t *timeout) {
+static int service_get_timeout(Unit *u, usec_t *timeout) {
         Service *s = SERVICE(u);
+        uint64_t t;
         int r;
 
         if (!s->timer_event_source)
                 return 0;
 
-        r = sd_event_source_get_time(s->timer_event_source, timeout);
+        r = sd_event_source_get_time(s->timer_event_source, &t);
         if (r < 0)
                 return r;
+        if (t == USEC_INFINITY)
+                return 0;
 
+        *timeout = t;
         return 1;
 }
 

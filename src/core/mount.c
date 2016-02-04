@@ -1556,17 +1556,21 @@ static void mount_shutdown(Manager *m) {
         m->mount_monitor = NULL;
 }
 
-static int mount_get_timeout(Unit *u, uint64_t *timeout) {
+static int mount_get_timeout(Unit *u, usec_t *timeout) {
         Mount *m = MOUNT(u);
+        usec_t t;
         int r;
 
         if (!m->timer_event_source)
                 return 0;
 
-        r = sd_event_source_get_time(m->timer_event_source, timeout);
+        r = sd_event_source_get_time(m->timer_event_source, &t);
         if (r < 0)
                 return r;
+        if (t == USEC_INFINITY)
+                return 0;
 
+        *timeout = t;
         return 1;
 }
 
