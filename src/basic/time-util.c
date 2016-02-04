@@ -117,9 +117,8 @@ dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, us
                 ts->realtime = ts->monotonic = USEC_INFINITY;
                 return ts;
         }
-        ts->realtime = now(CLOCK_REALTIME);
-        ts->monotonic = now(CLOCK_MONOTONIC);
 
+        dual_timestamp_get(ts);
         delta = (int64_t) now(clock_boottime_or_monotonic()) - (int64_t) u;
 
         if ((int64_t) ts->realtime > delta)
