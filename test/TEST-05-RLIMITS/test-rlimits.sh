@@ -14,4 +14,3 @@ set -o pipefail
 [[ "$(ulimit -n -H)" = "16384" ]]
 
 touch /testok
-exit 0

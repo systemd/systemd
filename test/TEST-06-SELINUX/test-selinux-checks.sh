@@ -10,4 +10,3 @@ runcon -t systemd_test_reload_t systemctl reload hola
 runcon -t systemd_test_stop_t systemctl stop hola
 
 touch /testok
-exit 0
