@@ -247,6 +247,7 @@ static int journal_file_refresh_header(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         r = sd_id128_get_machine(&f->header->machine_id);
         if (r < 0)
@@ -273,6 +274,7 @@ static int journal_file_verify_header(JournalFile *f) {
         uint32_t flags;
 
         assert(f);
+        assert(f->header);
 
         if (memcmp(f->header->signature, HEADER_SIGNATURE, 8))
                 return -EBADMSG;
@@ -381,6 +383,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         int r;
 
         assert(f);
+        assert(f->header);
 
         /* We assume that this file is not sparse, and we know that
          * for sure, since we always call posix_fallocate()
@@ -544,6 +547,7 @@ static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
         uint64_t r;
 
         assert(f);
+        assert(f->header);
 
         r = le64toh(f->header->tail_entry_seqnum) + 1;
 
@@ -573,6 +577,7 @@ int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, O
         void *t;
 
         assert(f);
+        assert(f->header);
         assert(type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX);
         assert(size >= sizeof(ObjectHeader));
         assert(offset);
@@ -622,6 +627,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         /* We estimate that we need 1 hash table entry per 768 bytes
            of journal file and we want to make sure we never get
@@ -655,6 +661,7 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         /* We use a fixed size hash table for the fields as this
          * number should grow very slowly only */
@@ -681,6 +688,7 @@ int journal_file_map_data_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         if (f->data_hash_table)
                 return 0;
@@ -706,6 +714,7 @@ int journal_file_map_field_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+        assert(f->header);
 
         if (f->field_hash_table)
                 return 0;
@@ -735,6 +744,7 @@ static int journal_file_link_field(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(o);
         assert(offset > 0);
 
@@ -778,6 +788,7 @@ static int journal_file_link_data(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(o);
         assert(offset > 0);
 
@@ -826,6 +837,7 @@ int journal_file_find_field_object_with_hash(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(field && size > 0);
 
         /* If the field hash table is empty, we can't find anything */
@@ -897,6 +909,7 @@ int journal_file_find_data_object_with_hash(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(data || size == 0);
 
         /* If there's no data hash table, then there's no entry. */
@@ -1193,6 +1206,7 @@ static int link_entry_into_array(JournalFile *f,
         Object *o;
 
         assert(f);
+        assert(f->header);
         assert(first);
         assert(idx);
         assert(p > 0);
@@ -1313,6 +1327,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         int r;
 
         assert(f);
+        assert(f->header);
         assert(o);
         assert(offset > 0);
 
@@ -1363,6 +1378,7 @@ static int journal_file_append_entry_internal(
         int r;
 
         assert(f);
+        assert(f->header);
         assert(items || n_items == 0);
         assert(ts);
 
@@ -1507,6 +1523,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         struct dual_timestamp _ts;
 
         assert(f);
+        assert(f->header);
         assert(iovec || n_iovec == 0);
 
         if (!ts) {
@@ -2022,6 +2039,8 @@ int journal_file_move_to_entry_by_seqnum(
                 direction_t direction,
                 Object **ret,
                 uint64_t *offset) {
+        assert(f);
+        assert(f->header);
 
         return generic_array_bisect(f,
                                     le64toh(f->header->entry_array_offset),
@@ -2057,6 +2076,8 @@ int journal_file_move_to_entry_by_realtime(
                 direction_t direction,
                 Object **ret,
                 uint64_t *offset) {
+        assert(f);
+        assert(f->header);
 
         return generic_array_bisect(f,
                                     le64toh(f->header->entry_array_offset),
@@ -2149,7 +2170,9 @@ void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
 
 int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         assert(af);
+        assert(af->header);
         assert(bf);
+        assert(bf->header);
         assert(af->location_type == LOCATION_SEEK);
         assert(bf->location_type == LOCATION_SEEK);
 
@@ -2209,6 +2232,7 @@ int journal_file_next_entry(
         int r;
 
         assert(f);
+        assert(f->header);
 
         n = le64toh(f->header->n_entries);
         if (n <= 0)
@@ -2491,6 +2515,7 @@ void journal_file_dump(JournalFile *f) {
         uint64_t p;
 
         assert(f);
+        assert(f->header);
 
         journal_file_print_header(f);
 
@@ -2575,6 +2600,7 @@ void journal_file_print_header(JournalFile *f) {
         char bytes[FORMAT_BYTES_MAX];
 
         assert(f);
+        assert(f->header);
 
         printf("File Path: %s\n"
                "File ID: %s\n"
@@ -3180,6 +3206,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {
         assert(f);
+        assert(f->header);
         assert(from || to);
 
         if (from) {
@@ -3243,6 +3270,7 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
         assert(f);
+        assert(f->header);
 
         /* If we gained new header fields we gained new features,
          * hence suggest a rotation */
