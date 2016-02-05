@@ -173,10 +173,11 @@ _pure_ static bool window_matches(Window *w, int fd, int prot, uint64_t offset, 
                 offset + size <= w->offset + w->size;
 }
 
-static Window *window_add(MMapCache *m) {
+static Window *window_add(MMapCache *m, FileDescriptor *fd, int prot, bool keep_always, uint64_t offset, size_t size, void *ptr) {
         Window *w;
 
         assert(m);
+        assert(fd);
 
         if (!m->last_unused || m->n_windows <= WINDOWS_MIN) {
 
@@ -194,6 +195,15 @@ static Window *window_add(MMapCache *m) {
         }
 
         w->cache = m;
+        w->fd = fd;
+        w->prot = prot;
+        w->keep_always = keep_always;
+        w->offset = offset;
+        w->size = size;
+        w->ptr = ptr;
+
+        LIST_PREPEND(by_fd, fd->windows, w);
+
         return w;
 }
 
@@ -534,18 +544,9 @@ static int add_mmap(
         if (!f)
                 goto outofmem;
 
-        w = window_add(m);
+        w = window_add(m, f, prot, keep_always, woffset, wsize, d);
         if (!w)
                 goto outofmem;
-
-        w->keep_always = keep_always;
-        w->ptr = d;
-        w->offset = woffset;
-        w->prot = prot;
-        w->size = wsize;
-        w->fd = f;
-
-        LIST_PREPEND(by_fd, f->windows, w);
 
         context_detach_window(c);
         c->window = w;
