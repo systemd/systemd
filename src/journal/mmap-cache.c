@@ -469,6 +469,33 @@ static int find_mmap(
         return 1;
 }
 
+static int mmap_try_harder(MMapCache *m, void *addr, int fd, int prot, int flags, uint64_t offset, size_t size, void **res) {
+        void *ptr;
+
+        assert(m);
+        assert(fd >= 0);
+        assert(res);
+
+        for (;;) {
+                int r;
+
+                ptr = mmap(addr, size, prot, flags, fd, offset);
+                if (ptr != MAP_FAILED)
+                        break;
+                if (errno != ENOMEM)
+                        return -errno;
+
+                r = make_room(m);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOMEM;
+        }
+
+        *res = ptr;
+        return 0;
+}
+
 static int add_mmap(
                 MMapCache *m,
                 int fd,
@@ -522,19 +549,9 @@ static int add_mmap(
                         wsize = PAGE_ALIGN(st->st_size - woffset);
         }
 
-        for (;;) {
-                d = mmap(NULL, wsize, prot, MAP_SHARED, fd, woffset);
-                if (d != MAP_FAILED)
-                        break;
-                if (errno != ENOMEM)
-                        return -errno;
-
-                r = make_room(m);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOMEM;
-        }
+        r = mmap_try_harder(m, NULL, fd, prot, MAP_SHARED, woffset, wsize, &d);
+        if (r < 0)
+                return r;
 
         c = context_add(m, context);
         if (!c)
