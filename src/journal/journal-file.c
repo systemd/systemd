@@ -745,6 +745,7 @@ static int journal_file_link_field(
 
         assert(f);
         assert(f->header);
+        assert(f->field_hash_table);
         assert(o);
         assert(offset > 0);
 
@@ -789,6 +790,7 @@ static int journal_file_link_data(
 
         assert(f);
         assert(f->header);
+        assert(f->data_hash_table);
         assert(o);
         assert(offset > 0);
 
