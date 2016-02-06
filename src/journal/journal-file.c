@@ -100,7 +100,7 @@ static int journal_file_set_online(JournalFile *f) {
         if (mmap_cache_got_sigbus(f->mmap, f->fd))
                 return -EIO;
 
-        switch(f->header->state) {
+        switch (f->header->state) {
                 case STATE_ONLINE:
                         return 0;
 
