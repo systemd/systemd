@@ -4397,17 +4397,17 @@ systemd_socket_proxyd_LDADD = \
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
 systemd_coredump_SOURCES = \
-	src/journal/coredump.c \
-	src/journal/coredump-vacuum.c \
-	src/journal/coredump-vacuum.h
+	src/coredump/coredump.c \
+	src/coredump/coredump-vacuum.c \
+	src/coredump/coredump-vacuum.h
 
 systemd_coredump_LDADD = \
 	libshared.la
 
 if HAVE_ELFUTILS
 systemd_coredump_SOURCES += \
-	src/journal/stacktrace.c \
-	src/journal/stacktrace.h
+	src/coredump/stacktrace.c \
+	src/coredump/stacktrace.h
 
 systemd_coredump_LDADD += \
 	$(ELFUTILS_LIBS)
@@ -4417,10 +4417,10 @@ rootlibexec_PROGRAMS += \
 	systemd-coredump
 
 dist_pkgsysconf_DATA += \
-	src/journal/coredump.conf
+	src/coredump/coredump.conf
 
 coredumpctl_SOURCES = \
-	src/journal/coredumpctl.c
+	src/coredump/coredumpctl.c
 
 coredumpctl_LDADD = \
 	libshared.la
@@ -4432,9 +4432,9 @@ manual_tests += \
 	test-coredump-vacuum
 
 test_coredump_vacuum_SOURCES = \
-	src/journal/test-coredump-vacuum.c  \
-	src/journal/coredump-vacuum.c \
-	src/journal/coredump-vacuum.h
+	src/coredump/test-coredump-vacuum.c  \
+	src/coredump/coredump-vacuum.c \
+	src/coredump/coredump-vacuum.h
 
 test_coredump_vacuum_LDADD = \
 	libshared.la
