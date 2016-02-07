@@ -1450,7 +1450,7 @@ static int dns_resource_record_compare_func(const void *a, const void *b) {
         if (dns_resource_record_equal(x, y))
                 return 0;
 
-        /* This is a bit dirty, we don't implement proper odering, but
+        /* This is a bit dirty, we don't implement proper ordering, but
          * the hashtable doesn't need ordering anyway, hence we don't
          * care. */
         return x < y ? -1 : 1;
