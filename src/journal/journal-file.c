@@ -27,6 +27,7 @@
 #include <sys/statvfs.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
@@ -42,6 +43,7 @@
 #include "sd-event.h"
 #include "string-util.h"
 #include "xattr-util.h"
+#include "set.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
@@ -114,6 +116,30 @@ static int journal_file_set_online(JournalFile *f) {
         }
 }
 
+int journal_file_set_offline_fd(int fd) {
+        typeof(((Header *)0)->state) state = STATE_OFFLINE;
+        int r;
+
+        assert_cc(sizeof(state) == 1);
+        assert(fd != -1);
+
+        r = fsync(fd);
+        if (r < 0)
+                return r;
+
+        r = pwrite(fd, &state, sizeof(state), offsetof(Header, state));
+        if (r < 0)
+                return r;
+
+        r = fsync(fd);
+        if (r < 0)
+                return r;
+
+        safe_close(fd);
+
+        return r;
+}
+
 int journal_file_set_offline(JournalFile *f) {
         assert(f);
 
@@ -141,7 +167,7 @@ int journal_file_set_offline(JournalFile *f) {
         return 0;
 }
 
-JournalFile* journal_file_close(JournalFile *f) {
+static void journal_file_close_mostly(JournalFile *f) {
         assert(f);
 
 #ifdef HAVE_GCRYPT
@@ -161,27 +187,13 @@ JournalFile* journal_file_close(JournalFile *f) {
                 sd_event_source_unref(f->post_change_timer);
         }
 
-        journal_file_set_offline(f);
-
         if (f->mmap && f->fd >= 0)
                 mmap_cache_close_fd(f->mmap, f->fd);
 
-        if (f->fd >= 0 && f->defrag_on_close) {
+        if (f->mmap)
+                mmap_cache_unref(f->mmap);
 
-                /* Be friendly to btrfs: turn COW back on again now,
-                 * and defragment the file. We won't write to the file
-                 * ever again, hence remove all fragmentation, and
-                 * reenable all the good bits COW usually provides
-                 * (such as data checksumming). */
-
-                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL);
-                (void) btrfs_defrag_fd(f->fd);
-        }
-
-        safe_close(f->fd);
         free(f->path);
-
-        mmap_cache_unref(f->mmap);
 
         ordered_hashmap_free_free(f->chain_cache);
 
@@ -200,9 +212,81 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (f->hmac)
                 gcry_md_close(f->hmac);
 #endif
+}
+
+static int journal_file_close_fd(int fd, bool defrag_on_close) {
+        assert(fd >= 0);
+
+        if (defrag_on_close) {
+                /* Be friendly to btrfs: turn COW back on again now,
+                 * and defragment the file. We won't write to the file
+                 * ever again, hence remove all fragmentation, and
+                 * reenable all the good bits COW usually provides
+                 * (such as data checksumming). */
+                (void) chattr_fd(fd, 0, FS_NOCOW_FL);
+                (void) btrfs_defrag_fd(fd);
+        }
+
+        return journal_file_set_offline_fd(fd);
+}
+
+JournalFile* journal_file_close(JournalFile *f) {
+        assert(f);
+
+        journal_file_close_mostly(f);
+
+        if (f->fd >= 0)
+                journal_file_close_fd(f->fd, f->defrag_on_close);
 
         free(f);
+
         return NULL;
+}
+
+static void * journal_file_close_async_thread(void *arg) {
+        JournalFileAsyncClose *c = arg;
+        int r;
+
+        assert(c);
+
+        r = journal_file_close_fd(c->fd, c->defrag_on_close);
+
+        pthread_exit(INT_TO_PTR(r));
+}
+
+
+static int journal_file_close_async(JournalFile *f, Set *async_closes) {
+        assert(f);
+        assert(async_closes);
+
+        journal_file_close_mostly(f);
+
+        if (f->fd >= 0) {
+                _cleanup_free_ JournalFileAsyncClose *c = NULL;
+                int r;
+
+                c = new0(JournalFileAsyncClose, 1);
+                if (!c)
+                        return -ENOMEM;
+
+                c->fd = f->fd;
+                c->defrag_on_close = f->defrag_on_close;
+
+                r = set_put(async_closes, c);
+                if (r < 0)
+                        return r;
+
+                r = pthread_create(&c->thread, NULL, journal_file_close_async_thread, c);
+                if (r != 0) {
+                        set_remove(async_closes, c);
+                        return -r;
+                }
+                c = NULL;
+        }
+
+        free(f);
+
+        return 0;
 }
 
 static int journal_file_init_header(JournalFile *f, JournalFile *template) {
@@ -2688,6 +2772,7 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *async_closes,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2757,6 +2842,10 @@ int journal_file_open(
         r = journal_file_fstat(f);
         if (r < 0)
                 goto fail;
+
+        /* We can ignore async closes when the journal being opened is empty. */
+        if (async_closes && f->last_stat.st_size != 0)
+                journal_file_async_closes_collect(async_closes, true);
 
         if (f->last_stat.st_size == 0 && f->writable) {
 
@@ -2881,7 +2970,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
+int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *async_closes) {
         _cleanup_free_ char *p = NULL;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -2921,8 +3010,12 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
          * we archive them */
         old_file->defrag_on_close = true;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
-        journal_file_close(old_file);
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, async_closes, old_file, &new_file);
+
+        if (async_closes)
+                journal_file_close_async(old_file, async_closes);
+        else
+                journal_file_close(old_file);
 
         *f = new_file;
         return r;
@@ -2936,6 +3029,7 @@ int journal_file_open_reliably(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *async_closes,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2943,7 +3037,7 @@ int journal_file_open_reliably(
         size_t l;
         _cleanup_free_ char *p = NULL;
 
-        r = journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
+        r = journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, async_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* corrupted */
                     -ENODATA,           /* truncated */
@@ -2984,7 +3078,7 @@ int journal_file_open_reliably(
 
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
+        return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, async_closes, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
@@ -3297,4 +3391,32 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
         }
 
         return false;
+}
+
+void journal_file_async_closes_collect(Set *async_closes, bool wait) {
+        Iterator i;
+        JournalFileAsyncClose *c;
+
+        assert(async_closes);
+
+        SET_FOREACH(c, async_closes, i) {
+                int r;
+                void *closer_r;
+
+                if (wait)
+                        r = pthread_join(c->thread, &closer_r);
+                else {
+                        r = pthread_tryjoin_np(c->thread, &closer_r);
+                        if (r == EBUSY)
+                                continue;
+                }
+
+                if (r != 0)
+                        log_error_errno(r, "Failed to join async closer thread: %m");
+                else if (PTR_TO_INT(closer_r) < 0)
+                        log_error_errno(PTR_TO_INT(closer_r), "Async closer failed: %m");
+
+                set_remove(async_closes, c);
+                free(c);
+        }
 }

@@ -130,6 +130,12 @@ typedef struct JournalFile {
 #endif
 } JournalFile;
 
+typedef struct JournalFileAsyncClose {
+        pthread_t thread;
+        int fd;
+        bool defrag_on_close;
+} JournalFileAsyncClose;
+
 int journal_file_open(
                 const char *fname,
                 int flags,
@@ -138,10 +144,14 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *async_closes,
                 JournalFile *template,
                 JournalFile **ret);
 
 int journal_file_set_offline(JournalFile *f);
+
+int journal_file_set_offline_fd(int fd);
+
 JournalFile* journal_file_close(JournalFile *j);
 
 int journal_file_open_reliably(
@@ -152,8 +162,12 @@ int journal_file_open_reliably(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *async_closes,
                 JournalFile *template,
                 JournalFile **ret);
+
+void journal_file_async_closes_collect(Set *async_closes, bool wait);
+
 
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
 #define VALID64(x) (((x) & 7ULL) == 0ULL)
@@ -225,7 +239,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal);
+int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *async_closes);
 
 void journal_file_post_change(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);
