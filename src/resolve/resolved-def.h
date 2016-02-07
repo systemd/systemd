@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
+
 #define SD_RESOLVED_DNS           (UINT64_C(1) << 0)
 #define SD_RESOLVED_LLMNR_IPV4    (UINT64_C(1) << 1)
 #define SD_RESOLVED_LLMNR_IPV6    (UINT64_C(1) << 2)
