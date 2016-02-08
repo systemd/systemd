@@ -140,3 +140,14 @@ static inline usec_t usec_add(usec_t a, usec_t b) {
 
         return c;
 }
+
+static inline usec_t usec_sub(usec_t timestamp, int64_t delta) {
+        if (delta < 0)
+                timestamp = usec_add(timestamp, (usec_t) (-delta));
+        else if (timestamp > (usec_t) delta)
+                timestamp -= delta;
+        else
+                timestamp = 0;
+
+        return timestamp;
+}
