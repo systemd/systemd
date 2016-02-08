@@ -1517,6 +1517,46 @@ static int entry_item_cmp(const void *_a, const void *_b) {
         return 0;
 }
 
+static bool check_same_boot_id(JournalFile *f, const struct iovec iovec[], unsigned n_iovec)
+{
+        unsigned i;
+        const char* boot_id_tag="_BOOT_ID=";
+        const size_t boot_id_tag_len = 9;
+        const size_t boot_id_len = 32;
+        char* boot_id_str;
+        int r = -1;
+        sd_id128_t log_entry_boot_id;
+        bool return_value;
+
+        for (i=0; i<n_iovec; i++) {
+                if (iovec[i].iov_len >= boot_id_tag_len)
+                        r = memcmp(boot_id_tag, iovec[i].iov_base, boot_id_tag_len);
+                if (r == 0)
+                        break;
+        }
+
+        if (r != 0)
+                return false;
+
+        boot_id_str = malloc(boot_id_len + 1);
+        memcpy(boot_id_str, (const char*)iovec[i].iov_base + boot_id_tag_len, boot_id_len);
+        boot_id_str[boot_id_len] = 0;
+        r = sd_id128_from_string(boot_id_str, &log_entry_boot_id);
+        if (r != 0) {
+                return_value = false;
+                goto cleanup;
+        }
+
+        if (sd_id128_equal(f->current_boot_id, log_entry_boot_id))
+                return_value = true;
+        else
+                return_value = false;
+
+cleanup:
+        free(boot_id_str);
+        return return_value;
+}
+
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {
         unsigned i;
         EntryItem *items;
@@ -1533,7 +1573,9 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
                 ts = &_ts;
         }
 
-        if (f->tail_entry_monotonic_valid &&
+        if (!sd_id128_is_null(f->current_boot_id) &&
+            check_same_boot_id(f, iovec, n_iovec) &&
+            f->tail_entry_monotonic_valid &&
             ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                 return -EINVAL;
 
