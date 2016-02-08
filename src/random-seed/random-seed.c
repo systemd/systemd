@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ void* buf = NULL;
         size_t buf_size = 0;
         ssize_t k;
-        int r;
+        int r, open_rw_error;
         FILE *f;
         bool refresh_seed_file = true;
 
@@ -87,14 +87,23 @@ int main(int argc, char *argv[]) {
         if (streq(argv[1], "load")) {
 
                 seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
+                open_rw_error = -errno;
                 if (seed_fd < 0) {
+                        refresh_seed_file = false;
+
                         seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (seed_fd < 0) {
-                                r = log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
+                                bool missing = errno == ENOENT;
+
+                                log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
+                                               open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
+                                r = log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
+                                                   errno, "Failed to open " RANDOM_SEED " for reading: %m");
+                                if (missing)
+                                        r = 0;
+
                                 goto finish;
                         }
-
-                        refresh_seed_file = false;
                 }
 
                 random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
@@ -109,9 +118,10 @@ int main(int argc, char *argv[]) {
                 k = loop_read(seed_fd, buf, buf_size, false);
                 if (k < 0)
                         r = log_error_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
-                else if (k == 0)
+                else if (k == 0) {
+                        r = 0;
                         log_debug("Seed file " RANDOM_SEED " not yet initialized, proceeding.");
-                else {
+                } else {
                         (void) lseek(seed_fd, 0, SEEK_SET);
 
                         r = loop_write(random_fd, buf, (size_t) k, false);
