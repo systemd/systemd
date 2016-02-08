@@ -33,8 +33,6 @@ Janitorial Clean-ups:
 
 Features:
 
-* rework coredump tool to move actual processing into a socket activated service
-
 * cache sd_event_now() result from before the first iteration...
 
 * remove Capabilities=, after all AmbientCapabilities= and CapabilityBoundingSet= should be enough.
@@ -42,11 +40,6 @@ Features:
 * support for the new copy_file_range() syscall
 
 * add systemctl stop --job-mode=triggering that follows TRIGGERED_BY deps and adds them to the same transaction
-
-* coredump logic should use prlimit() to query RLIMIT_CORE of the dumpee and honour it
-
-* Add a MaxRuntimeSec= setting for service units (or units in general) to terminate units after they ran for a certain
-  amount of time
 
 * Maybe add a way how users can "pin" units into memory, so that they are not subject to automatic GC?
 
@@ -649,10 +642,6 @@ Features:
 * coredump:
   - save coredump in Windows/Mozilla minidump format
   - move PID 1 segfaults to /var/lib/systemd/coredump?
-  - make the handler check /proc/$PID/rlimits for RLIMIT_CORE,
-    and supress coredump if turned off. Then change RLIMIT_CORE to
-    infinity by default for all services. This then allows per-service
-    control of coredumping.
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
