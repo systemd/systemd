@@ -283,11 +283,9 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd2 = -1;
 
-        fd2 = accept(fd, NULL, NULL);
-        if (fd2 < 0) {
-                log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
-                return fd2;
-        }
+        fd2 = accept4(fd, NULL, NULL, 0);
+        if (fd2 < 0)
+                return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
 
         getsockname_pretty(fd2, &local);
         getpeername_pretty(fd2, true, &peer);
@@ -301,21 +299,24 @@ static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
         PROTECT_ERRNO;
 
         log_info("Child %d died with code %d", t->si_pid, t->si_status);
+
         /* Wait for a dead child. */
-        waitpid(t->si_pid, NULL, 0);
+        (void) waitpid(t->si_pid, NULL, 0);
 }
 
 static int install_chld_handler(void) {
-        int r;
-        struct sigaction act = {
+        static const struct sigaction act = {
                 .sa_flags = SA_SIGINFO,
                 .sa_sigaction = sigchld_hdl,
         };
 
+        int r;
+
         r = sigaction(SIGCHLD, &act, 0);
         if (r < 0)
-                log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
-        return r;
+                return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
+
+        return 0;
 }
 
 static void help(void) {
