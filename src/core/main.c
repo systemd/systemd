@@ -172,19 +172,15 @@ noreturn static void crash(int sig) {
                 if (pid < 0)
                         log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
                 else if (pid == 0) {
-                        struct rlimit rl = {
-                                .rlim_cur = RLIM_INFINITY,
-                                .rlim_max = RLIM_INFINITY,
-                        };
-
                         /* Enable default signal handler for core dump */
+
                         sa = (struct sigaction) {
                                 .sa_handler = SIG_DFL,
                         };
                         (void) sigaction(sig, &sa, NULL);
 
-                        /* Don't limit the core dump size */
-                        (void) setrlimit(RLIMIT_CORE, &rl);
+                        /* Don't limit the coredump size */
+                        (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY));
 
                         /* Just to be sure... */
                         (void) chdir("/");
@@ -1464,6 +1460,17 @@ int main(int argc, char *argv[]) {
                 /* clear the kernel timestamp,
                  * because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
+        }
+
+        if (getpid() == 1) {
+                /* Don't limit the core dump size, so that coredump handlers such as systemd-coredump (which honour the limit)
+                 * will process core dumps for system services by default. */
+                (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY));
+
+                /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
+                 * until the systemd-coredump tool is enabled via sysctl. */
+                if (!skip_setup)
+                        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
         }
 
         /* Initialize default unit */
