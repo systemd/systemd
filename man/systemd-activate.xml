@@ -110,7 +110,16 @@
         <term><option>-d</option></term>
         <term><option>--datagram</option></term>
 
-        <listitem><para>Listen on a datagram socket, instead of a stream socket.</para></listitem>
+        <listitem><para>Listen on a datagram socket (<constant>SOCK_DGRAM</constant>), instead of a stream socket
+        (<constant>SOCK_STREAM</constant>). May not be combined with <option>--seqpacket</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--seqpacket</option></term>
+
+        <listitem><para>Listen on a sequential packet socket (<constant>SOCK_SEQPACKET</constant>), instead of a stream
+        socket (<constant>SOCK_STREAM</constant>). May not be combined with
+        <option>--datagram</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

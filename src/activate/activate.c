@@ -37,7 +37,7 @@
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;
-static bool arg_datagram = false;
+static int arg_socket_type = SOCK_STREAM;
 static char** arg_args = NULL;
 static char** arg_setenv = NULL;
 static const char *arg_fdname = NULL;
@@ -96,12 +96,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
          */
 
         STRV_FOREACH(address, arg_listen) {
-
-                if (arg_datagram)
-                        fd = make_socket_fd(LOG_DEBUG, *address, SOCK_DGRAM, SOCK_CLOEXEC);
-                else
-                        fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM, (arg_accept*SOCK_CLOEXEC));
-
+                fd = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
                         log_open();
                         return log_error_errno(fd, "Failed to open '%s': %m", *address);
@@ -331,6 +326,7 @@ static void help(void) {
                "     --version             Print version string and exit\n"
                "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
                "  -d --datagram            Listen on datagram instead of stream socket\n"
+               "     --seqpacket           Listen on SOCK_SEQPACKET instead of stream socket\n"
                "  -a --accept              Spawn separate child for each connection\n"
                "  -E --setenv=NAME[=VALUE] Pass an environment variable to children\n"
                "\n"
@@ -342,12 +338,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_FDNAME,
+                ARG_SEQPACKET,
         };
 
         static const struct option options[] = {
                 { "help",        no_argument,       NULL, 'h'           },
                 { "version",     no_argument,       NULL, ARG_VERSION   },
                 { "datagram",    no_argument,       NULL, 'd'           },
+                { "seqpacket",   no_argument,       NULL, ARG_SEQPACKET },
                 { "listen",      required_argument, NULL, 'l'           },
                 { "accept",      no_argument,       NULL, 'a'           },
                 { "setenv",      required_argument, NULL, 'E'           },
@@ -378,7 +376,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'd':
-                        arg_datagram = true;
+                        if (arg_socket_type == SOCK_SEQPACKET) {
+                                log_error("--datagram may not be combined with --seqpacket.");
+                                return -EINVAL;
+                        }
+
+                        arg_socket_type = SOCK_DGRAM;
+                        break;
+
+                case ARG_SEQPACKET:
+                        if (arg_socket_type == SOCK_DGRAM) {
+                                log_error("--seqpacket may not be combined with --datagram.");
+                                return -EINVAL;
+                        }
+
+                        arg_socket_type = SOCK_SEQPACKET;
                         break;
 
                 case 'a':
@@ -414,7 +426,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_datagram && arg_accept) {
+        if (arg_socket_type == SOCK_DGRAM && arg_accept) {
                 log_error("Datagram sockets do not accept connections. "
                           "The --datagram and --accept options may not be combined.");
                 return -EINVAL;
@@ -462,8 +474,7 @@ int main(int argc, char **argv, char **envp) {
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
-                        r = do_accept(argv[optind], argv + optind, envp,
-                                      event.data.fd);
+                        r = do_accept(argv[optind], argv + optind, envp, event.data.fd);
                         if (r < 0)
                                 return EXIT_FAILURE;
                 } else
