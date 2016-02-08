@@ -1711,18 +1711,20 @@ int config_parse_bus_name(
         return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
-int config_parse_service_timeout(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
+int config_parse_service_timeout(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Service *s = userdata;
+        usec_t usec;
         int r;
 
         assert(filename);
@@ -1730,25 +1732,27 @@ int config_parse_service_timeout(const char *unit,
         assert(rvalue);
         assert(s);
 
-        r = config_parse_sec(unit, filename, line, section, section_line, lvalue, ltype,
-                             rvalue, data, userdata);
-        if (r < 0)
-                return r;
+        /* This is called for three cases: TimeoutSec=, TimeoutStopSec= and TimeoutStartSec=. */
 
-        if (streq(lvalue, "TimeoutSec")) {
-                s->start_timeout_defined = true;
-                s->timeout_stop_usec = s->timeout_start_usec;
-        } else if (streq(lvalue, "TimeoutStartSec"))
-                s->start_timeout_defined = true;
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
 
         /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
          * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
          * all other timeouts. */
+        if (usec <= 0)
+                usec = USEC_INFINITY;
 
-        if (s->timeout_start_usec <= 0)
-                s->timeout_start_usec = USEC_INFINITY;
-        if (s->timeout_stop_usec <= 0)
-                s->timeout_stop_usec = USEC_INFINITY;
+        if (!streq(lvalue, "TimeoutStopSec")) {
+                s->start_timeout_defined = true;
+                s->timeout_start_usec = usec;
+        }
+
+        if (!streq(lvalue, "TimeoutStartSec"))
+                s->timeout_stop_usec = usec;
 
         return 0;
 }

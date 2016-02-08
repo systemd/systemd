@@ -215,9 +215,9 @@ Service.ExecReload,              config_parse_exec,                  SERVICE_EXE
 Service.ExecStop,                config_parse_exec,                  SERVICE_EXEC_STOP,             offsetof(Service, exec_command)
 Service.ExecStopPost,            config_parse_exec,                  SERVICE_EXEC_STOP_POST,        offsetof(Service, exec_command)
 Service.RestartSec,              config_parse_sec,                   0,                             offsetof(Service, restart_usec)
-Service.TimeoutSec,              config_parse_service_timeout,       0,                             offsetof(Service, timeout_start_usec)
-Service.TimeoutStartSec,         config_parse_service_timeout,       0,                             offsetof(Service, timeout_start_usec)
-Service.TimeoutStopSec,          config_parse_service_timeout,       0,                             offsetof(Service, timeout_stop_usec)
+Service.TimeoutSec,              config_parse_service_timeout,       0,                             0
+Service.TimeoutStartSec,         config_parse_service_timeout,       0,                             0
+Service.TimeoutStopSec,          config_parse_service_timeout,       0,                             0
 Service.RuntimeMaxSec,           config_parse_sec,                   0,                             offsetof(Service, runtime_max_usec)
 Service.WatchdogSec,             config_parse_sec,                   0,                             offsetof(Service, watchdog_usec)
 Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
