@@ -64,12 +64,10 @@
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((uint64_t) (2LLU*1024LLU*1024LLU*1024LLU))
 
-/* The maximum size up to which we leave the coredump around on
- * disk */
+/* The maximum size up to which we leave the coredump around on disk */
 #define EXTERNAL_SIZE_MAX PROCESS_SIZE_MAX
 
-/* The maximum size up to which we store the coredump in the
- * journal */
+/* The maximum size up to which we store the coredump in the journal */
 #define JOURNAL_SIZE_MAX ((size_t) (767LU*1024LU*1024LU))
 
 /* Make sure to not make this larger than the maximum journal entry
@@ -84,6 +82,7 @@ enum {
         CONTEXT_GID,
         CONTEXT_SIGNAL,
         CONTEXT_TIMESTAMP,
+        CONTEXT_RLIMIT,
         CONTEXT_COMM,
         CONTEXT_EXE,
         _CONTEXT_MAX
@@ -305,6 +304,7 @@ static int save_external_coredump(
 
         _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
+        uint64_t rlimit, max_size;
         struct stat st;
         uid_t uid;
         int r;
@@ -318,6 +318,18 @@ static int save_external_coredump(
         r = parse_uid(context[CONTEXT_UID], &uid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse UID: %m");
+
+        r = safe_atou64(context[CONTEXT_RLIMIT], &rlimit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse resource limit: %s", context[CONTEXT_RLIMIT]);
+        if (rlimit <= 0) {
+                /* Is coredumping disabled? Then don't bother saving/processing the coredump */
+                log_info("Core Dumping has been disabled for process %s (%s).", context[CONTEXT_PID], context[CONTEXT_COMM]);
+                return -EBADSLT;
+        }
+
+        /* Never store more than the process configured, or than we actually shall keep or process */
+        max_size = MIN(rlimit, MAX(arg_process_size_max, arg_external_size_max));
 
         r = make_filename(context, &fn);
         if (r < 0)
@@ -333,7 +345,7 @@ static int save_external_coredump(
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
 
-        r = copy_bytes(input_fd, fd, arg_process_size_max, false);
+        r = copy_bytes(input_fd, fd, max_size, false);
         if (r == -EFBIG) {
                 log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", context[CONTEXT_PID], context[CONTEXT_COMM]);
                 goto fail;
@@ -668,6 +680,7 @@ static void map_context_fields(const struct iovec *iovec, const char *context[])
                 [CONTEXT_TIMESTAMP] = "COREDUMP_TIMESTAMP=",
                 [CONTEXT_COMM] = "COREDUMP_COMM=",
                 [CONTEXT_EXE] = "COREDUMP_EXE=",
+                [CONTEXT_RLIMIT] = "COREDUMP_RLIMIT=",
         };
 
         unsigned i;
@@ -793,6 +806,7 @@ static int process_socket(int fd) {
         assert(context[CONTEXT_GID]);
         assert(context[CONTEXT_SIGNAL]);
         assert(context[CONTEXT_TIMESTAMP]);
+        assert(context[CONTEXT_RLIMIT]);
         assert(context[CONTEXT_COMM]);
         assert(coredump_fd >= 0);
 
@@ -875,7 +889,7 @@ static int process_kernel(int argc, char* argv[]) {
                 *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_session = NULL, *core_exe = NULL, *core_comm = NULL, *core_cmdline = NULL,
                 *core_cgroup = NULL, *core_cwd = NULL, *core_root = NULL, *core_unit = NULL,
-                *core_user_unit = NULL, *core_slice = NULL, *core_timestamp = NULL;
+                *core_user_unit = NULL, *core_slice = NULL, *core_timestamp = NULL, *core_rlimit = NULL;
 
         /* The larger ones we allocate on the heap */
         _cleanup_free_ char
@@ -884,7 +898,7 @@ static int process_kernel(int argc, char* argv[]) {
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         const char *context[_CONTEXT_MAX];
-        struct iovec iovec[24];
+        struct iovec iovec[25];
         size_t n_iovec = 0;
         uid_t owner_uid;
         const char *p;
@@ -918,6 +932,7 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_GID] = argv[CONTEXT_GID + 1];
         context[CONTEXT_SIGNAL] = argv[CONTEXT_SIGNAL + 1];
         context[CONTEXT_TIMESTAMP] = argv[CONTEXT_TIMESTAMP + 1];
+        context[CONTEXT_RLIMIT] = argv[CONTEXT_RLIMIT + 1];
         context[CONTEXT_COMM] = comm;
         context[CONTEXT_EXE] = exe;
 
@@ -956,6 +971,9 @@ static int process_kernel(int argc, char* argv[]) {
 
         core_signal = strjoina("COREDUMP_SIGNAL=", context[CONTEXT_SIGNAL]);
         IOVEC_SET_STRING(iovec[n_iovec++], core_signal);
+
+        core_rlimit = strjoina("COREDUMP_RLIMIT=", context[CONTEXT_RLIMIT]);
+        IOVEC_SET_STRING(iovec[n_iovec++], core_rlimit);
 
         if (sd_pid_get_session(pid, &t) >= 0) {
                 core_session = strjoina("COREDUMP_SESSION=", t);
