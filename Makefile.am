@@ -4870,7 +4870,6 @@ nodist_systemunit_DATA += \
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-timesyncd.service $(pkgsysconfdir)/system/sysinit.target.wants/systemd-timesyncd.service
 
-
 nodist_pkgsysconf_DATA += \
 	src/timesync/timesyncd.conf
 

@@ -569,9 +569,19 @@ static int change_uid_gid(const char *context[]) {
         if (r < 0)
                 return r;
 
-        r = parse_gid(context[CONTEXT_GID], &gid);
-        if (r < 0)
-                return r;
+        if (uid <= SYSTEM_UID_MAX) {
+                const char *user = "systemd-coredump";
+
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
+                        uid = gid = 0;
+                }
+        } else {
+                r = parse_gid(context[CONTEXT_GID], &gid);
+                if (r < 0)
+                        return r;
+        }
 
         return drop_privileges(uid, gid, 0);
 }

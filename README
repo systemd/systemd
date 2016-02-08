@@ -203,6 +203,9 @@ USERS AND GROUPS:
         Similarly, the kdbus dbus1 proxy daemon requires the
         "systemd-bus-proxy" system user and group to exist.
 
+        Similarly, the coredump support requires the
+        "systemd-coredump" system user and group to exist.
+
 NSS:
         systemd ships with three NSS modules:
 
