@@ -50,4 +50,3 @@ systemctl stop --job-mode=replace-irreversibly unstoppable.service || exit 1
 systemctl start unstoppable.service || exit 1
 
 touch /testok
-exit 0

@@ -60,4 +60,3 @@ systemctl stop forever-print-hola
 [[ ! -f "/i-lose-my-logs" ]]
 
 touch /testok
-exit 0
