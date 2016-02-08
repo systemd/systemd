@@ -1,0 +1,24 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Process Core Dump
+Documentation=man:systemd-coredump(8)
+DefaultDependencies=no
+RequiresMountsFor=/var/lib/systemd/coredump
+Conflicts=shutdown.target
+After=systemd-remount-fs.service systemd-journald.socket
+Requires=systemd-journald.socket
+Before=shutdown.target
+
+[Service]
+ExecStart=-@rootlibexecdir@/systemd-coredump
+Nice=9
+OOMScoreAdjust=500
+PrivateNetwork=yes
+ProtectSystem=full
+RuntimeMaxSec=5min

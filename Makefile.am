@@ -4413,6 +4413,15 @@ systemd_coredump_LDADD += \
 	$(ELFUTILS_LIBS)
 endif
 
+nodist_systemunit_DATA += \
+	units/systemd-coredump@.service
+
+dist_systemunit_DATA += \
+	units/systemd-coredump.socket
+
+SOCKETS_TARGET_WANTS += \
+	systemd-coredump.socket
+
 rootlibexec_PROGRAMS += \
 	systemd-coredump
 
@@ -4453,7 +4462,8 @@ CLEANFILES += \
 endif
 
 EXTRA_DIST += \
-	sysctl.d/50-coredump.conf.in
+	sysctl.d/50-coredump.conf.in \
+	units/systemd-coredump@.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT
