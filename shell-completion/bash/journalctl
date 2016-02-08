@@ -24,6 +24,12 @@ __contains_word () {
         done
 }
 
+__get_machines() {
+        local a b
+        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
+		{ while read a b; do echo " $a"; done; } | sort -u;
+}
+
 __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
                   ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID} COREDUMP_EXE
                   _{P,U,G}ID _COMM _EXE _CMDLINE
@@ -49,11 +55,11 @@ _journalctl() {
                               --utc -x --catalog --no-full --force --dump-catalog
                               --flush --rotate --sync'
                        [ARG]='-b --boot --this-boot -D --directory --file -F --field
-                              -o --output -u --unit --user-unit -p --priority
+                              -M --machine -o --output -u --unit --user-unit -p --priority
                               --vacuum-size --vacuum-time'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
                               --after-cursor --verify-key -t --identifier
-                              --root -M --machine'
+                              --root'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
@@ -74,6 +80,9 @@ _journalctl() {
                         ;;
                         --field|-F)
                                 comps=${__journal_fields[*]}
+			;;
+                        --machine|-M)
+                                comps=$( __get_machines )
                         ;;
                         --priority|-p)
                                 comps=${__syslog_priorities[*]}
