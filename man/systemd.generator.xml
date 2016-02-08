@@ -164,13 +164,16 @@
             Generators are run very early at boot and cannot rely on
             any external services. They may not talk to any other
             process. That includes simple things such as logging to
-            <citerefentry
-            project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+            <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
             or <command>systemd</command> itself (this means: no
-            <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>!). They
-            can however rely on the most basic kernel functionality to
-            be available, including a mounted <filename>/sys</filename>,
-            <filename>/proc</filename>, <filename>/dev</filename>.
+            <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)!.
+            Non-essential file systems like
+            <filename>/var</filename> and <filename>/home</filename>
+            are mounted after generators have run. Generators
+            can however rely on the most basic kernel functionality to be
+            available, including a mounted <filename>/sys</filename>,
+            <filename>/proc</filename>, <filename>/dev</filename>,
+            <filename>/usr</filename>.
           </para>
         </listitem>
 

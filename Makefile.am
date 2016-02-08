@@ -155,6 +155,14 @@ else
 noinst_PROGRAMS =
 TESTS =
 endif
+if ENABLE_BASH_COMPLETION
+dist_bashcompletion_DATA = $(dist_bashcompletion_data)
+nodist_bashcompletion_DATA = $(nodist_bashcompletion_data)
+endif
+if ENABLE_ZSH_COMPLETION
+dist_zshcompletion_DATA = $(dist_zshcompletion_data)
+nodist_zshcompletion_DATA = $(nodist_zshcompletion_data)
+endif
 udevlibexec_PROGRAMS =
 gperf_gperf_sources =
 
@@ -165,6 +173,8 @@ m4_files = $(filter %.m4,$(EXTRA_DIST) $(in_files:.m4.in=.m4))
 CLEANFILES = $(BUILT_SOURCES) \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
+	$(nodist_bashcompletion_data) \
+	$(nodist_zshcompletion_data) \
 	$(in_files:.in=) $(in_in_files:.in.in=) \
 	$(m4_files:.m4=)
 
@@ -416,8 +426,7 @@ systemgenerator_PROGRAMS = \
 	systemd-system-update-generator \
 	systemd-debug-generator
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA = \
+dist_bashcompletion_data = \
 	shell-completion/bash/busctl \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemd-analyze \
@@ -432,12 +441,10 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/udevadm \
 	shell-completion/bash/kernel-install
 
-nodist_bashcompletion_DATA = \
+nodist_bashcompletion_data = \
 	shell-completion/bash/systemctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA = \
+dist_zshcompletion_data = \
 	shell-completion/zsh/_busctl \
 	shell-completion/zsh/_journalctl \
 	shell-completion/zsh/_udevadm \
@@ -451,17 +458,12 @@ dist_zshcompletion_DATA = \
 	shell-completion/zsh/_systemd-delta \
 	shell-completion/zsh/_systemd
 
-nodist_zshcompletion_DATA = \
+nodist_zshcompletion_data = \
 	shell-completion/zsh/_systemctl
-endif
 
 EXTRA_DIST += \
 	shell-completion/bash/systemctl.in \
 	shell-completion/zsh/_systemctl.in
-
-CLEANFILES += \
-	$(nodist_bashcompletion_DATA) \
-	$(nodist_zshcompletion_DATA)
 
 dist_sysctl_DATA = \
 	sysctl.d/50-default.conf
@@ -2396,10 +2398,8 @@ SYSINIT_TARGET_WANTS += \
 	systemd-tmpfiles-setup-dev.service \
 	systemd-tmpfiles-setup.service
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_systemd-tmpfiles
-endif
 
 TIMERS_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
@@ -2627,15 +2627,11 @@ bootctl_LDADD = \
 bin_PROGRAMS += \
 	bootctl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/bootctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_bootctl
-endif
 endif
 
 # ------------------------------------------------------------------------------
@@ -2717,14 +2713,13 @@ systemd_boot_sources = \
 
 EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
 
-if ENABLE_EFI
-if HAVE_GNUEFI
 systemd_boot_objects = $(addprefix $(top_builddir)/,$(systemd_boot_sources:.c=.o))
 systemd_boot_solib = $(top_builddir)/src/boot/efi/systemd_boot.so
 systemd_boot = systemd-boot$(EFI_MACHINE_TYPE_NAME).efi
 
+if ENABLE_EFI
+if HAVE_GNUEFI
 bootlib_DATA = $(systemd_boot)
-CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(systemd_boot_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
@@ -2740,6 +2735,8 @@ $(systemd_boot): $(systemd_boot_solib)
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 endif
 endif
+
+CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
 
 # ------------------------------------------------------------------------------
 stub_headers = \
@@ -2764,14 +2761,13 @@ EXTRA_DIST += \
 	$(stub_headers) \
 	test/splash.bmp
 
-if ENABLE_EFI
-if HAVE_GNUEFI
 stub_objects = $(addprefix $(top_builddir)/,$(stub_sources:.c=.o))
 stub_solib = $(top_builddir)/src/boot/efi/stub.so
 stub = linux$(EFI_MACHINE_TYPE_NAME).efi.stub
 
+if ENABLE_EFI
+if HAVE_GNUEFI
 bootlib_DATA += $(stub)
-CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
 
 $(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
 	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
@@ -2785,6 +2781,11 @@ $(stub_solib): $(stub_objects)
 $(stub): $(stub_solib)
 	$(AM_V_GEN)$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic \
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
+endif
+endif
+
+CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
+
 
 # ------------------------------------------------------------------------------
 CLEANFILES += test-efi-disk.img
@@ -2794,8 +2795,6 @@ test-efi-disk.img: $(systemd_boot) $(stub) test/test-efi-create-disk.sh
 
 test-efi: test-efi-disk.img
 	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
-endif
-endif
 
 EXTRA_DIST += test/test-efi-create-disk.sh
 
@@ -4440,15 +4439,11 @@ test_coredump_vacuum_SOURCES = \
 test_coredump_vacuum_LDADD = \
 	libshared.la
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/coredumpctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_coredumpctl
-endif
 
 nodist_sysctl_DATA = \
 	sysctl.d/50-coredump.conf
@@ -4699,15 +4694,11 @@ hostnamectl_LDADD = \
 bin_PROGRAMS += \
 	hostnamectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/hostnamectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_hostnamectl
-endif
 endif
 
 polkitpolicy_in_files += \
@@ -4773,15 +4764,11 @@ localectl_LDADD = \
 bin_PROGRAMS += \
 	localectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/localectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_localectl
-endif
 endif
 
 .PHONY: update-kbd-model-map
@@ -4833,15 +4820,11 @@ timedatectl_LDADD = \
 bin_PROGRAMS += \
 	timedatectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/timedatectl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_timedatectl
-endif
 endif
 
 polkitpolicy_in_files += \
@@ -4948,11 +4931,6 @@ machinectl_LDADD = \
 rootbin_PROGRAMS += \
 	machinectl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
-	shell-completion/bash/machinectl
-endif
-
 test_machine_tables_SOURCES = \
 	src/machine/test-machine-tables.c
 
@@ -4980,11 +4958,12 @@ dist_dbuspolicy_DATA += \
 polkitpolicy_files += \
 	src/machine/org.freedesktop.machine1.policy
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_bashcompletion_data += \
+	shell-completion/bash/machinectl
+
+dist_zshcompletion_data += \
 	shell-completion/zsh/_machinectl \
 	shell-completion/zsh/_sd_machines
-endif
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-machined.service dbus-org.freedesktop.machine1.service
@@ -5474,10 +5453,8 @@ networkctl_LDADD = \
 	libshared.la \
 	libsystemd-network.la
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/networkctl
-endif
 
 test_network_SOURCES = \
 	src/network/test-network.c
@@ -5607,16 +5584,12 @@ loginctl_LDADD = \
 rootbin_PROGRAMS += \
 	loginctl
 
-if ENABLE_BASH_COMPLETION
-dist_bashcompletion_DATA += \
+dist_bashcompletion_data += \
 	shell-completion/bash/loginctl
-endif
 
-if ENABLE_ZSH_COMPLETION
-dist_zshcompletion_DATA += \
+dist_zshcompletion_data += \
 	shell-completion/zsh/_loginctl \
 	shell-completion/zsh/_systemd-inhibit
-endif
 
 systemd_inhibit_SOURCES = \
 	src/login/inhibit.c

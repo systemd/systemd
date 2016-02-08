@@ -1,6 +1,6 @@
 #compdef busctl
 
-# hostnamectl(1) completion                               -*- shell-script -*-
+# busctl(1) completion                               -*- shell-script -*-
 #
 # This file is part of systemd.
 #
