@@ -32,7 +32,7 @@ void initialize_libgcrypt(bool secmem) {
         p = gcry_check_version("1.4.5");
         assert(p);
 
-        /* Turn off "secmem". Clients which whish to make use of this
+        /* Turn off "secmem". Clients which wish to make use of this
          * feature should initialize the library manually */
         if (!secmem)
                 gcry_control(GCRYCTL_DISABLE_SECMEM);

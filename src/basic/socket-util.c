@@ -942,7 +942,7 @@ ssize_t next_datagram_size_fd(int fd) {
         int k;
 
         /* This is a bit like FIONREAD/SIOCINQ, however a bit more powerful. The difference being: recv(MSG_PEEK) will
-         * actually cause the next datagram in the queue to be validated regarding checksums, which FIONREAD dosn't
+         * actually cause the next datagram in the queue to be validated regarding checksums, which FIONREAD doesn't
          * do. This difference is actually of major importance as we need to be sure that the size returned here
          * actually matches what we will read with recvmsg() next, as otherwise we might end up allocating a buffer of
          * the wrong size. */

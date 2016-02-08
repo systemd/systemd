@@ -465,7 +465,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         have_pid = pid != 0 && pid != getpid();
 
         if (n_fds > 0 || have_pid) {
-                /* CMSG_SPACE(0) may return value different then zero, which results in miscalculated controllen. */
+                /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
                 msghdr.msg_controllen =
                         (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
                         (have_pid ? CMSG_SPACE(sizeof(struct ucred)) : 0);

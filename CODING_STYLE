@@ -163,7 +163,7 @@
   programming error with assert_return() and return a sensible return
   code. In all other calls, it is recommended to check for programming
   errors with a more brutal assert(). We are more forgiving to public
-  users then for ourselves! Note that assert() and assert_return()
+  users than for ourselves! Note that assert() and assert_return()
   really only should be used for detecting programming errors, not for
   runtime errors. assert() and assert_return() by usage of _likely_()
   inform the compiler that he should not expect these checks to fail,
