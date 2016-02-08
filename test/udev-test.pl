@@ -700,7 +700,7 @@ EOF
                 desc            => "big major number test",
                 devpath         => "/devices/virtual/misc/misc-fake1",
                 exp_name        => "node",
-                exp_majorminor  => "4095:1",
+                exp_majorminor  => "511:1",
                 rules                => <<EOF
 KERNEL=="misc-fake1", SYMLINK+="node"
 EOF
@@ -709,7 +709,7 @@ EOF
                 desc            => "big major and big minor number test",
                 devpath         => "/devices/virtual/misc/misc-fake89999",
                 exp_name        => "node",
-                exp_majorminor  => "4095:89999",
+                exp_majorminor  => "511:89999",
                 rules           => <<EOF
 KERNEL=="misc-fake89999", SYMLINK+="node"
 EOF
