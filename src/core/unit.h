@@ -167,6 +167,11 @@ struct Unit {
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
 
+        /* Put a ratelimit on unit starting */
+        RateLimit start_limit;
+        FailureAction start_limit_action;
+        char *reboot_arg;
+
         /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
         RateLimit auto_stop_ratelimit;
 
@@ -229,6 +234,8 @@ struct Unit {
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
         bool cgroup_subtree_mask_valid:1;
+
+        bool start_limit_hit:1;
 
         /* Did we already invoke unit_coldplug() for this unit? */
         bool coldplugged:1;

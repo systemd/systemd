@@ -101,6 +101,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->cgroup_inotify_wd = -1;
         u->job_timeout = USEC_INFINITY;
 
+        RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
         return u;
@@ -558,6 +559,8 @@ void unit_free(Unit *u) {
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
+
+        free(u->reboot_arg);
 
         unit_ref_unset(&u->slice);
 
@@ -1446,22 +1449,35 @@ void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
         unit_status_print_starting_stopping(u, t);
 }
 
+static int unit_start_limit_test(Unit *u) {
+        assert(u);
+
+        if (ratelimit_test(&u->start_limit)) {
+                u->start_limit_hit = false;
+                return 0;
+        }
+
+        log_unit_warning(u, "Start request repeated too quickly.");
+        u->start_limit_hit = true;
+
+        return failure_action(u->manager, u->start_limit_action, u->reboot_arg);
+}
+
 /* Errors:
- *         -EBADR:     This unit type does not support starting.
- *         -EALREADY:  Unit is already started.
- *         -EAGAIN:    An operation is already in progress. Retry later.
- *         -ECANCELED: Too many requests for now.
- *         -EPROTO:    Assert failed
+ *         -EBADR:      This unit type does not support starting.
+ *         -EALREADY:   Unit is already started.
+ *         -EAGAIN:     An operation is already in progress. Retry later.
+ *         -ECANCELED:  Too many requests for now.
+ *         -EPROTO:     Assert failed
+ *         -EINVAL:     Unit not loaded
+ *         -EOPNOTSUPP: Unit type not supported
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
-
-        /* Units that aren't loaded cannot be started */
-        if (u->load_state != UNIT_LOADED)
-                return -EINVAL;
 
         /* If this is already started, then this will succeed. Note
          * that this will even succeed if this unit is not startable
@@ -1470,6 +1486,15 @@ int unit_start(Unit *u) {
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
+
+        /* Make sure we don't enter a busy loop of some kind. */
+        r = unit_start_limit_test(u);
+        if (r < 0)
+                return r;
+
+        /* Units that aren't loaded cannot be started */
+        if (u->load_state != UNIT_LOADED)
+                return -EINVAL;
 
         /* If the conditions failed, don't do anything at all. If we
          * already are activating this call might still be useful to
@@ -2988,6 +3013,9 @@ void unit_reset_failed(Unit *u) {
 
         if (UNIT_VTABLE(u)->reset_failed)
                 UNIT_VTABLE(u)->reset_failed(u);
+
+        RATELIMIT_RESET(u->start_limit);
+        u->start_limit_hit = false;
 }
 
 Unit *unit_following(Unit *u) {
