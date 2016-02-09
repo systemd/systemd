@@ -135,6 +135,10 @@
 
     <para>Note that <filename>/run/systemd/resolve/resolv.conf</filename> should not be used directly by applications,
     but only through a symlink from <filename>/etc/resolv.conf</filename>.</para>
+
+    <para>See the <ulink url="http://www.freedesktop.org/wiki/Software/systemd/resolved"> resolved D-Bus API
+    Documentation</ulink> for information about the APIs <filename>systemd-resolved</filename> provides.</para>
+
   </refsect1>
 
   <refsect1>
