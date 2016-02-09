@@ -1266,10 +1266,10 @@ int bus_unit_check_load_state(Unit *u, sd_bus_error *error) {
          * possible. Note that in the case of UNIT_MASKED, load_error
          * is not set. */
         if (u->load_state == UNIT_MASKED)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit is masked.");
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit %s is masked.", u->id);
 
         if (u->load_state == UNIT_NOT_FOUND)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit not found.");
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not found.", u->id);
 
-        return sd_bus_error_set_errnof(error, u->load_error, "Unit is not loaded properly: %m.");
+        return sd_bus_error_set_errnof(error, u->load_error, "Unit %s is not loaded properly: %m.", u->id);
 }
