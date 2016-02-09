@@ -79,6 +79,10 @@
 evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeD620*:pvr*
   POINTINGSTICK_CONST_ACCEL=0.5
 
+# Latitude E6320
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320*:pvr*
+  POINTINGSTICK_CONST_ACCEL=2.0
+
 # Latitude E6400
 evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:pvr*
   POINTINGSTICK_CONST_ACCEL=1.5
