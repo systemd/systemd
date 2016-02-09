@@ -42,6 +42,8 @@
 #include "strv.h"
 #include "time-util.h"
 
+static nsec_t timespec_load_nsec(const struct timespec *ts);
+
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
 
@@ -116,7 +118,6 @@ dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, us
         return ts;
 }
 
-
 usec_t timespec_load(const struct timespec *ts) {
         assert(ts);
 
@@ -132,7 +133,7 @@ usec_t timespec_load(const struct timespec *ts) {
                 (usec_t) ts->tv_nsec / NSEC_PER_USEC;
 }
 
-nsec_t timespec_load_nsec(const struct timespec *ts) {
+static nsec_t timespec_load_nsec(const struct timespec *ts) {
         assert(ts);
 
         if (ts->tv_sec == (time_t) -1 &&
