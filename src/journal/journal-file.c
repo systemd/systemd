@@ -1533,10 +1533,6 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
                 ts = &_ts;
         }
 
-        if (f->tail_entry_monotonic_valid &&
-            ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                return -EINVAL;
-
 #ifdef HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
         if (r < 0)
