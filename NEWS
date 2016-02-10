@@ -214,6 +214,19 @@ CHANGES WITH 228:
           limit settings understand the usual min, h, day, ...
           suffixes now.
 
+        * Support for net_cls and net_prio controllers, along with the
+          NetClass= configuration directive, has been removed. The kernel
+          people have decided to deprecate that controller in v2.
+          As we're aiming for full support for the v2 cgroup hierarchy, we
+          can no longer support this feature. Userspace tool such as nftables
+          are moving over to setting rules that are specific to the full
+          cgroup path of a task, which obsoletes these controllers anyway.
+          The NetClass= directive is kept around for legacy compatibility
+          reasons. For a more in-depth description on the kernel side, please
+          refer to the respective upstream commit:
+
+            https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=bd1060a1d671
+
         * There's a new system.conf setting DefaultTasksMax= to
           control the default TasksMax= setting for services and
           scopes running on the system. (TasksMax= is the primary

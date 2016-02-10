@@ -1153,12 +1153,11 @@ static void test_usr(void) {
 }
 
 static int initialize_join_controllers(void) {
-        /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
-         * + "net_prio". We'd like to add "cpuset" to the mix, but
-         * "cpuset" doesn't really work for groups with no initialized
-         * attributes. */
+        /* By default, mount "cpu" + "cpuacct" together. We'd like to
+         * add "cpuset" to the mix, but "cpuset" doesn't really work
+         * for groups with no initialized attributes. */
 
-        arg_join_controllers = new(char**, 3);
+        arg_join_controllers = new(char**, 2);
         if (!arg_join_controllers)
                 return -ENOMEM;
 
@@ -1166,11 +1165,7 @@ static int initialize_join_controllers(void) {
         if (!arg_join_controllers[0])
                 goto oom;
 
-        arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
-        if (!arg_join_controllers[1])
-                goto oom;
-
-        arg_join_controllers[2] = NULL;
+        arg_join_controllers[1] = NULL;
         return 0;
 
 oom:

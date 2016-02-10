@@ -3122,47 +3122,6 @@ int config_parse_blockio_bandwidth(
         return 0;
 }
 
-int config_parse_netclass(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        CGroupContext *c = data;
-        unsigned v;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (streq(rvalue, "auto")) {
-                c->netclass_type = CGROUP_NETCLASS_TYPE_AUTO;
-                return 0;
-        }
-
-        r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Netclass '%s' invalid. Ignoring.", rvalue);
-                return 0;
-        }
-
-        if (v > CGROUP_NETCLASS_FIXED_MAX)
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Fixed netclass %" PRIu32 " out of allowed range (0-%d). Applying anyway.", v, (uint32_t) CGROUP_NETCLASS_FIXED_MAX);
-
-        c->netclass_id = v;
-        c->netclass_type = CGROUP_NETCLASS_TYPE_FIXED;
-
-        return 0;
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
 
 int config_parse_job_mode_isolate(
