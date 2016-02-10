@@ -238,10 +238,50 @@ finish:
         return r;
 }
 
+static int send_passwords(const char *socket_name, char **passwords) {
+        _cleanup_free_ char *packet = NULL;
+        _cleanup_close_ int socket_fd = -1;
+        union sockaddr_union sa = { .un.sun_family = AF_UNIX };
+        size_t packet_length = 1;
+        char **p, *d;
+        int r;
+
+        assert(socket_name);
+
+        STRV_FOREACH(p, passwords)
+                packet_length += strlen(*p) + 1;
+
+        packet = new(char, packet_length);
+        if (!packet)
+                return -ENOMEM;
+
+        packet[0] = '+';
+
+        d = packet + 1;
+        STRV_FOREACH(p, passwords)
+                d = stpcpy(d, *p) + 1;
+
+        socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (socket_fd < 0) {
+                r = log_debug_errno(errno, "socket(): %m");
+                goto finish;
+        }
+
+        strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
+
+        r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa,
+                   offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
+        if (r < 0)
+                r = log_debug_errno(errno, "sendto(): %m");
+
+finish:
+        memory_erase(packet, packet_length);
+        return r;
+}
+
 static int parse_password(const char *filename, char **wall) {
-        _cleanup_free_ char *socket_name = NULL, *message = NULL, *packet = NULL;
+        _cleanup_free_ char *socket_name = NULL, *message = NULL;
         bool accept_cached = false, echo = false;
-        size_t packet_length = 0;
         uint64_t not_after = 0;
         unsigned pid = 0;
 
@@ -296,8 +336,7 @@ static int parse_password(const char *filename, char **wall) {
                 *wall = _wall;
 
         } else {
-                union sockaddr_union sa = {};
-                _cleanup_close_ int socket_fd = -1;
+                _cleanup_strv_free_erase_ char **passwords = NULL;
 
                 assert(arg_action == ACTION_QUERY ||
                        arg_action == ACTION_WATCH);
@@ -309,32 +348,10 @@ static int parse_password(const char *filename, char **wall) {
                         return 0;
                 }
 
-                if (arg_plymouth) {
-                        _cleanup_strv_free_erase_ char **passwords = NULL;
-
+                if (arg_plymouth)
                         r = ask_password_plymouth(message, not_after, accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0, filename, &passwords);
-                        if (r >= 0) {
-                                char **p;
-
-                                packet_length = 1;
-                                STRV_FOREACH(p, passwords)
-                                        packet_length += strlen(*p) + 1;
-
-                                packet = new(char, packet_length);
-                                if (!packet)
-                                        r = -ENOMEM;
-                                else {
-                                        char *d = packet + 1;
-
-                                        STRV_FOREACH(p, passwords)
-                                                d = stpcpy(d, *p) + 1;
-
-                                        packet[0] = '+';
-                                }
-                        }
-
-                } else {
-                        _cleanup_string_free_erase_ char *password = NULL;
+                else {
+                        char *password = NULL;
                         int tty_fd = -1;
 
                         if (arg_console) {
@@ -354,48 +371,26 @@ static int parse_password(const char *filename, char **wall) {
                                 release_terminal();
                         }
 
-                        if (r >= 0) {
-                                packet_length = 1 + strlen(password) + 1;
-                                packet = new(char, packet_length);
-                                if (!packet)
-                                        r = -ENOMEM;
-                                else {
-                                        packet[0] = '+';
-                                        strcpy(packet + 1, password);
-                                }
-                        }
+                        if (r >= 0)
+                                r = strv_push(&passwords, password);
+
+                        if (r < 0)
+                                string_free_erase(password);
                 }
 
-                if (IN_SET(r, -ETIME, -ENOENT)) {
-                        /* If the query went away, that's OK */
-                        r = 0;
-                        goto finish;
-                }
-                if (r < 0) {
-                        log_error_errno(r, "Failed to query password: %m");
-                        goto finish;
-                }
+                /* If the query went away, that's OK */
+                if (IN_SET(r, -ETIME, -ENOENT))
+                        return 0;
 
-                socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-                if (socket_fd < 0) {
-                        r = log_error_errno(errno, "socket(): %m");
-                        goto finish;
-                }
-
-                sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
-
-                r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
-                memory_erase(packet, packet_length);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to send: %m");
+                        return log_error_errno(r, "Failed to query password: %m");
+
+                r = send_passwords(socket_name, passwords);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send: %m");
         }
 
         return 0;
-
-finish:
-        memory_erase(packet, packet_length);
-        return r;
 }
 
 static int wall_tty_block(void) {
