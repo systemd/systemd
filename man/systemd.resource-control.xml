@@ -424,23 +424,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NetClass=</varname></term>
-        <listitem><para>Configures a network class number to assign to the
-        unit. This value will be set to the
-        <literal>net_cls.class_id</literal> property of the
-        <literal>net_cls</literal> cgroup of the unit. The directive
-        accepts a numerical value (for fixed number assignment) and the keyword
-        <literal>auto</literal> (for dynamic allocation). Network traffic of
-        all processes inside the unit will have the network class ID assigned
-        by the kernel. Also see
-        the kernel docs for
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroups/net_cls.txt">net_cls controller</ulink>
-        and
-        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>Slice=</varname></term>
 
         <listitem>

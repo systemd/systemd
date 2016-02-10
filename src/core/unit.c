@@ -458,7 +458,6 @@ static void unit_free_requires_mounts_for(Unit *u) {
 static void unit_done(Unit *u) {
         ExecContext *ec;
         CGroupContext *cc;
-        int r;
 
         assert(u);
 
@@ -475,10 +474,6 @@ static void unit_done(Unit *u) {
         cc = unit_get_cgroup_context(u);
         if (cc)
                 cgroup_context_done(cc);
-
-        r = unit_remove_from_netclass_cgroup(u);
-        if (r < 0)
-                log_warning_errno(r, "Unable to remove unit from netclass group: %m");
 }
 
 void unit_free(Unit *u) {
@@ -1263,14 +1258,6 @@ int unit_load(Unit *u) {
                 }
 
                 unit_update_cgroup_members_masks(u);
-
-                /* If we are reloading, we need to wait for the deserializer
-                 * to restore the net_cls ids that have been set previously */
-                if (u->manager->n_reloading <= 0) {
-                        r = unit_add_to_netclass_cgroup(u);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
@@ -2601,9 +2588,6 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
 
-        if (u->cgroup_netclass_id)
-                unit_serialize_item_format(u, f, "netclass-id", "%" PRIu32, u->cgroup_netclass_id);
-
         if (serialize_jobs) {
                 if (u->job) {
                         fprintf(f, "job\n");
@@ -2839,17 +2823,6 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse cgroup-realized bool %s, ignoring.", v);
                         else
                                 u->cgroup_realized = b;
-
-                        continue;
-                } else if (streq(l, "netclass-id")) {
-                        r = safe_atou32(v, &u->cgroup_netclass_id);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse netclass ID %s, ignoring.", v);
-                        else {
-                                r = unit_add_to_netclass_cgroup(u);
-                                if (r < 0)
-                                        log_unit_debug_errno(u, r, "Failed to add unit to netclass cgroup, ignoring: %m");
-                        }
 
                         continue;
                 }
