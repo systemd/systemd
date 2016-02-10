@@ -3,8 +3,18 @@
 " vimrc configuration file, including write operations and shell execution.
 " You should consider setting 'set secure' as well, which is highly
 " recommended!
+
+" Note that we set a line width of 119 for .c and XML files, but for everything
+" else (such as journal catalog files, unit files, README files) we stick to a
+" more conservative 79 characters.
+
+" NOTE: If you update this file make sure to update .dir-locals.el and
+" .editorconfig, too.
+
 set tabstop=8
 set shiftwidth=8
 set expandtab
 set makeprg=GCC_COLORS=\ make
-set tw=119
+set tw=79
+au FileType xml set tw=119
+au FileType c set tw=119

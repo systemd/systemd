@@ -2,12 +2,159 @@ systemd System and Service Manager
 
 CHANGES WITH 229:
 
-        * Creation of the legacy /run/lock/lockdev/ directory was
-          dropped from tmpfiles.d/legacy.conf. Hardly any software uses
-          that any more, and better locking mechanisms like flock() have
+        * The systemd-resolved DNS resolver service has gained a substantial
+          set of new features, most prominently it may now act as a DNSSEC
+          validating stub resolver. DNSSEC mode is currently turned off by
+          default, but it is expected that this is turned on by default in one
+          of the next releases. For now, we invite everybody to test the DNSSEC
+          logic by setting DNSSEC=allow-downgrade in
+          /etc/systemd/resolved.conf. The service also gained a full set of
+          D-Bus interfaces, including calls to configure DNS and DNSSEC
+          settings per link (for consumption by external network management
+          software). systemd-resolved (and systemd-networkd along with it) now
+          know to distinguish between "search" and "routing" domains. The
+          former are used to qualify single-label names, the latter are purely
+          used for routing lookups within certain domains to specific
+          links. resolved will now also synthesize RRs for all entries from
+          /etc/hosts.
+
+        * The systemd-resolve tool (which is a client utility for
+          systemd-resolved, and previously experimental) has been beefed up
+          considerably and is now fully supported and documented. It has moved
+          from /usr/lib/systemd to /usr/bin because.
+
+        * /dev/disk/by-path/ symlink support has been (re-)added for virtio
+          devices.
+
+        * The systemd-activate socket activation testing tool gained support
+          for SOCK_DGRAM and SOCK_SEQPACKET sockets using the new --datagram
+          and --seqpacket switches. It also has been extended to support both
+          new-style and inetd-style file descriptor passing. Use the new
+          --inetd switch to request inetd-style file descriptor passing.
+
+        * Most systemd tools now honour a new $SYSTEMD_COLORS environment
+          variable, which takes a boolean value. If set to false ANSI color
+          output is disabled in the tools even when run on a terminal that
+          supports it.
+
+        * The VXLAN support in networkd now supports two new settings
+          DestinationPort= and PortRange=.
+
+        * A new systemd.machine_id= kernel command line switch has been added,
+          that may be used to set the machine ID in /etc/machine-id if it is
+          not initialized yet. This command line option has no effect if the
+          file is already initialized.
+
+        * systemd-nspawn gained a new --as-pid2 switch that invokes any
+          specified command line as PID 2 rather than PID 1 in the
+          container. In this mode PID 1 will be a minimal stub init process
+          that implements the special POSIX and Linux semantics of PID 1
+          regarding signal and child process management. Note that this stub
+          init process is implemented in nspawn itself and requires no support
+          from the container image. This new logic is useful to support running
+          arbitrary command lines in the container, as normal processes are
+          generally not prepared to run as PID 1.
+
+        * systemd-nspawn gained a new --chdir= switch for setting the current
+          working directory for the process started in the container.
+
+        * "journalctl /dev/sda" will now output all kernel log messages from
+          the specified device, in addition to all devices that are parents of
+          it. This should make log output about devices pretty useful, as long
+          as kernel drivers attach enough metadata to the log messages. (The
+          usual SATA drivers do.)
+
+        * The sd-journal API gained two new calls
+          sd_journal_has_runtime_files() and sd_journal_has_persistent_files()
+          that report whether log data from /run or /var has been found.
+
+        * journalctl gained a new switch "--fields" that prints all journal
+          record field names currently in use in the journal.  This is backed
+          by two new sd-journal API calls sd_journal_enumerate_fields() and
+          sd_journal_restart_fields().
+
+        * Most configurable timeouts in systemd now expect an argument of
+          "infinity" to turn them off, instead of "0" as before. This follows
+          of a logic where a timeout of "0" means "now", and one of "infinity"
+          means "never". For compatibility where this was supported before 0
+          continues to be accepted to turn off timeouts.
+
+        * "systemctl reload-or-try-restart" has been renamed to "systemctl
+          try-reload-or-restart" to make clearer what it actually does, and
+          indicate that the "try" logic applies to both reloading and
+          restarting and not just restarting. The old name continues to be
+          accepted for compatibility.
+
+        * On boot-up when PID 1 detects that the system clock is before the
+          release date of the systemd version in use, the clock is now bumped
+          ahead to it. Previously, this was already done in timesyncd, in order
+          to avoid running with clocks set to the various clock epochs such as
+          1902, 1938 or 1970. With this change the logic is now done in PID 1
+          in addition to timesyncd during early boot-up, so that it is enforced
+          before the first process is spawned by systemd. Note that the logic
+          in timesyncd remains, as it is more comprehensive and ensures
+          montonic clocks by maintaining a persistant timestamp file in
+          /var. Since /var is generally not available in earliest boot or the
+          initrd, this part of the logic remains in timesyncd, and is not done
+          by PID 1.
+
+        * A new service setting RuntimeMaxSec= has been added that may be used
+          to specify a maximum runtime for a service. If the timeout is hit the
+          service is terminated and put into a failure state.
+
+        * A new service setting AmbientCapabilities= has been added, that
+          allows configuration of additional Linux process capabilities that
+          are passed to the activated processes. This is only available on very
+          recent kernels.
+
+        * The process resource limit settings in service units may now be used
+          to configure hard and soft limits individually.
+
+        * The various libsystemd APIs such as sd-bus or sd-event now publically
+          expose support for gcc's __attribute__((cleanup())) C
+          extension. Specifically, for many object destructor functions
+          alternative versions whose names are suffixed with "p" and take a
+          pointer to a pointer to the object to destroy instead of just a
+          pointer to the object itself have been added. This is useful because
+          these destructor functions may be used directly as parameters to the
+          cleanup construct. Internally, systemd has been a heavy user of the
+          GCC extension since a long time, and with this change similar support
+          is now available to consumers of the library outside of systemd. Note
+          of course, that by using this extension in your sources compatibility
+          with old and strictly ANSI compatible C compilers is lost. However,
+          any gcc or LLVM version of the last years has been supporting this
+          extension just fine.
+
+        * Timer units gained support for a new setting RandomizedDelaySec= that
+          allows configuring an amount of additional randomized delay to add
+          to the time a timer elapses. This is useful to distribute timer
+          events over a time range to avoid load peaks in clusters or larger
+          setups.
+
+        * Calendar time specifications now support sub-second accuracy.
+
+        * Socket units now support listening on SCTP and UDP-lite protocol
+          sockets.
+
+        * The sd-event API now comes with a full set of man pages.
+
+        * Older versions of systemd contained experimental support for
+          compressing journal files and coredumps with the LZ4 compressor that
+          was not compatible with the lz4 binary (due to API limitations of the
+          lz4 library). This support has been removed; only support for files
+          compatible with the lz4 binary remains. This LZ4 logic is now
+          officially supported and no longer considered experimental.
+
+        * The dkr image import logic has been removed again from importd. dkr's
+          micro-services focus doesn't fit into the machine image focus of
+          importd, and quickly got out of date with the upstream dkr API.
+
+        * Creation of the /run/lock/lockdev/ directory was dropped from
+          tmpfiles.d/legacy.conf. Better locking mechanisms like flock() have
           been available for many years. If you still need this, you need to
           create your own tmpfiles.d config file with:
-            d /run/lock/lockdev 0775 root lock -
+
+                  d /run/lock/lockdev 0775 root lock -
 
         Contributions from: ...
 
