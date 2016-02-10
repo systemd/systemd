@@ -5,23 +5,21 @@ CHANGES WITH 229:
         * The systemd-resolved DNS resolver service has gained a substantial
           set of new features, most prominently it may now act as a DNSSEC
           validating stub resolver. DNSSEC mode is currently turned off by
-          default, but it is expected that this is turned on by default in one
-          of the next releases. For now, we invite everybody to test the DNSSEC
-          logic by setting DNSSEC=allow-downgrade in
-          /etc/systemd/resolved.conf. The service also gained a full set of
-          D-Bus interfaces, including calls to configure DNS and DNSSEC
-          settings per link (for consumption by external network management
-          software). systemd-resolved (and systemd-networkd along with it) now
-          know to distinguish between "search" and "routing" domains. The
-          former are used to qualify single-label names, the latter are purely
-          used for routing lookups within certain domains to specific
-          links. resolved will now also synthesize RRs for all entries from
-          /etc/hosts.
+          default, but is expected to be turned on by default in one of the
+          next releases. For now, we invite everybody to test the DNSSEC logic
+          by setting DNSSEC=allow-downgrade in /etc/systemd/resolved.conf. The
+          service also gained a full set of D-Bus interfaces, including calls
+          to configure DNS and DNSSEC settings per link (for use by external
+          network management software). systemd-resolved and systemd-networkd
+          now distinguish between "search" and "routing" domains. The former
+          are used to qualify single-label names, the latter are used purely
+          for routing lookups within certain domains to specific links.
+          resolved now also synthesizes RRs for all entries from /etc/hosts.
 
         * The systemd-resolve tool (which is a client utility for
-          systemd-resolved, and previously experimental) has been improved
-          considerably and is now fully supported and documented. Hence it has
-          moved from /usr/lib/systemd to /usr/bin.
+          systemd-resolved) has been improved considerably and is now fully
+          supported and documented. Hence it has moved from /usr/lib/systemd to
+          /usr/bin.
 
         * /dev/disk/by-path/ symlink support has been (re-)added for virtio
           devices.
@@ -80,22 +78,22 @@ CHANGES WITH 229:
 
         * systemd-nspawn gained a new --as-pid2 switch that invokes any
           specified command line as PID 2 rather than PID 1 in the
-          container. In this mode PID 1 will be a minimal stub init process
-          that implements the special POSIX and Linux semantics of PID 1
-          regarding signal and child process management. Note that this stub
-          init process is implemented in nspawn itself and requires no support
-          from the container image. This new logic is useful to support running
-          arbitrary command lines in the container, as normal processes are
+          container. In this mode PID 1 is a minimal stub init process that
+          implements the special POSIX and Linux semantics of PID 1 regarding
+          signal and child process management. Note that this stub init process
+          is implemented in nspawn itself and requires no support from the
+          container image. This new logic is useful to support running
+          arbitrary commands in the container, as normal processes are
           generally not prepared to run as PID 1.
 
         * systemd-nspawn gained a new --chdir= switch for setting the current
           working directory for the process started in the container.
 
-        * "journalctl /dev/sda" will now output all kernel log messages from
-          the specified device, in addition to all devices that are parents of
-          it. This should make log output about devices pretty useful, as long
-          as kernel drivers attach enough metadata to the log messages. (The
-          usual SATA drivers do.)
+        * "journalctl /dev/sda" will now output all kernel log messages for
+          specified device from the current boot, in addition to all devices
+          that are parents of it. This should make log output about devices
+          pretty useful, as long as kernel drivers attach enough metadata to
+          the log messages. (The usual SATA drivers do.)
 
         * The sd-journal API gained two new calls
           sd_journal_has_runtime_files() and sd_journal_has_persistent_files()
@@ -125,7 +123,7 @@ CHANGES WITH 229:
           in addition to timesyncd during early boot-up, so that it is enforced
           before the first process is spawned by systemd. Note that the logic
           in timesyncd remains, as it is more comprehensive and ensures
-          montonic clocks by maintaining a persistant timestamp file in
+          clock monotonicity by maintaining a persistent timestamp file in
           /var. Since /var is generally not available in earliest boot or the
           initrd, this part of the logic remains in timesyncd, and is not done
           by PID 1.
@@ -154,18 +152,18 @@ CHANGES WITH 229:
           to configure hard and soft limits individually.
 
         * The various libsystemd APIs such as sd-bus or sd-event now publicly
-          expose support for gcc's __attribute__((cleanup())) C
-          extension. Specifically, for many object destructor functions
-          alternative versions whose names are suffixed with "p" have been
-          added, which take a pointer to a pointer to the object to destroy,
-          instead of just a pointer to the object itself. This is useful because
-          these destructor functions may be used directly as parameters to the
-          cleanup construct. Internally, systemd has been a heavy user of the
-          GCC extension since a long time, and with this change similar support
-          is now available to consumers of the library outside of systemd. Note
+          expose support for gcc's __attribute__((cleanup())) C extension.
+          Specifically, for many object destructor functions alternative
+          versions have been added that have names suffixed with "p" and take a
+          pointer to a pointer to the object to destroy, instead of just a
+          pointer to the object itself. This is useful because these destructor
+          functions may be used directly as parameters to the cleanup
+          construct. Internally, systemd has been a heavy user of this GCC
+          extension for a long time, and with this change similar support is
+          now available to consumers of the library outside of systemd. Note
           that by using this extension in your sources compatibility with old
-          and strictly ANSI compatible C compilers is lost. However, any gcc or
-          LLVM version of recent years have supported this extension.
+          and strictly ANSI compatible C compilers is lost. However, all gcc or
+          LLVM versions of recent years support this extension.
 
         * Timer units gained support for a new setting RandomizedDelaySec= that
           allows configuring some additional randomized delay to the configured
