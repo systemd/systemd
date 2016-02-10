@@ -92,8 +92,6 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u);
 usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
-nsec_t timespec_load_nsec(const struct timespec *ts) _pure_;
-
 char *format_timestamp(char *buf, size_t l, usec_t t);
 char *format_timestamp_utc(char *buf, size_t l, usec_t t);
 char *format_timestamp_us(char *buf, size_t l, usec_t t);
