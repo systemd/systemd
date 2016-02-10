@@ -97,6 +97,17 @@ CHANGES WITH 229:
           initrd, this part of the logic remains in timesyncd, and is not done
           by PID 1.
 
+        * Support for tweaking details in net_cls.class_id through the
+          NetClass= configuration directive has been removed, as the kernel
+          people have decided to deprecate that controller in cgroup v2.
+          Userspace tools such as nftables are moving over to setting rules
+          that are specific to the full cgroup path of a task, which obsoletes
+          these controllers anyway. The NetClass= directive is kept around for
+          legacy compatibility reasons. For a more in-depth description of the
+          kernel change, please refer to the respective upstream commit:
+
+            https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=bd1060a1d671
+
         * A new service setting RuntimeMaxSec= has been added that may be used
           to specify a maximum runtime for a service. If the timeout is hit, the
           service is terminated and put into a failure state.

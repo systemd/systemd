@@ -27,7 +27,7 @@ case "$service" in
             '--no-pager[Do not pipe output into a pager]' \
             {-a,--all}'[Show all groups, including empty]' \
             '-k[Include kernel threads in output]' \
-            ':cgroups:(cpuset cpu cpuacct memory devices freezer net_cls blkio)'
+            ':cgroups:(cpuset cpu cpuacct memory devices freezer blkio)'
     ;;
     systemd-cgtop)
         _arguments \
