@@ -19,9 +19,9 @@ CHANGES WITH 229:
           /etc/hosts.
 
         * The systemd-resolve tool (which is a client utility for
-          systemd-resolved, and previously experimental) has been beefed up
-          considerably and is now fully supported and documented. It has moved
-          from /usr/lib/systemd to /usr/bin because.
+          systemd-resolved, and previously experimental) has been improved
+          considerably and is now fully supported and documented. Hence it has
+          moved from /usr/lib/systemd to /usr/bin.
 
         * /dev/disk/by-path/ symlink support has been (re-)added for virtio
           devices.
@@ -32,8 +32,8 @@ CHANGES WITH 229:
           new-style and inetd-style file descriptor passing. Use the new
           --inetd switch to request inetd-style file descriptor passing.
 
-        * Most systemd tools now honour a new $SYSTEMD_COLORS environment
-          variable, which takes a boolean value. If set to false ANSI color
+        * Most systemd tools now honor a new $SYSTEMD_COLORS environment
+          variable, which takes a boolean value. If set to false, ANSI color
           output is disabled in the tools even when run on a terminal that
           supports it.
 
@@ -74,20 +74,19 @@ CHANGES WITH 229:
           sd_journal_restart_fields().
 
         * Most configurable timeouts in systemd now expect an argument of
-          "infinity" to turn them off, instead of "0" as before. This follows
-          of a logic where a timeout of "0" means "now", and one of "infinity"
-          means "never". For compatibility where this was supported before 0
-          continues to be accepted to turn off timeouts.
+          "infinity" to turn them off, instead of "0" as before. The semantics
+          from now on is that a timeout of "0" means "now", and "infinity"
+          means "never". To maintain backwards compatibility, "0" continues to
+          turn off previously existing timeout settings.
 
         * "systemctl reload-or-try-restart" has been renamed to "systemctl
-          try-reload-or-restart" to make clearer what it actually does, and
-          indicate that the "try" logic applies to both reloading and
-          restarting and not just restarting. The old name continues to be
-          accepted for compatibility.
+          try-reload-or-restart" to clarify what it actually does: the "try"
+          logic applies to both reloading and restarting, not just restarting.
+          The old name continues to be accepted for compatibility.
 
-        * On boot-up when PID 1 detects that the system clock is before the
-          release date of the systemd version in use, the clock is now bumped
-          ahead to it. Previously, this was already done in timesyncd, in order
+        * On boot-up, when PID 1 detects that the system clock is behind the
+          release date of the systemd version in use, the clock is now set
+          to the latter. Previously, this was already done in timesyncd, in order
           to avoid running with clocks set to the various clock epochs such as
           1902, 1938 or 1970. With this change the logic is now done in PID 1
           in addition to timesyncd during early boot-up, so that it is enforced
@@ -99,37 +98,35 @@ CHANGES WITH 229:
           by PID 1.
 
         * A new service setting RuntimeMaxSec= has been added that may be used
-          to specify a maximum runtime for a service. If the timeout is hit the
+          to specify a maximum runtime for a service. If the timeout is hit, the
           service is terminated and put into a failure state.
 
-        * A new service setting AmbientCapabilities= has been added, that
-          allows configuration of additional Linux process capabilities that
-          are passed to the activated processes. This is only available on very
+        * A new service setting AmbientCapabilities= has been added. It allows
+          configuration of additional Linux process capabilities that are
+          passed to the activated processes. This is only available on very
           recent kernels.
 
         * The process resource limit settings in service units may now be used
           to configure hard and soft limits individually.
 
-        * The various libsystemd APIs such as sd-bus or sd-event now publically
+        * The various libsystemd APIs such as sd-bus or sd-event now publicly
           expose support for gcc's __attribute__((cleanup())) C
           extension. Specifically, for many object destructor functions
-          alternative versions whose names are suffixed with "p" and take a
-          pointer to a pointer to the object to destroy instead of just a
-          pointer to the object itself have been added. This is useful because
+          alternative versions whose names are suffixed with "p" have been
+          added, which take a pointer to a pointer to the object to destroy,
+          instead of just a pointer to the object itself. This is useful because
           these destructor functions may be used directly as parameters to the
           cleanup construct. Internally, systemd has been a heavy user of the
           GCC extension since a long time, and with this change similar support
           is now available to consumers of the library outside of systemd. Note
-          of course, that by using this extension in your sources compatibility
-          with old and strictly ANSI compatible C compilers is lost. However,
-          any gcc or LLVM version of the last years has been supporting this
-          extension just fine.
+          that by using this extension in your sources compatibility with old
+          and strictly ANSI compatible C compilers is lost. However, any gcc or
+          LLVM version of recent years have supported this extension.
 
         * Timer units gained support for a new setting RandomizedDelaySec= that
-          allows configuring an amount of additional randomized delay to add
-          to the time a timer elapses. This is useful to distribute timer
-          events over a time range to avoid load peaks in clusters or larger
-          setups.
+          allows configuring some additional randomized delay to the configured
+          time. This is useful to spread out timer events to avoid load peaks in
+          clusters or larger setups.
 
         * Calendar time specifications now support sub-second accuracy.
 
