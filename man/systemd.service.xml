@@ -371,7 +371,7 @@
         with a <literal>-</literal> exit successfully.</para>
 
         <para><varname>ExecStartPost=</varname> commands are only run after
-        the service has started, as determined by <varname>Type=</varname>
+        the service has started successfully, as determined by <varname>Type=</varname>
         (i.e. the process has been started for <varname>Type=simple</varname>
         or <varname>Type=idle</varname>, the process exits successfully for
         <varname>Type=oneshot</varname>, the initial process exits successfully
