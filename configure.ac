@@ -556,7 +556,7 @@ AM_CONDITIONAL(HAVE_ZLIB, [test "$have_zlib" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_bzip2=no
-AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Disable optional BZIP2 support]))
+AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Enable optional BZIP2 support]))
 AS_IF([test "x$enable_bzip2" != "xno"], [
         AC_CHECK_HEADERS(bzlib.h,
                 [AC_DEFINE(HAVE_BZIP2, 1, [Define if BZIP2 is available])
@@ -1176,7 +1176,7 @@ AC_SUBST([EFI_ARCH])
 AC_SUBST([EFI_MACHINE_TYPE_NAME])
 
 have_gnuefi=no
-AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [Disable optional gnuefi support]))
+AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [Enable optional gnuefi support]))
 AS_IF([test "x$enable_gnuefi" != "xno"], [
         AC_CHECK_HEADERS(efi/${EFI_ARCH}/efibind.h,
                 [AC_DEFINE(HAVE_GNUEFI, 1, [Define if gnuefi is available])
