@@ -204,12 +204,22 @@
       <varlistentry>
         <term><filename>emergency.target</filename></term>
         <listitem>
-          <para>A special target unit that starts an emergency shell
-          on the main console. This unit is supposed to be used with
-          the kernel command line option
-          <varname>systemd.unit=</varname> and has otherwise little
-          use.
-          </para>
+          <para>A special target unit that starts an emergency shell on the main console. This target does not pull in
+          any serices or mounts. It is the most minimal version of starting the system in order to acquire an
+          interactive shell; the only processes running are usually just the system manager (PID 1) and the shell
+          process. This unit is supposed to be used with the kernel command line option
+          <varname>systemd.unit=</varname>; it is also used when a file system check on a required file system fails,
+          and boot-up cannot continue. Compare with <filename>rescue.target</filename>, which serves a similar purpose,
+          but also starts the most basic services and mounts all file systems.</para>
+
+          <para>Use the <literal>systemd.unit=emergency.target</literal> kernel command line option to boot into this
+          mode. A short alias for this kernel command line option is <literal>emergency</literal>, for compatibility
+          with SysV.</para>
+
+          <para>In many ways booting into <filename>emergency.target</filename> is similar to the effect of booting
+          with <literal>init=/bin/sh</literal> on the kernel command line, except that emergency mode provides you with
+          the full system and service manager, and allows starting individual units in order to continue the boot
+          process in steps.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -440,11 +450,18 @@
       <varlistentry>
         <term><filename>rescue.target</filename></term>
         <listitem>
-          <para>A special target unit for setting up the base system
-          and a rescue shell.</para>
+          <para>A special target unit that pulls in the base system (including system mounts) and spawns a rescue
+          shell. Isolate to this target in order to administer the system in single-user mode with all file systems
+          mounted but with no services running, except for the most basic. Compare with
+          <filename>emergency.target</filename>, which is much more reduced and does not provide the file systems or
+          most basic services.</para>
 
-          <para><filename>runlevel1.target</filename> is an alias for
-          this target unit, for compatibility with SysV.</para>
+          <para><filename>runlevel1.target</filename> is an alias for this target unit, for compatibility with
+          SysV.</para>
+
+          <para>Use the <literal>systemd.unit=rescue.target</literal> kernel command line option to boot into this
+          mode. A short alias for this kernel command line option is <literal>1</literal>, for compatibility with
+          SysV.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
