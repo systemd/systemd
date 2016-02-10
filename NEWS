@@ -26,6 +26,39 @@ CHANGES WITH 229:
         * /dev/disk/by-path/ symlink support has been (re-)added for virtio
           devices.
 
+        * The coredump collection logic has been reworked: when a coredump is
+          collected it is now written to disk, compressed and processed
+          (including stacktrace extraction) from a new instantiated service
+          systemd-coredump@.service, instead of directly from the
+          /proc/sys/kernel/core_pattern hook we provide. This is beneficial as
+          processing large coredumps can take up a substantial amount of
+          resources and time, and this previously happened entirely outside of
+          systemd's service supervision. With the new logic the core_pattern
+          hook only does minimal metadata collection before passing off control
+          to the new instantiated service, which is configured with a time
+          limit, a nice level and other settings to minimize negative impact on
+          the rest of the system. Also note that the new logic will honour the
+          RLIMIT_CORE setting of the crashed process, which now allows users
+          and processes to turn off coredumping for their processes by setting
+          this limit.
+
+        * The RLIMIT_CORE resource limit now defaults to "unlimited" for PID 1
+          and all forked processes by default. Previously, PID 1 would leave
+          the setting at "0" for all processes, as set by the kernel. Note that
+          the resource limit traditionally has no effect on the generated
+          coredumps on the system if the /proc/sys/kernel/core_pattern hook
+          logic is used. Since the limit is now honoured (see above) its
+          default has been changed so that the coredumping logic is enabled by
+          default for all processes, while allowing specific opt-out.
+
+        * When the stacktrace is extracted from processes of system users, this
+          is now done as "systemd-coredump" user, in order to sandbox this
+          potentially security sensitive parsing operation. (Note that when
+          processing coredumps of normal users this is done under the user ID
+          of process that crashed, as before.) Packagers should take notice
+          that it is now necessary to create the "systemd-coredump" system user
+          and group at package installation time.
+
         * The systemd-activate socket activation testing tool gained support
           for SOCK_DGRAM and SOCK_SEQPACKET sockets using the new --datagram
           and --seqpacket switches. It also has been extended to support both

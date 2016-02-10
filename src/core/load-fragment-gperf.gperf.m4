@@ -161,7 +161,7 @@ Unit.OnFailureJobMode,           config_parse_job_mode,              0,         
 Unit.OnFailureIsolate,           config_parse_job_mode_isolate,      0,                             offsetof(Unit, on_failure_job_mode)
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
 Unit.IgnoreOnSnapshot,           config_parse_warn_compat,           DISABLED_LEGACY,               0
-Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
+Unit.JobTimeoutSec,              config_parse_sec_fix_0,             0,                             offsetof(Unit, job_timeout)
 Unit.JobTimeoutAction,           config_parse_failure_action,        0,                             offsetof(Unit, job_timeout_action)
 Unit.JobTimeoutRebootArgument,   config_parse_string,                0,                             offsetof(Unit, job_timeout_reboot_arg)
 Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
@@ -215,9 +215,9 @@ Service.ExecReload,              config_parse_exec,                  SERVICE_EXE
 Service.ExecStop,                config_parse_exec,                  SERVICE_EXEC_STOP,             offsetof(Service, exec_command)
 Service.ExecStopPost,            config_parse_exec,                  SERVICE_EXEC_STOP_POST,        offsetof(Service, exec_command)
 Service.RestartSec,              config_parse_sec,                   0,                             offsetof(Service, restart_usec)
-Service.TimeoutSec,              config_parse_service_timeout,       0,                             offsetof(Service, timeout_start_usec)
-Service.TimeoutStartSec,         config_parse_service_timeout,       0,                             offsetof(Service, timeout_start_usec)
-Service.TimeoutStopSec,          config_parse_service_timeout,       0,                             offsetof(Service, timeout_stop_usec)
+Service.TimeoutSec,              config_parse_service_timeout,       0,                             0
+Service.TimeoutStartSec,         config_parse_service_timeout,       0,                             0
+Service.TimeoutStopSec,          config_parse_service_timeout,       0,                             0
 Service.RuntimeMaxSec,           config_parse_sec,                   0,                             offsetof(Service, runtime_max_usec)
 Service.WatchdogSec,             config_parse_sec,                   0,                             offsetof(Service, watchdog_usec)
 Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)

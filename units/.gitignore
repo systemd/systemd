@@ -25,6 +25,7 @@
 /systemd-binfmt.service
 /systemd-bootchart.service
 /systemd-bus-proxyd.service
+/systemd-coredump@.service
 /systemd-firstboot.service
 /systemd-fsck-root.service
 /systemd-fsck@.service

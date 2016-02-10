@@ -4397,30 +4397,39 @@ systemd_socket_proxyd_LDADD = \
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
 systemd_coredump_SOURCES = \
-	src/journal/coredump.c \
-	src/journal/coredump-vacuum.c \
-	src/journal/coredump-vacuum.h
+	src/coredump/coredump.c \
+	src/coredump/coredump-vacuum.c \
+	src/coredump/coredump-vacuum.h
 
 systemd_coredump_LDADD = \
 	libshared.la
 
 if HAVE_ELFUTILS
 systemd_coredump_SOURCES += \
-	src/journal/stacktrace.c \
-	src/journal/stacktrace.h
+	src/coredump/stacktrace.c \
+	src/coredump/stacktrace.h
 
 systemd_coredump_LDADD += \
 	$(ELFUTILS_LIBS)
 endif
 
+nodist_systemunit_DATA += \
+	units/systemd-coredump@.service
+
+dist_systemunit_DATA += \
+	units/systemd-coredump.socket
+
+SOCKETS_TARGET_WANTS += \
+	systemd-coredump.socket
+
 rootlibexec_PROGRAMS += \
 	systemd-coredump
 
 dist_pkgsysconf_DATA += \
-	src/journal/coredump.conf
+	src/coredump/coredump.conf
 
 coredumpctl_SOURCES = \
-	src/journal/coredumpctl.c
+	src/coredump/coredumpctl.c
 
 coredumpctl_LDADD = \
 	libshared.la
@@ -4432,9 +4441,9 @@ manual_tests += \
 	test-coredump-vacuum
 
 test_coredump_vacuum_SOURCES = \
-	src/journal/test-coredump-vacuum.c  \
-	src/journal/coredump-vacuum.c \
-	src/journal/coredump-vacuum.h
+	src/coredump/test-coredump-vacuum.c  \
+	src/coredump/coredump-vacuum.c \
+	src/coredump/coredump-vacuum.h
 
 test_coredump_vacuum_LDADD = \
 	libshared.la
@@ -4453,7 +4462,8 @@ CLEANFILES += \
 endif
 
 EXTRA_DIST += \
-	sysctl.d/50-coredump.conf.in
+	sysctl.d/50-coredump.conf.in \
+	units/systemd-coredump@.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT
@@ -4859,7 +4869,6 @@ nodist_systemunit_DATA += \
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-timesyncd.service $(pkgsysconfdir)/system/sysinit.target.wants/systemd-timesyncd.service
-
 
 nodist_pkgsysconf_DATA += \
 	src/timesync/timesyncd.conf

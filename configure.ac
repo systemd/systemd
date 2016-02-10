@@ -1106,6 +1106,7 @@ have_coredump=no
 AC_ARG_ENABLE(coredump, AS_HELP_STRING([--disable-coredump], [disable coredump hook]))
 if test "x$enable_coredump" != "xno"; then
         have_coredump=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_COREDUMP"
 fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 

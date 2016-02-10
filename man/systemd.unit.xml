@@ -728,20 +728,14 @@
         <term><varname>JobTimeoutAction=</varname></term>
         <term><varname>JobTimeoutRebootArgument=</varname></term>
 
-        <listitem><para>When a job for this unit is queued, a time-out
-        may be configured. If this time limit is reached, the job will
-        be cancelled, the unit however will not change state or even
-        enter the <literal>failed</literal> mode. This value defaults
-        to 0 (job timeouts disabled), except for device units. NB:
-        this timeout is independent from any unit-specific timeout
-        (for example, the timeout set with
-        <varname>TimeoutStartSec=</varname> in service units) as the
-        job timeout has no effect on the unit itself, only on the job
-        that might be pending for it. Or in other words: unit-specific
-        timeouts are useful to abort unit state changes, and revert
-        them. The job timeout set with this option however is useful
-        to abort only the job waiting for the unit state to
-        change.</para>
+        <listitem><para>When a job for this unit is queued, a time-out may be configured. If this time limit is
+        reached, the job will be cancelled, the unit however will not change state or even enter the
+        <literal>failed</literal> mode. This value defaults to <literal>infinity</literal> (job timeouts disabled),
+        except for device units. NB: this timeout is independent from any unit-specific timeout (for example, the
+        timeout set with <varname>TimeoutStartSec=</varname> in service units) as the job timeout has no effect on the
+        unit itself, only on the job that might be pending for it. Or in other words: unit-specific timeouts are useful
+        to abort unit state changes, and revert them. The job timeout set with this option however is useful to abort
+        only the job waiting for the unit state to change.</para>
 
         <para><varname>JobTimeoutAction=</varname>
         optionally configures an additional

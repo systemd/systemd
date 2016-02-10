@@ -871,14 +871,13 @@ int send_one_fd_sa(
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control = {};
-        struct cmsghdr *cmsg;
-
         struct msghdr mh = {
                 .msg_name = (struct sockaddr*) sa,
                 .msg_namelen = len,
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
+        struct cmsghdr *cmsg;
 
         assert(transport_fd >= 0);
         assert(fd >= 0);

@@ -60,27 +60,21 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-activate</command> can be used to
-    launch a socket-activated daemon from the command line for
-    testing purposes. It can also be used to launch single instances
-    of the daemon per connection (inetd-style).
+    <para><command>systemd-activate</command> may be used to launch a socket-activated service binary from the command
+    line for testing purposes. It may also be used to launch individual instances of the service binary per connection.
     </para>
 
     <para>The daemon to launch and its options should be specified
     after options intended for <command>systemd-activate</command>.
     </para>
 
-    <para>If the <option>-a</option> option is given, file descriptor
-    of the connection will be used as the standard input and output of
-    the launched process. Otherwise, standard input and output will be
-    inherited, and sockets will be passed through file descriptors 3
-    and higher. Sockets passed through <varname>$LISTEN_FDS</varname>
-    to <command>systemd-activate</command> will be passed through to
-    the daemon, in the original positions. Other sockets specified
-    with <option>--listen</option> will use consecutive descriptors.
-    By default, <command>systemd-activate</command> listens on a
-    stream socket, use <option>--datagram</option> to listen on
-    a datagram socket instead (see below).
+    <para>If the <option>--inetd</option> option is given, the socket file descriptor will be used as the standard
+    input and output of the launched process. Otherwise, standard input and output will be inherited, and sockets will
+    be passed through file descriptors 3 and higher. Sockets passed through <varname>$LISTEN_FDS</varname> to
+    <command>systemd-activate</command> will be passed through to the daemon, in the original positions. Other sockets
+    specified with <option>--listen=</option> will use consecutive descriptors.  By default,
+    <command>systemd-activate</command> listens on a stream socket, use <option>--datagram</option> and
+    <option>--seqpacket</option> to listen on datagram or sequential packet sockets instead (see below).
     </para>
   </refsect1>
 
@@ -101,16 +95,32 @@
         <term><option>-a</option></term>
         <term><option>--accept</option></term>
 
-        <listitem><para>Launch a separate instance of daemon per
-        connection and pass the connection socket as standard input
-        and standard output.</para></listitem>
+        <listitem><para>Launch an instance of the service binary for each connection and pass the connection
+        socket.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-d</option></term>
         <term><option>--datagram</option></term>
 
-        <listitem><para>Listen on a datagram socket, instead of a stream socket.</para></listitem>
+        <listitem><para>Listen on a datagram socket (<constant>SOCK_DGRAM</constant>), instead of a stream socket
+        (<constant>SOCK_STREAM</constant>). May not be combined with <option>--seqpacket</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--seqpacket</option></term>
+
+        <listitem><para>Listen on a sequential packet socket (<constant>SOCK_SEQPACKET</constant>), instead of a stream
+        socket (<constant>SOCK_STREAM</constant>). May not be combined with
+        <option>--datagram</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--inetd</option></term>
+
+        <listitem><para>Use the inetd protocol for passing file descriptors, i.e. as standard input and standard
+        output, instead of the new-style protocol for passing file descriptors using <varname>$LISTEN_FDS</varname>
+        (see above).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -170,7 +180,7 @@
     <example>
       <title>Run an echo server on port 2000</title>
 
-      <programlisting>$ /usr/lib/systemd/systemd-activate -l 2000 -a cat</programlisting>
+      <programlisting>$ /usr/lib/systemd/systemd-activate -l 2000 --inetd -a cat</programlisting>
     </example>
 
     <example>
