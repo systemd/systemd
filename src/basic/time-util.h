@@ -141,11 +141,13 @@ static inline usec_t usec_add(usec_t a, usec_t b) {
 
 static inline usec_t usec_sub(usec_t timestamp, int64_t delta) {
         if (delta < 0)
-                timestamp = usec_add(timestamp, (usec_t) (-delta));
-        else if (timestamp > (usec_t) delta)
-                timestamp -= delta;
-        else
-                timestamp = 0;
+                return usec_add(timestamp, (usec_t) (-delta));
 
-        return timestamp;
+        if (timestamp == USEC_INFINITY) /* Make sure infinity doesn't degrade */
+                return USEC_INFINITY;
+
+        if (timestamp < (usec_t) delta)
+                return 0;
+
+        return timestamp - delta;
 }

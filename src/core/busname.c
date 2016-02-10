@@ -945,7 +945,6 @@ static void busname_reset_failed(Unit *u) {
 
 static void busname_trigger_notify(Unit *u, Unit *other) {
         BusName *n = BUSNAME(u);
-        Service *s;
 
         assert(n);
         assert(other);
@@ -953,19 +952,22 @@ static void busname_trigger_notify(Unit *u, Unit *other) {
         if (!IN_SET(n->state, BUSNAME_RUNNING, BUSNAME_LISTENING))
                 return;
 
+        if (other->start_limit_hit) {
+                busname_enter_dead(n, BUSNAME_FAILURE_SERVICE_START_LIMIT_HIT);
+                return;
+        }
+
         if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
                 return;
 
-        s = SERVICE(other);
-
-        if (s->state == SERVICE_FAILED && s->result == SERVICE_FAILURE_START_LIMIT)
-                busname_enter_dead(n, BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT);
-        else if (IN_SET(s->state,
-                        SERVICE_DEAD, SERVICE_FAILED,
-                        SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                        SERVICE_STOP_POST, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                        SERVICE_AUTO_RESTART))
+        if (IN_SET(SERVICE(other)->state,
+                   SERVICE_DEAD, SERVICE_FAILED,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                   SERVICE_AUTO_RESTART))
                 busname_enter_listening(n);
+
+        if (SERVICE(other)->state == SERVICE_RUNNING)
+                busname_set_state(n, BUSNAME_RUNNING);
 }
 
 static int busname_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
@@ -1006,7 +1008,7 @@ static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
         [BUSNAME_FAILURE_EXIT_CODE] = "exit-code",
         [BUSNAME_FAILURE_SIGNAL] = "signal",
         [BUSNAME_FAILURE_CORE_DUMP] = "core-dump",
-        [BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT] = "service-failed-permanent",
+        [BUSNAME_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(busname_result, BusNameResult);

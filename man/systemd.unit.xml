@@ -760,6 +760,55 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StartLimitInterval=</varname></term>
+        <term><varname>StartLimitBurst=</varname></term>
+
+        <listitem><para>Configure unit start rate limiting. By default, units which are started more than 5 times
+        within 10 seconds are not permitted to start any more times until the 10 second interval ends. With these two
+        options, this rate limiting may be modified. Use <varname>StartLimitInterval=</varname> to configure the
+        checking interval (defaults to <varname>DefaultStartLimitInterval=</varname> in manager configuration file, set
+        to 0 to disable any kind of rate limiting). Use <varname>StartLimitBurst=</varname> to configure how many
+        starts per interval are allowed (defaults to <varname>DefaultStartLimitBurst=</varname> in manager
+        configuration file). These configuration options are particularly useful in conjunction with the service
+        setting <varname>Restart=</varname> (see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>); however,
+        they apply to all kinds of starts (including manual), not just those triggered by the
+        <varname>Restart=</varname> logic. Note that units which are configured for <varname>Restart=</varname> and
+        which reach the start limit are not attempted to be restarted anymore; however, they may still be restarted
+        manually at a later point, from which point on, the restart logic is again activated. Note that
+        <command>systemctl reset-failed</command> will cause the restart rate counter for a service to be flushed,
+        which is useful if the administrator wants to manually start a unit and the start limit interferes with
+        that.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StartLimitAction=</varname></term>
+
+        <listitem><para>Configure the action to take if the rate limit configured with
+        <varname>StartLimitInterval=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes one of
+        <option>none</option>, <option>reboot</option>, <option>reboot-force</option>,
+        <option>reboot-immediate</option>, <option>poweroff</option>, <option>poweroff-force</option> or
+        <option>poweroff-immediate</option>. If <option>none</option> is set, hitting the rate limit will trigger no
+        action besides that the start will not be permitted. <option>reboot</option> causes a reboot following the
+        normal shutdown procedure (i.e. equivalent to <command>systemctl reboot</command>).
+        <option>reboot-force</option> causes a forced reboot which will terminate all processes forcibly but should
+        cause no dirty file systems on reboot (i.e. equivalent to <command>systemctl reboot -f</command>) and
+        <option>reboot-immediate</option> causes immediate execution of the
+        <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call, which
+        might result in data loss. Similarly, <option>poweroff</option>, <option>poweroff-force</option>,
+        <option>poweroff-immediate</option> have the effect of powering down the system with similar
+        semantics. Defaults to <option>none</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RebootArgument=</varname></term>
+        <listitem><para>Configure the optional argument for the
+        <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call if
+        <varname>StartLimitAction=</varname> or a service's <varname>FailureAction=</varname> is a reboot action. This
+        works just like the optional argument to <command>systemctl reboot</command> command.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ConditionArchitecture=</varname></term>
         <term><varname>ConditionVirtualization=</varname></term>
         <term><varname>ConditionHost=</varname></term>

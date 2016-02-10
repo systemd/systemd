@@ -119,8 +119,6 @@ static void service_init(Unit *u) {
         s->stdin_fd = s->stdout_fd = s->stderr_fd = -1;
         s->guess_main_pid = true;
 
-        RATELIMIT_INIT(s->start_limit, u->manager->default_start_limit_interval, u->manager->default_start_limit_burst);
-
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 }
 
@@ -302,7 +300,6 @@ static void service_done(Unit *u) {
 
         s->pid_file = mfree(s->pid_file);
         s->status_text = mfree(s->status_text);
-        s->reboot_arg = mfree(s->reboot_arg);
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
@@ -1422,7 +1419,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         if (s->result != SERVICE_SUCCESS) {
                 log_unit_warning(UNIT(s), "Failed with result '%s'.", service_result_to_string(s->result));
-                failure_action(UNIT(s)->manager, s->failure_action, s->reboot_arg);
+                failure_action(UNIT(s)->manager, s->failure_action, UNIT(s)->reboot_arg);
         }
 
         if (allow_restart && service_shall_restart(s)) {
@@ -1989,20 +1986,8 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static int service_start_limit_test(Service *s) {
-        assert(s);
-
-        if (ratelimit_test(&s->start_limit))
-                return 0;
-
-        log_unit_warning(UNIT(s), "Start request repeated too quickly.");
-
-        return failure_action(UNIT(s)->manager, s->start_limit_action, s->reboot_arg);
-}
-
 static int service_start(Unit *u) {
         Service *s = SERVICE(u);
-        int r;
 
         assert(s);
 
@@ -2028,13 +2013,6 @@ static int service_start(Unit *u) {
                 return -EAGAIN;
 
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED));
-
-        /* Make sure we don't enter a busy loop of some kind. */
-        r = service_start_limit_test(s);
-        if (r < 0) {
-                service_enter_dead(s, SERVICE_FAILURE_START_LIMIT, false);
-                return r;
-        }
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
@@ -3248,8 +3226,6 @@ static void service_reset_failed(Unit *u) {
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
-
-        RATELIMIT_RESET(s->start_limit);
 }
 
 static int service_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
@@ -3317,7 +3293,6 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_FAILURE_SIGNAL] = "signal",
         [SERVICE_FAILURE_CORE_DUMP] = "core-dump",
         [SERVICE_FAILURE_WATCHDOG] = "watchdog",
-        [SERVICE_FAILURE_START_LIMIT] = "start-limit"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);

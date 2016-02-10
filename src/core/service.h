@@ -88,7 +88,6 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_SIGNAL,
         SERVICE_FAILURE_CORE_DUMP,
         SERVICE_FAILURE_WATCHDOG,
-        SERVICE_FAILURE_START_LIMIT,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
@@ -178,10 +177,7 @@ struct Service {
         char *status_text;
         int status_errno;
 
-        RateLimit start_limit;
-        FailureAction start_limit_action;
         FailureAction failure_action;
-        char *reboot_arg;
 
         UnitRef accept_socket;
 

@@ -2702,23 +2702,6 @@ static void socket_reset_failed(Unit *u) {
         s->result = SOCKET_SUCCESS;
 }
 
-static void socket_notify_service_dead(Socket *s, bool failed_permanent) {
-        assert(s);
-
-        /* The service is dead. Dang!
-         *
-         * This is strictly for one-instance-for-all-connections
-         * services. */
-
-        if (s->state == SOCKET_RUNNING) {
-                log_unit_debug(UNIT(s), "Got notified about service death (failed permanently: %s)", yes_no(failed_permanent));
-                if (failed_permanent)
-                        socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_FAILED_PERMANENT);
-                else
-                        socket_enter_listening(s);
-        }
-}
-
 void socket_connection_unref(Socket *s) {
         assert(s);
 
@@ -2735,34 +2718,30 @@ void socket_connection_unref(Socket *s) {
 
 static void socket_trigger_notify(Unit *u, Unit *other) {
         Socket *s = SOCKET(u);
-        Service *se;
 
         assert(u);
         assert(other);
 
         /* Don't propagate state changes from the service if we are
            already down or accepting connections */
-        if ((s->state != SOCKET_RUNNING &&
-            s->state != SOCKET_LISTENING) ||
-            s->accept)
+        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING) || s->accept)
                 return;
 
-        if (other->load_state != UNIT_LOADED ||
-            other->type != UNIT_SERVICE)
+        if (other->start_limit_hit) {
+                socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_START_LIMIT_HIT);
+                return;
+        }
+
+        if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
                 return;
 
-        se = SERVICE(other);
+        if (IN_SET(SERVICE(other)->state,
+                   SERVICE_DEAD, SERVICE_FAILED,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                   SERVICE_AUTO_RESTART))
+               socket_enter_listening(s);
 
-        if (se->state == SERVICE_FAILED)
-                socket_notify_service_dead(s, se->result == SERVICE_FAILURE_START_LIMIT);
-
-        if (se->state == SERVICE_DEAD ||
-            se->state == SERVICE_FINAL_SIGTERM ||
-            se->state == SERVICE_FINAL_SIGKILL ||
-            se->state == SERVICE_AUTO_RESTART)
-                socket_notify_service_dead(s, false);
-
-        if (se->state == SERVICE_RUNNING)
+        if (SERVICE(other)->state == SERVICE_RUNNING)
                 socket_set_state(s, SOCKET_RUNNING);
 }
 
@@ -2818,7 +2797,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
         [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
-        [SOCKET_FAILURE_SERVICE_FAILED_PERMANENT] = "service-failed-permanent"
+        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);

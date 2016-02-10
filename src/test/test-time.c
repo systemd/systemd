@@ -191,6 +191,18 @@ static void test_usec_add(void) {
         assert_se(usec_add(USEC_INFINITY, 2) == USEC_INFINITY);
 }
 
+static void test_usec_sub(void) {
+        assert_se(usec_sub(0, 0) == 0);
+        assert_se(usec_sub(4, 1) == 3);
+        assert_se(usec_sub(4, 4) == 0);
+        assert_se(usec_sub(4, 5) == 0);
+        assert_se(usec_sub(USEC_INFINITY-3, -3) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY-3, -3) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY-3, -4) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY-3, -5) == USEC_INFINITY);
+        assert_se(usec_sub(USEC_INFINITY, 5) == USEC_INFINITY);
+}
+
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
@@ -203,6 +215,7 @@ int main(int argc, char *argv[]) {
         test_timezone_is_valid();
         test_get_timezones();
         test_usec_add();
+        test_usec_sub();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);
