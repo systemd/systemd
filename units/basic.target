@@ -10,8 +10,11 @@ Description=Basic System
 Documentation=man:systemd.special(7)
 Requires=sysinit.target
 Wants=sockets.target timers.target paths.target slices.target
-After=sysinit.target sockets.target paths.target slices.target
+After=sysinit.target sockets.target paths.target slices.target tmp.mount
 
 # We support /var, /tmp, /var/tmp, being on NFS, but we don't pull in
-# remote-fs.target by default, hence explicitly pull /var in here.
-RequiresMountsFor=/var /tmp /var/tmp
+# remote-fs.target by default, hence pull them in explicitly here. Note that we
+# require /var and /var/tmp, but only add a Wants= type dependency on /tmp, as
+# we support that unit being masked, and this should not be considered an error.
+RequiresMountsFor=/var /var/tmp
+Wants=tmp.mount

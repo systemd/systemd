@@ -912,7 +912,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -922,7 +922,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_BINDS_TO], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -932,9 +932,9 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_WANTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        /* unit masked and unit not found are not considered as errors. */
+                                        /* unit masked, job type not applicable and unit not found are not considered as errors. */
                                         log_unit_full(dep,
-                                                      r == -EBADR || r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                                      IN_SET(r, -ESHUTDOWN, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
                                                       r, "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
                                         sd_bus_error_free(e);
@@ -944,7 +944,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUISITE], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -954,7 +954,7 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_CONFLICTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, true, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR)
+                                        if (r != -EBADR) /* job type not applicable */
                                                 goto fail;
 
                                         sd_bus_error_free(e);
@@ -999,7 +999,7 @@ int transaction_add_job_and_dependencies(
 
                                         r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, false, false, ignore_order, e);
                                         if (r < 0) {
-                                                if (r != -EBADR)
+                                                if (r != -EBADR) /* job type not applicable */
                                                         goto fail;
 
                                                 sd_bus_error_free(e);
