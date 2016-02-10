@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /*
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2003-2010 Kay Sievers <kay@vrfy.org>

@@ -6285,14 +6285,6 @@ www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 doc-sync: all
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 
-.PHONY: gardel
-gardel:
-	scp man/*.html gardel:public/systemd-man/
-
-.PHONY: lennart-fedora
-lennart-fedora:
-	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
-
 .PHONY: install-tree
 install-tree: all
 	rm -rf $(abs_srcdir)/install-tree

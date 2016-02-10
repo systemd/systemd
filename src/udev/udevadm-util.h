@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /*
  * Copyright (C) 2014 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
  *

@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 #ifndef foosddhcp6clienthfoo
 #define foosddhcp6clienthfoo
 
