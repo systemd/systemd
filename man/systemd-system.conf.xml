@@ -116,7 +116,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>JoinControllers=cpu,cpuacct net_cls,netprio</varname></term>
+        <term><varname>JoinControllers=cpu,cpuacct</varname></term>
 
         <listitem><para>Configures controllers that shall be mounted
         in a single hierarchy. By default, systemd will mount all

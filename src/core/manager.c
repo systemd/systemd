@@ -596,8 +596,6 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
         m->have_ask_password = -EINVAL; /* we don't know */
         m->first_boot = -1;
 
-        m->cgroup_netclass_registry_last = CGROUP_NETCLASS_FIXED_MAX;
-
         m->test_run = test_run;
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
@@ -980,8 +978,6 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->cgroup_unit);
         set_free_free(m->unit_path_cache);
-
-        hashmap_free(m->cgroup_netclass_registry);
 
         free(m->switch_root);
         free(m->switch_root_init);
