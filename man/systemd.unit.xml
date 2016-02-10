@@ -827,13 +827,14 @@
              useful and probably just
              confusing. -->
 
-        <listitem><para>Before starting a unit verify that the
-        specified condition is true. If it is not true, the starting
-        of the unit will be skipped, however all ordering dependencies
-        of it are still respected. A failing condition will not result
-        in the unit being moved into a failure state. The condition is
-        checked at the time the queued start job is to be
-        executed.</para>
+        <listitem><para>Before starting a unit, verify that the specified condition is true. If it is not true, the
+        starting of the unit will be (mostly silently) skipped, however all ordering dependencies of it are still
+        respected. A failing condition will not result in the unit being moved into a failure state. The condition is
+        checked at the time the queued start job is to be executed. Use condition expressions in order to silently skip
+        units that do not apply to the local running system, for example because the kernel or runtime environment
+        doesn't require its functionality. Use the various <varname>AssertArchitecture=</varname>,
+        <varname>AssertVirtualization=</varname>, … options for a similar mechanism that puts the unit in a failure
+        state and logs about the failed check (see below).</para>
 
         <para><varname>ConditionArchitecture=</varname> may be used to
         check whether the system is running on a specific
@@ -1067,14 +1068,12 @@
         <term><varname>AssertFileNotEmpty=</varname></term>
         <term><varname>AssertFileIsExecutable=</varname></term>
 
-        <listitem><para>Similar to the
-        <varname>ConditionArchitecture=</varname>,
-        <varname>ConditionVirtualization=</varname>, etc., condition
-        settings described above, these settings add assertion checks
-        to the start-up of the unit. However, unlike the conditions
-        settings, any assertion setting that is not met results in
-        failure of the start job it was triggered
-        by.</para></listitem>
+        <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
+        <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add
+        assertion checks to the start-up of the unit. However, unlike the conditions settings, any assertion setting
+        that is not met results in failure of the start job it was triggered by (which means this is logged about
+        loudly). Use assertion expressions for units that cannot operate when specific requirements are not met, and
+        where this is something the administrator or user should look into.</para></listitem>
       </varlistentry>
 
       <varlistentry>
