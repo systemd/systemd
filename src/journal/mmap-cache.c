@@ -229,6 +229,9 @@ static void context_detach_window(Context *c) {
                         c->cache->last_unused = w;
 
                 w->in_unused = true;
+
+                if (w->size <= WINDOW_SIZE)
+                        (void) munlock(w->ptr, w->size);
 #endif
         }
 }
@@ -250,6 +253,9 @@ static void context_attach_window(Context *c, Window *w) {
 
                 w->in_unused = false;
         }
+
+        if (!w->contexts && !w->keep_always && w->size <= WINDOW_SIZE)
+                (void) mlock(w->ptr, w->size);
 
         c->window = w;
         LIST_PREPEND(by_window, w->contexts, c);
@@ -550,6 +556,9 @@ static int add_mmap(
         r = mmap_try_harder(m, NULL, fd, prot, MAP_SHARED, woffset, wsize, &d);
         if (r < 0)
                 return r;
+
+        if (keep_always && wsize <= WINDOW_SIZE)
+                (void) mlock(d, wsize);
 
         c = context_add(m, context);
         if (!c)
