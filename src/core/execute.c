@@ -57,7 +57,6 @@
 #endif
 #include "async.h"
 #include "barrier.h"
-#include "bus-endpoint.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "def.h"
@@ -1387,9 +1386,6 @@ static bool exec_needs_mount_namespace(
         if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
                 return true;
 
-        if (params->bus_endpoint_path)
-                return true;
-
         if (context->private_devices ||
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO)
@@ -1422,9 +1418,6 @@ static int close_remaining_fds(
                 memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
                 n_dont_close += n_fds;
         }
-
-        if (params->bus_endpoint_fd >= 0)
-                dont_close[n_dont_close++] = params->bus_endpoint_fd;
 
         if (runtime) {
                 if (runtime->netns_storage_socket[0] >= 0)
@@ -1655,16 +1648,6 @@ static int exec_child(
                 }
         }
 
-        if (params->bus_endpoint_fd >= 0 && context->bus_endpoint) {
-                uid_t ep_uid = (uid == UID_INVALID) ? 0 : uid;
-
-                r = bus_kernel_set_endpoint_policy(params->bus_endpoint_fd, ep_uid, context->bus_endpoint);
-                if (r < 0) {
-                        *exit_status = EXIT_BUS_ENDPOINT;
-                        return r;
-                }
-        }
-
         /* If delegation is enabled we'll pass ownership of the cgroup
          * (but only in systemd's own controller hierarchy!) to the
          * user of the new process. */
@@ -1787,7 +1770,6 @@ static int exec_child(
                                 context->inaccessible_dirs,
                                 tmp,
                                 var,
-                                params->bus_endpoint_path,
                                 context->private_devices,
                                 context->protect_home,
                                 context->protect_system,
@@ -2214,9 +2196,6 @@ void exec_context_done(ExecContext *c) {
         c->address_families = set_free(c->address_families);
 
         c->runtime_directory = strv_free(c->runtime_directory);
-
-        bus_endpoint_free(c->bus_endpoint);
-        c->bus_endpoint = NULL;
 }
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {

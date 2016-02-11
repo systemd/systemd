@@ -30,7 +30,6 @@ typedef struct ExecParameters ExecParameters;
 #include <stdio.h>
 #include <sys/capability.h>
 
-#include "bus-endpoint.h"
 #include "fdset.h"
 #include "list.h"
 #include "missing.h"
@@ -201,9 +200,6 @@ struct ExecContext {
         bool ioprio_set:1;
         bool cpu_sched_set:1;
         bool no_new_privileges_set:1;
-
-        /* custom dbus enpoint */
-        BusEndpoint *bus_endpoint;
 };
 
 #include "cgroup-util.h"
@@ -233,9 +229,6 @@ struct ExecParameters {
         usec_t watchdog_usec;
 
         int *idle_pipe;
-
-        char *bus_endpoint_path;
-        int bus_endpoint_fd;
 
         int stdin_fd;
         int stdout_fd;

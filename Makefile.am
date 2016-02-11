@@ -1136,8 +1136,6 @@ libcore_la_SOURCES = \
 	src/core/socket.h \
 	src/core/busname.c \
 	src/core/busname.h \
-	src/core/bus-endpoint.c \
-	src/core/bus-endpoint.h \
 	src/core/bus-policy.c \
 	src/core/bus-policy.h \
 	src/core/target.c \

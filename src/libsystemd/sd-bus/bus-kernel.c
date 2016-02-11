@@ -1693,50 +1693,6 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
         return fd;
 }
 
-int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char **ep_path) {
-        _cleanup_free_ char *path = NULL;
-        struct kdbus_cmd *make;
-        struct kdbus_item *n;
-        const char *name;
-        int fd;
-
-        fd = bus_kernel_open_bus_fd(bus_name, &path);
-        if (fd < 0)
-                return fd;
-
-        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd, items)) +
-                             ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + strlen(ep_name) + 1),
-                             8);
-        make->size = ALIGN8(offsetof(struct kdbus_cmd, items));
-        make->flags = KDBUS_MAKE_ACCESS_WORLD;
-
-        n = make->items;
-        sprintf(n->str, UID_FMT "-%s", getuid(), ep_name);
-        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
-        n->type = KDBUS_ITEM_MAKE_NAME;
-        make->size += ALIGN8(n->size);
-        name = n->str;
-
-        if (ioctl(fd, KDBUS_CMD_ENDPOINT_MAKE, make) < 0) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        if (ep_path) {
-                char *p;
-
-                p = strjoin(dirname(path), "/", name, NULL);
-                if (!p) {
-                        safe_close(fd);
-                        return -ENOMEM;
-                }
-
-                *ep_path = p;
-        }
-
-        return fd;
-}
-
 int bus_kernel_try_close(sd_bus *bus) {
         struct kdbus_cmd byebye = { .size = sizeof(byebye) };
 
