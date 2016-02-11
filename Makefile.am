@@ -5309,6 +5309,10 @@ test_dns_packet_SOURCES = \
 	src/resolve/test-dns-packet.c \
 	$(basic_dns_sources)
 
+test_dns_packet_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DRESOLVE_TEST_DIR=\"$(abs_top_srcdir)/src/resolve/test-data\"
+
 test_dns_packet_LDADD = \
 	libshared.la
 
