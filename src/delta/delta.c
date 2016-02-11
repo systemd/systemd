@@ -428,18 +428,16 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
         }
 
 finish:
-        if (top)
-                hashmap_free_free(top);
-        if (bottom)
-                hashmap_free_free(bottom);
-        if (drops) {
-                HASHMAP_FOREACH_KEY(h, key, drops, i){
-                        hashmap_free_free(hashmap_remove(drops, key));
-                        hashmap_remove(drops, key);
-                        free(key);
-                }
-                hashmap_free(drops);
+        hashmap_free_free(top);
+        hashmap_free_free(bottom);
+
+        HASHMAP_FOREACH_KEY(h, key, drops, i){
+                hashmap_free_free(hashmap_remove(drops, key));
+                hashmap_remove(drops, key);
+                free(key);
         }
+        hashmap_free(drops);
+
         return r < 0 ? r : n_found;
 }
 
@@ -451,9 +449,10 @@ static int process_suffixes(const char *onlyprefix) {
                 r = process_suffix(n, onlyprefix);
                 if (r < 0)
                         return r;
-                else
-                        n_found += r;
+
+                n_found += r;
         }
+
         return n_found;
 }
 
@@ -467,7 +466,9 @@ static int process_suffix_chop(const char *arg) {
 
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
-                const char *suffix = startswith(arg, p);
+                const char *suffix;
+
+                suffix = startswith(arg, p);
                 if (suffix) {
                         suffix += strspn(suffix, "/");
                         if (*suffix)
@@ -575,10 +576,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (b < 0) {
                                         log_error("Failed to parse diff boolean.");
                                         return -EINVAL;
-                                } else if (b)
-                                        arg_diff = 1;
-                                else
-                                        arg_diff = 0;
+                                }
+
+                                arg_diff = b;
                         }
                         break;
 
@@ -593,8 +593,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = 0, k;
-        int n_found = 0;
+        int r, k, n_found = 0;
 
         log_parse_environment();
         log_open();
@@ -618,6 +617,7 @@ int main(int argc, char *argv[]) {
 
                 for (i = optind; i < argc; i++) {
                         path_kill_slashes(argv[i]);
+
                         k = process_suffix_chop(argv[i]);
                         if (k < 0)
                                 r = k;
@@ -634,8 +634,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (r >= 0)
-                printf("%s%i overridden configuration files found.\n",
-                       n_found ? "\n" : "", n_found);
+                printf("%s%i overridden configuration files found.\n", n_found ? "\n" : "", n_found);
 
 finish:
         pager_close();
