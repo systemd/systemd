@@ -33,6 +33,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* delay activation of logind until somebody logs in, or when /dev/tty0 pulls it
+  in or lingering is on (so that containers don't bother with it until PAM is used). also exit-on-idle
+
 * cache sd_event_now() result from before the first iteration...
 
 * remove Capabilities=, after all AmbientCapabilities= and CapabilityBoundingSet= should be enough.

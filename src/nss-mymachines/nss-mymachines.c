@@ -38,6 +38,9 @@ NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);
 NSS_GETGR_PROTOTYPES(mymachines);
 
+#define HOST_UID_LIMIT ((uid_t) UINT32_C(0x10000))
+#define HOST_GID_LIMIT ((gid_t) UINT32_C(0x10000))
+
 static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
         unsigned c = 0;
         int r;
@@ -455,6 +458,10 @@ enum nss_status _nss_mymachines_getpwnam_r(
         if (r < 0)
                 goto fail;
 
+        /* Refuse to work if the mapped address is in the host UID range, or if there was no mapping at all. */
+        if (mapped < HOST_UID_LIMIT || mapped == uid)
+                goto not_found;
+
         l = strlen(name);
         if (buflen < l+1) {
                 *errnop = ENOMEM;
@@ -504,7 +511,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
         }
 
         /* We consider all uids < 65536 host uids */
-        if (uid < 0x10000)
+        if (uid < HOST_UID_LIMIT)
                 goto not_found;
 
         r = sd_bus_open_system(&bus);
@@ -530,6 +537,9 @@ enum nss_status _nss_mymachines_getpwuid_r(
         r = sd_bus_message_read(reply, "sou", &machine, &object, &mapped);
         if (r < 0)
                 goto fail;
+
+        if (mapped == uid)
+                goto not_found;
 
         if (snprintf(buffer, buflen, "vu-%s-" UID_FMT, machine, (uid_t) mapped) >= (int) buflen) {
                 *errnop = ENOMEM;
@@ -619,6 +629,9 @@ enum nss_status _nss_mymachines_getgrnam_r(
         if (r < 0)
                 goto fail;
 
+        if (mapped < HOST_GID_LIMIT || mapped == gid)
+                goto not_found;
+
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
                 *errnop = ENOMEM;
@@ -666,7 +679,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
         }
 
         /* We consider all gids < 65536 host gids */
-        if (gid < 0x10000)
+        if (gid < HOST_GID_LIMIT)
                 goto not_found;
 
         r = sd_bus_open_system(&bus);
@@ -692,6 +705,9 @@ enum nss_status _nss_mymachines_getgrgid_r(
         r = sd_bus_message_read(reply, "sou", &machine, &object, &mapped);
         if (r < 0)
                 goto fail;
+
+        if (mapped == gid)
+                goto not_found;
 
         if (buflen < sizeof(char*) + 1) {
                 *errnop = ENOMEM;

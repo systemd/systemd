@@ -726,7 +726,15 @@ static void automount_enter_runnning(Automount *a) {
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
                 log_unit_info(UNIT(a), "Automount point already active?");
         else {
-                r = manager_add_job(UNIT(a)->manager, JOB_START, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, &error, NULL);
+                Unit *trigger;
+
+                trigger = UNIT_TRIGGER(UNIT(a));
+                if (!trigger) {
+                        log_unit_error(UNIT(a), "Unit to trigger vanished.");
+                        goto fail;
+                }
+
+                r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                         goto fail;
@@ -742,6 +750,7 @@ fail:
 
 static int automount_start(Unit *u) {
         Automount *a = AUTOMOUNT(u);
+        Unit *trigger;
 
         assert(a);
         assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
@@ -751,8 +760,11 @@ static int automount_start(Unit *u) {
                 return -EEXIST;
         }
 
-        if (UNIT_TRIGGER(u)->load_state != UNIT_LOADED)
+        trigger = UNIT_TRIGGER(u);
+        if (!trigger || trigger->load_state != UNIT_LOADED) {
+                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
                 return -ENOENT;
+        }
 
         a->result = AUTOMOUNT_SUCCESS;
         automount_enter_waiting(a);
@@ -899,6 +911,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         union autofs_v5_packet_union packet;
         Automount *a = AUTOMOUNT(userdata);
         struct stat st;
+        Unit *trigger;
         int r;
 
         assert(a);
@@ -971,7 +984,13 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         break;
                 }
 
-                r = manager_add_job(UNIT(a)->manager, JOB_STOP, UNIT_TRIGGER(UNIT(a)), JOB_REPLACE, &error, NULL);
+                trigger = UNIT_TRIGGER(UNIT(a));
+                if (!trigger) {
+                        log_unit_error(UNIT(a), "Unit to trigger vanished.");
+                        goto fail;
+                }
+
+                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
                         goto fail;

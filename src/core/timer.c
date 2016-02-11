@@ -357,7 +357,17 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         usec_t base = 0;
         bool leave_around = false;
         TimerValue *v;
+        Unit *trigger;
         int r;
+
+        assert(t);
+
+        trigger = UNIT_TRIGGER(UNIT(t));
+        if (!trigger) {
+                log_unit_error(UNIT(t), "Unit to trigger vanished.");
+                timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
+                return;
+        }
 
         /* If we shall wake the system we use the boottime clock
          * rather than the monotonic clock. */
@@ -417,7 +427,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         case TIMER_UNIT_ACTIVE:
                                 leave_around = true;
-                                base = UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic;
+                                base = trigger->inactive_exit_timestamp.monotonic;
 
                                 if (base <= 0)
                                         base = t->last_trigger.monotonic;
@@ -429,7 +439,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         case TIMER_UNIT_INACTIVE:
                                 leave_around = true;
-                                base = UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic;
+                                base = trigger->inactive_enter_timestamp.monotonic;
 
                                 if (base <= 0)
                                         base = t->last_trigger.monotonic;
@@ -552,6 +562,7 @@ fail:
 
 static void timer_enter_running(Timer *t) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Unit *trigger;
         int r;
 
         assert(t);
@@ -560,7 +571,14 @@ static void timer_enter_running(Timer *t) {
         if (unit_stop_pending(UNIT(t)))
                 return;
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_TRIGGER(UNIT(t)), JOB_REPLACE, &error, NULL);
+        trigger = UNIT_TRIGGER(UNIT(t));
+        if (!trigger) {
+                log_unit_error(UNIT(t), "Unit to trigger vanished.");
+                timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
+                return;
+        }
+
+        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
         if (r < 0)
                 goto fail;
 
@@ -580,12 +598,16 @@ fail:
 static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
         TimerValue *v;
+        Unit *trigger;
 
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
 
-        if (UNIT_TRIGGER(u)->load_state != UNIT_LOADED)
+        trigger = UNIT_TRIGGER(u);
+        if (!trigger || trigger->load_state != UNIT_LOADED) {
+                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
                 return -ENOENT;
+        }
 
         t->last_trigger = DUAL_TIMESTAMP_NULL;
 
