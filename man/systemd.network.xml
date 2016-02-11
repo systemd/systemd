@@ -412,7 +412,7 @@
             domains specified here are preferably routed to the DNS servers configured for this interface. If a domain
             name is prefixed with <literal>~</literal>, the domain name becomes a pure "routing" domain, is used for
             DNS query routing purposes only and is not used in the described domain search logic. By specifying a
-            routing domain of <literal>~.</literal> (the tilda indicating definition of a routing domain, the dot
+            routing domain of <literal>~.</literal> (the tilde indicating definition of a routing domain, the dot
             referring to the DNS root domain which is the implied suffix of all valid DNS names) it is possible to
             route all DNS traffic preferably to the DNS server specified for this interface. The route domain logic is
             particularly useful on multi-homed hosts with DNS servers serving particular private DNS zones on each
@@ -717,7 +717,7 @@
         <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
-            <para>Takes a boolean argument, or a the special value <literal>route</literal>. When true, the domain name
+            <para>Takes a boolean argument, or the special value <literal>route</literal>. When true, the domain name
             received from the DHCP server will be used as DNS search domain over this link, similar to the effect of
             the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name received from
             the DHCP server will be used for routing DNS queries only, but not for searching, similar to the effect of

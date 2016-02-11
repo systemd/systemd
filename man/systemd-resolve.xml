@@ -115,7 +115,7 @@
     TXT).</para>
 
     <para>The <option>--statistics</option> switch may be used to show resolver statistics, including information about
-    the number of succesful and failed DNSSEC validations.</para>
+    the number of successful and failed DNSSEC validations.</para>
 
     <para>The <option>--reset-statistics</option> may be used to reset various statistics counters maintained the
     resolver, including those shown in the <option>--statistics</option> output. This operation requires root
