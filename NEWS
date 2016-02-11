@@ -197,9 +197,27 @@ CHANGES WITH 229:
 
                   d /run/lock/lockdev 0775 root lock -
 
-        Contributions from: ...
+        Contributions from: Abdo Roig-Maranges, Alban Crequy, Aleksander
+        Adamowski, Alexander Kuleshov, Andreas Pokorny, Andrei Borzenkov,
+        Andrew Wilcox, Arthur Clement, Beniamino Galvani, Casey Schaufler,
+        Chris Atkinson, Chris Mayo, Christian Hesse, Damjan Georgievski, Dan
+        Dedrick, Daniele Medri, Daniel J Walsh, Daniel Korostil, Daniel Mack,
+        David Herrmann, Dimitri John Ledkov, Dominik Hannen, Douglas Christman,
+        Evgeny Vereshchagin, Filipe Brandenburger, Franck Bui, Gabor Kelemen,
+        Harald Hoyer, Hayden Walles, Helmut Grohne, Henrik Kaare Poulsen,
+        Hristo Venev, Hui Wang, Indrajit Raychaudhuri, Ismo Puustinen, Jakub
+        Wilk, Jan Alexander Steffens (heftig), Jan Engelhardt, Jan Synacek,
+        Joost Bremmer, Jorgen Schaefer, Karel Zak, Klearchos Chaloulos,
+        lc85446, Lennart Poettering, Lukas Nykryn, Mantas Mikulėnas, Marcel
+        Holtmann, Martin Pitt, Michael Biebl, Michael Olbrich, Michael Scherer,
+        Michał Górny, Michal Sekletar, Nicolas Cornu, Nicolas Iooss, Nils
+        Carlson, nmartensen, nnz1024, Patrick Ohly, Peter Hutterer, Phillip Sz,
+        Ronny Chevalier, Samu Kallio, Shawn Landden, Stef Walter, Susant
+        Sahani, Sylvain Plantefève, Tadej Janež, Thomas Hindoe Paaboel
+        Andersen, Tom Gundersen, Torstein Husebø, Umut Tezduyar Lindskog, Vito
+        Caputo, WaLyong Cho, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
 
-        -- Berlin, 2016-MM-DD
+        -- Berlin, 2016-02-11
 
 CHANGES WITH 228:
 
