@@ -446,7 +446,7 @@
         asynchronous one.</para>
 
         <para>Note that the commands specified in <varname>ExecStop=</varname> are only executed when the service
-        started successfuly first. They are not invoked if the service was never started at all, or in case its
+        started successfully first. They are not invoked if the service was never started at all, or in case its
         start-up failed, for example because any of the commands specified in <varname>ExecStart=</varname>,
         <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname> failed (and weren't prefixed with
         <literal>-</literal>, see above) or timed out. Use <varname>ExecStopPost=</varname> to invoke commands when a
