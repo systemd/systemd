@@ -178,18 +178,14 @@
     directory suffix is <filename>.requires/</filename> in this
     case.</para>
 
-    <para>Along with a unit file <filename>foo.service</filename>, a
-    directory <filename>foo.service.d/</filename> may exist. All files
-    with the suffix <literal>.conf</literal> from this directory will
-    be parsed after the file itself is parsed. This is useful to alter
-    or add configuration settings to a unit, without having to modify
-    their unit files. Make sure that the file that is included has the
-    appropriate section headers before any directive. Note that, for
-    instanced units, this logic will first look for the instance
-    <literal>.d/</literal> subdirectory and read its
-    <literal>.conf</literal> files, followed by the template
-    <literal>.d/</literal> subdirectory and reads its
-    <literal>.conf</literal> files.</para>
+    <para>Along with a unit file <filename>foo.service</filename>, a "drop-in" directory
+    <filename>foo.service.d/</filename> may exist. All files with the suffix <literal>.conf</literal> from this
+    directory will be parsed after the file itself is parsed. This is useful to alter or add configuration settings to
+    a unit, without having to modify their unit files. Make sure that the file that is included has the appropriate
+    section headers before any directive. Note that for instanced units, this logic will first look for the instance
+    <literal>.d/</literal> subdirectory and read its <literal>.conf</literal> files, followed by the template
+    <literal>.d/</literal> subdirectory and reads its <literal>.conf</literal> files. Also note that settings from the
+    <literal>[Install]</literal> section are not available in drop-in unit files, and have no effect.</para>
 
     <para>In addition to <filename>/etc/systemd/system</filename>,
     the drop-in <literal>.conf</literal> files for system services
@@ -827,13 +823,14 @@
              useful and probably just
              confusing. -->
 
-        <listitem><para>Before starting a unit verify that the
-        specified condition is true. If it is not true, the starting
-        of the unit will be skipped, however all ordering dependencies
-        of it are still respected. A failing condition will not result
-        in the unit being moved into a failure state. The condition is
-        checked at the time the queued start job is to be
-        executed.</para>
+        <listitem><para>Before starting a unit, verify that the specified condition is true. If it is not true, the
+        starting of the unit will be (mostly silently) skipped, however all ordering dependencies of it are still
+        respected. A failing condition will not result in the unit being moved into a failure state. The condition is
+        checked at the time the queued start job is to be executed. Use condition expressions in order to silently skip
+        units that do not apply to the local running system, for example because the kernel or runtime environment
+        doesn't require its functionality. Use the various <varname>AssertArchitecture=</varname>,
+        <varname>AssertVirtualization=</varname>, … options for a similar mechanism that puts the unit in a failure
+        state and logs about the failed check (see below).</para>
 
         <para><varname>ConditionArchitecture=</varname> may be used to
         check whether the system is running on a specific
@@ -1067,14 +1064,12 @@
         <term><varname>AssertFileNotEmpty=</varname></term>
         <term><varname>AssertFileIsExecutable=</varname></term>
 
-        <listitem><para>Similar to the
-        <varname>ConditionArchitecture=</varname>,
-        <varname>ConditionVirtualization=</varname>, etc., condition
-        settings described above, these settings add assertion checks
-        to the start-up of the unit. However, unlike the conditions
-        settings, any assertion setting that is not met results in
-        failure of the start job it was triggered
-        by.</para></listitem>
+        <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
+        <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add
+        assertion checks to the start-up of the unit. However, unlike the conditions settings, any assertion setting
+        that is not met results in failure of the start job it was triggered by (which means this is logged about
+        loudly). Use assertion expressions for units that cannot operate when specific requirements are not met, and
+        where this is something the administrator or user should look into.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1094,15 +1089,13 @@
   <refsect1>
     <title>[Install] Section Options</title>
 
-    <para>Unit file may include an <literal>[Install]</literal>
-    section, which carries installation information for the unit. This
-    section is not interpreted by
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    during runtime. It is used exclusively by the
-    <command>enable</command> and <command>disable</command> commands
-    of the
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    tool during installation of a unit:</para>
+    <para>Unit files may include an <literal>[Install]</literal> section, which carries installation information for
+    the unit. This section is not interpreted by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> during runtime; it is
+    used by the <command>enable</command> and <command>disable</command> commands of the
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool during
+    installation of a unit. Note that settings in the <literal>[Install]</literal> section may not appear in
+    <filename>.d/*.conf</filename> unit file drop-ins (see above).</para>
 
     <variablelist class='unit-directives'>
       <varlistentry>

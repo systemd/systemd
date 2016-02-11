@@ -1134,7 +1134,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                 <tbody>
                   <row>
                     <entry><literal>enabled</literal></entry>
-                    <entry morerows='1'>Enabled through creating symlinks encoded in the <literal>[Install]</literal> section (permanently or just in <filename>/run</filename>).</entry>
+                    <entry morerows='1'>Enabled via <filename>.wants/</filename>, <filename>.requires/</filename> or alias symlinks (permanently in <filename>/etc/systemd/system/</filename>, or transiently in <filename>/run/systemd/system/</filename>).</entry>
                     <entry morerows='1'>0</entry>
                   </row>
                   <row>
@@ -1703,7 +1703,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       unit specifications (designated as
       <replaceable>PATTERN</replaceable>...). In the first case, the
       unit name with or without a suffix must be given. If the suffix
-      is not specified, systemctl will append a suitable suffix,
+      is not specified ("abbreviated"), systemctl will append a suitable suffix,
       <literal>.service</literal> by default, and a type-specific
       suffix in case of commands which operate only on specific unit
       types. For example,
@@ -1740,9 +1740,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       loaded are not considered for glob expansion.
       </para>
 
-      <para>For unit file commands, the specified
-      <replaceable>NAME</replaceable> should be the full name of the
-      unit file, or the absolute path to the unit file:
+      <para>For unit file commands, the specified <replaceable>NAME</replaceable> should be the name of the unit file
+      (possibly abbreviated, see above), or the absolute path to the unit file:
       <programlisting># systemctl enable foo.service</programlisting>
       or
       <programlisting># systemctl link /path/to/foo.service</programlisting>

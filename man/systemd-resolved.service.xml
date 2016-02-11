@@ -87,9 +87,9 @@
       is on the local loopback) and the IPv6 address ::1 (which is the
       local host).</para></listitem>
 
-      <listitem><para>The hostname <literal>localhost</literal> is
-      resolved to the IP addresses 127.0.0.1 and
-      ::1.</para></listitem>
+      <listitem><para>The hostname <literal>localhost</literal> (as well as any hostname ending in
+      <literal>.localhost</literal>, <literal>.localdomain</literal> or equal to <literal>localdomain</literal>) is
+      resolved to the IP addresses 127.0.0.1 and ::1.</para></listitem>
 
       <listitem><para>The hostname <literal>gateway</literal> is
       resolved to all current default routing gateway addresses,
