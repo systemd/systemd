@@ -635,9 +635,9 @@ int dnssec_verify_rrset(
         assert(rrsig->key->type == DNS_TYPE_RRSIG);
         assert(dnskey->key->type == DNS_TYPE_DNSKEY);
 
-        /* Verifies the the RRSet matching the specified "key" in "a",
+        /* Verifies that the RRSet matches the specified "key" in "a",
          * using the signature "rrsig" and the key "dnskey". It's
-         * assumed the RRSIG and DNSKEY match. */
+         * assumed that RRSIG and DNSKEY match. */
 
         md_algorithm = algorithm_to_gcrypt_md(rrsig->rrsig.algorithm);
         if (md_algorithm == -EOPNOTSUPP) {
@@ -1989,7 +1989,7 @@ static int dnssec_test_positive_wildcard_nsec3(
 
         /* Run a positive NSEC3 wildcard proof. Specifically:
          *
-         * A proof that the the "next closer" of the generating wildcard does not exist.
+         * A proof that the "next closer" of the generating wildcard does not exist.
          *
          * Note a key difference between the NSEC3 and NSEC versions of the proof. NSEC RRs don't have to exist for
          * empty non-transients. NSEC3 RRs however have to. This means it's sufficient to check if the next closer name

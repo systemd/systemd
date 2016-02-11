@@ -331,7 +331,7 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
 
         l = strlen(buffer);
 
-        /* Verify that the the result is not longer than one DNS label. */
+        /* Verify that the result is not longer than one DNS label. */
         if (l <= 0 || l > DNS_LABEL_MAX)
                 return -EINVAL;
         if (l > decoded_max)
