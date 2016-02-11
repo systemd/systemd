@@ -1698,24 +1698,19 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     <refsect2>
       <title>Parameter Syntax</title>
 
-      <para>Unit commands listed above take either a single unit name
-      (designated as <replaceable>NAME</replaceable>), or multiple
-      unit specifications (designated as
-      <replaceable>PATTERN</replaceable>...). In the first case, the
-      unit name with or without a suffix must be given. If the suffix
-      is not specified ("abbreviated"), systemctl will append a suitable suffix,
-      <literal>.service</literal> by default, and a type-specific
-      suffix in case of commands which operate only on specific unit
-      types. For example,
+      <para>Unit commands listed above take either a single unit name (designated as <replaceable>NAME</replaceable>),
+      or multiple unit specifications (designated as <replaceable>PATTERN</replaceable>...). In the first case, the
+      unit name with or without a suffix must be given. If the suffix is not specified (unit name is "abbreviated"),
+      systemctl will append a suitable suffix, <literal>.service</literal> by default, and a type-specific suffix in
+      case of commands which operate only on specific unit types. For example,
       <programlisting># systemctl start sshd</programlisting> and
       <programlisting># systemctl start sshd.service</programlisting>
       are equivalent, as are
       <programlisting># systemctl isolate default</programlisting>
       and
       <programlisting># systemctl isolate default.target</programlisting>
-      Note that (absolute) paths to device nodes are automatically
-      converted to device unit names, and other (absolute) paths to
-      mount unit names.
+      Note that (absolute) paths to device nodes are automatically converted to device unit names, and other (absolute)
+      paths to mount unit names.
       <programlisting># systemctl status /dev/sda
 # systemctl status /home</programlisting>
       are equivalent to:

@@ -180,12 +180,12 @@
 
     <para>Along with a unit file <filename>foo.service</filename>, a "drop-in" directory
     <filename>foo.service.d/</filename> may exist. All files with the suffix <literal>.conf</literal> from this
-    directory will be parsed after the file itself is parsed. This is useful to alter or add configuration settings to
-    a unit, without having to modify their unit files. Make sure that the file that is included has the appropriate
-    section headers before any directive. Note that for instanced units, this logic will first look for the instance
-    <literal>.d/</literal> subdirectory and read its <literal>.conf</literal> files, followed by the template
-    <literal>.d/</literal> subdirectory and reads its <literal>.conf</literal> files. Also note that settings from the
-    <literal>[Install]</literal> section are not available in drop-in unit files, and have no effect.</para>
+    directory will be parsed after the file itself is parsed. This is useful to alter or add configuration settings for
+    a unit, without having to modify unit files. Each drop-in file must have appropriate section headers. Note that for
+    instantiated units, this logic will first look for the instance <literal>.d/</literal> subdirectory and read its
+    <literal>.conf</literal> files, followed by the template <literal>.d/</literal> subdirectory and the
+    <literal>.conf</literal> files there. Also note that settings from the <literal>[Install]</literal> section are not
+    honoured in drop-in unit files, and have no effect.</para>
 
     <para>In addition to <filename>/etc/systemd/system</filename>,
     the drop-in <literal>.conf</literal> files for system services
@@ -1067,9 +1067,9 @@
         <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
         <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add
         assertion checks to the start-up of the unit. However, unlike the conditions settings, any assertion setting
-        that is not met results in failure of the start job it was triggered by (which means this is logged about
-        loudly). Use assertion expressions for units that cannot operate when specific requirements are not met, and
-        where this is something the administrator or user should look into.</para></listitem>
+        that is not met results in failure of the start job (which means this is logged loudly). Use assertion
+        expressions for units that cannot operate when specific requirements are not met, and when this is something
+        the administrator or user should look into.</para></listitem>
       </varlistentry>
 
       <varlistentry>
