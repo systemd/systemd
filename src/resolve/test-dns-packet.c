@@ -18,14 +18,17 @@
 ***/
 
 #include <net/if.h>
+#include <glob.h>
 
 #include "alloc-util.h"
 #include "fileio.h"
-#include "macro.h"
+#include "glob-util.h"
 #include "log.h"
+#include "macro.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "string-util.h"
+#include "strv.h"
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,90,4b,fa,4c,fe,af,9d,d5,a1,d7,2e,8a,b1)
 
@@ -84,15 +87,27 @@ static void test_packet_from_file(const char* filename, bool canonical) {
 }
 
 int main(int argc, char **argv) {
-        int i;
+        int i, N;
+        _cleanup_globfree_ glob_t g = {};
+        _cleanup_strv_free_ char **globs = NULL;
+        char **fnames;
 
         log_parse_environment();
 
-        for (i = 1; i < argc; i++) {
-                test_packet_from_file(argv[i], false);
+        if (argc >= 2) {
+                N = argc - 1;
+                fnames = argv + 1;
+        } else {
+                assert_se(glob(RESOLVE_TEST_DIR "/*.pkts", GLOB_NOSORT, NULL, &g) == 0);
+                N = g.gl_pathc;
+                fnames = g.gl_pathv;
+        }
+
+        for (i = 0; i < N; i++) {
+                test_packet_from_file(fnames[i], false);
                 puts("");
-                test_packet_from_file(argv[i], true);
-                if (i + 1 < argc)
+                test_packet_from_file(fnames[i], true);
+                if (i + 1 < N)
                         puts("");
         }
 
