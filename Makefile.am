@@ -1501,6 +1501,7 @@ tests += \
 	test-af-list \
 	test-arphrd-list \
 	test-dns-domain \
+	test-dns-packet \
 	test-resolve-tables \
 	test-install-root \
 	test-rlimit-util \
@@ -1666,16 +1667,6 @@ test_dns_domain_LDADD = \
 	libsystemd-network.la \
 	libshared.la
 
-test_resolve_tables_SOURCES = \
-	src/resolve/test-resolve-tables.c \
-	src/shared/test-tables.h \
-	src/resolve/dns-type.c \
-	src/resolve/dns-type.h \
-	src/resolve/dns_type-from-name.h \
-	src/resolve/dns_type-to-name.h
-
-test_resolve_tables_LDADD = \
-	libshared.la
 
 if ENABLE_EFI
 manual_tests += \
@@ -4281,7 +4272,9 @@ libsystemd_journal_internal_la_SOURCES += \
 	src/journal/journal-authenticate.c \
 	src/journal/journal-authenticate.h \
 	src/journal/fsprg.c \
-	src/journal/fsprg.h
+	src/journal/fsprg.h \
+	src/shared/gcrypt-util.c \
+	src/shared/gcrypt-util.h
 
 libsystemd_journal_internal_la_LIBADD += \
 	$(GCRYPT_LIBS)
@@ -5180,6 +5173,20 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if ENABLE_RESOLVED
 
+basic_dns_sources = \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-dnssec.h \
+	src/resolve/resolved-dns-packet.c \
+	src/resolve/resolved-dns-packet.h \
+	src/resolve/resolved-dns-rr.c \
+	src/resolve/resolved-dns-rr.h \
+	src/resolve/resolved-dns-answer.c \
+	src/resolve/resolved-dns-answer.h \
+	src/resolve/resolved-dns-question.c \
+	src/resolve/resolved-dns-question.h \
+	src/resolve/dns-type.c \
+	src/resolve/dns-type.h
+
 systemd_resolved_SOURCES = \
 	src/resolve/resolved.c \
 	src/resolve/resolved-manager.c \
@@ -5199,14 +5206,7 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-mdns.h \
 	src/resolve/resolved-mdns.c \
 	src/resolve/resolved-def.h \
-	src/resolve/resolved-dns-rr.h \
-	src/resolve/resolved-dns-rr.c \
-	src/resolve/resolved-dns-question.h \
-	src/resolve/resolved-dns-question.c \
-	src/resolve/resolved-dns-answer.h \
-	src/resolve/resolved-dns-answer.c \
-	src/resolve/resolved-dns-packet.h \
-	src/resolve/resolved-dns-packet.c \
+	$(basic_dns_sources) \
 	src/resolve/resolved-dns-query.h \
 	src/resolve/resolved-dns-query.c \
 	src/resolve/resolved-dns-synthesize.h \
@@ -5225,14 +5225,12 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-zone.c \
 	src/resolve/resolved-dns-stream.h \
 	src/resolve/resolved-dns-stream.c \
-	src/resolve/resolved-dns-dnssec.h \
-	src/resolve/resolved-dns-dnssec.c \
 	src/resolve/resolved-dns-trust-anchor.h \
 	src/resolve/resolved-dns-trust-anchor.c \
 	src/resolve/resolved-etc-hosts.h \
 	src/resolve/resolved-etc-hosts.c \
-	src/resolve/dns-type.c \
-	src/resolve/dns-type.h
+	src/shared/gcrypt-util.c \
+	src/shared/gcrypt-util.h
 
 nodist_systemd_resolved_SOURCES = \
 	src/resolve/dns_type-from-name.h \
@@ -5292,18 +5290,9 @@ lib_LTLIBRARIES += \
 
 systemd_resolve_SOURCES = \
 	src/resolve/resolve-tool.c \
-	src/resolve/resolved-dns-dnssec.c \
-	src/resolve/resolved-dns-dnssec.h \
-	src/resolve/resolved-dns-packet.c \
-	src/resolve/resolved-dns-packet.h \
-	src/resolve/resolved-dns-rr.c \
-	src/resolve/resolved-dns-rr.h \
-	src/resolve/resolved-dns-answer.c \
-	src/resolve/resolved-dns-answer.h \
-	src/resolve/resolved-dns-question.c \
-	src/resolve/resolved-dns-question.h \
-	src/resolve/dns-type.c \
-	src/resolve/dns-type.h
+	$(basic_dns_sources) \
+	src/shared/gcrypt-util.c \
+	src/shared/gcrypt-util.h
 
 nodist_systemd_resolve_SOURCES = \
 	src/resolve/dns_type-from-name.h \
@@ -5322,20 +5311,30 @@ tests += \
 manual_tests += \
 	test-dnssec-complex
 
+test_resolve_tables_SOURCES = \
+	src/resolve/test-resolve-tables.c \
+	src/resolve/dns_type-from-name.h \
+	src/resolve/dns_type-to-name.h \
+	$(basic_dns_sources) \
+	src/shared/test-tables.h
+
+test_resolve_tables_LDADD = \
+	libshared.la
+
+test_dns_packet_SOURCES = \
+	src/resolve/test-dns-packet.c \
+	$(basic_dns_sources)
+
+test_dns_packet_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DRESOLVE_TEST_DIR=\"$(abs_top_srcdir)/src/resolve/test-data\"
+
+test_dns_packet_LDADD = \
+	libshared.la
+
 test_dnssec_SOURCES = \
 	src/resolve/test-dnssec.c \
-	src/resolve/resolved-dns-packet.c \
-	src/resolve/resolved-dns-packet.h \
-	src/resolve/resolved-dns-rr.c \
-	src/resolve/resolved-dns-rr.h \
-	src/resolve/resolved-dns-answer.c \
-	src/resolve/resolved-dns-answer.h \
-	src/resolve/resolved-dns-question.c \
-	src/resolve/resolved-dns-question.h \
-	src/resolve/resolved-dns-dnssec.c \
-	src/resolve/resolved-dns-dnssec.h \
-	src/resolve/dns-type.c \
-	src/resolve/dns-type.h
+	$(basic_dns_sources)
 
 test_dnssec_LDADD = \
 	libshared.la

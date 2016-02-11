@@ -23,6 +23,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
@@ -125,19 +126,6 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
 }
 
 #ifdef HAVE_GCRYPT
-
-static void initialize_libgcrypt(void) {
-        const char *p;
-
-        if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
-                return;
-
-        p = gcry_check_version("1.4.5");
-        assert(p);
-
-        gcry_control(GCRYCTL_DISABLE_SECMEM);
-        gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-}
 
 static int rr_compare(const void *a, const void *b) {
         DnsResourceRecord **x = (DnsResourceRecord**) a, **y = (DnsResourceRecord**) b;
@@ -737,7 +725,7 @@ int dnssec_verify_rrset(
         qsort_safe(list, n, sizeof(DnsResourceRecord*), rr_compare);
 
         /* OK, the RRs are now in canonical order. Let's calculate the digest */
-        initialize_libgcrypt();
+        initialize_libgcrypt(false);
 
         hash_size = gcry_md_get_algo_dlen(md_algorithm);
         assert(hash_size > 0);
@@ -1070,7 +1058,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (dnssec_keytag(dnskey, mask_revoke) != ds->ds.key_tag)
                 return 0;
 
-        initialize_libgcrypt();
+        initialize_libgcrypt(false);
 
         md_algorithm = digest_to_gcrypt_md(ds->ds.digest_type);
         if (md_algorithm < 0)
@@ -1189,7 +1177,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (algorithm < 0)
                 return algorithm;
 
-        initialize_libgcrypt();
+        initialize_libgcrypt(false);
 
         hash_size = gcry_md_get_algo_dlen(algorithm);
         assert(hash_size > 0);

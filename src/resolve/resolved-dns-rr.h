@@ -249,6 +249,14 @@ struct DnsResourceRecord {
                         void *data;
                         size_t data_size;
                 } tlsa;
+
+                /* https://tools.ietf.org/html/rfc6844 */
+                struct {
+                        uint8_t flags;
+                        char *tag;
+                        void *value;
+                        size_t value_size;
+                } caa;
         };
 };
 
@@ -322,6 +330,8 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr);
 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
+
+void dns_resource_record_hash_func(const void *i, struct siphash *state);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;
