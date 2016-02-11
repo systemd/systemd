@@ -96,6 +96,9 @@
       ordered by their metric. This assigns a stable hostname to the
       current gateway, useful for referencing it independently of the
       current network configuration state.</para></listitem>
+
+      <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved to their configured
+      addresses and back.</para></listitem>
     </itemizedlist>
 
     <para>Lookup requests are routed to the available DNS servers
@@ -150,6 +153,7 @@
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-resolve</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>hosts</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
