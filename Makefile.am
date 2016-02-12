@@ -895,8 +895,6 @@ libbasic_la_SOURCES = \
 	src/basic/audit-util.h \
 	src/basic/xml.c \
 	src/basic/xml.h \
-	src/basic/json.c \
-	src/basic/json.h \
 	src/basic/barrier.c \
 	src/basic/barrier.h \
 	src/basic/async.c \
@@ -1459,7 +1457,6 @@ tests += \
 	test-tables \
 	test-device-nodes \
 	test-xml \
-	test-json \
 	test-architecture \
 	test-socket-util \
 	test-fdset \
@@ -1920,12 +1917,6 @@ test_xml_SOURCES = \
 	src/test/test-xml.c
 
 test_xml_LDADD = \
-	libshared.la
-
-test_json_SOURCES = \
-	src/test/test-json.c
-
-test_json_LDADD = \
 	libshared.la
 
 test_list_SOURCES = \
