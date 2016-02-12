@@ -2780,9 +2780,13 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                 *usec = e->timestamp.monotonic;
                 break;
 
-        default:
+        case CLOCK_BOOTTIME:
+        case CLOCK_BOOTTIME_ALARM:
                 *usec = e->timestamp_boottime;
                 break;
+
+        default:
+                assert_not_reached("Unknown clock?");
         }
 
         return 0;
