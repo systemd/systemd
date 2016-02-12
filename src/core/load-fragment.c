@@ -951,38 +951,6 @@ int config_parse_exec_cpu_affinity(const char *unit,
         return 0;
 }
 
-int config_parse_exec_capabilities(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
-
-        ExecContext *c = data;
-        cap_t cap;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        cap = cap_from_text(rvalue);
-        if (!cap) {
-                log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse capabilities, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (c->capabilities)
-                cap_free(c->capabilities);
-        c->capabilities = cap;
-
-        return 0;
-}
-
 int config_parse_exec_secure_bits(const char *unit,
                                   const char *filename,
                                   unsigned line,
@@ -3797,7 +3765,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_input,                 "INPUT" },
                 { config_parse_log_facility,          "FACILITY" },
                 { config_parse_log_level,             "LEVEL" },
-                { config_parse_exec_capabilities,     "CAPABILITIES" },
                 { config_parse_exec_secure_bits,      "SECUREBITS" },
                 { config_parse_capability_set,        "BOUNDINGSET" },
                 { config_parse_limit,                 "LIMIT" },
