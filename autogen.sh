@@ -55,16 +55,16 @@ fi
 cd $oldpwd
 
 if [ "x$1" = "xc" ]; then
-        $topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args
         make clean
 elif [ "x$1" = "xg" ]; then
-        $topdir/configure CFLAGS='-g -Og -ftrapv' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CFLAGS='-g -Og -ftrapv' --enable-kdbus $args
         make clean
 elif [ "x$1" = "xa" ]; then
-        $topdir/configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CFLAGS='-g -O0 -Wsuggest-attribute=pure -Wsuggest-attribute=const -ftrapv' --enable-kdbus $args
         make clean
 elif [ "x$1" = "xl" ]; then
-        $topdir/configure CC=clang CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args
+        $topdir/configure CC=clang CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args
         make clean
 elif [ "x$1" = "xs" ]; then
         scan-build $topdir/configure CFLAGS='-std=gnu99 -g -O0 -ftrapv' --enable-kdbus $args
@@ -75,6 +75,6 @@ else
         echo "Initialized build system. For a common configuration please run:"
         echo "----------------------------------------------------------------"
         echo
-        echo "$topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-compat-libs --enable-kdbus $args"
+        echo "$topdir/configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args"
         echo
 fi
