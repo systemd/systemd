@@ -63,6 +63,16 @@ typedef enum LocationType {
         LOCATION_SEEK
 } LocationType;
 
+typedef enum OfflineState {
+        OFFLINE_JOINED,
+        OFFLINE_SYNCING,
+        OFFLINE_OFFLINING,
+        OFFLINE_CANCEL,
+        OFFLINE_AGAIN_FROM_SYNCING,
+        OFFLINE_AGAIN_FROM_OFFLINING,
+        OFFLINE_DONE
+} OfflineState;
+
 typedef struct JournalFile {
         int fd;
 
@@ -105,6 +115,9 @@ typedef struct JournalFile {
 
         OrderedHashmap *chain_cache;
 
+        pthread_t offline_thread;
+        volatile OfflineState offline_state;
+
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
         void *compress_buffer;
         size_t compress_buffer_size;
@@ -139,7 +152,7 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret);
 
-int journal_file_set_offline(JournalFile *f);
+int journal_file_set_offline(JournalFile *f, bool wait);
 JournalFile* journal_file_close(JournalFile *j);
 
 int journal_file_open_reliably(
