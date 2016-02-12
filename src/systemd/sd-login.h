@@ -108,7 +108,7 @@ int sd_peer_get_slice(int fd, char **slice);
 int sd_peer_get_user_slice(int fd, char **slice);
 
 /* Similar to sd_pid_get_machine_name(), but retrieves data about the
- * peer of a a connected AF_UNIX socket */
+ * peer of a connected AF_UNIX socket */
 int sd_peer_get_machine_name(int fd, char **machine);
 
 /* Similar to sd_pid_get_cgroup(), but retrieves data about the peer
