@@ -1678,7 +1678,7 @@ static int dns_transaction_negative_trust_anchor_lookup(DnsTransaction *t, const
 
         assert(t);
 
-        /* Check whether the specified name is in the the NTA
+        /* Check whether the specified name is in the NTA
          * database, either in the global one, or the link-local
          * one. */
 

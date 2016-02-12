@@ -30,7 +30,7 @@ typedef struct DnsAnswerItem DnsAnswerItem;
  * can qualify A and AAAA RRs referring to a local link with the
  * right ifindex.
  *
- * Note that we usually encode the the empty DnsAnswer object as a simple NULL. */
+ * Note that we usually encode the empty DnsAnswer object as a simple NULL. */
 
 typedef enum DnsAnswerFlags {
         DNS_ANSWER_AUTHENTICATED = 1, /* Item has been authenticated */
