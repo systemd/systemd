@@ -21,11 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-activate"
+<refentry id="systemd-socket-activate"
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
-    <title>systemd-activate</title>
+    <title>systemd-socket-activate</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -39,18 +39,18 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-activate</refentrytitle>
-    <manvolnum>8</manvolnum>
+    <refentrytitle>systemd-socket-activate</refentrytitle>
+    <manvolnum>1</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-activate</refname>
+    <refname>systemd-socket-activate</refname>
     <refpurpose>Test socket activation of daemons</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/systemd-activate</command>
+      <command>systemd-socket-activate</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain"><replaceable>daemon</replaceable></arg>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
@@ -60,20 +60,20 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-activate</command> may be used to launch a socket-activated service binary from the command
+    <para><command>systemd-socket-activate</command> may be used to launch a socket-activated service binary from the command
     line for testing purposes. It may also be used to launch individual instances of the service binary per connection.
     </para>
 
     <para>The daemon to launch and its options should be specified
-    after options intended for <command>systemd-activate</command>.
+    after options intended for <command>systemd-socket-activate</command>.
     </para>
 
     <para>If the <option>--inetd</option> option is given, the socket file descriptor will be used as the standard
     input and output of the launched process. Otherwise, standard input and output will be inherited, and sockets will
     be passed through file descriptors 3 and higher. Sockets passed through <varname>$LISTEN_FDS</varname> to
-    <command>systemd-activate</command> will be passed through to the daemon, in the original positions. Other sockets
+    <command>systemd-socket-activate</command> will be passed through to the daemon, in the original positions. Other sockets
     specified with <option>--listen=</option> will use consecutive descriptors.  By default,
-    <command>systemd-activate</command> listens on a stream socket, use <option>--datagram</option> and
+    <command>systemd-socket-activate</command> listens on a stream socket, use <option>--datagram</option> and
     <option>--seqpacket</option> to listen on datagram or sequential packet sockets instead (see below).
     </para>
   </refsect1>
@@ -131,7 +131,7 @@
         launched process. If <replaceable>VAR</replaceable> is
         followed by <literal>=</literal>, assume that it is a
         variable–value pair. Otherwise, obtain the value from the
-        environment of <command>systemd-activate</command> itself.
+        environment of <command>systemd-socket-activate</command> itself.
         </para></listitem>
       </varlistentry>
 
@@ -182,13 +182,13 @@
     <example>
       <title>Run an echo server on port 2000</title>
 
-      <programlisting>$ /usr/lib/systemd/systemd-activate -l 2000 --inetd -a cat</programlisting>
+      <programlisting>$ systemd-socket-activate -l 2000 --inetd -a cat</programlisting>
     </example>
 
     <example>
       <title>Run a socket-activated instance of <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry></title>
 
-      <programlisting>$ /usr/lib/systemd/systemd-activate -l 19531 /usr/lib/systemd/systemd-journal-gatewayd</programlisting>
+      <programlisting>$ systemd-socket-activate -l 19531 /usr/lib/systemd/systemd-journal-gatewayd</programlisting>
     </example>
   </refsect1>
 
