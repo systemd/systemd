@@ -98,8 +98,6 @@ MANPAGES += \
 	man/systemd-analyze.1 \
 	man/systemd-ask-password-console.service.8 \
 	man/systemd-ask-password.1 \
-	man/systemd-bus-proxyd.8 \
-	man/systemd-bus-proxyd.service.8 \
 	man/systemd-cat.1 \
 	man/systemd-cgls.1 \
 	man/systemd-cgtop.1 \
@@ -421,7 +419,6 @@ MANPAGES_ALIAS += \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.path.8 \
 	man/systemd-ask-password-wall.service.8 \
-	man/systemd-bus-proxyd.socket.8 \
 	man/systemd-fsck-root.service.8 \
 	man/systemd-fsck.8 \
 	man/systemd-hibernate-resume.8 \
@@ -751,7 +748,6 @@ man/system.conf.d.5: man/systemd-system.conf.5
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
-man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd.service.8
 man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
 man/systemd-fsck.8: man/systemd-fsck@.service.8
 man/systemd-hibernate-resume.8: man/systemd-hibernate-resume@.service.8
@@ -1569,9 +1565,6 @@ man/systemd-ask-password-wall.path.html: man/systemd-ask-password-console.servic
 	$(html-alias)
 
 man/systemd-ask-password-wall.service.html: man/systemd-ask-password-console.service.html
-	$(html-alias)
-
-man/systemd-bus-proxyd.socket.html: man/systemd-bus-proxyd.service.html
 	$(html-alias)
 
 man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
@@ -2581,8 +2574,6 @@ EXTRA_DIST += \
 	man/systemd-backlight@.service.xml \
 	man/systemd-binfmt.service.xml \
 	man/systemd-bootchart.xml \
-	man/systemd-bus-proxyd.service.xml \
-	man/systemd-bus-proxyd.xml \
 	man/systemd-cat.xml \
 	man/systemd-cgls.xml \
 	man/systemd-cgtop.xml \
