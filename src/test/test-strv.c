@@ -70,6 +70,18 @@ static const char* const input_table_none[] = {
         NULL,
 };
 
+static const char* const input_table_two_empties[] = {
+        "",
+        "",
+        NULL,
+};
+
+static const char* const input_table_one_empty[] = {
+        "",
+        NULL,
+};
+
+
 static const char* const input_table_quotes[] = {
         "\"",
         "'",
@@ -130,7 +142,7 @@ static void test_strv_find_startswith(void) {
 }
 
 static void test_strv_join(void) {
-        _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL;
+        _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL, *v = NULL, *w = NULL;
 
         p = strv_join((char **)input_table_multiple, ", ");
         assert_se(p);
@@ -151,6 +163,14 @@ static void test_strv_join(void) {
         t = strv_join((char **)input_table_none, ", ");
         assert_se(t);
         assert_se(streq(t, ""));
+
+        v = strv_join((char **)input_table_two_empties, ", ");
+        assert_se(v);
+        assert_se(streq(v, ", "));
+
+        w = strv_join((char **)input_table_one_empty, ", ");
+        assert_se(w);
+        assert_se(streq(w, ""));
 }
 
 static void test_strv_quote_unquote(const char* const *split, const char *quoted) {
@@ -653,6 +673,8 @@ int main(int argc, char *argv[]) {
         test_strv_quote_unquote(input_table_multiple, "\"one\" \"two\" \"three\"");
         test_strv_quote_unquote(input_table_one, "\"one\"");
         test_strv_quote_unquote(input_table_none, "");
+        test_strv_quote_unquote(input_table_one_empty, "\"\"");
+        test_strv_quote_unquote(input_table_two_empties, "\"\" \"\"");
         test_strv_quote_unquote(input_table_quotes, QUOTES_STRING);
         test_strv_quote_unquote(input_table_spaces, SPACES_STRING);
 
