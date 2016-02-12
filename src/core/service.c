@@ -113,7 +113,6 @@ static void service_init(Unit *u) {
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -1;
-        s->bus_endpoint_fd = -1;
         s->stdin_fd = s->stdout_fd = s->stderr_fd = -1;
         s->guess_main_pid = true;
 
@@ -321,7 +320,6 @@ static void service_done(Unit *u) {
 
         s->bus_name_owner = mfree(s->bus_name_owner);
 
-        s->bus_endpoint_fd = safe_close(s->bus_endpoint_fd);
         service_close_socket_fd(s);
         service_connection_unref(s);
 
@@ -1157,7 +1155,6 @@ static int service_spawn(
                 pid_t *_pid) {
 
         _cleanup_strv_free_ char **argv = NULL, **final_env = NULL, **our_env = NULL, **fd_names = NULL;
-        _cleanup_free_ char *bus_endpoint_path = NULL;
         _cleanup_free_ int *fds = NULL;
         unsigned n_fds = 0, n_env = 0;
         const char *path;
@@ -1167,7 +1164,6 @@ static int service_spawn(
                 .apply_permissions = apply_permissions,
                 .apply_chroot      = apply_chroot,
                 .apply_tty_stdin   = apply_tty_stdin,
-                .bus_endpoint_fd   = -1,
                 .stdin_fd          = -1,
                 .stdout_fd         = -1,
                 .stderr_fd         = -1,
@@ -1267,18 +1263,6 @@ static int service_spawn(
         } else
                 path = UNIT(s)->cgroup_path;
 
-        if (s->exec_context.bus_endpoint) {
-                r = bus_kernel_create_endpoint(UNIT(s)->manager->running_as == MANAGER_SYSTEM ? "system" : "user",
-                                               UNIT(s)->id, &bus_endpoint_path);
-                if (r < 0)
-                        return r;
-
-                /* Pass the fd to the exec_params so that the child process can upload the policy.
-                 * Keep a reference to the fd in the service, so the endpoint is kept alive as long
-                 * as the service is running. */
-                exec_params.bus_endpoint_fd = s->bus_endpoint_fd = r;
-        }
-
         exec_params.argv = argv;
         exec_params.fds = fds;
         exec_params.fd_names = fd_names;
@@ -1290,7 +1274,6 @@ static int service_spawn(
         exec_params.cgroup_delegate = s->cgroup_context.delegate;
         exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
         exec_params.watchdog_usec = s->watchdog_usec;
-        exec_params.bus_endpoint_path = bus_endpoint_path;
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
                 exec_params.idle_pipe = UNIT(s)->manager->idle_pipe;
@@ -2126,9 +2109,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         r = unit_serialize_item_fd(u, f, fds, "socket-fd", s->socket_fd);
         if (r < 0)
                 return r;
-        r = unit_serialize_item_fd(u, f, fds, "endpoint-fd", s->bus_endpoint_fd);
-        if (r < 0)
-                return r;
 
         LIST_FOREACH(fd_store, fs, s->fd_store) {
                 _cleanup_free_ char *c = NULL;
@@ -2262,15 +2242,6 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else {
                         asynchronous_close(s->socket_fd);
                         s->socket_fd = fdset_remove(fds, fd);
-                }
-        } else if (streq(key, "endpoint-fd")) {
-                int fd;
-
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse endpoint-fd value: %s", value);
-                else {
-                        safe_close(s->bus_endpoint_fd);
-                        s->bus_endpoint_fd = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "fd-store-fd")) {
                 const char *fdv;

@@ -273,42 +273,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>BusPolicy=</varname></term>
-
-        <listitem><para>If specified, a custom kdbus
-        endpoint will be created and installed as the default bus node
-        for the service. Such a custom endpoint can hold an own set of
-        policy rules that are enforced on top of the bus-wide ones.
-        The custom endpoint is named after the service it was created
-        for, and its node will be bind-mounted over the default bus
-        node location, so the service can only access the bus through
-        its own endpoint. Note that custom bus endpoints default to a
-        "deny all" policy. Hence, if at least one
-        <varname>BusPolicy=</varname> directive is given, you have to
-        make sure to add explicit rules for everything the service
-        should be able to do.</para>
-        <para>The value of this directive is comprised
-        of two parts; the bus name, and a verb to
-        specify to granted access, which is one of
-        <option>see</option>,
-        <option>talk</option>, or
-        <option>own</option>.
-        <option>talk</option> implies
-        <option>see</option>, and <option>own</option>
-        implies both <option>talk</option> and
-        <option>see</option>.
-        If multiple access levels are specified for the
-        same bus name, the most powerful one takes
-        effect.
-        </para>
-        <para>Examples:</para>
-        <programlisting>BusPolicy=org.freedesktop.systemd1 talk</programlisting>
-        <programlisting>BusPolicy=org.foo.bar see</programlisting>
-        <para>This option is only available on kdbus enabled systems.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>ExecStart=</varname></term>
         <listitem><para>Commands with their arguments that are
         executed when this service is started. The value is split into

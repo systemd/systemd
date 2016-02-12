@@ -1527,7 +1527,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                 .apply_permissions = true,
                 .apply_chroot      = true,
                 .apply_tty_stdin   = true,
-                .bus_endpoint_fd   = -1,
                 .stdin_fd          = -1,
                 .stdout_fd         = -1,
                 .stderr_fd         = -1,

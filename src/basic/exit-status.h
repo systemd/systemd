@@ -77,7 +77,6 @@ typedef enum ExitStatus {
         EXIT_RUNTIME_DIRECTORY,
         EXIT_MAKE_STARTER,
         EXIT_CHOWN,
-        EXIT_BUS_ENDPOINT,
         EXIT_SMACK_PROCESS_LABEL,
 } ExitStatus;
 

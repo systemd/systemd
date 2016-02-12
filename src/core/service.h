@@ -150,8 +150,6 @@ struct Service {
         int socket_fd;
         bool socket_fd_selinux_context_net;
 
-        int bus_endpoint_fd;
-
         bool permissions_start_only;
         bool root_directory_start_only;
         bool remain_after_exit;
