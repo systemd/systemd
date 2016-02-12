@@ -754,12 +754,6 @@ Features:
      works with ^C
    - add documentation to systemd.daemon
 
-* bootchart:
-   - plot per-process IO utilization
-   - group processes based on service association (cgroups)
-   - document initcall_debug
-   - kernel cmdline "bootchart" option for simplicity?
-
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
      network devices where possible, so we can safely rely

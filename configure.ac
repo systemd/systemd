@@ -939,14 +939,6 @@ fi
 AM_CONDITIONAL(ENABLE_VCONSOLE, [test "$have_vconsole" = "yes"])
 
 # ------------------------------------------------------------------------------
-have_bootchart=no
-AC_ARG_ENABLE(bootchart, AS_HELP_STRING([--disable-bootchart], [disable bootchart tool]))
-if test "x$enable_bootchart" != "xno"; then
-        have_bootchart=yes
-fi
-AM_CONDITIONAL(ENABLE_BOOTCHART, [test "$have_bootchart" = "yes"])
-
-# ------------------------------------------------------------------------------
 have_quotacheck=no
 AC_ARG_ENABLE(quotacheck, AS_HELP_STRING([--disable-quotacheck], [disable quotacheck tools]))
 if test "x$enable_quotacheck" != "xno"; then
@@ -1571,7 +1563,6 @@ AC_MSG_RESULT([
         ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
-        bootchart:               ${have_bootchart}
         quotacheck:              ${have_quotacheck}
         tmpfiles:                ${have_tmpfiles}
         sysusers:                ${have_sysusers}

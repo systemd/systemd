@@ -53,7 +53,6 @@
 /systemd-ask-password
 /systemd-backlight
 /systemd-binfmt
-/systemd-bootchart
 /systemd-bootx64.efi
 /systemd-cat
 /systemd-cgls
