@@ -888,7 +888,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
-                "%s\nState Change Timestamp: %s\n"
+                "%s\tState Change Timestamp: %s\n"
                 "%s\tInactive Exit Timestamp: %s\n"
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
