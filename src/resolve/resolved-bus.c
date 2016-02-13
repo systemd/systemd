@@ -23,6 +23,7 @@
 #include "dns-domain.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
+#include "resolved-dns-synthesize.h"
 #include "resolved-link-bus.h"
 
 static int reply_query_state(DnsQuery *q) {
@@ -233,6 +234,65 @@ static int check_ifindex_flags(int ifindex, uint64_t *flags, uint64_t ok, sd_bus
         return 0;
 }
 
+static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname, int family, uint64_t flags) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *canonical = NULL;
+        union in_addr_union parsed;
+        int r, ff;
+
+        /* Check if the hostname is actually already an IP address formatted as string. In that case just parse it,
+         * let's not attempt to look it up. */
+
+        r = in_addr_from_string_auto(hostname, &ff, &parsed);
+        if (r < 0) /* not an address */
+                return 0;
+
+        if (family != AF_UNSPEC && ff != family)
+                return sd_bus_reply_method_errorf(m, BUS_ERROR_NO_SUCH_RR, "The specified address is not of the requested family.");
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(iiay)");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'r', "iiay");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "ii", ifindex, ff);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', &parsed, FAMILY_ADDRESS_SIZE(ff));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        /* When an IP address is specified we just return it as canonical name, in order to avoid a DNS
+         * look-up. However, we reformat it to make sure it's in a truly canonical form (i.e. on IPv6 the inner
+         * omissions are always done the same way). */
+        r = in_addr_to_string(ff, &parsed, &canonical);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "st", canonical,
+                                  SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(flags), ff, true));
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(sd_bus_message_get_bus(m), reply, NULL);
+}
+
 static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         Manager *m = userdata;
@@ -254,15 +314,19 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
+        r = check_ifindex_flags(ifindex, &flags, SD_RESOLVED_NO_SEARCH, error);
+        if (r < 0)
+                return r;
+
+        r = parse_as_address(message, ifindex, hostname, family, flags);
+        if (r != 0)
+                return r;
+
         r = dns_name_is_valid(hostname);
         if (r < 0)
                 return r;
         if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", hostname);
-
-        r = check_ifindex_flags(ifindex, &flags, SD_RESOLVED_NO_SEARCH, error);
-        if (r < 0)
-                return r;
 
         r = dns_question_new_address(&question_utf8, family, hostname, false);
         if (r < 0)
