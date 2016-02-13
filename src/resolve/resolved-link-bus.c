@@ -239,7 +239,7 @@ clear:
         return r;
 }
 
-int bus_link_method_set_search_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = userdata;
         int r;
 
@@ -460,7 +460,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
 
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
-        SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_search_domains, 0),
+        SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, 0),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
         SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
         SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),

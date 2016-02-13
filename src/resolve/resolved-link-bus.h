@@ -30,7 +30,7 @@ char *link_bus_path(Link *link);
 int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_link_method_set_search_domains(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error);
