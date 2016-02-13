@@ -5025,8 +5025,6 @@ systemd_pull_SOURCES = \
 	src/import/import-compress.h \
 	src/import/curl-util.c \
 	src/import/curl-util.h \
-	src/import/aufs-util.c \
-	src/import/aufs-util.h \
 	src/import/qcow2-util.c \
 	src/import/qcow2-util.h
 
