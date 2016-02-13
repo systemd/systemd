@@ -42,10 +42,30 @@
 
 static nsec_t timespec_load_nsec(const struct timespec *ts);
 
+static clockid_t map_clock_id(clockid_t c) {
+
+        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus, clock_gettime() will
+         * fail for them. Since they are essentially the same as their non-ALARM pendants (their only difference is
+         * when timers are set on them), let's just map them accordingly. This way, we can get the correct time even on
+         * those archs. */
+
+        switch (c) {
+
+        case CLOCK_BOOTTIME_ALARM:
+                return CLOCK_BOOTTIME;
+
+        case CLOCK_REALTIME_ALARM:
+                return CLOCK_REALTIME;
+
+        default:
+                return c;
+        }
+}
+
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
 
-        assert_se(clock_gettime(clock_id, &ts) == 0);
+        assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
 
         return timespec_load(&ts);
 }
@@ -53,7 +73,7 @@ usec_t now(clockid_t clock_id) {
 nsec_t now_nsec(clockid_t clock_id) {
         struct timespec ts;
 
-        assert_se(clock_gettime(clock_id, &ts) == 0);
+        assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
 
         return timespec_load_nsec(&ts);
 }
