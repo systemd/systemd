@@ -201,6 +201,15 @@ static void test_usec_sub(void) {
         assert_se(usec_sub(USEC_INFINITY, 5) == USEC_INFINITY);
 }
 
+static void test_now(void) {
+        /* Check that the clock types we use in code are implemented.
+         * now() fails with an assert otherwise.
+         */
+        now(CLOCK_MONOTONIC);
+        now(CLOCK_BOOTTIME);
+        now(CLOCK_REALTIME);
+}
+
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
@@ -214,6 +223,7 @@ int main(int argc, char *argv[]) {
         test_get_timezones();
         test_usec_add();
         test_usec_sub();
+        test_now();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);
