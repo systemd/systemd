@@ -330,7 +330,7 @@ int dns_answer_contains_zone_nsec3(DnsAnswer *answer, const char *zone) {
                 if (rr->key->type != DNS_TYPE_NSEC3)
                         continue;
 
-                p = DNS_RESOURCE_KEY_NAME(rr->key);
+                p = dns_resource_key_name(rr->key);
                 r = dns_name_parent(&p);
                 if (r < 0)
                         return r;
@@ -363,7 +363,7 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
                 if (r > 0) {
 
                         if (soa) {
-                                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(soa->key));
+                                r = dns_name_endswith(dns_resource_key_name(rr->key), dns_resource_key_name(soa->key));
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -840,13 +840,13 @@ bool dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
                 if (rr->key->class != cname->key->class)
                         continue;
 
-                r = dns_name_change_suffix(cname->cname.name, rr->dname.name, DNS_RESOURCE_KEY_NAME(rr->key), &n);
+                r = dns_name_change_suffix(cname->cname.name, rr->dname.name, dns_resource_key_name(rr->key), &n);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                r = dns_name_equal(n, DNS_RESOURCE_KEY_NAME(cname->key));
+                r = dns_name_equal(n, dns_resource_key_name(cname->key));
                 if (r < 0)
                         return r;
                 if (r > 0)

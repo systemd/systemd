@@ -86,7 +86,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, int if
         if (IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_ANY)) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, DNS_RESOURCE_KEY_NAME(key));
+                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, dns_resource_key_name(key));
                 if (!rr)
                         return -ENOMEM;
 
@@ -100,7 +100,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, int if
         if (IN_SET(key->type, DNS_TYPE_AAAA, DNS_TYPE_ANY)) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, DNS_RESOURCE_KEY_NAME(key));
+                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, dns_resource_key_name(key));
                 if (!rr)
                         return -ENOMEM;
 
@@ -140,7 +140,7 @@ static int synthesize_localhost_ptr(Manager *m, const DnsResourceKey *key, int i
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, DNS_RESOURCE_KEY_NAME(key), "localhost", dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(answer, dns_resource_key_name(key), "localhost", dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -254,11 +254,11 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
                                         .address.in6 = in6addr_loopback,
                                 };
 
-                        return answer_add_addresses_rr(answer, DNS_RESOURCE_KEY_NAME(key), buffer, n);
+                        return answer_add_addresses_rr(answer, dns_resource_key_name(key), buffer, n);
                 }
         }
 
-        return answer_add_addresses_rr(answer, DNS_RESOURCE_KEY_NAME(key), addresses, n);
+        return answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
 }
 
 static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_addr_union *address, int ifindex, DnsAnswer **answer) {
@@ -319,7 +319,7 @@ static int synthesize_gateway_rr(Manager *m, const DnsResourceKey *key, int ifin
                         return n;
         }
 
-        return answer_add_addresses_rr(answer, DNS_RESOURCE_KEY_NAME(key), addresses, n);
+        return answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
 }
 
 static int synthesize_gateway_ptr(Manager *m, int af, const union in_addr_union *address, int ifindex, DnsAnswer **answer) {
@@ -360,7 +360,7 @@ int dns_synthesize_answer(
                     key->class != DNS_CLASS_ANY)
                         continue;
 
-                name = DNS_RESOURCE_KEY_NAME(key);
+                name = dns_resource_key_name(key);
 
                 if (is_localhost(name)) {
 

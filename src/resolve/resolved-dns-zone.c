@@ -68,12 +68,12 @@ static void dns_zone_item_remove_and_free(DnsZone *z, DnsZoneItem *i) {
         else
                 hashmap_remove(z->by_key, i->rr->key);
 
-        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(i->rr->key));
+        first = hashmap_get(z->by_name, dns_resource_key_name(i->rr->key));
         LIST_REMOVE(by_name, first, i);
         if (first)
-                assert_se(hashmap_replace(z->by_name, DNS_RESOURCE_KEY_NAME(first->rr->key), first) >= 0);
+                assert_se(hashmap_replace(z->by_name, dns_resource_key_name(first->rr->key), first) >= 0);
         else
-                hashmap_remove(z->by_name, DNS_RESOURCE_KEY_NAME(i->rr->key));
+                hashmap_remove(z->by_name, dns_resource_key_name(i->rr->key));
 
         dns_zone_item_free(i);
 }
@@ -147,12 +147,12 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
                         return r;
         }
 
-        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(i->rr->key));
+        first = hashmap_get(z->by_name, dns_resource_key_name(i->rr->key));
         if (first) {
                 LIST_PREPEND(by_name, first, i);
-                assert_se(hashmap_replace(z->by_name, DNS_RESOURCE_KEY_NAME(first->rr->key), first) >= 0);
+                assert_se(hashmap_replace(z->by_name, dns_resource_key_name(first->rr->key), first) >= 0);
         } else {
-                r = hashmap_put(z->by_name, DNS_RESOURCE_KEY_NAME(i->rr->key), i);
+                r = hashmap_put(z->by_name, dns_resource_key_name(i->rr->key), i);
                 if (r < 0)
                         return r;
         }
@@ -169,11 +169,11 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (i->probe_transaction)
                 return 0;
 
-        t = dns_scope_find_transaction(i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(i->rr->key)), false);
+        t = dns_scope_find_transaction(i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)), false);
         if (!t) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
-                key = dns_resource_key_new(i->rr->key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(i->rr->key));
+                key = dns_resource_key_new(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key));
                 if (!key)
                         return -ENOMEM;
 
@@ -303,7 +303,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                  * go through the list by the name and look
                  * for everything manually */
 
-                first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
+                first = hashmap_get(z->by_name, dns_resource_key_name(key));
                 LIST_FOREACH(by_name, j, first) {
                         if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
                                 continue;
@@ -339,7 +339,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                 }
 
                 if (!found) {
-                        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
+                        first = hashmap_get(z->by_name, dns_resource_key_name(key));
                         LIST_FOREACH(by_name, j, first) {
                                 if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
                                         continue;
@@ -370,7 +370,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                 bool found = false, added = false;
                 int k;
 
-                first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
+                first = hashmap_get(z->by_name, dns_resource_key_name(key));
                 LIST_FOREACH(by_name, j, first) {
                         if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
                                 continue;
@@ -393,7 +393,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                 }
 
                 if (found && !added) {
-                        r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(key), LLMNR_DEFAULT_TTL);
+                        r = dns_answer_add_soa(soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL);
                         if (r < 0)
                                 return r;
                 }
@@ -418,7 +418,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                 if (!found) {
                         bool add_soa = false;
 
-                        first = hashmap_get(z->by_name, DNS_RESOURCE_KEY_NAME(key));
+                        first = hashmap_get(z->by_name, dns_resource_key_name(key));
                         LIST_FOREACH(by_name, j, first) {
                                 if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
                                         continue;
@@ -430,7 +430,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         }
 
                         if (add_soa) {
-                                r = dns_answer_add_soa(soa, DNS_RESOURCE_KEY_NAME(key), LLMNR_DEFAULT_TTL);
+                                r = dns_answer_add_soa(soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL);
                                 if (r < 0)
                                         return r;
                         }
@@ -482,7 +482,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
         /* Maybe change the hostname */
-        if (manager_is_own_hostname(i->scope->manager, DNS_RESOURCE_KEY_NAME(i->rr->key)) > 0)
+        if (manager_is_own_hostname(i->scope->manager, dns_resource_key_name(i->rr->key)) > 0)
                 manager_next_hostname(i->scope->manager);
 }
 
@@ -562,7 +562,7 @@ int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
          * so, we'll verify our RRs. */
 
         /* No conflict if we don't have the name at all. */
-        first = hashmap_get(zone->by_name, DNS_RESOURCE_KEY_NAME(rr->key));
+        first = hashmap_get(zone->by_name, dns_resource_key_name(rr->key));
         if (!first)
                 return 0;
 
@@ -593,7 +593,7 @@ int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
         /* Somebody else notified us about a possible conflict. Let's
          * verify if that's true. */
 
-        first = hashmap_get(zone->by_name, DNS_RESOURCE_KEY_NAME(key));
+        first = hashmap_get(zone->by_name, dns_resource_key_name(key));
         if (!first)
                 return 0;
 

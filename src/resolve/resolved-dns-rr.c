@@ -66,7 +66,7 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
                 DnsResourceKey *k;
                 char *destination = NULL;
 
-                r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
                 if (r < 0)
                         return NULL;
                 if (r == 0)
@@ -96,7 +96,7 @@ int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key
                 return 0;
         }
 
-        r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), name, &joined);
+        r = dns_name_concat(dns_resource_key_name(key), name, &joined);
         if (r < 0)
                 return r;
 
@@ -158,6 +158,23 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
         return NULL;
 }
 
+const char* dns_resource_key_name(const DnsResourceKey *key) {
+        const char *name;
+
+        if (!key)
+                return NULL;
+
+        if (key->_name)
+                name = key->_name;
+        else
+                name = (char*) key + sizeof(DnsResourceKey);
+
+        if (dns_name_is_root(name))
+                return ".";
+        else
+                return name;
+}
+
 bool dns_resource_key_is_address(const DnsResourceKey *key) {
         assert(key);
 
@@ -172,7 +189,7 @@ int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         if (a == b)
                 return 1;
 
-        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(a), DNS_RESOURCE_KEY_NAME(b));
+        r = dns_name_equal(dns_resource_key_name(a), dns_resource_key_name(b));
         if (r <= 0)
                 return r;
 
@@ -204,18 +221,18 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, 
         if (rr->key->type != key->type && key->type != DNS_TYPE_ANY)
                 return 0;
 
-        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
+        r = dns_name_equal(dns_resource_key_name(rr->key), dns_resource_key_name(key));
         if (r != 0)
                 return r;
 
         if (search_domain) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), search_domain, &joined);
+                r = dns_name_concat(dns_resource_key_name(key), search_domain, &joined);
                 if (r < 0)
                         return r;
 
-                return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), joined);
+                return dns_name_equal(dns_resource_key_name(rr->key), joined);
         }
 
         return 0;
@@ -231,9 +248,9 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
                 return 0;
 
         if (cname->type == DNS_TYPE_CNAME)
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname));
+                r = dns_name_equal(dns_resource_key_name(key), dns_resource_key_name(cname));
         else if (cname->type == DNS_TYPE_DNAME)
-                r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname));
+                r = dns_name_endswith(dns_resource_key_name(key), dns_resource_key_name(cname));
         else
                 return 0;
 
@@ -243,14 +260,14 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
         if (search_domain) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = dns_name_concat(DNS_RESOURCE_KEY_NAME(key), search_domain, &joined);
+                r = dns_name_concat(dns_resource_key_name(key), search_domain, &joined);
                 if (r < 0)
                         return r;
 
                 if (cname->type == DNS_TYPE_CNAME)
-                        return dns_name_equal(joined, DNS_RESOURCE_KEY_NAME(cname));
+                        return dns_name_equal(joined, dns_resource_key_name(cname));
                 else if (cname->type == DNS_TYPE_DNAME)
-                        return dns_name_endswith(joined, DNS_RESOURCE_KEY_NAME(cname));
+                        return dns_name_endswith(joined, dns_resource_key_name(cname));
         }
 
         return 0;
@@ -268,7 +285,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
         if (soa->type != DNS_TYPE_SOA)
                 return 0;
 
-        return dns_name_endswith(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(soa));
+        return dns_name_endswith(dns_resource_key_name(key), dns_resource_key_name(soa));
 }
 
 static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
@@ -276,7 +293,7 @@ static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
 
         assert(k);
 
-        dns_name_hash_func(DNS_RESOURCE_KEY_NAME(k), state);
+        dns_name_hash_func(dns_resource_key_name(k), state);
         siphash24_compress(&k->class, sizeof(k->class), state);
         siphash24_compress(&k->type, sizeof(k->type), state);
 }
@@ -285,7 +302,7 @@ static int dns_resource_key_compare_func(const void *a, const void *b) {
         const DnsResourceKey *x = a, *y = b;
         int ret;
 
-        ret = dns_name_compare_func(DNS_RESOURCE_KEY_NAME(x), DNS_RESOURCE_KEY_NAME(y));
+        ret = dns_name_compare_func(dns_resource_key_name(x), dns_resource_key_name(y));
         if (ret != 0)
                 return ret;
 
@@ -309,7 +326,7 @@ const struct hash_ops dns_resource_key_hash_ops = {
 
 int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
         char cbuf[strlen("CLASS") + DECIMAL_STR_MAX(uint16_t)], tbuf[strlen("TYPE") + DECIMAL_STR_MAX(uint16_t)];
-        const char *c, *t, *n;
+        const char *c, *t;
         char *s;
 
         /* If we cannot convert the CLASS/TYPE into a known string,
@@ -327,8 +344,7 @@ int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
                 t = tbuf;
         }
 
-        n = DNS_RESOURCE_KEY_NAME(key);
-        if (asprintf(&s, "%s%s %s %-5s", n, endswith(n, ".") ? "" : ".", c, t) < 0)
+        if (asprintf(&s, "%s %s %-5s", dns_resource_key_name(key), c, t) < 0)
                 return -ENOMEM;
 
         *ret = s;
@@ -1299,7 +1315,7 @@ int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret) {
         if (rr->n_skip_labels_signer == (unsigned) -1)
                 return -ENODATA;
 
-        n = DNS_RESOURCE_KEY_NAME(rr->key);
+        n = dns_resource_key_name(rr->key);
         r = dns_name_skip(n, rr->n_skip_labels_signer, &n);
         if (r < 0)
                 return r;
@@ -1322,7 +1338,7 @@ int dns_resource_record_source(DnsResourceRecord *rr, const char **ret) {
         if (rr->n_skip_labels_source == (unsigned) -1)
                 return -ENODATA;
 
-        n = DNS_RESOURCE_KEY_NAME(rr->key);
+        n = dns_resource_key_name(rr->key);
         r = dns_name_skip(n, rr->n_skip_labels_source, &n);
         if (r < 0)
                 return r;
@@ -1362,7 +1378,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
         if (rr->n_skip_labels_source > 1)
                 return 1;
 
-        r = dns_name_startswith(DNS_RESOURCE_KEY_NAME(rr->key), "*");
+        r = dns_name_startswith(dns_resource_key_name(rr->key), "*");
         if (r < 0)
                 return r;
 

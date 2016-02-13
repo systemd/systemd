@@ -145,7 +145,7 @@ int dns_question_is_valid_for_query(DnsQuestion *q) {
         if (q->n_keys > 65535)
                 return 0;
 
-        name = DNS_RESOURCE_KEY_NAME(q->keys[0]);
+        name = dns_resource_key_name(q->keys[0]);
         if (!name)
                 return 0;
 
@@ -154,7 +154,7 @@ int dns_question_is_valid_for_query(DnsQuestion *q) {
                 assert(q->keys[i]);
 
                 if (i > 0) {
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(q->keys[i]), name);
+                        r = dns_name_equal(dns_resource_key_name(q->keys[i]), name);
                         if (r <= 0)
                                 return r;
                 }
@@ -235,7 +235,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                 if (cname->key->type == DNS_TYPE_CNAME)
                         d = cname->cname.name;
                 else {
-                        r = dns_name_change_suffix(DNS_RESOURCE_KEY_NAME(key), DNS_RESOURCE_KEY_NAME(cname->key), cname->dname.name, &destination);
+                        r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -244,7 +244,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                         d = destination;
                 }
 
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(key), d);
+                r = dns_name_equal(dns_resource_key_name(key), d);
                 if (r < 0)
                         return r;
 
@@ -291,7 +291,7 @@ const char *dns_question_first_name(DnsQuestion *q) {
         if (q->n_keys < 1)
                 return NULL;
 
-        return DNS_RESOURCE_KEY_NAME(q->keys[0]);
+        return dns_resource_key_name(q->keys[0]);
 }
 
 int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bool convert_idna) {
