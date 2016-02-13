@@ -36,7 +36,7 @@
 #define RC_LOCAL_SCRIPT_PATH_STOP "/sbin/halt.local"
 #endif
 
-const char *arg_dest = "/tmp";
+static const char *arg_dest = "/tmp";
 
 static int add_symlink(const char *service, const char *where) {
         _cleanup_free_ char *from = NULL, *to = NULL;
