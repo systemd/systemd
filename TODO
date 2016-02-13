@@ -38,8 +38,6 @@ Features:
 
 * cache sd_event_now() result from before the first iteration...
 
-* remove Capabilities=, after all AmbientCapabilities= and CapabilityBoundingSet= should be enough.
-
 * support for the new copy_file_range() syscall
 
 * add systemctl stop --job-mode=triggering that follows TRIGGERED_BY deps and adds them to the same transaction

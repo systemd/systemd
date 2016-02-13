@@ -406,15 +406,11 @@
     For processes that are not part of a session, returns -ENXIO.
     </para>
 
-    <para><function>sd_bus_creds_has_effective_cap()</function> will
-    check whether the capability specified by
-    <parameter>capability</parameter> was set in the effective
-    capabilities mask. A positive return value means that is was
-    set, zero means that it was not set, and a negative return
-    value indicates an error. See
-    <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    and <varname>Capabilities=</varname> and
-    <varname>CapabilityBoundingSet=</varname> settings in
+    <para><function>sd_bus_creds_has_effective_cap()</function> will check whether the capability specified by
+    <parameter>capability</parameter> was set in the effective capabilities mask. A positive return value means that it
+    was set, zero means that it was not set, and a negative return value indicates an error. See <citerefentry
+    project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> and the
+    <varname>AmbientCapabilities=</varname> and <varname>CapabilityBoundingSet=</varname> settings in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 

@@ -363,17 +363,6 @@ AS_IF([test "x$have_utmp" = "xyes"], [AC_DEFINE(HAVE_UTMP, 1, [Define if utmp/wt
 AM_CONDITIONAL([HAVE_UTMP], [test "x$have_utmp" = "xyes"])
 
 # ------------------------------------------------------------------------------
-have_compat_libs=no
-AC_ARG_ENABLE([compat_libs], AS_HELP_STRING([--enable-compat-libs],[Enable creation of compatibility libraries]),
-                [case "${enableval}" in
-                        yes) have_compat_libs=yes ;;
-                        no) have_compat_libs=no ;;
-                        *) AC_MSG_ERROR(bad value ${enableval} for --enable-compat-libs) ;;
-                esac],
-                [have_compat_libs=no])
-AM_CONDITIONAL([ENABLE_COMPAT_LIBS], [test "$have_compat_libs" = "yes"])
-
-# ------------------------------------------------------------------------------
 have_coverage=no
 AC_ARG_ENABLE(coverage, AS_HELP_STRING([--enable-coverage], [enable test coverage]))
 if test "x$enable_coverage" = "xyes" ; then
@@ -1600,7 +1589,6 @@ AC_MSG_RESULT([
         test coverage:           ${have_coverage}
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
-        compatibility libraries: ${have_compat_libs}
         utmp/wtmp support:       ${have_utmp}
         ldconfig support:        ${enable_ldconfig}
         hibernate support:       ${enable_hibernate}

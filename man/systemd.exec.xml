@@ -778,32 +778,21 @@
       <varlistentry>
         <term><varname>CapabilityBoundingSet=</varname></term>
 
-        <listitem><para>Controls which capabilities to include in the
-        capability bounding set for the executed process. See
-        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details. Takes a whitespace-separated list of capability
-        names as read by
-        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        e.g. <constant>CAP_SYS_ADMIN</constant>,
-        <constant>CAP_DAC_OVERRIDE</constant>,
-        <constant>CAP_SYS_PTRACE</constant>. Capabilities listed will
-        be included in the bounding set, all others are removed. If
-        the list of capabilities is prefixed with
-        <literal>~</literal>, all but the listed capabilities will be
-        included, the effect of the assignment inverted. Note that
-        this option also affects the respective capabilities in the
-        effective, permitted and inheritable capability sets, on top
-        of what <varname>Capabilities=</varname> does. If this option
-        is not used, the capability bounding set is not modified on
-        process execution, hence no limits on the capabilities of the
-        process are enforced. This option may appear more than once, in
-        which case the bounding sets are merged. If the empty string
-        is assigned to this option, the bounding set is reset to the
-        empty capability set, and all prior settings have no effect.
-        If set to <literal>~</literal> (without any further argument),
-        the bounding set is reset to the full set of available
-        capabilities, also undoing any previous
-        settings.</para></listitem>
+        <listitem><para>Controls which capabilities to include in the capability bounding set for the executed
+        process. See <citerefentry
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details. Takes a whitespace-separated list of capability names as read by <citerefentry
+        project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        e.g. <constant>CAP_SYS_ADMIN</constant>, <constant>CAP_DAC_OVERRIDE</constant>,
+        <constant>CAP_SYS_PTRACE</constant>. Capabilities listed will be included in the bounding set, all others are
+        removed. If the list of capabilities is prefixed with <literal>~</literal>, all but the listed capabilities
+        will be included, the effect of the assignment inverted. Note that this option also affects the respective
+        capabilities in the effective, permitted and inheritable capability sets. If this option is not used, the
+        capability bounding set is not modified on process execution, hence no limits on the capabilities of the
+        process are enforced. This option may appear more than once, in which case the bounding sets are merged. If the
+        empty string is assigned to this option, the bounding set is reset to the empty capability set, and all prior
+        settings have no effect.  If set to <literal>~</literal> (without any further argument), the bounding set is
+        reset to the full set of available capabilities, also undoing any previous settings.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -851,20 +840,6 @@
         the bits are reset to 0. See
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Capabilities=</varname></term>
-        <listitem><para>Controls the
-        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        set for the executed process. Take a capability string
-        describing the effective, permitted and inherited capability
-        sets as documented in
-        <citerefentry project='mankier'><refentrytitle>cap_from_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-        Note that these capability sets are usually influenced (and
-        filtered) by the capabilities attached to the executed file.
-        Due to that <varname>CapabilityBoundingSet=</varname> is
-        probably a much more useful setting.</para></listitem>
       </varlistentry>
 
       <varlistentry>

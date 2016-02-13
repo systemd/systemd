@@ -746,10 +746,10 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
 static int enforce_user(const ExecContext *context, uid_t uid) {
         assert(context);
 
-        /* Sets (but doesn't lookup) the uid and make sure we keep the
+        /* Sets (but doesn't look up) the uid and make sure we keep the
          * capabilities while doing so. */
 
-        if (context->capabilities || context->capability_ambient_set != 0) {
+        if (context->capability_ambient_set != 0) {
 
                 /* First step: If we need to keep capabilities but
                  * drop privileges we need to make sure we keep our
@@ -761,31 +761,9 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
                                 if (prctl(PR_SET_SECUREBITS, sb) < 0)
                                         return -errno;
                 }
-
-                /* Second step: set the capabilities. This will reduce
-                 * the capabilities to the minimum we need. */
-
-                if (context->capabilities) {
-                        _cleanup_cap_free_ cap_t d = NULL;
-                        static const cap_value_t bits[] = {
-                                CAP_SETUID,   /* Necessary so that we can run setresuid() below */
-                                CAP_SETPCAP   /* Necessary so that we can set PR_SET_SECUREBITS later on */
-                        };
-
-                        d = cap_dup(context->capabilities);
-                        if (!d)
-                                return -errno;
-
-                        if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
-                            cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0)
-                                return -errno;
-
-                        if (cap_set_proc(d) < 0)
-                                return -errno;
-                }
         }
 
-        /* Third step: actually set the uids */
+        /* Second step: actually set the uids */
         if (setresuid(uid, uid, uid) < 0)
                 return -errno;
 
@@ -1874,21 +1852,6 @@ static int exec_child(
                                 *exit_status = EXIT_CAPABILITIES;
                                 return r;
                         }
-
-                        if (context->capabilities) {
-
-                                /* The capabilities in ambient set need to be also in the inherited
-                                 * set. If they aren't, trying to get them will fail. Add the ambient
-                                 * set inherited capabilities to the capability set in the context.
-                                 * This is needed because if capabilities are set (using "Capabilities="
-                                 * keyword), they will override whatever we set now. */
-
-                                r = capability_update_inherited_set(context->capabilities, context->capability_ambient_set);
-                                if (r < 0) {
-                                        *exit_status = EXIT_CAPABILITIES;
-                                        return r;
-                                }
-                        }
                 }
 
                 if (context->user) {
@@ -1924,12 +1887,6 @@ static int exec_child(
                 if (prctl(PR_GET_SECUREBITS) != secure_bits)
                         if (prctl(PR_SET_SECUREBITS, secure_bits) < 0) {
                                 *exit_status = EXIT_SECUREBITS;
-                                return -errno;
-                        }
-
-                if (context->capabilities)
-                        if (cap_set_proc(context->capabilities) < 0) {
-                                *exit_status = EXIT_CAPABILITIES;
                                 return -errno;
                         }
 
@@ -2174,11 +2131,6 @@ void exec_context_done(ExecContext *c) {
         c->supplementary_groups = strv_free(c->supplementary_groups);
 
         c->pam_name = mfree(c->pam_name);
-
-        if (c->capabilities) {
-                cap_free(c->capabilities);
-                c->capabilities = NULL;
-        }
 
         c->read_only_dirs = strv_free(c->read_only_dirs);
         c->read_write_dirs = strv_free(c->read_write_dirs);
@@ -2536,14 +2488,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sSyslogLevel: %s\n",
                         prefix, strna(fac_str),
                         prefix, strna(lvl_str));
-        }
-
-        if (c->capabilities) {
-                _cleanup_cap_free_charp_ char *t;
-
-                t = cap_to_text(c->capabilities, NULL);
-                if (t)
-                        fprintf(f, "%sCapabilities: %s\n", prefix, t);
         }
 
         if (c->secure_bits)

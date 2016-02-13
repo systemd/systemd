@@ -72,13 +72,13 @@ static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 static char* arg_machine = NULL;
+static bool arg_recursive = true;
 
-enum {
+static enum {
         COUNT_PIDS,
         COUNT_USERSPACE_PROCESSES,
         COUNT_ALL_PROCESSES,
 } arg_count = COUNT_PIDS;
-static bool arg_recursive = true;
 
 static enum {
         ORDER_PATH,

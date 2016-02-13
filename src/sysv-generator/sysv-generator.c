@@ -70,7 +70,7 @@ static const struct {
            UP must be read before DOWN */
 };
 
-const char *arg_dest = "/tmp";
+static const char *arg_dest = "/tmp";
 
 typedef struct SysvStub {
         char *name;

@@ -312,7 +312,7 @@ static int property_get_ambient_capabilities(
         return sd_bus_message_append(reply, "t", c->capability_ambient_set);
 }
 
-static int property_get_capabilities(
+static int property_get_empty_string(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -321,23 +321,10 @@ static int property_get_capabilities(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
-        _cleanup_cap_free_charp_ char *t = NULL;
-        const char *s;
-
         assert(bus);
         assert(reply);
-        assert(c);
 
-        if (c->capabilities)
-                s = t = cap_to_text(c->capabilities, NULL);
-        else
-                s = "";
-
-        if (!s)
-                return -ENOMEM;
-
-        return sd_bus_message_append(reply, "s", s);
+        return sd_bus_message_append(reply, "s", "");
 }
 
 static int property_get_syscall_filter(
@@ -700,7 +687,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SyslogLevelPrefix", "b", bus_property_get_bool, offsetof(ExecContext, syslog_level_prefix), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogLevel", "i", property_get_syslog_level, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogFacility", "i", property_get_syslog_facility, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Capabilities", "s", property_get_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Capabilities", "s", property_get_empty_string, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", property_get_capability_bounding_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AmbientCapabilities", "t", property_get_ambient_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
