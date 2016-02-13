@@ -413,6 +413,34 @@ char *xescape(const char *s, const char *bad) {
         return r;
 }
 
+char *octescape(const char *s, size_t len) {
+        char *r, *t;
+        const char *f;
+
+        /* Escapes all chars in bad, in addition to \ and " chars,
+         * in \nnn style escaping. */
+
+        r = new(char, len * 4 + 1);
+        if (!r)
+                return NULL;
+
+        for (f = s, t = r; f < s + len; f++) {
+
+                if (*f < ' ' || *f >= 127 || *f == '\\' || *f == '"') {
+                        *(t++) = '\\';
+                        *(t++) = '0' + (*f >> 6);
+                        *(t++) = '0' + ((*f >> 3) & 8);
+                        *(t++) = '0' + (*f & 8);
+                } else
+                        *(t++) = *f;
+        }
+
+        *t = 0;
+
+        return r;
+
+}
+
 static char *strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
         assert(bad);
 

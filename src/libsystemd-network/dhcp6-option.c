@@ -71,8 +71,7 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
         if (r < 0)
                 return r;
 
-        if (optval)
-                memcpy(*buf, optval, optlen);
+        memcpy_safe(*buf, optval, optlen);
 
         *buf += optlen;
         *buflen -= optlen;

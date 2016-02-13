@@ -110,14 +110,9 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
         message = malloc0(len);
         assert_se(message);
 
-        if (options && optlen)
-                memcpy(&message->options, options, optlen);
-
-        if (file && filelen <= 128)
-                memcpy(&message->file, file, filelen);
-
-        if (sname && snamelen <= 64)
-                memcpy(&message->sname, sname, snamelen);
+        memcpy_safe(&message->options, options, optlen);
+        memcpy_safe(&message->file, file, filelen);
+        memcpy_safe(&message->sname, sname, snamelen);
 
         return message;
 }

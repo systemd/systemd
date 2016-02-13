@@ -79,6 +79,13 @@
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> --openpgp</command>
+      <arg choice="plain"><replaceable>USER@DOMAIN</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-resolve</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <command> --statistics</command>
     </cmdsynopsis>
 
@@ -113,6 +120,10 @@
     second the domain to look in. In this case no TXT RR is requested. Finally, if only one parameter is specified, it
     is assumed to be a domain name, that is already prefixed with an SRV type, and an SRV lookup is done (no
     TXT).</para>
+
+    <para>The <option>--openpgp</option> switch may be use to query PGP keys stored as the
+    <ulink url="https://tools.ietf.org/html/draft-wouters-dane-openpgp-02">OPENPGPKEY</ulink> resource records.
+    When this option is specified one or more e-mail address must be specified.</para>
 
     <para>The <option>--statistics</option> switch may be used to show resolver statistics, including information about
     the number of successful and failed DNSSEC validations.</para>
@@ -195,6 +206,14 @@
 
         <listitem><para>Takes a boolean parameter. If true (the default), when doing a DNS-SD service lookup with
         <option>--service</option> the TXT service metadata record is resolved as well.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--openpgp</option></term>
+
+        <listitem><para>Enables OPENPGPKEY resource record resolution (see above). Specified e-mail
+        addresses are converted to the corresponding DNS domain name, and any OPENPGPKEY keys are
+        printed.</para></listitem>
       </varlistentry>
 
       <varlistentry>

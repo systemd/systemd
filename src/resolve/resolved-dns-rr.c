@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
+#include "escape.h"
 #include "hexdecoct.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
@@ -490,6 +491,11 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->tlsa.data);
                         break;
 
+                case DNS_TYPE_CAA:
+                        free(rr->caa.tag);
+                        free(rr->caa.value);
+                        break;
+
                 case DNS_TYPE_OPENPGPKEY:
                 default:
                         free(rr->generic.data);
@@ -697,6 +703,12 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        a->tlsa.matching_type == b->tlsa.matching_type &&
                        FIELD_EQUAL(a->tlsa, b->tlsa, data);
 
+        case DNS_TYPE_CAA:
+                return a->caa.flags == b->caa.flags &&
+                       streq(a->caa.tag, b->caa.tag) &&
+                       FIELD_EQUAL(a->caa, b->caa, value);
+
+        case DNS_TYPE_OPENPGPKEY:
         default:
                 return FIELD_EQUAL(a->generic, b->generic, data);
         }
@@ -966,7 +978,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
                 char *ss;
-                int n, n1;
+                int n;
                 uint16_t key_tag;
 
                 key_tag = dnssec_keytag(rr, true);
@@ -975,9 +987,8 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&s, "%s %n%u %u %s %n",
+                r = asprintf(&s, "%s %u %u %s %n",
                              k,
-                             &n1,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
                              alg,
@@ -992,14 +1003,12 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 r = asprintf(&ss, "%s\n"
-                             "%*s-- Flags:%s%s%s\n"
-                             "%*s-- Key tag: %u",
+                             "        -- Flags:%s%s%s\n"
+                             "        -- Key tag: %u",
                              s,
-                             n1, "",
                              rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "",
-                             n1, "",
                              key_tag);
                 if (r < 0)
                         return NULL;
@@ -1125,17 +1134,39 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 r = asprintf(&ss, "%s\n"
-                             "%*s-- Cert. usage: %s\n"
-                             "%*s-- Selector: %s\n"
-                             "%*s-- Matching type: %s",
+                             "        -- Cert. usage: %s\n"
+                             "        -- Selector: %s\n"
+                             "        -- Matching type: %s",
                              s,
-                             n - 6, "", cert_usage,
-                             n - 6, "", selector,
-                             n - 6, "", matching_type);
+                             cert_usage,
+                             selector,
+                             matching_type);
                 if (r < 0)
                         return NULL;
                 free(s);
                 s = ss;
+
+                break;
+        }
+
+        case DNS_TYPE_CAA: {
+                _cleanup_free_ char *value;
+
+                value = octescape(rr->caa.value, rr->caa.value_size);
+                if (!value)
+                        return NULL;
+
+                r = asprintf(&s, "%s %u %s \"%s\"%s%s%s%.0u",
+                             k,
+                             rr->caa.flags,
+                             rr->caa.tag,
+                             value,
+                             rr->caa.flags ? "\n        -- Flags:" : "",
+                             rr->caa.flags & CAA_FLAG_CRITICAL ? " critical" : "",
+                             rr->caa.flags & ~CAA_FLAG_CRITICAL ? " " : "",
+                             rr->caa.flags & ~CAA_FLAG_CRITICAL);
+                if (r < 0)
+                        return NULL;
 
                 break;
         }
@@ -1300,7 +1331,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
         return !r;
 }
 
-static void dns_resource_record_hash_func(const void *i, struct siphash *state) {
+void dns_resource_record_hash_func(const void *i, struct siphash *state) {
         const DnsResourceRecord *rr = i;
 
         assert(rr);
@@ -1427,7 +1458,13 @@ static void dns_resource_record_hash_func(const void *i, struct siphash *state) 
                 siphash24_compress(&rr->tlsa.cert_usage, sizeof(rr->tlsa.cert_usage), state);
                 siphash24_compress(&rr->tlsa.selector, sizeof(rr->tlsa.selector), state);
                 siphash24_compress(&rr->tlsa.matching_type, sizeof(rr->tlsa.matching_type), state);
-                siphash24_compress(&rr->tlsa.data, rr->tlsa.data_size, state);
+                siphash24_compress(rr->tlsa.data, rr->tlsa.data_size, state);
+                break;
+
+        case DNS_TYPE_CAA:
+                siphash24_compress(&rr->caa.flags, sizeof(rr->caa.flags), state);
+                string_hash_func(rr->caa.tag, state);
+                siphash24_compress(rr->caa.value, rr->caa.value_size, state);
                 break;
 
         case DNS_TYPE_OPENPGPKEY:

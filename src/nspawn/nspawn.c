@@ -2623,12 +2623,10 @@ static int inner_child(
 
                 /* Automatically search for the init system */
 
-                m = 1 + strv_length(arg_parameters);
-                a = newa(char*, m + 1);
-                if (strv_isempty(arg_parameters))
-                        a[1] = NULL;
-                else
-                        memcpy(a + 1, arg_parameters, m * sizeof(char*));
+                m = strv_length(arg_parameters);
+                a = newa(char*, m + 2);
+                memcpy_safe(a + 1, arg_parameters, m * sizeof(char*));
+                a[1 + m] = NULL;
 
                 a[0] = (char*) "/usr/lib/systemd/systemd";
                 execve(a[0], a, env_use);

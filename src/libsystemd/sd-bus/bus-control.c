@@ -1131,8 +1131,7 @@ static int add_name_change_match(sd_bus *bus,
                 item->name_change.old_id.id = old_owner_id;
                 item->name_change.new_id.id = new_owner_id;
 
-                if (name)
-                        memcpy(item->name_change.name, name, l);
+                memcpy_safe(item->name_change.name, name, l);
 
                 /* If the old name is unset or empty, then
                  * this can match against added names */

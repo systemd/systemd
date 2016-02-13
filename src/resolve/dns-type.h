@@ -152,3 +152,6 @@ const char *tlsa_selector_to_string(uint8_t selector);
 
 /* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.4 */
 const char *tlsa_matching_type_to_string(uint8_t selector);
+
+/* https://tools.ietf.org/html/rfc6844#section-5.1 */
+#define CAA_FLAG_CRITICAL (1u << 7)

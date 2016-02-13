@@ -17,6 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <gcrypt.h>
 #include <getopt.h>
 #include <net/if.h>
 
@@ -28,6 +29,7 @@
 #include "bus-util.h"
 #include "escape.h"
 #include "in-addr-util.h"
+#include "gcrypt-util.h"
 #include "parse-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
@@ -46,6 +48,7 @@ static enum {
         MODE_RESOLVE_HOST,
         MODE_RESOLVE_RECORD,
         MODE_RESOLVE_SERVICE,
+        MODE_RESOLVE_OPENPGP,
         MODE_STATISTICS,
         MODE_RESET_STATISTICS,
 } arg_mode = MODE_RESOLVE_HOST;
@@ -545,15 +548,10 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
         } else
                 n = p;
 
-        if (type == 0)
-                type = arg_type;
-        if (type == 0)
-                type = DNS_TYPE_A;
-
         if (class == 0)
-                class = arg_class;
-        if (class == 0)
-                class = DNS_CLASS_IN;
+                class = arg_class ?: DNS_CLASS_IN;
+        if (type == 0)
+                type = arg_type ?: DNS_TYPE_A;
 
         return resolve_record(bus, n, class, type);
 
@@ -763,6 +761,36 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         return 0;
 }
 
+static int resolve_openpgp(sd_bus *bus, const char *address) {
+        const char *domain, *full;
+        int r;
+        _cleanup_free_ char *hashed = NULL;
+
+        assert(bus);
+        assert(address);
+
+        domain = strrchr(address, '@');
+        if (!domain) {
+                log_error("Address does not contain '@': \"%s\"", address);
+                return -EINVAL;
+        } else if (domain == address || domain[1] == '\0') {
+                log_error("Address starts or ends with '@': \"%s\"", address);
+                return -EINVAL;
+        }
+        domain++;
+
+        r = string_hashsum(address, domain - 1 - address, GCRY_MD_SHA224, &hashed);
+        if (r < 0)
+                return log_error_errno(r, "Hashing failed: %m");
+
+        full = strjoina(hashed, "._openpgpkey.", domain);
+        log_debug("Looking up \"%s\".", full);
+
+        return resolve_record(bus, full,
+                              arg_class ?: DNS_CLASS_IN,
+                              arg_type ?: DNS_TYPE_OPENPGPKEY);
+}
+
 static int show_statistics(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -945,6 +973,7 @@ static void help(void) {
                "     --service                Resolve service (SRV)\n"
                "     --service-address=BOOL   Do [not] resolve address for services\n"
                "     --service-txt=BOOL       Do [not] resolve TXT records for services\n"
+               "     --openpgp                Query OpenPGP public key\n"
                "     --cname=BOOL             Do [not] follow CNAME redirects\n"
                "     --search=BOOL            Do [not] use search domains\n"
                "     --legend=BOOL            Do [not] print column headers and meta information\n"
@@ -961,6 +990,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CNAME,
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
+                ARG_OPENPGP,
                 ARG_SEARCH,
                 ARG_STATISTICS,
                 ARG_RESET_STATISTICS,
@@ -978,6 +1008,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "service",          no_argument,       NULL, ARG_SERVICE          },
                 { "service-address",  required_argument, NULL, ARG_SERVICE_ADDRESS  },
                 { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
+                { "openpgp",          no_argument,       NULL, ARG_OPENPGP          },
                 { "search",           required_argument, NULL, ARG_SEARCH           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
                 { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
@@ -1085,6 +1116,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SERVICE:
                         arg_mode = MODE_RESOLVE_SERVICE;
+                        break;
+
+                case ARG_OPENPGP:
+                        arg_mode = MODE_RESOLVE_OPENPGP;
                         break;
 
                 case ARG_CNAME:
@@ -1244,6 +1279,24 @@ int main(int argc, char **argv) {
                         goto finish;
                 }
 
+                break;
+
+        case MODE_RESOLVE_OPENPGP:
+                if (argc < optind + 1) {
+                        log_error("E-mail address required.");
+                        r = -EINVAL;
+                        goto finish;
+
+                }
+
+                r = 0;
+                while (optind < argc) {
+                        int k;
+
+                        k = resolve_openpgp(bus, argv[optind++]);
+                        if (k < 0)
+                                r = k;
+                }
                 break;
 
         case MODE_STATISTICS:

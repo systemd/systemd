@@ -54,12 +54,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 options[*offset] = code;
                 options[*offset + 1] = optlen;
 
-                if (optlen) {
-                        assert(optval);
-
-                        memcpy(&options[*offset + 2], optval, optlen);
-                }
-
+                memcpy_safe(&options[*offset + 2], optval, optlen);
                 *offset += optlen + 2;
 
                 break;

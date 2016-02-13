@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
+#include "util.h"
 
 char octchar(int x) {
         return '0' + (x & 7);
@@ -572,7 +573,7 @@ static int base64_append_width(char **prefix, int plen,
         if (!t)
                 return -ENOMEM;
 
-        memcpy(t + plen, sep, slen);
+        memcpy_safe(t + plen, sep, slen);
 
         for (line = 0, s = t + plen + slen, avail = len; line < lines; line++) {
                 int act = MIN(width, avail);
