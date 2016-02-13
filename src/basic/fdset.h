@@ -32,7 +32,6 @@ FDSet* fdset_free(FDSet *s);
 
 int fdset_put(FDSet *s, int fd);
 int fdset_put_dup(FDSet *s, int fd);
-int fdset_consume(FDSet *s, int fd);
 
 bool fdset_contains(FDSet *s, int fd);
 int fdset_remove(FDSet *s, int fd);

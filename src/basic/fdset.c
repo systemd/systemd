@@ -94,19 +94,6 @@ int fdset_put(FDSet *s, int fd) {
         return set_put(MAKE_SET(s), FD_TO_PTR(fd));
 }
 
-int fdset_consume(FDSet *s, int fd) {
-        int r;
-
-        assert(s);
-        assert(fd >= 0);
-
-        r = fdset_put(s, fd);
-        if (r <= 0)
-                safe_close(fd);
-
-        return r;
-}
-
 int fdset_put_dup(FDSet *s, int fd) {
         int copy, r;
 
