@@ -5,7 +5,6 @@
 *.log
 *.o
 *.plist
-*.pyc
 *.stamp
 *.swp
 *.trs
@@ -47,7 +46,6 @@
 /mtd_probe
 /networkctl
 /scsi_id
-/systemadm
 /systemctl
 /systemd
 /systemd-ac-power
@@ -76,7 +74,6 @@
 /systemd-fsck
 /systemd-fstab-generator
 /systemd-getty-generator
-/systemd-gnome-ask-password-agent
 /systemd-gpt-auto-generator
 /systemd-hibernate-resume
 /systemd-hibernate-resume-generator
@@ -90,7 +87,6 @@
 /systemd-journal-remote
 /systemd-journal-upload
 /systemd-journald
-/systemd-kmsg-syslogd
 /systemd-localed
 /systemd-logind
 /systemd-machine-id-setup
@@ -105,7 +101,6 @@
 /systemd-quotacheck
 /systemd-random-seed
 /systemd-rc-local-generator
-/systemd-remount-api-vfs
 /systemd-remount-fs
 /systemd-reply-password
 /systemd-resolve
@@ -124,7 +119,6 @@
 /systemd-timesyncd
 /systemd-tmpfiles
 /systemd-tty-ask-password-agent
-/systemd-uaccess
 /systemd-udevd
 /systemd-update-done
 /systemd-update-utmp
@@ -259,7 +253,6 @@
 /test-siphash24
 /test-sleep
 /test-socket-util
-/test-ssd
 /test-strbuf
 /test-string-util
 /test-strip-tab-ansi
