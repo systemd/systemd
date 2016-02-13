@@ -2763,9 +2763,14 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                              CLOCK_BOOTTIME_ALARM), -EOPNOTSUPP);
 
         if (!dual_timestamp_is_set(&e->timestamp)) {
-                /* Implicitly fall back to now() if we never ran
+                /* Implicitly fall back to querying the time if we never ran
                  * before and thus have no cached time. */
-                *usec = now(clock);
+                struct timespec ts;
+
+                if (clock_gettime(clock, &ts) < 0)
+                        return errno == EINVAL ? -EOPNOTSUPP : -errno;
+
+                *usec = timespec_load(&ts);
                 return 1;
         }
 

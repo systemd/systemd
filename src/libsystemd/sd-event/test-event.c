@@ -265,13 +265,19 @@ static void test_basic(void) {
 static void test_sd_event_now(void) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         uint64_t event_now;
+        int r;
+
+        /* CLOCK_{REAL,BOOT}TIME_ALARM might not be available on some architectures.
+         * Treat them specially. */
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) > 0);
         assert_se(sd_event_now(e, CLOCK_REALTIME, &event_now) > 0);
-        assert_se(sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now) > 0);
+        r = sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now);
+        assert_se(r > 0 || r == -EOPNOTSUPP);
         assert_se(sd_event_now(e, CLOCK_BOOTTIME, &event_now) > 0);
-        assert_se(sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now) > 0);
+        r = sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now);
+        assert_se(r > 0 || r == -EOPNOTSUPP);
         assert_se(sd_event_now(e, -1, &event_now) == -EOPNOTSUPP);
         assert_se(sd_event_now(e, 900 /* arbitrary big number */, &event_now) == -EOPNOTSUPP);
 
@@ -279,9 +285,11 @@ static void test_sd_event_now(void) {
 
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) == 0);
         assert_se(sd_event_now(e, CLOCK_REALTIME, &event_now) == 0);
-        assert_se(sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now) == 0);
+        r = sd_event_now(e, CLOCK_REALTIME_ALARM, &event_now);
+        assert_se(r == 0 || r == -EOPNOTSUPP);
         assert_se(sd_event_now(e, CLOCK_BOOTTIME, &event_now) == 0);
-        assert_se(sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now) == 0);
+        r = sd_event_now(e, CLOCK_BOOTTIME_ALARM, &event_now);
+        assert_se(r == 0 || r == -EOPNOTSUPP);
         assert_se(sd_event_now(e, -1, &event_now) == -EOPNOTSUPP);
         assert_se(sd_event_now(e, 900 /* arbitrary big number */, &event_now) == -EOPNOTSUPP);
 }
