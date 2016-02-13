@@ -26,6 +26,7 @@
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "list.h"
+#include "string-util.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -268,6 +269,16 @@ static inline const char* DNS_RESOURCE_KEY_NAME(const DnsResourceKey *key) {
                 return key->_name;
 
         return (char*) key + sizeof(DnsResourceKey);
+}
+
+static inline const char* dns_resource_key_name(const DnsResourceKey *key) {
+        const char *name;
+
+        name = DNS_RESOURCE_KEY_NAME(key);
+        if (name && isempty(name))
+                return ".";
+        else
+                return name;
 }
 
 static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {

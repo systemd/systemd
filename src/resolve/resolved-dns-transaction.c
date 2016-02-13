@@ -1861,7 +1861,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!dnskey)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DNSKEY to validate transaction %" PRIu16" (%s, RRSIG with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), rr->rrsig.key_tag);
+                        log_debug("Requesting DNSKEY to validate transaction %" PRIu16" (%s, RRSIG with key tag: %" PRIu16 ").",
+                                  t->id, dns_resource_key_name(rr->key), rr->rrsig.key_tag);
                         r = dns_transaction_request_dnssec_rr(t, dnskey);
                         if (r < 0)
                                 return r;
@@ -1889,7 +1890,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dnssec_keytag(rr, false));
+                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").",
+                                  t->id, dns_resource_key_name(rr->key), dnssec_keytag(rr, false));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -1924,7 +1926,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned SOA/NS RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
+                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned SOA/NS RRset).",
+                                  t->id, dns_resource_key_name(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -1977,7 +1980,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!soa)
                                 return -ENOMEM;
 
-                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME/DS RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
+                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME/DS RRset).",
+                                  t->id, dns_resource_key_name(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -2011,7 +2015,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!soa)
                                 return -ENOMEM;
 
-                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dns_resource_record_to_string(rr));
+                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).",
+                                  t->id, dns_resource_key_name(rr->key), dns_resource_record_to_string(rr));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -2042,11 +2047,13 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
                         if (r > 0)
-                                log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS/DS response).", t->id, DNS_RESOURCE_KEY_NAME(t->key));
+                                log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS/DS response).",
+                                          t->id, dns_resource_key_name(t->key));
                         else
                                 name = NULL;
                 } else
-                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).", t->id, DNS_RESOURCE_KEY_NAME(t->key));
+                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).",
+                                  t->id, dns_resource_key_name(t->key));
 
                 if (name) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
