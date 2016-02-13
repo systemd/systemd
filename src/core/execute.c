@@ -24,6 +24,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/capability.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
@@ -1933,7 +1934,7 @@ static int exec_child(
                                 return -errno;
                         }
 
-                if (context->no_new_privileges)
+                if (context->no_new_privileges || !have_effective_cap(CAP_SYS_ADMIN))
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return -errno;
