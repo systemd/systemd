@@ -457,7 +457,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("MulticastDNS", "s", property_get_resolve_support, offsetof(Link, mdns_support), 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, offsetof(Link, dnssec_mode), 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
-        SD_BUS_PROPERTY("DNSSECSupport", "b", property_get_dnssec_supported, 0, 0),
+        SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
 
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
         SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_search_domains, 0),
