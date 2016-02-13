@@ -2134,8 +2134,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
-        if (dual_timestamp_is_set(&s->watchdog_timestamp))
-                dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
+        dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
         unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
 
