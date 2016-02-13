@@ -33,6 +33,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* resolved: maybe, after all, implement local listening for DNS packets on port
+  53.
+
 * delay activation of logind until somebody logs in, or when /dev/tty0 pulls it
   in or lingering is on (so that containers don't bother with it until PAM is used). also exit-on-idle
 
