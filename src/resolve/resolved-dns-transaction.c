@@ -522,7 +522,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
                          * the IP address, in case this is a reverse
                          * PTR lookup */
 
-                        r = dns_name_address(DNS_RESOURCE_KEY_NAME(t->key), &family, &address);
+                        r = dns_name_address(dns_resource_key_name(t->key), &family, &address);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -1209,7 +1209,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                         return 0;
                 }
 
-                if (dns_name_is_root(DNS_RESOURCE_KEY_NAME(t->key)) &&
+                if (dns_name_is_root(dns_resource_key_name(t->key)) &&
                     t->key->type == DNS_TYPE_DS) {
 
                         /* Hmm, this is a request for the root DS? A
@@ -1494,8 +1494,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 return r;
 
         if (t->scope->protocol == DNS_PROTOCOL_LLMNR &&
-            (dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), "in-addr.arpa") > 0 ||
-             dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), "ip6.arpa") > 0)) {
+            (dns_name_endswith(dns_resource_key_name(t->key), "in-addr.arpa") > 0 ||
+             dns_name_endswith(dns_resource_key_name(t->key), "ip6.arpa") > 0)) {
 
                 /* RFC 4795, Section 2.4. says reverse lookups shall
                  * always be made via TCP on LLMNR */
@@ -1708,7 +1708,7 @@ static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
 
         /* Is this key explicitly listed as a negative trust anchor?
          * If so, it's nothing we need to care about */
-        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(t->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, dns_resource_key_name(t->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1816,7 +1816,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         continue;
 
                 /* If this RR is in the negative trust anchor, we don't need to validate it. */
-                r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
+                r = dns_transaction_negative_trust_anchor_lookup(t, dns_resource_key_name(rr->key));
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1833,7 +1833,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * already have the DNSKEY, and we don't have
                          * to look for more. */
                         if (rr->rrsig.type_covered == DNS_TYPE_DNSKEY) {
-                                r = dns_name_equal(rr->rrsig.signer, DNS_RESOURCE_KEY_NAME(rr->key));
+                                r = dns_name_equal(rr->rrsig.signer, dns_resource_key_name(rr->key));
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -1851,7 +1851,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * in another transaction whose additonal RRs
                          * point back to the original transaction, and
                          * we deadlock. */
-                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), rr->rrsig.signer);
+                        r = dns_name_endswith(dns_resource_key_name(t->key), rr->rrsig.signer);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -1861,7 +1861,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!dnskey)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DNSKEY to validate transaction %" PRIu16" (%s, RRSIG with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), rr->rrsig.key_tag);
+                        log_debug("Requesting DNSKEY to validate transaction %" PRIu16" (%s, RRSIG with key tag: %" PRIu16 ").",
+                                  t->id, dns_resource_key_name(rr->key), rr->rrsig.key_tag);
                         r = dns_transaction_request_dnssec_rr(t, dnskey);
                         if (r < 0)
                                 return r;
@@ -1879,17 +1880,18 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * up in request loops, and want to keep
                          * additional traffic down. */
 
-                        r = dns_name_endswith(DNS_RESOURCE_KEY_NAME(t->key), DNS_RESOURCE_KEY_NAME(rr->key));
+                        r = dns_name_endswith(dns_resource_key_name(t->key), dns_resource_key_name(rr->key));
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
 
-                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, DNS_RESOURCE_KEY_NAME(rr->key));
+                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(rr->key));
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dnssec_keytag(rr, false));
+                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").",
+                                  t->id, dns_resource_key_name(rr->key), dnssec_keytag(rr, false));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -1920,11 +1922,12 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
-                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, DNS_RESOURCE_KEY_NAME(rr->key));
+                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(rr->key));
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned SOA/NS RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
+                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned SOA/NS RRset).",
+                                  t->id, dns_resource_key_name(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -1966,7 +1969,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
-                        name = DNS_RESOURCE_KEY_NAME(rr->key);
+                        name = dns_resource_key_name(rr->key);
                         r = dns_name_parent(&name);
                         if (r < 0)
                                 return r;
@@ -1977,7 +1980,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!soa)
                                 return -ENOMEM;
 
-                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME/DS RRset).", t->id, DNS_RESOURCE_KEY_NAME(rr->key));
+                        log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME/DS RRset).",
+                                  t->id, dns_resource_key_name(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -2007,11 +2011,12 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
-                        soa = dns_resource_key_new(rr->key->class, DNS_TYPE_SOA, DNS_RESOURCE_KEY_NAME(rr->key));
+                        soa = dns_resource_key_new(rr->key->class, DNS_TYPE_SOA, dns_resource_key_name(rr->key));
                         if (!soa)
                                 return -ENOMEM;
 
-                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).", t->id, DNS_RESOURCE_KEY_NAME(rr->key), dns_resource_record_to_string(rr));
+                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).",
+                                  t->id, dns_resource_key_name(rr->key), dns_resource_record_to_string(rr));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -2029,7 +2034,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         if (r > 0) {
                 const char *name;
 
-                name = DNS_RESOURCE_KEY_NAME(t->key);
+                name = dns_resource_key_name(t->key);
 
                 /* If this was a SOA or NS request, then this
                  * indicates that we are not at a zone apex, hence ask
@@ -2042,11 +2047,13 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
                         if (r > 0)
-                                log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS/DS response).", t->id, DNS_RESOURCE_KEY_NAME(t->key));
+                                log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS/DS response).",
+                                          t->id, dns_resource_key_name(t->key));
                         else
                                 name = NULL;
                 } else
-                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).", t->id, DNS_RESOURCE_KEY_NAME(t->key));
+                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).",
+                                  t->id, dns_resource_key_name(t->key));
 
                 if (name) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
@@ -2118,7 +2125,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         if (dns_type_is_pseudo(rr->key->type))
                 return -EINVAL;
 
-        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, dns_resource_key_name(rr->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -2144,7 +2151,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (dt->key->type != DNS_TYPE_DS)
                                 continue;
 
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), DNS_RESOURCE_KEY_NAME(rr->key));
+                        r = dns_name_equal(dns_resource_key_name(dt->key), dns_resource_key_name(rr->key));
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2187,7 +2194,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                                 continue;
 
                         if (!parent) {
-                                parent = DNS_RESOURCE_KEY_NAME(rr->key);
+                                parent = dns_resource_key_name(rr->key);
                                 r = dns_name_parent(&parent);
                                 if (r < 0)
                                         return r;
@@ -2201,7 +2208,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                                 }
                         }
 
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), parent);
+                        r = dns_name_equal(dns_resource_key_name(dt->key), parent);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2226,7 +2233,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (dt->key->type != DNS_TYPE_SOA)
                                 continue;
 
-                        r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), DNS_RESOURCE_KEY_NAME(rr->key));
+                        r = dns_name_equal(dns_resource_key_name(dt->key), dns_resource_key_name(rr->key));
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2273,7 +2280,7 @@ static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKe
         if (t->scope->dnssec_mode != DNSSEC_ALLOW_DOWNGRADE)
                 return false; /* In strict DNSSEC mode what doesn't exist, doesn't exist */
 
-        tld = DNS_RESOURCE_KEY_NAME(key);
+        tld = dns_resource_key_name(key);
         r = dns_name_parent(&tld);
         if (r < 0)
                 return r;
@@ -2288,7 +2295,7 @@ static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKe
                 if (dt->key->class != key->class)
                         continue;
 
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), tld);
+                r = dns_name_equal(dns_resource_key_name(dt->key), tld);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -2321,7 +2328,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         if (dns_type_is_pseudo(t->key->type))
                 return -EINVAL;
 
-        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(t->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, dns_resource_key_name(t->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -2339,7 +2346,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
                 return false;
         }
 
-        name = DNS_RESOURCE_KEY_NAME(t->key);
+        name = dns_resource_key_name(t->key);
 
         if (IN_SET(t->key->type, DNS_TYPE_SOA, DNS_TYPE_NS, DNS_TYPE_DS)) {
 
@@ -2368,7 +2375,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
                 if (dt->key->type != DNS_TYPE_SOA)
                         continue;
 
-                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), name);
+                r = dns_name_equal(dns_resource_key_name(dt->key), name);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -2390,7 +2397,7 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
          * the specified RRset is authenticated (i.e. has a matching
          * DS RR). */
 
-        r = dns_transaction_negative_trust_anchor_lookup(t, DNS_RESOURCE_KEY_NAME(rr->key));
+        r = dns_transaction_negative_trust_anchor_lookup(t, dns_resource_key_name(rr->key));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -2413,7 +2420,7 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
 
                         if (dt->key->type == DNS_TYPE_DNSKEY) {
 
-                                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), rrsig->rrsig.signer);
+                                r = dns_name_equal(dns_resource_key_name(dt->key), rrsig->rrsig.signer);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -2430,7 +2437,7 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
 
                         } else if (dt->key->type == DNS_TYPE_DS) {
 
-                                r = dns_name_equal(DNS_RESOURCE_KEY_NAME(dt->key), rrsig->rrsig.signer);
+                                r = dns_name_equal(dns_resource_key_name(dt->key), rrsig->rrsig.signer);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -2460,7 +2467,7 @@ static int dns_transaction_known_signed(DnsTransaction *t, DnsResourceRecord *rr
          * not to be signed, there's a problem with the DNS server */
 
         return rr->key->class == DNS_CLASS_IN &&
-                dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key));
+                dns_name_is_root(dns_resource_key_name(rr->key));
 }
 
 static int dns_transaction_check_revoked_trust_anchors(DnsTransaction *t) {
@@ -2642,7 +2649,7 @@ static int dnssec_validate_records(
                                 return r;
 
                         r = dnssec_test_positive_wildcard(*validated,
-                                                          DNS_RESOURCE_KEY_NAME(rr->key),
+                                                          dns_resource_key_name(rr->key),
                                                           source,
                                                           rrsig->rrsig.signer,
                                                           &authenticated);

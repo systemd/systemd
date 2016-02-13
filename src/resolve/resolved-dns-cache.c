@@ -524,7 +524,7 @@ static int dns_cache_put_negative(
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
                  * a pseudo type for this purpose here. */
-                i->key = dns_resource_key_new(key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(key));
+                i->key = dns_resource_key_new(key->class, DNS_TYPE_ANY, dns_resource_key_name(key));
                 if (!i->key)
                         return -ENOMEM;
 
@@ -759,7 +759,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (i)
                 return i;
 
-        n = DNS_RESOURCE_KEY_NAME(k);
+        n = dns_resource_key_name(k);
 
         /* Check if we have an NXDOMAIN cache item for the name, notice that we use
          * the pseudo-type ANY for NXDOMAIN cache items. */

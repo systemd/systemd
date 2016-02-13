@@ -577,7 +577,7 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, size_t *start) 
 
         saved_size = p->size;
 
-        r = dns_packet_append_name(p, DNS_RESOURCE_KEY_NAME(k), true, true, NULL);
+        r = dns_packet_append_name(p, dns_resource_key_name(k), true, true, NULL);
         if (r < 0)
                 goto fail;
 
@@ -2130,7 +2130,7 @@ int dns_packet_extract(DnsPacket *p) {
                                         continue;
                                 }
 
-                                if (!dns_name_is_root(DNS_RESOURCE_KEY_NAME(rr->key))) {
+                                if (!dns_name_is_root(dns_resource_key_name(rr->key))) {
                                         /* If the OPT RR is not owned by the root domain, then it is bad, let's ignore
                                          * it. */
                                         log_debug("OPT RR is not owned by root domain, ignoring.");
