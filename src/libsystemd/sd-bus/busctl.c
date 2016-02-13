@@ -501,8 +501,10 @@ static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
                 } basic;
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
-                if (r <= 0)
+                if (r < 0)
                         return r;
+                if (r == 0)
+                        return needs_space;
 
                 if (bus_type_is_container(type) > 0) {
 
@@ -533,17 +535,22 @@ static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
                                         fputc(' ', f);
 
                                 fprintf(f, "%u", n);
+                                needs_space = true;
+
                         } else if (type == SD_BUS_TYPE_VARIANT) {
 
                                 if (needs_space)
                                         fputc(' ', f);
 
                                 fprintf(f, "%s", contents);
+                                needs_space = true;
                         }
 
-                        r = format_cmdline(m, f, needs_space || IN_SET(type, SD_BUS_TYPE_ARRAY, SD_BUS_TYPE_VARIANT));
+                        r = format_cmdline(m, f, needs_space);
                         if (r < 0)
                                 return r;
+
+                        needs_space = r > 0;
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
