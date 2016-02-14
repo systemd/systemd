@@ -124,6 +124,9 @@ enum {
         _DNS_CLASS_INVALID = -1
 };
 
+#define _DNS_CLASS_STRING_MAX (sizeof "CLASS" + DECIMAL_STR_MAX(uint16_t))
+#define _DNS_TYPE_STRING_MAX (sizeof "CLASS" + DECIMAL_STR_MAX(uint16_t))
+
 bool dns_type_is_pseudo(uint16_t type);
 bool dns_type_is_valid_query(uint16_t type);
 bool dns_type_is_valid_rr(uint16_t type);

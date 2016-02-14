@@ -294,7 +294,12 @@ int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
 int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa);
-int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
+
+/* _DNS_{CLASS,TYPE}_STRING_MAX include one byte for NUL, which we use for space instead below.
+ * DNS_HOSTNAME_MAX does not include the NUL byte, so we need to add 1. */
+#define DNS_RESOURCE_KEY_STRING_MAX (_DNS_CLASS_STRING_MAX + _DNS_TYPE_STRING_MAX + DNS_HOSTNAME_MAX + 1)
+
+char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
 ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);

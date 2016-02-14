@@ -113,7 +113,6 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         dns_answer_unref(t->validated_keys);
         dns_resource_key_unref(t->key);
-        free(t->key_string);
 
         free(t);
         return NULL;
@@ -238,6 +237,7 @@ static void dns_transaction_shuffle_id(DnsTransaction *t) {
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         _cleanup_free_ char *pretty = NULL;
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsZoneItem *z;
 
         assert(t);
@@ -250,10 +250,10 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 
         log_debug("Transaction %" PRIu16 " for <%s> on scope %s on %s/%s got tentative packet from %s.",
                   t->id,
-                  dns_transaction_key_string(t),
+                  dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
-                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
+                  af_to_name_short(t->scope->family),
                   pretty);
 
         /* RFC 4795, Section 4.1 says that the peer with the
@@ -286,20 +286,24 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         DnsTransaction *d;
         Iterator i;
         const char *st;
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
         assert(!DNS_TRANSACTION_IS_LIVE(state));
 
-        if (state == DNS_TRANSACTION_DNSSEC_FAILED)
+        if (state == DNS_TRANSACTION_DNSSEC_FAILED) {
+                dns_resource_key_to_string(t->key, key_str, sizeof key_str);
+
                 log_struct(LOG_NOTICE,
                            LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_FAILURE),
-                           LOG_MESSAGE("DNSSEC validation failed for question %s: %s", dns_transaction_key_string(t), dnssec_result_to_string(t->answer_dnssec_result)),
+                           LOG_MESSAGE("DNSSEC validation failed for question %s: %s", key_str, dnssec_result_to_string(t->answer_dnssec_result)),
                            "DNS_TRANSACTION=%" PRIu16, t->id,
-                           "DNS_QUESTION=%s", dns_transaction_key_string(t),
+                           "DNS_QUESTION=%s", key_str,
                            "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
                            "DNS_SERVER=%s", dns_server_string(t->server),
                            "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level),
                            NULL);
+        }
 
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
@@ -312,10 +316,10 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         log_debug("Transaction %" PRIu16 " for <%s> on scope %s on %s/%s now complete with <%s> from %s (%s).",
                   t->id,
-                  dns_transaction_key_string(t),
+                  dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
-                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family),
+                  af_to_name_short(t->scope->family),
                   st,
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
                   t->answer_authenticated ? "authenticated" : "unsigned");
@@ -1237,8 +1241,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                  * might be DS RRs, but we don't know
                                  * them, and the DNS server won't tell
                                  * them to us (and even if it would,
-                                 * we couldn't validate it and trust
-                                 * it). */
+                                 * we couldn't validate and trust them. */
                                 dns_transaction_complete(t, DNS_TRANSACTION_NO_TRUST_ANCHOR);
 
                         return 0;
@@ -1425,6 +1428,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
 int dns_transaction_go(DnsTransaction *t) {
         usec_t ts;
         int r;
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
 
@@ -1434,12 +1438,12 @@ int dns_transaction_go(DnsTransaction *t) {
         if (r <= 0)
                 return r;
 
-        log_debug("Excercising transaction %" PRIu16 " for <%s> on scope %s on %s/%s.",
+        log_debug("Transaction %" PRIu16 " for <%s> scope %s on %s/%s.",
                   t->id,
-                  dns_transaction_key_string(t),
+                  dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
-                  t->scope->family == AF_UNSPEC ? "*" : af_to_name(t->scope->family));
+                  af_to_name_short(t->scope->family));
 
         if (!t->initial_jitter_scheduled &&
             (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
@@ -1602,11 +1606,14 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        log_debug("Detected potential cyclic dependency, refusing to add transaction %" PRIu16 " (%s) as dependency for %" PRIu16 " (%s).",
+                        char s[DNS_RESOURCE_KEY_STRING_MAX], saux[DNS_RESOURCE_KEY_STRING_MAX];
+
+                        log_debug("Potential cyclic dependency, refusing to add transaction %" PRIu16 " (%s) as dependency for %" PRIu16 " (%s).",
                                   aux->id,
-                                  strna(dns_transaction_key_string(aux)),
+                                  dns_resource_key_to_string(t->key, s, sizeof s),
                                   t->id,
-                                  strna(dns_transaction_key_string(t)));
+                                  dns_resource_key_to_string(aux->key, saux, sizeof saux));
+
                         return -ELOOP;
                 }
         }
@@ -2316,6 +2323,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         const char *name;
         Iterator i;
         int r;
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
 
@@ -2342,7 +2350,8 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
                  * exist, and we are in downgrade mode, hence ignore
                  * that fact that we didn't get any NSEC RRs.*/
 
-                log_info("Detected a negative query %s in a private DNS zone, permitting unsigned response.", dns_transaction_key_string(t));
+                log_info("Detected a negative query %s in a private DNS zone, permitting unsigned response.",
+                         dns_resource_key_to_string(t->key, key_str, sizeof key_str));
                 return false;
         }
 
@@ -2715,13 +2724,13 @@ static int dnssec_validate_records(
                         if (r < 0)
                                 return r;
                         if (r > 0) {
-                                _cleanup_free_ char *s = NULL;
+                                char s[DNS_RESOURCE_KEY_STRING_MAX];
 
                                 /* The data is from a TLD that is proven not to exist, and we are in downgrade
                                  * mode, hence ignore the fact that this was not signed. */
 
-                                (void) dns_resource_key_to_string(rr->key, &s);
-                                log_info("Detected RRset %s is in a private DNS zone, permitting unsigned RRs.", strna(s ? strstrip(s) : NULL));
+                                log_info("Detected RRset %s is in a private DNS zone, permitting unsigned RRs.",
+                                         dns_resource_key_to_string(rr->key, s, sizeof s));
 
                                 r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0);
                                 if (r < 0)
@@ -2805,6 +2814,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         Phase phase;
         DnsAnswerFlags flags;
         int r;
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
 
@@ -2837,7 +2847,9 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 return 0;
         }
 
-        log_debug("Validating response from transaction %" PRIu16 " (%s).", t->id, dns_transaction_key_string(t));
+        log_debug("Validating response from transaction %" PRIu16 " (%s).",
+                  t->id,
+                  dns_resource_key_to_string(t->key, key_str, sizeof key_str));
 
         /* First, see if this response contains any revoked trust
          * anchors we care about */
@@ -2929,7 +2941,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                 case DNSSEC_NSEC_NXDOMAIN:
                         /* NSEC proves the domain doesn't exist. Very good. */
-                        log_debug("Proved NXDOMAIN via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
+                        log_debug("Proved NXDOMAIN via NSEC/NSEC3 for transaction %u (%s)", t->id, key_str);
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_NXDOMAIN;
                         t->answer_authenticated = authenticated;
@@ -2939,7 +2951,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                 case DNSSEC_NSEC_NODATA:
                         /* NSEC proves that there's no data here, very good. */
-                        log_debug("Proved NODATA via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
+                        log_debug("Proved NODATA via NSEC/NSEC3 for transaction %u (%s)", t->id, key_str);
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_authenticated = authenticated;
@@ -2949,7 +2961,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
                 case DNSSEC_NSEC_OPTOUT:
                         /* NSEC3 says the data might not be signed */
-                        log_debug("Data is NSEC3 opt-out via NSEC/NSEC3 for transaction %u (%s)", t->id, dns_transaction_key_string(t));
+                        log_debug("Data is NSEC3 opt-out via NSEC/NSEC3 for transaction %u (%s)", t->id, key_str);
                         t->answer_dnssec_result = DNSSEC_UNSIGNED;
                         t->answer_authenticated = false;
 
@@ -2992,17 +3004,6 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         }
 
         return 1;
-}
-
-const char *dns_transaction_key_string(DnsTransaction *t) {
-        assert(t);
-
-        if (!t->key_string) {
-                if (dns_resource_key_to_string(t->key, &t->key_string) < 0)
-                        return "n/a";
-        }
-
-        return strstrip(t->key_string);
 }
 
 static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
