@@ -1215,11 +1215,11 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
         assert(verdict < _DNSSEC_VERDICT_MAX);
 
         if (log_get_max_level() >= LOG_DEBUG) {
-                _cleanup_free_ char *s = NULL;
+                char s[DNS_RESOURCE_KEY_STRING_MAX];
 
-                (void) dns_resource_key_to_string(key, &s);
-
-                log_debug("Found verdict for lookup %s: %s", s ? strstrip(s) : "n/a", dnssec_verdict_to_string(verdict));
+                log_debug("Found verdict for lookup %s: %s",
+                          dns_resource_key_to_string(key, s, sizeof s),
+                          dnssec_verdict_to_string(verdict));
         }
 
         m->n_dnssec_verdict[verdict]++;
