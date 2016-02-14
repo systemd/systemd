@@ -313,7 +313,11 @@ int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
 int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa);
-int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
+
+#define RESOURCE_KEY_NAME_MAX 253
+#define RESOURCE_KEY_BUF_SIZE (sizeof "CLASS" + DECIMAL_STR_MAX(uint16_t) + sizeof "TYPE" + DECIMAL_STR_MAX(uint16_t) + 1 + RESOURCE_KEY_NAME_MAX + 1)
+char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
+
 ssize_t dns_resource_record_data(DnsResourceRecord *rr, void **out);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
