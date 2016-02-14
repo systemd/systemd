@@ -1076,7 +1076,7 @@ void manager_verify_all(Manager *m) {
         assert(m);
 
         LIST_FOREACH(scopes, s, m->dns_scopes)
-                dns_zone_verify_all(&s->zone);
+                dns_zone_verify_all(&s->zone, m->dnssec_mode);
 }
 
 int manager_is_own_hostname(Manager *m, const char *name) {

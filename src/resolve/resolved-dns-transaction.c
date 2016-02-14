@@ -153,7 +153,7 @@ static uint16_t pick_new_id(Manager *m) {
         return new_id;
 }
 
-int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) {
+int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key, DnssecMode dnssec_mode) {
         _cleanup_(dns_transaction_freep) DnsTransaction *t = NULL;
         int r;
 
@@ -186,6 +186,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         if (!t)
                 return -ENOMEM;
 
+        t->dnssec_mode = dnssec_mode != _DNSSEC_MODE_INVALID ? dnssec_mode : t->scope->dnssec_mode;
         t->dns_udp_fd = -1;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
@@ -697,8 +698,8 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 goto fail;
 
         if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
-            t->scope->dnssec_mode == DNSSEC_YES) {
-                /*  We are not in automatic downgrade mode, and the
+            t->dnssec_mode == DNSSEC_YES) {
+                /*  Automatic downgrade is not allowed, and the
                  *  server is bad, refuse operation. */
                 dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                 return;
@@ -1277,12 +1278,17 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        t->answer_source = DNS_TRANSACTION_CACHE;
-                        if (t->answer_rcode == DNS_RCODE_SUCCESS)
-                                dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
-                        else
-                                dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
-                        return 0;
+                        if (t->dnssec_mode > DNSSEC_NO && !t->answer_authenticated) {
+                                log_debug("Ignoring unauthenticated cached answer.");
+                                dns_transaction_reset_answer(t);
+                        } else {
+                                t->answer_source = DNS_TRANSACTION_CACHE;
+                                if (t->answer_rcode == DNS_RCODE_SUCCESS)
+                                        dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
+                                else
+                                        dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
+                                return 0;
+                        }
                 }
         }
 
@@ -1405,7 +1411,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         if (t->sent)
                 return 0;
 
-        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->scope->dnssec_mode != DNSSEC_NO);
+        r = dns_packet_new_query(&p, t->scope->protocol, 0, t->dnssec_mode != DNSSEC_NO);
         if (r < 0)
                 return r;
 
@@ -1587,9 +1593,9 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
         assert(ret);
         assert(key);
 
-        aux = dns_scope_find_transaction(t->scope, key, true);
+        aux = dns_scope_find_transaction(t->scope, key, true, t->dnssec_mode);
         if (!aux) {
-                r = dns_transaction_new(&aux, t->scope, key);
+                r = dns_transaction_new(&aux, t->scope, key, t->dnssec_mode);
                 if (r < 0)
                         return r;
         } else {
@@ -1803,7 +1809,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
          * - For other queries with no matching response RRs, and no NSEC/NSEC3, the SOA RR
          */
 
-        if (t->scope->dnssec_mode == DNSSEC_NO)
+        if (t->dnssec_mode == DNSSEC_NO)
                 return 0;
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0; /* We only need to validate stuff from the network */
@@ -2119,7 +2125,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         /* Checks if the RR we are looking for must be signed with an
          * RRSIG. This is used for positive responses. */
 
-        if (t->scope->dnssec_mode == DNSSEC_NO)
+        if (t->dnssec_mode == DNSSEC_NO)
                 return false;
 
         if (dns_type_is_pseudo(rr->key->type))
@@ -2277,7 +2283,7 @@ static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKe
 
         assert(t);
 
-        if (t->scope->dnssec_mode != DNSSEC_ALLOW_DOWNGRADE)
+        if (t->dnssec_mode != DNSSEC_ALLOW_DOWNGRADE)
                 return false; /* In strict DNSSEC mode what doesn't exist, doesn't exist */
 
         tld = DNS_RESOURCE_KEY_NAME(key);
@@ -2322,7 +2328,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         /* Checks if we need to insist on NSEC/NSEC3 RRs for proving
          * this negative reply */
 
-        if (t->scope->dnssec_mode == DNSSEC_NO)
+        if (t->dnssec_mode == DNSSEC_NO)
                 return false;
 
         if (dns_type_is_pseudo(t->key->type))
@@ -2694,7 +2700,7 @@ static int dnssec_validate_records(
 
                                 dns_server_packet_rrsig_missing(t->server, t->current_feature_level);
 
-                                if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
+                                if (t->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
 
                                         /* Downgrading is OK? If so, just consider the information unsigned */
 
@@ -2812,7 +2818,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
          * t->validated_keys, let's see which RRs we can now
          * authenticate with that. */
 
-        if (t->scope->dnssec_mode == DNSSEC_NO)
+        if (t->dnssec_mode == DNSSEC_NO)
                 return 0;
 
         /* Already validated */

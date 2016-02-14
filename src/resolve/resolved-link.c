@@ -725,11 +725,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                                 a->llmnr_ptr_rr->ttl = LLMNR_DEFAULT_TTL;
                         }
 
-                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_address_rr, true);
+                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_address_rr, DNSSEC_NO, true);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add A record to LLMNR zone: %m");
 
-                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_ptr_rr, false);
+                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_ptr_rr, DNSSEC_NO, false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add IPv6 PTR record to LLMNR zone: %m");
                 } else {
@@ -782,11 +782,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                                 a->llmnr_ptr_rr->ttl = LLMNR_DEFAULT_TTL;
                         }
 
-                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_address_rr, true);
+                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_address_rr, DNSSEC_NO, true);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add AAAA record to LLMNR zone: %m");
 
-                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_ptr_rr, false);
+                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_ptr_rr, DNSSEC_NO, false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add IPv6 PTR record to LLMNR zone: %m");
                 } else {

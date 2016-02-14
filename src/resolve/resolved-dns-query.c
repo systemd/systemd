@@ -116,14 +116,16 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
 
 static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResourceKey *key) {
         DnsTransaction *t;
+        DnssecMode dnssec_mode;
         int r;
 
         assert(c);
         assert(key);
 
-        t = dns_scope_find_transaction(c->scope, key, true);
+        dnssec_mode = dns_query_flags_to_dnssec_mode(c->query->flags);
+        t = dns_scope_find_transaction(c->scope, key, dnssec_mode, true);
         if (!t) {
-                r = dns_transaction_new(&t, c->scope, key);
+                r = dns_transaction_new(&t, c->scope, key, dnssec_mode);
                 if (r < 0)
                         return r;
         } else {

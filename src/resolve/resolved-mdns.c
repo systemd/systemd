@@ -115,7 +115,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                               dns_name_endswith(name, "local") > 0))
                                 return 0;
 
-                        t = dns_scope_find_transaction(scope, rr->key, false);
+                        t = dns_scope_find_transaction(scope, rr->key, DNSSEC_NO, false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
                 }

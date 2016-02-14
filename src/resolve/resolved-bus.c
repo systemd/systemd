@@ -224,7 +224,7 @@ static int check_ifindex_flags(int ifindex, uint64_t *flags, uint64_t ok, sd_bus
         if (ifindex < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
-        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_CNAME|ok))
+        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_DNSSEC_ALL|SD_RESOLVED_NO_CNAME|ok))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */

@@ -67,6 +67,7 @@ struct DnsTransaction {
         char *key_string;
 
         DnsTransactionState state;
+        DnssecMode dnssec_mode;
 
         uint16_t id;
 
@@ -140,7 +141,7 @@ struct DnsTransaction {
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
 };
 
-int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);
+int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key, DnssecMode dnssec_mode);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);
 
 bool dns_transaction_gc(DnsTransaction *t);

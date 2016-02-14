@@ -672,10 +672,10 @@ static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
 
         if (p->question)
                 for (n = 0; n < p->question->n_keys; n++)
-                        dns_zone_verify_conflicts(&s->zone, p->question->keys[n]);
+                        dns_zone_verify_conflicts(&s->zone, p->question->keys[n], s->dnssec_mode);
         if (p->answer)
                 for (n = 0; n < p->answer->n_rrs; n++)
-                        dns_zone_verify_conflicts(&s->zone, p->answer->items[n].rr->key);
+                        dns_zone_verify_conflicts(&s->zone, p->answer->items[n].rr->key, s->dnssec_mode);
 }
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
@@ -768,14 +768,13 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 }
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok) {
+DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, DnssecMode dnssec_mode, bool cache_ok) {
         DnsTransaction *t;
 
         assert(scope);
         assert(key);
 
-        /* Try to find an ongoing transaction that is a equal to the
-         * specified question */
+        /* Try to find an ongoing transaction that is a equal to the specified question */
         t = hashmap_get(scope->transactions_by_key, key);
         if (!t)
                 return NULL;
@@ -785,6 +784,11 @@ DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key,
         if (!cache_ok &&
             IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_RCODE_FAILURE) &&
             t->answer_source != DNS_TRANSACTION_NETWORK)
+                return NULL;
+
+        /* Refure existing transaction if it doesn't require DNSSEC, and the new one does,
+         * or the old one does and the new one doesn't. */
+        if ((t->dnssec_mode == DNSSEC_NO) != (dnssec_mode == DNSSEC_NO))
                 return NULL;
 
         return t;
@@ -949,7 +953,7 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
 
                 /* Check for conflicts against the local zone. If we
                  * found one, we won't check any further */
-                r = dns_zone_check_conflicts(&scope->zone, p->answer->items[i].rr);
+                r = dns_zone_check_conflicts(&scope->zone, p->answer->items[i].rr, scope->dnssec_mode);
                 if (r != 0)
                         continue;
 

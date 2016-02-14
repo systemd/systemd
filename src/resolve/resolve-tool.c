@@ -33,6 +33,8 @@
 #include "parse-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolve-util.h"
 #include "terminal-util.h"
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
@@ -1039,6 +1041,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OPENPGP,
                 ARG_RAW,
                 ARG_SEARCH,
+                ARG_DNSSEC,
                 ARG_STATISTICS,
                 ARG_RESET_STATISTICS,
         };
@@ -1058,6 +1061,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "openpgp",          no_argument,       NULL, ARG_OPENPGP          },
                 { "raw",              optional_argument, NULL, ARG_RAW              },
                 { "search",           required_argument, NULL, ARG_SEARCH           },
+                { "dnssec",           optional_argument, NULL, ARG_DNSSEC           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
                 { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
                 {}
@@ -1227,6 +1231,19 @@ static int parse_argv(int argc, char *argv[]) {
                         else
                                 arg_flags &= ~SD_RESOLVED_NO_SEARCH;
                         break;
+
+                case ARG_DNSSEC: {
+                        DnssecMode mode = DNSSEC_YES;
+
+                        if (optarg) {
+                                mode = dnssec_mode_from_string(optarg);
+                                if (mode < 0)
+                                        return log_error("Invalid DNSSEC mode \"%s\".", optarg);
+                        }
+
+                        arg_flags |= dns_query_dnssec_mode_to_flags(mode);
+                        break;
+                }
 
                 case ARG_STATISTICS:
                         arg_mode = MODE_STATISTICS;
