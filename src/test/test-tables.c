@@ -19,7 +19,6 @@
 
 #include "architecture.h"
 #include "automount.h"
-#include "bus-xml-policy.h"
 #include "busname.h"
 #include "cgroup.h"
 #include "compress.h"
@@ -83,8 +82,6 @@ int main(int argc, char **argv) {
         test_table(path_result, PATH_RESULT);
         test_table(path_state, PATH_STATE);
         test_table(path_type, PATH_TYPE);
-        test_table(policy_item_class, POLICY_ITEM_CLASS);
-        test_table(policy_item_type, POLICY_ITEM_TYPE);
         test_table(protect_home, PROTECT_HOME);
         test_table(protect_system, PROTECT_SYSTEM);
         test_table(rlimit, RLIMIT);
