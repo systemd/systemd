@@ -339,6 +339,7 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
         uint64_t flags;
         int r;
         usec_t ts;
+        bool needs_authentication = false;
 
         assert(name);
 
@@ -421,6 +422,10 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
                         log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
 
                 printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", ifname);
+
+                if (dns_type_needs_authentication(t))
+                        needs_authentication = true;
+
                 n++;
         }
         if (r < 0)
@@ -440,6 +445,18 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
         }
 
         print_source(flags, ts);
+
+        if ((flags & SD_RESOLVED_AUTHENTICATED) == 0 && needs_authentication) {
+                fflush(stdout);
+
+                fprintf(stderr, "\n%s"
+                       "WARNING: The resources shown contain cryptographic key data which could not be\n"
+                       "         authenticated. It is not suitable to authenticate any communication.\n"
+                       "         This is usually indication that DNSSEC authentication was not enabled\n"
+                       "         or is not available for the selected protocol or DNS servers.%s\n",
+                       ansi_highlight_red(),
+                       ansi_normal());
+        }
 
         return 0;
 }
