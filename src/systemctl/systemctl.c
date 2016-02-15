@@ -2778,9 +2778,23 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (!arg_no_block) {
-                int q;
+                int q, arg_count = 1;
+                const char* extra_args[5] = {NULL};
 
-                q = bus_wait_for_jobs(w, arg_quiet, arg_scope != UNIT_FILE_SYSTEM ? "--user" : NULL);
+                /* leave first empty for the actual command name*/
+                if (arg_scope != UNIT_FILE_SYSTEM)
+                        extra_args[arg_count++] = "--user";
+
+                assert(IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_REMOTE, BUS_TRANSPORT_MACHINE));
+                if (arg_transport == BUS_TRANSPORT_REMOTE) {
+                        extra_args[arg_count++] = "-H";
+                        extra_args[arg_count++] = arg_host;
+                } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
+                        extra_args[arg_count++] = "-M";
+                        extra_args[arg_count++] = arg_host;
+                }
+
+                q = bus_wait_for_jobs(w, arg_quiet, extra_args);
                 if (q < 0)
                         return q;
 

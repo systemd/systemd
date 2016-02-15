@@ -2028,20 +2028,23 @@ static const struct {
         { "start-limit", "start of the service was attempted too often" }
 };
 
-static void log_job_error_with_service_result(const char* service, const char *result, const char *extra_args) {
-        _cleanup_free_ char *service_shell_quoted = NULL, *systemctl_extra_args = NULL;
+static void log_job_error_with_service_result(const char* service, const char *result, const char** extra_args) {
+        _cleanup_free_ char *service_shell_quoted = NULL, *_systemctl, *_journalctl;
+        const char *systemctl = "systemctl", *journalctl = "journalct";
 
         assert(service);
 
         service_shell_quoted = shell_maybe_quote(service);
 
-        systemctl_extra_args = strjoin("systemctl ", extra_args, " ", NULL);
-        if (!systemctl_extra_args) {
-                log_oom();
-                return;
-        }
+        if (extra_args && extra_args[1]) {
+                assert(extra_args[0] == NULL);
 
-        systemctl_extra_args = strstrip(systemctl_extra_args);
+                extra_args[0] = "systemctl";
+                systemctl = _systemctl = strv_join((char**) extra_args, " ");
+
+                extra_args[0] = "journalctl";
+                journalctl = _journalctl = strv_join((char**) extra_args, " ");
+        }
 
         if (!isempty(result)) {
                 unsigned i;
@@ -2051,30 +2054,33 @@ static void log_job_error_with_service_result(const char* service, const char *r
                                 break;
 
                 if (i < ELEMENTSOF(explanations)) {
-                        log_error("Job for %s failed because %s. See \"%s status %s\" and \"journalctl -xe\" for details.\n",
+                        log_error("Job for %s failed because %s.\n"
+                                  "See \"%s status %s\" and \"%s -xe\" for details.\n",
                                   service,
                                   explanations[i].explanation,
-                                  systemctl_extra_args,
-                                  strna(service_shell_quoted));
-
+                                  systemctl ?: "systemctl <args>",
+                                  service_shell_quoted ?: "<service>",
+                                  journalctl ?: "journalctl <args>");
                         goto finish;
                 }
         }
 
-        log_error("Job for %s failed. See \"%s status %s\" and \"journalctl -xe\" for details.\n",
+        log_error("Job for %s failed. See \"%s status %s\" and \"%s -xe\" for details.\n",
                   service,
-                  systemctl_extra_args,
-                  strna(service_shell_quoted));
+                  systemctl ?: "systemctl <args>",
+                  service_shell_quoted ?: "<service>",
+                  journalctl ?: "journalctl <args>");
 
 finish:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
-                log_info("To force a start use \"%1$s reset-failed %2$s\" followed by \"%1$s start %2$s\" again.",
-                         systemctl_extra_args,
-                         strna(service_shell_quoted));
+                log_info("To force a start use \"%1$s reset-failed %2$s\"\n"
+                         "followed by \"%1$s start %2$s\" again.",
+                         systemctl ?: "systemctl <args>",
+                         service_shell_quoted ?: "<service>");
 }
 
-static int check_wait_response(BusWaitForJobs *d, bool quiet, const char *extra_args) {
+static int check_wait_response(BusWaitForJobs *d, bool quiet, const char** extra_args) {
         int r = 0;
 
         assert(d->result);
@@ -2125,7 +2131,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char *extra_
         return r;
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char *extra_args) {
+int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char** extra_args) {
         int r = 0;
 
         assert(d);
