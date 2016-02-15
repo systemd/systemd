@@ -295,12 +295,9 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, 
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
 int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa);
 
-#define DNS_HOSTNAME_MAX 253
-#define DNS_CLASS_STRING_MAX (sizeof "CLASS" + DECIMAL_STR_MAX(uint16_t))
-#define DNS_TYPE_STRING_MAX (sizeof "CLASS" + DECIMAL_STR_MAX(uint16_t))
-/* DNS_{CLASS,TYPE}_STRING_MAX include one byte for NUL, which we use for space instead below.
+/* _DNS_{CLASS,TYPE}_STRING_MAX include one byte for NUL, which we use for space instead below.
  * DNS_HOSTNAME_MAX does not include the NUL byte, so we need to add 1. */
-#define DNS_RESOURCE_KEY_STRING_MAX (DNS_CLASS_STRING_MAX + DNS_TYPE_STRING_MAX + DNS_HOSTNAME_MAX + 1)
+#define DNS_RESOURCE_KEY_STRING_MAX (_DNS_CLASS_STRING_MAX + _DNS_TYPE_STRING_MAX + DNS_HOSTNAME_MAX + 1)
 
 char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
 

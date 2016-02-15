@@ -1222,7 +1222,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                          * this means we cannot do any DNSSEC logic
                          * anymore. */
 
-                        if (t->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
+                        if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
                                 /* We are in downgrade mode. In this
                                  * case, synthesize an unsigned empty
                                  * response, so that the any lookup
