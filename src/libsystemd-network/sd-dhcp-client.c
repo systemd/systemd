@@ -958,7 +958,7 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
         if (client->start_delay) {
-                sd_event_now(client->event, clock_boottime_or_monotonic(), &usec);
+                assert_se(sd_event_now(client->event, clock_boottime_or_monotonic(), &usec) >= 0);
                 usec += client->start_delay;
         }
 
