@@ -714,6 +714,7 @@ static inline int setns(int fd, int nstype) {
 #endif
 
 #if !HAVE_DECL_IFLA_PHYS_PORT_ID
+#define IFLA_EXT_MASK 29
 #undef IFLA_PROMISCUITY
 #define IFLA_PROMISCUITY 30
 #define IFLA_NUM_TX_QUEUES 31
