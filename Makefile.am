@@ -5759,6 +5759,7 @@ substitutions = \
        '|PYTHON=$(PYTHON)|' \
        '|NTP_SERVERS=$(NTP_SERVERS)|' \
        '|DNS_SERVERS=$(DNS_SERVERS)|' \
+       '|DEFAULT_DNSSEC_MODE=$(DEFAULT_DNSSEC_MODE)|' \
        '|systemuidmax=$(SYSTEM_UID_MAX)|' \
        '|systemgidmax=$(SYSTEM_GID_MAX)|' \
        '|TTY_GID=$(TTY_GID)|' \

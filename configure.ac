@@ -1128,6 +1128,20 @@ AC_ARG_WITH(dns-servers,
 AC_DEFINE_UNQUOTED(DNS_SERVERS, ["$DNS_SERVERS"], [Default DNS Servers])
 AC_SUBST(DNS_SERVERS)
 
+AC_ARG_WITH(default-dnssec,
+        AS_HELP_STRING([--with-default-dnssec=MODE],
+               [Default DNSSEC mode, defaults to "allow-downgrade"]),
+        [DEFAULT_DNSSEC_MODE="$withval"],
+        [DEFAULT_DNSSEC_MODE="allow-downgrade"])
+
+AS_CASE("x${DEFAULT_DNSSEC_MODE}",
+        [xno], [mode=DNSSEC_NO],
+        [xyes], [mode=DNSSEC_YES],
+        [xallow-downgrade], [mode=DNSSEC_ALLOW_DOWNGRADE],
+        AC_MSG_ERROR(Bad DNSSEC mode ${DEFAULT_DNSSEC_MODE}))
+AC_DEFINE_UNQUOTED(DEFAULT_DNSSEC_MODE, [$mode], [Default DNSSEC mode])
+AC_SUBST(DEFAULT_DNSSEC_MODE)
+
 # ------------------------------------------------------------------------------
 have_networkd=no
 AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd]))
@@ -1559,12 +1573,13 @@ AC_MSG_RESULT([
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         timesyncd:               ${have_timesyncd}
-        default NTP servers:     ${NTP_SERVERS}
+        Default NTP servers:     ${NTP_SERVERS}
         time epoch:              ${TIME_EPOCH}
         localed:                 ${have_localed}
         networkd:                ${have_networkd}
         resolved:                ${have_resolved}
-        default DNS servers:     ${DNS_SERVERS}
+        Default DNS servers:     ${DNS_SERVERS}
+        Default DNSSEC mode:     ${DEFAULT_DNSSEC_MODE}
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}

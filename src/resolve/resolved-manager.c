@@ -485,7 +485,7 @@ int manager_new(Manager **ret) {
 
         m->llmnr_support = RESOLVE_SUPPORT_YES;
         m->mdns_support = RESOLVE_SUPPORT_NO;
-        m->dnssec_mode = DNSSEC_NO;
+        m->dnssec_mode = DEFAULT_DNSSEC_MODE;
         m->read_resolv_conf = true;
         m->need_builtin_fallbacks = true;
         m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;
