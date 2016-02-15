@@ -449,7 +449,7 @@ int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         assert(t);
 
         if (sscanf(value, "%llu %llu", &a, &b) != 2) {
-                log_debug("Failed to parse finish timestamp value %s.", value);
+                log_debug("Failed to parse dual timestamp value \"%s\": %m", value);
                 return -EINVAL;
         }
 
@@ -459,15 +459,14 @@ int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         return 0;
 }
 
-int deserialize_timestamp_value(const char *value, usec_t *timestamp) {
+int timestamp_deserialize(const char *value, usec_t *timestamp) {
         int r;
 
         assert(value);
 
         r = safe_atou64(value, timestamp);
-
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse finish timestamp value \"%s\": %m", value);
+                return log_debug_errno(r, "Failed to parse timestamp value \"%s\": %m", value);
 
         return r;
 }

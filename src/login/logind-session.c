@@ -446,8 +446,10 @@ int session_load(Session *s) {
                 safe_close(fd);
         }
 
-        deserialize_timestamp_value(realtime, &s->timestamp.realtime);
-        deserialize_timestamp_value(monotonic, &s->timestamp.monotonic);
+        if (realtime)
+                timestamp_deserialize(realtime, &s->timestamp.realtime);
+        if (monotonic)
+                timestamp_deserialize(monotonic, &s->timestamp.monotonic);
 
         if (controller) {
                 if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0)
