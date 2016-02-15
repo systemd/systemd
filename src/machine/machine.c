@@ -299,17 +299,8 @@ int machine_load(Machine *m) {
                         m->class = c;
         }
 
-        if (realtime) {
-                unsigned long long l;
-                if (sscanf(realtime, "%llu", &l) > 0)
-                        m->timestamp.realtime = l;
-        }
-
-        if (monotonic) {
-                unsigned long long l;
-                if (sscanf(monotonic, "%llu", &l) > 0)
-                        m->timestamp.monotonic = l;
-        }
+        deserialize_timestamp_value(realtime, &m->timestamp.realtime);
+        deserialize_timestamp_value(monotonic, &m->timestamp.monotonic);
 
         if (netif) {
                 size_t allocated = 0, nr = 0;
