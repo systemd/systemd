@@ -65,7 +65,7 @@
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <command> --type=<replaceable>TYPE</replaceable></command>
-      <arg choice="plain" rep="repeat"><replaceable>RRDOMAIN</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>DOMAIN</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
