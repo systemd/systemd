@@ -321,17 +321,8 @@ int user_load(User *u) {
         if (s && s->display && display_is_local(s->display))
                 u->display = s;
 
-        if (realtime) {
-                unsigned long long l;
-                if (sscanf(realtime, "%llu", &l) > 0)
-                        u->timestamp.realtime = l;
-        }
-
-        if (monotonic) {
-                unsigned long long l;
-                if (sscanf(monotonic, "%llu", &l) > 0)
-                        u->timestamp.monotonic = l;
-        }
+        deserialize_timestamp_value(realtime, &u->timestamp.realtime);
+        deserialize_timestamp_value(monotonic, &u->timestamp.monotonic);
 
         return r;
 }
