@@ -62,7 +62,7 @@ struct DnsZoneItem {
 
 void dns_zone_flush(DnsZone *z);
 
-int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe);
+int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, DnssecMode dnssec_mode, bool probe);
 void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
 
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **answer, DnsAnswer **soa, bool *tentative);
@@ -70,10 +70,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **answer, DnsAnsw
 void dns_zone_item_conflict(DnsZoneItem *i);
 void dns_zone_item_notify(DnsZoneItem *i);
 
-int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr);
-int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key);
+int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr, DnssecMode dnssec_mode);
+int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key, DnssecMode dnssec_mode);
 
-void dns_zone_verify_all(DnsZone *zone);
+void dns_zone_verify_all(DnsZone *zone, DnssecMode dnssec_mode);
 
 void dns_zone_item_probe_stop(DnsZoneItem *i);
 

@@ -65,7 +65,7 @@
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <command> --type=<replaceable>TYPE</replaceable></command>
-      <arg choice="plain" rep="repeat"><replaceable>RRDOMAIN</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>DOMAIN</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
@@ -263,27 +263,58 @@
     <example>
       <title>Retrieve the addresses of the <literal>www.0pointer.net</literal> domain</title>
 
-      <programlisting>$ systemd-resolve www.0pointer.net</programlisting>
+      <programlisting>$ systemd-resolve www.0pointer.net
+www.0pointer.net: 2a01:238:43ed:c300:10c3:bcf3:3266:da74
+                  85.214.157.71
+
+-- Information acquired via protocol DNS in 611.6ms.
+-- Data is authenticated: no
+</programlisting>
     </example>
 
     <example>
       <title>Retrieve the domain of the <literal>85.214.157.71</literal> IP address</title>
 
-      <programlisting>$ systemd-resolve 85.214.157.71</programlisting>
+      <programlisting>$ systemd-resolve 85.214.157.71
+85.214.157.71: gardel.0pointer.net
+
+-- Information acquired via protocol DNS in 1.2997s.
+-- Data is authenticated: no
+</programlisting>
     </example>
 
     <example>
       <title>Retrieve the MX record of the <literal>0pointer.net</literal> domain</title>
 
-      <programlisting>$ systemd-resolve -t MX 0pointer.net</programlisting>
+      <programlisting>$ systemd-resolve -t MX yahoo.com --legend=no
+yahoo.com. IN MX    1 mta7.am0.yahoodns.net
+yahoo.com. IN MX    1 mta6.am0.yahoodns.net
+yahoo.com. IN MX    1 mta5.am0.yahoodns.net
+</programlisting>
     </example>
 
     <example>
       <title>Resolve an SRV service</title>
 
-      <programlisting>$ systemd-resolve --service _xmpp-server._tcp gmail.com</programlisting>
+      <programlisting>$ systemd-resolve --service _xmpp-server._tcp gmail.com
+_xmpp-server._tcp/gmail.com: alt1.xmpp-server.l.google.com:5269 [priority=20, weight=0]
+                             173.194.210.125
+                             alt4.xmpp-server.l.google.com:5269 [priority=20, weight=0]
+                             173.194.65.125
+                             ...
+</programlisting>
     </example>
 
+    <example>
+      <title>Retrieve a PGP key</title>
+
+      <programlisting>$ COLUMNS=80 build/systemd-resolve --openpgp zbyszek@fedoraproject.org
+d08ee310438ca124a6149ea5cc21b6313b390dce485576eff96f8722._openpgpkey.fedoraproject.org. IN OPENPGPKEY
+        mQINBFBHPMsBEACeInGYJCb+7TurKfb6wGyTottCDtiSJB310i37/6ZYoeIay/5soJjlMyf
+        MFQ9T2XNT/0LM6gTa0MpC1st9LnzYTMsT6tzRly1D1UbVI6xw0g0vE5y2Cjk3xUwAynCsSs
+        ...
+</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

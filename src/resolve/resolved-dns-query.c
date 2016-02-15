@@ -116,14 +116,16 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
 
 static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResourceKey *key) {
         DnsTransaction *t;
+        DnssecMode dnssec_mode;
         int r;
 
         assert(c);
         assert(key);
 
-        t = dns_scope_find_transaction(c->scope, key, true);
+        dnssec_mode = dns_query_flags_to_dnssec_mode(c->query->flags);
+        t = dns_scope_find_transaction(c->scope, key, dnssec_mode, true);
         if (!t) {
-                r = dns_transaction_new(&t, c->scope, key);
+                r = dns_transaction_new(&t, c->scope, key, dnssec_mode);
                 if (r < 0)
                         return r;
         } else {
@@ -421,6 +423,7 @@ int dns_query_new(
         DnsResourceKey *key;
         bool good = false;
         int r;
+        char key_str[RESOURCE_KEY_BUF_SIZE];
 
         assert(m);
 
@@ -471,31 +474,20 @@ int dns_query_new(
         q->answer_family = AF_UNSPEC;
 
         /* First dump UTF8  question */
-        DNS_QUESTION_FOREACH(key, question_utf8) {
-                _cleanup_free_ char *p = NULL;
-
-                r = dns_resource_key_to_string(key, &p);
-                if (r < 0)
-                        return r;
-
-                log_debug("Looking up RR for %s.", strstrip(p));
-        }
+        DNS_QUESTION_FOREACH(key, question_utf8)
+                log_debug("Looking up RR for %s.",
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
 
         /* And then dump the IDNA question, but only what hasn't been dumped already through the UTF8 question. */
         DNS_QUESTION_FOREACH(key, question_idna) {
-                _cleanup_free_ char *p = NULL;
-
                 r = dns_question_contains(question_utf8, key);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         continue;
 
-                r = dns_resource_key_to_string(key, &p);
-                if (r < 0)
-                        return r;
-
-                log_debug("Looking up IDNA RR for %s.", strstrip(p));
+                log_debug("Looking up IDNA RR for %s.",
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);

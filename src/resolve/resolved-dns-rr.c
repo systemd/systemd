@@ -30,6 +30,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
@@ -307,32 +308,22 @@ const struct hash_ops dns_resource_key_hash_ops = {
         .compare = dns_resource_key_compare_func
 };
 
-int dns_resource_key_to_string(const DnsResourceKey *key, char **ret) {
-        char cbuf[strlen("CLASS") + DECIMAL_STR_MAX(uint16_t)], tbuf[strlen("TYPE") + DECIMAL_STR_MAX(uint16_t)];
-        const char *c, *t, *n;
-        char *s;
+char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size) {
+        const char *c, *t;
+        char *ans = buf;
 
         /* If we cannot convert the CLASS/TYPE into a known string,
            use the format recommended by RFC 3597, Section 5. */
 
         c = dns_class_to_string(key->class);
-        if (!c) {
-                sprintf(cbuf, "CLASS%u", key->class);
-                c = cbuf;
-        }
-
         t = dns_type_to_string(key->type);
-        if (!t){
-                sprintf(tbuf, "TYPE%u", key->type);
-                t = tbuf;
-        }
 
-        n = DNS_RESOURCE_KEY_NAME(key);
-        if (asprintf(&s, "%s%s %s %-5s", n, endswith(n, ".") ? "" : ".", c, t) < 0)
-                return -ENOMEM;
+        strpcpyf(&buf, buf_size, "%s %s%s%.0u %s%s%.0u",
+                 dns_resource_key_name(key),
+                 c ?: "", c ? "" : "CLASS", c ? 0 : key->class,
+                 t ?: "", t ? "" : "TYPE", t ? 0 : key->class);
 
-        *ret = s;
-        return 0;
+        return ans;
 }
 
 bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b) {
@@ -830,8 +821,8 @@ static char *format_txt(DnsTxtItem *first) {
 }
 
 const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
-        _cleanup_free_ char *k = NULL, *t = NULL;
-        char *s;
+        _cleanup_free_ char *t = NULL;
+        char *s, k[RESOURCE_KEY_BUF_SIZE];
         int r;
 
         assert(rr);
@@ -839,9 +830,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         if (rr->to_string)
                 return rr->to_string;
 
-        r = dns_resource_key_to_string(rr->key, &k);
-        if (r < 0)
-                return NULL;
+        dns_resource_key_to_string(rr->key, k, sizeof(k));
 
         switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
@@ -1202,6 +1191,44 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         rr->to_string = s;
         return s;
+}
+
+ssize_t dns_resource_record_data(DnsResourceRecord *rr, void **out) {
+        assert(rr);
+        assert(out);
+
+        switch(rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+        case DNS_TYPE_SRV:
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME:
+        case DNS_TYPE_HINFO:
+        case DNS_TYPE_SPF:
+        case DNS_TYPE_TXT:
+        case DNS_TYPE_A:
+        case DNS_TYPE_AAAA:
+        case DNS_TYPE_SOA:
+        case DNS_TYPE_MX:
+        case DNS_TYPE_LOC:
+        case DNS_TYPE_DS:
+        case DNS_TYPE_SSHFP:
+        case DNS_TYPE_DNSKEY:
+        case DNS_TYPE_RRSIG:
+        case DNS_TYPE_NSEC:
+        case DNS_TYPE_NSEC3:
+                return -EINVAL;
+
+        case DNS_TYPE_TLSA:
+                *out = rr->tlsa.data;
+                return rr->tlsa.data_size;
+
+
+        case DNS_TYPE_OPENPGPKEY:
+        default:
+                *out = rr->generic.data;
+                return rr->generic.data_size;
+        }
 }
 
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {

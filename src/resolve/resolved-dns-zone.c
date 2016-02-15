@@ -160,8 +160,9 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
         return 0;
 }
 
-static int dns_zone_item_probe_start(DnsZoneItem *i)  {
+static int dns_zone_item_probe_start(DnsZoneItem *i, DnssecMode dnssec_mode)  {
         DnsTransaction *t;
+        DnsResourceKey const_key;
         int r;
 
         assert(i);
@@ -169,7 +170,8 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (i->probe_transaction)
                 return 0;
 
-        t = dns_scope_find_transaction(i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(i->rr->key)), false);
+        const_key = DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, DNS_RESOURCE_KEY_NAME(i->rr->key));
+        t = dns_scope_find_transaction(i->scope, &const_key, dnssec_mode, false);
         if (!t) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
@@ -177,7 +179,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                 if (!key)
                         return -ENOMEM;
 
-                r = dns_transaction_new(&t, i->scope, key);
+                r = dns_transaction_new(&t, i->scope, key, dnssec_mode);
                 if (r < 0)
                         return r;
         }
@@ -212,7 +214,7 @@ gc:
         return r;
 }
 
-int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
+int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, DnssecMode dnssec_mode, bool probe) {
         _cleanup_(dns_zone_item_freep) DnsZoneItem *i = NULL;
         DnsZoneItem *existing;
         int r;
@@ -268,7 +270,7 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
                 else {
                         i->state = DNS_ZONE_ITEM_PROBING;
 
-                        r = dns_zone_item_probe_start(i);
+                        r = dns_zone_item_probe_start(i, dnssec_mode);
                         if (r < 0) {
                                 dns_zone_item_remove_and_free(z, i);
                                 i = NULL;
@@ -529,7 +531,7 @@ void dns_zone_item_notify(DnsZoneItem *i) {
         i->state = DNS_ZONE_ITEM_ESTABLISHED;
 }
 
-static int dns_zone_item_verify(DnsZoneItem *i) {
+static int dns_zone_item_verify(DnsZoneItem *i, DnssecMode dnssec_mode) {
         int r;
 
         assert(i);
@@ -540,7 +542,7 @@ static int dns_zone_item_verify(DnsZoneItem *i) {
         log_debug("Verifying RR %s", strna(dns_resource_record_to_string(i->rr)));
 
         i->state = DNS_ZONE_ITEM_VERIFYING;
-        r = dns_zone_item_probe_start(i);
+        r = dns_zone_item_probe_start(i, dnssec_mode);
         if (r < 0) {
                 log_error_errno(r, "Failed to start probing for verifying RR: %m");
                 i->state = DNS_ZONE_ITEM_ESTABLISHED;
@@ -550,7 +552,7 @@ static int dns_zone_item_verify(DnsZoneItem *i) {
         return 0;
 }
 
-int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
+int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr, DnssecMode dnssec_mode) {
         DnsZoneItem *i, *first;
         int c = 0;
 
@@ -577,14 +579,14 @@ int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
                 if (dns_resource_record_equal(i->rr, rr))
                         continue;
 
-                dns_zone_item_verify(i);
+                dns_zone_item_verify(i, dnssec_mode);
                 c++;
         }
 
         return c;
 }
 
-int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
+int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key, DnssecMode dnssec_mode) {
         DnsZoneItem *i, *first;
         int c = 0;
 
@@ -598,14 +600,14 @@ int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
                 return 0;
 
         LIST_FOREACH(by_name, i, first) {
-                dns_zone_item_verify(i);
+                dns_zone_item_verify(i, dnssec_mode);
                 c++;
         }
 
         return c;
 }
 
-void dns_zone_verify_all(DnsZone *zone) {
+void dns_zone_verify_all(DnsZone *zone, DnssecMode dnssec_mode) {
         DnsZoneItem *i;
         Iterator iterator;
 
@@ -615,7 +617,7 @@ void dns_zone_verify_all(DnsZone *zone) {
                 DnsZoneItem *j;
 
                 LIST_FOREACH(by_key, j, i)
-                        dns_zone_item_verify(j);
+                        dns_zone_item_verify(j, dnssec_mode);
         }
 }
 

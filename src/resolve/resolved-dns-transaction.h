@@ -64,9 +64,9 @@ struct DnsTransaction {
         DnsScope *scope;
 
         DnsResourceKey *key;
-        char *key_string;
 
         DnsTransactionState state;
+        DnssecMode dnssec_mode;
 
         uint16_t id;
 
@@ -140,7 +140,7 @@ struct DnsTransaction {
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
 };
 
-int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);
+int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key, DnssecMode dnssec_mode);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);
 
 bool dns_transaction_gc(DnsTransaction *t);
@@ -152,8 +152,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
 int dns_transaction_validate_dnssec(DnsTransaction *t);
 int dns_transaction_request_dnssec_keys(DnsTransaction *t);
-
-const char *dns_transaction_key_string(DnsTransaction *t);
 
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
