@@ -1,5 +1,11 @@
 systemd System and Service Manager
 
+CHANGES WITH 230 in spe:
+
+        * Testing tool /usr/lib/systemd/systemd-activate is renamed to
+          systemd-socket-activate and installed into /usr/bin. It is now fully
+          supported.
+
 CHANGES WITH 229:
 
         * The systemd-resolved DNS resolver service has gained a substantial

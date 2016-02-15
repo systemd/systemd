@@ -94,7 +94,6 @@ MANPAGES += \
 	man/shutdown.8 \
 	man/sysctl.d.5 \
 	man/systemctl.1 \
-	man/systemd-activate.8 \
 	man/systemd-analyze.1 \
 	man/systemd-ask-password-console.service.8 \
 	man/systemd-ask-password.1 \
@@ -126,6 +125,7 @@ MANPAGES += \
 	man/systemd-resolve.1 \
 	man/systemd-run.1 \
 	man/systemd-sleep.conf.5 \
+	man/systemd-socket-activate.1 \
 	man/systemd-socket-proxyd.8 \
 	man/systemd-suspend.service.8 \
 	man/systemd-sysctl.service.8 \
@@ -2574,7 +2574,6 @@ EXTRA_DIST += \
 	man/standard-options.xml \
 	man/sysctl.d.xml \
 	man/systemctl.xml \
-	man/systemd-activate.xml \
 	man/systemd-analyze.xml \
 	man/systemd-ask-password-console.service.xml \
 	man/systemd-ask-password.xml \
@@ -2628,6 +2627,7 @@ EXTRA_DIST += \
 	man/systemd-rfkill.service.xml \
 	man/systemd-run.xml \
 	man/systemd-sleep.conf.xml \
+	man/systemd-socket-activate.xml \
 	man/systemd-socket-proxyd.xml \
 	man/systemd-suspend.service.xml \
 	man/systemd-sysctl.service.xml \

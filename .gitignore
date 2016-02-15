@@ -49,7 +49,6 @@
 /systemctl
 /systemd
 /systemd-ac-power
-/systemd-activate
 /systemd-analyze
 /systemd-ask-password
 /systemd-backlight
@@ -109,6 +108,7 @@
 /systemd-run
 /systemd-shutdown
 /systemd-sleep
+/systemd-socket-activate
 /systemd-socket-proxyd
 /systemd-stdio-bridge
 /systemd-sysctl
