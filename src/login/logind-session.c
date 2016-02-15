@@ -446,17 +446,8 @@ int session_load(Session *s) {
                 safe_close(fd);
         }
 
-        if (realtime) {
-                unsigned long long l;
-                if (sscanf(realtime, "%llu", &l) > 0)
-                        s->timestamp.realtime = l;
-        }
-
-        if (monotonic) {
-                unsigned long long l;
-                if (sscanf(monotonic, "%llu", &l) > 0)
-                        s->timestamp.monotonic = l;
-        }
+        deserialize_timestamp_value(realtime, &s->timestamp.realtime);
+        deserialize_timestamp_value(monotonic, &s->timestamp.monotonic);
 
         if (controller) {
                 if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0)
