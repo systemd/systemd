@@ -22,62 +22,56 @@
 #include <netinet/if_ether.h>
 
 #include "fd-util.h"
-#include "lldp-internal.h"
 #include "lldp-network.h"
-#include "lldp-tlv.h"
 #include "socket-util.h"
 
 int lldp_network_bind_raw_socket(int ifindex) {
-        typedef struct LLDPFrame {
-                struct ethhdr hdr;
-                uint8_t tlvs[0];
-        } LLDPFrame;
 
-        struct sock_filter filter[] = {
-                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(LLDPFrame, hdr.h_dest)),      /* A <- 4 bytes of destination MAC */
+        static const struct sock_filter filter[] = {
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ethhdr, h_dest)),      /* A <- 4 bytes of destination MAC */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0180c200, 1, 0),                    /* A != 01:80:c2:00 */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                             /* drop packet */
-                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(LLDPFrame, hdr.h_dest) + 4),  /* A <- remaining 2 bytes of destination MAC */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ethhdr, h_dest) + 4),  /* A <- remaining 2 bytes of destination MAC */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0000, 3, 0),                        /* A != 00:00 */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0003, 2, 0),                        /* A != 00:03 */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x000e, 1, 0),                        /* A != 00:0e */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                             /* drop packet */
-                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(LLDPFrame, hdr.h_proto)),     /* A <- protocol */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ethhdr, h_proto)),     /* A <- protocol */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LLDP, 1, 0),                /* A != ETHERTYPE_LLDP */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                             /* drop packet */
                 BPF_STMT(BPF_RET + BPF_K, (uint32_t) -1),                                 /* accept packet */
         };
 
-        struct sock_fprog fprog = {
+        static const struct sock_fprog fprog = {
                 .len = ELEMENTSOF(filter),
-                .filter = filter
+                .filter = (struct sock_filter*) filter,
         };
-
-        _cleanup_close_ int s = -1;
 
         union sockaddr_union saddrll = {
                 .ll.sll_family = AF_PACKET,
                 .ll.sll_ifindex = ifindex,
         };
 
+        _cleanup_close_ int fd = -1;
+
         int r;
 
         assert(ifindex > 0);
 
-        s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-        if (s < 0)
+        fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+        if (fd < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));
+        r = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));
         if (r < 0)
                 return -errno;
 
-        r = bind(s, &saddrll.sa, sizeof(saddrll.ll));
+        r = bind(fd, &saddrll.sa, sizeof(saddrll.ll));
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
+        r = fd;
+        fd = -1;
 
         return r;
 }
