@@ -2778,10 +2778,9 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (!arg_no_block) {
-                int q, arg_count = 1;
-                const char* extra_args[5] = {NULL};
+                int q, arg_count = 0;
+                const char* extra_args[4] = {};
 
-                /* leave first empty for the actual command name*/
                 if (arg_scope != UNIT_FILE_SYSTEM)
                         extra_args[arg_count++] = "--user";
 
