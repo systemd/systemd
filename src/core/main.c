@@ -1313,7 +1313,6 @@ int main(int argc, char *argv[]) {
                 /* This is compatibility support for SysV, where
                  * calling init as a user is identical to telinit. */
 
-                errno = -ENOENT;
                 execv(SYSTEMCTL_BINARY_PATH, argv);
                 log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
                 return 1;
