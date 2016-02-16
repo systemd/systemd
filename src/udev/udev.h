@@ -1,3 +1,5 @@
+#pragma once
+
 /*
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2003-2010 Kay Sievers <kay@vrfy.org>
@@ -15,8 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#pragma once
 
 #include <sys/param.h>
 #include <sys/types.h>

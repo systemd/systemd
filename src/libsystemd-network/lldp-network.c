@@ -53,7 +53,6 @@ int lldp_network_bind_raw_socket(int ifindex) {
         };
 
         _cleanup_close_ int fd = -1;
-
         int r;
 
         assert(ifindex > 0);

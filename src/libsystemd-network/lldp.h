@@ -1,3 +1,5 @@
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -17,8 +19,6 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-
-#pragma once
 
 #define LLDP_MULTICAST_ADDR     { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
 
