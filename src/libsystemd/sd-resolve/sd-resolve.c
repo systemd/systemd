@@ -1191,7 +1191,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         return 1;
 }
 
-_public_ int sd_resolve_attach_event(sd_resolve *resolve, sd_event *event, int priority) {
+_public_ int sd_resolve_attach_event(sd_resolve *resolve, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(resolve, -EINVAL);

@@ -208,8 +208,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         return 0;
 }
 
-int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event,
-                                int priority) {
+int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(server, -EINVAL);

@@ -97,8 +97,7 @@ int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret);
 int sd_dhcp6_client_stop(sd_dhcp6_client *client);
 int sd_dhcp6_client_start(sd_dhcp6_client *client);
 int sd_dhcp6_client_is_running(sd_dhcp6_client *client);
-int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event,
-                                 int priority);
+int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64_t priority);
 int sd_dhcp6_client_detach_event(sd_dhcp6_client *client);
 sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client);
 sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client);

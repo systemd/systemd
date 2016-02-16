@@ -64,7 +64,7 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout);
 int sd_netlink_add_match(sd_netlink *nl, uint16_t match, sd_netlink_message_handler_t c, void *userdata);
 int sd_netlink_remove_match(sd_netlink *nl, uint16_t match, sd_netlink_message_handler_t c, void *userdata);
 
-int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int priority);
+int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
 
 int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type, const char *data);
