@@ -33,18 +33,6 @@
 #include "siphash24.h"
 #include "string-util.h"
 
-typedef enum LLDPAgentRXState {
-        LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL = 4,
-        LLDP_AGENT_RX_DELETE_AGED_INFO,
-        LLDP_AGENT_RX_LLDP_INITIALIZE,
-        LLDP_AGENT_RX_WAIT_FOR_FRAME,
-        LLDP_AGENT_RX_RX_FRAME,
-        LLDP_AGENT_RX_DELETE_INFO,
-        LLDP_AGENT_RX_UPDATE_INFO,
-        _LLDP_AGENT_RX_STATE_MAX,
-        _LLDP_AGENT_RX_INVALID = -1,
-} LLDPAgentRXState;
-
 /* Section 10.5.2.2 Reception counters */
 struct lldp_agent_statistics {
         uint64_t stats_ageouts_total;
@@ -65,7 +53,6 @@ struct sd_lldp {
 
         void *userdata;
 
-        LLDPAgentRXState rx_state;
         lldp_agent_statistics statistics;
 };
 
@@ -103,8 +90,6 @@ static const struct hash_ops chassis_id_hash_ops = {
 };
 
 static void lldp_mib_delete_objects(sd_lldp *lldp);
-static void lldp_set_state(sd_lldp *lldp, LLDPAgentRXState state);
-static void lldp_run_state_machine(sd_lldp *ll);
 
 static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
         int r;
@@ -113,18 +98,15 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
         assert(tlv);
 
         /* Remove expired packets */
-        if (prioq_size(lldp->by_expiry) > 0) {
-
-                lldp_set_state(lldp, LLDP_AGENT_RX_DELETE_INFO);
-
+        if (prioq_size(lldp->by_expiry) > 0)
                 lldp_mib_delete_objects(lldp);
-        }
 
         r = lldp_mib_add_objects(lldp->by_expiry, lldp->neighbour_mib, tlv);
         if (r < 0)
                 goto out;
 
-        lldp_set_state(lldp, LLDP_AGENT_RX_UPDATE_INFO);
+        if (lldp->cb)
+                lldp->cb(lldp, SD_LLDP_EVENT_UPDATE_INFO, lldp->userdata);
 
         log_lldp("Packet added. MIB size: %d , PQ size: %d",
                  hashmap_size(lldp->neighbour_mib),
@@ -135,8 +117,6 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
  out:
         if (r < 0)
                 log_lldp("Receive frame failed: %s", strerror(-r));
-
-        lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
 
         return 0;
 }
@@ -161,8 +141,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                 log_lldp("Port: %s is disabled. Dropping.", lldp->port->ifname);
                 goto out;
         }
-
-        lldp_set_state(lldp, LLDP_AGENT_RX_RX_FRAME);
 
         p = tlv->pdu;
         p += sizeof(struct ether_header);
@@ -350,8 +328,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         return lldp_receive_frame(lldp, tlv);
 
  out:
-        lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
-
         if (malformed) {
                 lldp->statistics.stats_frames_discarded_total ++;
                 lldp->statistics.stats_frames_in_errors_total ++;
@@ -372,29 +348,6 @@ static int ttl_expiry_item_prioq_compare_func(const void *a, const void *b) {
                 return 1;
 
         return 0;
-}
-
-static void lldp_set_state(sd_lldp *lldp, LLDPAgentRXState state) {
-
-        assert(lldp);
-        assert(state < _LLDP_AGENT_RX_STATE_MAX);
-
-        lldp->rx_state = state;
-
-        lldp_run_state_machine(lldp);
-}
-
-static void lldp_run_state_machine(sd_lldp *lldp) {
-        if (!lldp->cb)
-                return;
-
-        switch (lldp->rx_state) {
-        case LLDP_AGENT_RX_UPDATE_INFO:
-                lldp->cb(lldp, SD_LLDP_EVENT_UPDATE_INFO, lldp->userdata);
-                break;
-        default:
-                break;
-        }
 }
 
 /* 10.5.5.2.1 mibDeleteObjects ()
@@ -597,20 +550,14 @@ int sd_lldp_start(sd_lldp *lldp) {
 
         lldp->port->status = LLDP_PORT_STATUS_ENABLED;
 
-        lldp_set_state(lldp, LLDP_AGENT_RX_LLDP_INITIALIZE);
-
         r = lldp_port_start(lldp->port);
         if (r < 0) {
                 log_lldp("Failed to start Port : %s , %s",
                          lldp->port->ifname,
                          strerror(-r));
 
-                lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL);
-
                 return r;
         }
-
-        lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
 
         return 0;
 }
@@ -714,8 +661,6 @@ int sd_lldp_new(int ifindex,
                                    ttl_expiry_item_prioq_compare_func);
         if (r < 0)
                 return r;
-
-        lldp->rx_state = LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL;
 
         *ret = lldp;
         lldp = NULL;
