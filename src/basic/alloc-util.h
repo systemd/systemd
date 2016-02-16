@@ -51,25 +51,29 @@ static inline void freep(void *p) {
 
 #define _cleanup_free_ _cleanup_(freep)
 
-_malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
-        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
-                return NULL;
-
-        return malloc(a * b);
+static inline bool size_multiply_overflow(size_t size, size_t need) {
+        return _unlikely_(need != 0 && size > (SIZE_MAX / need));
 }
 
-_alloc_(2, 3) static inline void *realloc_multiply(void *p, size_t a, size_t b) {
-        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
+_malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t size, size_t need) {
+        if (size_multiply_overflow(size, need))
                 return NULL;
 
-        return realloc(p, a * b);
+        return malloc(size * need);
 }
 
-_alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
-        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
+_alloc_(2, 3) static inline void *realloc_multiply(void *p, size_t size, size_t need) {
+        if (size_multiply_overflow(size, need))
                 return NULL;
 
-        return memdup(p, a * b);
+        return realloc(p, size * need);
+}
+
+_alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t size, size_t need) {
+        if (size_multiply_overflow(size, need))
+                return NULL;
+
+        return memdup(p, size * need);
 }
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
