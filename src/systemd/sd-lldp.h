@@ -45,13 +45,13 @@ typedef struct sd_lldp_packet sd_lldp_packet;
 
 typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, int event, void *userdata);
 
-int sd_lldp_new(int ifindex, const char *ifname, const struct ether_addr *mac, sd_lldp **ret);
+int sd_lldp_new(int ifindex, sd_lldp **ret);
 sd_lldp* sd_lldp_unref(sd_lldp *lldp);
 
 int sd_lldp_start(sd_lldp *lldp);
 int sd_lldp_stop(sd_lldp *lldp);
 
-int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int priority);
+int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int64_t priority);
 int sd_lldp_detach_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);

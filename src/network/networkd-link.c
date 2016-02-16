@@ -2109,7 +2109,7 @@ static int link_configure(Link *link) {
         }
 
         if (link_lldp_enabled(link)) {
-                r = sd_lldp_new(link->ifindex, link->ifname, &link->mac, &link->lldp);
+                r = sd_lldp_new(link->ifindex, &link->lldp);
                 if (r < 0)
                         return r;
 
@@ -2117,8 +2117,7 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = sd_lldp_set_callback(link->lldp,
-                                         lldp_handler, link);
+                r = sd_lldp_set_callback(link->lldp, lldp_handler, link);
                 if (r < 0)
                         return r;
         }
