@@ -22,8 +22,6 @@
 
 #define LLDP_MULTICAST_ADDR     { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
 
-#define ETHERTYPE_LLDP          0x88cc
-
 /* IEEE 802.3AB Clause 9: TLV Types */
 typedef enum LLDPTypes {
         LLDP_TYPE_END                  =   0,
