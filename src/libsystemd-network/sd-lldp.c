@@ -33,16 +33,6 @@
 #include "siphash24.h"
 #include "string-util.h"
 
-/* Section 10.5.2.2 Reception counters */
-struct lldp_agent_statistics {
-        uint64_t stats_ageouts_total;
-        uint64_t stats_frames_discarded_total;
-        uint64_t stats_frames_in_errors_total;
-        uint64_t stats_frames_in_total;
-        uint64_t stats_tlvs_discarded_total;
-        uint64_t stats_tlvs_unrecognized_total;
-};
-
 struct sd_lldp {
         lldp_port *port;
 
@@ -52,8 +42,6 @@ struct sd_lldp {
         sd_lldp_callback_t callback;
 
         void *userdata;
-
-        lldp_agent_statistics statistics;
 };
 
 static void chassis_id_hash_func(const void *p, struct siphash *state) {
@@ -112,8 +100,6 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
                  hashmap_size(lldp->neighbour_mib),
                  prioq_size(lldp->by_expiry));
 
-        lldp->statistics.stats_frames_in_total ++;
-
  out:
         if (r < 0)
                 log_lldp("Receive frame failed: %s", strerror(-r));
@@ -124,7 +110,7 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
 /* 10.3.2 LLDPDU validation: rxProcessFrame() */
 int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         bool system_description = false, system_name = false, chassis_id = false;
-        bool malformed = false, port_id = false, ttl = false, end = false;
+        bool port_id = false, ttl = false, end = false;
         uint16_t type, len, i, l, t;
         lldp_port *port;
         uint8_t *p, *q;
@@ -156,7 +142,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if (len != 0) {
                                 log_lldp("TLV type end must be length 0 (not %d). Dropping.", len);
 
-                                malformed = true;
                                 goto out;
                         }
 
@@ -166,7 +151,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                 } else if (type >=_LLDP_TYPE_MAX) {
                         log_lldp("TLV type: %d not recognized. Dropping.", type);
 
-                        malformed = true;
                         goto out;
                 }
 
@@ -181,7 +165,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if (i != type) {
                                 log_lldp("TLV missing or out of order. Dropping.");
 
-                                malformed = true;
                                 goto out;
                         }
                 }
@@ -192,14 +175,12 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if (len < 2) {
                                 log_lldp("Received malformed Chassis ID TLV length: %d. Dropping.", len);
 
-                                malformed = true;
                                 goto out;
                         }
 
                         if (chassis_id) {
                                 log_lldp("Duplicate Chassis ID TLV found. Dropping.");
 
-                                malformed = true;
                                 goto out;
                         }
 
@@ -207,7 +188,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if (*q == LLDP_CHASSIS_SUBTYPE_RESERVED || *q > LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED) {
                                 log_lldp("Unknown subtype: %d found in Chassis ID TLV. Dropping.", *q);
 
-                                malformed = true;
                                 goto out;
 
                         }
@@ -220,14 +200,12 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if (len < 2) {
                                 log_lldp("Received malformed Port ID TLV length: %d. Dropping.", len);
 
-                                malformed = true;
                                 goto out;
                         }
 
                         if (port_id) {
                                 log_lldp("Duplicate Port ID TLV found. Dropping.");
 
-                                malformed = true;
                                 goto out;
                         }
 
@@ -235,7 +213,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if (*q == LLDP_PORT_SUBTYPE_RESERVED || *q > LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED) {
                                 log_lldp("Unknown subtype: %d found in Port ID TLV. Dropping.", *q);
 
-                                malformed = true;
                                 goto out;
 
                         }
@@ -248,14 +225,12 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if(len != 2) {
                                 log_lldp("Received invalid TTL TLV lenth: %d. Dropping.", len);
 
-                                malformed = true;
                                 goto out;
                         }
 
                         if (ttl) {
                                 log_lldp("Duplicate TTL TLV found. Dropping.");
 
-                                malformed = true;
                                 goto out;
                         }
 
@@ -267,13 +242,11 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         /* According to RFC 1035 the length of a FQDN is limited to 255 characters */
                         if (len > 255) {
                                 log_lldp("Received invalid system name length: %d. Dropping.", len);
-                                malformed = true;
                                 goto out;
                         }
 
                         if (system_name) {
                                 log_lldp("Duplicate system name found. Dropping.");
-                                malformed = true;
                                 goto out;
                         }
 
@@ -285,13 +258,11 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         /* 0 <= n <= 255 octets */
                         if (len > 255) {
                                 log_lldp("Received invalid system description length: %d. Dropping.", len);
-                                malformed = true;
                                 goto out;
                         }
 
                         if (system_description) {
                                 log_lldp("Duplicate system description found. Dropping.");
-                                malformed = true;
                                 goto out;
                         }
 
@@ -302,7 +273,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                         if (len == 0) {
                                 log_lldp("TLV type: %d length 0 received. Dropping.", type);
 
-                                malformed = true;
                                 goto out;
                         }
                         break;
@@ -312,7 +282,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         if(!chassis_id || !port_id || !ttl || !end) {
                 log_lldp("One or more mandatory TLV missing. Dropping.");
 
-                malformed = true;
                 goto out;
 
         }
@@ -321,17 +290,12 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         if (r < 0) {
                 log_lldp("Failed to parse the TLV. Dropping.");
 
-                malformed = true;
                 goto out;
         }
 
         return lldp_receive_frame(lldp, tlv);
 
  out:
-        if (malformed) {
-                lldp->statistics.stats_frames_discarded_total ++;
-                lldp->statistics.stats_frames_in_errors_total ++;
-        }
 
         sd_lldp_packet_unref(tlv);
 
@@ -376,8 +340,6 @@ static void lldp_mib_delete_objects(sd_lldp *lldp) {
                         break;
 
                 lldp_neighbour_port_remove_and_free(p);
-
-                lldp->statistics.stats_ageouts_total ++;
         }
 }
 
