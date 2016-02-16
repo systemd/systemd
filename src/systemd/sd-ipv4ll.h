@@ -36,12 +36,12 @@ enum {
 };
 
 typedef struct sd_ipv4ll sd_ipv4ll;
-typedef void (*sd_ipv4ll_cb_t)(sd_ipv4ll *ll, int event, void *userdata);
+typedef void (*sd_ipv4ll_callback_t)(sd_ipv4ll *ll, int event, void *userdata);
 
 int sd_ipv4ll_detach_event(sd_ipv4ll *ll);
 int sd_ipv4ll_attach_event(sd_ipv4ll *ll, sd_event *event, int priority);
 int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address);
-int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_cb_t cb, void *userdata);
+int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdata);
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr);
 int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index);
 int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address);

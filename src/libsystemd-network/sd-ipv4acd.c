@@ -92,7 +92,7 @@ struct sd_ipv4acd {
         struct ether_addr mac_addr;
         sd_event *event;
         int event_priority;
-        sd_ipv4acd_cb_t cb;
+        sd_ipv4acd_callback_t cb;
         void* userdata;
 };
 
@@ -447,7 +447,7 @@ int sd_ipv4acd_attach_event(sd_ipv4acd *ll, sd_event *event, int priority) {
         return 0;
 }
 
-int sd_ipv4acd_set_callback(sd_ipv4acd *ll, sd_ipv4acd_cb_t cb, void *userdata) {
+int sd_ipv4acd_set_callback(sd_ipv4acd *ll, sd_ipv4acd_callback_t cb, void *userdata) {
         assert_return(ll, -EINVAL);
 
         ll->cb = cb;

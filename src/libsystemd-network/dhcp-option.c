@@ -135,7 +135,7 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
 }
 
 static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overload,
-                         uint8_t *message_type, char **error_message, dhcp_option_cb_t cb,
+                         uint8_t *message_type, char **error_message, dhcp_option_callback_t cb,
                          void *userdata) {
         uint8_t code, len;
         const uint8_t *option;
@@ -221,7 +221,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
         return 0;
 }
 
-int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_cb_t cb, void *userdata, char **_error_message) {
+int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **_error_message) {
         _cleanup_free_ char *error_message = NULL;
         uint8_t overload = 0;
         uint8_t message_type = 0;

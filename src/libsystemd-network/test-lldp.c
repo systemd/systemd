@@ -256,7 +256,7 @@ static void lldp_handler (sd_lldp *lldp, int event, void *userdata) {
         lldp_handler_calls++;
 }
 
-static int start_lldp(sd_lldp **lldp, sd_event *e, sd_lldp_cb_t cb, void *cb_data) {
+static int start_lldp(sd_lldp **lldp, sd_event *e, sd_lldp_callback_t cb, void *cb_data) {
         int r;
 
         r = sd_lldp_new(42, "dummy", &mac_addr, lldp);

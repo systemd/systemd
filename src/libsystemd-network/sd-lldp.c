@@ -49,7 +49,7 @@ struct sd_lldp {
         Prioq *by_expiry;
         Hashmap *neighbour_mib;
 
-        sd_lldp_cb_t cb;
+        sd_lldp_callback_t callback;
 
         void *userdata;
 
@@ -105,8 +105,8 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
         if (r < 0)
                 goto out;
 
-        if (lldp->cb)
-                lldp->cb(lldp, SD_LLDP_EVENT_UPDATE_INFO, lldp->userdata);
+        if (lldp->callback)
+                lldp->callback(lldp, SD_LLDP_EVENT_UPDATE_INFO, lldp->userdata);
 
         log_lldp("Packet added. MIB size: %d , PQ size: %d",
                  hashmap_size(lldp->neighbour_mib),
@@ -607,10 +607,10 @@ int sd_lldp_detach_event(sd_lldp *lldp) {
         return 0;
 }
 
-int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata) {
+int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata) {
         assert_return(lldp, -EINVAL);
 
-        lldp->cb = cb;
+        lldp->callback = cb;
         lldp->userdata = userdata;
 
         return 0;

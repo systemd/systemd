@@ -101,7 +101,7 @@ struct sd_dhcp_client {
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
         sd_event_source *timeout_expire;
-        sd_dhcp_client_cb_t cb;
+        sd_dhcp_client_callback_t cb;
         void *userdata;
         sd_dhcp_lease *lease;
         usec_t start_delay;
@@ -121,7 +121,7 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata);
 static void client_stop(sd_dhcp_client *client, int error);
 
-int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
+int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_callback_t cb,
                                 void *userdata) {
         assert_return(client, -EINVAL);
 
