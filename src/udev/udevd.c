@@ -1715,7 +1715,7 @@ int main(int argc, char *argv[]) {
                    by PID1. otherwise we are not guaranteed to have a dedicated cgroup */
                 r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
                 if (r < 0) {
-                        if (r == -ENOENT || r == -ENOEXEC)
+                        if (r == -ENOENT || r == -ENOMEDIUM)
                                 log_debug_errno(r, "did not find dedicated cgroup: %m");
                         else
                                 log_warning_errno(r, "failed to get cgroup: %m");
