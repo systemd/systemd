@@ -210,6 +210,19 @@ static int detect_vm_dmi(void) {
 }
 
 static int detect_vm_xen(void) {
+        /* Check for Dom0 will be executed later in detect_vm_xen_dom0
+           Thats why we dont check the content of /proc/xen/capabilities here. */
+        if (access("/proc/xen/capabilities", F_OK) < 0) {
+                log_debug("Virtualization XEN not found, /proc/xen/capabilities does not exist");
+                return VIRTUALIZATION_NONE;
+        }
+
+        log_debug("Virtualization XEN found (/proc/xen/capabilities exists)");
+        return  VIRTUALIZATION_XEN;
+
+}
+
+static bool detect_vm_xen_dom0(void) {
         _cleanup_free_ char *domcap = NULL;
         char *cap, *i;
         int r;
@@ -217,7 +230,7 @@ static int detect_vm_xen(void) {
         r = read_one_line_file("/proc/xen/capabilities", &domcap);
         if (r == -ENOENT) {
                 log_debug("Virtualization XEN not found, /proc/xen/capabilities does not exist");
-                return VIRTUALIZATION_NONE;
+                return false;
         }
         if (r < 0)
                 return r;
@@ -226,14 +239,13 @@ static int detect_vm_xen(void) {
         while ((cap = strsep(&i, ",")))
                 if (streq(cap, "control_d"))
                         break;
-
         if (!cap) {
                 log_debug("Virtualization XEN DomU found (/proc/xen/capabilites)");
-                return VIRTUALIZATION_XEN;
+                return false;
         }
 
         log_debug("Virtualization XEN Dom0 ignored (/proc/xen/capabilities)");
-        return VIRTUALIZATION_NONE;
+        return true;
 }
 
 static int detect_vm_hypervisor(void) {
@@ -358,6 +370,12 @@ int detect_vm(void) {
                 return r;
 
 finish:
+        /* x86 xen Dom0 is detected as XEN in hypervisor and maybe others.
+         * In order to detect the Dom0 as not virtualization we need to
+         * double-check it */
+        if (r == VIRTUALIZATION_XEN && detect_vm_xen_dom0())
+                r = VIRTUALIZATION_NONE;
+
         cached_found = r;
         log_debug("Found VM virtualization %s", virtualization_to_string(r));
         return r;
