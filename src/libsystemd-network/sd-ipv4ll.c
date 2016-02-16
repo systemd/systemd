@@ -160,7 +160,7 @@ int sd_ipv4ll_detach_event(sd_ipv4ll *ll) {
         return sd_ipv4acd_detach_event(ll->acd);
 }
 
-int sd_ipv4ll_attach_event(sd_ipv4ll *ll, sd_event *event, int priority) {
+int sd_ipv4ll_attach_event(sd_ipv4ll *ll, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(ll, -EINVAL);

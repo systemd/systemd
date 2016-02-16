@@ -79,7 +79,7 @@ int sd_resolve_wait(sd_resolve *resolve, uint64_t timeout_usec);
 
 int sd_resolve_get_tid(sd_resolve *resolve, pid_t *tid);
 
-int sd_resolve_attach_event(sd_resolve *resolve, sd_event *e, int priority);
+int sd_resolve_attach_event(sd_resolve *resolve, sd_event *e, int64_t priority);
 int sd_resolve_detach_event(sd_resolve *resolve);
 sd_event *sd_resolve_get_event(sd_resolve *resolve);
 

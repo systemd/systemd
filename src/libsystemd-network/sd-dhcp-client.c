@@ -1691,8 +1691,7 @@ int sd_dhcp_client_stop(sd_dhcp_client *client) {
         return 0;
 }
 
-int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event,
-                                int priority) {
+int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(client, -EINVAL);

@@ -1204,7 +1204,7 @@ error:
         return r;
 }
 
-int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int priority) {
+int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(client, -EINVAL);

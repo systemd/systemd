@@ -113,7 +113,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
 
 int sd_dhcp_client_new(sd_dhcp_client **ret);
 
-int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int priority);
+int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int64_t priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
 
