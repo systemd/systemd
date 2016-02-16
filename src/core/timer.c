@@ -334,7 +334,7 @@ static void add_random(Timer *t, usec_t *v) {
         usec_t add;
 
         assert(t);
-        assert(*v);
+        assert(v);
 
         if (t->random_usec == 0)
                 return;
