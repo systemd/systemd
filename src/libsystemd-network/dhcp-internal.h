@@ -42,10 +42,10 @@ int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_t overload,
                        uint8_t code, size_t optlen, const void *optval);
 
-typedef int (*dhcp_option_cb_t)(uint8_t code, uint8_t len,
+typedef int (*dhcp_option_callback_t)(uint8_t code, uint8_t len,
                                 const void *option, void *userdata);
 
-int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_cb_t cb, void *userdata, char **error_message);
+int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **error_message);
 
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
                       uint8_t type, uint16_t arp_type, size_t optlen,

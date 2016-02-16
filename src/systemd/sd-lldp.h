@@ -43,7 +43,7 @@ enum {
 typedef struct sd_lldp sd_lldp;
 typedef struct sd_lldp_packet sd_lldp_packet;
 
-typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
+typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, int event, void *userdata);
 
 int sd_lldp_new(int ifindex, const char *ifname, const struct ether_addr *mac, sd_lldp **ret);
 sd_lldp* sd_lldp_unref(sd_lldp *lldp);
@@ -54,7 +54,7 @@ int sd_lldp_stop(sd_lldp *lldp);
 int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int priority);
 int sd_lldp_detach_event(sd_lldp *lldp);
 
-int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata);
+int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);
 int sd_lldp_save(sd_lldp *lldp, const char *file);
 
 int sd_lldp_packet_read_chassis_id(sd_lldp_packet *tlv, uint8_t *type, uint8_t **data, uint16_t *length);

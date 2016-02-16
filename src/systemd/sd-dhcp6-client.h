@@ -76,10 +76,10 @@ enum {
 
 typedef struct sd_dhcp6_client sd_dhcp6_client;
 
-typedef void (*sd_dhcp6_client_cb_t)(sd_dhcp6_client *client, int event,
+typedef void (*sd_dhcp6_client_callback_t)(sd_dhcp6_client *client, int event,
                                      void *userdata);
 int sd_dhcp6_client_set_callback(sd_dhcp6_client *client,
-                                 sd_dhcp6_client_cb_t cb, void *userdata);
+                                 sd_dhcp6_client_callback_t cb, void *userdata);
 
 int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index);
 int sd_dhcp6_client_set_local_address(sd_dhcp6_client *client, const struct in6_addr *local_address);

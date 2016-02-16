@@ -52,7 +52,7 @@ struct sd_ipv4ll {
 
         /* External */
         be32_t claimed_address;
-        sd_ipv4ll_cb_t cb;
+        sd_ipv4ll_callback_t cb;
         void* userdata;
 };
 
@@ -172,7 +172,7 @@ int sd_ipv4ll_attach_event(sd_ipv4ll *ll, sd_event *event, int priority) {
         return 0;
 }
 
-int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_cb_t cb, void *userdata) {
+int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdata) {
         assert_return(ll, -EINVAL);
 
         ll->cb = cb;
