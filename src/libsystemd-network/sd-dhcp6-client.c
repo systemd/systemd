@@ -33,6 +33,7 @@
 #include "in-addr-util.h"
 #include "network-internal.h"
 #include "random-util.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "util.h"
 
@@ -891,18 +892,16 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
         _cleanup_free_ DHCP6Message *message = NULL;
-        int r, buflen, len;
+        ssize_t buflen, len;
+        int r = 0;
 
         assert(s);
         assert(client);
         assert(client->event);
 
-        r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0)
-                return -errno;
-        else if (buflen < 0)
-                /* This really should not happen */
-                return -EIO;
+        buflen = next_datagram_size_fd(fd);
+        if (buflen < 0)
+                return buflen;
 
         message = malloc(buflen);
         if (!message)

@@ -955,14 +955,13 @@ static int server_receive_message(sd_event_source *s, int fd,
                 .msg_controllen = sizeof(cmsgbuf),
         };
         struct cmsghdr *cmsg;
-        int buflen = 0, len;
+        ssize_t buflen, len;
 
         assert(server);
 
-        if (ioctl(fd, FIONREAD, &buflen) < 0)
-                return -errno;
-        else if (buflen < 0)
-                return -EIO;
+        buflen = next_datagram_size_fd(fd);
+        if (buflen < 0)
+                return buflen;
 
         message = malloc(buflen);
         if (!message)

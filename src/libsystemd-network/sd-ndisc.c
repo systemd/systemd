@@ -491,19 +491,16 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
         struct cmsghdr *cmsg;
         struct in6_addr *gw;
         unsigned lifetime;
-        ssize_t len;
-        int r, pref, stateful, buflen = 0;
+        ssize_t len, buflen;
+        int r, pref, stateful;
 
         assert(s);
         assert(nd);
         assert(nd->event);
 
-        r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0)
-                return -errno;
-        else if (buflen < 0)
-                /* This really should not happen */
-                return -EIO;
+        buflen = next_datagram_size_fd(fd);
+        if (buflen < 0)
+                return buflen;
 
         iov.iov_len = buflen;
 

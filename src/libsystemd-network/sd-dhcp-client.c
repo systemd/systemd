@@ -1525,20 +1525,17 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata) {
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPMessage *message = NULL;
-        int buflen = 0, len, r;
         const struct ether_addr zero_mac = { { 0, 0, 0, 0, 0, 0 } };
         const struct ether_addr *expected_chaddr = NULL;
         uint8_t expected_hlen = 0;
+        ssize_t len, buflen;
 
         assert(s);
         assert(client);
 
-        r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0)
-                return -errno;
-        else if (buflen < 0)
-                /* this can't be right */
-                return -EIO;
+        buflen = next_datagram_size_fd(fd);
+        if (buflen < 0)
+                return buflen;
 
         message = malloc0(buflen);
         if (!message)
@@ -1616,17 +1613,15 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         };
         struct cmsghdr *cmsg;
         bool checksum = true;
-        int buflen = 0, len, r;
+        ssize_t buflen, len;
+        int r;
 
         assert(s);
         assert(client);
 
-        r = ioctl(fd, FIONREAD, &buflen);
-        if (r < 0)
-                return -errno;
-        else if (buflen < 0)
-                /* this can't be right */
-                return -EIO;
+        buflen = next_datagram_size_fd(fd);
+        if (buflen < 0)
+                return buflen;
 
         packet = malloc0(buflen);
         if (!packet)
