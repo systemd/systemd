@@ -27,20 +27,24 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "lldp-internal.h"
-#include "lldp-port.h"
+#include "lldp-network.h"
 #include "lldp-tlv.h"
 #include "prioq.h"
 #include "siphash24.h"
 #include "string-util.h"
 
 struct sd_lldp {
-        lldp_port *port;
+        int ifindex;
+        int fd;
+
+        sd_event *event;
+        int64_t event_priority;
+        sd_event_source *event_source;
 
         Prioq *by_expiry;
         Hashmap *neighbour_mib;
 
         sd_lldp_callback_t callback;
-
         void *userdata;
 };
 
@@ -112,7 +116,6 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         bool system_description = false, system_name = false, chassis_id = false;
         bool port_id = false, ttl = false, end = false;
         uint16_t type, len, i, l, t;
-        lldp_port *port;
         uint8_t *p, *q;
         sd_lldp *lldp;
         int r;
@@ -120,13 +123,7 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         assert(tlv);
         assert(length > 0);
 
-        port = (lldp_port *) tlv->userdata;
-        lldp = (sd_lldp *) port->userdata;
-
-        if (lldp->port->status == LLDP_PORT_STATUS_DISABLED) {
-                log_lldp("Port: %s is disabled. Dropping.", lldp->port->ifname);
-                goto out;
-        }
+        lldp = tlv->userdata;
 
         p = tlv->pdu;
         p += sizeof(struct ether_header);
@@ -508,54 +505,67 @@ int sd_lldp_start(sd_lldp *lldp) {
         int r;
 
         assert_return(lldp, -EINVAL);
-        assert_return(lldp->port, -EINVAL);
 
-        lldp->port->status = LLDP_PORT_STATUS_ENABLED;
+        if (lldp->fd >= 0)
+                return 0;
 
-        r = lldp_port_start(lldp->port);
-        if (r < 0) {
-                log_lldp("Failed to start Port : %s , %s",
-                         lldp->port->ifname,
-                         strerror(-r));
+        assert(!lldp->event_source);
 
-                return r;
+        lldp->fd = lldp_network_bind_raw_socket(lldp->ifindex);
+        if (lldp->fd < 0)
+                return lldp->fd;
+
+        if (lldp->event) {
+                r = sd_event_add_io(lldp->event, &lldp->event_source, lldp->fd, EPOLLIN, lldp_receive_packet, lldp);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_event_source_set_priority(lldp->event_source, lldp->event_priority);
+                if (r < 0)
+                        goto fail;
+
+                (void) sd_event_source_set_description(lldp->event_source, "lldp");
         }
 
-        return 0;
+        return 1;
+
+fail:
+        lldp->event_source = sd_event_source_unref(lldp->event_source);
+        lldp->fd = safe_close(lldp->fd);
+
+        return r;
 }
 
 int sd_lldp_stop(sd_lldp *lldp) {
-        int r;
-
         assert_return(lldp, -EINVAL);
-        assert_return(lldp->port, -EINVAL);
 
-        lldp->port->status = LLDP_PORT_STATUS_DISABLED;
+        if (lldp->fd < 0)
+                return 0;
 
-        r = lldp_port_stop(lldp->port);
-        if (r < 0)
-                return r;
+        lldp->event_source = sd_event_source_unref(lldp->event_source);
+        lldp->fd = safe_close(lldp->fd);
 
         lldp_mib_objects_flush(lldp);
 
-        return 0;
+        return 1;
 }
 
-int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int priority) {
+int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(lldp, -EINVAL);
-        assert_return(!lldp->port->event, -EBUSY);
+        assert_return(lldp->fd < 0, -EBUSY);
+        assert_return(!lldp->event, -EBUSY);
 
         if (event)
-                lldp->port->event = sd_event_ref(event);
+                lldp->event = sd_event_ref(event);
         else {
-                r = sd_event_default(&lldp->port->event);
+                r = sd_event_default(&lldp->event);
                 if (r < 0)
                         return r;
         }
 
-        lldp->port->event_priority = priority;
+        lldp->event_priority = priority;
 
         return 0;
 }
@@ -563,8 +573,9 @@ int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int priority) {
 int sd_lldp_detach_event(sd_lldp *lldp) {
 
         assert_return(lldp, -EINVAL);
+        assert_return(lldp->fd < 0, -EBUSY);
 
-        lldp->port->event = sd_event_unref(lldp->port->event);
+        lldp->event = sd_event_unref(lldp->event);
 
         return 0;
 }
@@ -586,41 +597,36 @@ sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
         /* Drop all packets */
         lldp_mib_objects_flush(lldp);
 
-        lldp_port_free(lldp->port);
-
         hashmap_free(lldp->neighbour_mib);
         prioq_free(lldp->by_expiry);
+
+        sd_event_source_unref(lldp->event_source);
+        sd_event_unref(lldp->event);
+        safe_close(lldp->fd);
 
         free(lldp);
         return NULL;
 }
 
-int sd_lldp_new(int ifindex,
-                const char *ifname,
-                const struct ether_addr *mac,
-                sd_lldp **ret) {
+int sd_lldp_new(int ifindex, sd_lldp **ret) {
         _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
-        assert_return(ifname, -EINVAL);
-        assert_return(mac, -EINVAL);
 
         lldp = new0(sd_lldp, 1);
         if (!lldp)
                 return -ENOMEM;
 
-        r = lldp_port_new(ifindex, ifname, mac, lldp, &lldp->port);
-        if (r < 0)
-                return r;
+        lldp->fd = -1;
+        lldp->ifindex = ifindex;
 
         lldp->neighbour_mib = hashmap_new(&chassis_id_hash_ops);
         if (!lldp->neighbour_mib)
                 return -ENOMEM;
 
-        r = prioq_ensure_allocated(&lldp->by_expiry,
-                                   ttl_expiry_item_prioq_compare_func);
+        r = prioq_ensure_allocated(&lldp->by_expiry, ttl_expiry_item_prioq_compare_func);
         if (r < 0)
                 return r;
 
