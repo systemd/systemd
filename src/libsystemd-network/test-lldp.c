@@ -260,19 +260,19 @@ static int start_lldp(sd_lldp **lldp, sd_event *e, sd_lldp_callback_t cb, void *
         int r;
 
         r = sd_lldp_new(42, lldp);
-        if (r)
+        if (r < 0)
                 return r;
 
         r = sd_lldp_attach_event(*lldp, e, 0);
-        if (r)
+        if (r < 0)
                 return r;
 
         r = sd_lldp_set_callback(*lldp, cb, cb_data);
-        if (r)
+        if (r < 0)
                 return r;
 
         r = sd_lldp_start(*lldp);
-        if (r)
+        if (r < 0)
                 return r;
 
         return 0;
@@ -282,11 +282,11 @@ static int stop_lldp(sd_lldp *lldp) {
         int r;
 
         r = sd_lldp_stop(lldp);
-        if (r)
+        if (r < 0)
                 return r;
 
         r = sd_lldp_detach_event(lldp);
-        if (r)
+        if (r < 0)
                 return r;
 
         sd_lldp_unref(lldp);
