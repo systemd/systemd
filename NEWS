@@ -2,6 +2,23 @@ systemd System and Service Manager
 
 CHANGES WITH 230 in spe:
 
+        * DNSSEC is now turned on by default in systemd-resolved (in
+          "allow-downgrade" mode), but may be turned off during compile time by
+          passing "--with-default-dnssec=no" to "configure" (and of course,
+          during runtime with DNSSEC= in resolved.conf). We recommend
+          downstreams to leave this on at least during development cycles and
+          report any issues with the DNSSEC logic upstream. We are very
+          interested in collecting feedback about the DNSSEC validator and its
+          limitations in the wild. Note however, that DNSSEC support is
+          probably nothing downstreams should turn on in stable distros just
+          yet, as it might create incompabilities with a few DNS servers and
+          networks. We tried hard to make sure we downgrade to non-DNSSEC mode
+          automatically whenever we detect such incompatible setups, but there
+          might be systems we do not cover yet. Hence: please help us testing
+          the DNSSEC code, leave this on where you can, report back, but then
+          again don't consider turning this on in your stable, LTS or
+          production release just yet.
+
         * Testing tool /usr/lib/systemd/systemd-activate is renamed to
           systemd-socket-activate and installed into /usr/bin. It is now fully
           supported.

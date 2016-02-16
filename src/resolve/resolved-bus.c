@@ -140,6 +140,7 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
 static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *normalized = NULL;
         DnsResourceRecord *rr;
         unsigned added = 0;
         int ifindex, r;
@@ -199,11 +200,17 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
+        /* The key names are not necessarily normalized, make sure that they are when we return them to our bus
+         * clients. */
+        r = dns_name_normalize(DNS_RESOURCE_KEY_NAME(canonical->key), &normalized);
+        if (r < 0)
+                goto finish;
+
         /* Return the precise spelling and uppercasing and CNAME target reported by the server */
         assert(canonical);
         r = sd_bus_message_append(
                         reply, "st",
-                        DNS_RESOURCE_KEY_NAME(canonical->key),
+                        normalized,
                         SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
         if (r < 0)
                 goto finish;
@@ -395,13 +402,19 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
+                _cleanup_free_ char *normalized = NULL;
+
                 r = dns_question_matches_rr(question, rr, NULL);
                 if (r < 0)
                         goto finish;
                 if (r == 0)
                         continue;
 
-                r = sd_bus_message_append(reply, "(is)", ifindex, rr->ptr.name);
+                r = dns_name_normalize(rr->ptr.name, &normalized);
+                if (r < 0)
+                        goto finish;
+
+                r = sd_bus_message_append(reply, "(is)", ifindex, normalized);
                 if (r < 0)
                         goto finish;
 
@@ -671,6 +684,7 @@ fail:
 
 static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
+        _cleanup_free_ char *normalized = NULL;
         DnsQuery *aux;
         int r;
 
@@ -727,10 +741,14 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
         if (r < 0)
                 return r;
 
+        r = dns_name_normalize(rr->srv.name, &normalized);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_append(
                         reply,
                         "qqqs",
-                        rr->srv.priority, rr->srv.weight, rr->srv.port, rr->srv.name);
+                        rr->srv.priority, rr->srv.weight, rr->srv.port, normalized);
         if (r < 0)
                 return r;
 
@@ -776,9 +794,17 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
         if (r < 0)
                 return r;
 
+        if (canonical) {
+                normalized = mfree(normalized);
+
+                r = dns_name_normalize(DNS_RESOURCE_KEY_NAME(canonical->key), &normalized);
+                if (r < 0)
+                        return r;
+        }
+
         /* Note that above we appended the hostname as encoded in the
          * SRV, and here the canonical hostname this maps to. */
-        r = sd_bus_message_append(reply, "s", canonical ? DNS_RESOURCE_KEY_NAME(canonical->key) : rr->srv.name);
+        r = sd_bus_message_append(reply, "s", normalized);
         if (r < 0)
                 return r;
 

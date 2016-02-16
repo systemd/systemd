@@ -295,10 +295,8 @@ CAP_LIBS="$LIBS"
 LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
-AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2,
-                kcmp, keyctl, key_serial_t, char16_t, char32_t, LO_FLAGS_PARTSCAN],
+AC_CHECK_DECLS([memfd_create, gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2, kcmp, keyctl, LO_FLAGS_PARTSCAN],
                [], [], [[
 #include <sys/types.h>
 #include <unistd.h>
@@ -307,6 +305,11 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renamea
 #include <sched.h>
 #include <linux/loop.h>
 #include <linux/random.h>
+]])
+
+AC_CHECK_TYPES([char16_t, char32_t, key_serial_t],
+               [], [], [[
+#include <uchar.h>
 ]])
 
 AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
@@ -1128,6 +1131,20 @@ AC_ARG_WITH(dns-servers,
 AC_DEFINE_UNQUOTED(DNS_SERVERS, ["$DNS_SERVERS"], [Default DNS Servers])
 AC_SUBST(DNS_SERVERS)
 
+AC_ARG_WITH(default-dnssec,
+        AS_HELP_STRING([--with-default-dnssec=MODE],
+               [Default DNSSEC mode, defaults to "allow-downgrade"]),
+        [DEFAULT_DNSSEC_MODE="$withval"],
+        [DEFAULT_DNSSEC_MODE="allow-downgrade"])
+
+AS_CASE("x${DEFAULT_DNSSEC_MODE}",
+        [xno], [mode=DNSSEC_NO],
+        [xyes], [mode=DNSSEC_YES],
+        [xallow-downgrade], [mode=DNSSEC_ALLOW_DOWNGRADE],
+        AC_MSG_ERROR(Bad DNSSEC mode ${DEFAULT_DNSSEC_MODE}))
+AC_DEFINE_UNQUOTED(DEFAULT_DNSSEC_MODE, [$mode], [Default DNSSEC mode])
+AC_SUBST(DEFAULT_DNSSEC_MODE)
+
 # ------------------------------------------------------------------------------
 have_networkd=no
 AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd]))
@@ -1559,12 +1576,13 @@ AC_MSG_RESULT([
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         timesyncd:               ${have_timesyncd}
-        default NTP servers:     ${NTP_SERVERS}
+        Default NTP servers:     ${NTP_SERVERS}
         time epoch:              ${TIME_EPOCH}
         localed:                 ${have_localed}
         networkd:                ${have_networkd}
         resolved:                ${have_resolved}
-        default DNS servers:     ${DNS_SERVERS}
+        Default DNS servers:     ${DNS_SERVERS}
+        Default DNSSEC mode:     ${DEFAULT_DNSSEC_MODE}
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}

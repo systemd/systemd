@@ -193,6 +193,23 @@ bool dns_type_is_obsolete(uint16_t type) {
                       DNS_TYPE_NULL);
 }
 
+bool dns_type_needs_authentication(uint16_t type) {
+
+        /* Returns true for all (non-obsolete) RR types where records are not useful if they aren't
+         * authenticated. I.e. everything that contains crypto keys. */
+
+        return IN_SET(type,
+                      DNS_TYPE_CERT,
+                      DNS_TYPE_SSHFP,
+                      DNS_TYPE_IPSECKEY,
+                      DNS_TYPE_DS,
+                      DNS_TYPE_DNSKEY,
+                      DNS_TYPE_TLSA,
+                      DNS_TYPE_CDNSKEY,
+                      DNS_TYPE_OPENPGPKEY,
+                      DNS_TYPE_CAA);
+}
+
 int dns_type_to_af(uint16_t t) {
         switch (t) {
 
