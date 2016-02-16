@@ -26,6 +26,7 @@
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "list.h"
+#include "string-util.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -81,7 +82,7 @@ enum {
 struct DnsResourceKey {
         unsigned n_ref; /* (unsigned -1) for const keys, see below */
         uint16_t class, type;
-        char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
+        char *_name; /* don't access directy, use dns_resource_key_name()! */
 };
 
 /* Creates a temporary resource key. This is only useful to quickly
@@ -260,16 +261,6 @@ struct DnsResourceRecord {
         };
 };
 
-static inline const char* DNS_RESOURCE_KEY_NAME(const DnsResourceKey *key) {
-        if (!key)
-                return NULL;
-
-        if (key->_name)
-                return key->_name;
-
-        return (char*) key + sizeof(DnsResourceKey);
-}
-
 static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
         if (!rr)
                 return NULL;
@@ -297,12 +288,20 @@ int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
 DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
+const char* dns_resource_key_name(const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
 int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa);
-int dns_resource_key_to_string(const DnsResourceKey *key, char **ret);
+
+/* _DNS_{CLASS,TYPE}_STRING_MAX include one byte for NUL, which we use for space instead below.
+ * DNS_HOSTNAME_MAX does not include the NUL byte, so we need to add 1. */
+#define DNS_RESOURCE_KEY_STRING_MAX (_DNS_CLASS_STRING_MAX + _DNS_TYPE_STRING_MAX + DNS_HOSTNAME_MAX + 1)
+
+char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
+
+ssize_t dns_resource_record_data(DnsResourceRecord *rr, void **out);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
 static inline bool dns_key_is_shared(const DnsResourceKey *key) {

@@ -203,7 +203,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         assert(canonical);
         r = sd_bus_message_append(
                         reply, "st",
-                        DNS_RESOURCE_KEY_NAME(canonical->key),
+                        dns_resource_key_name(canonical->key),
                         SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, q->answer_authenticated));
         if (r < 0)
                 goto finish;
@@ -778,7 +778,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
 
         /* Note that above we appended the hostname as encoded in the
          * SRV, and here the canonical hostname this maps to. */
-        r = sd_bus_message_append(reply, "s", canonical ? DNS_RESOURCE_KEY_NAME(canonical->key) : rr->srv.name);
+        r = sd_bus_message_append(reply, "s", canonical ? dns_resource_key_name(canonical->key) : rr->srv.name);
         if (r < 0)
                 return r;
 
@@ -933,7 +933,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                 goto finish;
 
         assert(canonical);
-        r = dns_service_split(DNS_RESOURCE_KEY_NAME(canonical->key), &name, &type, &domain);
+        r = dns_service_split(dns_resource_key_name(canonical->key), &name, &type, &domain);
         if (r < 0)
                 goto finish;
 

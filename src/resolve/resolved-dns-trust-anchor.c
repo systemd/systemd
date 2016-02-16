@@ -651,7 +651,7 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
                 }
         }
 
-        a = hashmap_get(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(revoked_dnskey->key->class, DNS_TYPE_DS, DNS_RESOURCE_KEY_NAME(revoked_dnskey->key)));
+        a = hashmap_get(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(revoked_dnskey->key->class, DNS_TYPE_DS, dns_resource_key_name(revoked_dnskey->key)));
         if (a) {
                 DnsResourceRecord *anchor;
 
@@ -698,7 +698,7 @@ int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey,
         /* Could this be interesting to us at all? If not,
          * there's no point in looking for and verifying a
          * self-signed RRSIG. */
-        if (!dns_trust_anchor_knows_domain_positive(d, DNS_RESOURCE_KEY_NAME(dnskey->key)))
+        if (!dns_trust_anchor_knows_domain_positive(d, dns_resource_key_name(dnskey->key)))
                 return 0;
 
         /* Look for a self-signed RRSIG in the other rrs belonging to this DNSKEY */

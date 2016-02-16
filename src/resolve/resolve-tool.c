@@ -44,6 +44,14 @@ static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
 
+typedef enum RawType {
+        RAW_NONE,
+        RAW_DATA,
+        RAW_PACKET,
+} RawType;
+
+static RawType arg_raw = RAW_NONE;
+
 static enum {
         MODE_RESOLVE_HOST,
         MODE_RESOLVE_RECORD,
@@ -331,6 +339,50 @@ static int parse_address(const char *s, int *family, union in_addr_union *addres
         return 0;
 }
 
+static int output_rr_packet(const void *d, size_t l, int ifindex) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+        char ifname[IF_NAMESIZE] = "";
+
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0);
+        if (r < 0)
+                return log_oom();
+
+        p->refuse_compression = true;
+
+        r = dns_packet_append_blob(p, d, l, NULL);
+        if (r < 0)
+                return log_oom();
+
+        r = dns_packet_read_rr(p, &rr, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse RR: %m");
+
+        if (arg_raw == RAW_DATA) {
+                void *data;
+                ssize_t k;
+
+                k = dns_resource_record_data(rr, &data);
+                if (k < 0)
+                        return log_error_errno(k, "Cannot dump RR: %m");
+                fwrite(data, 1, k, stdout);
+        } else {
+                const char *s;
+
+                s = dns_resource_record_to_string(rr);
+                if (!s)
+                        return log_oom();
+
+                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                        log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
+
+                printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", ifname);
+        }
+
+        return 0;
+}
+
 static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_t type) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -376,9 +428,6 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_enter_container(reply, 'r', "iqqay")) > 0) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-                _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-                const char *s;
                 uint16_t c, t;
                 int ifindex;
                 const void *d;
@@ -398,29 +447,17 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0);
-                if (r < 0)
-                        return log_oom();
+                if (arg_raw == RAW_PACKET) {
+                        uint64_t u64 = htole64(l);
 
-                p->refuse_compression = true;
+                        fwrite(&u64, sizeof(u64), 1, stdout);
+                        fwrite(d, 1, l, stdout);
+                } else {
+                        r = output_rr_packet(d, l, ifindex);
+                        if (r < 0)
+                                return r;
+                }
 
-                r = dns_packet_append_blob(p, d, l, NULL);
-                if (r < 0)
-                        return log_oom();
-
-                r = dns_packet_read_rr(p, &rr, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse RR: %m");
-
-                s = dns_resource_record_to_string(rr);
-                if (!s)
-                        return log_oom();
-
-                ifname[0] = 0;
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                        log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
-
-                printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", ifname);
                 n++;
         }
         if (r < 0)
@@ -959,27 +996,33 @@ static void help_dns_classes(void) {
 }
 
 static void help(void) {
-        printf("%s [OPTIONS...] NAME...\n"
-               "%s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n\n"
+        printf("%1$s [OPTIONS...] HOSTNAME|ADDRESS...\n"
+               "%1$s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n"
+               "%1$s [OPTIONS...] --openpgp EMAIL@DOMAIN...\n"
+               "%1$s [OPTIONS...] --statistics\n"
+               "%1$s [OPTIONS...] --reset-statistics\n"
+               "\n"
                "Resolve domain names, IPv4 and IPv6 addresses, DNS resource records, and services.\n\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "  -4                          Resolve IPv4 addresses\n"
-               "  -6                          Resolve IPv6 addresses\n"
-               "  -i --interface=INTERFACE    Look on interface\n"
-               "  -p --protocol=PROTOCOL|help Look via protocol\n"
-               "  -t --type=TYPE|help         Query RR with DNS type\n"
-               "  -c --class=CLASS|help       Query RR with DNS class\n"
-               "     --service                Resolve service (SRV)\n"
-               "     --service-address=BOOL   Do [not] resolve address for services\n"
-               "     --service-txt=BOOL       Do [not] resolve TXT records for services\n"
-               "     --openpgp                Query OpenPGP public key\n"
-               "     --cname=BOOL             Do [not] follow CNAME redirects\n"
-               "     --search=BOOL            Do [not] use search domains\n"
-               "     --legend=BOOL            Do [not] print column headers and meta information\n"
-               "     --statistics             Show resolver statistics\n"
-               "     --reset-statistics       Reset resolver statistics\n"
-               , program_invocation_short_name, program_invocation_short_name);
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "  -4                        Resolve IPv4 addresses\n"
+               "  -6                        Resolve IPv6 addresses\n"
+               "  -i --interface=INTERFACE  Look on interface\n"
+               "  -p --protocol=PROTO|help  Look via protocol\n"
+               "  -t --type=TYPE|help       Query RR with DNS type\n"
+               "  -c --class=CLASS|help     Query RR with DNS class\n"
+               "     --service              Resolve service (SRV)\n"
+               "     --service-address=BOOL Resolve address for services (default: yes)\n"
+               "     --service-txt=BOOL     Resolve TXT records for services (default: yes)\n"
+               "     --openpgp              Query OpenPGP public key\n"
+               "     --cname=BOOL           Follow CNAME redirects (default: yes)\n"
+               "     --search=BOOL          Use search domains for single-label names\n"
+               "                                                              (default: yes)\n"
+               "     --raw[=data|packet]    Dump the answer as binary data\n"
+               "     --legend=BOOL          Print headers and additional info (default: yes)\n"
+               "     --statistics           Show resolver statistics\n"
+               "     --reset-statistics     Reset resolver statistics\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -991,6 +1034,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
                 ARG_OPENPGP,
+                ARG_RAW,
                 ARG_SEARCH,
                 ARG_STATISTICS,
                 ARG_RESET_STATISTICS,
@@ -1009,6 +1053,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "service-address",  required_argument, NULL, ARG_SERVICE_ADDRESS  },
                 { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
                 { "openpgp",          no_argument,       NULL, ARG_OPENPGP          },
+                { "raw",              optional_argument, NULL, ARG_RAW              },
                 { "search",           required_argument, NULL, ARG_SEARCH           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
                 { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
@@ -1120,6 +1165,24 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_OPENPGP:
                         arg_mode = MODE_RESOLVE_OPENPGP;
+                        break;
+
+                case ARG_RAW:
+                        if (on_tty()) {
+                                log_error("Refusing to write binary data to tty.");
+                                return -ENOTTY;
+                        }
+
+                        if (optarg == NULL || streq(optarg, "data"))
+                                arg_raw = RAW_DATA;
+                        else if (streq(optarg, "packet"))
+                                arg_raw = RAW_PACKET;
+                        else {
+                                log_error("Unknown --raw specifier \"%s\".", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_legend = false;
                         break;
 
                 case ARG_CNAME:
