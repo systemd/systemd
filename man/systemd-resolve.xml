@@ -357,7 +357,7 @@ d08ee310438ca124a6149ea5cc21b6313b390dce485576eff96f8722._openpgpkey.fedoraproje
       <literal>:443</literal> could be skipped)</title>
 
       <programlisting>$ systemd-resolve --tlsa=tcp fedoraproject.org:443
-_443._tcp.fedoraproject.org IN TLSA 0 0 1 GUAL5bejH7czkXcAeJ0vCiRxwMnVBsDlBMBsFtfLF8A=
+_443._tcp.fedoraproject.org IN TLSA 0 0 1 19400be5b7a31fb733917700789d2f0a2471c0c9d506c0e504c06c16d7cb17c0
         -- Cert. usage: CA constraint
         -- Selector: Full Certificate
         -- Matching type: SHA-256
