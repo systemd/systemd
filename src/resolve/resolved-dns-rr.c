@@ -1218,12 +1218,15 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         case DNS_TYPE_MX:
         case DNS_TYPE_LOC:
         case DNS_TYPE_DS:
-        case DNS_TYPE_SSHFP:
         case DNS_TYPE_DNSKEY:
         case DNS_TYPE_RRSIG:
         case DNS_TYPE_NSEC:
         case DNS_TYPE_NSEC3:
                 return -EINVAL;
+
+        case DNS_TYPE_SSHFP:
+                *out = rr->sshfp.fingerprint;
+                return rr->sshfp.fingerprint_size;
 
         case DNS_TYPE_TLSA:
                 *out = rr->tlsa.data;
