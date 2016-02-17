@@ -574,9 +574,7 @@ int config_parse_exec(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *cmd = NULL;
         ExecCommand **e = data;
-        Unit *u = userdata;
         const char *p;
         bool semicolon;
         int r;
@@ -585,7 +583,6 @@ int config_parse_exec(
         assert(lvalue);
         assert(rvalue);
         assert(e);
-        assert(u);
 
         e += ltype;
         rvalue += strspn(rvalue, WHITESPACE);
@@ -596,13 +593,7 @@ int config_parse_exec(
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &cmd);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", rvalue);
-                return 0;
-        }
-
-        p = cmd;
+        p = rvalue;
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
                 bool separate_argv0 = false, ignore = false;
