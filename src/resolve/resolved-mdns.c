@@ -106,7 +106,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                 dns_scope_check_conflicts(scope, p);
 
                 DNS_ANSWER_FOREACH(rr, p->answer) {
-                        const char *name = DNS_RESOURCE_KEY_NAME(rr->key);
+                        const char *name = dns_resource_key_name(rr->key);
                         DnsTransaction *t;
 
                         /* If the received reply packet contains ANY record that is not .local or .in-addr.arpa,

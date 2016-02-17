@@ -514,8 +514,8 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                  * that those should be resolved via LLMNR or search
                  * path only, and should not be leaked onto the
                  * internet. */
-                return !(dns_name_is_single_label(DNS_RESOURCE_KEY_NAME(key)) ||
-                         dns_name_is_root(DNS_RESOURCE_KEY_NAME(key)));
+                return !(dns_name_is_single_label(dns_resource_key_name(key)) ||
+                         dns_name_is_root(dns_resource_key_name(key)));
         }
 
         /* On mDNS and LLMNR, send A and AAAA queries only on the
