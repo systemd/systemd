@@ -149,11 +149,14 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret);
 
 int journal_file_set_offline(JournalFile *f, bool wait);
+bool journal_file_is_offlining(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
+void journal_file_close_set(Set *s);
 
 int journal_file_open_reliably(
                 const char *fname,
@@ -163,6 +166,7 @@ int journal_file_open_reliably(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret);
 
@@ -236,7 +240,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal);
+int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred_closes);
 
 void journal_file_post_change(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);

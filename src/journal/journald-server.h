@@ -130,6 +130,8 @@ struct Server {
 
         MMapCache *mmap;
 
+        Set *deferred_closes;
+
         struct udev *udev;
 
         uint64_t *kernel_seqnum;

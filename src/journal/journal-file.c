@@ -39,6 +39,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "sd-event.h"
+#include "set.h"
 #include "string-util.h"
 #include "xattr-util.h"
 
@@ -310,6 +311,18 @@ static int journal_file_set_online(JournalFile *f) {
         }
 }
 
+bool journal_file_is_offlining(JournalFile *f) {
+        assert(f);
+
+        __sync_synchronize();
+
+        if (f->offline_state == OFFLINE_DONE ||
+            f->offline_state == OFFLINE_JOINED)
+                return false;
+
+        return true;
+}
+
 JournalFile* journal_file_close(JournalFile *f) {
         assert(f);
 
@@ -372,6 +385,15 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         free(f);
         return NULL;
+}
+
+void journal_file_close_set(Set *s) {
+        JournalFile *f;
+
+        assert(s);
+
+        while ((f = set_steal_first(s)))
+                (void) journal_file_close(f);
 }
 
 static int journal_file_init_header(JournalFile *f, JournalFile *template) {
@@ -2881,6 +2903,7 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -3000,6 +3023,9 @@ int journal_file_open(
         f->header = h;
 
         if (!newly_created) {
+                if (deferred_closes)
+                        journal_file_close_set(deferred_closes);
+
                 r = journal_file_verify_header(f);
                 if (r < 0)
                         goto fail;
@@ -3074,7 +3100,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
+int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred_closes) {
         _cleanup_free_ char *p = NULL;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -3114,8 +3140,13 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
          * we archive them */
         old_file->defrag_on_close = true;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
-        journal_file_close(old_file);
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, deferred_closes, old_file, &new_file);
+
+        if (deferred_closes &&
+            set_put(deferred_closes, old_file) >= 0)
+                (void) journal_file_set_offline(old_file, false);
+        else
+                (void) journal_file_close(old_file);
 
         *f = new_file;
         return r;
@@ -3129,6 +3160,7 @@ int journal_file_open_reliably(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -3136,7 +3168,7 @@ int journal_file_open_reliably(
         size_t l;
         _cleanup_free_ char *p = NULL;
 
-        r = journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
+        r = journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* corrupted */
                     -ENODATA,           /* truncated */
@@ -3177,7 +3209,7 @@ int journal_file_open_reliably(
 
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, template, ret);
+        return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {

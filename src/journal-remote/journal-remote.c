@@ -203,7 +203,7 @@ static int open_output(Writer *w, const char* host) {
                                        O_RDWR|O_CREAT, 0640,
                                        arg_compress, arg_seal,
                                        &w->metrics,
-                                       w->mmap,
+                                       w->mmap, NULL,
                                        NULL, &w->journal);
         if (r < 0)
                 log_error_errno(r, "Failed to open output journal %s: %m",

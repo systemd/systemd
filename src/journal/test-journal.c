@@ -42,7 +42,7 @@ static void test_non_empty(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 
@@ -104,8 +104,8 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_move_to_entry_by_seqnum(f, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
-        journal_file_rotate(&f, true, true);
-        journal_file_rotate(&f, true, true);
+        journal_file_rotate(&f, true, true, NULL);
+        journal_file_rotate(&f, true, true, NULL);
 
         (void) journal_file_close(f);
 
@@ -131,13 +131,13 @@ static void test_empty(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, false, false, NULL, NULL, NULL, &f1) == 0);
+        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, false, false, NULL, NULL, NULL, NULL, &f1) == 0);
 
-        assert_se(journal_file_open("test-compress.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &f2) == 0);
+        assert_se(journal_file_open("test-compress.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, NULL, &f2) == 0);
 
-        assert_se(journal_file_open("test-seal.journal", O_RDWR|O_CREAT, 0666, false, true, NULL, NULL, NULL, &f3) == 0);
+        assert_se(journal_file_open("test-seal.journal", O_RDWR|O_CREAT, 0666, false, true, NULL, NULL, NULL, NULL, &f3) == 0);
 
-        assert_se(journal_file_open("test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f4) == 0);
+        assert_se(journal_file_open("test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, NULL, &f4) == 0);
 
         journal_file_print_header(f1);
         puts("");
