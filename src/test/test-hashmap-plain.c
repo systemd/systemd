@@ -323,26 +323,29 @@ static void test_hashmap_remove_value(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         char *r;
 
-        r = hashmap_remove_value(NULL, "key 1", (void*) "val 1");
+        char val1[] = "val 1";
+        char val2[] = "val 2";
+
+        r = hashmap_remove_value(NULL, "key 1", val1);
         assert_se(r == NULL);
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
 
-        r = hashmap_remove_value(m, "key 1", (void*) "val 1");
+        r = hashmap_remove_value(m, "key 1", val1);
         assert_se(r == NULL);
 
-        hashmap_put(m, "key 1", (void*) "val 1");
-        hashmap_put(m, "key 2", (void*) "val 2");
+        hashmap_put(m, "key 1", val1);
+        hashmap_put(m, "key 2", val2);
 
-        r = hashmap_remove_value(m, "key 1", (void*) "val 1");
+        r = hashmap_remove_value(m, "key 1", val1);
         assert_se(streq(r, "val 1"));
 
         r = hashmap_get(m, "key 2");
         assert_se(streq(r, "val 2"));
         assert_se(!hashmap_get(m, "key 1"));
 
-        r = hashmap_remove_value(m, "key 2", (void*) "val 1");
+        r = hashmap_remove_value(m, "key 2", val1);
         assert_se(r == NULL);
 
         r = hashmap_get(m, "key 2");
