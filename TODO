@@ -33,6 +33,14 @@ Janitorial Clean-ups:
 
 Features:
 
+* when using UTF8, ellipsize with "…" rather than "...", so that we can show more contents before truncating
+
+* machinectl remove --hidden + machinectl remove --all
+
+* move specifier expansion from service_spawn() into load-fragment.c
+
+* optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
+
 * resolved: maybe, after all, implement local listening for DNS packets on port
   53.
 
@@ -773,7 +781,6 @@ Features:
    - work with non-Ethernet devices
    - add support for more bond options
    - dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?
-   - add LLDP client side support
    - the DHCP lease data (such as NTP/DNS) is still made available when
      a carrier is lost on a link. It should be removed instantly.
    - expose in the API the following bits:
