@@ -57,7 +57,7 @@ int lldp_network_bind_raw_socket(int ifindex) {
 
         assert(ifindex > 0);
 
-        fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+        fd = socket(PF_PACKET, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, htons(ETHERTYPE_LLDP));
         if (fd < 0)
                 return -errno;
 
