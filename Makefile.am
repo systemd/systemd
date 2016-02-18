@@ -5208,7 +5208,6 @@ bin_PROGRAMS += \
 tests += \
 	test-dns-packet \
 	test-resolve-tables \
-	test-dns-domain \
 	test-dnssec
 
 manual_tests += \
