@@ -263,6 +263,10 @@ static void test_exec_ioschedulingclass(Manager *m) {
         test(m, "exec-ioschedulingclass-best-effort.service", 0, CLD_EXITED);
 }
 
+static void test_exec_spec_interpolation(Manager *m) {
+        test(m, "exec-spec-interpolation.service", 0, CLD_EXITED);
+}
+
 int main(int argc, char *argv[]) {
         test_function_t tests[] = {
                 test_exec_workingdirectory,
@@ -284,6 +288,7 @@ int main(int argc, char *argv[]) {
                 test_exec_capabilityambientset,
                 test_exec_oomscoreadjust,
                 test_exec_ioschedulingclass,
+                test_exec_spec_interpolation,
                 NULL,
         };
         test_function_t *test = NULL;
