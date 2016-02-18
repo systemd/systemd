@@ -103,6 +103,8 @@ static void test_catalog_import_one(void) {
         assert_se(hashmap_size(h) == 1);
 
         HASHMAP_FOREACH(payload, h, j) {
+                printf("expect: %s\n", expect);
+                printf("actual: %s\n", payload);
                 assert_se(streq(expect, payload));
         }
 }
