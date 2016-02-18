@@ -65,6 +65,7 @@ struct Link {
 
         int ifindex;
         char *ifname;
+        unsigned short iftype;
         char *state_file;
         struct ether_addr mac;
         struct in6_addr ipv6ll_address;

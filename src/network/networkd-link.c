@@ -89,7 +89,12 @@ bool link_ipv6ll_enabled(Link *link) {
 }
 
 bool link_lldp_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (link->iftype != ARPHRD_ETHER)
                 return false;
 
         if (!link->network)
@@ -300,6 +305,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         uint16_t type;
         const char *ifname;
         int r, ifindex;
+        unsigned short iftype;
 
         assert(manager);
         assert(message);
@@ -317,6 +323,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         else if (ifindex <= 0)
                 return -EINVAL;
 
+        r = sd_rtnl_message_link_get_type(message, &iftype);
+        if (r < 0)
+                return r;
+
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &ifname);
         if (r < 0)
                 return r;
@@ -330,6 +340,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         link->state = LINK_STATE_PENDING;
         link->rtnl_extended_attrs = true;
         link->ifindex = ifindex;
+        link->iftype = iftype;
         link->ifname = strdup(ifname);
         if (!link->ifname)
                 return -ENOMEM;
@@ -338,21 +349,17 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 log_link_debug(link, "MAC address not found for new device, continuing without");
 
-        r = asprintf(&link->state_file, "/run/systemd/netif/links/%d",
-                     link->ifindex);
+        r = asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex);
         if (r < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lease_file, "/run/systemd/netif/leases/%d",
-                     link->ifindex);
+        r = asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex);
         if (r < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d",
-                     link->ifindex);
+        r = asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex);
         if (r < 0)
                 return -ENOMEM;
-
 
         r = hashmap_ensure_allocated(&manager->links, NULL);
         if (r < 0)
