@@ -495,6 +495,14 @@ if test "x$enable_apparmor" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_APPARMOR, [test "$have_apparmor" = "yes"])
 
+have_wheel_group=no
+AC_ARG_ENABLE(wheel-group, AS_HELP_STRING([--disable-wheel-group], [disable wheel group]))
+AS_IF([test "x$enable_wheel_group" != "xno"], [
+        AC_DEFINE(ENABLE_WHEEL_GROUP, 1, [Define if the ACL for wheel group should be enabled])
+        have_wheel_group=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_WHEEL_GROUP"
+])
+
 
 AC_ARG_WITH(debug-shell,
         AS_HELP_STRING([--with-debug-shell=PATH],
@@ -1631,6 +1639,7 @@ AC_MSG_RESULT([
         Zsh completions dir:     ${with_zshcompletiondir}
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
+        Wheel group:             ${have_wheel_group}
         Debug shell:             ${SUSHELL} @ ${DEBUGTTY}
         TTY GID:                 ${TTY_GID}
         Maximum System UID:      ${SYSTEM_UID_MAX}
