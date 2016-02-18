@@ -343,9 +343,6 @@ int catalog_import_file(Hashmap *h, const char *path) {
                                 empty_line = false;
                                 id = jd;
 
-                                if (payload)
-                                        payload[0] = '\0';
-
                                 continue;
                         }
                 }
