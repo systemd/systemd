@@ -86,6 +86,13 @@
     <cmdsynopsis>
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> --tlsa</command>
+      <arg choice="plain"><replaceable>DOMAIN<optional>:PORT</optional></replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-resolve</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <command> --statistics</command>
     </cmdsynopsis>
 
@@ -121,9 +128,14 @@
     is assumed to be a domain name, that is already prefixed with an SRV type, and an SRV lookup is done (no
     TXT).</para>
 
-    <para>The <option>--openpgp</option> switch may be use to query PGP keys stored as the
+    <para>The <option>--openpgp</option> switch may be used to query PGP keys stored as
     <ulink url="https://tools.ietf.org/html/draft-wouters-dane-openpgp-02">OPENPGPKEY</ulink> resource records.
     When this option is specified one or more e-mail address must be specified.</para>
+
+    <para>The <option>--tlsa</option> switch maybe be used to query TLS public
+    keys stored as
+    <ulink url="https://tools.ietf.org/html/rfc6698">TLSA</ulink> resource records.
+    When this option is specified one or more domain names must be specified.</para>
 
     <para>The <option>--statistics</option> switch may be used to show resolver statistics, including information about
     the number of successful and failed DNSSEC validations.</para>
@@ -214,6 +226,20 @@
         <listitem><para>Enables OPENPGPKEY resource record resolution (see above). Specified e-mail
         addresses are converted to the corresponding DNS domain name, and any OPENPGPKEY keys are
         printed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tlsa</option></term>
+
+        <listitem><para>Enables TLSA resource record resolution (see above).
+        A query will be performed for each of the specified names prefixed with
+        the port and family
+        (<literal>_<replaceable>port</replaceable>._<replaceable>family</replaceable>.<replaceable>domain</replaceable></literal>).
+        The port number may be specified after a colon
+        (<literal>:</literal>), otherwise <constant>443</constant> will be used
+        by default. The family may be specified as an argument after
+        <option>--tlsa</option>, otherwise <constant>tcp</constant> will be
+        used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -323,6 +349,18 @@ d08ee310438ca124a6149ea5cc21b6313b390dce485576eff96f8722._openpgpkey.fedoraproje
         mQINBFBHPMsBEACeInGYJCb+7TurKfb6wGyTottCDtiSJB310i37/6ZYoeIay/5soJjlMyf
         MFQ9T2XNT/0LM6gTa0MpC1st9LnzYTMsT6tzRly1D1UbVI6xw0g0vE5y2Cjk3xUwAynCsSs
         ...
+</programlisting>
+    </example>
+
+    <example>
+      <title>Retrieve a TLS key (<literal>=tcp</literal> and
+      <literal>:443</literal> could be skipped)</title>
+
+      <programlisting>$ systemd-resolve --tlsa=tcp fedoraproject.org:443
+_443._tcp.fedoraproject.org IN TLSA 0 0 1 GUAL5bejH7czkXcAeJ0vCiRxwMnVBsDlBMBsFtfLF8A=
+        -- Cert. usage: CA constraint
+        -- Selector: Full Certificate
+        -- Matching type: SHA-256
 </programlisting>
     </example>
   </refsect1>

@@ -44,12 +44,19 @@ static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
 
+typedef enum ServiceFamily {
+        SERVICE_FAMILY_TCP,
+        SERVICE_FAMILY_UDP,
+        SERVICE_FAMILY_SCTP,
+        _SERVICE_FAMILY_INVALID = -1,
+} ServiceFamily;
+static ServiceFamily arg_service_family = SERVICE_FAMILY_TCP;
+
 typedef enum RawType {
         RAW_NONE,
         RAW_PAYLOAD,
         RAW_PACKET,
 } RawType;
-
 static RawType arg_raw = RAW_NONE;
 
 static enum {
@@ -57,9 +64,33 @@ static enum {
         MODE_RESOLVE_RECORD,
         MODE_RESOLVE_SERVICE,
         MODE_RESOLVE_OPENPGP,
+        MODE_RESOLVE_TLSA,
         MODE_STATISTICS,
         MODE_RESET_STATISTICS,
 } arg_mode = MODE_RESOLVE_HOST;
+
+static ServiceFamily service_family_from_string(const char *s) {
+        if (s == NULL || streq(s, "tcp"))
+                return SERVICE_FAMILY_TCP;
+        if (streq(s, "udp"))
+                return SERVICE_FAMILY_UDP;
+        if (streq(s, "sctp"))
+                return SERVICE_FAMILY_SCTP;
+        return _SERVICE_FAMILY_INVALID;
+}
+
+static const char* service_family_to_string(ServiceFamily service) {
+        switch(service) {
+        case SERVICE_FAMILY_TCP:
+                return "_tcp";
+        case SERVICE_FAMILY_UDP:
+                return "_udp";
+        case SERVICE_FAMILY_SCTP:
+                return "_sctp";
+        default:
+                assert_not_reached("invalid service");
+        }
+}
 
 static void print_source(uint64_t flags, usec_t rtt) {
         char rtt_str[FORMAT_TIMESTAMP_MAX];
@@ -844,6 +875,38 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
                               arg_type ?: DNS_TYPE_OPENPGPKEY);
 }
 
+static int resolve_tlsa(sd_bus *bus, const char *address) {
+        const char *port;
+        uint16_t port_num = 443;
+        _cleanup_free_ char *full = NULL;
+        int r;
+
+        assert(bus);
+        assert(address);
+
+        port = strrchr(address, ':');
+        if (port) {
+                r = safe_atou16(port + 1, &port_num);
+                if (r < 0 || port_num == 0)
+                        return log_error_errno(r, "Invalid port \"%s\".", port + 1);
+
+                address = strndupa(address, port - address);
+        }
+
+        r = asprintf(&full, "_%u.%s.%s",
+                     port_num,
+                     service_family_to_string(arg_service_family),
+                     address);
+        if (r < 0)
+                return log_oom();
+
+        log_debug("Looking up \"%s\".", full);
+
+        return resolve_record(bus, full,
+                              arg_class ?: DNS_CLASS_IN,
+                              arg_type ?: DNS_TYPE_TLSA);
+}
+
 static int show_statistics(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1031,6 +1094,7 @@ static void help(void) {
                "     --service-address=BOOL Resolve address for services (default: yes)\n"
                "     --service-txt=BOOL     Resolve TXT records for services (default: yes)\n"
                "     --openpgp              Query OpenPGP public key\n"
+               "     --tlsa                 Query TLS public key\n"
                "     --cname=BOOL           Follow CNAME redirects (default: yes)\n"
                "     --search=BOOL          Use search domains for single-label names\n"
                "                                                              (default: yes)\n"
@@ -1050,6 +1114,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
                 ARG_OPENPGP,
+                ARG_TLSA,
                 ARG_RAW,
                 ARG_SEARCH,
                 ARG_STATISTICS,
@@ -1069,6 +1134,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "service-address",  required_argument, NULL, ARG_SERVICE_ADDRESS  },
                 { "service-txt",      required_argument, NULL, ARG_SERVICE_TXT      },
                 { "openpgp",          no_argument,       NULL, ARG_OPENPGP          },
+                { "tlsa",             optional_argument, NULL, ARG_TLSA             },
                 { "raw",              optional_argument, NULL, ARG_RAW              },
                 { "search",           required_argument, NULL, ARG_SEARCH           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
@@ -1183,6 +1249,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_mode = MODE_RESOLVE_OPENPGP;
                         break;
 
+                case ARG_TLSA:
+                        arg_mode = MODE_RESOLVE_TLSA;
+                        arg_service_family = service_family_from_string(optarg);
+                        if (arg_service_family < 0) {
+                                log_error("Unknown service family \"%s\".", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
                 case ARG_RAW:
                         if (on_tty()) {
                                 log_error("Refusing to write binary data to tty.");
@@ -1261,7 +1336,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_type != 0 && arg_mode != MODE_RESOLVE_RECORD) {
+        if (arg_type != 0 && arg_mode == MODE_RESOLVE_SERVICE) {
                 log_error("--service and --type= may not be combined.");
                 return -EINVAL;
         }
@@ -1373,6 +1448,24 @@ int main(int argc, char **argv) {
                         int k;
 
                         k = resolve_openpgp(bus, argv[optind++]);
+                        if (k < 0)
+                                r = k;
+                }
+                break;
+
+        case MODE_RESOLVE_TLSA:
+                if (argc < optind + 1) {
+                        log_error("Domain name required.");
+                        r = -EINVAL;
+                        goto finish;
+
+                }
+
+                r = 0;
+                while (optind < argc) {
+                        int k;
+
+                        k = resolve_tlsa(bus, argv[optind++]);
                         if (k < 0)
                                 r = k;
                 }
