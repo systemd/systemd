@@ -58,7 +58,7 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
-static int link_get_type_string(int iftype, sd_device *d, char **ret) {
+static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret) {
         const char *t;
         char *p;
 
@@ -106,7 +106,7 @@ static int link_get_type_string(int iftype, sd_device *d, char **ret) {
 typedef struct LinkInfo {
         const char *name;
         int ifindex;
-        unsigned iftype;
+        unsigned short iftype;
 } LinkInfo;
 
 static int link_info_compare(const void *a, const void *b) {
@@ -123,7 +123,7 @@ static int decode_and_sort_links(sd_netlink_message *m, LinkInfo **ret) {
 
         for (i = m; i; i = sd_netlink_message_next(i)) {
                 const char *name;
-                unsigned iftype;
+                unsigned short iftype;
                 uint16_t type;
                 int ifindex;
 
@@ -515,7 +515,7 @@ static int link_status_one(
         _cleanup_strv_free_ char **carrier_bound_to = NULL;
         _cleanup_strv_free_ char **carrier_bound_by = NULL;
         struct ether_addr e;
-        unsigned iftype;
+        unsigned short iftype;
         int r, ifindex;
         bool have_mac;
         uint32_t mtu;
