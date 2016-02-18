@@ -1476,8 +1476,6 @@ tests += \
 	test-af-list \
 	test-arphrd-list \
 	test-dns-domain \
-	test-dns-packet \
-	test-resolve-tables \
 	test-install-root \
 	test-rlimit-util \
 	test-signal-util
@@ -5208,6 +5206,8 @@ bin_PROGRAMS += \
 	systemd-resolve
 
 tests += \
+	test-dns-packet \
+	test-resolve-tables \
 	test-dns-domain \
 	test-dnssec
 
