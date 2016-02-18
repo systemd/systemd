@@ -18,7 +18,6 @@
 ***/
 
 #include <netinet/ether.h>
-#include <linux/netdevice.h>
 
 #include "sd-netlink.h"
 

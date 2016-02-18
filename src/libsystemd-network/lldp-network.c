@@ -19,7 +19,7 @@
 ***/
 
 #include <linux/filter.h>
-#include <linux/if_ether.h>
+#include <netinet/if_ether.h>
 
 #include "fd-util.h"
 #include "lldp-internal.h"
