@@ -1622,7 +1622,7 @@ static int link_new_bound_by_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH (carrier, m->links, i) {
+        HASHMAP_FOREACH(carrier, m->links, i) {
                 if (!carrier->network)
                         continue;
 
@@ -1641,7 +1641,7 @@ static int link_new_bound_by_list(Link *link) {
         if (list_updated)
                 link_dirty(link);
 
-        HASHMAP_FOREACH (carrier, link->bound_by_links, i) {
+        HASHMAP_FOREACH(carrier, link->bound_by_links, i) {
                 r = link_put_carrier(carrier, link, &carrier->bound_to_links);
                 if (r < 0)
                         return r;
@@ -2631,7 +2631,6 @@ int link_carrier_reset(Link *link) {
         return 0;
 }
 
-
 int link_update(Link *link, sd_netlink_message *m) {
         struct ether_addr mac;
         const char *ifname;
@@ -2752,10 +2751,32 @@ int link_update(Link *link, sd_netlink_message *m) {
                 r = link_carrier_lost(link);
                 if (r < 0)
                         return r;
-
         }
 
         return 0;
+}
+
+static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
+        bool space = false;
+        Iterator i;
+        Link *link;
+
+        assert(f);
+        assert(prefix);
+
+        if (hashmap_isempty(h))
+                return;
+
+        fputs(prefix, f);
+        HASHMAP_FOREACH(link, h, i) {
+                if (space)
+                        fputc(' ', f);
+
+                fprintf(f, "%i", link->ifindex);
+                space = true;
+        }
+
+        fputc('\n', f);
 }
 
 int link_save(Link *link) {
@@ -2958,27 +2979,8 @@ int link_save(Link *link) {
                 fputc('\n', f);
         }
 
-        if (!hashmap_isempty(link->bound_to_links)) {
-                Link *carrier;
-                bool space = false;
-
-                fputs("CARRIER_BOUND_TO=", f);
-                HASHMAP_FOREACH(carrier, link->bound_to_links, i)
-                        fputs_with_space(f, carrier->ifname, NULL, &space);
-
-                fputc('\n', f);
-        }
-
-        if (!hashmap_isempty(link->bound_by_links)) {
-                Link *carrier;
-                bool space = false;
-
-                fputs("CARRIER_BOUND_BY=", f);
-                HASHMAP_FOREACH(carrier, link->bound_by_links, i)
-                        fputs_with_space(f, carrier->ifname, NULL, &space);
-
-                fputc('\n', f);
-        }
+        print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
+        print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
 
         if (link->dhcp_lease) {
                 struct in_addr address;
