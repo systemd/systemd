@@ -150,16 +150,16 @@ bool is_localhost(const char *hostname) {
         assert(hostname);
 
         /* This tries to identify local host and domain names
-         * described in RFC6761 plus the redhatism of .localdomain */
+         * described in RFC6761 plus the redhatism of localdomain */
 
         return strcaseeq(hostname, "localhost") ||
                strcaseeq(hostname, "localhost.") ||
-               strcaseeq(hostname, "localdomain.") ||
-               strcaseeq(hostname, "localdomain") ||
+               strcaseeq(hostname, "localhost.localdomain") ||
+               strcaseeq(hostname, "localhost.localdomain.") ||
                endswith_no_case(hostname, ".localhost") ||
                endswith_no_case(hostname, ".localhost.") ||
-               endswith_no_case(hostname, ".localdomain") ||
-               endswith_no_case(hostname, ".localdomain.");
+               endswith_no_case(hostname, ".localhost.localdomain") ||
+               endswith_no_case(hostname, ".localhost.localdomain.");
 }
 
 bool is_gateway_hostname(const char *hostname) {
