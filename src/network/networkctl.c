@@ -197,13 +197,13 @@ static void setup_state_to_color(const char *state, const char **on, const char 
                 *on = *off = "";
 }
 
-static int list_links(int argc, char *argv[], void *userdata) {
+static int acquire_link_info(LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_free_ LinkInfo *links = NULL;
-        int r, c, i;
 
-        pager_open_if_enabled();
+        int r;
+
+        assert(ret);
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -221,12 +221,30 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
-        if (arg_legend)
-                printf("%3s %-16s %-18s %-11s %-10s\n", "IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
+        r = decode_and_sort_links(reply, ret);
+        if (r < 0)
+                return rtnl_log_parse_error(r);
 
-        c = decode_and_sort_links(reply, &links);
+        return r;
+}
+
+static int list_links(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ LinkInfo *links = NULL;
+        int c, i;
+
+        c = acquire_link_info(&links);
         if (c < 0)
-                return rtnl_log_parse_error(c);
+                return c;
+
+        pager_open_if_enabled();
+
+        if (arg_legend)
+                printf("%3s %-16s %-18s %-11s %-10s\n",
+                       "IDX",
+                       "LINK",
+                       "TYPE",
+                       "OPERATIONAL",
+                       "SETUP");
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
@@ -772,32 +790,14 @@ static char *lldp_capabilities_to_string(uint16_t x) {
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int i, r, c, j;
 
-        pager_open_if_enabled();
-
-        r = sd_netlink_open(&rtnl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
-
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        r = sd_netlink_call(rtnl, req, 0, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate links: %m");
-
-        c = decode_and_sort_links(reply, &links);
+        c = acquire_link_info(&links);
         if (c < 0)
-                return rtnl_log_parse_error(c);
+                return c;
+
+        pager_open_if_enabled();
 
         if (arg_legend)
                 printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
