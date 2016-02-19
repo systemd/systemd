@@ -133,8 +133,6 @@ int sd_network_link_get_dnssec(int ifindex, char **dnssec);
  */
 int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***nta);
 
-int sd_network_link_get_lldp(int ifindex, char **lldp);
-
 /* Get the search DNS domain names for a given link. */
 int sd_network_link_get_search_domains(int ifindex, char ***domains);
 

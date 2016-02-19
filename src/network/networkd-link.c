@@ -26,6 +26,7 @@
 #include "dhcp-lease-internal.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "lldp.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-link.h"
@@ -103,7 +104,7 @@ bool link_lldp_enabled(Link *link) {
         if (link->network->bridge)
                 return false;
 
-        return link->network->lldp;
+        return link->network->lldp_mode != LLDP_MODE_NO;
 }
 
 static bool link_ipv4_forward_enabled(Link *link) {
@@ -347,18 +348,15 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
         r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
-                log_link_debug(link, "MAC address not found for new device, continuing without");
+                log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
 
-        r = asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex);
-        if (r < 0)
+        if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex);
-        if (r < 0)
+        if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex);
-        if (r < 0)
+        if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
         r = hashmap_ensure_allocated(&manager->links, NULL);
@@ -409,7 +407,6 @@ static void link_free(Link *link) {
         free(link->lease_file);
 
         sd_lldp_unref(link->lldp);
-
         free(link->lldp_file);
 
         sd_ipv4ll_unref(link->ipv4ll);
@@ -1218,7 +1215,7 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
 
-        if(link->network->cost != 0) {
+        if (link->network->cost != 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_COST attribute: %m");
@@ -1237,24 +1234,83 @@ static int link_set_bridge(Link *link) {
         return r;
 }
 
-static void lldp_handler(sd_lldp *lldp, int event, void *userdata) {
-        Link *link = userdata;
-        int r;
+static int link_lldp_save(Link *link) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        sd_lldp_neighbor **l = NULL;
+        int n = 0, r, i;
 
         assert(link);
-        assert(link->network);
-        assert(link->manager);
+        assert(link->lldp_file);
 
-        switch (event) {
-        case SD_LLDP_EVENT_UPDATE_INFO:
-                r = sd_lldp_save(link->lldp, link->lldp_file);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Could not save LLDP: %m");
-
-                break;
-        default:
-                break;
+        if (!link->lldp) {
+                (void) unlink(link->lldp_file);
+                return 0;
         }
+
+        r = sd_lldp_get_neighbors(link->lldp, &l);
+        if (r < 0)
+                goto finish;
+        if (r == 0) {
+                (void) unlink(link->lldp_file);
+                goto finish;
+        }
+
+        n = r;
+
+        r = fopen_temporary(link->lldp_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fchmod(fileno(f), 0644);
+
+        for (i = 0; i < n; i++) {
+                const void *p;
+                le64_t u;
+                size_t sz;
+
+                r = sd_lldp_neighbor_get_raw(l[i], &p, &sz);
+                if (r < 0)
+                        goto finish;
+
+                u = htole64(sz);
+                (void) fwrite(&u, 1, sizeof(u), f);
+                (void) fwrite(p, 1, sz, f);
+        }
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto finish;
+
+        if (rename(temp_path, link->lldp_file) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+finish:
+        if (r < 0) {
+                (void) unlink(link->lldp_file);
+                if (temp_path)
+                        (void) unlink(temp_path);
+
+                log_link_error_errno(link, r, "Failed to save LLDP data to %s: %m", link->lldp_file);
+        }
+
+        if (l) {
+                for (i = 0; i < n; i++)
+                        sd_lldp_neighbor_unref(l[i]);
+                free(l);
+        }
+
+        return r;
+}
+
+static void lldp_handler(sd_lldp *lldp, void *userdata) {
+        Link *link = userdata;
+
+        assert(link);
+
+        (void) link_lldp_save(link);
 }
 
 static int link_acquire_ipv6_conf(Link *link) {
@@ -2116,7 +2172,14 @@ static int link_configure(Link *link) {
         }
 
         if (link_lldp_enabled(link)) {
-                r = sd_lldp_new(link->ifindex, &link->lldp);
+                r = sd_lldp_new(&link->lldp, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_lldp_match_capabilities(link->lldp,
+                                               link->network->lldp_mode == LLDP_MODE_ROUTERS_ONLY ?
+                                               _LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :
+                                               _LLDP_SYSTEM_CAPABILITIES_ALL);
                 if (r < 0)
                         return r;
 
@@ -2714,6 +2777,8 @@ int link_save(Link *link) {
                 return 0;
         }
 
+        link_lldp_save(link);
+
         admin_state = link_state_to_string(link->state);
         assert(admin_state);
 
@@ -2952,19 +3017,6 @@ int link_save(Link *link) {
                         fputc('\n', f);
                 }
         }
-
-        if (link->lldp) {
-                assert(link->network);
-
-                r = sd_lldp_save(link->lldp, link->lldp_file);
-                if (r < 0)
-                        goto fail;
-
-                fprintf(f,
-                        "LLDP_FILE=%s\n",
-                        link->lldp_file);
-        } else
-                unlink(link->lldp_file);
 
         r = fflush_and_check(f);
         if (r < 0)

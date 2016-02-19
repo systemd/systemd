@@ -1013,3 +1013,13 @@ static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_use_domains, DHCPUseDomains, DHCP_USE_DOMAINS_YES);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_lldp_mode, lldp_mode, LLDPMode, "Failed to parse LLDP= setting.");
+
+static const char* const lldp_mode_table[_LLDP_MODE_MAX] = {
+        [LLDP_MODE_NO] = "no",
+        [LLDP_MODE_YES] = "yes",
+        [LLDP_MODE_ROUTERS_ONLY] = "routers-only",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(lldp_mode, LLDPMode, LLDP_MODE_YES);
