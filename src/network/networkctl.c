@@ -489,6 +489,9 @@ static int dump_gateways(
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
+        assert(rtnl);
+        assert(prefix);
+
         n = local_gateways(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
                 return n;
@@ -538,6 +541,9 @@ static int dump_addresses(
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
+        assert(rtnl);
+        assert(prefix);
+
         n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
                 return n;
@@ -568,6 +574,92 @@ static int dump_addresses(
         }
 
         return 0;
+}
+
+static int open_lldp_neighbors(int ifindex, FILE **ret) {
+        _cleanup_free_ char *p = NULL;
+        FILE *f;
+
+        if (asprintf(&p, "/run/systemd/netif/lldp/%i", ifindex) < 0)
+                return -ENOMEM;
+
+        f = fopen(p, "re");
+        if (!f)
+                return -errno;
+
+        *ret = f;
+        return 0;
+}
+
+static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
+        _cleanup_free_ void *raw = NULL;
+        size_t l;
+        le64_t u;
+        int r;
+
+        assert(f);
+        assert(ret);
+
+        l = fread(&u, 1, sizeof(u), f);
+        if (l == 0 && feof(f))
+                return 0;
+        if (l != sizeof(u))
+                return -EBADMSG;
+
+        raw = new(uint8_t, le64toh(u));
+        if (!raw)
+                return -ENOMEM;
+
+        if (fread(raw, 1, le64toh(u), f) != le64toh(u))
+                return -EBADMSG;
+
+        r = sd_lldp_neighbor_from_raw(ret, raw, le64toh(u));
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int dump_lldp_neighbors(const char *prefix, int ifindex) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r, c = 0;
+
+        assert(prefix);
+        assert(ifindex > 0);
+
+        r = open_lldp_neighbors(ifindex, &f);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *system_name = NULL, *port_id = NULL, *port_description = NULL;
+                _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+
+                r = next_lldp_neighbor(f, &n);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                printf("%*s",
+                       (int) strlen(prefix),
+                       c == 0 ? prefix : "");
+
+                (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+                (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+                (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+
+                printf("%s on port %s", strna(system_name), strna(port_id));
+
+                if (!isempty(port_description))
+                        printf(" (%s)", port_description);
+
+                putchar('\n');
+
+                c++;
+        }
+
+        return c;
 }
 
 static void dump_list(const char *prefix, char **l) {
@@ -692,6 +784,8 @@ static int link_status_one(
         if (tz)
                 printf("       Time Zone: %s", tz);
 
+        (void) dump_lldp_neighbors("    Connected To: ", info->ifindex);
+
         return 0;
 }
 
@@ -809,50 +903,27 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         for (i = 0; i < c; i++) {
                 _cleanup_fclose_ FILE *f = NULL;
-                _cleanup_free_ char *p = NULL;
 
-                if (asprintf(&p, "/run/systemd/netif/lldp/%i", links[i].ifindex) < 0)
-                        return log_oom();
-
-                f = fopen(p, "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                continue;
-
-                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", p);
+                r = open_lldp_neighbors(links[i].ifindex, &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open LLDP data for %i, ignoring: %m", links[i].ifindex);
                         continue;
                 }
 
                 for (;;) {
                         const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL, *capabilities = NULL;
                         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
-                        _cleanup_free_ void *raw = NULL;
                         uint16_t cc;
-                        le64_t u;
-                        size_t l;
 
-                        l = fread(&u, 1, sizeof(u), f);
-                        if (l == 0 && feof(f)) /* EOF */
-                                break;
-                        if (l != sizeof(u)) {
-                                log_warning("Premature end of file, ignoring.");
-                                break;
-                        }
-
-                        raw = new(uint8_t, le64toh(u));
-                        if (!raw)
-                                return log_oom();
-
-                        if (fread(raw, 1, le64toh(u), f) != le64toh(u)) {
-                                log_warning("Premature end of file, ignoring.");
-                                break;
-                        }
-
-                        r = sd_lldp_neighbor_from_raw(&n, raw, le64toh(u));
+                        r = next_lldp_neighbor(f, &n);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to parse LLDP data, ignoring: %m");
+                                log_warning_errno(r, "Failed to read neighbor data: %m");
                                 break;
                         }
+                        if (r == 0)
+                                break;
 
                         (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
                         (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
@@ -895,7 +966,7 @@ static void help(void) {
                "Commands:\n"
                "  list [LINK...]        List links\n"
                "  status [LINK...]      Show link status\n"
-               "  lldp [LINK...]        Show lldp neighbors\n"
+               "  lldp [LINK...]        Show LLDP neighbors\n"
                , program_invocation_short_name);
 }
 
