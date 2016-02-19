@@ -956,9 +956,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         const Verb verbs[] = {
-                { "list", VERB_ANY, 1, VERB_DEFAULT, list_links },
-                { "status", 1, VERB_ANY, 0, link_status },
-                { "lldp", VERB_ANY, 1, VERB_DEFAULT, link_lldp_status },
+                { "list",   VERB_ANY, 1,        VERB_DEFAULT, list_links       },
+                { "status", VERB_ANY, VERB_ANY, 0,            link_status      },
+                { "lldp",   VERB_ANY, 1,        0,            link_lldp_status },
                 {}
         };
 
