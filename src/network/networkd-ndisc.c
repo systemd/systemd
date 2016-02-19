@@ -19,6 +19,7 @@
 
 #include <netinet/ether.h>
 #include <netinet/icmp6.h>
+#include <netinet/in.h>
 #include <linux/if.h>
 
 #include "sd-ndisc.h"
@@ -76,15 +77,15 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
                 memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
         else {
                 /* see RFC4291 section 2.5.1 */
-                address->in_addr.in6.__in6_u.__u6_addr8[8]  = link->mac.ether_addr_octet[0];
-                address->in_addr.in6.__in6_u.__u6_addr8[8] ^= 1 << 1;
-                address->in_addr.in6.__in6_u.__u6_addr8[9]  = link->mac.ether_addr_octet[1];
-                address->in_addr.in6.__in6_u.__u6_addr8[10] = link->mac.ether_addr_octet[2];
-                address->in_addr.in6.__in6_u.__u6_addr8[11] = 0xff;
-                address->in_addr.in6.__in6_u.__u6_addr8[12] = 0xfe;
-                address->in_addr.in6.__in6_u.__u6_addr8[13] = link->mac.ether_addr_octet[3];
-                address->in_addr.in6.__in6_u.__u6_addr8[14] = link->mac.ether_addr_octet[4];
-                address->in_addr.in6.__in6_u.__u6_addr8[15] = link->mac.ether_addr_octet[5];
+                address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
+                address->in_addr.in6.s6_addr[8] ^= 1 << 1;
+                address->in_addr.in6.s6_addr[9]  = link->mac.ether_addr_octet[1];
+                address->in_addr.in6.s6_addr[10] = link->mac.ether_addr_octet[2];
+                address->in_addr.in6.s6_addr[11] = 0xff;
+                address->in_addr.in6.s6_addr[12] = 0xfe;
+                address->in_addr.in6.s6_addr[13] = link->mac.ether_addr_octet[3];
+                address->in_addr.in6.s6_addr[14] = link->mac.ether_addr_octet[4];
+                address->in_addr.in6.s6_addr[15] = link->mac.ether_addr_octet[5];
         }
         address->prefixlen = prefixlen;
         address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;

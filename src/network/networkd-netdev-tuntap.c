@@ -20,6 +20,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <linux/if_tun.h>
+#include <netinet/if_ether.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
