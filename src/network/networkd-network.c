@@ -119,6 +119,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->allow_port_to_be_root = true;
         network->unicast_flood = true;
 
+        network->lldp_mode = LLDP_MODE_ROUTERS_ONLY;
+
         network->llmnr = RESOLVE_SUPPORT_YES;
         network->mdns = RESOLVE_SUPPORT_NO;
         network->dnssec_mode = _DNSSEC_MODE_INVALID;
