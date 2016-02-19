@@ -339,7 +339,7 @@
             <literal>routers-only</literal>. When true, incoming LLDP packets are accepted and a database of all LLDP
             neighbors maintained. If <literal>routers-only</literal> is set only LLDP data of various types of routers
             is collected and LLDP data about other types of devices ignored (such as stations, telephones and
-            others). If false, LLDP reception is disabled. Defaults to <literal>false</literal>. Use
+            others). If false, LLDP reception is disabled. Defaults to <literal>routers-only</literal>. Use
             <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to query the
             collected neighbor data.
             </para>
