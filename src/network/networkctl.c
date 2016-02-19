@@ -324,8 +324,8 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
-                sprintf(devid, "n%i", links[i].ifindex);
-                (void)sd_device_new_from_device_id(&d, devid);
+                xsprintf(devid, "n%i", links[i].ifindex);
+                (void) sd_device_new_from_device_id(&d, devid);
 
                 link_get_type_string(links[i].iftype, d, &t);
 
@@ -615,7 +615,7 @@ static int link_status_one(
         (void) sd_network_link_get_route_domains(info->ifindex, &route_domains);
         (void) sd_network_link_get_ntp(info->ifindex, &ntp);
 
-        sprintf(devid, "n%i", info->ifindex);
+        xsprintf(devid, "n%i", info->ifindex);
 
         (void) sd_device_new_from_device_id(&d, devid);
 
