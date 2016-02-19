@@ -175,7 +175,7 @@
         <listitem><para>Specifies the network protocol for the query. May be one of <literal>dns</literal>
         (i.e. classic unicast DNS), <literal>llmnr</literal> (<ulink
         url="https://tools.ietf.org/html/rfc4795">Link-Local Multicast Name Resolution</ulink>),
-        <literal>llmr-ipv4</literal>, <literal>llmnr-ipv6</literal> (LLMNR via the indicated underlying IP
+        <literal>llmnr-ipv4</literal>, <literal>llmnr-ipv6</literal> (LLMNR via the indicated underlying IP
         protocols). By default the lookup is done via all protocols suitable for the lookup. If used, limits the set of
         protocols that may be used. Use this option multiple times to enable resolving via multiple protocols at the
         same time. The setting <literal>llmnr</literal> is identical to specifying this switch once with
