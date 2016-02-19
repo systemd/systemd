@@ -106,6 +106,37 @@ static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret)
         return 0;
 }
 
+static void operational_state_to_color(const char *state, const char **on, const char **off) {
+        assert(on);
+        assert(off);
+
+        if (streq_ptr(state, "routable")) {
+                *on = ansi_highlight_green();
+                *off = ansi_normal();
+        } else if (streq_ptr(state, "degraded")) {
+                *on = ansi_highlight_yellow();
+                *off = ansi_normal();
+        } else
+                *on = *off = "";
+}
+
+static void setup_state_to_color(const char *state, const char **on, const char **off) {
+        assert(on);
+        assert(off);
+
+        if (streq_ptr(state, "configured")) {
+                *on = ansi_highlight_green();
+                *off = ansi_normal();
+        } else if (streq_ptr(state, "configuring")) {
+                *on = ansi_highlight_yellow();
+                *off = ansi_normal();
+        } else if (streq_ptr(state, "failed") || streq_ptr(state, "linger")) {
+                *on = ansi_highlight_red();
+                *off = ansi_normal();
+        } else
+                *on = *off = "";
+}
+
 typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
         int ifindex;
@@ -123,7 +154,7 @@ static int link_info_compare(const void *a, const void *b) {
         return x->ifindex - y->ifindex;
 }
 
-static int decode_link_one(sd_netlink_message *m, LinkInfo *info) {
+static int decode_link(sd_netlink_message *m, LinkInfo *info) {
         static const struct ether_addr null_address = {};
         const char *name;
         uint16_t type;
@@ -164,62 +195,6 @@ static int decode_link_one(sd_netlink_message *m, LinkInfo *info) {
         return 1;
 }
 
-static int decode_and_sort_links(sd_netlink_message *m, LinkInfo **ret) {
-        _cleanup_free_ LinkInfo *links = NULL;
-        size_t allocated = 0, c = 0;
-        sd_netlink_message *i;
-        int r;
-
-        for (i = m; i; i = sd_netlink_message_next(i)) {
-                if (!GREEDY_REALLOC(links, allocated, c+1))
-                        return -ENOMEM;
-
-                r = decode_link_one(i, links + c);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        c++;
-        }
-
-        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
-
-        *ret = links;
-        links = NULL;
-
-        return (int) c;
-}
-
-static void operational_state_to_color(const char *state, const char **on, const char **off) {
-        assert(on);
-        assert(off);
-
-        if (streq_ptr(state, "routable")) {
-                *on = ansi_highlight_green();
-                *off = ansi_normal();
-        } else if (streq_ptr(state, "degraded")) {
-                *on = ansi_highlight_yellow();
-                *off = ansi_normal();
-        } else
-                *on = *off = "";
-}
-
-static void setup_state_to_color(const char *state, const char **on, const char **off) {
-        assert(on);
-        assert(off);
-
-        if (streq_ptr(state, "configured")) {
-                *on = ansi_highlight_green();
-                *off = ansi_normal();
-        } else if (streq_ptr(state, "configuring")) {
-                *on = ansi_highlight_yellow();
-                *off = ansi_normal();
-        } else if (streq_ptr(state, "failed") || streq_ptr(state, "linger")) {
-                *on = ansi_highlight_red();
-                *off = ansi_normal();
-        } else
-                *on = *off = "";
-}
-
 static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
         _cleanup_free_ LinkInfo *links = NULL;
         char **i;
@@ -253,7 +228,7 @@ static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to request link: %m");
 
-                r = decode_link_one(reply, links + c);
+                r = decode_link(reply, links + c);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -270,6 +245,9 @@ static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
 
 static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_free_ LinkInfo *links = NULL;
+        size_t allocated = 0, c = 0;
+        sd_netlink_message *i;
         int r;
 
         assert(rtnl);
@@ -287,11 +265,23 @@ static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
-        r = decode_and_sort_links(reply, ret);
-        if (r < 0)
-                return rtnl_log_parse_error(r);
+        for (i = reply; i; i = sd_netlink_message_next(i)) {
+                if (!GREEDY_REALLOC(links, allocated, c+1))
+                        return -ENOMEM;
 
-        return r;
+                r = decode_link(i, links + c);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        c++;
+        }
+
+        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
+
+        *ret = links;
+        links = NULL;
+
+        return (int) c;
 }
 
 static int list_links(int argc, char *argv[], void *userdata) {
