@@ -705,8 +705,7 @@ finish:
         return 0;
 }
 
-int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
-
+static char* extract_multiplier(char *p, usec_t *multiplier) {
         static const struct {
                 const char *suffix;
                 usec_t usec;
@@ -740,7 +739,22 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                 { "usec",    1ULL            },
                 { "us",      1ULL            },
         };
+        unsigned i;
 
+        for (i = 0; i < ELEMENTSOF(table); i++) {
+                char *e;
+
+                e = startswith(p, table[i].suffix);
+                if (e) {
+                        *multiplier = table[i].usec;
+                        return e;
+                }
+        }
+
+        return p;
+}
+
+int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
         const char *p, *s;
         usec_t r = 0;
         bool something = false;
@@ -765,8 +779,8 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
         for (;;) {
                 long long l, z = 0;
                 char *e;
-                unsigned i, n = 0;
-                usec_t multiplier, k;
+                unsigned n = 0;
+                usec_t multiplier = default_unit, k;
 
                 p += strspn(p, WHITESPACE);
 
@@ -779,10 +793,8 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
 
                 errno = 0;
                 l = strtoll(p, &e, 10);
-
                 if (errno > 0)
                         return -errno;
-
                 if (l < 0)
                         return -ERANGE;
 
@@ -806,18 +818,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                         return -EINVAL;
 
                 e += strspn(e, WHITESPACE);
-
-                for (i = 0; i < ELEMENTSOF(table); i++)
-                        if (startswith(e, table[i].suffix)) {
-                                multiplier = table[i].usec;
-                                p = e + strlen(table[i].suffix);
-                                break;
-                        }
-
-                if (i >= ELEMENTSOF(table)) {
-                        multiplier = default_unit;
-                        p = e;
-                }
+                p = extract_multiplier(e, &multiplier);
 
                 something = true;
 

@@ -164,14 +164,14 @@ static int finish_item(
                 Hashmap *h,
                 sd_id128_t id,
                 const char *language,
-                char *payload) {
+                char *payload, size_t payload_size) {
 
         _cleanup_free_ CatalogItem *i = NULL;
-        _cleanup_free_ char *combined = NULL, *prev = NULL;
-        int r;
+        _cleanup_free_ char *prev = NULL, *combined = NULL;
 
         assert(h);
         assert(payload);
+        assert(payload_size > 0);
 
         i = new0(CatalogItem, 1);
         if (!i)
@@ -184,23 +184,25 @@ static int finish_item(
         }
 
         prev = hashmap_get(h, i);
-
-        /* Already have such an item, combine them */
         if (prev) {
+                /* Already have such an item, combine them */
                 combined = combine_entries(payload, prev);
                 if (!combined)
                         return log_oom();
-                r = hashmap_update(h, i, combined);
-                if (r < 0)
-                        return r;
-                combined = NULL;
 
-        /* A new item */
+                if (hashmap_update(h, i, combined) < 0)
+                        return log_oom();
+                combined = NULL;
         } else {
-                r = hashmap_put(h, i, payload);
-                if (r < 0)
-                        return r;
+                /* A new item */
+                combined = memdup(payload, payload_size + 1);
+                if (!combined)
+                        return log_oom();
+
+                if (hashmap_put(h, i, combined) < 0)
+                        return log_oom();
                 i = NULL;
+                combined = NULL;
         }
 
         return 0;
@@ -262,6 +264,7 @@ static int catalog_entry_lang(const char* filename, int line,
 int catalog_import_file(Hashmap *h, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
+        size_t payload_size = 0, payload_allocated = 0;
         unsigned n = 0;
         sd_id128_t id;
         _cleanup_free_ char *deflang = NULL, *lang = NULL;
@@ -283,8 +286,7 @@ int catalog_import_file(Hashmap *h, const char *path) {
 
         for (;;) {
                 char line[LINE_MAX];
-                size_t a, b, c;
-                char *t;
+                size_t line_len;
 
                 if (!fgets(line, sizeof(line), f)) {
                         if (feof(f))
@@ -323,17 +325,23 @@ int catalog_import_file(Hashmap *h, const char *path) {
                         if (sd_id128_from_string(line + 2 + 1, &jd) >= 0) {
 
                                 if (got_id) {
-                                        r = finish_item(h, id, lang ?: deflang, payload);
+                                        if (payload_size == 0) {
+                                                log_error("[%s:%u] No payload text.", path, n);
+                                                return -EINVAL;
+                                        }
+
+                                        r = finish_item(h, id, lang ?: deflang, payload, payload_size);
                                         if (r < 0)
                                                 return r;
 
-                                        payload = NULL;
                                         lang = mfree(lang);
+                                        payload_size = 0;
                                 }
 
                                 if (with_language) {
-                                        t = strstrip(line + 2 + 1 + 32 + 1);
+                                        char *t;
 
+                                        t = strstrip(line + 2 + 1 + 32 + 1);
                                         r = catalog_entry_lang(path, n, t, deflang, &lang);
                                         if (r < 0)
                                                 return r;
@@ -342,9 +350,6 @@ int catalog_import_file(Hashmap *h, const char *path) {
                                 got_id = true;
                                 empty_line = false;
                                 id = jd;
-
-                                if (payload)
-                                        payload[0] = '\0';
 
                                 continue;
                         }
@@ -356,34 +361,30 @@ int catalog_import_file(Hashmap *h, const char *path) {
                         return -EINVAL;
                 }
 
-                a = payload ? strlen(payload) : 0;
-                b = strlen(line);
-
-                c = a + (empty_line ? 1 : 0) + b + 1 + 1;
-                t = realloc(payload, c);
-                if (!t)
+                line_len = strlen(line);
+                if (!GREEDY_REALLOC(payload, payload_allocated,
+                                    payload_size + (empty_line ? 1 : 0) + line_len + 1 + 1))
                         return log_oom();
 
-                if (empty_line) {
-                        t[a] = '\n';
-                        memcpy(t + a + 1, line, b);
-                        t[a+b+1] = '\n';
-                        t[a+b+2] = 0;
-                } else {
-                        memcpy(t + a, line, b);
-                        t[a+b] = '\n';
-                        t[a+b+1] = 0;
-                }
+                if (empty_line)
+                        payload[payload_size++] = '\n';
+                memcpy(payload + payload_size, line, line_len);
+                payload_size += line_len;
+                payload[payload_size++] = '\n';
+                payload[payload_size] = '\0';
 
-                payload = t;
                 empty_line = false;
         }
 
         if (got_id) {
-                r = finish_item(h, id, lang ?: deflang, payload);
+                if (payload_size == 0) {
+                        log_error("[%s:%u] No payload text.", path, n);
+                        return -EINVAL;
+                }
+
+                r = finish_item(h, id, lang ?: deflang, payload, payload_size);
                 if (r < 0)
                         return r;
-                payload = NULL;
         }
 
         return 0;

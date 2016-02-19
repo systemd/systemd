@@ -156,6 +156,10 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
                         return off;
                 }
 
+                /* bsearch is not allowed on a NULL sequence */
+                if (node->children_count == 0)
+                        break;
+
                 /* lookup child node */
                 c = s[len - 1 - depth];
                 search.c = c;
