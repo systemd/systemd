@@ -23,6 +23,7 @@
 
 #include "sd-device.h"
 #include "sd-hwdb.h"
+#include "sd-lldp.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
 
@@ -30,6 +31,7 @@
 #include "arphrd-list.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "hwdb-util.h"
 #include "lldp.h"
 #include "local-addresses.h"
@@ -38,6 +40,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "socket-util.h"
+#include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -745,162 +748,29 @@ static int link_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-const char *lldp_system_capability_to_string(LLDPSystemCapabilities d) _const_;
-LLDPSystemCapabilities lldp_system_capability_from_string(const char *d) _pure_;
+static char *lldp_capabilities_to_string(uint16_t x) {
+        static const char characters[] = {
+                'o', 'p', 'b', 'w', 'r', 't', 'd', 'a', 'c', 's', 'm',
+        };
+        char *ret;
+        unsigned i;
 
-static const char* const lldp_system_capability_table[_LLDP_SYSTEM_CAPABILITIES_MAX + 1] = {
-        [LLDP_SYSTEM_CAPABILITIES_OTHER] = "O",
-        [LLDP_SYSTEM_CAPABILITIES_REPEATER] = "P",
-        [LLDP_SYSTEM_CAPABILITIES_BRIDGE] = "B",
-        [LLDP_SYSTEM_CAPABILITIES_WLAN_AP] = "W",
-        [LLDP_SYSTEM_CAPABILITIES_ROUTER] = "R",
-        [LLDP_SYSTEM_CAPABILITIES_PHONE] = "T",
-        [LLDP_SYSTEM_CAPABILITIES_DOCSIS] = "D",
-        [LLDP_SYSTEM_CAPABILITIES_STATION] = "A",
-        [LLDP_SYSTEM_CAPABILITIES_CVLAN] = "C",
-        [LLDP_SYSTEM_CAPABILITIES_SVLAN] = "S",
-        [LLDP_SYSTEM_CAPABILITIES_TPMR] = "M",
-        [_LLDP_SYSTEM_CAPABILITIES_MAX] = "N/A",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(lldp_system_capability, LLDPSystemCapabilities);
-
-static char *lldp_system_caps(uint16_t cap) {
-        _cleanup_free_ char *s = NULL, *t = NULL;
-        char *capability;
-
-        t = strdup("[ ");
-        if (!t)
+        ret = new(char, ELEMENTSOF(characters) + 1);
+        if (!ret)
                 return NULL;
 
-        if (cap & LLDP_SYSTEM_CAPABILITIES_OTHER) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_OTHER), " ", NULL);
-                if (!s)
-                        return NULL;
+        for (i = 0; i < ELEMENTSOF(characters); i++)
+                ret[i] = (x & (1U << i)) ? characters[i] : '.';
 
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_REPEATER) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_REPEATER), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_BRIDGE) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_BRIDGE), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_WLAN_AP) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_WLAN_AP), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_ROUTER) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_ROUTER), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_PHONE) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_PHONE), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_DOCSIS) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_DOCSIS), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_STATION) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_STATION), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_CVLAN) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_CVLAN), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_SVLAN) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_SVLAN), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_TPMR) {
-                s = strappend(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_TPMR));
-                if (!s)
-                        return NULL;
-
-                free(t);
-        }
-
-        if (!s) {
-                s = strappend(t, lldp_system_capability_to_string(_LLDP_SYSTEM_CAPABILITIES_MAX));
-                if (!s)
-                        return NULL;
-
-                free(t);
-        }
-
-        t = strappend(s, "]");
-        if (!t)
-                return NULL;
-
-        free(s);
-        capability = t;
-
-        s = NULL;
-        t = NULL;
-
-        return capability;
+        ret[i] = 0;
+        return ret;
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
-        double ttl = -1;
-        uint32_t capability;
         int i, r, c, j;
-        const char *p;
-        char **s;
 
         pager_open_if_enabled();
 
@@ -925,88 +795,85 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 return rtnl_log_parse_error(c);
 
         if (arg_legend)
-                printf("%s %16s %24s %16s %16s\n", "Local Intf", "Device ID", "Port ID", "TTL", "Capability");
+                printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
+                       "LINK",
+                       "CHASSIS ID",
+                       "SYSTEM NAME",
+                       "CAPS",
+                       "PORT ID",
+                       "PORT DESCRIPTION");
 
         for (i = j = 0; i < c; i++) {
-                _cleanup_free_ char *chassis = NULL, *port = NULL, *cap = NULL, *lldp = NULL;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char *p = NULL;
 
-                r = sd_network_link_get_lldp(links[i].ifindex, &lldp);
-                if (r < 0)
+                if (asprintf(&p, "/run/systemd/netif/lldp/%i", links[i].ifindex) < 0)
+                        return log_oom();
+
+                f = fopen(p, "re");
+                if (!f) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", p);
                         continue;
+                }
 
-                l = strv_split_newlines(lldp);
-                if (!l)
-                        return -ENOMEM;
+                for (;;) {
+                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL, *capabilities = NULL;
+                        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+                        _cleanup_free_ void *raw = NULL;
+                        uint16_t cc;
+                        le64_t u;
+                        size_t l;
 
-                STRV_FOREACH(s, l) {
-
-                        p = *s;
-                        for (;;) {
-                                _cleanup_free_ char *a = NULL, *b = NULL, *word = NULL;
-
-                                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse LLDP syntax \"%s\": %m", *s);
-
-                                if (r == 0)
-                                        break;
-
-                                r = split_pair(word, "=", &a, &b);
-                                if (r < 0)
-                                        continue;
-
-                                if (streq(a, "_Chassis")) {
-                                        r = free_and_strdup(&chassis, b);
-                                        if (r < 0)
-                                                return r;
-
-                                } else if (streq(a, "_Port")) {
-                                        r = free_and_strdup(&port, b);
-                                        if (r < 0)
-                                                return r;
-
-                                } else if (streq(a, "_TTL")) {
-                                        long long unsigned x = 0;
-                                        usec_t time;
-
-                                        r = safe_atollu(b, &x);
-                                        if (r < 0 || (usec_t) x != x)
-                                                return log_warning_errno(r < 0 ? r : ERANGE,
-                                                                         "Failed to parse TTL \"%s\": %m", b);
-
-                                        time = now(clock_boottime_or_monotonic());
-                                        if (x < time)
-                                                continue;
-
-                                        ttl = (double) (x - time) / USEC_PER_SEC;
-
-                                } else if (streq(a, "_CAP")) {
-                                        sscanf(b, "%x", &capability);
-
-                                        cap = lldp_system_caps(capability);
-                                }
-
+                        l = fread(&u, 1, sizeof(u), f);
+                        if (l == 0 && feof(f)) /* EOF */
+                                break;
+                        if (l != sizeof(u)) {
+                                log_warning("Premature end of file, ignoring.");
+                                break;
                         }
 
-                        if (ttl >= 0) {
-                                printf("%10s %24s %16s %16f %16s\n",
-                                       links[i].name,
-                                       strna(chassis), strna(port),
-                                       ttl, cap);
-                                j++;
+                        raw = new(uint8_t, le64toh(u));
+                        if (!raw)
+                                return log_oom();
+
+                        if (fread(raw, 1, le64toh(u), f) != le64toh(u)) {
+                                log_warning("Premature end of file, ignoring.");
+                                break;
                         }
+
+                        r = sd_lldp_neighbor_from_raw(&n, raw, le64toh(u));
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to parse LLDP data, ignoring: %m");
+                                break;
+                        }
+
+                        (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
+                        (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+                        (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+                        (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+
+                        if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0)
+                                capabilities = lldp_capabilities_to_string(cc);
+
+                        printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
+                               links[i].name,
+                               strna(chassis_id),
+                               strna(system_name),
+                               strna(capabilities),
+                               strna(port_id),
+                               strna(port_description));
                 }
         }
 
-        if (arg_legend) {
-                printf("\nCapability Codes:\n"
-                       "(O) - Other, (P) - Repeater,  (B) - Bridge , (W) - WLAN Access Point, (R) = Router,\n"
-                       "(T) - Telephone, (D) - Data Over Cable Service Interface Specifications, (A) - Station,\n"
-                       "(C) - Customer VLAN, (S) - Service VLAN, (M) - Two-port MAC Relay (TPMR)\n\n");
-
-                printf("Total entries displayed: %d\n", j);
-        }
+        if (arg_legend)
+                printf("\nCapabilities:\n"
+                       "o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;\n"
+                       "t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;\n"
+                       "s - Service VLAN, m - Two-port MAC Relay (TPMR)\n\n"
+                       "Total entries displayed: %i\n", j);
 
         return 0;
 }
@@ -1022,7 +889,7 @@ static void help(void) {
                "Commands:\n"
                "  list                  List links\n"
                "  status [LINK...]      Show link status\n"
-               "  lldp                  Show lldp information\n"
+               "  lldp                  Show lldp neighbors\n"
                , program_invocation_short_name);
 }
 

@@ -187,32 +187,7 @@ _public_ int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char
         return network_link_get_strv(ifindex, "DNSSEC_NTA", nta);
 }
 
-_public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
-        size_t size;
-        int r;
-
-        assert_return(ifindex > 0, -EINVAL);
-        assert_return(lldp, -EINVAL);
-
-        if (asprintf(&p, "/run/systemd/netif/lldp/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = read_full_file(p, &s, &size);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (size <= 0)
-                return -ENODATA;
-
-        *lldp = s;
-        s = NULL;
-
-        return 0;
-}
-
-int sd_network_link_get_timezone(int ifindex, char **ret) {
+_public_ int sd_network_link_get_timezone(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "TIMEZONE", ret);
 }
 
