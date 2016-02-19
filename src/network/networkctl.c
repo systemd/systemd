@@ -73,7 +73,7 @@ static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret)
                  * to show a more useful type string for
                  * them */
 
-                (void)sd_device_get_devtype(d, &devtype);
+                (void) sd_device_get_devtype(d, &devtype);
 
                 if (streq_ptr(devtype, "wlan"))
                         id = "wlan";
@@ -107,7 +107,7 @@ static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret)
 }
 
 typedef struct LinkInfo {
-        const char *name;
+        char name[IFNAMSIZ+1];
         int ifindex;
         unsigned short iftype;
 } LinkInfo;
@@ -118,44 +118,56 @@ static int link_info_compare(const void *a, const void *b) {
         return x->ifindex - y->ifindex;
 }
 
+static int decode_link_one(sd_netlink_message *m, LinkInfo *info) {
+        const char *name;
+        unsigned short iftype;
+        uint16_t type;
+        int ifindex, r;
+
+        assert(m);
+        assert(info);
+
+        r = sd_netlink_message_get_type(m, &type);
+        if (r < 0)
+                return r;
+
+        if (type != RTM_NEWLINK)
+                return 0;
+
+        r = sd_rtnl_message_link_get_ifindex(m, &ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_read_string(m, IFLA_IFNAME, &name);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_link_get_type(m, &iftype);
+        if (r < 0)
+                return r;
+
+        strncpy(info->name, name, sizeof(info->name));
+        info->ifindex = ifindex;
+        info->iftype = iftype;
+
+        return 1;
+}
+
 static int decode_and_sort_links(sd_netlink_message *m, LinkInfo **ret) {
         _cleanup_free_ LinkInfo *links = NULL;
-        size_t size = 0, c = 0;
+        size_t allocated = 0, c = 0;
         sd_netlink_message *i;
         int r;
 
         for (i = m; i; i = sd_netlink_message_next(i)) {
-                const char *name;
-                unsigned short iftype;
-                uint16_t type;
-                int ifindex;
-
-                r = sd_netlink_message_get_type(i, &type);
-                if (r < 0)
-                        return r;
-
-                if (type != RTM_NEWLINK)
-                        continue;
-
-                r = sd_rtnl_message_link_get_ifindex(i, &ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
-                if (r < 0)
-                        return r;
-
-                r = sd_rtnl_message_link_get_type(i, &iftype);
-                if (r < 0)
-                        return r;
-
-                if (!GREEDY_REALLOC(links, size, c+1))
+                if (!GREEDY_REALLOC(links, allocated, c+1))
                         return -ENOMEM;
 
-                links[c].name = name;
-                links[c].ifindex = ifindex;
-                links[c].iftype = iftype;
-                c++;
+                r = decode_link_one(i, links + c);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        c++;
         }
 
         qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
@@ -197,7 +209,59 @@ static void setup_state_to_color(const char *state, const char **on, const char 
                 *on = *off = "";
 }
 
-static int acquire_link_info(LinkInfo **ret) {
+static int acquire_link_info_strv(char **l, LinkInfo **ret) {
+        _cleanup_free_ LinkInfo *links = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        char **i;
+        size_t c = 0;
+        int r;
+
+        assert(ret);
+
+        links = new(LinkInfo, strv_length(l));
+        if (!links)
+                return log_oom();
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        STRV_FOREACH(i, l) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+                int ifindex;
+
+                if (parse_ifindex(*i, &ifindex) >= 0)
+                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
+                else {
+                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+                        if (r < 0)
+                                return rtnl_log_create_error(r);
+
+                        r = sd_netlink_message_append_string(req, IFLA_IFNAME, *i);
+                }
+                if (r < 0)
+                        return rtnl_log_create_error(r);
+
+                r = sd_netlink_call(rtnl, req, 0, &reply);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request link: %m");
+
+                r = decode_link_one(reply, links + c);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        c++;
+        }
+
+        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
+
+        *ret = links;
+        links = NULL;
+
+        return (int) c;
+}
+
+static int acquire_link_info_all(LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
 
@@ -232,7 +296,10 @@ static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_free_ LinkInfo *links = NULL;
         int c, i;
 
-        c = acquire_link_info(&links);
+        if (argc > 1)
+                c = acquire_link_info_strv(argv + 1, &links);
+        else
+                c = acquire_link_info_all(&links);
         if (c < 0)
                 return c;
 
@@ -553,7 +620,6 @@ static int link_status_one(
 
                 r = sd_netlink_message_append_string(req, IFLA_IFNAME, name);
         }
-
         if (r < 0)
                 return rtnl_log_create_error(r);
 
@@ -793,7 +859,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ LinkInfo *links = NULL;
         int i, r, c, j;
 
-        c = acquire_link_info(&links);
+        if (argc > 1)
+                c = acquire_link_info_strv(argv + 1, &links);
+        else
+                c = acquire_link_info_all(&links);
         if (c < 0)
                 return c;
 
@@ -874,11 +943,11 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_legend)
-                printf("\nCapabilities:\n"
+                printf("\nCapability Flags:\n"
                        "o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;\n"
                        "t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;\n"
                        "s - Service VLAN, m - Two-port MAC Relay (TPMR)\n\n"
-                       "Total entries displayed: %i\n", j);
+                       "%i neighbors listed.\n", j);
 
         return 0;
 }
@@ -892,9 +961,9 @@ static void help(void) {
                "     --no-legend        Do not show the headers and footers\n"
                "  -a --all              Show status for all links\n\n"
                "Commands:\n"
-               "  list                  List links\n"
+               "  list [LINK...]        List links\n"
                "  status [LINK...]      Show link status\n"
-               "  lldp                  Show lldp neighbors\n"
+               "  lldp [LINK...]        Show lldp neighbors\n"
                , program_invocation_short_name);
 }
 
@@ -956,9 +1025,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         const Verb verbs[] = {
-                { "list",   VERB_ANY, 1,        VERB_DEFAULT, list_links       },
+                { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links       },
                 { "status", VERB_ANY, VERB_ANY, 0,            link_status      },
-                { "lldp",   VERB_ANY, 1,        0,            link_lldp_status },
+                { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status },
                 {}
         };
 

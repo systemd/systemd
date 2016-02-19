@@ -102,12 +102,14 @@
       <varlistentry>
         <term>
           <command>list</command>
+          <optional><replaceable>LINK...</replaceable></optional>
         </term>
 
         <listitem>
-          <para>Show a list of existing links and their
-          status. Produces output similar to <programlisting>
-IDX LINK         TYPE     OPERATIONAL SETUP
+          <para>Show a list of existing links and their status. If no further arguments are specified shows all links,
+          otherwise just the specified links. Produces output similar to:
+
+          <programlisting>IDX LINK         TYPE     OPERATIONAL SETUP
   1 lo           loopback carrier     unmanaged
   2 eth0         ether    routable    configured
   3 virbr0       ether    no-carrier  unmanaged
@@ -128,10 +130,10 @@ IDX LINK         TYPE     OPERATIONAL SETUP
           state, kernel module driver, hardware and IP address,
           configured DNS servers, etc.</para>
 
-          <para>When no links are specified, routable links are
-          shown. Also see the option <option>--all</option>.</para>
+          <para>When no links are specified, an overall network status is shown. Also see the option
+          <option>--all</option>.</para>
 
-          <para>Produces output similar to
+          <para>Produces output similar to:
           <programlisting>
 ●      State: routable
      Address: 10.193.76.5 on eth0
@@ -148,11 +150,26 @@ IDX LINK         TYPE     OPERATIONAL SETUP
       <varlistentry>
         <term>
           <command>lldp</command>
+          <optional><replaceable>LINK...</replaceable></optional>
         </term>
 
         <listitem>
-          <para>Show LLDP (Link Layer Discovery Protocol)
-          status.</para>
+          <para>Show discovered LLDP (Link Layer Discovery Protocol) neighbors. If one or more link names are specified
+          only neighbors on those interfaces are shown. Otherwise shows discovered neighbors on all interfaces. Note
+          that for this feature to work, <varname>LLDP=</varname> must be turned on on the specific interface, see
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details.</para>
+
+          <para>Produces output similar to:
+          <programlisting>LINK             CHASSIS ID        SYSTEM NAME      CAPS        PORT ID           PORT DESCRIPTION
+enp0s25          00:e0:4c:00:00:00 GS1900           ..b........ 2                 Port #2
+
+Capability Flags:
+o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;
+t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;
+s - Service VLAN, m - Two-port MAC Relay (TPMR)
+
+1 neighbors listed.</programlisting></para>
         </listitem>
       </varlistentry>
     </variablelist>
