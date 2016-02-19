@@ -402,7 +402,7 @@ static int dns_cache_put_positive(
                 k = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
                           k > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
-                          dns_resource_key_to_string(i->key, key_str, sizeof key_str));
+                          dns_resource_key_to_string(rr->key, key_str, sizeof key_str));
                 return 0;
         }
 
@@ -497,7 +497,7 @@ static int dns_cache_put_negative(
 
         if (nsec_ttl <= 0 || soa->soa.minimum <= 0 || soa->ttl <= 0) {
                 log_debug("Not caching negative entry with zero SOA/NSEC/NSEC3 TTL: %s",
-                          dns_resource_key_to_string(i->key, key_str, sizeof key_str));
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
                 return 0;
         }
 
