@@ -207,12 +207,66 @@ _public_ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "ROUTE_DOMAINS", ret);
 }
 
-_public_ int sd_network_link_get_carrier_bound_to(int ifindex, char ***ret) {
-        return network_link_get_strv(ifindex, "CARRIER_BOUND_TO", ret);
+static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free_ int *ifis = NULL;
+        size_t allocated = 0, c = 0;
+        const char *x;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, key, &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (isempty(s)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        x = s;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&x, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = parse_ifindex(word, &ifindex);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(ifis, allocated, c + 1))
+                        return -ENOMEM;
+
+                ifis[c++] = ifindex;
+        }
+
+        if (!GREEDY_REALLOC(ifis, allocated, c + 1))
+                return -ENOMEM;
+        ifis[c] = 0; /* Let's add a 0 ifindex to the end, to be nice*/
+
+        *ret = ifis;
+        ifis = NULL;
+
+        return c;
 }
 
-_public_ int sd_network_link_get_carrier_bound_by(int ifindex, char ***ret) {
-        return network_link_get_strv(ifindex, "CARRIER_BOUND_BY", ret);
+_public_ int sd_network_link_get_carrier_bound_to(int ifindex, int **ret) {
+        return network_link_get_ifindexes(ifindex, "CARRIER_BOUND_TO", ret);
+}
+
+_public_ int sd_network_link_get_carrier_bound_by(int ifindex, int **ret) {
+        return network_link_get_ifindexes(ifindex, "CARRIER_BOUND_BY", ret);
 }
 
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {

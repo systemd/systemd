@@ -668,6 +668,30 @@ static int dump_lldp_neighbors(const char *prefix, int ifindex) {
         return c;
 }
 
+static void dump_ifindexes(const char *prefix, const int *ifindexes) {
+        unsigned c;
+
+        assert(prefix);
+
+        if (!ifindexes || ifindexes[0] <= 0)
+                return;
+
+        for (c = 0; ifindexes[c] > 0; c++) {
+                char name[IF_NAMESIZE+1];
+
+                printf("%*s",
+                       (int) strlen(prefix),
+                       c == 0 ? prefix : "");
+
+                if (if_indextoname(ifindexes[c], name))
+                        fputs(name, stdout);
+                else
+                        printf("%i", ifindexes[c]);
+
+                fputc('\n', stdout);
+        }
+}
+
 static void dump_list(const char *prefix, char **l) {
         char **i;
 
@@ -695,8 +719,7 @@ static int link_status_one(
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
         const char *on_color_operational, *off_color_operational,
                    *on_color_setup, *off_color_setup;
-        _cleanup_strv_free_ char **carrier_bound_to = NULL;
-        _cleanup_strv_free_ char **carrier_bound_by = NULL;
+        _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
         int r;
 
         assert(rtnl);
@@ -783,8 +806,8 @@ static int link_status_one(
 
         dump_list("             NTP: ", ntp);
 
-        dump_list("Carrier Bound To: ", carrier_bound_to);
-        dump_list("Carrier Bound By: ", carrier_bound_by);
+        dump_ifindexes("Carrier Bound To: ", carrier_bound_to);
+        dump_ifindexes("Carrier Bound By: ", carrier_bound_by);
 
         (void) sd_network_link_get_timezone(info->ifindex, &tz);
         if (tz)
