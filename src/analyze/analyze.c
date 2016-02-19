@@ -123,14 +123,6 @@ struct host_info {
         char *architecture;
 };
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -965,7 +957,7 @@ static int analyze_critical_chain(sd_bus *bus, char *names[]) {
         }
         unit_times_hashmap = h;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         puts("The time after the unit is active or started is printed after the \"@\" character.\n"
              "The time the unit takes to start is printed after the \"+\" character.\n");
@@ -993,7 +985,7 @@ static int analyze_blame(sd_bus *bus) {
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_time);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         for (i = 0; i < (unsigned) n; i++) {
                 char ts[FORMAT_TIMESPAN_MAX];
@@ -1206,7 +1198,7 @@ static int dump(sd_bus *bus, char **args) {
                 return -E2BIG;
         }
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                         bus,
@@ -1284,7 +1276,7 @@ static int set_log_target(sd_bus *bus, char **args) {
 
 static void help(void) {
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Profile systemd, show unit dependencies, check unit files.\n\n"

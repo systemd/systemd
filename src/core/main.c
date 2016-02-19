@@ -102,7 +102,7 @@ static bool arg_crash_reboot = false;
 static bool arg_confirm_spawn = false;
 static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
-static int arg_no_pager = -1;
+static bool arg_no_pager = false;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
@@ -126,14 +126,6 @@ static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_C(512);
 static sd_id128_t arg_machine_id = {};
-
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager <= 0)
-                return;
-
-        pager_open(false);
-}
 
 noreturn static void freeze_or_reboot(void) {
 
@@ -883,8 +875,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TEST:
                         arg_action = ACTION_TEST;
-                        if (arg_no_pager < 0)
-                                arg_no_pager = true;
                         break;
 
                 case ARG_NO_PAGER:
@@ -994,8 +984,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         arg_action = ACTION_HELP;
-                        if (arg_no_pager < 0)
-                                arg_no_pager = true;
                         break;
 
                 case 'D':
@@ -1548,7 +1536,8 @@ int main(int argc, char *argv[]) {
         if (arg_action == ACTION_TEST)
                 skip_setup = true;
 
-        pager_open_if_enabled();
+        if (arg_action == ACTION_TEST || arg_action == ACTION_HELP)
+                pager_open(arg_no_pager, false);
 
         if (arg_action == ACTION_HELP) {
                 retval = help();

@@ -52,10 +52,13 @@ noreturn static void pager_fallback(void) {
         _exit(EXIT_SUCCESS);
 }
 
-int pager_open(bool jump_to_end) {
+int pager_open(bool no_pager, bool jump_to_end) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 };
         const char *pager;
         pid_t parent_pid;
+
+        if (no_pager)
+                return 0;
 
         if (pager_pid > 0)
                 return 1;

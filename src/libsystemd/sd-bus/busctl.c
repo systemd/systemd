@@ -62,15 +62,6 @@ static bool arg_allow_interactive_authorization = true;
 static bool arg_augment_creds = true;
 static usec_t arg_timeout = 0;
 
-static void pager_open_if_enabled(void) {
-
-        /* Cache result before we open the pager */
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
 
@@ -95,7 +86,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "Failed to list names: %m");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         names = hashmap_new(&string_hash_ops);
         if (!names)
@@ -289,7 +280,7 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
 
 static void print_tree(const char *prefix, char **l) {
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         prefix = strempty(prefix);
 
@@ -409,7 +400,7 @@ static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool m
                 p = NULL;
         }
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         l = set_get_strv(done);
         if (!l)
@@ -438,7 +429,7 @@ static int tree(sd_bus *bus, char **argv) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get name list: %m");
 
-                pager_open_if_enabled();
+                pager_open(arg_no_pager, false);
 
                 STRV_FOREACH(i, names) {
                         int q;
@@ -468,7 +459,7 @@ static int tree(sd_bus *bus, char **argv) {
                                 printf("\n");
 
                         if (argv[2]) {
-                                pager_open_if_enabled();
+                                pager_open(arg_no_pager, false);
                                 printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
                         }
 
@@ -992,7 +983,7 @@ static int introspect(sd_bus *bus, char **argv) {
                         return bus_log_parse_error(r);
         }
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         name_width = strlen("NAME");
         type_width = strlen("TYPE");
@@ -1559,7 +1550,7 @@ static int call(sd_bus *bus, char *argv[]) {
         if (r == 0 && !arg_quiet) {
 
                 if (arg_verbose) {
-                        pager_open_if_enabled();
+                        pager_open(arg_no_pager, false);
 
                         r = bus_message_dump(reply, stdout, 0);
                         if (r < 0)
@@ -1614,7 +1605,7 @@ static int get_property(sd_bus *bus, char *argv[]) {
                         return bus_log_parse_error(r);
 
                 if (arg_verbose)  {
-                        pager_open_if_enabled();
+                        pager_open(arg_no_pager, false);
 
                         r = bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
                         if (r < 0)

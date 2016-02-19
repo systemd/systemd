@@ -59,14 +59,6 @@ static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
@@ -101,7 +93,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                         bus,
@@ -148,7 +140,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                         bus,
@@ -194,7 +186,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                         bus,
@@ -858,7 +850,7 @@ static int show_session(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (argc <= 1) {
                 /* If not argument is specified inspect the manager
@@ -914,7 +906,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (argc <= 1) {
                 /* If not argument is specified inspect the manager
@@ -974,7 +966,7 @@ static int show_seat(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (argc <= 1) {
                 /* If not argument is specified inspect the manager

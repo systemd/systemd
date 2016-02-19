@@ -200,14 +200,6 @@ static void release_busses(void) {
                 busses[w] = sd_bus_flush_close_unref(busses[w]);
 }
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 static void ask_password_agent_open_if_enabled(void) {
 
         /* Open the password agent as a child process if necessary */
@@ -678,7 +670,7 @@ static int list_units(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -890,7 +882,7 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
         int r = 0, n;
         sd_bus *bus;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -1197,7 +1189,7 @@ static int list_timers(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r = 0;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -1365,7 +1357,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
         char *path;
         int r;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (install_client_side()) {
                 Hashmap *h;
@@ -1679,7 +1671,7 @@ static int list_dependencies(int argc, char *argv[], void *userdata) {
         } else
                 u = SPECIAL_DEFAULT_TARGET;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -1910,7 +1902,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 return -EPERM;
         }
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -2067,7 +2059,7 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
                 return;
         }
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         id_len = strlen("JOB");
         unit_len = strlen("UNIT");
@@ -2137,7 +2129,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         int r;
         bool skipped = false;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -4559,7 +4551,7 @@ static int show_all(
         if (r < 0)
                 return r;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         c = (unsigned) r;
 
@@ -4654,7 +4646,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (show_status)
                 /* Increase max number of open files to 16K if we can, we
@@ -4672,7 +4664,7 @@ static int show(int argc, char *argv[], void *userdata) {
 
         if (show_status && argc <= 1) {
 
-                pager_open_if_enabled();
+                pager_open(arg_no_pager, false);
                 show_system_status(bus);
                 new_line = true;
 
@@ -4813,7 +4805,7 @@ static int cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *fragment_path = NULL;
@@ -5003,7 +4995,7 @@ static int show_environment(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -6178,7 +6170,7 @@ end:
 
 static void systemctl_help(void) {
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Query or send control commands to the systemd manager.\n\n"
