@@ -1116,40 +1116,30 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_TLSA: {
                 const char *cert_usage, *selector, *matching_type;
-                char *ss;
-                int n;
 
                 cert_usage = tlsa_cert_usage_to_string(rr->tlsa.cert_usage);
                 selector = tlsa_selector_to_string(rr->tlsa.selector);
                 matching_type = tlsa_matching_type_to_string(rr->tlsa.matching_type);
 
-                r = asprintf(&s, "%s %u %u %u %n",
+                t = hexmem(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size);
+                if (!t)
+                        return NULL;
+
+                r = asprintf(&s,
+                             "%s %u %u %u %s\n"
+                             "        -- Cert. usage: %s\n"
+                             "        -- Selector: %s\n"
+                             "        -- Matching type: %s",
                              k,
                              rr->tlsa.cert_usage,
                              rr->tlsa.selector,
                              rr->tlsa.matching_type,
-                             &n);
-                if (r < 0)
-                        return NULL;
-
-                r = base64_append(&s, n,
-                                  rr->tlsa.data, rr->tlsa.data_size,
-                                  8, columns());
-                if (r < 0)
-                        return NULL;
-
-                r = asprintf(&ss, "%s\n"
-                             "        -- Cert. usage: %s\n"
-                             "        -- Selector: %s\n"
-                             "        -- Matching type: %s",
-                             s,
+                             t,
                              cert_usage,
                              selector,
                              matching_type);
                 if (r < 0)
                         return NULL;
-                free(s);
-                s = ss;
 
                 break;
         }
@@ -1228,12 +1218,15 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         case DNS_TYPE_MX:
         case DNS_TYPE_LOC:
         case DNS_TYPE_DS:
-        case DNS_TYPE_SSHFP:
         case DNS_TYPE_DNSKEY:
         case DNS_TYPE_RRSIG:
         case DNS_TYPE_NSEC:
         case DNS_TYPE_NSEC3:
                 return -EINVAL;
+
+        case DNS_TYPE_SSHFP:
+                *out = rr->sshfp.fingerprint;
+                return rr->sshfp.fingerprint_size;
 
         case DNS_TYPE_TLSA:
                 *out = rr->tlsa.data;

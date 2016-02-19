@@ -45,7 +45,10 @@ __get_env() {
 }
 
 __get_interfaces(){
-    cut -f 1 -d ' ' /proc/net/dev | tail -n +3 | tr -s '\n' | tr -d ':' | xargs
+        { cd /sys/class/net && echo *; } | \
+        while read -d' ' -r name; do
+                [[ "$name" != "lo" ]] && echo "$name"
+        done
 }
 
 _systemd_nspawn() {

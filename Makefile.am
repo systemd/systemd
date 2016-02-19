@@ -5205,6 +5205,12 @@ systemd_resolve_LDADD = \
 bin_PROGRAMS += \
 	systemd-resolve
 
+dist_bashcompletion_data += \
+	shell-completion/bash/systemd-resolve
+
+dist_zshcompletion_data += \
+	shell-completion/zsh/_systemd-resolve
+
 tests += \
 	test-dns-packet \
 	test-resolve-tables \
