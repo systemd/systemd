@@ -663,11 +663,45 @@ static int link_status_one(
         return 0;
 }
 
+static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
+        _cleanup_free_ char *operational_state = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains;
+        const char *on_color_operational, *off_color_operational;
+
+        assert(rtnl);
+
+        sd_network_get_operational_state(&operational_state);
+        operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+
+        printf("%s%s%s        State: %s%s%s\n",
+               on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
+               on_color_operational, strna(operational_state), off_color_operational);
+
+        dump_addresses(rtnl, "       Address: ", 0);
+        dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
+
+        sd_network_get_dns(&dns);
+        dump_list("           DNS: ", dns);
+
+        sd_network_get_search_domains(&search_domains);
+        dump_list("Search Domains: ", search_domains);
+
+        sd_network_get_route_domains(&route_domains);
+        dump_list(" Route Domains: ", route_domains);
+
+        sd_network_get_ntp(&ntp);
+        dump_list("           NTP: ", ntp);
+
+        return 0;
+}
+
 static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **name;
         int r;
+
+        pager_open_if_enabled();
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -677,37 +711,8 @@ static int link_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
-        if (argc <= 1 && !arg_all) {
-                _cleanup_free_ char *operational_state = NULL;
-                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains;
-                const char *on_color_operational, *off_color_operational;
-
-                sd_network_get_operational_state(&operational_state);
-                operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
-
-                printf("%s%s%s        State: %s%s%s\n",
-                       on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
-                       on_color_operational, strna(operational_state), off_color_operational);
-
-                dump_addresses(rtnl, "       Address: ", 0);
-                dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
-
-                sd_network_get_dns(&dns);
-                dump_list("           DNS: ", dns);
-
-                sd_network_get_search_domains(&search_domains);
-                dump_list("Search Domains: ", search_domains);
-
-                sd_network_get_route_domains(&route_domains);
-                dump_list(" Route Domains: ", route_domains);
-
-                sd_network_get_ntp(&ntp);
-                dump_list("           NTP: ", ntp);
-
-                return 0;
-        }
-
-        pager_open_if_enabled();
+        if (argc <= 1 && !arg_all)
+                return system_status(rtnl, hwdb);
 
         if (arg_all) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
