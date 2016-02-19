@@ -205,7 +205,7 @@ void rename_process(const char name[8]) {
          * "systemd"). If you pass a longer string it will be
          * truncated */
 
-        prctl(PR_SET_NAME, name);
+        (void) prctl(PR_SET_NAME, name);
 
         if (program_invocation_name)
                 strncpy(program_invocation_name, name, strlen(program_invocation_name));
