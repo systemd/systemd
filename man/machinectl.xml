@@ -933,12 +933,12 @@
       <title>Download a Fedora image, set a root password in it, start
       it as service</title>
 
-      <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-20141203-21
+      <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/23/Cloud/x86_64/Images/Fedora-Cloud-Base-23-20151030.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-23-20151030
 # passwd
 # exit
-# machinectl start Fedora-Cloud-Base-20141203-21
-# machinectl login Fedora-Cloud-Base-20141203-21</programlisting>
+# machinectl start Fedora-Cloud-Base-23-20151030
+# machinectl login Fedora-Cloud-Base-23-20151030</programlisting>
 
       <para>This downloads the specified <filename>.raw</filename>
       image with verification disabled. Then, a shell is opened in it
