@@ -82,6 +82,21 @@
     shipped by the system, any user-supplied
     <filename>.link</filename> should hence have a lexically earlier
     name to be considered at all.</para>
+
+    <para>Boolean arguments used in these settings files can be
+    written in various formats. For positive settings, the strings
+    <option>1</option>, <option>yes</option>, <option>true</option>
+    and <option>on</option> are equivalent. For negative settings, the
+    strings <option>0</option>, <option>no</option>,
+    <option>false</option> and <option>off</option> are
+    equivalent.</para>
+
+    <para>Empty lines and lines starting with # or ; are
+    ignored. This may be used for commenting. Lines ending
+    in a backslash are concatenated with the following
+    line while reading and the backslash is replaced by a
+    space character. This may be used to wrap long lines.</para>
+
   </refsect1>
 
   <refsect1>
