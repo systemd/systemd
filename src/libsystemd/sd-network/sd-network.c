@@ -31,6 +31,7 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -102,16 +103,16 @@ _public_ int sd_network_get_route_domains(char ***ret) {
 }
 
 static int network_link_get_string(int ifindex, const char *field, char **ret) {
-        _cleanup_free_ char *s = NULL, *p = NULL;
+        char path[strlen("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert_return(ifindex > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%i", ifindex) < 0)
-                return -ENOMEM;
+        xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
 
-        r = parse_env_file(p, NEWLINE, field, &s, NULL);
+        r = parse_env_file(path, NEWLINE, field, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -126,17 +127,16 @@ static int network_link_get_string(int ifindex, const char *field, char **ret) {
 }
 
 static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
+        char path[strlen("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
         _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert_return(ifindex > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, key, &s, NULL);
+        xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
+        r = parse_env_file(path, NEWLINE, key, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -208,9 +208,10 @@ _public_ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
 }
 
 static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
+        char path[strlen("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
         _cleanup_strv_free_ char **a = NULL;
         _cleanup_free_ int *ifis = NULL;
+        _cleanup_free_ char *s = NULL;
         size_t allocated = 0, c = 0;
         const char *x;
         int r;
@@ -218,10 +219,8 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         assert_return(ifindex > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return -ENOMEM;
-
-        r = parse_env_file(p, NEWLINE, key, &s, NULL);
+        xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
+        r = parse_env_file(path, NEWLINE, key, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
