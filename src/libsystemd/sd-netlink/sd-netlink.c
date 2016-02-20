@@ -774,7 +774,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-int sd_netlink_attach_event(sd_netlink *rtnl, sd_event *event, int priority) {
+int sd_netlink_attach_event(sd_netlink *rtnl, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(rtnl, -EINVAL);

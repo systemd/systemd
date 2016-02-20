@@ -40,7 +40,7 @@ Network.DHCPServer,                     config_parse_bool,                      
 Network.LinkLocalAddressing,            config_parse_address_family_boolean,            0,                             offsetof(Network, link_local)
 Network.IPv4LLRoute,                    config_parse_bool,                              0,                             offsetof(Network, ipv4ll_route)
 Network.IPv6Token,                      config_parse_ipv6token,                         0,                             offsetof(Network, ipv6_token)
-Network.LLDP,                           config_parse_bool,                              0,                             offsetof(Network, lldp)
+Network.LLDP,                           config_parse_lldp_mode,                         0,                             offsetof(Network, lldp_mode)
 Network.Address,                        config_parse_address,                           0,                             0
 Network.Gateway,                        config_parse_gateway,                           0,                             0
 Network.Domains,                        config_parse_domains,                           0,                             0

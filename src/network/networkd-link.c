@@ -26,6 +26,7 @@
 #include "dhcp-lease-internal.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "lldp.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-link.h"
@@ -89,7 +90,12 @@ bool link_ipv6ll_enabled(Link *link) {
 }
 
 bool link_lldp_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (link->iftype != ARPHRD_ETHER)
                 return false;
 
         if (!link->network)
@@ -98,7 +104,7 @@ bool link_lldp_enabled(Link *link) {
         if (link->network->bridge)
                 return false;
 
-        return link->network->lldp;
+        return link->network->lldp_mode != LLDP_MODE_NO;
 }
 
 static bool link_ipv4_forward_enabled(Link *link) {
@@ -300,6 +306,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         uint16_t type;
         const char *ifname;
         int r, ifindex;
+        unsigned short iftype;
 
         assert(manager);
         assert(message);
@@ -317,6 +324,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         else if (ifindex <= 0)
                 return -EINVAL;
 
+        r = sd_rtnl_message_link_get_type(message, &iftype);
+        if (r < 0)
+                return r;
+
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &ifname);
         if (r < 0)
                 return r;
@@ -330,29 +341,23 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         link->state = LINK_STATE_PENDING;
         link->rtnl_extended_attrs = true;
         link->ifindex = ifindex;
+        link->iftype = iftype;
         link->ifname = strdup(ifname);
         if (!link->ifname)
                 return -ENOMEM;
 
         r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
-                log_link_debug(link, "MAC address not found for new device, continuing without");
+                log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
 
-        r = asprintf(&link->state_file, "/run/systemd/netif/links/%d",
-                     link->ifindex);
-        if (r < 0)
+        if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lease_file, "/run/systemd/netif/leases/%d",
-                     link->ifindex);
-        if (r < 0)
+        if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
-        r = asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d",
-                     link->ifindex);
-        if (r < 0)
+        if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
                 return -ENOMEM;
-
 
         r = hashmap_ensure_allocated(&manager->links, NULL);
         if (r < 0)
@@ -402,7 +407,6 @@ static void link_free(Link *link) {
         free(link->lease_file);
 
         sd_lldp_unref(link->lldp);
-
         free(link->lldp_file);
 
         sd_ipv4ll_unref(link->ipv4ll);
@@ -506,31 +510,25 @@ static int link_stop_clients(Link *link) {
         if (link->dhcp_client) {
                 k = sd_dhcp_client_stop(link->dhcp_client);
                 if (k < 0)
-                        r = log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m");
+                        r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
 
         if (link->ipv4ll) {
                 k = sd_ipv4ll_stop(link->ipv4ll);
                 if (k < 0)
-                        r = log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m");
+                        r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
         }
 
         if (link->dhcp6_client) {
                 k = sd_dhcp6_client_stop(link->dhcp6_client);
                 if (k < 0)
-                        r = log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m");
+                        r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
         }
 
         if (link->ndisc_router_discovery) {
                 k = sd_ndisc_stop(link->ndisc_router_discovery);
                 if (k < 0)
-                        r = log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m");
-        }
-
-        if (link->lldp) {
-                k = sd_lldp_stop(link->lldp);
-                if (k < 0)
-                        r = log_link_warning_errno(link, r, "Could not stop LLDP: %m");
+                        r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
         }
 
         return r;
@@ -1211,7 +1209,7 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
 
-        if(link->network->cost != 0) {
+        if (link->network->cost != 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_COST attribute: %m");
@@ -1230,24 +1228,83 @@ static int link_set_bridge(Link *link) {
         return r;
 }
 
-static void lldp_handler(sd_lldp *lldp, int event, void *userdata) {
-        Link *link = userdata;
-        int r;
+static int link_lldp_save(Link *link) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        sd_lldp_neighbor **l = NULL;
+        int n = 0, r, i;
 
         assert(link);
-        assert(link->network);
-        assert(link->manager);
+        assert(link->lldp_file);
 
-        switch (event) {
-        case SD_LLDP_EVENT_UPDATE_INFO:
-                r = sd_lldp_save(link->lldp, link->lldp_file);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Could not save LLDP: %m");
-
-                break;
-        default:
-                break;
+        if (!link->lldp) {
+                (void) unlink(link->lldp_file);
+                return 0;
         }
+
+        r = sd_lldp_get_neighbors(link->lldp, &l);
+        if (r < 0)
+                goto finish;
+        if (r == 0) {
+                (void) unlink(link->lldp_file);
+                goto finish;
+        }
+
+        n = r;
+
+        r = fopen_temporary(link->lldp_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fchmod(fileno(f), 0644);
+
+        for (i = 0; i < n; i++) {
+                const void *p;
+                le64_t u;
+                size_t sz;
+
+                r = sd_lldp_neighbor_get_raw(l[i], &p, &sz);
+                if (r < 0)
+                        goto finish;
+
+                u = htole64(sz);
+                (void) fwrite(&u, 1, sizeof(u), f);
+                (void) fwrite(p, 1, sz, f);
+        }
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto finish;
+
+        if (rename(temp_path, link->lldp_file) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+finish:
+        if (r < 0) {
+                (void) unlink(link->lldp_file);
+                if (temp_path)
+                        (void) unlink(temp_path);
+
+                log_link_error_errno(link, r, "Failed to save LLDP data to %s: %m", link->lldp_file);
+        }
+
+        if (l) {
+                for (i = 0; i < n; i++)
+                        sd_lldp_neighbor_unref(l[i]);
+                free(l);
+        }
+
+        return r;
+}
+
+static void lldp_handler(sd_lldp *lldp, void *userdata) {
+        Link *link = userdata;
+
+        assert(link);
+
+        (void) link_lldp_save(link);
 }
 
 static int link_acquire_ipv6_conf(Link *link) {
@@ -1309,16 +1366,6 @@ static int link_acquire_conf(Link *link) {
                 r = sd_dhcp_client_start(link->dhcp_client);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
-        }
-
-        if (link_lldp_enabled(link)) {
-                assert(link->lldp);
-
-                log_link_debug(link, "Starting LLDP");
-
-                r = sd_lldp_start(link->lldp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start LLDP: %m");
         }
 
         return 0;
@@ -1559,7 +1606,7 @@ static int link_new_bound_by_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH (carrier, m->links, i) {
+        HASHMAP_FOREACH(carrier, m->links, i) {
                 if (!carrier->network)
                         continue;
 
@@ -1578,7 +1625,7 @@ static int link_new_bound_by_list(Link *link) {
         if (list_updated)
                 link_dirty(link);
 
-        HASHMAP_FOREACH (carrier, link->bound_by_links, i) {
+        HASHMAP_FOREACH(carrier, link->bound_by_links, i) {
                 r = link_put_carrier(carrier, link, &carrier->bound_to_links);
                 if (r < 0)
                         return r;
@@ -2030,6 +2077,27 @@ static int link_drop_foreign_config(Link *link) {
         return 0;
 }
 
+static int link_update_lldp(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->lldp)
+                return 0;
+
+        if (link->flags & IFF_UP) {
+                r = sd_lldp_start(link->lldp);
+                if (r > 0)
+                        log_link_debug(link, "Started LLDP.");
+        } else {
+                r = sd_lldp_stop(link->lldp);
+                if (r > 0)
+                        log_link_debug(link, "Stopped LLDP.");
+        }
+
+        return r;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -2109,7 +2177,14 @@ static int link_configure(Link *link) {
         }
 
         if (link_lldp_enabled(link)) {
-                r = sd_lldp_new(link->ifindex, link->ifname, &link->mac, &link->lldp);
+                r = sd_lldp_new(&link->lldp, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_lldp_match_capabilities(link->lldp,
+                                               link->network->lldp_mode == LLDP_MODE_ROUTERS_ONLY ?
+                                               _LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :
+                                               _LLDP_SYSTEM_CAPABILITIES_ALL);
                 if (r < 0)
                         return r;
 
@@ -2117,8 +2192,11 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = sd_lldp_set_callback(link->lldp,
-                                         lldp_handler, link);
+                r = sd_lldp_set_callback(link->lldp, lldp_handler, link);
+                if (r < 0)
+                        return r;
+
+                r = link_update_lldp(link);
                 if (r < 0)
                         return r;
         }
@@ -2562,7 +2640,6 @@ int link_carrier_reset(Link *link) {
         return 0;
 }
 
-
 int link_update(Link *link, sd_netlink_message *m) {
         struct ether_addr mac;
         const char *ifname;
@@ -2668,6 +2745,10 @@ int link_update(Link *link, sd_netlink_message *m) {
         if (r < 0)
                 return r;
 
+        r = link_update_lldp(link);
+        if (r < 0)
+                return r;
+
         carrier_gained = !had_carrier && link_has_carrier(link);
         carrier_lost = had_carrier && !link_has_carrier(link);
 
@@ -2683,10 +2764,32 @@ int link_update(Link *link, sd_netlink_message *m) {
                 r = link_carrier_lost(link);
                 if (r < 0)
                         return r;
-
         }
 
         return 0;
+}
+
+static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
+        bool space = false;
+        Iterator i;
+        Link *link;
+
+        assert(f);
+        assert(prefix);
+
+        if (hashmap_isempty(h))
+                return;
+
+        fputs(prefix, f);
+        HASHMAP_FOREACH(link, h, i) {
+                if (space)
+                        fputc(' ', f);
+
+                fprintf(f, "%i", link->ifindex);
+                space = true;
+        }
+
+        fputc('\n', f);
 }
 
 int link_save(Link *link) {
@@ -2707,6 +2810,8 @@ int link_save(Link *link) {
                 unlink(link->state_file);
                 return 0;
         }
+
+        link_lldp_save(link);
 
         admin_state = link_state_to_string(link->state);
         assert(admin_state);
@@ -2887,27 +2992,8 @@ int link_save(Link *link) {
                 fputc('\n', f);
         }
 
-        if (!hashmap_isempty(link->bound_to_links)) {
-                Link *carrier;
-                bool space = false;
-
-                fputs("CARRIER_BOUND_TO=", f);
-                HASHMAP_FOREACH(carrier, link->bound_to_links, i)
-                        fputs_with_space(f, carrier->ifname, NULL, &space);
-
-                fputc('\n', f);
-        }
-
-        if (!hashmap_isempty(link->bound_by_links)) {
-                Link *carrier;
-                bool space = false;
-
-                fputs("CARRIER_BOUND_BY=", f);
-                HASHMAP_FOREACH(carrier, link->bound_by_links, i)
-                        fputs_with_space(f, carrier->ifname, NULL, &space);
-
-                fputc('\n', f);
-        }
+        print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
+        print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
 
         if (link->dhcp_lease) {
                 struct in_addr address;
@@ -2946,19 +3032,6 @@ int link_save(Link *link) {
                         fputc('\n', f);
                 }
         }
-
-        if (link->lldp) {
-                assert(link->network);
-
-                r = sd_lldp_save(link->lldp, link->lldp_file);
-                if (r < 0)
-                        goto fail;
-
-                fprintf(f,
-                        "LLDP_FILE=%s\n",
-                        link->lldp_file);
-        } else
-                unlink(link->lldp_file);
 
         r = fflush_and_check(f);
         if (r < 0)

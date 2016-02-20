@@ -50,8 +50,7 @@ static void scope_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
-
-        UNIT(s)->ignore_on_isolate = true;
+        u->ignore_on_isolate = true;
 }
 
 static void scope_done(Unit *u) {

@@ -37,7 +37,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server);
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server);
 
-int sd_dhcp_server_attach_event(sd_dhcp_server *client, sd_event *event, int priority);
+int sd_dhcp_server_attach_event(sd_dhcp_server *client, sd_event *event, int64_t priority);
 int sd_dhcp_server_detach_event(sd_dhcp_server *client);
 sd_event *sd_dhcp_server_get_event(sd_dhcp_server *client);
 

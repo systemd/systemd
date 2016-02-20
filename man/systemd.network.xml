@@ -335,7 +335,13 @@
         <varlistentry>
           <term><varname>LLDP=</varname></term>
           <listitem>
-            <para>A boolean. When true, enables LLDP link receive support.
+            <para>Controls LLDP reception supports. Accepts a boolean or the special value
+            <literal>routers-only</literal>. When true, incoming LLDP packets are accepted and a database of all LLDP
+            neighbors maintained. If <literal>routers-only</literal> is set only LLDP data of various types of routers
+            is collected and LLDP data about other types of devices ignored (such as stations, telephones and
+            others). If false, LLDP reception is disabled. Defaults to <literal>routers-only</literal>. Use
+            <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to query the
+            collected neighbor data.
             </para>
           </listitem>
         </varlistentry>

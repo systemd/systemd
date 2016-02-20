@@ -1,0 +1,792 @@
+/***
+  This file is part of systemd.
+
+  Copyright 2016 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include "alloc-util.h"
+#include "escape.h"
+#include "ether-addr-util.h"
+#include "hexdecoct.h"
+#include "in-addr-util.h"
+#include "lldp-internal.h"
+#include "lldp-neighbor.h"
+#include "lldp.h"
+#include "unaligned.h"
+
+static void lldp_neighbor_id_hash_func(const void *p, struct siphash *state) {
+        const LLDPNeighborID *id = p;
+
+        siphash24_compress(id->chassis_id, id->chassis_id_size, state);
+        siphash24_compress(&id->chassis_id_size, sizeof(id->chassis_id_size), state);
+        siphash24_compress(id->port_id, id->port_id_size, state);
+        siphash24_compress(&id->port_id_size, sizeof(id->port_id_size), state);
+}
+
+static int lldp_neighbor_id_compare_func(const void *a, const void *b) {
+        const LLDPNeighborID *x = a, *y = b;
+        int r;
+
+        r = memcmp(x->chassis_id, y->chassis_id, MIN(x->chassis_id_size, y->chassis_id_size));
+        if (r != 0)
+                return r;
+
+        if (x->chassis_id_size < y->chassis_id_size)
+                return -1;
+
+        if (x->chassis_id_size > y->chassis_id_size)
+                return 1;
+
+        r = memcmp(x->port_id, y->port_id, MIN(x->port_id_size, y->port_id_size));
+        if (r != 0)
+                return r;
+
+        if (x->port_id_size < y->port_id_size)
+                return -1;
+        if (x->port_id_size > y->port_id_size)
+                return 1;
+
+        return 0;
+}
+
+const struct hash_ops lldp_neighbor_id_hash_ops = {
+        .hash = lldp_neighbor_id_hash_func,
+        .compare = lldp_neighbor_id_compare_func
+};
+
+int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
+        const sd_lldp_neighbor *x = a, *y = b;
+
+        if (x->until < y->until)
+                return -1;
+
+        if (x->until > y->until)
+                return 1;
+
+        return 0;
+}
+
+_public_ sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n) {
+        if (!n)
+                return NULL;
+
+        assert(n->n_ref > 0 || n->lldp);
+        n->n_ref++;
+
+        return n;
+}
+
+static void lldp_neighbor_free(sd_lldp_neighbor *n) {
+        assert(n);
+
+        free(n->id.port_id);
+        free(n->id.chassis_id);
+        free(n->port_description);
+        free(n->system_name);
+        free(n->system_description);
+        free(n->chassis_id_as_string);
+        free(n->port_id_as_string);
+        free(n);
+}
+
+_public_ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
+
+        /* Drops one reference from the neighbor. Note that the object is not freed unless it is already unlinked from
+         * the sd_lldp object. */
+
+        if (!n)
+                return NULL;
+
+        assert(n->n_ref > 0);
+        n->n_ref--;
+
+        if (n->n_ref <= 0 && !n->lldp)
+                lldp_neighbor_free(n);
+
+        return NULL;
+}
+
+sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n) {
+
+        /* Removes the neighbor object from the LLDP object, and frees it if it also has no other reference. */
+
+        if (!n)
+                return NULL;
+
+        if (!n->lldp)
+                return NULL;
+
+        assert(hashmap_remove(n->lldp->neighbor_by_id, &n->id) == n);
+        assert(prioq_remove(n->lldp->neighbor_by_expiry, n, &n->prioq_idx) >= 0);
+
+        n->lldp = NULL;
+
+        if (n->n_ref <= 0)
+                lldp_neighbor_free(n);
+
+        return NULL;
+}
+
+sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size) {
+        sd_lldp_neighbor *n;
+
+        n = malloc0(ALIGN(sizeof(sd_lldp_neighbor)) + raw_size);
+        if (!n)
+                return NULL;
+
+        n->raw_size = raw_size;
+        n->n_ref = 1;
+
+        return n;
+}
+
+static int parse_string(char **s, const void *q, size_t n) {
+        const char *p = q;
+        char *k;
+
+        assert(s);
+        assert(p || n == 0);
+
+        if (*s) {
+                log_lldp("Found duplicate string, ignoring field.");
+                return 0;
+        }
+
+        /* Strip trailing NULs, just to be nice */
+        while (n > 0 && p[n-1] == 0)
+                n--;
+
+        if (n <= 0) /* Ignore empty strings */
+                return 0;
+
+        /* Look for inner NULs */
+        if (memchr(p, 0, n)) {
+                log_lldp("Found inner NUL in string, ignoring field.");
+                return 0;
+        }
+
+        /* Let's escape weird chars, for security reasons */
+        k = cescape_length(p, n);
+        if (!k)
+                return -ENOMEM;
+
+        free(*s);
+        *s = k;
+
+        return 1;
+}
+
+int lldp_neighbor_parse(sd_lldp_neighbor *n) {
+        struct ether_header h;
+        const uint8_t *p;
+        size_t left;
+        int r;
+
+        assert(n);
+
+        if (n->raw_size < sizeof(struct ether_header)) {
+                log_lldp("Recieved truncated packet, ignoring.");
+                return -EBADMSG;
+        }
+
+        memcpy(&h, LLDP_NEIGHBOR_RAW(n), sizeof(h));
+
+        if (be16toh(h.ether_type) != ETHERTYPE_LLDP) {
+                log_lldp("Received packet with wrong type, ignoring.");
+                return -EBADMSG;
+        }
+
+        if (h.ether_dhost[0] != 0x01 ||
+            h.ether_dhost[1] != 0x80 ||
+            h.ether_dhost[2] != 0xc2 ||
+            h.ether_dhost[3] != 0x00 ||
+            h.ether_dhost[4] != 0x00 ||
+            !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e)) {
+                log_lldp("Received packet with wrong destination address, ignoring.");
+                return -EBADMSG;
+        }
+
+        memcpy(&n->source_address, h.ether_shost, sizeof(struct ether_addr));
+        memcpy(&n->destination_address, h.ether_dhost, sizeof(struct ether_addr));
+
+        p = (const uint8_t*) LLDP_NEIGHBOR_RAW(n) + sizeof(struct ether_header);
+        left = n->raw_size - sizeof(struct ether_header);
+
+        for (;;) {
+                uint8_t type;
+                uint16_t length;
+
+                if (left < 2) {
+                        log_lldp("TLV lacks header, ignoring.");
+                        return -EBADMSG;
+                }
+
+                type = p[0] >> 1;
+                length = p[1] + (((uint16_t) (p[0] & 1)) << 8);
+                p += 2, left -= 2;
+
+                if (left < length) {
+                        log_lldp("TLV truncated, ignoring datagram.");
+                        return -EBADMSG;
+                }
+
+                switch (type) {
+
+                case LLDP_TYPE_END:
+                        if (length != 0) {
+                                log_lldp("End marker TLV not zero-sized, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+                        if (left != 0) {
+                                log_lldp("Trailing garbage in datagram, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+
+                        goto end_marker;
+
+                case LLDP_TYPE_CHASSIS_ID:
+                        if (length < 2 || length > 256) {
+                                log_lldp("Chassis ID field size out of range, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+                        if (n->id.chassis_id) {
+                                log_lldp("Duplicate chassis ID field, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+
+                        n->id.chassis_id = memdup(p, length);
+                        if (!n->id.chassis_id)
+                                return -ENOMEM;
+
+                        n->id.chassis_id_size = length;
+                        break;
+
+                case LLDP_TYPE_PORT_ID:
+                        if (length < 2 || length > 256) {
+                                log_lldp("Port ID field size out of range, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+                        if (n->id.port_id) {
+                                log_lldp("Duplicate port ID field, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+
+                        n->id.port_id = memdup(p, length);
+                        if (!n->id.port_id)
+                                return -ENOMEM;
+
+                        n->id.port_id_size = length;
+                        break;
+
+                case LLDP_TYPE_TTL:
+                        if (length != 2) {
+                                log_lldp("TTL field has wrong size, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+
+                        if (n->has_ttl) {
+                                log_lldp("Duplicate TTL field, ignoring datagram.");
+                                return -EBADMSG;
+                        }
+
+                        n->ttl = unaligned_read_be16(p);
+                        n->has_ttl = true;
+                        break;
+
+                case LLDP_TYPE_PORT_DESCRIPTION:
+                        r = parse_string(&n->port_description, p, length);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case LLDP_TYPE_SYSTEM_NAME:
+                        r = parse_string(&n->system_name, p, length);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case LLDP_TYPE_SYSTEM_DESCRIPTION:
+                        r = parse_string(&n->system_description, p, length);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case LLDP_TYPE_SYSTEM_CAPABILITIES:
+                        if (length != 4)
+                                log_lldp("System capabilities field has wrong size, ignoring.");
+                        else {
+                                n->system_capabilities = unaligned_read_be16(p);
+                                n->enabled_capabilities = unaligned_read_be16(p + 2);
+                                n->has_capabilities = true;
+                        }
+
+                        break;
+
+                case LLDP_TYPE_PRIVATE:
+                        if (length < 4)
+                                log_lldp("Found private TLV that is too short, ignoring.");
+
+                        break;
+                }
+
+
+                p += length, left -= length;
+        }
+
+end_marker:
+        if (!n->id.chassis_id || !n->id.port_id || !n->has_ttl) {
+                log_lldp("One or more mandatory TLV missing in datagram. Ignoring.");
+                return -EBADMSG;
+
+        }
+
+        n->rindex = sizeof(struct ether_header);
+
+        return 0;
+}
+
+void lldp_neighbor_start_ttl(sd_lldp_neighbor *n) {
+        assert(n);
+
+        if (n->ttl > 0)
+                n->until = usec_add(now(clock_boottime_or_monotonic()), n->ttl * USEC_PER_SEC);
+        else
+                n->until = 0;
+
+        if (n->lldp)
+                prioq_reshuffle(n->lldp->neighbor_by_expiry, n, &n->prioq_idx);
+}
+
+bool lldp_neighbor_equal(const sd_lldp_neighbor *a, const sd_lldp_neighbor *b) {
+        if (a == b)
+                return true;
+
+        if (!a || !b)
+                return false;
+
+        if (a->raw_size != b->raw_size)
+                return false;
+
+        return memcmp(LLDP_NEIGHBOR_RAW(a), LLDP_NEIGHBOR_RAW(b), a->raw_size) == 0;
+}
+
+_public_ int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address) {
+        assert_return(n, -EINVAL);
+        assert_return(address, -EINVAL);
+
+        *address = n->source_address;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_addr* address) {
+        assert_return(n, -EINVAL);
+        assert_return(address, -EINVAL);
+
+        *address = n->destination_address;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(size, -EINVAL);
+
+        *ret = LLDP_NEIGHBOR_RAW(n);
+        *size = n->raw_size;
+
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
+        assert_return(n, -EINVAL);
+        assert_return(type, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(size, -EINVAL);
+
+        assert(n->id.chassis_id_size > 0);
+
+        *type = *(uint8_t*) n->id.chassis_id;
+        *ret = (uint8_t*) n->id.chassis_id + 1;
+        *size = n->id.chassis_id_size - 1;
+
+        return 0;
+}
+
+static int format_mac_address(const void *data, size_t sz, char **ret) {
+        struct ether_addr a;
+        char *k;
+
+        assert(data || sz <= 0);
+
+        if (sz != 7)
+                return 0;
+
+        memcpy(&a, (uint8_t*) data + 1, sizeof(a));
+
+        k = new(char, ETHER_ADDR_TO_STRING_MAX);
+        if (!k)
+                return -ENOMEM;
+
+        *ret = ether_addr_to_string(&a, k);
+        return 1;
+}
+
+static int format_network_address(const void *data, size_t sz, char **ret) {
+        union in_addr_union a;
+        int family;
+
+        if (sz == 6 && ((uint8_t*) data)[1] == 1) {
+                memcpy(&a.in, (uint8_t*) data + 2, sizeof(a.in));
+                family = AF_INET;
+        } else if (sz == 18 && ((uint8_t*) data)[1] == 2) {
+                memcpy(&a.in6, (uint8_t*) data + 2, sizeof(a.in6));
+                family = AF_INET6;
+        } else
+                return 0;
+
+        return in_addr_to_string(family, &a, ret);
+}
+
+_public_ int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, const char **ret) {
+        char *k;
+        int r;
+
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (n->chassis_id_as_string) {
+                *ret = n->chassis_id_as_string;
+                return 0;
+        }
+
+        assert(n->id.chassis_id_size > 0);
+
+        switch (*(uint8_t*) n->id.chassis_id) {
+
+        case LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT:
+        case LLDP_CHASSIS_SUBTYPE_INTERFACE_ALIAS:
+        case LLDP_CHASSIS_SUBTYPE_PORT_COMPONENT:
+        case LLDP_CHASSIS_SUBTYPE_INTERFACE_NAME:
+        case LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED:
+                k = cescape_length((char*) n->id.chassis_id + 1, n->id.chassis_id_size - 1);
+                if (!k)
+                        return -ENOMEM;
+
+                goto done;
+
+        case LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS:
+                r = format_mac_address(n->id.chassis_id, n->id.chassis_id_size, &k);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        goto done;
+
+                break;
+
+        case LLDP_CHASSIS_SUBTYPE_NETWORK_ADDRESS:
+                r = format_network_address(n->id.chassis_id, n->id.chassis_id_size, &k);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        goto done;
+
+                break;
+        }
+
+        /* Generic fallback */
+        k = hexmem(n->id.chassis_id, n->id.chassis_id_size);
+        if (!k)
+                return -ENOMEM;
+
+done:
+        *ret = n->chassis_id_as_string = k;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_port_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
+        assert_return(n, -EINVAL);
+        assert_return(type, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(size, -EINVAL);
+
+        assert(n->id.port_id_size > 0);
+
+        *type = *(uint8_t*) n->id.port_id;
+        *ret = (uint8_t*) n->id.port_id + 1;
+        *size = n->id.port_id_size - 1;
+
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const char **ret) {
+        char *k;
+        int r;
+
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (n->port_id_as_string) {
+                *ret = n->port_id_as_string;
+                return 0;
+        }
+
+        assert(n->id.port_id_size > 0);
+
+        switch (*(uint8_t*) n->id.port_id) {
+
+        case LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
+        case LLDP_PORT_SUBTYPE_PORT_COMPONENT:
+        case LLDP_PORT_SUBTYPE_INTERFACE_NAME:
+        case LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED:
+                k = cescape_length((char*) n->id.port_id + 1, n->id.port_id_size - 1);
+                if (!k)
+                        return -ENOMEM;
+
+                goto done;
+
+        case LLDP_PORT_SUBTYPE_MAC_ADDRESS:
+                r = format_mac_address(n->id.port_id, n->id.port_id_size, &k);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        goto done;
+
+                break;
+
+        case LLDP_PORT_SUBTYPE_NETWORK_ADDRESS:
+                r = format_network_address(n->id.port_id, n->id.port_id_size, &k);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        goto done;
+
+                break;
+        }
+
+        /* Generic fallback */
+        k = hexmem(n->id.port_id, n->id.port_id_size);
+        if (!k)
+                return -ENOMEM;
+
+done:
+        *ret = n->port_id_as_string = k;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = n->ttl;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_system_name(sd_lldp_neighbor *n, const char **ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->system_name)
+                return -ENODATA;
+
+        *ret = n->system_name;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_system_description(sd_lldp_neighbor *n, const char **ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->system_description)
+                return -ENODATA;
+
+        *ret = n->system_description;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->port_description)
+                return -ENODATA;
+
+        *ret = n->port_description;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint16_t *ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->has_capabilities)
+                return -ENODATA;
+
+        *ret = n->system_capabilities;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->has_capabilities)
+                return -ENODATA;
+
+        *ret = n->enabled_capabilities;
+        return 0;
+}
+
+int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
+        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(raw || raw_size <= 0, -EINVAL);
+
+        n = lldp_neighbor_new(raw_size);
+        if (!n)
+                return -ENOMEM;
+
+        memcpy(LLDP_NEIGHBOR_RAW(n), raw, raw_size);
+        r = lldp_neighbor_parse(n);
+        if (r < 0)
+                return r;
+
+        *ret = n;
+        n = 0;
+
+        return r;
+}
+
+_public_ int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
+        assert_return(n, -EINVAL);
+
+        assert(n->raw_size >= sizeof(struct ether_header));
+        n->rindex = sizeof(struct ether_header);
+
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
+        size_t length;
+
+        assert_return(n, -EINVAL);
+
+        if (n->rindex == n->raw_size) /* EOF */
+                return -ESPIPE;
+
+        if (n->rindex + 2 > n->raw_size) /* Truncated message */
+                return -EBADMSG;
+
+        length = LLDP_NEIGHBOR_LENGTH(n);
+        if (n->rindex + 2 + length > n->raw_size)
+                return -EBADMSG;
+
+        n->rindex += 2 + length;
+        return n->rindex < n->raw_size;
+}
+
+_public_ int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type) {
+        assert_return(n, -EINVAL);
+        assert_return(type, -EINVAL);
+
+        if (n->rindex == n->raw_size) /* EOF */
+                return -ESPIPE;
+
+        if (n->rindex + 2 > n->raw_size)
+                return -EBADMSG;
+
+        *type = LLDP_NEIGHBOR_TYPE(n);
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type) {
+        uint8_t k;
+        int r;
+
+        assert_return(n, -EINVAL);
+
+        r = sd_lldp_neighbor_tlv_get_type(n, &k);
+        if (r < 0)
+                return r;
+
+        return type == k;
+}
+
+_public_ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[3], uint8_t *subtype) {
+        const uint8_t *d;
+        size_t length;
+        int r;
+
+        assert_return(n, -EINVAL);
+        assert_return(oui, -EINVAL);
+        assert_return(subtype, -EINVAL);
+
+        r = sd_lldp_neighbor_tlv_is_type(n, LLDP_TYPE_PRIVATE);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENXIO;
+
+        length = LLDP_NEIGHBOR_LENGTH(n);
+        if (length < 4)
+                return -EBADMSG;
+
+        if (n->rindex + 2 + length > n->raw_size)
+                return -EBADMSG;
+
+        d = LLDP_NEIGHBOR_DATA(n);
+        memcpy(oui, d, 3);
+        *subtype = d[3];
+
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[3], uint8_t subtype) {
+        uint8_t k[3], st;
+        int r;
+
+        r = sd_lldp_neighbor_tlv_get_oui(n, k, &st);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return memcmp(k, oui, 3) == 0 && st == subtype;
+}
+
+_public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
+        size_t length;
+
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(size, -EINVAL);
+
+        /* Note that this returns the full TLV, including the TLV header */
+
+        if (n->rindex + 2 > n->raw_size)
+                return -EBADMSG;
+
+        length = LLDP_NEIGHBOR_LENGTH(n);
+
+        if (n->rindex + 2 + length > n->raw_size)
+                return -EBADMSG;
+
+        *ret = (uint8_t*) LLDP_NEIGHBOR_RAW(n) + n->rindex;
+        *size = length + 2;
+
+        return 0;
+}

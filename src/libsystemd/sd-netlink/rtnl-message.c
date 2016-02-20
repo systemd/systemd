@@ -616,7 +616,7 @@ int sd_rtnl_message_link_get_flags(sd_netlink_message *m, unsigned *flags) {
         return 0;
 }
 
-int sd_rtnl_message_link_get_type(sd_netlink_message *m, unsigned *type) {
+int sd_rtnl_message_link_get_type(sd_netlink_message *m, unsigned short *type) {
         struct ifinfomsg *ifi;
 
         assert_return(m, -EINVAL);

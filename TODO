@@ -33,6 +33,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
+
 * resolved: maybe, after all, implement local listening for DNS packets on port
   53.
 

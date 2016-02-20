@@ -23,6 +23,7 @@
 
 #include "sd-device.h"
 #include "sd-hwdb.h"
+#include "sd-lldp.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
 
@@ -30,6 +31,7 @@
 #include "arphrd-list.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "hwdb-util.h"
 #include "lldp.h"
 #include "local-addresses.h"
@@ -38,6 +40,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "socket-util.h"
+#include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -58,7 +61,7 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
-static int link_get_type_string(int iftype, sd_device *d, char **ret) {
+static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret) {
         const char *t;
         char *p;
 
@@ -70,7 +73,7 @@ static int link_get_type_string(int iftype, sd_device *d, char **ret) {
                  * to show a more useful type string for
                  * them */
 
-                (void)sd_device_get_devtype(d, &devtype);
+                (void) sd_device_get_devtype(d, &devtype);
 
                 if (streq_ptr(devtype, "wlan"))
                         id = "wlan";
@@ -101,66 +104,6 @@ static int link_get_type_string(int iftype, sd_device *d, char **ret) {
         *ret = p;
 
         return 0;
-}
-
-typedef struct LinkInfo {
-        const char *name;
-        int ifindex;
-        unsigned iftype;
-} LinkInfo;
-
-static int link_info_compare(const void *a, const void *b) {
-        const LinkInfo *x = a, *y = b;
-
-        return x->ifindex - y->ifindex;
-}
-
-static int decode_and_sort_links(sd_netlink_message *m, LinkInfo **ret) {
-        _cleanup_free_ LinkInfo *links = NULL;
-        size_t size = 0, c = 0;
-        sd_netlink_message *i;
-        int r;
-
-        for (i = m; i; i = sd_netlink_message_next(i)) {
-                const char *name;
-                unsigned iftype;
-                uint16_t type;
-                int ifindex;
-
-                r = sd_netlink_message_get_type(i, &type);
-                if (r < 0)
-                        return r;
-
-                if (type != RTM_NEWLINK)
-                        continue;
-
-                r = sd_rtnl_message_link_get_ifindex(i, &ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
-                if (r < 0)
-                        return r;
-
-                r = sd_rtnl_message_link_get_type(i, &iftype);
-                if (r < 0)
-                        return r;
-
-                if (!GREEDY_REALLOC(links, size, c+1))
-                        return -ENOMEM;
-
-                links[c].name = name;
-                links[c].ifindex = ifindex;
-                links[c].iftype = iftype;
-                c++;
-        }
-
-        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
-
-        *ret = links;
-        links = NULL;
-
-        return (int) c;
 }
 
 static void operational_state_to_color(const char *state, const char **on, const char **off) {
@@ -194,17 +137,121 @@ static void setup_state_to_color(const char *state, const char **on, const char 
                 *on = *off = "";
 }
 
-static int list_links(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_free_ LinkInfo *links = NULL;
-        int r, c, i;
+typedef struct LinkInfo {
+        char name[IFNAMSIZ+1];
+        int ifindex;
+        unsigned short iftype;
+        struct ether_addr mac_address;
+        uint32_t mtu;
 
-        pager_open_if_enabled();
+        bool has_mac_address:1;
+        bool has_mtu:1;
+} LinkInfo;
 
-        r = sd_netlink_open(&rtnl);
+static int link_info_compare(const void *a, const void *b) {
+        const LinkInfo *x = a, *y = b;
+
+        return x->ifindex - y->ifindex;
+}
+
+static int decode_link(sd_netlink_message *m, LinkInfo *info) {
+        static const struct ether_addr null_address = {};
+        const char *name;
+        uint16_t type;
+        int r;
+
+        assert(m);
+        assert(info);
+
+        r = sd_netlink_message_get_type(m, &type);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+                return r;
+
+        if (type != RTM_NEWLINK)
+                return 0;
+
+        r = sd_rtnl_message_link_get_ifindex(m, &info->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_read_string(m, IFLA_IFNAME, &name);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_link_get_type(m, &info->iftype);
+        if (r < 0)
+                return r;
+
+        strncpy(info->name, name, sizeof(info->name));
+
+        info->has_mac_address =
+                sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
+                memcmp(&info->mac_address, &null_address, sizeof(struct ether_addr)) != 0;
+
+        info->has_mtu =
+                sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) &&
+                info->mtu > 0;
+
+        return 1;
+}
+
+static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
+        _cleanup_free_ LinkInfo *links = NULL;
+        char **i;
+        size_t c = 0;
+        int r;
+
+        assert(rtnl);
+        assert(ret);
+
+        links = new(LinkInfo, strv_length(l));
+        if (!links)
+                return log_oom();
+
+        STRV_FOREACH(i, l) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+                int ifindex;
+
+                if (parse_ifindex(*i, &ifindex) >= 0)
+                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
+                else {
+                        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+                        if (r < 0)
+                                return rtnl_log_create_error(r);
+
+                        r = sd_netlink_message_append_string(req, IFLA_IFNAME, *i);
+                }
+                if (r < 0)
+                        return rtnl_log_create_error(r);
+
+                r = sd_netlink_call(rtnl, req, 0, &reply);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request link: %m");
+
+                r = decode_link(reply, links + c);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        c++;
+        }
+
+        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
+
+        *ret = links;
+        links = NULL;
+
+        return (int) c;
+}
+
+static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_free_ LinkInfo *links = NULL;
+        size_t allocated = 0, c = 0;
+        sd_netlink_message *i;
+        int r;
+
+        assert(rtnl);
+        assert(ret);
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
         if (r < 0)
@@ -218,12 +265,50 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
-        if (arg_legend)
-                printf("%3s %-16s %-18s %-11s %-10s\n", "IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
+        for (i = reply; i; i = sd_netlink_message_next(i)) {
+                if (!GREEDY_REALLOC(links, allocated, c+1))
+                        return -ENOMEM;
 
-        c = decode_and_sort_links(reply, &links);
+                r = decode_link(i, links + c);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        c++;
+        }
+
+        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
+
+        *ret = links;
+        links = NULL;
+
+        return (int) c;
+}
+
+static int list_links(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_free_ LinkInfo *links = NULL;
+        int c, i, r;
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        if (argc > 1)
+                c = acquire_link_info_strv(rtnl, argv + 1, &links);
+        else
+                c = acquire_link_info_all(rtnl, &links);
         if (c < 0)
-                return rtnl_log_parse_error(c);
+                return c;
+
+        pager_open_if_enabled();
+
+        if (arg_legend)
+                printf("%3s %-16s %-18s %-11s %-10s\n",
+                       "IDX",
+                       "LINK",
+                       "TYPE",
+                       "OPERATIONAL",
+                       "SETUP");
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
@@ -239,8 +324,8 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
-                sprintf(devid, "n%i", links[i].ifindex);
-                (void)sd_device_new_from_device_id(&d, devid);
+                xsprintf(devid, "n%i", links[i].ifindex);
+                (void) sd_device_new_from_device_id(&d, devid);
 
                 link_get_type_string(links[i].iftype, d, &t);
 
@@ -257,7 +342,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 }
 
 /* IEEE Organizationally Unique Identifier vendor string */
-static int ieee_oui(sd_hwdb *hwdb, struct ether_addr *mac, char **ret) {
+static int ieee_oui(sd_hwdb *hwdb, const struct ether_addr *mac, char **ret) {
         const char *description;
         char modalias[strlen("OUI:XXYYXXYYXXYY") + 1], *desc;
         int r;
@@ -404,6 +489,9 @@ static int dump_gateways(
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
+        assert(rtnl);
+        assert(prefix);
+
         n = local_gateways(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
                 return n;
@@ -453,6 +541,9 @@ static int dump_addresses(
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
+        assert(rtnl);
+        assert(prefix);
+
         n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
                 return n;
@@ -485,6 +576,122 @@ static int dump_addresses(
         return 0;
 }
 
+static int open_lldp_neighbors(int ifindex, FILE **ret) {
+        _cleanup_free_ char *p = NULL;
+        FILE *f;
+
+        if (asprintf(&p, "/run/systemd/netif/lldp/%i", ifindex) < 0)
+                return -ENOMEM;
+
+        f = fopen(p, "re");
+        if (!f)
+                return -errno;
+
+        *ret = f;
+        return 0;
+}
+
+static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
+        _cleanup_free_ void *raw = NULL;
+        size_t l;
+        le64_t u;
+        int r;
+
+        assert(f);
+        assert(ret);
+
+        l = fread(&u, 1, sizeof(u), f);
+        if (l == 0 && feof(f))
+                return 0;
+        if (l != sizeof(u))
+                return -EBADMSG;
+
+        raw = new(uint8_t, le64toh(u));
+        if (!raw)
+                return -ENOMEM;
+
+        if (fread(raw, 1, le64toh(u), f) != le64toh(u))
+                return -EBADMSG;
+
+        r = sd_lldp_neighbor_from_raw(ret, raw, le64toh(u));
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int dump_lldp_neighbors(const char *prefix, int ifindex) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r, c = 0;
+
+        assert(prefix);
+        assert(ifindex > 0);
+
+        r = open_lldp_neighbors(ifindex, &f);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *system_name = NULL, *port_id = NULL, *port_description = NULL;
+                _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+                uint16_t cc = (uint16_t) -1;
+
+                r = next_lldp_neighbor(f, &n);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                printf("%*s",
+                       (int) strlen(prefix),
+                       c == 0 ? prefix : "");
+
+                /* Only show routers */
+                (void) sd_lldp_neighbor_get_enabled_capabilities(n, &cc);
+                if ((cc & _LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS) == 0)
+                        continue;
+
+                (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+                (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+                (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+
+                printf("%s on port %s", strna(system_name), strna(port_id));
+
+                if (!isempty(port_description))
+                        printf(" (%s)", port_description);
+
+                putchar('\n');
+
+                c++;
+        }
+
+        return c;
+}
+
+static void dump_ifindexes(const char *prefix, const int *ifindexes) {
+        unsigned c;
+
+        assert(prefix);
+
+        if (!ifindexes || ifindexes[0] <= 0)
+                return;
+
+        for (c = 0; ifindexes[c] > 0; c++) {
+                char name[IF_NAMESIZE+1];
+
+                printf("%*s",
+                       (int) strlen(prefix),
+                       c == 0 ? prefix : "");
+
+                if (if_indextoname(ifindexes[c], name))
+                        fputs(name, stdout);
+                else
+                        printf("%i", ifindexes[c]);
+
+                fputc('\n', stdout);
+        }
+}
+
 static void dump_list(const char *prefix, char **l) {
         char **i;
 
@@ -502,85 +709,34 @@ static void dump_list(const char *prefix, char **l) {
 static int link_status_one(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
-                const char *name) {
+                const LinkInfo *info) {
+
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
         const char *on_color_operational, *off_color_operational,
                    *on_color_setup, *off_color_setup;
-        _cleanup_strv_free_ char **carrier_bound_to = NULL;
-        _cleanup_strv_free_ char **carrier_bound_by = NULL;
-        struct ether_addr e;
-        unsigned iftype;
-        int r, ifindex;
-        bool have_mac;
-        uint32_t mtu;
+        _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
+        int r;
 
         assert(rtnl);
-        assert(name);
+        assert(info);
 
-        if (parse_ifindex(name, &ifindex) >= 0)
-                r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, ifindex);
-        else {
-                r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
-                if (r < 0)
-                        return rtnl_log_create_error(r);
-
-                r = sd_netlink_message_append_string(req, IFLA_IFNAME, name);
-        }
-
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        r = sd_netlink_call(rtnl, req, 0, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query link: %m");
-
-        r = sd_rtnl_message_link_get_ifindex(reply, &ifindex);
-        if (r < 0)
-                return rtnl_log_parse_error(r);
-
-        r = sd_netlink_message_read_string(reply, IFLA_IFNAME, &name);
-        if (r < 0)
-                return rtnl_log_parse_error(r);
-
-        r = sd_rtnl_message_link_get_type(reply, &iftype);
-        if (r < 0)
-                return rtnl_log_parse_error(r);
-
-        have_mac = sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &e) >= 0;
-        if (have_mac) {
-                const uint8_t *p;
-                bool all_zeroes = true;
-
-                for (p = (uint8_t*) &e; p < (uint8_t*) &e + sizeof(e); p++)
-                        if (*p != 0) {
-                                all_zeroes = false;
-                                break;
-                        }
-
-                if (all_zeroes)
-                        have_mac = false;
-        }
-
-        (void) sd_netlink_message_read_u32(reply, IFLA_MTU, &mtu);
-
-        (void) sd_network_link_get_operational_state(ifindex, &operational_state);
+        (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-        (void) sd_network_link_get_setup_state(ifindex, &setup_state);
+        (void) sd_network_link_get_setup_state(info->ifindex, &setup_state);
         setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
-        (void) sd_network_link_get_dns(ifindex, &dns);
-        (void) sd_network_link_get_search_domains(ifindex, &search_domains);
-        (void) sd_network_link_get_route_domains(ifindex, &route_domains);
-        (void) sd_network_link_get_ntp(ifindex, &ntp);
+        (void) sd_network_link_get_dns(info->ifindex, &dns);
+        (void) sd_network_link_get_search_domains(info->ifindex, &search_domains);
+        (void) sd_network_link_get_route_domains(info->ifindex, &route_domains);
+        (void) sd_network_link_get_ntp(info->ifindex, &ntp);
 
-        sprintf(devid, "n%i", ifindex);
+        xsprintf(devid, "n%i", info->ifindex);
 
         (void) sd_device_new_from_device_id(&d, devid);
 
@@ -598,14 +754,14 @@ static int link_status_one(
                         (void) sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
-        link_get_type_string(iftype, d, &t);
+        link_get_type_string(info->iftype, d, &t);
 
-        sd_network_link_get_network_file(ifindex, &network);
+        sd_network_link_get_network_file(info->ifindex, &network);
 
-        sd_network_link_get_carrier_bound_to(ifindex, &carrier_bound_to);
-        sd_network_link_get_carrier_bound_by(ifindex, &carrier_bound_by);
+        sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
+        sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
-        printf("%s%s%s %i: %s\n", on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational, ifindex, name);
+        printf("%s%s%s %i: %s\n", on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
 
         printf("       Link File: %s\n"
                "    Network File: %s\n"
@@ -626,23 +782,23 @@ static int link_status_one(
         if (model)
                 printf("           Model: %s\n", model);
 
-        if (have_mac) {
+        if (info->has_mac_address) {
                 _cleanup_free_ char *description = NULL;
                 char ea[ETHER_ADDR_TO_STRING_MAX];
 
-                ieee_oui(hwdb, &e, &description);
+                ieee_oui(hwdb, &info->mac_address, &description);
 
                 if (description)
-                        printf("      HW Address: %s (%s)\n", ether_addr_to_string(&e, ea), description);
+                        printf("      HW Address: %s (%s)\n", ether_addr_to_string(&info->mac_address, ea), description);
                 else
-                        printf("      HW Address: %s\n", ether_addr_to_string(&e, ea));
+                        printf("      HW Address: %s\n", ether_addr_to_string(&info->mac_address, ea));
         }
 
-        if (mtu > 0)
-                printf("             MTU: %u\n", mtu);
+        if (info->has_mtu)
+                printf("             MTU: %u\n", info->mtu);
 
-        dump_addresses(rtnl, "         Address: ", ifindex);
-        dump_gateways(rtnl, hwdb, "         Gateway: ", ifindex);
+        dump_addresses(rtnl, "         Address: ", info->ifindex);
+        dump_gateways(rtnl, hwdb, "         Gateway: ", info->ifindex);
 
         dump_list("             DNS: ", dns);
         dump_list("  Search Domains: ", search_domains);
@@ -650,21 +806,57 @@ static int link_status_one(
 
         dump_list("             NTP: ", ntp);
 
-        dump_list("Carrier Bound To: ", carrier_bound_to);
-        dump_list("Carrier Bound By: ", carrier_bound_by);
+        dump_ifindexes("Carrier Bound To: ", carrier_bound_to);
+        dump_ifindexes("Carrier Bound By: ", carrier_bound_by);
 
-        (void) sd_network_link_get_timezone(ifindex, &tz);
+        (void) sd_network_link_get_timezone(info->ifindex, &tz);
         if (tz)
                 printf("       Time Zone: %s", tz);
+
+        (void) dump_lldp_neighbors("    Connected To: ", info->ifindex);
+
+        return 0;
+}
+
+static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
+        _cleanup_free_ char *operational_state = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains;
+        const char *on_color_operational, *off_color_operational;
+
+        assert(rtnl);
+
+        sd_network_get_operational_state(&operational_state);
+        operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+
+        printf("%s%s%s        State: %s%s%s\n",
+               on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
+               on_color_operational, strna(operational_state), off_color_operational);
+
+        dump_addresses(rtnl, "       Address: ", 0);
+        dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
+
+        sd_network_get_dns(&dns);
+        dump_list("           DNS: ", dns);
+
+        sd_network_get_search_domains(&search_domains);
+        dump_list("Search Domains: ", search_domains);
+
+        sd_network_get_route_domains(&route_domains);
+        dump_list(" Route Domains: ", route_domains);
+
+        sd_network_get_ntp(&ntp);
+        dump_list("           NTP: ", ntp);
 
         return 0;
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        char **name;
-        int r;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_free_ LinkInfo *links = NULL;
+        int r, c, i;
+
+        pager_open_if_enabled();
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -674,339 +866,118 @@ static int link_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
-        if (argc <= 1 && !arg_all) {
-                _cleanup_free_ char *operational_state = NULL;
-                _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains;
-                const char *on_color_operational, *off_color_operational;
+        if (arg_all)
+                c = acquire_link_info_all(rtnl, &links);
+        else if (argc <= 1)
+                return system_status(rtnl, hwdb);
+        else
+                c = acquire_link_info_strv(rtnl, argv + 1, &links);
+        if (c < 0)
+                return c;
 
-                sd_network_get_operational_state(&operational_state);
-                operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
+        for (i = 0; i < c; i++) {
+                if (i > 0)
+                        fputc('\n', stdout);
 
-                printf("%s%s%s        State: %s%s%s\n",
-                       on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
-                       on_color_operational, strna(operational_state), off_color_operational);
-
-                dump_addresses(rtnl, "       Address: ", 0);
-                dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
-
-                sd_network_get_dns(&dns);
-                dump_list("           DNS: ", dns);
-
-                sd_network_get_search_domains(&search_domains);
-                dump_list("Search Domains: ", search_domains);
-
-                sd_network_get_route_domains(&route_domains);
-                dump_list(" Route Domains: ", route_domains);
-
-                sd_network_get_ntp(&ntp);
-                dump_list("           NTP: ", ntp);
-
-                return 0;
-        }
-
-        pager_open_if_enabled();
-
-        if (arg_all) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-                _cleanup_free_ LinkInfo *links = NULL;
-                int c, i;
-
-                r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
-                if (r < 0)
-                        return rtnl_log_create_error(r);
-
-                r = sd_netlink_message_request_dump(req, true);
-                if (r < 0)
-                        return rtnl_log_create_error(r);
-
-                r = sd_netlink_call(rtnl, req, 0, &reply);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enumerate links: %m");
-
-                c = decode_and_sort_links(reply, &links);
-                if (c < 0)
-                        return rtnl_log_parse_error(c);
-
-                for (i = 0; i < c; i++) {
-                        if (i > 0)
-                                fputc('\n', stdout);
-
-                        link_status_one(rtnl, hwdb, links[i].name);
-                }
-        } else {
-                STRV_FOREACH(name, argv + 1) {
-                        if (name != argv + 1)
-                                fputc('\n', stdout);
-
-                        link_status_one(rtnl, hwdb, *name);
-                }
+                link_status_one(rtnl, hwdb, links + i);
         }
 
         return 0;
 }
 
-const char *lldp_system_capability_to_string(LLDPSystemCapabilities d) _const_;
-LLDPSystemCapabilities lldp_system_capability_from_string(const char *d) _pure_;
+static char *lldp_capabilities_to_string(uint16_t x) {
+        static const char characters[] = {
+                'o', 'p', 'b', 'w', 'r', 't', 'd', 'a', 'c', 's', 'm',
+        };
+        char *ret;
+        unsigned i;
 
-static const char* const lldp_system_capability_table[_LLDP_SYSTEM_CAPABILITIES_MAX + 1] = {
-        [LLDP_SYSTEM_CAPABILITIES_OTHER] = "O",
-        [LLDP_SYSTEM_CAPABILITIES_REPEATER] = "P",
-        [LLDP_SYSTEM_CAPABILITIES_BRIDGE] = "B",
-        [LLDP_SYSTEM_CAPABILITIES_WLAN_AP] = "W",
-        [LLDP_SYSTEM_CAPABILITIES_ROUTER] = "R",
-        [LLDP_SYSTEM_CAPABILITIES_PHONE] = "T",
-        [LLDP_SYSTEM_CAPABILITIES_DOCSIS] = "D",
-        [LLDP_SYSTEM_CAPABILITIES_STATION] = "A",
-        [LLDP_SYSTEM_CAPABILITIES_CVLAN] = "C",
-        [LLDP_SYSTEM_CAPABILITIES_SVLAN] = "S",
-        [LLDP_SYSTEM_CAPABILITIES_TPMR] = "M",
-        [_LLDP_SYSTEM_CAPABILITIES_MAX] = "N/A",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(lldp_system_capability, LLDPSystemCapabilities);
-
-static char *lldp_system_caps(uint16_t cap) {
-        _cleanup_free_ char *s = NULL, *t = NULL;
-        char *capability;
-
-        t = strdup("[ ");
-        if (!t)
+        ret = new(char, ELEMENTSOF(characters) + 1);
+        if (!ret)
                 return NULL;
 
-        if (cap & LLDP_SYSTEM_CAPABILITIES_OTHER) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_OTHER), " ", NULL);
-                if (!s)
-                        return NULL;
+        for (i = 0; i < ELEMENTSOF(characters); i++)
+                ret[i] = (x & (1U << i)) ? characters[i] : '.';
 
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_REPEATER) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_REPEATER), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_BRIDGE) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_BRIDGE), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_WLAN_AP) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_WLAN_AP), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_ROUTER) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_ROUTER), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_PHONE) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_PHONE), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_DOCSIS) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_DOCSIS), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_STATION) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_STATION), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_CVLAN) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_CVLAN), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_SVLAN) {
-                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_SVLAN), " ", NULL);
-                if (!s)
-                        return NULL;
-
-                free(t);
-                t = s;
-        }
-
-        if (cap & LLDP_SYSTEM_CAPABILITIES_TPMR) {
-                s = strappend(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_TPMR));
-                if (!s)
-                        return NULL;
-
-                free(t);
-        }
-
-        if (!s) {
-                s = strappend(t, lldp_system_capability_to_string(_LLDP_SYSTEM_CAPABILITIES_MAX));
-                if (!s)
-                        return NULL;
-
-                free(t);
-        }
-
-        t = strappend(s, "]");
-        if (!t)
-                return NULL;
-
-        free(s);
-        capability = t;
-
-        s = NULL;
-        t = NULL;
-
-        return capability;
+        ret[i] = 0;
+        return ret;
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
-        double ttl = -1;
-        uint32_t capability;
-        int i, r, c, j;
-        const char *p;
-        char **s;
-
-        pager_open_if_enabled();
+        int i, r, c;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        r = sd_netlink_call(rtnl, req, 0, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate links: %m");
-
-        c = decode_and_sort_links(reply, &links);
+        if (argc > 1)
+                c = acquire_link_info_strv(rtnl, argv + 1, &links);
+        else
+                c = acquire_link_info_all(rtnl, &links);
         if (c < 0)
-                return rtnl_log_parse_error(c);
+                return c;
+
+        pager_open_if_enabled();
 
         if (arg_legend)
-                printf("%s %16s %24s %16s %16s\n", "Local Intf", "Device ID", "Port ID", "TTL", "Capability");
+                printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
+                       "LINK",
+                       "CHASSIS ID",
+                       "SYSTEM NAME",
+                       "CAPS",
+                       "PORT ID",
+                       "PORT DESCRIPTION");
 
-        for (i = j = 0; i < c; i++) {
-                _cleanup_free_ char *chassis = NULL, *port = NULL, *cap = NULL, *lldp = NULL;
-                _cleanup_strv_free_ char **l = NULL;
+        for (i = 0; i < c; i++) {
+                _cleanup_fclose_ FILE *f = NULL;
 
-                r = sd_network_link_get_lldp(links[i].ifindex, &lldp);
-                if (r < 0)
+                r = open_lldp_neighbors(links[i].ifindex, &f);
+                if (r == -ENOENT)
                         continue;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open LLDP data for %i, ignoring: %m", links[i].ifindex);
+                        continue;
+                }
 
-                l = strv_split_newlines(lldp);
-                if (!l)
-                        return -ENOMEM;
+                for (;;) {
+                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL, *capabilities = NULL;
+                        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+                        uint16_t cc;
 
-                STRV_FOREACH(s, l) {
-
-                        p = *s;
-                        for (;;) {
-                                _cleanup_free_ char *a = NULL, *b = NULL, *word = NULL;
-
-                                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse LLDP syntax \"%s\": %m", *s);
-
-                                if (r == 0)
-                                        break;
-
-                                r = split_pair(word, "=", &a, &b);
-                                if (r < 0)
-                                        continue;
-
-                                if (streq(a, "_Chassis")) {
-                                        r = free_and_strdup(&chassis, b);
-                                        if (r < 0)
-                                                return r;
-
-                                } else if (streq(a, "_Port")) {
-                                        r = free_and_strdup(&port, b);
-                                        if (r < 0)
-                                                return r;
-
-                                } else if (streq(a, "_TTL")) {
-                                        long long unsigned x = 0;
-                                        usec_t time;
-
-                                        r = safe_atollu(b, &x);
-                                        if (r < 0 || (usec_t) x != x)
-                                                return log_warning_errno(r < 0 ? r : ERANGE,
-                                                                         "Failed to parse TTL \"%s\": %m", b);
-
-                                        time = now(clock_boottime_or_monotonic());
-                                        if (x < time)
-                                                continue;
-
-                                        ttl = (double) (x - time) / USEC_PER_SEC;
-
-                                } else if (streq(a, "_CAP")) {
-                                        sscanf(b, "%x", &capability);
-
-                                        cap = lldp_system_caps(capability);
-                                }
-
+                        r = next_lldp_neighbor(f, &n);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to read neighbor data: %m");
+                                break;
                         }
+                        if (r == 0)
+                                break;
 
-                        if (ttl >= 0) {
-                                printf("%10s %24s %16s %16f %16s\n",
-                                       links[i].name,
-                                       strna(chassis), strna(port),
-                                       ttl, cap);
-                                j++;
-                        }
+                        (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
+                        (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+                        (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+                        (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+
+                        if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0)
+                                capabilities = lldp_capabilities_to_string(cc);
+
+                        printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
+                               links[i].name,
+                               strna(chassis_id),
+                               strna(system_name),
+                               strna(capabilities),
+                               strna(port_id),
+                               strna(port_description));
                 }
         }
 
-        if (arg_legend) {
-                printf("\nCapability Codes:\n"
-                       "(O) - Other, (P) - Repeater,  (B) - Bridge , (W) - WLAN Access Point, (R) = Router,\n"
-                       "(T) - Telephone, (D) - Data Over Cable Service Interface Specifications, (A) - Station,\n"
-                       "(C) - Customer VLAN, (S) - Service VLAN, (M) - Two-port MAC Relay (TPMR)\n\n");
-
-                printf("Total entries displayed: %d\n", j);
-        }
+        if (arg_legend)
+                printf("\nCapability Flags:\n"
+                       "o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;\n"
+                       "t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;\n"
+                       "s - Service VLAN, m - Two-port MAC Relay (TPMR)\n\n"
+                       "%i neighbors listed.\n", c);
 
         return 0;
 }
@@ -1020,9 +991,9 @@ static void help(void) {
                "     --no-legend        Do not show the headers and footers\n"
                "  -a --all              Show status for all links\n\n"
                "Commands:\n"
-               "  list                  List links\n"
+               "  list [LINK...]        List links\n"
                "  status [LINK...]      Show link status\n"
-               "  lldp                  Show lldp information\n"
+               "  lldp [LINK...]        Show LLDP neighbors\n"
                , program_invocation_short_name);
 }
 
@@ -1084,9 +1055,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         const Verb verbs[] = {
-                { "list", VERB_ANY, 1, VERB_DEFAULT, list_links },
-                { "status", 1, VERB_ANY, 0, link_status },
-                { "lldp", VERB_ANY, 1, VERB_DEFAULT, link_lldp_status },
+                { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links       },
+                { "status", VERB_ANY, VERB_ANY, 0,            link_status      },
+                { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status },
                 {}
         };
 

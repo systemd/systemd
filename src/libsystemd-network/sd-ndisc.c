@@ -166,7 +166,7 @@ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
 
 }
 
-int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int priority) {
+int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(nd, -EINVAL);

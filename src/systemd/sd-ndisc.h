@@ -52,7 +52,7 @@ int sd_ndisc_set_callback(sd_ndisc *nd,
 int sd_ndisc_set_index(sd_ndisc *nd, int interface_index);
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
 
-int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int priority);
+int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority);
 int sd_ndisc_detach_event(sd_ndisc *nd);
 sd_event *sd_ndisc_get_event(sd_ndisc *nd);
 
