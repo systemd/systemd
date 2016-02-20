@@ -60,7 +60,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
                 return r;
 
         r = journal_file_verify(f, verification_key, NULL, NULL, NULL, false);
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         return r;
 }
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
                 free(test);
         }
 
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         log_info("Verifying...");
 
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
                          format_timestamp(b, sizeof(b), to),
                          format_timespan(c, sizeof(c), total > to ? total - to : 0, 0));
 
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         if (verification_key) {
                 log_info("Toggling bits...");

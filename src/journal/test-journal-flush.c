@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 
         sd_journal_close(j);
 
-        journal_file_close(new_journal);
+        (void) journal_file_close(new_journal);
 
         unlink(fn);
         assert_se(rmdir(dn) == 0);

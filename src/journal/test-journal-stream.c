@@ -133,9 +133,9 @@ int main(int argc, char *argv[]) {
                 free(q);
         }
 
-        journal_file_close(one);
-        journal_file_close(two);
-        journal_file_close(three);
+        (void) journal_file_close(one);
+        (void) journal_file_close(two);
+        (void) journal_file_close(three);
 
         assert_se(sd_journal_open_directory(&j, t, 0) >= 0);
 

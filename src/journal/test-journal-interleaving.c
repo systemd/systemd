@@ -57,7 +57,7 @@ static JournalFile *test_open(const char *name) {
 }
 
 static void test_close(JournalFile *f) {
-        journal_file_close (f);
+        (void) journal_file_close (f);
 }
 
 static void append_number(JournalFile *f, int n, uint64_t *seqnum) {

@@ -1258,7 +1258,7 @@ static int add_any_file(sd_journal *j, const char *path) {
 
         r = ordered_hashmap_put(j->files, f->path, f);
         if (r < 0) {
-                journal_file_close(f);
+                (void) journal_file_close(f);
                 goto fail;
         }
 
@@ -1343,7 +1343,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
                         j->fields_file_lost = true;
         }
 
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         j->current_invalidate_counter ++;
 }
@@ -1784,7 +1784,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         sd_journal_flush_matches(j);
 
         while ((f = ordered_hashmap_steal_first(j->files)))
-                journal_file_close(f);
+                (void) journal_file_close(f);
 
         ordered_hashmap_free(j->files);
 

@@ -2898,7 +2898,7 @@ fail:
         if (f->fd >= 0 && mmap_cache_got_sigbus(f->mmap, f->fd))
                 r = -EIO;
 
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         return r;
 }

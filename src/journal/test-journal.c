@@ -107,7 +107,7 @@ static void test_non_empty(void) {
         journal_file_rotate(&f, true, true);
         journal_file_rotate(&f, true, true);
 
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         log_info("Done...");
 
@@ -158,10 +158,10 @@ static void test_empty(void) {
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
 
-        journal_file_close(f1);
-        journal_file_close(f2);
-        journal_file_close(f3);
-        journal_file_close(f4);
+        (void) journal_file_close(f1);
+        (void) journal_file_close(f2);
+        (void) journal_file_close(f3);
+        (void) journal_file_close(f4);
 }
 
 int main(int argc, char *argv[]) {

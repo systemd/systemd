@@ -259,7 +259,7 @@ static int open_journal(
 
         r = journal_file_enable_post_change_timer(f, s->event, POST_CHANGE_TIMER_INTERVAL_USEC);
         if (r < 0) {
-                journal_file_close(f);
+                (void) journal_file_close(f);
                 return r;
         }
 
@@ -302,7 +302,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 /* Too many open? Then let's close one */
                 f = ordered_hashmap_steal_first(s->user_journals);
                 assert(f);
-                journal_file_close(f);
+                (void) journal_file_close(f);
         }
 
         r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_metrics, &f);
@@ -313,7 +313,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
 
         r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
         if (r < 0) {
-                journal_file_close(f);
+                (void) journal_file_close(f);
                 return s->system_journal;
         }
 
@@ -1922,13 +1922,13 @@ void server_done(Server *s) {
                 stdout_stream_free(s->stdout_streams);
 
         if (s->system_journal)
-                journal_file_close(s->system_journal);
+                (void) journal_file_close(s->system_journal);
 
         if (s->runtime_journal)
-                journal_file_close(s->runtime_journal);
+                (void) journal_file_close(s->runtime_journal);
 
         while ((f = ordered_hashmap_steal_first(s->user_journals)))
-                journal_file_close(f);
+                (void) journal_file_close(f);
 
         ordered_hashmap_free(s->user_journals);
 
