@@ -1064,6 +1064,14 @@ static int networkctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static void warn_networkd_missing(void) {
+
+        if (access("/run/systemd/netif/state", F_OK) >= 0)
+                return;
+
+        fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
+}
+
 int main(int argc, char* argv[]) {
         int r;
 
@@ -1073,6 +1081,8 @@ int main(int argc, char* argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        warn_networkd_missing();
 
         r = networkctl_main(argc, argv);
 
