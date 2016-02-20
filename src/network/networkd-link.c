@@ -39,7 +39,9 @@
 #include "util.h"
 #include "virt.h"
 
-bool link_dhcp6_enabled(Link *link) {
+static bool link_dhcp6_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -49,7 +51,9 @@ bool link_dhcp6_enabled(Link *link) {
         return link->network->dhcp & ADDRESS_FAMILY_IPV6;
 }
 
-bool link_dhcp4_enabled(Link *link) {
+static bool link_dhcp4_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -59,7 +63,9 @@ bool link_dhcp4_enabled(Link *link) {
         return link->network->dhcp & ADDRESS_FAMILY_IPV4;
 }
 
-bool link_dhcp4_server_enabled(Link *link) {
+static bool link_dhcp4_server_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -69,7 +75,9 @@ bool link_dhcp4_server_enabled(Link *link) {
         return link->network->dhcp_server;
 }
 
-bool link_ipv4ll_enabled(Link *link) {
+static bool link_ipv4ll_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -79,7 +87,9 @@ bool link_ipv4ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV4;
 }
 
-bool link_ipv6ll_enabled(Link *link) {
+static bool link_ipv6ll_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -89,7 +99,7 @@ bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
-bool link_lldp_enabled(Link *link) {
+static bool link_lldp_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -108,6 +118,8 @@ bool link_lldp_enabled(Link *link) {
 }
 
 static bool link_ipv4_forward_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -121,6 +133,7 @@ static bool link_ipv4_forward_enabled(Link *link) {
 }
 
 static bool link_ipv6_forward_enabled(Link *link) {
+        assert(link);
 
         if (!socket_ipv6_is_supported())
                 return false;
@@ -137,7 +150,9 @@ static bool link_ipv6_forward_enabled(Link *link) {
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
-bool link_ipv6_accept_ra_enabled(Link *link) {
+static bool link_ipv6_accept_ra_enabled(Link *link) {
+        assert(link);
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
