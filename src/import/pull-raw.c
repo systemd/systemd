@@ -355,10 +355,12 @@ static int raw_pull_make_local_copy(RawPull *i) {
                 r = copy_file_atomic(i->settings_path, local_settings, 0644, i->force_local, 0);
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
-                else if (r < 0 && r != -ENOENT)
+                else if (r == -ENOENT)
+                        log_debug_errno(r, "Skipping creation of settings file, since none was found.");
+                else if (r < 0)
                         log_warning_errno(r, "Failed to copy settings files %s, ignoring: %m", local_settings);
                 else
-                        log_info("Created new settings file '%s.nspawn'", i->local);
+                        log_info("Created new settings file %s.", local_settings);
         }
 
         return 0;
