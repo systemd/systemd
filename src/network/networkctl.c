@@ -321,7 +321,9 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
                 operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-                (void) sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
+                r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
+                if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
+                        setup_state = strdup("unmanaged");
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
                 xsprintf(devid, "n%i", links[i].ifindex);
@@ -722,7 +724,9 @@ static int link_status_one(
         (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-        (void) sd_network_link_get_setup_state(info->ifindex, &setup_state);
+        r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
+        if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
+                setup_state = strdup("unmanaged");
         setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
         (void) sd_network_link_get_dns(info->ifindex, &dns);
