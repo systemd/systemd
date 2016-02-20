@@ -104,7 +104,7 @@ static int journal_file_set_online(JournalFile *f) {
 
                 case STATE_OFFLINE:
                         f->header->state = STATE_ONLINE;
-                        fsync(f->fd);
+                        (void) fsync(f->fd);
                         return 0;
 
                 default:
@@ -124,7 +124,7 @@ int journal_file_set_offline(JournalFile *f) {
         if (f->header->state != STATE_ONLINE)
                 return 0;
 
-        fsync(f->fd);
+        (void) fsync(f->fd);
 
         if (mmap_cache_got_sigbus(f->mmap, f->fd))
                 return -EIO;
@@ -134,7 +134,7 @@ int journal_file_set_offline(JournalFile *f) {
         if (mmap_cache_got_sigbus(f->mmap, f->fd))
                 return -EIO;
 
-        fsync(f->fd);
+        (void) fsync(f->fd);
 
         return 0;
 }
@@ -263,7 +263,7 @@ static int journal_file_refresh_header(JournalFile *f) {
         r = journal_file_set_online(f);
 
         /* Sync the online state to disk */
-        fsync(f->fd);
+        (void) fsync(f->fd);
 
         return r;
 }
