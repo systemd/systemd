@@ -286,7 +286,7 @@ static int on_llmnr_stream_packet(DnsStream *s) {
 
         scope = manager_find_scope(s->manager, s->read_packet);
         if (!scope) {
-                log_warning("Got LLMNR TCP packet on unknown scope. Ignroing.");
+                log_warning("Got LLMNR TCP packet on unknown scope. Ignoring.");
                 return 0;
         }
 
