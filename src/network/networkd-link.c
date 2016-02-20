@@ -531,12 +531,6 @@ static int link_stop_clients(Link *link) {
                         r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
         }
 
-        if (link->lldp) {
-                k = sd_lldp_stop(link->lldp);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not stop LLDP: %m");
-        }
-
         return r;
 }
 
@@ -1374,16 +1368,6 @@ static int link_acquire_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
         }
 
-        if (link_lldp_enabled(link)) {
-                assert(link->lldp);
-
-                log_link_debug(link, "Starting LLDP");
-
-                r = sd_lldp_start(link->lldp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start LLDP: %m");
-        }
-
         return 0;
 }
 
@@ -2093,6 +2077,27 @@ static int link_drop_foreign_config(Link *link) {
         return 0;
 }
 
+static int link_update_lldp(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->lldp)
+                return 0;
+
+        if (link->flags & IFF_UP) {
+                r = sd_lldp_start(link->lldp);
+                if (r > 0)
+                        log_link_debug(link, "Started LLDP.");
+        } else {
+                r = sd_lldp_stop(link->lldp);
+                if (r > 0)
+                        log_link_debug(link, "Stopped LLDP.");
+        }
+
+        return r;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -2188,6 +2193,10 @@ static int link_configure(Link *link) {
                         return r;
 
                 r = sd_lldp_set_callback(link->lldp, lldp_handler, link);
+                if (r < 0)
+                        return r;
+
+                r = link_update_lldp(link);
                 if (r < 0)
                         return r;
         }
@@ -2733,6 +2742,10 @@ int link_update(Link *link, sd_netlink_message *m) {
         had_carrier = link_has_carrier(link);
 
         r = link_update_flags(link, m);
+        if (r < 0)
+                return r;
+
+        r = link_update_lldp(link);
         if (r < 0)
                 return r;
 
