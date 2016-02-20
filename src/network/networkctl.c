@@ -318,16 +318,16 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
-                sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
+                (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
                 operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-                sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
+                (void) sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
                 xsprintf(devid, "n%i", links[i].ifindex);
                 (void) sd_device_new_from_device_id(&d, devid);
 
-                link_get_type_string(links[i].iftype, d, &t);
+                (void) link_get_type_string(links[i].iftype, d, &t);
 
                 printf("%3i %-16s %-18s %s%-11s%s %s%-10s%s\n",
                        links[i].ifindex, links[i].name, strna(t),
@@ -748,12 +748,12 @@ static int link_status_one(
                         (void) sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
-        link_get_type_string(info->iftype, d, &t);
+        (void) link_get_type_string(info->iftype, d, &t);
 
-        sd_network_link_get_network_file(info->ifindex, &network);
+        (void) sd_network_link_get_network_file(info->ifindex, &network);
 
-        sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
-        sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
+        (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
+        (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
         printf("%s%s%s %i: %s\n", on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
 
@@ -780,7 +780,7 @@ static int link_status_one(
                 _cleanup_free_ char *description = NULL;
                 char ea[ETHER_ADDR_TO_STRING_MAX];
 
-                ieee_oui(hwdb, &info->mac_address, &description);
+                (void) ieee_oui(hwdb, &info->mac_address, &description);
 
                 if (description)
                         printf("      HW Address: %s (%s)\n", ether_addr_to_string(&info->mac_address, ea), description);
@@ -791,8 +791,8 @@ static int link_status_one(
         if (info->has_mtu)
                 printf("             MTU: %u\n", info->mtu);
 
-        dump_addresses(rtnl, "         Address: ", info->ifindex);
-        dump_gateways(rtnl, hwdb, "         Gateway: ", info->ifindex);
+        (void) dump_addresses(rtnl, "         Address: ", info->ifindex);
+        (void) dump_gateways(rtnl, hwdb, "         Gateway: ", info->ifindex);
 
         dump_list("             DNS: ", dns);
         dump_list("  Search Domains: ", search_domains);
@@ -819,26 +819,26 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 
         assert(rtnl);
 
-        sd_network_get_operational_state(&operational_state);
+        (void) sd_network_get_operational_state(&operational_state);
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
         printf("%s%s%s        State: %s%s%s\n",
                on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
                on_color_operational, strna(operational_state), off_color_operational);
 
-        dump_addresses(rtnl, "       Address: ", 0);
-        dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
+        (void) dump_addresses(rtnl, "       Address: ", 0);
+        (void) dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
 
-        sd_network_get_dns(&dns);
+        (void) sd_network_get_dns(&dns);
         dump_list("           DNS: ", dns);
 
-        sd_network_get_search_domains(&search_domains);
+        (void) sd_network_get_search_domains(&search_domains);
         dump_list("Search Domains: ", search_domains);
 
-        sd_network_get_route_domains(&route_domains);
+        (void) sd_network_get_route_domains(&route_domains);
         dump_list(" Route Domains: ", route_domains);
 
-        sd_network_get_ntp(&ntp);
+        (void) sd_network_get_ntp(&ntp);
         dump_list("           NTP: ", ntp);
 
         return 0;
