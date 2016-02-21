@@ -1058,55 +1058,43 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_ACTION, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "DEVPATH")) {
+                } else if (streq(key, "DEVPATH")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid DEVPATH operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_DEVPATH, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "KERNEL")) {
+                } else if (streq(key, "KERNEL")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid KERNEL operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_KERNEL, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "SUBSYSTEM")) {
+                } else if (streq(key, "SUBSYSTEM")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid SUBSYSTEM operation");
                                 goto invalid;
                         }
                         /* bus, class, subsystem events should all be the same */
-                        if (streq(value, "subsystem") ||
-                            streq(value, "bus") ||
-                            streq(value, "class")) {
-                                if (streq(value, "bus") || streq(value, "class"))
-                                        log_error("'%s' must be specified as 'subsystem' "
-                                            "please fix it in %s:%u", value, filename, lineno);
+                        if (STR_IN_SET(value, "subsystem", "bus", "class")) {
+                                if (!streq(value, "subsystem"))
+                                        log_error("'%s' must be specified as 'subsystem'; please fix it in %s:%u",
+                                                  value, filename, lineno);
                                 rule_add_key(&rule_tmp, TK_M_SUBSYSTEM, op, "subsystem|class|bus", NULL);
                         } else
                                 rule_add_key(&rule_tmp, TK_M_SUBSYSTEM, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "DRIVER")) {
+                } else if (streq(key, "DRIVER")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid DRIVER operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_DRIVER, op, value, NULL);
-                        continue;
-                }
 
-                if (startswith(key, "ATTR{")) {
+                } else if (startswith(key, "ATTR{")) {
                         attr = get_key_attribute(rules->udev, key + strlen("ATTR"));
                         if (attr == NULL) {
                                 log_error("error parsing ATTR attribute");
@@ -1120,10 +1108,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_M_ATTR, op, value, attr);
                         else
                                 rule_add_key(&rule_tmp, TK_A_ATTR, op, value, attr);
-                        continue;
-                }
 
-                if (startswith(key, "SYSCTL{")) {
+                } else if (startswith(key, "SYSCTL{")) {
                         attr = get_key_attribute(rules->udev, key + strlen("SYSCTL"));
                         if (attr == NULL) {
                                 log_error("error parsing SYSCTL attribute");
@@ -1137,10 +1123,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_M_SYSCTL, op, value, attr);
                         else
                                 rule_add_key(&rule_tmp, TK_A_SYSCTL, op, value, attr);
-                        continue;
-                }
 
-                if (startswith(key, "SECLABEL{")) {
+                } else if (startswith(key, "SECLABEL{")) {
                         attr = get_key_attribute(rules->udev, key + strlen("SECLABEL"));
                         if (!attr) {
                                 log_error("error parsing SECLABEL attribute");
@@ -1152,37 +1136,29 @@ static void add_rule(struct udev_rules *rules, char *line,
                         }
 
                         rule_add_key(&rule_tmp, TK_A_SECLABEL, op, value, attr);
-                        continue;
-                }
 
-                if (streq(key, "KERNELS")) {
+                } else if (streq(key, "KERNELS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid KERNELS operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_KERNELS, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "SUBSYSTEMS")) {
+                } else if (streq(key, "SUBSYSTEMS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid SUBSYSTEMS operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_SUBSYSTEMS, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "DRIVERS")) {
+                } else if (streq(key, "DRIVERS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid DRIVERS operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_DRIVERS, op, value, NULL);
-                        continue;
-                }
 
-                if (startswith(key, "ATTRS{")) {
+                } else if (startswith(key, "ATTRS{")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid ATTRS operation");
                                 goto invalid;
@@ -1199,19 +1175,15 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 log_error("do not reference parent sysfs directories directly, "
                                     "it may break with a future kernel, please fix it in %s:%u", filename, lineno);
                         rule_add_key(&rule_tmp, TK_M_ATTRS, op, value, attr);
-                        continue;
-                }
 
-                if (streq(key, "TAGS")) {
+                } else if (streq(key, "TAGS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid TAGS operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_TAGS, op, value, NULL);
-                        continue;
-                }
 
-                if (startswith(key, "ENV{")) {
+                } else if (startswith(key, "ENV{")) {
                         attr = get_key_attribute(rules->udev, key + strlen("ENV"));
                         if (attr == NULL) {
                                 log_error("error parsing ENV attribute");
@@ -1225,60 +1197,46 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 if (rule_add_key(&rule_tmp, TK_M_ENV, op, value, attr) != 0)
                                         goto invalid;
                         } else {
-                                static const char *blacklist[] = {
-                                        "ACTION",
-                                        "SUBSYSTEM",
-                                        "DEVTYPE",
-                                        "MAJOR",
-                                        "MINOR",
-                                        "DRIVER",
-                                        "IFINDEX",
-                                        "DEVNAME",
-                                        "DEVLINKS",
-                                        "DEVPATH",
-                                        "TAGS",
-                                };
-                                unsigned int i;
-
-                                for (i = 0; i < ELEMENTSOF(blacklist); i++) {
-                                        if (!streq(attr, blacklist[i]))
-                                                continue;
+                                if (STR_IN_SET(attr,
+                                               "ACTION",
+                                               "SUBSYSTEM",
+                                               "DEVTYPE",
+                                               "MAJOR",
+                                               "MINOR",
+                                               "DRIVER",
+                                               "IFINDEX",
+                                               "DEVNAME",
+                                               "DEVLINKS",
+                                               "DEVPATH",
+                                               "TAGS")) {
                                         log_error("invalid ENV attribute, '%s' can not be set %s:%u", attr, filename, lineno);
                                         goto invalid;
                                 }
                                 if (rule_add_key(&rule_tmp, TK_A_ENV, op, value, attr) != 0)
                                         goto invalid;
                         }
-                        continue;
-                }
 
-                if (streq(key, "TAG")) {
+                } else if (streq(key, "TAG")) {
                         if (op < OP_MATCH_MAX)
                                 rule_add_key(&rule_tmp, TK_M_TAG, op, value, NULL);
                         else
                                 rule_add_key(&rule_tmp, TK_A_TAG, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "PROGRAM")) {
+                } else if (streq(key, "PROGRAM")) {
                         if (op == OP_REMOVE) {
                                 log_error("invalid PROGRAM operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_PROGRAM, op, value, NULL);
-                        continue;
-                }
 
-                if (streq(key, "RESULT")) {
+                } else if (streq(key, "RESULT")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid RESULT operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_M_RESULT, op, value, NULL);
-                        continue;
-                }
 
-                if (startswith(key, "IMPORT")) {
+                } else if (startswith(key, "IMPORT")) {
                         attr = get_key_attribute(rules->udev, key + strlen("IMPORT"));
                         if (attr == NULL) {
                                 log_error("IMPORT{} type missing, ignoring IMPORT %s:%u", filename, lineno);
@@ -1319,10 +1277,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
                         } else
                                 log_error("IMPORT{} unknown type, ignoring IMPORT %s:%u", filename, lineno);
-                        continue;
-                }
 
-                if (startswith(key, "TEST")) {
+                } else if (startswith(key, "TEST")) {
                         mode_t mode = 0;
 
                         if (op > OP_MATCH_MAX) {
@@ -1333,13 +1289,10 @@ static void add_rule(struct udev_rules *rules, char *line,
                         if (attr != NULL) {
                                 mode = strtol(attr, NULL, 8);
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, &mode);
-                        } else {
+                        } else
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, NULL);
-                        }
-                        continue;
-                }
 
-                if (startswith(key, "RUN")) {
+                } else if (startswith(key, "RUN")) {
                         attr = get_key_attribute(rules->udev, key + strlen("RUN"));
                         if (attr == NULL)
                                 attr = "program";
@@ -1356,35 +1309,27 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 else
                                         log_error("RUN{builtin}: '%s' unknown %s:%u", value, filename, lineno);
                         } else if (streq(attr, "program")) {
-                                enum udev_builtin_cmd cmd = UDEV_BUILTIN_MAX;
+                                const enum udev_builtin_cmd cmd = UDEV_BUILTIN_MAX;
 
                                 rule_add_key(&rule_tmp, TK_A_RUN_PROGRAM, op, value, &cmd);
-                        } else {
+                        } else
                                 log_error("RUN{} unknown type, ignoring RUN %s:%u", filename, lineno);
-                        }
 
-                        continue;
-                }
-
-                if (streq(key, "LABEL")) {
+                } else if (streq(key, "LABEL")) {
                         if (op == OP_REMOVE) {
                                 log_error("invalid LABEL operation");
                                 goto invalid;
                         }
                         rule_tmp.rule.rule.label_off = rules_add_string(rules, value);
-                        continue;
-                }
 
-                if (streq(key, "GOTO")) {
+                } else if (streq(key, "GOTO")) {
                         if (op == OP_REMOVE) {
                                 log_error("invalid GOTO operation");
                                 goto invalid;
                         }
                         rule_add_key(&rule_tmp, TK_A_GOTO, 0, value, NULL);
-                        continue;
-                }
 
-                if (startswith(key, "NAME")) {
+                } else if (startswith(key, "NAME")) {
                         if (op == OP_REMOVE) {
                                 log_error("invalid NAME operation");
                                 goto invalid;
@@ -1405,10 +1350,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
                         }
                         rule_tmp.rule.rule.can_set_name = true;
-                        continue;
-                }
 
-                if (streq(key, "SYMLINK")) {
+                } else if (streq(key, "SYMLINK")) {
                         if (op == OP_REMOVE) {
                                 log_error("invalid SYMLINK operation");
                                 goto invalid;
@@ -1418,10 +1361,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                         else
                                 rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
                         rule_tmp.rule.rule.can_set_name = true;
-                        continue;
-                }
 
-                if (streq(key, "OWNER")) {
+                } else if (streq(key, "OWNER")) {
                         uid_t uid;
                         char *endptr;
 
@@ -1440,10 +1381,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
 
                         rule_tmp.rule.rule.can_set_name = true;
-                        continue;
-                }
 
-                if (streq(key, "GROUP")) {
+                } else if (streq(key, "GROUP")) {
                         gid_t gid;
                         char *endptr;
 
@@ -1462,10 +1401,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
 
                         rule_tmp.rule.rule.can_set_name = true;
-                        continue;
-                }
 
-                if (streq(key, "MODE")) {
+                } else if (streq(key, "MODE")) {
                         mode_t mode;
                         char *endptr;
 
@@ -1480,10 +1417,8 @@ static void add_rule(struct udev_rules *rules, char *line,
                         else
                                 rule_add_key(&rule_tmp, TK_A_MODE, op, value, NULL);
                         rule_tmp.rule.rule.can_set_name = true;
-                        continue;
-                }
 
-                if (streq(key, "OPTIONS")) {
+                } else if (streq(key, "OPTIONS")) {
                         const char *pos;
 
                         if (op == OP_REMOVE) {
@@ -1531,11 +1466,10 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_tmp.rule.rule.has_static_node = true;
                         }
 
-                        continue;
+                } else {
+                        log_error("unknown key '%s' in %s:%u", key, filename, lineno);
+                        goto invalid;
                 }
-
-                log_error("unknown key '%s' in %s:%u", key, filename, lineno);
-                goto invalid;
         }
 
         /* add rule token */
@@ -2427,10 +2361,11 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                         log_debug("%i character(s) replaced", count);
                         }
                         if (major(udev_device_get_devnum(event->dev)) &&
-                            (!streq(name_str, udev_device_get_devnode(event->dev) + strlen("/dev/")))) {
-                                log_error("NAME=\"%s\" ignored, kernel device nodes "
-                                    "can not be renamed; please fix it in %s:%u\n", name,
-                                    rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
+                            !streq(name_str, udev_device_get_devnode(event->dev) + strlen("/dev/"))) {
+                                log_error("NAME=\"%s\" ignored, kernel device nodes cannot be renamed; please fix it in %s:%u\n",
+                                          name,
+                                          rules_str(rules, rule->rule.filename_off),
+                                          rule->rule.filename_line);
                                 break;
                         }
                         if (free_and_strdup(&event->name, name_str) < 0) {
