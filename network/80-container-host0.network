@@ -12,6 +12,8 @@ Name=host0
 [Network]
 DHCP=yes
 LinkLocalAddressing=yes
+LLDP=yes
+EmitLLDP=yes
 
 [DHCP]
 UseTimezone=yes
