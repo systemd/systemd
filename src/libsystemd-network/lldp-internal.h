@@ -45,6 +45,8 @@ struct sd_lldp {
         void *userdata;
 
         uint16_t capability_mask;
+
+        struct ether_addr filter_address;
 };
 
 #define log_lldp_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)

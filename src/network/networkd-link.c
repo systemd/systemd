@@ -2203,6 +2203,10 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
 
+                r = sd_lldp_set_filter_address(link->lldp, &link->mac);
+                if (r < 0)
+                        return r;
+
                 r = sd_lldp_attach_event(link->lldp, NULL, 0);
                 if (r < 0)
                         return r;

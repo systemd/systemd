@@ -42,3 +42,26 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
 
         return buffer;
 }
+
+bool ether_addr_is_null(const struct ether_addr *addr) {
+        assert(addr);
+
+        return  addr->ether_addr_octet[0] == 0 &&
+                addr->ether_addr_octet[1] == 0 &&
+                addr->ether_addr_octet[2] == 0 &&
+                addr->ether_addr_octet[3] == 0 &&
+                addr->ether_addr_octet[4] == 0 &&
+                addr->ether_addr_octet[5] == 0;
+}
+
+bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b) {
+        assert(a);
+        assert(b);
+
+        return  a->ether_addr_octet[0] == b->ether_addr_octet[0] &&
+                a->ether_addr_octet[1] == b->ether_addr_octet[1] &&
+                a->ether_addr_octet[2] == b->ether_addr_octet[2] &&
+                a->ether_addr_octet[3] == b->ether_addr_octet[3] &&
+                a->ether_addr_octet[4] == b->ether_addr_octet[4] &&
+                a->ether_addr_octet[5] == b->ether_addr_octet[5];
+}

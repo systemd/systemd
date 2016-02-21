@@ -49,6 +49,7 @@ int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);
 /* Controls how much and what to store in the neighbors database */
 int sd_lldp_set_neighbors_max(sd_lldp *lldp, uint64_t n);
 int sd_lldp_match_capabilities(sd_lldp *lldp, uint16_t mask);
+int sd_lldp_set_filter_address(sd_lldp *lldp, const struct ether_addr *address);
 
 int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***neighbors);
 

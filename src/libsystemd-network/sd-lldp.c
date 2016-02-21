@@ -28,6 +28,7 @@
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
 #include "socket-util.h"
+#include "ether-addr-util.h"
 
 #define LLDP_DEFAULT_NEIGHBORS_MAX 128U
 
@@ -97,6 +98,11 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
         /* Then, add the new entry in its place, but only if it has a non-zero TTL. */
         if (n->ttl <= 0)
+                return changed;
+
+        /* Filter out the filter address */
+        if (!ether_addr_is_null(&lldp->filter_address) &&
+            ether_addr_equal(&lldp->filter_address, &n->source_address))
                 return changed;
 
         /* Only add if the neighbor has a capability we are interested in. Note that we also store all neighbors with
@@ -436,5 +442,20 @@ _public_ int sd_lldp_match_capabilities(sd_lldp *lldp, uint16_t mask) {
 
         lldp->capability_mask = mask;
 
+        return 0;
+}
+
+_public_ int sd_lldp_set_filter_address(sd_lldp *lldp, const struct ether_addr *addr) {
+        assert_return(lldp, -EINVAL);
+
+        /* In order to deal nicely with bridges that send back our own packets, allow one address to be filtered, so
+         * that our own can be filtered out here. */
+
+        if (!addr) {
+                zero(lldp->filter_address);
+                return 0;
+        }
+
+        lldp->filter_address = *addr;
         return 0;
 }
