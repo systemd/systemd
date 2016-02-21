@@ -1010,8 +1010,8 @@ static int sort_token(struct udev_rules *rules, struct rule_tmp *rule_tmp) {
         return 0;
 }
 
-static int add_rule(struct udev_rules *rules, char *line,
-                    const char *filename, unsigned int filename_off, unsigned int lineno) {
+static void add_rule(struct udev_rules *rules, char *line,
+                     const char *filename, unsigned int filename_off, unsigned int lineno) {
         char *linepos;
         const char *attr;
         struct rule_tmp rule_tmp = {
@@ -1547,10 +1547,9 @@ static int add_rule(struct udev_rules *rules, char *line,
         if (sort_token(rules, &rule_tmp) != 0)
                 goto invalid;
 
-        return 0;
+        return;
 invalid:
         log_error("invalid rule '%s:%u'", filename, lineno);
-        return -1;
 }
 
 static int parse_file(struct udev_rules *rules, const char *filename) {
@@ -1849,18 +1848,18 @@ enum escape_type {
         ESCAPE_REPLACE,
 };
 
-int udev_rules_apply_to_event(struct udev_rules *rules,
-                              struct udev_event *event,
-                              usec_t timeout_usec,
-                              usec_t timeout_warn_usec,
-                              struct udev_list *properties_list) {
+void udev_rules_apply_to_event(struct udev_rules *rules,
+                               struct udev_event *event,
+                               usec_t timeout_usec,
+                               usec_t timeout_warn_usec,
+                               struct udev_list *properties_list) {
         struct token *cur;
         struct token *rule;
         enum escape_type esc = ESCAPE_UNSET;
         bool can_set_name;
 
         if (rules->tokens == NULL)
-                return -1;
+                return;
 
         can_set_name = ((!streq(udev_device_get_action(event->dev), "remove")) &&
                         (major(udev_device_get_devnum(event->dev)) > 0 ||
@@ -2434,7 +2433,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                     rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                                 break;
                         }
-                        free_and_strdup(&event->name, name_str);
+                        if (free_and_strdup(&event->name, name_str) < 0) {
+                                log_oom();
+                                return;
+                        }
                         log_debug("NAME '%s' %s:%u",
                                   event->name,
                                   rules_str(rules, rule->rule.filename_off),
@@ -2546,7 +2548,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         cur = &rules->tokens[cur->key.rule_goto];
                         continue;
                 case TK_END:
-                        return 0;
+                        return;
 
                 case TK_M_PARENTS_MIN:
                 case TK_M_PARENTS_MAX:
