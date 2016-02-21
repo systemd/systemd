@@ -36,6 +36,7 @@
 #include "glob-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
@@ -686,41 +687,31 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
         return 0;
 }
 
-static int attr_subst_subdir(char *attr, size_t len) {
-        bool found = false;
+static void attr_subst_subdir(char *attr, size_t len) {
+        const char *pos, *tail, *path;
+        _cleanup_closedir_ DIR *dir = NULL;
+        struct dirent *dent;
 
-        if (strstr(attr, "/*/")) {
-                char *pos;
-                char dirname[UTIL_PATH_SIZE];
-                const char *tail;
-                DIR *dir;
+        pos = strstr(attr, "/*/");
+        if (!pos)
+            return;
 
-                strscpy(dirname, sizeof(dirname), attr);
-                pos = strstr(dirname, "/*/");
-                if (pos == NULL)
-                        return -1;
-                pos[0] = '\0';
-                tail = &pos[2];
-                dir = opendir(dirname);
-                if (dir != NULL) {
-                        struct dirent *dent;
+        tail = pos + 2;
+        path = strndupa(attr, pos - attr + 1); /* include slash at end */
+        dir = opendir(path);
+        if (dir == NULL)
+                return;
 
-                        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-                                struct stat stats;
+        for (dent = readdir(dir); dent != NULL; dent = readdir(dir))
+                if (dent->d_name[0] != '.') {
+                        char n[strlen(dent->d_name) + 1 + strlen(tail) + 1];
 
-                                if (dent->d_name[0] == '.')
-                                        continue;
-                                strscpyl(attr, len, dirname, "/", dent->d_name, tail, NULL);
-                                if (stat(attr, &stats) == 0) {
-                                        found = true;
-                                        break;
-                                }
+                        strscpyl(n, sizeof n, dent->d_name, "/", tail, NULL);
+                        if (faccessat(dirfd(dir), n, F_OK, 0)) {
+                                strscpyl(attr, len, path, n, NULL);
+                                break;
                         }
-                        closedir(dir);
                 }
-        }
-
-        return found;
 }
 
 static int get_key(struct udev *udev, char **line, char **key, enum operation_type *op, char **value) {
