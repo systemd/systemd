@@ -145,7 +145,8 @@ struct Network {
         struct ether_addr *mac;
         unsigned mtu;
 
-        LLDPMode lldp_mode;
+        LLDPMode lldp_mode; /* LLDP reception */
+        bool lldp_emit;     /* LLDP transmission */
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);

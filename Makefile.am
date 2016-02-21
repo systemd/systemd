@@ -5341,7 +5341,9 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-address-pool.h \
 	src/network/networkd-address-pool.c \
 	src/network/networkd-util.h \
-	src/network/networkd-util.c
+	src/network/networkd-util.c \
+	src/network/networkd-lldp-tx.h \
+	src/network/networkd-lldp-tx.c
 
 nodist_libnetworkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \

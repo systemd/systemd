@@ -30,6 +30,7 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-link.h"
+#include "networkd-lldp-tx.h"
 #include "networkd-netdev.h"
 #include "set.h"
 #include "socket-util.h"
@@ -99,7 +100,7 @@ static bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
-static bool link_lldp_enabled(Link *link) {
+static bool link_lldp_rx_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -115,6 +116,21 @@ static bool link_lldp_enabled(Link *link) {
                 return false;
 
         return link->network->lldp_mode != LLDP_MODE_NO;
+}
+
+static bool link_lldp_tx_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return link->network->lldp_emit;
 }
 
 static bool link_ipv4_forward_enabled(Link *link) {
@@ -419,6 +435,8 @@ static void link_free(Link *link) {
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
+        link_lldp_tx_stop(link);
+
         free(link->lease_file);
 
         sd_lldp_unref(link->lldp);
@@ -546,6 +564,7 @@ static int link_stop_clients(Link *link) {
                         r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
         }
 
+        link_lldp_tx_stop(link);
         return r;
 }
 
@@ -1383,6 +1402,12 @@ static int link_acquire_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
         }
 
+        if (link_lldp_tx_enabled(link)) {
+                r = link_lldp_tx_start(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
+        }
+
         return 0;
 }
 
@@ -2191,7 +2216,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link_lldp_enabled(link)) {
+        if (link_lldp_rx_enabled(link)) {
                 r = sd_lldp_new(&link->lldp, link->ifindex);
                 if (r < 0)
                         return r;
