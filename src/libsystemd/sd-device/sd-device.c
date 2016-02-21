@@ -1397,7 +1397,7 @@ _public_ const char *sd_device_get_tag_first(sd_device *device) {
         device->tags_iterator_generation = device->tags_generation;
         device->tags_iterator = ITERATOR_FIRST;
 
-        set_iterate(device->tags, &device->tags_iterator, &v);
+        (void) set_iterate(device->tags, &device->tags_iterator, &v);
         return v;
 }
 
@@ -1411,7 +1411,7 @@ _public_ const char *sd_device_get_tag_next(sd_device *device) {
         if (device->tags_iterator_generation != device->tags_generation)
                 return NULL;
 
-        set_iterate(device->tags, &device->tags_iterator, &v);
+        (void) set_iterate(device->tags, &device->tags_iterator, &v);
         return v;
 }
 
@@ -1425,7 +1425,7 @@ _public_ const char *sd_device_get_devlink_first(sd_device *device) {
         device->devlinks_iterator_generation = device->devlinks_generation;
         device->devlinks_iterator = ITERATOR_FIRST;
 
-        set_iterate(device->devlinks, &device->devlinks_iterator, &v);
+        (void) set_iterate(device->devlinks, &device->devlinks_iterator, &v);
         return v;
 }
 
@@ -1439,7 +1439,7 @@ _public_ const char *sd_device_get_devlink_next(sd_device *device) {
         if (device->devlinks_iterator_generation != device->devlinks_generation)
                 return NULL;
 
-        set_iterate(device->devlinks, &device->devlinks_iterator, &v);
+        (void) set_iterate(device->devlinks, &device->devlinks_iterator, &v);
         return v;
 }
 
@@ -1606,7 +1606,7 @@ _public_ const char *sd_device_get_sysattr_first(sd_device *device) {
 
         device->sysattrs_iterator = ITERATOR_FIRST;
 
-        set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
+        (void) set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
         return v;
 }
 
@@ -1618,7 +1618,7 @@ _public_ const char *sd_device_get_sysattr_next(sd_device *device) {
         if (!device->sysattrs_read)
                 return NULL;
 
-        set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
+        (void) set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
         return v;
 }
 
