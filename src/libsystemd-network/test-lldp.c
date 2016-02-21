@@ -48,7 +48,7 @@ int lldp_network_bind_raw_socket(int ifindex) {
         return test_fd[0];
 }
 
-static void lldp_handler (sd_lldp *lldp, void *userdata) {
+static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata) {
         lldp_handler_calls++;
 }
 

@@ -33,7 +33,14 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_lldp sd_lldp;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
-typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, void *userdata);
+typedef enum sd_lldp_event {
+        SD_LLDP_EVENT_ADDED     = 'a',
+        SD_LLDP_EVENT_REMOVED   = 'r',
+        SD_LLDP_EVENT_UPDATED   = 'u',
+        SD_LLDP_EVENT_REFRESHED = 'f',
+} sd_lldp_event;
+
+typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata);
 
 int sd_lldp_new(sd_lldp **ret, int ifindex);
 sd_lldp* sd_lldp_unref(sd_lldp *lldp);

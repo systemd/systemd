@@ -41,8 +41,19 @@ static void lldp_flush_neighbors(sd_lldp *lldp) {
                 lldp_neighbor_unlink(n);
 }
 
+static void lldp_callback(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n) {
+        assert(lldp);
+        assert(n);
+
+        log_lldp("Invoking callback for '%c'.", event);
+
+        if (!lldp->callback)
+                return;
+
+        lldp->callback(lldp, event, n, lldp->userdata);
+}
+
 static int lldp_make_space(sd_lldp *lldp, size_t extra) {
-        sd_lldp_neighbor *n;
         usec_t t = USEC_INFINITY;
         bool changed = false;
 
@@ -52,9 +63,13 @@ static int lldp_make_space(sd_lldp *lldp, size_t extra) {
          * are free. */
 
         for (;;) {
+                _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+
                 n = prioq_peek(lldp->neighbor_by_expiry);
                 if (!n)
                         break;
+
+                sd_lldp_neighbor_ref(n);
 
                 if (hashmap_size(lldp->neighbor_by_id) > LESS_BY(lldp->neighbors_max, extra))
                         goto remove_one;
@@ -67,66 +82,96 @@ static int lldp_make_space(sd_lldp *lldp, size_t extra) {
 
         remove_one:
                 lldp_neighbor_unlink(n);
+                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, n);
                 changed = true;
         }
 
         return changed;
 }
 
+static bool lldp_keep_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
+        assert(lldp);
+        assert(n);
+
+        /* Don't keep data with a zero TTL */
+        if (n->ttl <= 0)
+                return false;
+
+        /* Filter out data from the filter address */
+        if (!ether_addr_is_null(&lldp->filter_address) &&
+            ether_addr_equal(&lldp->filter_address, &n->source_address))
+                return false;
+
+        /* Only add if the neighbor has a capability we are interested in. Note that we also store all neighbors with
+         * no caps field set. */
+        if (n->has_capabilities &&
+            (n->enabled_capabilities & lldp->capability_mask) == 0)
+                return false;
+
+        /* Keep everything else */
+        return true;
+}
+
 static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
-        sd_lldp_neighbor *old;
-        bool changed = false;
+        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *old = NULL;
+        bool keep;
         int r;
 
         assert(lldp);
         assert(n);
         assert(!n->lldp);
 
+        keep = lldp_keep_neighbor(lldp, n);
+
         /* First retrieve the old entry for this MSAP */
         old = hashmap_get(lldp->neighbor_by_id, &n->id);
         if (old) {
+                sd_lldp_neighbor_ref(old);
+
+                if (!keep) {
+                        lldp_neighbor_unlink(old);
+                        lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, old);
+                        return 0;
+                }
+
                 if (lldp_neighbor_equal(n, old)) {
                         /* Is this equal, then restart the TTL counter, but don't do anyting else. */
                         lldp_neighbor_start_ttl(old);
+                        lldp_callback(lldp, SD_LLDP_EVENT_REFRESHED, old);
                         return 0;
                 }
 
                 /* Data changed, remove the old entry, and add a new one */
                 lldp_neighbor_unlink(old);
-                changed = true;
-        }
 
-        /* Then, add the new entry in its place, but only if it has a non-zero TTL. */
-        if (n->ttl <= 0)
-                return changed;
-
-        /* Filter out the filter address */
-        if (!ether_addr_is_null(&lldp->filter_address) &&
-            ether_addr_equal(&lldp->filter_address, &n->source_address))
-                return changed;
-
-        /* Only add if the neighbor has a capability we are interested in. Note that we also store all neighbors with
-         * no caps field set. */
-        if (n->has_capabilities &&
-            (n->enabled_capabilities & lldp->capability_mask) == 0)
-                return changed;
+        } else if (!keep)
+                return 0;
 
         /* Then, make room for at least one new neighbor */
         lldp_make_space(lldp, 1);
 
         r = hashmap_put(lldp->neighbor_by_id, &n->id, n);
         if (r < 0)
-                return r;
+                goto finish;
 
         r = prioq_put(lldp->neighbor_by_expiry, n, &n->prioq_idx);
         if (r < 0) {
                 assert_se(hashmap_remove(lldp->neighbor_by_id, &n->id) == n);
-                return r;
+                goto finish;
         }
 
         n->lldp = lldp;
 
-        return true;
+        lldp_neighbor_start_ttl(n);
+        lldp_callback(lldp, old ? SD_LLDP_EVENT_UPDATED : SD_LLDP_EVENT_ADDED, n);
+
+        return 1;
+
+finish:
+        if (old)
+                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, n);
+
+        return r;
 }
 
 static int lldp_handle_datagram(sd_lldp *lldp, sd_lldp_neighbor *n) {
@@ -141,8 +186,6 @@ static int lldp_handle_datagram(sd_lldp *lldp, sd_lldp_neighbor *n) {
         if (r < 0)
                 return r;
 
-        lldp_neighbor_start_ttl(n);
-
         r = lldp_add_neighbor(lldp, n);
         if (r < 0) {
                 log_lldp_errno(r, "Failed to add datagram. Ignoring.");
@@ -150,10 +193,6 @@ static int lldp_handle_datagram(sd_lldp *lldp, sd_lldp_neighbor *n) {
         }
 
         log_lldp("Successfully processed LLDP datagram.");
-
-        if (r > 0 && lldp->callback) /* Only invoke the callback if something actually changed. */
-                lldp->callback(lldp, lldp->userdata);
-
         return 0;
 }
 
@@ -343,10 +382,6 @@ static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         if (q < 0)
                 return log_lldp_errno(q, "Failed to restart timer: %m");
 
-        log_lldp("LLDP timer event hit.");
-        if (r > 0 && lldp->callback) /* Invoke callback if we dropped an entry */
-                lldp->callback(lldp, lldp->userdata);
-
         return 0;
 }
 
@@ -395,9 +430,6 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
 
         assert_return(lldp, -EINVAL);
         assert_return(ret, -EINVAL);
-
-        /* Flush out old entries, before we return data */
-        (void) lldp_make_space(lldp, 0);
 
         if (hashmap_isempty(lldp->neighbor_by_id)) { /* Special shortcut */
                 *ret = NULL;

@@ -1333,12 +1333,23 @@ finish:
         return r;
 }
 
-static void lldp_handler(sd_lldp *lldp, void *userdata) {
+static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata) {
         Link *link = userdata;
+        int r;
 
         assert(link);
 
         (void) link_lldp_save(link);
+
+        if (link_lldp_tx_enabled(link) && event == SD_LLDP_EVENT_ADDED) {
+                /* If we received information about a new neighbor, restart the LLDP "fast" logic */
+
+                log_link_debug(link, "Received LLDP datagram from previously unknown neighbor, restarting 'fast' LLDP transmission.");
+
+                r = link_lldp_tx_start(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to restart LLDP transmission: %m");
+        }
 }
 
 static int link_acquire_ipv6_conf(Link *link) {
