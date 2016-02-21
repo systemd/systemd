@@ -33,6 +33,7 @@
 #include "conf-files.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -2039,7 +2040,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         break;
                 }
                 case TK_M_IMPORT_CMDLINE: {
-                        FILE *f;
+                        _cleanup_fclose_ FILE *f = NULL;
                         bool imported = false;
 
                         f = fopen("/proc/cmdline", "re");
@@ -2052,12 +2053,12 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
 
                                         pos = strstr(cmdline, key);
                                         if (pos != NULL) {
+                                                imported = true;
                                                 pos += strlen(key);
-                                                if (pos[0] == '\0' || isspace(pos[0])) {
+                                                if (pos[0] == '\0' || isspace(pos[0]))
                                                         /* we import simple flags as 'FLAG=1' */
                                                         udev_device_add_property(event->dev, key, "1");
-                                                        imported = true;
-                                                } else if (pos[0] == '=') {
+                                                else if (pos[0] == '=') {
                                                         const char *value;
 
                                                         pos++;
@@ -2066,11 +2067,9 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                                                 pos++;
                                                         pos[0] = '\0';
                                                         udev_device_add_property(event->dev, key, value);
-                                                        imported = true;
                                                 }
                                         }
                                 }
-                                fclose(f);
                         }
                         if (!imported && cur->key.op != OP_NOMATCH)
                                 goto nomatch;
@@ -2366,7 +2365,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         const char *key_name = rules_str(rules, cur->key.attr_off);
                         char attr[UTIL_PATH_SIZE];
                         char value[UTIL_NAME_SIZE];
-                        FILE *f;
+                        _cleanup_fclose_ FILE *f = NULL;
 
                         if (util_resolve_subsys_kernel(event->udev, key_name, attr, sizeof(attr), 0) != 0)
                                 strscpyl(attr, sizeof(attr), udev_device_get_syspath(event->dev), "/", key_name, NULL);
@@ -2377,13 +2376,10 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
                         f = fopen(attr, "we");
-                        if (f != NULL) {
-                                if (fprintf(f, "%s", value) <= 0)
-                                        log_error_errno(errno, "error writing ATTR{%s}: %m", attr);
-                                fclose(f);
-                        } else {
+                        if (f == NULL)
                                 log_error_errno(errno, "error opening ATTR{%s} for writing: %m", attr);
-                        }
+                        else if (fprintf(f, "%s", value) <= 0)
+                                log_error_errno(errno, "error writing ATTR{%s}: %m", attr);
                         break;
                 }
                 case TK_A_SYSCTL: {
@@ -2449,7 +2445,7 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
         char **t;
         FILE *f = NULL;
         _cleanup_free_ char *path = NULL;
-        int r = 0;
+        int r;
 
         if (rules->tokens == NULL)
                 return 0;
@@ -2520,8 +2516,6 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
                                         if (r < 0 && errno != EEXIST)
                                                 return log_error_errno(errno, "failed to create symlink %s -> %s: %m",
                                                                        tag_symlink, device_node);
-                                        else
-                                                r = 0;
                                 }
                         }
 
@@ -2573,12 +2567,11 @@ finish:
                 fflush(f);
                 fchmod(fileno(f), 0644);
                 if (ferror(f) || rename(path, "/run/udev/static_node-tags") < 0) {
-                        r = -errno;
-                        unlink("/run/udev/static_node-tags");
-                        unlink(path);
+                        unlink_noerrno("/run/udev/static_node-tags");
+                        unlink_noerrno(path);
+                        return -errno;
                 }
-                fclose(f);
         }
 
-        return r;
+        return 0;
 }
