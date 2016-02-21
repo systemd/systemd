@@ -55,12 +55,12 @@ static int raw_verify(const char *fn, const char *verification_key) {
         JournalFile *f;
         int r;
 
-        r = journal_file_open(fn, O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f);
+        r = journal_file_open(fn, O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, NULL, &f);
         if (r < 0)
                 return r;
 
         r = journal_file_verify(f, verification_key, NULL, NULL, NULL, false);
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         return r;
 }
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, !!verification_key, NULL, NULL, NULL, NULL, &f) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -107,11 +107,11 @@ int main(int argc, char *argv[]) {
                 free(test);
         }
 
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, NULL, &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
                          format_timestamp(b, sizeof(b), to),
                          format_timespan(c, sizeof(c), total > to ? total - to : 0, 0));
 
-        journal_file_close(f);
+        (void) journal_file_close(f);
 
         if (verification_key) {
                 log_info("Toggling bits...");
