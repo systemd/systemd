@@ -978,7 +978,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
         for (;;) {
                 /* Normalize the current date */
-                mktime_or_timegm(&c, spec->utc);
+                (void) mktime_or_timegm(&c, spec->utc);
                 c.tm_isdst = -1;
 
                 c.tm_year += 1900;
