@@ -809,7 +809,7 @@ static int link_status_one(
 
         (void) sd_network_link_get_timezone(info->ifindex, &tz);
         if (tz)
-                printf("       Time Zone: %s", tz);
+                printf("       Time Zone: %s\n", tz);
 
         (void) dump_lldp_neighbors("    Connected To: ", info->ifindex);
 
