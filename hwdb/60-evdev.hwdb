@@ -152,6 +152,20 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*X230*
  EVDEV_ABS_01=::100
  EVDEV_ABS_36=::100
 
+# Lenovo P50
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*P50*
+ EVDEV_ABS_00=::44
+ EVDEV_ABS_01=::67
+ EVDEV_ABS_35=::44
+ EVDEV_ABS_36=::67
+
+# Lenovo T460
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460*
+ EVDEV_ABS_00=1266:5677:44
+ EVDEV_ABS_01=1093:4832:65
+ EVDEV_ABS_35=1266:5677:44
+ EVDEV_ABS_36=1093:4832:65
+
 # Lenovo T510
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T510*
  EVDEV_ABS_00=778:6239:72
