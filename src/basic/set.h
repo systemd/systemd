@@ -126,6 +126,9 @@ int set_put_strdupv(Set *s, char **l);
 #define SET_FOREACH(e, s, i) \
         for ((i) = ITERATOR_FIRST; set_iterate((s), &(i), (void**)&(e)); )
 
+#define SET_FOREACH_MOVE(e, d, s)                                       \
+        for (; ({ e = set_first(s); assert_se(!e || set_move_one(d, s, e) >= 0); e; }); )
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free_free);
 
