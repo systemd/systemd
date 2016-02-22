@@ -154,6 +154,8 @@ bool is_localhost(const char *hostname) {
 
         return strcaseeq(hostname, "localhost") ||
                strcaseeq(hostname, "localhost.") ||
+               strcaseeq(hostname, "localhost.localdomain") ||
+               strcaseeq(hostname, "localhost.localdomain.") ||
                strcaseeq(hostname, "localdomain.") ||
                strcaseeq(hostname, "localdomain") ||
                endswith_no_case(hostname, ".localhost") ||
