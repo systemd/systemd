@@ -156,10 +156,10 @@ bool is_localhost(const char *hostname) {
                strcaseeq(hostname, "localhost.") ||
                strcaseeq(hostname, "localhost.localdomain") ||
                strcaseeq(hostname, "localhost.localdomain.") ||
-               strcaseeq(hostname, "localdomain.") ||
-               strcaseeq(hostname, "localdomain") ||
                endswith_no_case(hostname, ".localhost") ||
-               endswith_no_case(hostname, ".localhost.");
+               endswith_no_case(hostname, ".localhost.") ||
+               endswith_no_case(hostname, ".localhost.localdomain") ||
+               endswith_no_case(hostname, ".localhost.localdomain.");
 }
 
 bool is_gateway_hostname(const char *hostname) {
