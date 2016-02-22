@@ -23,8 +23,10 @@ use strict;
 my $udev_bin            = "./test-udev";
 my $valgrind            = 0;
 my $gdb                 = 0;
+my $strace              = 0;
 my $udev_bin_valgrind   = "valgrind --tool=memcheck --leak-check=yes --track-origins=yes --quiet $udev_bin";
 my $udev_bin_gdb        = "gdb --args $udev_bin";
+my $udev_bin_strace     = "strace -efile $udev_bin";
 my $udev_dev            = "test/dev";
 my $udev_run            = "test/run";
 my $udev_rules_dir      = "$udev_run/udev/rules.d";
@@ -1330,6 +1332,8 @@ sub udev {
                 system("$udev_bin_valgrind $action $devpath");
         } elsif ($gdb > 0) {
                 system("$udev_bin_gdb $action $devpath");
+        } elsif ($strace > 0) {
+                system("$udev_bin_strace $action $devpath");
         } else {
                 system("$udev_bin", "$action", "$devpath");
         }
@@ -1509,6 +1513,9 @@ foreach my $arg (@ARGV) {
         } elsif ($arg =~ m/--gdb/) {
                 $gdb = 1;
                 printf("using gdb\n");
+        } elsif ($arg =~ m/--strace/) {
+                $strace = 1;
+                printf("using strace\n");
         } else {
                 push(@list, $arg);
         }
