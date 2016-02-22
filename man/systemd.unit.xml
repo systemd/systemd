@@ -558,14 +558,17 @@
         between them are shut down, the inverse of the start-up order
         is applied. i.e. if a unit is configured with
         <varname>After=</varname> on another unit, the former is
-        stopped before the latter if both are shut down. If one unit
-        with an ordering dependency on another unit is shut down while
-        the latter is started up, the shut down is ordered before the
-        start-up regardless of whether the ordering dependency is
-        actually of type <varname>After=</varname> or
-        <varname>Before=</varname>. If two units have no ordering
-        dependencies between them, they are shut down or started up
-        simultaneously, and no ordering takes place.
+        stopped before the latter if both are shut down. Given two units
+        with any ordering dependency between them, if one unit is shut
+        down and the other is started up, the shut down is ordered
+        before the start-up. It doesn't matter if the ordering
+        dependency is <varname>After=</varname> or
+        <varname>Before=</varname>. It also doesn't matter which of the
+        two is shut down, as long as one is shut down and the other is
+        started up. The shut down is ordered before the start-up in all
+        cases. If two units have no ordering dependencies between them,
+        they are shut down or started up simultaneously, and no ordering
+        takes place.
         </para></listitem>
       </varlistentry>
 
