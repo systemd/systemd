@@ -38,6 +38,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "architecture.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -674,38 +675,40 @@ bool oom_score_adjust_is_valid(int oa) {
 }
 
 unsigned long personality_from_string(const char *p) {
+        int architecture;
 
-        /* Parse a personality specifier. We introduce our own
-         * identifiers that indicate specific ABIs, rather than just
-         * hints regarding the register size, since we want to keep
-         * things open for multiple locally supported ABIs for the
-         * same register size. We try to reuse the ABI identifiers
-         * used by libseccomp. */
+        /* Parse a personality specifier. We use our own identifiers that indicate specific ABIs, rather than just
+         * hints regarding the register size, since we want to keep things open for multiple locally supported ABIs for
+         * the same register size. */
+
+        architecture = architecture_from_string(p);
+        if (architecture < 0)
+                return PERSONALITY_INVALID;
 
 #if defined(__x86_64__)
 
-        if (streq(p, "x86"))
+        if (architecture == ARCHITECTURE_X86)
                 return PER_LINUX32;
 
-        if (streq(p, "x86-64"))
+        if (architecture == ARCHITECTURE_X86_64)
                 return PER_LINUX;
 
 #elif defined(__i386__)
 
-        if (streq(p, "x86"))
+        if (architecture == ARCHITECTURE_X86)
                 return PER_LINUX;
 
 #elif defined(__s390x__)
 
-        if (streq(p, "s390"))
+        if (architecture == ARCHITECTURE_S390)
                 return PER_LINUX32;
 
-        if (streq(p, "s390x"))
+        if (architecture == ARCHITECTURE_S390X)
                 return PER_LINUX;
 
 #elif defined(__s390__)
 
-        if (streq(p, "s390"))
+        if (architecture == ARCHITECTURE_S390)
                 return PER_LINUX;
 #endif
 
@@ -713,36 +716,38 @@ unsigned long personality_from_string(const char *p) {
 }
 
 const char* personality_to_string(unsigned long p) {
+        int architecture = _ARCHITECTURE_INVALID;
 
 #if defined(__x86_64__)
 
-        if (p == PER_LINUX32)
-                return "x86";
-
         if (p == PER_LINUX)
-                return "x86-64";
+                architecture = ARCHITECTURE_X86_64;
+        else if (p == PER_LINUX32)
+                architecture = ARCHITECTURE_X86;
 
 #elif defined(__i386__)
 
         if (p == PER_LINUX)
-                return "x86";
+                architecture = ARCHITECTURE_X86;
 
 #elif defined(__s390x__)
 
         if (p == PER_LINUX)
-                return "s390x";
-
-        if (p == PER_LINUX32)
-                return "s390";
+                architecture = ARCHITECTURE_S390X;
+        else if (p == PER_LINUX32)
+                architecture = ARCHITECTURE_S390;
 
 #elif defined(__s390__)
 
         if (p == PER_LINUX)
-                return "s390";
+                architecture = ARCHITECTURE_S390;
 
 #endif
 
-        return NULL;
+        if (architecture < 0)
+                return NULL;
+
+        return architecture_to_string(architecture);
 }
 
 void valgrind_summary_hack(void) {
