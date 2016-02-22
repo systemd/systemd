@@ -54,7 +54,7 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         assert(link);
         assert(m);
         assert(t);
-        assert(t->family == AF_INET || t->family != -1);
+        assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
 
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0)
@@ -87,7 +87,7 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         assert(link);
         assert(m);
         assert(t);
-        assert(t->family == AF_INET || t->family != -1);
+        assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
 
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
         if (r < 0)
@@ -124,7 +124,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink
                 t = GRETAP(netdev);
 
         assert(t);
-        assert(t->family == AF_INET || t->family != -1);
+        assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
         assert(link);
         assert(m);
 
@@ -497,7 +497,7 @@ static void ipip_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
-        t->family = -1;
+        t->family = AF_UNSPEC;
 }
 
 static void sit_init(NetDev *n) {
@@ -507,7 +507,7 @@ static void sit_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
-        t->family = -1;
+        t->family = AF_UNSPEC;
 }
 
 static void vti_init(NetDev *n) {
@@ -538,7 +538,7 @@ static void gre_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
-        t->family = -1;
+        t->family = AF_UNSPEC;
 }
 
 static void ip6gre_init(NetDev *n) {
