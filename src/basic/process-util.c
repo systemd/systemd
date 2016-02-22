@@ -677,6 +677,9 @@ bool oom_score_adjust_is_valid(int oa) {
 unsigned long personality_from_string(const char *p) {
         int architecture;
 
+        if (!p)
+                return PERSONALITY_INVALID;
+
         /* Parse a personality specifier. We use our own identifiers that indicate specific ABIs, rather than just
          * hints regarding the register size, since we want to keep things open for multiple locally supported ABIs for
          * the same register size. */
@@ -685,62 +688,11 @@ unsigned long personality_from_string(const char *p) {
         if (architecture < 0)
                 return PERSONALITY_INVALID;
 
-#if defined(__x86_64__)
-
-        if (architecture == ARCHITECTURE_X86)
+        if (architecture == native_architecture())
+                return PER_LINUX;
+#ifdef SECONDARY_ARCHITECTURE
+        if (architecture == SECONDARY_ARCHITECTURE)
                 return PER_LINUX32;
-
-        if (architecture == ARCHITECTURE_X86_64)
-                return PER_LINUX;
-
-#elif defined(__i386__)
-
-        if (architecture == ARCHITECTURE_X86)
-                return PER_LINUX;
-
-#elif defined(__s390x__)
-
-        if (architecture == ARCHITECTURE_S390)
-                return PER_LINUX32;
-
-        if (architecture == ARCHITECTURE_S390X)
-                return PER_LINUX;
-
-#elif defined(__s390__)
-
-        if (architecture == ARCHITECTURE_S390)
-                return PER_LINUX;
-
-#elif defined(__powerpc64__)
-#  if __BYTE_ORDER == __BIG_ENDIAN
-
-        if (architecture == ARCHITECTURE_PPC_LE)
-                return PER_LINUX32;
-
-        if (architecture == ARCHITECTURE_PPC64_LE)
-                return PER_LINUX;
-
-#  else
-
-        if (architecture == ARCHITECTURE_PPC)
-                return PER_LINUX32;
-
-        if (architecture == ARCHITECTURE_PPC64)
-                return PER_LINUX;
-
-#  endif
-#elif defined(__powerpc__)
-#  if __BYTE_ORDER == __BIG_ENDIAN
-
-        if (architecture == ARCHITECTURE_PPC)
-                return PER_LINUX;
-
-#  else
-
-        if (architecture == ARCHITECTURE_PPC_LE)
-                return PER_LINUX;
-
-#  endif
 #endif
 
         return PERSONALITY_INVALID;
@@ -749,58 +701,11 @@ unsigned long personality_from_string(const char *p) {
 const char* personality_to_string(unsigned long p) {
         int architecture = _ARCHITECTURE_INVALID;
 
-#if defined(__x86_64__)
-
         if (p == PER_LINUX)
-                architecture = ARCHITECTURE_X86_64;
+                architecture = native_architecture();
+#ifdef SECONDARY_ARCHITECTURE
         else if (p == PER_LINUX32)
-                architecture = ARCHITECTURE_X86;
-
-#elif defined(__i386__)
-
-        if (p == PER_LINUX)
-                architecture = ARCHITECTURE_X86;
-
-#elif defined(__s390x__)
-
-        if (p == PER_LINUX)
-                architecture = ARCHITECTURE_S390X;
-        else if (p == PER_LINUX32)
-                architecture = ARCHITECTURE_S390;
-
-#elif defined(__s390__)
-
-        if (p == PER_LINUX)
-                architecture = ARCHITECTURE_S390;
-
-#elif defined(__powerpc64__)
-#  if __BYTE_ORDER == __BIG_ENDIAN
-
-        if (p == PER_LINUX)
-                architecture = ARCHITECTURE_PPC64;
-        else if (p == PER_LINUX32)
-                 architecture = ARCHITECTURE_PPC;
-
-#  else
-
-        if (p == PER_LINUX)
-                architecture = ARCHITECTURE_PPC64_LE;
-        else if (p == PER_LINUX32)
-                architecture = ARCHITECTURE_PPC_LE;
-
-#  endif
-#elif defined(__powerpc__)
-#  if __BYTE_ORDER == __BIG_ENDIAN
-
-        if (p == PER_LINUX)
-                architecture = ARCHITECTURE_PPC;
-
-#  else
-
-        if (p == PER_LINUX)
-                architecture = ARCHITECTURE_PPC_LE;
-
-#  endif
+                architecture = SECONDARY_ARCHITECTURE;
 #endif
 
         if (architecture < 0)

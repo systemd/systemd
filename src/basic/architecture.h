@@ -78,6 +78,7 @@ int uname_architecture(void);
 #  define native_architecture() ARCHITECTURE_X86_64
 #  define LIB_ARCH_TUPLE "x86_64-linux-gnu"
 #  define PROC_CPUINFO_MODEL "model name"
+#  define SECONDARY_ARCHITECTURE ARCHITECTURE_X86
 #elif defined(__i386__)
 #  define native_architecture() ARCHITECTURE_X86
 #  define LIB_ARCH_TUPLE "i386-linux-gnu"
@@ -86,9 +87,11 @@ int uname_architecture(void);
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC64
 #    define LIB_ARCH_TUPLE "ppc64-linux-gnu"
+#    define SECONDARY_ARCHITECTURE ARCHITECTURE_PPC
 #  else
 #    define native_architecture() ARCHITECTURE_PPC64_LE
 #    define LIB_ARCH_TUPLE  "powerpc64le-linux-gnu"
+#    define SECONDARY_ARCHITECTURE ARCHITECTURE_PPC_LE
 #  endif
 #  define PROC_CPUINFO_MODEL "cpu"
 #elif defined(__powerpc__)
@@ -114,6 +117,7 @@ int uname_architecture(void);
 #elif defined(__s390x__)
 #  define native_architecture() ARCHITECTURE_S390X
 #  define LIB_ARCH_TUPLE "s390x-linux-gnu"
+#  define SECONDARY_ARCHITECTURE ARCHITECTURE_S390
 #elif defined(__s390__)
 #  define native_architecture() ARCHITECTURE_S390
 #  define LIB_ARCH_TUPLE "s390-linux-gnu"
