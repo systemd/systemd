@@ -1029,7 +1029,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
                 r = find_matching_component(spec->hour, &c.tm_hour);
                 if (r > 0)
-                        c.tm_min = c.tm_sec = 0;
+                        c.tm_min = c.tm_sec = tm_usec = 0;
                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
                         c.tm_mday ++;
                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
@@ -1038,7 +1038,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
                 r = find_matching_component(spec->minute, &c.tm_min);
                 if (r > 0)
-                        c.tm_sec = 0;
+                        c.tm_sec = tm_usec = 0;
                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
                         c.tm_hour ++;
                         c.tm_min = c.tm_sec = tm_usec = 0;

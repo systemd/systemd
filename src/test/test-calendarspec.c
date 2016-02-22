@@ -137,6 +137,7 @@ int main(int argc, char* argv[]) {
         test_next("2015-11-13 09:11:23.42", "EET", 12345, 1447398683420000);
         test_next("2015-11-13 09:11:23.42/1.77", "EET", 1447398683420000, 1447398685190000);
         test_next("2015-11-13 09:11:23.42/1.77", "EET", 1447398683419999, 1447398683420000);
+        test_next("Sun 16:00:00", "CET", 1456041600123456, 1456066800000000);
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
         assert_se(calendar_spec_from_string("", &c) < 0);
