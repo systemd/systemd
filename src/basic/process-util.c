@@ -707,6 +707,11 @@ unsigned long personality_from_string(const char *p) {
 
         if (streq(p, "s390"))
                 return PER_LINUX;
+
+#elif defined(__powerpc64__)
+
+        if (streq(p, "ppc64"))
+                return PER_LINUX;
 #endif
 
         return PERSONALITY_INVALID;
@@ -739,6 +744,11 @@ const char* personality_to_string(unsigned long p) {
 
         if (p == PER_LINUX)
                 return "s390";
+
+#elif defined(__powerpc64__)
+
+        if (p == PER_LINUX)
+                return "ppc64";
 
 #endif
 
