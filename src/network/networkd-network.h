@@ -58,6 +58,14 @@ typedef enum DHCPUseDomains {
         _DHCP_USE_DOMAINS_INVALID = -1,
 } DHCPUseDomains;
 
+typedef enum LLDPMode {
+        LLDP_MODE_NO = 0,
+        LLDP_MODE_YES = 1,
+        LLDP_MODE_ROUTERS_ONLY = 2,
+        _LLDP_MODE_MAX,
+        _LLDP_MODE_INVALID = -1,
+} LLDPMode;
+
 struct Network {
         Manager *manager;
 
@@ -137,7 +145,8 @@ struct Network {
         struct ether_addr *mac;
         unsigned mtu;
 
-        bool lldp;
+        LLDPMode lldp_mode; /* LLDP reception */
+        bool lldp_emit;     /* LLDP transmission */
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
@@ -181,6 +190,7 @@ int config_parse_dhcp_server_dns(const char *unit, const char *filename, unsigne
 int config_parse_dhcp_server_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dnssec_negative_trust_anchors(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dhcp_use_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_lldp_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Legacy IPv4LL support */
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
@@ -197,3 +207,6 @@ IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
+
+const char* lldp_mode_to_string(LLDPMode m) _const_;
+LLDPMode lldp_mode_from_string(const char *s) _pure_;

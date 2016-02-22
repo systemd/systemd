@@ -1,3 +1,5 @@
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -18,74 +20,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#pragma once
-
 #include "sd-event.h"
+#include "sd-lldp.h"
 
-#include "list.h"
-#include "lldp-tlv.h"
+#include "hashmap.h"
 #include "log.h"
 #include "prioq.h"
 
-typedef struct lldp_neighbour_port lldp_neighbour_port;
-typedef struct lldp_chassis lldp_chassis;
-typedef struct lldp_chassis_id lldp_chassis_id;
-typedef struct lldp_agent_statistics lldp_agent_statistics;
+struct sd_lldp {
+        int ifindex;
+        int fd;
 
-struct lldp_neighbour_port {
-        uint8_t type;
-        uint8_t *data;
+        sd_event *event;
+        int64_t event_priority;
+        sd_event_source *io_event_source;
+        sd_event_source *timer_event_source;
 
-        uint16_t length;
-        usec_t until;
+        Prioq *neighbor_by_expiry;
+        Hashmap *neighbor_by_id;
 
-        unsigned prioq_idx;
+        uint64_t neighbors_max;
 
-        lldp_chassis *c;
-        tlv_packet *packet;
+        sd_lldp_callback_t callback;
+        void *userdata;
 
-        LIST_FIELDS(lldp_neighbour_port, port);
+        uint16_t capability_mask;
+
+        struct ether_addr filter_address;
 };
 
-int lldp_neighbour_port_new(lldp_chassis *c, tlv_packet *tlv, lldp_neighbour_port **ret);
-void lldp_neighbour_port_free(lldp_neighbour_port *p);
-void lldp_neighbour_port_remove_and_free(lldp_neighbour_port *p);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(lldp_neighbour_port *, lldp_neighbour_port_free);
-#define _cleanup_lldp_neighbour_port_free_ _cleanup_(lldp_neighbour_port_freep)
-
-struct lldp_chassis_id {
-        uint8_t type;
-        uint16_t length;
-
-        uint8_t *data;
-};
-
-struct lldp_chassis {
-        unsigned n_ref;
-
-        lldp_chassis_id chassis_id;
-
-        Prioq *by_expiry;
-        Hashmap *neighbour_mib;
-
-        LIST_HEAD(lldp_neighbour_port, ports);
-};
-
-int lldp_chassis_new(tlv_packet *tlv,
-                     Prioq *by_expiry,
-                     Hashmap *neighbour_mib,
-                     lldp_chassis **ret);
-
-void lldp_chassis_free(lldp_chassis *c);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(lldp_chassis *, lldp_chassis_free);
-#define _cleanup_lldp_chassis_free_ _cleanup_(lldp_chassis_freep)
-
-int lldp_mib_update_objects(lldp_chassis *c, tlv_packet *tlv);
-int lldp_mib_add_objects(Prioq *by_expiry, Hashmap *neighbour_mib, tlv_packet *tlv);
-int lldp_mib_remove_objects(lldp_chassis *c, tlv_packet *tlv);
-
-int lldp_handle_packet(tlv_packet *m, uint16_t length);
-int lldp_receive_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata);
-#define log_lldp(fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
+#define log_lldp_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
+#define log_lldp(fmt, ...) log_lldp_errno(0, fmt, ##__VA_ARGS__)

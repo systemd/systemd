@@ -64,7 +64,7 @@ struct sd_dhcp6_client {
         uint8_t retransmit_count;
         sd_event_source *timeout_resend;
         sd_event_source *timeout_resend_expire;
-        sd_dhcp6_client_cb_t cb;
+        sd_dhcp6_client_callback_t cb;
         void *userdata;
         struct duid duid;
         size_t duid_len;
@@ -111,7 +111,7 @@ DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 
 static int client_start(sd_dhcp6_client *client, enum DHCP6State state);
 
-int sd_dhcp6_client_set_callback(sd_dhcp6_client *client, sd_dhcp6_client_cb_t cb, void *userdata) {
+int sd_dhcp6_client_set_callback(sd_dhcp6_client *client, sd_dhcp6_client_callback_t cb, void *userdata) {
         assert_return(client, -EINVAL);
 
         client->cb = cb;
@@ -1204,7 +1204,7 @@ error:
         return r;
 }
 
-int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int priority) {
+int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(client, -EINVAL);

@@ -1,3 +1,5 @@
+#pragma once
+
 /*
  * Copyright (C) 2014 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
  *
@@ -14,8 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#pragma once
 
 #include "udev.h"
 

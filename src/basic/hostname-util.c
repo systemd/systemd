@@ -48,12 +48,40 @@ bool hostname_is_set(void) {
 char* gethostname_malloc(void) {
         struct utsname u;
 
+        /* This call tries to return something useful, either the actual hostname or it makes something up. The only
+         * reason it might mail is OOM. It might even return "localhost" if that's set. */
+
         assert_se(uname(&u) >= 0);
 
         if (isempty(u.nodename) || streq(u.nodename, "(none)"))
                 return strdup(u.sysname);
 
         return strdup(u.nodename);
+}
+
+int gethostname_strict(char **ret) {
+        struct utsname u;
+        char *k;
+
+        /* This call will rather fail than make up a name. It will not return "localhost" either. */
+
+        assert_se(uname(&u) >= 0);
+
+        if (isempty(u.nodename))
+                return -ENXIO;
+
+        if (streq(u.nodename, "(none)"))
+                return -ENXIO;
+
+        if (is_localhost(u.nodename))
+                return -ENXIO;
+
+        k = strdup(u.nodename);
+        if (!k)
+                return -ENOMEM;
+
+        *ret = k;
+        return 0;
 }
 
 static bool hostname_valid_char(char c) {

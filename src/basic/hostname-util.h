@@ -26,6 +26,7 @@
 bool hostname_is_set(void);
 
 char* gethostname_malloc(void);
+int gethostname_strict(char **ret);
 
 bool hostname_is_valid(const char *s, bool allow_trailing_dot) _pure_;
 char* hostname_cleanup(char *s);

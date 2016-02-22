@@ -31,6 +31,7 @@
 #include <linux/neighbour.h>
 #include <linux/oom.h>
 #include <linux/rtnetlink.h>
+#include <net/ethernet.h>
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
@@ -1169,6 +1170,10 @@ static inline key_serial_t request_key(const char *type, const char *description
 
 #ifndef HAVE_CHAR16_T
 #define char16_t uint16_t
+#endif
+
+#ifndef ETHERTYPE_LLDP
+#define ETHERTYPE_LLDP 0x88cc
 #endif
 
 #endif

@@ -65,6 +65,7 @@ struct Link {
 
         int ifindex;
         char *ifname;
+        unsigned short iftype;
         char *state_file;
         struct ether_addr mac;
         struct in6_addr ipv6ll_address;
@@ -111,8 +112,13 @@ struct Link {
         sd_dhcp6_client *dhcp6_client;
         bool rtnl_extended_attrs;
 
+        /* This is about LLDP reception */
         sd_lldp *lldp;
         char *lldp_file;
+
+        /* This is about LLDP transmission */
+        unsigned lldp_tx_fast; /* The LLDP txFast counter (See 802.1ab-2009, section 9.2.5.18) */
+        sd_event_source *lldp_tx_event_source;
 
         Hashmap *bound_by_links;
         Hashmap *bound_to_links;
@@ -153,14 +159,6 @@ int dhcp4_configure(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link);
 int ndisc_configure(Link *link);
-
-bool link_lldp_enabled(Link *link);
-bool link_ipv4ll_enabled(Link *link);
-bool link_ipv6ll_enabled(Link *link);
-bool link_dhcp4_server_enabled(Link *link);
-bool link_dhcp4_enabled(Link *link);
-bool link_dhcp6_enabled(Link *link);
-bool link_ipv6_accept_ra_enabled(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;

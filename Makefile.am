@@ -3299,14 +3299,10 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp-identifier.h \
 	src/libsystemd-network/dhcp-identifier.c \
 	src/libsystemd-network/lldp.h \
-	src/libsystemd-network/lldp-tlv.h \
-	src/libsystemd-network/lldp-tlv.c \
 	src/libsystemd-network/lldp-network.h \
 	src/libsystemd-network/lldp-network.c \
-	src/libsystemd-network/lldp-port.h \
-	src/libsystemd-network/lldp-port.c \
-	src/libsystemd-network/lldp-internal.h \
-	src/libsystemd-network/lldp-internal.c \
+	src/libsystemd-network/lldp-neighbor.h \
+	src/libsystemd-network/lldp-neighbor.c \
 	src/libsystemd-network/sd-lldp.c
 
 libsystemd_network_la_LIBADD = \
@@ -3389,9 +3385,6 @@ test_dhcp6_client_LDADD = \
 	libshared.la
 
 test_lldp_SOURCES = \
-	src/libsystemd-network/lldp.h \
-	src/libsystemd-network/lldp-tlv.h \
-	src/libsystemd-network/lldp-tlv.c \
 	src/libsystemd-network/test-lldp.c
 
 test_lldp_LDADD = \
@@ -5348,7 +5341,9 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-address-pool.h \
 	src/network/networkd-address-pool.c \
 	src/network/networkd-util.h \
-	src/network/networkd-util.c
+	src/network/networkd-util.c \
+	src/network/networkd-lldp-tx.h \
+	src/network/networkd-lldp-tx.c
 
 nodist_libnetworkd_core_la_SOURCES = \
 	src/network/networkd-network-gperf.c \

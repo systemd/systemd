@@ -335,8 +335,34 @@
         <varlistentry>
           <term><varname>LLDP=</varname></term>
           <listitem>
-            <para>A boolean. When true, enables LLDP link receive support.
+            <para>Controls support for Ethernet LLDP packet reception. LLDP is a link-layer protocol commonly
+            implemented on professional routers and bridges which announces which physical port a system is connected
+            to, as well as other related data. Accepts a boolean or the special value
+            <literal>routers-only</literal>. When true, incoming LLDP packets are accepted and a database of all LLDP
+            neighbors maintained. If <literal>routers-only</literal> is set only LLDP data of various types of routers
+            is collected and LLDP data about other types of devices ignored (such as stations, telephones and
+            others). If false, LLDP reception is disabled. Defaults to <literal>routers-only</literal>. Use
+            <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to query the
+            collected neighbor data. LLDP is only available on Ethernet links. See <varname>EmitLLDP=</varname> below
+            for enabling LLDP packet emission from the local system.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>EmitLLDP=</varname></term>
+          <listitem>
+            <para>Controls support for Ethernet LLDP packet emission. Accepts a boolean parameter and defaults to
+            false. If enabled a short LLDP packet with information about the local system is sent out in regular
+            intervals on the link. The LLDP packet will contain information about the local host name, the local
+            machine ID (as stored in
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) and the
+            local interface name, as well as the pretty hostname of the system (as set in
+            <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>). LLDP
+            emission is only available on Ethernet links. Note that this setting passed data suitable for
+            identification of host to the network and should thus not be used on untrusted networks, where such
+            identification data should not be made available. Use this option to enable other systems to identify on
+            which interface they are connected to this system. See <varname>LLDP=</varname> above for an option to
+            enable LLDP reception.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
