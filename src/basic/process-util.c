@@ -710,6 +710,37 @@ unsigned long personality_from_string(const char *p) {
 
         if (architecture == ARCHITECTURE_S390)
                 return PER_LINUX;
+
+#elif defined(__powerpc64__)
+#  if __BYTE_ORDER == __BIG_ENDIAN
+
+        if (architecture == ARCHITECTURE_PPC_LE)
+                return PER_LINUX32;
+
+        if (architecture == ARCHITECTURE_PPC64_LE)
+                return PER_LINUX;
+
+#  else
+
+        if (architecture == ARCHITECTURE_PPC)
+                return PER_LINUX32;
+
+        if (architecture == ARCHITECTURE_PPC64)
+                return PER_LINUX;
+
+#  endif
+#elif defined(__powerpc__)
+#  if __BYTE_ORDER == __BIG_ENDIAN
+
+        if (architecture == ARCHITECTURE_PPC)
+                return PER_LINUX;
+
+#  else
+
+        if (architecture == ARCHITECTURE_PPC_LE)
+                return PER_LINUX;
+
+#  endif
 #endif
 
         return PERSONALITY_INVALID;
@@ -742,6 +773,34 @@ const char* personality_to_string(unsigned long p) {
         if (p == PER_LINUX)
                 architecture = ARCHITECTURE_S390;
 
+#elif defined(__powerpc64__)
+#  if __BYTE_ORDER == __BIG_ENDIAN
+
+        if (p == PER_LINUX)
+                architecture = ARCHITECTURE_PPC64;
+        else if (p == PER_LINUX32)
+                 architecture = ARCHITECTURE_PPC;
+
+#  else
+
+        if (p == PER_LINUX)
+                architecture = ARCHITECTURE_PPC64_LE;
+        else if (p == PER_LINUX32)
+                architecture = ARCHITECTURE_PPC_LE;
+
+#  endif
+#elif defined(__powerpc__)
+#  if __BYTE_ORDER == __BIG_ENDIAN
+
+        if (p == PER_LINUX)
+                architecture = ARCHITECTURE_PPC;
+
+#  else
+
+        if (p == PER_LINUX)
+                architecture = ARCHITECTURE_PPC_LE;
+
+#  endif
 #endif
 
         if (architecture < 0)
