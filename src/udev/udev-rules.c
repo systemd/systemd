@@ -705,10 +705,10 @@ static void attr_subst_subdir(char *attr, size_t len) {
 
         for (dent = readdir(dir); dent != NULL; dent = readdir(dir))
                 if (dent->d_name[0] != '.') {
-                        char n[strlen(dent->d_name) + 1 + strlen(tail) + 1];
+                        char n[strlen(dent->d_name) + strlen(tail) + 1];
 
-                        strscpyl(n, sizeof n, dent->d_name, "/", tail, NULL);
-                        if (faccessat(dirfd(dir), n, F_OK, 0)) {
+                        strscpyl(n, sizeof n, dent->d_name, tail, NULL);
+                        if (faccessat(dirfd(dir), n, F_OK, 0) == 0) {
                                 strscpyl(attr, len, path, n, NULL);
                                 break;
                         }
