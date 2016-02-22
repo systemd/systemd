@@ -554,18 +554,16 @@
         started after the listed unit finished starting up,
         <varname>Before=</varname> ensures the opposite, i.e. that the
         configured unit is fully started up before the listed unit is
-        started. Note that when two units with an ordering dependency
-        between them are shut down, the inverse of the start-up order
-        is applied. i.e. if a unit is configured with
-        <varname>After=</varname> on another unit, the former is
-        stopped before the latter if both are shut down. If one unit
-        with an ordering dependency on another unit is shut down while
-        the latter is started up, the shut down is ordered before the
-        start-up regardless of whether the ordering dependency is
-        actually of type <varname>After=</varname> or
-        <varname>Before=</varname>. If two units have no ordering
-        dependencies between them, they are shut down or started up
-        simultaneously, and no ordering takes place.
+        started. When two units with an ordering dependency between them
+        are shut down, the inverse of the start-up order is
+        applied. i.e. if a unit is configured with
+        <varname>After=</varname> on another unit, the former is stopped
+        before the latter if both are shut down. When there are two
+        units with an ordering dependency between them and one is shut
+        down and the other is started up, the shut down is ordered before
+        the start-up. If two units have no ordering dependencies between
+        them, they are shut down or started up simultaneously, and no
+        ordering takes place.
         </para></listitem>
       </varlistentry>
 
