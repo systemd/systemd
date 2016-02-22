@@ -1262,14 +1262,17 @@
       <varlistentry>
         <term><varname>Personality=</varname></term>
 
-        <listitem><para>Controls which kernel architecture
-        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        shall report, when invoked by unit processes. Takes one of
-        <constant>x86</constant> and <constant>x86-64</constant>. This
-        is useful when running 32-bit services on a 64-bit host
-        system. If not specified, the personality is left unmodified
-        and thus reflects the personality of the host system's
-        kernel.</para></listitem>
+        <listitem><para>Controls which kernel architecture <citerefentry
+        project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry> shall report,
+        when invoked by unit processes. Takes one of the architecture identifiers <constant>x86</constant>,
+        <constant>x86-64</constant>, <constant>ppc</constant>, <constant>ppc-le</constant>, <constant>ppc64</constant>,
+        <constant>ppc64-le</constant>, <constant>s390</constant> or <constant>s390x</constant>. Which personality
+        architectures are supported depends on the system architecture. Usually the 64bit versions of the various
+        system architectures support their immediate 32bit personality architecture counterpart, but no others. For
+        example, <constant>x86-64</constant> systems support the <constant>x86-64</constant> and
+        <constant>x86</constant> personalities but no others. The personality feature is useful when running 32-bit
+        services on a 64-bit host system. If not specified, the personality is left unmodified and thus reflects the
+        personality of the host system's kernel.</para></listitem>
       </varlistentry>
 
       <varlistentry>
