@@ -978,7 +978,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
         for (;;) {
                 /* Normalize the current date */
-                mktime_or_timegm(&c, spec->utc);
+                (void) mktime_or_timegm(&c, spec->utc);
                 c.tm_isdst = -1;
 
                 c.tm_year += 1900;
@@ -990,8 +990,10 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                         c.tm_mday = 1;
                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
                 }
-                if (r < 0 || tm_out_of_bounds(&c, spec->utc))
+                if (r < 0)
                         return r;
+                if (tm_out_of_bounds(&c, spec->utc))
+                        return -ENOENT;
 
                 c.tm_mon += 1;
                 r = find_matching_component(spec->month, &c.tm_mon);
