@@ -91,7 +91,7 @@ static void test_exec_personality(Manager *m) {
 #elif defined(__s390__)
         test(m, "exec-personality-s390.service", 0, CLD_EXITED);
 
-#else
+#elif defined(__i386__)
         test(m, "exec-personality-x86.service", 0, CLD_EXITED);
 #endif
 }
