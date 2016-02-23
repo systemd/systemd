@@ -903,7 +903,7 @@ static char *lldp_capabilities_to_string(uint16_t x) {
 
 static void lldp_capabilities_legend(uint16_t x) {
         unsigned w, i, cols = columns();
-        static const char const* table[] = {
+        static const char* const table[] = {
                 "o - Other",
                 "p - Repeater",
                 "b - Bridge",
