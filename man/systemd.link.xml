@@ -82,6 +82,10 @@
     shipped by the system, any user-supplied
     <filename>.link</filename> should hence have a lexically earlier
     name to be considered at all.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for diagnosing problems with <filename>.link</filename> files.</para>
   </refsect1>
 
   <refsect1>
