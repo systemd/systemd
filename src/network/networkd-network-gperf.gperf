@@ -64,6 +64,7 @@ Address.Peer,                           config_parse_address,                   
 Address.Broadcast,                      config_parse_broadcast,                         0,                             0
 Address.Label,                          config_parse_label,                             0,                             0
 Route.Gateway,                          config_parse_gateway,                           0,                             0
+Route.GatewayOnlink,                    config_parse_gateway_onlink,                    0,                             0
 Route.Destination,                      config_parse_destination,                       0,                             0
 Route.Source,                           config_parse_destination,                       0,                             0
 Route.Metric,                           config_parse_route_priority,                    0,                             0
