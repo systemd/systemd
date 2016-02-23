@@ -538,7 +538,7 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
 
                         dns_resource_record_unref((*a)->items[i].rr);
                         memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
-                        (*a)->n_rrs --;
+                        (*a)->n_rrs--;
                         continue;
 
                 } else
@@ -624,7 +624,7 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
 
                         dns_resource_record_unref((*a)->items[i].rr);
                         memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
-                        (*a)->n_rrs --;
+                        (*a)->n_rrs--;
                         continue;
 
                 } else

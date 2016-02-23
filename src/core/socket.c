@@ -1979,7 +1979,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 service = SERVICE(UNIT_DEREF(s->service));
                 unit_ref_unset(&s->service);
-                s->n_accepted ++;
+                s->n_accepted++;
 
                 UNIT(service)->no_gc = false;
 
@@ -1990,7 +1990,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         goto fail;
 
                 cfd = -1;
-                s->n_connections ++;
+                s->n_connections++;
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
                 if (r < 0)

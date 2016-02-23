@@ -375,7 +375,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 if (r <= 0)
                         continue;
 
-                size ++;
+                size++;
         }
 
         *ret = addresses;

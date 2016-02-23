@@ -209,7 +209,7 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         LIST_PREPEND(transactions_by_scope, s->transactions, t);
         t->scope = s;
 
-        s->manager->n_transactions_total ++;
+        s->manager->n_transactions_total++;
 
         if (ret)
                 *ret = t;
@@ -1375,7 +1375,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 other->state = DNS_TRANSACTION_PENDING;
                 other->next_attempt_after = ts;
 
-                qdcount ++;
+                qdcount++;
 
                 if (dns_key_is_shared(other->key))
                         add_known_answers = true;

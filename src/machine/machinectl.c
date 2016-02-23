@@ -180,7 +180,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 if (l > max_service)
                         max_service = l;
 
-                n_machines ++;
+                n_machines++;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -2236,7 +2236,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                 if (id > max_id)
                         max_id = id;
 
-                n_transfers ++;
+                n_transfers++;
         }
         if (r < 0)
                 return bus_log_parse_error(r);

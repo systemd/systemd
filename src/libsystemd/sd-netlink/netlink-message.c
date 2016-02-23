@@ -34,7 +34,7 @@
 #include "util.h"
 
 #define GET_CONTAINER(m, i) ((i) < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset) : NULL)
-#define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
+#define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 
 #define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
 #define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
@@ -467,7 +467,7 @@ int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type
         if (r < 0)
                 return r;
 
-        m->containers[m->n_containers ++].offset = r;
+        m->containers[m->n_containers++].offset = r;
 
         return 0;
 }
@@ -498,7 +498,7 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
         if (r < 0)
                 return r;
 
-        m->containers[m->n_containers ++].offset = r;
+        m->containers[m->n_containers++].offset = r;
 
         return 0;
 }
@@ -510,7 +510,7 @@ int sd_netlink_message_close_container(sd_netlink_message *m) {
         assert_return(m->n_containers > 0, -EINVAL);
 
         m->containers[m->n_containers].type_system = NULL;
-        m->n_containers --;
+        m->n_containers--;
 
         return 0;
 }
@@ -842,7 +842,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         else
                 size = (size_t)r;
 
-        m->n_containers ++;
+        m->n_containers++;
 
         r = netlink_container_parse(m,
                                     &m->containers[m->n_containers],
@@ -850,7 +850,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                                     container,
                                     size);
         if (r < 0) {
-                m->n_containers --;
+                m->n_containers--;
                 return r;
         }
 
@@ -867,7 +867,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m) {
         m->containers[m->n_containers].attributes = mfree(m->containers[m->n_containers].attributes);
         m->containers[m->n_containers].type_system = NULL;
 
-        m->n_containers --;
+        m->n_containers--;
 
         return 0;
 }

@@ -2170,7 +2170,7 @@ static int generic_array_bisect_plus_one(
                 goto found;
 
         if (r > 0 && idx)
-                (*idx) ++;
+                (*idx)++;
 
         return r;
 

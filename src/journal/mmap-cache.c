@@ -107,7 +107,7 @@ MMapCache* mmap_cache_ref(MMapCache *m) {
         assert(m);
         assert(m->n_ref > 0);
 
-        m->n_ref ++;
+        m->n_ref++;
         return m;
 }
 
@@ -361,7 +361,7 @@ MMapCache* mmap_cache_unref(MMapCache *m) {
 
         assert(m->n_ref > 0);
 
-        m->n_ref --;
+        m->n_ref--;
         if (m->n_ref == 0)
                 mmap_cache_free(m);
 
@@ -598,14 +598,14 @@ int mmap_cache_get(
         /* Check whether the current context is the right one already */
         r = try_context(m, fd, prot, context, keep_always, offset, size, ret);
         if (r != 0) {
-                m->n_hit ++;
+                m->n_hit++;
                 return r;
         }
 
         /* Search for a matching mmap */
         r = find_mmap(m, fd, prot, context, keep_always, offset, size, ret);
         if (r != 0) {
-                m->n_hit ++;
+                m->n_hit++;
                 return r;
         }
 

@@ -894,7 +894,7 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                n_objects ++;
+                n_objects++;
 
                 r = journal_file_object_verify(f, p, o);
                 if (r < 0) {
@@ -991,7 +991,7 @@ int journal_file_verify(
                         entry_realtime = le64toh(o->entry.realtime);
                         entry_realtime_set = true;
 
-                        n_entries ++;
+                        n_entries++;
                         break;
 
                 case OBJECT_DATA_HASH_TABLE:
@@ -1131,11 +1131,11 @@ int journal_file_verify(
 
                         last_epoch = le64toh(o->tag.epoch);
 
-                        n_tags ++;
+                        n_tags++;
                         break;
 
                 default:
-                        n_weird ++;
+                        n_weird++;
                 }
 
                 if (p == le64toh(f->header->tail_object_offset)) {

@@ -136,7 +136,7 @@ int device_add_property_aux(sd_device *device, const char *_key, const char *_va
         }
 
         if (!db) {
-                device->properties_generation ++;
+                device->properties_generation++;
                 device->properties_buf_outdated = true;
         }
 
@@ -309,7 +309,7 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                         if (name[len] == '/')
                                 name[len] = '!';
 
-                        len ++;
+                        len++;
                 }
 
                 syspath = strjoina("/sys/subsystem/", subsystem, "/devices/", name);
@@ -669,7 +669,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                         return -EINVAL;
 
                 sysname[0] = '\0';
-                sysname ++;
+                sysname++;
 
                 return sd_device_new_from_subsystem_sysname(ret, subsys, sysname);
         }
@@ -971,7 +971,7 @@ static int device_set_sysname(sd_device *device) {
         pos = strrchr(device->devpath, '/');
         if (!pos)
                 return -EINVAL;
-        pos ++;
+        pos++;
 
         /* devpath is not a root directory */
         if (*pos == '\0' || pos <= device->devpath)
@@ -986,7 +986,7 @@ static int device_set_sysname(sd_device *device) {
                 if (sysname[len] == '!')
                         sysname[len] = '/';
 
-                len ++;
+                len++;
         }
 
         /* trailing number */
@@ -1066,7 +1066,7 @@ int device_add_tag(sd_device *device, const char *tag) {
         if (r < 0)
                 return r;
 
-        device->tags_generation ++;
+        device->tags_generation++;
         device->property_tags_outdated = true;
 
         return 0;
@@ -1086,7 +1086,7 @@ int device_add_devlink(sd_device *device, const char *devlink) {
         if (r < 0)
                 return r;
 
-        device->devlinks_generation ++;
+        device->devlinks_generation++;
         device->property_devlinks_outdated = true;
 
         return 0;

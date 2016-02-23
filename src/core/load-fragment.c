@@ -620,7 +620,7 @@ int config_parse_exec(
                                 separate_argv0 = true;
                         else
                                 break;
-                        f ++;
+                        f++;
                 }
 
                 if (isempty(f)) {
@@ -668,7 +668,7 @@ int config_parse_exec(
                         /* Check explicitly for an unquoted semicolon as
                          * command separator token.  */
                         if (p[0] == ';' && (!p[1] || strchr(WHITESPACE, p[1]))) {
-                                p ++;
+                                p++;
                                 p += strspn(p, WHITESPACE);
                                 semicolon = true;
                                 break;

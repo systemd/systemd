@@ -34,7 +34,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
         if (code != SD_DHCP_OPTION_END)
                 /* always make sure there is space for an END option */
-                size --;
+                size--;
 
         switch (code) {
 

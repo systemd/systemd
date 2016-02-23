@@ -52,7 +52,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 /* not enough space */
                                 return pos;
 
-                        u->entry_state ++;
+                        u->entry_state++;
 
                         if (pos + r == size) {
                                 /* exactly one character short, but we don't need it */
@@ -76,7 +76,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 /* not enough space */
                                 return pos;
 
-                        u->entry_state ++;
+                        u->entry_state++;
 
                         if (r + pos == size) {
                                 /* exactly one character short, but we don't need it */
@@ -101,7 +101,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 /* not enough space */
                                 return pos;
 
-                        u->entry_state ++;
+                        u->entry_state++;
 
                         if (r + pos == size) {
                                 /* exactly one character short, but we don't need it */
@@ -126,7 +126,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 /* not enough space */
                                 return pos;
 
-                        u->entry_state ++;
+                        u->entry_state++;
 
                         if (r + pos == size) {
                                 /* exactly one character short, but we don't need it */
@@ -156,7 +156,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 continue;
                         }
 
-                        u->entry_state ++;
+                        u->entry_state++;
                 }       /* fall through */
 
                 case ENTRY_TEXT_FIELD:
@@ -206,7 +206,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         pos += len + 1;
 
                         u->field_pos = len + 1;
-                        u->entry_state ++;
+                        u->entry_state++;
                 }       /* fall through */
 
                 case ENTRY_BINARY_FIELD_SIZE: {
@@ -220,7 +220,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         memcpy(buf + pos, &le64, 8);
                         pos += 8;
 
-                        u->entry_state ++;
+                        u->entry_state++;
                         continue;
                 }
 
@@ -230,8 +230,8 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 return pos;
 
                         buf[pos++] = '\n';
-                        u->entry_state ++;
-                        u->entries_sent ++;
+                        u->entry_state++;
+                        u->entries_sent++;
 
                         return pos;
 

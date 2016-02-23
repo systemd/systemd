@@ -951,7 +951,7 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
                 sd_event_ref(e);
 
         LIST_PREPEND(sources, e->sources, s);
-        e->n_sources ++;
+        e->n_sources++;
 
         return s;
 }
@@ -1235,7 +1235,7 @@ _public_ int sd_event_add_child(
                 return r;
         }
 
-        e->n_enabled_child_sources ++;
+        e->n_enabled_child_sources++;
 
         r = event_make_signal_data(e, SIGCHLD, NULL);
         if (r < 0) {

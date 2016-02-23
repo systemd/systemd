@@ -1363,7 +1363,7 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count ++;
+                        count++;
                 }
         }
 
@@ -1383,7 +1383,7 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count ++;
+                        count++;
                 }
         }
 
@@ -1408,7 +1408,7 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count ++;
+                        count++;
                 }
         }
 
@@ -1428,7 +1428,7 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count ++;
+                        count++;
                 }
         }
 
@@ -2181,7 +2181,7 @@ int main(int argc, char *argv[]) {
 
                 SD_JOURNAL_FOREACH_FIELD(j, field) {
                         printf("%s\n", field);
-                        n_shown ++;
+                        n_shown++;
                 }
 
                 r = 0;
@@ -2273,7 +2273,7 @@ int main(int argc, char *argv[]) {
                         else
                                 printf("%.*s\n", (int) size, (const char*) data);
 
-                        n_shown ++;
+                        n_shown++;
                 }
 
                 r = 0;

@@ -112,7 +112,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
  **/
 _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate) {
         if (udev_enumerate)
-                udev_enumerate->refcount ++;
+                udev_enumerate->refcount++;
 
         return udev_enumerate;
 }

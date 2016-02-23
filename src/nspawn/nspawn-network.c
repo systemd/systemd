@@ -232,7 +232,7 @@ int setup_veth_extra(
                 if (r < 0)
                         return r;
 
-                idx ++;
+                idx++;
         }
 
         return 0;

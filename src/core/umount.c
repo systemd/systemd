@@ -472,7 +472,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
                     major(root_st.st_dev) != 0 &&
                     lstat(m->path, &loopback_st) >= 0 &&
                     root_st.st_dev == loopback_st.st_rdev) {
-                        n_failed ++;
+                        n_failed++;
                         continue;
                 }
 
@@ -507,7 +507,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
                 if (k >= 0 &&
                     major(root_st.st_dev) != 0 &&
                     root_st.st_dev == m->devnum) {
-                        n_failed ++;
+                        n_failed++;
                         continue;
                 }
 

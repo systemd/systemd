@@ -239,13 +239,13 @@ int journal_directory_vacuum(
                         /* Vacuum corrupted files */
 
                         if (q < 1 + 16 + 1 + 16 + 8 + 1) {
-                                n_active_files ++;
+                                n_active_files++;
                                 continue;
                         }
 
                         if (de->d_name[q-1-8-16-1] != '-' ||
                             de->d_name[q-1-8-16-1-16-1] != '@') {
-                                n_active_files ++;
+                                n_active_files++;
                                 continue;
                         }
 
@@ -256,7 +256,7 @@ int journal_directory_vacuum(
                         }
 
                         if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
-                                n_active_files ++;
+                                n_active_files++;
                                 continue;
                         }
 
@@ -302,7 +302,7 @@ int journal_directory_vacuum(
                 list[n_list].realtime = realtime;
                 list[n_list].seqnum_id = seqnum_id;
                 list[n_list].have_seqnum = have_seqnum;
-                n_list ++;
+                n_list++;
 
                 p = NULL;
                 sum += size;

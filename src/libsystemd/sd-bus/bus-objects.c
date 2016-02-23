@@ -337,7 +337,7 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         if (cap == 0)
                 cap = CAP_SYS_ADMIN;
         else
-                cap --;
+                cap--;
 
         r = sd_bus_query_sender_privilege(m, cap);
         if (r < 0)

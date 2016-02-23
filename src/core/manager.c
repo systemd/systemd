@@ -1137,7 +1137,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * this is already known, so we increase the counter here
          * already */
         if (serialization)
-                m->n_reloading ++;
+                m->n_reloading++;
 
         /* First, enumerate what we can from all config files */
         dual_timestamp_get(&m->units_load_start_timestamp);
@@ -1171,7 +1171,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         if (serialization) {
                 assert(m->n_reloading > 0);
-                m->n_reloading --;
+                m->n_reloading--;
 
                 /* Let's wait for the UnitNew/JobNew messages being
                  * sent, before we notify that the reload is
@@ -2231,7 +2231,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         assert(f);
         assert(fds);
 
-        m->n_reloading ++;
+        m->n_reloading++;
 
         fprintf(f, "current-job-id=%"PRIu32"\n", m->current_job_id);
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
@@ -2301,13 +2301,13 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
                 r = unit_serialize(u, f, fds, !switching_root);
                 if (r < 0) {
-                        m->n_reloading --;
+                        m->n_reloading--;
                         return r;
                 }
         }
 
         assert(m->n_reloading > 0);
-        m->n_reloading --;
+        m->n_reloading--;
 
         if (ferror(f))
                 return -EIO;
@@ -2327,7 +2327,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
         log_debug("Deserializing state...");
 
-        m->n_reloading ++;
+        m->n_reloading++;
 
         for (;;) {
                 char line[LINE_MAX], *l;
@@ -2495,7 +2495,7 @@ finish:
                 r = -EIO;
 
         assert(m->n_reloading > 0);
-        m->n_reloading --;
+        m->n_reloading--;
 
         return r;
 }
@@ -2511,23 +2511,23 @@ int manager_reload(Manager *m) {
         if (r < 0)
                 return r;
 
-        m->n_reloading ++;
+        m->n_reloading++;
         bus_manager_send_reloading(m, true);
 
         fds = fdset_new();
         if (!fds) {
-                m->n_reloading --;
+                m->n_reloading--;
                 return -ENOMEM;
         }
 
         r = manager_serialize(m, f, fds, false);
         if (r < 0) {
-                m->n_reloading --;
+                m->n_reloading--;
                 return r;
         }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
-                m->n_reloading --;
+                m->n_reloading--;
                 return -errno;
         }
 

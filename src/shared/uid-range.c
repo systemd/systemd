@@ -54,7 +54,7 @@ static void uid_range_coalesce(UidRange **p, unsigned *n) {
                                 if (*n > j+1)
                                         memmove(y, y+1, sizeof(UidRange) * (*n - j -1));
 
-                                (*n) --;
+                                (*n)--;
                                 j--;
                         }
                 }

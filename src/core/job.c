@@ -222,7 +222,7 @@ Job* job_install(Job *j) {
         *pj = j;
         j->installed = true;
 
-        j->manager->n_installed_jobs ++;
+        j->manager->n_installed_jobs++;
         log_unit_debug(j->unit,
                        "Installed new job %s/%s as %u",
                        j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
@@ -856,7 +856,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         }
 
         if (result == JOB_FAILED || result == JOB_INVALID)
-                j->manager->n_failed_jobs ++;
+                j->manager->n_failed_jobs++;
 
         job_uninstall(j);
         job_free(j);

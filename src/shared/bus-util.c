@@ -1412,7 +1412,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 return bus_log_create_error(r);
 
         field = strndupa(assignment, eq - assignment);
-        eq ++;
+        eq++;
 
         if (streq(field, "CPUQuota")) {
 

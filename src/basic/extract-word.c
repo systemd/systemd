@@ -63,12 +63,12 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 if (!GREEDY_REALLOC(s, allocated, sz+1))
                         return -ENOMEM;
 
-        for (;; (*p) ++, c = **p) {
+        for (;; (*p)++, c = **p) {
                 if (c == 0)
                         goto finish_force_terminate;
                 else if (strchr(separators, c)) {
                         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                (*p) ++;
+                                (*p)++;
                                 goto finish_force_next;
                         }
                 } else {
@@ -81,7 +81,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                 }
         }
 
-        for (;; (*p) ++, c = **p) {
+        for (;; (*p)++, c = **p) {
                 if (backslash) {
                         if (!GREEDY_REALLOC(s, allocated, sz+7))
                                 return -ENOMEM;
@@ -129,7 +129,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         backslash = false;
 
                 } else if (quote) {     /* inside either single or double quotes */
-                        for (;; (*p) ++, c = **p) {
+                        for (;; (*p)++, c = **p) {
                                 if (c == 0) {
                                         if (flags & EXTRACT_RELAX)
                                                 goto finish_force_terminate;
@@ -149,7 +149,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         }
 
                 } else {
-                        for (;; (*p) ++, c = **p) {
+                        for (;; (*p)++, c = **p) {
                                 if (c == 0)
                                         goto finish_force_terminate;
                                 else if ((c == '\'' || c == '"') && (flags & EXTRACT_QUOTES)) {
@@ -160,11 +160,11 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         break;
                                 } else if (strchr(separators, c)) {
                                         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                                (*p) ++;
+                                                (*p)++;
                                                 goto finish_force_next;
                                         }
                                         /* Skip additional coalesced separators. */
-                                        for (;; (*p) ++, c = **p) {
+                                        for (;; (*p)++, c = **p) {
                                                 if (c == 0)
                                                         goto finish_force_terminate;
                                                 if (!strchr(separators, c))

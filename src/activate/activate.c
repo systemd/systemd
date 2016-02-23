@@ -77,7 +77,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
                         if (r < 0)
                                 return r;
 
-                        count ++;
+                        count++;
                 }
         }
 
@@ -105,7 +105,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 }
 
                 assert(fd == SD_LISTEN_FDS_START + count);
-                count ++;
+                count++;
         }
 
         if (arg_listen)
@@ -176,7 +176,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         if (!envp[n_env])
                                 return log_oom();
 
-                        n_env ++;
+                        n_env++;
                 }
         }
 
@@ -191,7 +191,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                 if (!envp[n_env])
                         return log_oom();
 
-                n_env ++;
+                n_env++;
         }
 
         if (arg_inetd) {

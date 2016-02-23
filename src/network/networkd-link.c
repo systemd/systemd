@@ -473,7 +473,7 @@ Link *link_unref(Link *link) {
 
         assert(link->n_ref > 0);
 
-        link->n_ref --;
+        link->n_ref--;
 
         if (link->n_ref > 0)
                 return NULL;
@@ -489,7 +489,7 @@ Link *link_ref(Link *link) {
 
         assert(link->n_ref > 0);
 
-        link->n_ref ++;
+        link->n_ref++;
 
         return link;
 }
@@ -677,7 +677,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
                       LINK_STATE_SETTING_ROUTES, LINK_STATE_FAILED,
                       LINK_STATE_LINGER));
 
-        link->link_messages --;
+        link->link_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -713,7 +713,7 @@ static int link_enter_set_routes(Link *link) {
                         return r;
                 }
 
-                link->link_messages ++;
+                link->link_messages++;
         }
 
         if (link->link_messages == 0) {
@@ -755,7 +755,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         assert(IN_SET(link->state, LINK_STATE_SETTING_ADDRESSES,
                LINK_STATE_FAILED, LINK_STATE_LINGER));
 
-        link->link_messages --;
+        link->link_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -882,7 +882,7 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 }
 
-                link->link_messages ++;
+                link->link_messages++;
         }
 
         /* now that we can figure out a default address for the dhcp server,
@@ -1852,7 +1852,7 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *us
         assert(link);
         assert(link->network);
 
-        link->enslaving --;
+        link->enslaving--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -1908,7 +1908,7 @@ static int link_enter_join_netdev(Link *link) {
                         return r;
                 }
 
-                link->enslaving ++;
+                link->enslaving++;
         }
 
         if (link->network->bridge) {
@@ -1929,7 +1929,7 @@ static int link_enter_join_netdev(Link *link) {
                         return r;
                 }
 
-                link->enslaving ++;
+                link->enslaving++;
         }
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
@@ -1951,7 +1951,7 @@ static int link_enter_join_netdev(Link *link) {
                         return r;
                 }
 
-                link->enslaving ++;
+                link->enslaving++;
         }
 
         return 0;
@@ -2440,7 +2440,7 @@ network_file_fail:
                                 continue;
                         }
 
-                        *prefixlen_str ++ = '\0';
+                        *prefixlen_str++ = '\0';
 
                         r = sscanf(prefixlen_str, "%hhu", &prefixlen);
                         if (r != 1) {
@@ -2487,7 +2487,7 @@ network_file_fail:
                                 continue;
                         }
 
-                        *prefixlen_str ++ = '\0';
+                        *prefixlen_str++ = '\0';
 
                         r = sscanf(prefixlen_str, "%hhu/%hhu/%"SCNu32"/%hhu/"USEC_FMT, &prefixlen, &tos, &priority, &table, &lifetime);
                         if (r != 5) {

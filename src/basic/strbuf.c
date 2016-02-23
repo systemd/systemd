@@ -121,7 +121,7 @@ static void bubbleinsert(struct strbuf_node *node,
                 sizeof(struct strbuf_child_entry) * (node->children_count - left));
         node->children[left] = new;
 
-        node->children_count ++;
+        node->children_count++;
 }
 
 /* add string, return the index/offset into the buffer */

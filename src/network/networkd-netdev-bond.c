@@ -375,7 +375,7 @@ int config_parse_arp_ip_target_address(const char *unit,
                 }
 
                 LIST_PREPEND(arp_ip_target, b->arp_ip_targets, buffer);
-                b->n_arp_ip_targets ++;
+                b->n_arp_ip_targets++;
 
                 buffer = NULL;
         }

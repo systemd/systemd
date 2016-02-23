@@ -66,7 +66,7 @@ uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len) {
                         /* wrap around in one's complement */
                         sum++;
 
-                buf_64 ++;
+                buf_64++;
         }
 
         if (len % sizeof(uint64_t)) {

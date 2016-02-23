@@ -82,7 +82,7 @@ static int broadcast_groups_get(sd_netlink *nl) {
                 return r;
 
         for (i = 0; i < len; i++) {
-                for (j = 0; j < sizeof(uint32_t) * 8; j ++) {
+                for (j = 0; j < sizeof(uint32_t) * 8; j++) {
                         uint32_t offset;
                         unsigned group;
 
@@ -168,7 +168,7 @@ int socket_broadcast_group_ref(sd_netlink *nl, unsigned group) {
 
         n_ref = broadcast_group_get_ref(nl, group);
 
-        n_ref ++;
+        n_ref++;
 
         r = hashmap_ensure_allocated(&nl->broadcast_group_refs, NULL);
         if (r < 0)
@@ -216,7 +216,7 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
 
         assert(n_ref > 0);
 
-        n_ref --;
+        n_ref--;
 
         r = broadcast_group_set_ref(nl, group, n_ref);
         if (r < 0)
@@ -444,14 +444,14 @@ int socket_read_message(sd_netlink *rtnl) {
                 if (r < 0)
                         return r;
 
-                rtnl->rqueue[rtnl->rqueue_size ++] = first;
+                rtnl->rqueue[rtnl->rqueue_size++] = first;
                 first = NULL;
 
                 if (multi_part && (i < rtnl->rqueue_partial_size)) {
                         /* remove the message form the partial read queue */
                         memmove(rtnl->rqueue_partial + i,rtnl->rqueue_partial + i + 1,
                                 sizeof(sd_netlink_message*) * (rtnl->rqueue_partial_size - i - 1));
-                        rtnl->rqueue_partial_size --;
+                        rtnl->rqueue_partial_size--;
                 }
 
                 return 1;
@@ -465,7 +465,7 @@ int socket_read_message(sd_netlink *rtnl) {
                         if (r < 0)
                                 return r;
 
-                        rtnl->rqueue_partial[rtnl->rqueue_partial_size ++] = first;
+                        rtnl->rqueue_partial[rtnl->rqueue_partial_size++] = first;
                 }
                 first = NULL;
 

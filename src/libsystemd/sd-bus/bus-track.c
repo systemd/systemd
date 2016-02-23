@@ -129,7 +129,7 @@ _public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
         assert(track->n_ref > 0);
 
         if (track->n_ref > 1) {
-                track->n_ref --;
+                track->n_ref--;
                 return NULL;
         }
 

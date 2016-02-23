@@ -314,7 +314,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 f->fd = fd;
                 LIST_PREPEND(fifo, s->fifos, f);
                 f->server = s;
-                s->n_fifos ++;
+                s->n_fifos++;
         }
 
         r = bus_connect_system_systemd(&s->bus);

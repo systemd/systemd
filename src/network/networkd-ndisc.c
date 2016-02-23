@@ -33,7 +33,7 @@ static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         assert(link);
         assert(link->ndisc_messages > 0);
 
-        link->ndisc_messages --;
+        link->ndisc_messages--;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -99,7 +99,7 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
                 return;
         }
 
-        link->ndisc_messages ++;
+        link->ndisc_messages++;
 }
 
 static void ndisc_prefix_onlink_handler(sd_ndisc *nd, const struct in6_addr *prefix, unsigned prefixlen, unsigned lifetime, void *userdata) {
@@ -137,7 +137,7 @@ static void ndisc_prefix_onlink_handler(sd_ndisc *nd, const struct in6_addr *pre
                 return;
         }
 
-        link->ndisc_messages ++;
+        link->ndisc_messages++;
 }
 
 static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata) {
@@ -187,7 +187,7 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
                 return;
         }
 
-        link->ndisc_messages ++;
+        link->ndisc_messages++;
 }
 
 static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {

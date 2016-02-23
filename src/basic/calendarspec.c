@@ -1004,7 +1004,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
                 }
                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
-                        c.tm_year ++;
+                        c.tm_year++;
                         c.tm_mon = 0;
                         c.tm_mday = 1;
                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
@@ -1015,7 +1015,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                 if (r > 0)
                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
-                        c.tm_mon ++;
+                        c.tm_mon++;
                         c.tm_mday = 1;
                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
                         continue;
@@ -1031,7 +1031,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                 if (r > 0)
                         c.tm_min = c.tm_sec = tm_usec = 0;
                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
-                        c.tm_mday ++;
+                        c.tm_mday++;
                         c.tm_hour = c.tm_min = c.tm_sec = tm_usec = 0;
                         continue;
                 }
@@ -1040,7 +1040,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                 if (r > 0)
                         c.tm_sec = tm_usec = 0;
                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
-                        c.tm_hour ++;
+                        c.tm_hour++;
                         c.tm_min = c.tm_sec = tm_usec = 0;
                         continue;
                 }
@@ -1051,7 +1051,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                 c.tm_sec /= USEC_PER_SEC;
 
                 if (r < 0 || tm_out_of_bounds(&c, spec->utc)) {
-                        c.tm_min ++;
+                        c.tm_min++;
                         c.tm_sec = tm_usec = 0;
                         continue;
                 }

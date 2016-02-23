@@ -91,7 +91,7 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         }
 
         fprintf(c->f, "#%-2u 0x%016" PRIx64 " %s (%s)\n", c->n_frame, (uint64_t) pc, strna(symbol), strna(fname));
-        c->n_frame ++;
+        c->n_frame++;
 
         return DWARF_CB_OK;
 }
@@ -117,7 +117,7 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         if (dwfl_thread_getframes(thread, frame_callback, c) < 0)
                 return DWARF_CB_ABORT;
 
-        c->n_thread ++;
+        c->n_thread++;
 
         return DWARF_CB_OK;
 }

@@ -60,7 +60,7 @@ static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
                 i->iov_base = NULL;
                 i->iov_len = 0;
 
-                (*idx) ++;
+                (*idx)++;
         }
 }
 

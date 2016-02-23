@@ -1469,7 +1469,7 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
                                         return r;
                         }
 
-                        bit ++;
+                        bit++;
                         bitmask >>= 1;
                 }
         }
