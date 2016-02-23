@@ -850,6 +850,8 @@ libbasic_la_SOURCES = \
 	src/basic/exit-status.h \
 	src/basic/virt.c \
 	src/basic/virt.h \
+	src/basic/architecture.c \
+	src/basic/architecture.h \
 	src/basic/smack-util.c \
 	src/basic/smack-util.h \
 	src/basic/device-nodes.c \
@@ -963,8 +965,6 @@ libshared_la_SOURCES = \
 	src/shared/initreq.h \
 	src/shared/dns-domain.c \
 	src/shared/dns-domain.h \
-	src/shared/architecture.c \
-	src/shared/architecture.h \
 	src/shared/efivars.c \
 	src/shared/efivars.h \
 	src/shared/fstab-util.c \

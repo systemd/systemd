@@ -201,6 +201,8 @@ static int detect_vm_xen(void) {
         r = read_one_line_file("/proc/xen/capabilities", &domcap);
         if (r == -ENOENT)
                 return VIRTUALIZATION_NONE;
+        if (r < 0)
+                return r;
 
         i = domcap;
         while ((cap = strsep(&i, ",")))
