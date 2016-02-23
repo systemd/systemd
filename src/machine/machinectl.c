@@ -1763,7 +1763,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed transfer image: %s", bus_error_message(&error, -r));
+                log_error("Failed to transfer image: %s", bus_error_message(&error, -r));
                 return r;
         }
 

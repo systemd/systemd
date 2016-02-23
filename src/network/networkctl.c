@@ -901,10 +901,43 @@ static char *lldp_capabilities_to_string(uint16_t x) {
         return ret;
 }
 
+static void lldp_capabilities_legend(uint16_t x) {
+        unsigned w, i, cols = columns();
+        static const char const* table[] = {
+                "o - Other",
+                "p - Repeater",
+                "b - Bridge",
+                "w - WLAN Access Point",
+                "r - Router",
+                "t - Telephone",
+                "d - DOCSIS cable device",
+                "a - Station",
+                "c - Customer VLAN",
+                "s - Service VLAN",
+                "m - Two-port MAC Relay (TPMR)",
+        };
+
+        if (x == 0)
+                return;
+
+        printf("\nCapability Flags:\n");
+        for (w = 0, i = 0; i < ELEMENTSOF(table); i++)
+                if (x & (1U << i) || arg_all) {
+                        bool newline;
+
+                        newline = w + strlen(table[i]) + (w == 0 ? 0 : 2) > cols;
+                        if (newline)
+                                w = 0;
+                        w += printf("%s%s%s", newline ? "\n" : "", w == 0 ? "" : "; ", table[i]);
+                }
+        puts("");
+}
+
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int i, r, c, m = 0;
+        uint16_t all = 0;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -982,8 +1015,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                                         port_description = pdesc;
                         }
 
-                        if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0)
+                        if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0) {
                                 capabilities = lldp_capabilities_to_string(cc);
+                                all |= cc;
+                        }
 
                         printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
                                links[i].name,
@@ -997,12 +1032,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (arg_legend)
-                printf("\nCapability Flags:\n"
-                       "o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;\n"
-                       "t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;\n"
-                       "s - Service VLAN, m - Two-port MAC Relay (TPMR)\n\n"
-                       "%i neighbors listed.\n", m);
+        if (arg_legend) {
+                lldp_capabilities_legend(all);
+                printf("\n%i neighbors listed.\n", m);
+        }
 
         return 0;
 }
