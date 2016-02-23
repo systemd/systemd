@@ -93,7 +93,7 @@ static void check_stop_unlink(Manager *m, Unit *unit, const char *test_path, con
 
         ts = now(CLOCK_MONOTONIC);
         /* We process events until the service related to the path has been successfully started */
-        while(service->result != SERVICE_SUCCESS || service->state != SERVICE_START) {
+        while (service->result != SERVICE_SUCCESS || service->state != SERVICE_START) {
                 usec_t n;
                 int r;
 

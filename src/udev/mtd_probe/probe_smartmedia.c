@@ -73,7 +73,7 @@ void probe_smart_media(int mtd_fd, mtd_info_t* info)
         for (offset = 0 ; offset < block_size * spare_count ;
                                                 offset += sector_size) {
                 lseek(mtd_fd, SEEK_SET, offset);
-                if (read(mtd_fd, cis_buffer, SM_SECTOR_SIZE) == SM_SECTOR_SIZE){
+                if (read(mtd_fd, cis_buffer, SM_SECTOR_SIZE) == SM_SECTOR_SIZE) {
                         cis_found = 1;
                         break;
                 }

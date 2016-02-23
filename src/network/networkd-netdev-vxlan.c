@@ -54,13 +54,13 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LINK attribute: %m");
 
-        if(v->ttl) {
+        if (v->ttl) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
         }
 
-        if(v->tos) {
+        if (v->tos) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TOS attribute: %m");
@@ -86,7 +86,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_L3MISS attribute: %m");
 
-        if(v->fdb_ageing) {
+        if (v->fdb_ageing) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_AGEING attribute: %m");

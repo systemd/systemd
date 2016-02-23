@@ -60,7 +60,7 @@
                 svg("  <text class=\"%s\" x=\"%.03f\" y=\"%.03f\">", (b) ? "left" : "right", SCALE_X * (x) + (b ? 5.0 : -5.0), SCALE_Y * (y) + 14.0); \
                 svg(format, ## __VA_ARGS__);                            \
                 svg("</text>\n");                                       \
-        } while(false)
+        } while (false)
 
 static enum dot {
         DEP_ALL,

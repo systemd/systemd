@@ -75,7 +75,7 @@ static void close_fd_input(Uploader *u);
                                   curl_easy_strerror(code));            \
                         cmd;                                            \
                 }                                                       \
-        } while(0)
+        } while (0)
 
 static size_t output_callback(char *buf,
                               size_t size,

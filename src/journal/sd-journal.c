@@ -1063,7 +1063,7 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
         if (r < 0)
                 return r;
 
-        for(;;) {
+        for (;;) {
                 _cleanup_free_ char *item = NULL;
                 unsigned long long ll;
                 sd_id128_t id;

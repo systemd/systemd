@@ -73,4 +73,4 @@ do {                                                                    \
                         assert_not_reached("Unknown format string argument."); \
                 }                                                       \
         }                                                               \
-} while(false)
+} while (false)

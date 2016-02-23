@@ -88,7 +88,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
         assert(t);
 
-        if(t->user_name) {
+        if (t->user_name) {
 
                 user = t->user_name;
 
@@ -127,7 +127,7 @@ static int netdev_create_tuntap(NetDev *netdev) {
         int r;
 
         r = netdev_fill_tuntap_message(netdev, &ifr);
-        if(r < 0)
+        if (r < 0)
                 return r;
 
         return netdev_tuntap_add(netdev, &ifr);

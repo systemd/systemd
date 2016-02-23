@@ -1248,7 +1248,7 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
         return 0;
 }
 
-int cg_path_decode_unit(const char *cgroup, char **unit){
+int cg_path_decode_unit(const char *cgroup, char **unit) {
         char *c, *s;
         size_t n;
 

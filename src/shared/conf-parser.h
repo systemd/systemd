@@ -178,7 +178,7 @@ int config_parse_personality(const char *unit, const char *filename, unsigned li
                 assert(data);                                                  \
                                                                                \
                 xs = new0(type, 1);                                            \
-                if(!xs)                                                        \
+                if (!xs)                                                       \
                         return -ENOMEM;                                        \
                                                                                \
                 *xs = invalid;                                                 \

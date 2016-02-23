@@ -61,7 +61,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
 
         log_debug("version %s", VERSION);
 
-        while((c = getopt_long(argc, argv, "a:N:h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "a:N:h", options, NULL)) >= 0)
                 switch (c) {
                 case 'a':
                         action = optarg;

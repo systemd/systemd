@@ -177,7 +177,7 @@ static bool test_pointers(struct udev_device *dev,
         has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) && test_bit(ABS_MT_POSITION_Y, bitmask_abs);
 
         /* unset has_mt_coordinates if devices claims to have all abs axis */
-        if(has_mt_coordinates && test_bit(ABS_MT_SLOT, bitmask_abs) && test_bit(ABS_MT_SLOT - 1, bitmask_abs))
+        if (has_mt_coordinates && test_bit(ABS_MT_SLOT, bitmask_abs) && test_bit(ABS_MT_SLOT - 1, bitmask_abs))
                 has_mt_coordinates = false;
         is_direct = test_bit(INPUT_PROP_DIRECT, bitmask_props);
         has_touch = test_bit(BTN_TOUCH, bitmask_key);

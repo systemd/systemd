@@ -1031,7 +1031,7 @@ static int link_set_bridge_fdb(Link *const link) {
 
         LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
                 r = fdb_entry_configure(link, fdb_entry);
-                if(r < 0) {
+                if (r < 0) {
                         log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
                         break;
                 }
@@ -1836,7 +1836,7 @@ static int link_joined(Link *link) {
                 }
         }
 
-        if(link->network->bridge) {
+        if (link->network->bridge) {
                 r = link_set_bridge(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge message: %m");

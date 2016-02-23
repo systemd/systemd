@@ -431,7 +431,7 @@ finish:
         hashmap_free_free(top);
         hashmap_free_free(bottom);
 
-        HASHMAP_FOREACH_KEY(h, key, drops, i){
+        HASHMAP_FOREACH_KEY(h, key, drops, i) {
                 hashmap_free_free(hashmap_remove(drops, key));
                 hashmap_remove(drops, key);
                 free(key);

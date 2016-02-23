@@ -38,8 +38,8 @@ static void rewind_dns_packet(DnsPacketRewinder *rewinder) {
                 dns_packet_rewind(rewinder->packet, rewinder->saved_rindex);
 }
 
-#define INIT_REWINDER(rewinder, p) do { rewinder.packet = p; rewinder.saved_rindex = p->rindex; } while(0)
-#define CANCEL_REWINDER(rewinder) do { rewinder.packet = NULL; } while(0)
+#define INIT_REWINDER(rewinder, p) do { rewinder.packet = p; rewinder.saved_rindex = p->rindex; } while (0)
+#define CANCEL_REWINDER(rewinder) do { rewinder.packet = NULL; } while (0)
 
 int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t mtu) {
         DnsPacket *p;

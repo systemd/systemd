@@ -606,7 +606,7 @@ static void test_install_printf(void) {
                 } else assert_se(t == NULL);                            \
                 strcpy(i.name, d1);                                     \
                 strcpy(i.path, d2);                                     \
-        } while(false)
+        } while (false)
 
         expect(i, "%n", "name.service");
         expect(i, "%N", "name");

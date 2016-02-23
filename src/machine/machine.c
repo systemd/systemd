@@ -310,7 +310,7 @@ int machine_load(Machine *m) {
                 int *ni = NULL;
 
                 p = netif;
-                for(;;) {
+                for (;;) {
                         _cleanup_free_ char *word = NULL;
                         int ifi;
 

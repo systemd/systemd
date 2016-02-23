@@ -114,7 +114,7 @@ static void sort_chain(CalendarComponent **c) {
 static void fix_year(CalendarComponent *c) {
         /* Turns 12 → 2012, 89 → 1989 */
 
-        while(c) {
+        while (c) {
                 CalendarComponent *n = c->next;
 
                 if (c->value >= 0 && c->value < 70)

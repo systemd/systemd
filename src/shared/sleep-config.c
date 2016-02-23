@@ -37,7 +37,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
+#define USE(x, y) do { (x) = (y); (y) = NULL; } while (0)
 
 int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
 
