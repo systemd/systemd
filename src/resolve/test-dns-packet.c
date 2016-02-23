@@ -89,7 +89,6 @@ static void test_packet_from_file(const char* filename, bool canonical) {
 int main(int argc, char **argv) {
         int i, N;
         _cleanup_globfree_ glob_t g = {};
-        _cleanup_strv_free_ char **globs = NULL;
         char **fnames;
 
         log_parse_environment();
