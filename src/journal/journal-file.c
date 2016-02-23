@@ -238,8 +238,10 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
                 journal_file_set_offline_internal(f);
         else {
                 r = pthread_create(&f->offline_thread, NULL, journal_file_set_offline_thread, f);
-                if (r > 0)
+                if (r > 0) {
+                        f->offline_state = OFFLINE_JOINED;
                         return -r;
+                }
         }
 
         return 0;
