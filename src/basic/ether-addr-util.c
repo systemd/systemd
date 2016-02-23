@@ -43,17 +43,6 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
         return buffer;
 }
 
-bool ether_addr_is_null(const struct ether_addr *addr) {
-        assert(addr);
-
-        return  addr->ether_addr_octet[0] == 0 &&
-                addr->ether_addr_octet[1] == 0 &&
-                addr->ether_addr_octet[2] == 0 &&
-                addr->ether_addr_octet[3] == 0 &&
-                addr->ether_addr_octet[4] == 0 &&
-                addr->ether_addr_octet[5] == 0;
-}
-
 bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b) {
         assert(a);
         assert(b);
