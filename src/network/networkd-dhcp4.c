@@ -65,7 +65,6 @@ static int link_set_dhcp_routes(Link *link) {
         if (r >= 0) {
                 struct in_addr address;
                 _cleanup_route_free_ Route *route = NULL;
-                _cleanup_route_free_ Route *route_gw = NULL;
 
                 r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
                 if (r < 0)
@@ -77,31 +76,14 @@ static int link_set_dhcp_routes(Link *link) {
 
                 route->protocol = RTPROT_DHCP;
 
-                r = route_new(&route_gw);
-                if (r < 0)
-                        return log_link_error_errno(link, r,  "Could not allocate route: %m");
-
-                /* The dhcp netmask may mask out the gateway. Add an explicit
-                 * route for the gw host so that we can route no matter the
-                 * netmask or existing kernel route tables. */
-                route_gw->family = AF_INET;
-                route_gw->dst.in = gateway;
-                route_gw->dst_prefixlen = 32;
-                route_gw->prefsrc.in = address;
-                route_gw->scope = RT_SCOPE_LINK;
-                route_gw->protocol = RTPROT_DHCP;
-                route_gw->priority = link->network->dhcp_route_metric;
-
-                r = route_configure(route_gw, link, &dhcp4_route_handler);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set host route: %m");
-
-                link->dhcp4_messages++;
-
                 route->family = AF_INET;
                 route->gw.in = gateway;
                 route->prefsrc.in = address;
                 route->priority = link->network->dhcp_route_metric;
+                /* The dhcp netmask may mask out the gateway. Explicitly assume
+                 * the gateway to b onlink so that we can route no matter the
+                 * netmask or existing kernel route tables. */
+                route->flags |= RTNH_F_ONLINK;
 
                 r = route_configure(route, link, &dhcp4_route_handler);
                 if (r < 0) {
@@ -183,19 +165,7 @@ static int dhcp_lease_lost(Link *link) {
         if (r >= 0) {
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
                 if (r >= 0) {
-                        _cleanup_route_free_ Route *route_gw = NULL;
                         _cleanup_route_free_ Route *route = NULL;
-
-                        r = route_new(&route_gw);
-                        if (r >= 0) {
-                                route_gw->family = AF_INET;
-                                route_gw->dst.in = gateway;
-                                route_gw->dst_prefixlen = 32;
-                                route_gw->scope = RT_SCOPE_LINK;
-
-                                route_remove(route_gw, link,
-                                           &link_route_remove_handler);
-                        }
 
                         r = route_new(&route);
                         if (r >= 0) {
