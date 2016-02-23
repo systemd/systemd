@@ -48,8 +48,9 @@ bool hostname_is_set(void) {
 char* gethostname_malloc(void) {
         struct utsname u;
 
-        /* This call tries to return something useful, either the actual hostname or it makes something up. The only
-         * reason it might mail is OOM. It might even return "localhost" if that's set. */
+        /* This call tries to return something useful, either the actual hostname
+         * or it makes something up. The only reason it might fail is OOM.
+         * It might even return "localhost" if that's set. */
 
         assert_se(uname(&u) >= 0);
 
