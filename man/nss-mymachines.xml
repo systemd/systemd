@@ -56,42 +56,37 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>nss-mymachines</command> is a plugin for the GNU
-    Name Service Switch (NSS) functionality of the GNU C Library
-    (<command>glibc</command>), providing hostname resolution for
-    container names of containers running locally that are registered
-    with
-    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    The container names are resolved to the IP addresses of the
-    specific container, ordered by their scope.</para>
+    <para><command>nss-mymachines</command> is a plug-in module for the GNU Name Service Switch (NSS) functionality of
+    the GNU C Library (<command>glibc</command>), providing hostname resolution for the names of containers running
+    locally that are registered with
+    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  The
+    container names are resolved to the IP addresses of the specific container, ordered by their scope. This
+    functionality only applies to containers using network namespacing.</para>
 
-    <para>The module also resolves user IDs used by containers to user
-    names indicating the container name, and back.</para>
+    <para>The module also resolves user and group IDs used by containers to user and group names indicating the
+    container name, and back. This functionality only applies to containers using user namespacing.</para>
 
-    <para>To activate the NSS modules, <literal>mymachines</literal>
-    has to be added to the lines starting with
-    <literal>hosts:</literal>, <literal>passwd:</literal> and
-    <literal>group:</literal> in
+    <para>To activate the NSS module, add <literal>mymachines</literal> to the lines starting with
+    <literal>hosts:</literal>, <literal>passwd:</literal> and <literal>group:</literal> in
     <filename>/etc/nsswitch.conf</filename>.</para>
 
-    <para>It is recommended to place <literal>mymachines</literal>
-    near the end of the <filename>nsswitch.conf</filename> lines to
-    make sure that its mappings are only used as fallback, and that any
-    other mappings, such as DNS or <filename>/etc/hosts</filename>
-    based mappings, take precedence.</para>
+    <para>It is recommended to place <literal>mymachines</literal> after the <literal>files</literal> or
+    <literal>compat</literal> entry of the <filename>/etc/nsswitch.conf</filename> lines to make sure that its mappings
+    are preferred over other resolvers such as DNS, but so that <filename>/etc/hosts</filename>,
+    <filename>/etc/passwd</filename> and <filename>/etc/group</filename> based mappings take precedence.</para>
   </refsect1>
 
   <refsect1>
     <title>Example</title>
 
-    <para>Here is an example <filename>/etc/nsswitch.conf</filename>
-    file that enables <command>mymachines</command> correctly:</para>
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
+    <command>nss-mymachines</command> correctly:</para>
 
     <programlisting>passwd:         compat <command>mymachines</command>
 group:          compat <command>mymachines</command>
 shadow:         compat
 
-hosts:          files resolve <command>mymachines</command> myhostname
+hosts:          files <command>mymachines</command> resolve myhostname
 networks:       files
 
 protocols:      db files

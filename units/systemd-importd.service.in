@@ -8,6 +8,7 @@
 [Unit]
 Description=Virtual Machine and Container Download Service
 Documentation=man:systemd-importd.service(8)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/importd
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-importd

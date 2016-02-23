@@ -1910,6 +1910,17 @@ MANPAGES_ALIAS += \
 
 endif
 
+if ENABLE_IMPORTD
+MANPAGES += \
+	man/systemd-importd.service.8
+MANPAGES_ALIAS += \
+	man/systemd-importd.8
+man/systemd-importd.8: man/systemd-importd.service.8
+man/systemd-importd.html: man/systemd-importd.service.html
+	$(html-alias)
+
+endif
+
 if ENABLE_LOCALED
 MANPAGES += \
 	man/localectl.1 \
@@ -2593,6 +2604,7 @@ EXTRA_DIST += \
 	man/systemd-hibernate-resume@.service.xml \
 	man/systemd-hostnamed.service.xml \
 	man/systemd-hwdb.xml \
+	man/systemd-importd.service.xml \
 	man/systemd-inhibit.xml \
 	man/systemd-initctl.service.xml \
 	man/systemd-journal-gatewayd.service.xml \

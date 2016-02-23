@@ -8,6 +8,9 @@
 [Unit]
 Description=Network Name Resolution
 Documentation=man:systemd-resolved.service(8)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/resolved
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/writing-network-configuration-managers
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/writing-resolver-clients
 After=systemd-networkd.service network.target
 
 # On kdbus systems we pull in the busname explicitly, because it
