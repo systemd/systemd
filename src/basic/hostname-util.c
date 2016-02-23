@@ -123,7 +123,7 @@ bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
                                 return false;
 
                         dot = true;
-                        n_dots ++;
+                        n_dots++;
                 } else {
                         if (!hostname_valid_char(*p))
                                 return false;

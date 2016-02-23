@@ -180,7 +180,7 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                         unsigned slashes = 0;
 
                         for (y = terminal - 1; y >= name && *y == '\\'; y--)
-                                slashes ++;
+                                slashes++;
 
                         if (slashes % 2 == 0) {
                                 /* The '.' was not escaped */
@@ -192,7 +192,7 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                         }
                 }
 
-                terminal --;
+                terminal--;
         }
 
         r = dns_label_unescape(&name, dest, sz);
@@ -1172,7 +1172,7 @@ int dns_name_skip(const char *a, unsigned n_labels, const char **ret) {
         assert(a);
         assert(ret);
 
-        for (; n_labels > 0; n_labels --) {
+        for (; n_labels > 0; n_labels--) {
                 r = dns_name_parent(&a);
                 if (r < 0)
                         return r;

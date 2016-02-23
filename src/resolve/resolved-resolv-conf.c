@@ -158,7 +158,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 
         if (*count == MAXNS)
                 fputs("# Too many DNS servers configured, the following entries may be ignored.\n", f);
-        (*count) ++;
+        (*count)++;
 
         fprintf(f, "nameserver %s\n", s->server_string);
 }
@@ -184,7 +184,7 @@ static void write_resolv_conf_search(
         }
 
         (*length) += strlen(domain);
-        (*count) ++;
+        (*count)++;
 
         fputc(' ', f);
         fputs(domain, f);

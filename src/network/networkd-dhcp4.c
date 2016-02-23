@@ -34,7 +34,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
         assert(link);
         assert(link->dhcp4_messages > 0);
 
-        link->dhcp4_messages --;
+        link->dhcp4_messages--;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -96,7 +96,7 @@ static int link_set_dhcp_routes(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set host route: %m");
 
-                link->dhcp4_messages ++;
+                link->dhcp4_messages++;
 
                 route->family = AF_INET;
                 route->gw.in = gateway;
@@ -110,7 +110,7 @@ static int link_set_dhcp_routes(Link *link) {
                         return r;
                 }
 
-                link->dhcp4_messages ++;
+                link->dhcp4_messages++;
         }
 
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
@@ -137,7 +137,7 @@ static int link_set_dhcp_routes(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set host route: %m");
 
-                link->dhcp4_messages ++;
+                link->dhcp4_messages++;
         }
 
         return 0;

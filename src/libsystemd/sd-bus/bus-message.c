@@ -1198,7 +1198,7 @@ struct bus_body_part *message_append_part(sd_bus_message *m) {
 
         part->memfd = -1;
         m->body_end = part;
-        m->n_body_parts ++;
+        m->n_body_parts++;
 
         return part;
 }
@@ -1643,7 +1643,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         }
 
         if (type == SD_BUS_TYPE_UNIX_FD)
-                m->n_fds ++;
+                m->n_fds++;
 
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
                 c->index++;
@@ -2387,9 +2387,9 @@ int bus_message_append_ap(
 
                 t = types;
                 if (n_array != (unsigned) -1)
-                        n_array --;
+                        n_array--;
                 else {
-                        types ++;
+                        types++;
                         n_struct--;
                 }
 
@@ -3866,7 +3866,7 @@ static int build_struct_offsets(
                 if (r < 0)
                         return r;
                 if (r == 0 && p[n] != 0) /* except the last item */
-                        n_variable ++;
+                        n_variable++;
                 n_total++;
 
                 p += n;
@@ -4466,9 +4466,9 @@ static int message_read_ap(
 
                 t = types;
                 if (n_array != (unsigned) -1)
-                        n_array --;
+                        n_array--;
                 else {
-                        types ++;
+                        types++;
                         n_struct--;
                 }
 

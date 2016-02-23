@@ -427,7 +427,7 @@ static int resolve_remote(Connection *c) {
         service = strrchr(arg_remote_host, ':');
         if (service) {
                 node = strndupa(arg_remote_host, service - arg_remote_host);
-                service ++;
+                service++;
         } else {
                 node = arg_remote_host;
                 service = "80";

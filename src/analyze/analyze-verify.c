@@ -290,7 +290,7 @@ int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man) 
                         if (r == 0)
                                 r = k;
                 } else
-                        count ++;
+                        count++;
         }
 
         for (i = 0; i < count; i++) {

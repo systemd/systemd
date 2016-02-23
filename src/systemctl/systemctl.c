@@ -1436,7 +1436,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                         };
 
                         if (output_show_unit_file(&units[c], strv_skip(argv, 1)))
-                                c ++;
+                                c++;
 
                 }
                 if (r < 0)
@@ -6710,11 +6710,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FORCE:
-                        arg_force ++;
+                        arg_force++;
                         break;
 
                 case 'f':
-                        arg_force ++;
+                        arg_force++;
                         break;
 
                 case ARG_NO_RELOAD:
@@ -7180,7 +7180,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
 
         arg_action = table[i].to;
 
-        optind ++;
+        optind++;
 
         return 1;
 }

@@ -276,8 +276,8 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
         if (padding) {
                 /* strip the padding */
                 while (l > 0 && p[l - 1] == '=' && pad < 7) {
-                        pad ++;
-                        l --;
+                        pad++;
+                        l--;
                 }
         }
 
@@ -505,7 +505,7 @@ int unbase64char(char c) {
         if (c == '+')
                 return offset;
 
-        offset ++;
+        offset++;
 
         if (c == '/')
                 return offset;
@@ -621,9 +621,9 @@ int unbase64mem(const char *p, size_t l, void **mem, size_t *_len) {
 
         /* strip the padding */
         if (l > 0 && p[l - 1] == '=')
-                l --;
+                l--;
         if (l > 0 && p[l - 1] == '=')
-                l --;
+                l--;
 
         /* a group of four input bytes needs three output bytes, in case of
            padding we need to add two or three extra bytes */

@@ -576,12 +576,12 @@ int parse_timestamp(const char *t, usec_t *usec) {
                 goto from_tm;
 
         } else if (streq(t, "yesterday")) {
-                tm.tm_mday --;
+                tm.tm_mday--;
                 tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
                 goto from_tm;
 
         } else if (streq(t, "tomorrow")) {
-                tm.tm_mday ++;
+                tm.tm_mday++;
                 tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
                 goto from_tm;
         }

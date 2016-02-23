@@ -447,7 +447,7 @@ static int start_threads(sd_resolve *resolve, unsigned extra) {
                 if (r != 0)
                         return -r;
 
-                resolve->n_valid_workers ++;
+                resolve->n_valid_workers++;
         }
 
         return 0;
@@ -657,7 +657,7 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
         assert(q->resolve == resolve);
 
         q->done = true;
-        resolve->n_done ++;
+        resolve->n_done++;
 
         resolve->current = sd_resolve_query_ref(q);
 

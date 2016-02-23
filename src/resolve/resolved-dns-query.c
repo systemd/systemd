@@ -927,7 +927,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
 
         assert(q);
 
-        q->n_cname_redirects ++;
+        q->n_cname_redirects++;
         if (q->n_cname_redirects > CNAME_MAX)
                 return -ELOOP;
 

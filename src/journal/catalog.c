@@ -217,7 +217,7 @@ int catalog_file_lang(const char* filename, char **lang) {
 
         beg = end - 1;
         while (beg > filename && *beg != '.' && *beg != '/' && end - beg < 32)
-                beg --;
+                beg--;
 
         if (*beg != '.' || end <= beg + 1)
                 return 0;

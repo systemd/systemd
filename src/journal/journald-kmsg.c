@@ -201,7 +201,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
                 if (*k != ' ')
                         break;
 
-                k ++, l --;
+                k++, l--;
 
                 e = memchr(k, '\n', l);
                 if (!e)

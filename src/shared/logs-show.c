@@ -997,7 +997,7 @@ static int show_journal(FILE *f,
                                         continue;
                         }
 
-                        line ++;
+                        line++;
                         maybe_print_begin_newline(f, &flags);
 
                         r = output_journal(f, j, mode, n_columns, flags, ellipsized);

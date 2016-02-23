@@ -640,7 +640,7 @@ int dns_cache_put(
 
         cache_keys = dns_answer_size(answer);
         if (key)
-                cache_keys ++;
+                cache_keys++;
 
         /* Make some space for our new entries */
         dns_cache_make_space(c, cache_keys);
@@ -987,7 +987,7 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
                         if (r < 0)
                                 return r;
 
-                        ancount ++;
+                        ancount++;
                 }
         }
 

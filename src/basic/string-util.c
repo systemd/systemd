@@ -477,7 +477,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         }
 
         if (k > x) /* last character was wide and went over quota */
-                x ++;
+                x++;
 
         for (j = s + old_length; k < new_length && j > i; ) {
                 char32_t c;

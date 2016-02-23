@@ -291,7 +291,7 @@ static int n_rtqueue = 0;
 
 static int rtqueue_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         last_rtqueue_sigval = si->ssi_int;
-        n_rtqueue ++;
+        n_rtqueue++;
         return 0;
 }
 

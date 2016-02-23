@@ -942,7 +942,7 @@ static void service_set_state(Service *s, ServiceState state) {
                 if (ec && exec_context_may_touch_console(ec)) {
                         Manager *m = UNIT(s)->manager;
 
-                        m->n_on_console --;
+                        m->n_on_console--;
                         if (m->n_on_console == 0)
                                 /* unset no_console_output flag, since the console is free */
                                 m->no_console_output = false;

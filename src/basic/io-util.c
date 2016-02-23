@@ -249,7 +249,7 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
                 } else if (n > 0)
                         q += n;
                 else
-                        q ++;
+                        q++;
         }
 
         if (q > w) {

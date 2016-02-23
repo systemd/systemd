@@ -301,7 +301,7 @@ int manager_etc_hosts_read(Manager *m) {
         FOREACH_LINE(line, f, return log_error_errno(errno, "Failed to read /etc/hosts: %m")) {
                 char *l;
 
-                nr ++;
+                nr++;
 
                 l = strstrip(line);
                 if (isempty(l))

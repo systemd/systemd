@@ -2237,7 +2237,7 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
 
                 if (fn[0] == '-') {
                         ignore = true;
-                        fn ++;
+                        fn++;
                 }
 
                 if (!path_is_absolute(fn)) {

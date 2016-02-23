@@ -890,7 +890,7 @@ void device_cleanup_tags(sd_device *device) {
         set_free_free(device->tags);
         device->tags = NULL;
         device->property_tags_outdated = true;
-        device->tags_generation ++;
+        device->tags_generation++;
 }
 
 void device_cleanup_devlinks(sd_device *device) {
@@ -899,7 +899,7 @@ void device_cleanup_devlinks(sd_device *device) {
         set_free_free(device->devlinks);
         device->devlinks = NULL;
         device->property_devlinks_outdated = true;
-        device->devlinks_generation ++;
+        device->devlinks_generation++;
 }
 
 void device_remove_tag(sd_device *device, const char *tag) {
@@ -908,7 +908,7 @@ void device_remove_tag(sd_device *device, const char *tag) {
 
         free(set_remove(device->tags, tag));
         device->property_tags_outdated = true;
-        device->tags_generation ++;
+        device->tags_generation++;
 }
 
 static int device_tag(sd_device *device, const char *tag, bool add) {

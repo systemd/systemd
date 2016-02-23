@@ -1266,7 +1266,7 @@ static int add_any_file(sd_journal *j, const char *path) {
 
         check_network(j, f->fd);
 
-        j->current_invalidate_counter ++;
+        j->current_invalidate_counter++;
 
         return 0;
 
@@ -1345,7 +1345,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
 
         (void) journal_file_close(f);
 
-        j->current_invalidate_counter ++;
+        j->current_invalidate_counter++;
 }
 
 static int dirname_is_machine_id(const char *fn) {
@@ -1410,7 +1410,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 }
 
                 path = NULL; /* avoid freeing in cleanup */
-                j->current_invalidate_counter ++;
+                j->current_invalidate_counter++;
 
                 log_debug("Directory %s added.", m->path);
 
@@ -1495,7 +1495,7 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                         goto fail;
                 }
 
-                j->current_invalidate_counter ++;
+                j->current_invalidate_counter++;
 
                 log_debug("Root directory %s added.", m->path);
 
@@ -2078,7 +2078,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (r < 0)
                 return r;
 
-        j->current_field ++;
+        j->current_field++;
 
         return 1;
 }

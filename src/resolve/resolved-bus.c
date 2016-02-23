@@ -188,7 +188,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 if (!canonical)
                         canonical = dns_resource_record_ref(rr);
 
-                added ++;
+                added++;
         }
 
         if (added <= 0) {
@@ -418,7 +418,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 if (r < 0)
                         goto finish;
 
-                added ++;
+                added++;
         }
 
         if (added <= 0) {
@@ -587,7 +587,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                 if (r < 0)
                         goto finish;
 
-                added ++;
+                added++;
         }
 
         if (added <= 0) {
@@ -1094,9 +1094,9 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                 }
 
                 if ((q->flags & SD_RESOLVED_NO_ADDRESS) == 0) {
-                        q->block_all_complete ++;
+                        q->block_all_complete++;
                         r = resolve_service_hostname(q, rr, ifindex);
-                        q->block_all_complete --;
+                        q->block_all_complete--;
 
                         if (r < 0)
                                 goto finish;

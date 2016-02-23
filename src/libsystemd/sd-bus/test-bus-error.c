@@ -146,7 +146,7 @@ static void dump_mapping_table(void) {
                 }
 
                 printf("%s -> %i/%s\n", strna(m->name), m->code, strna(errno_to_name(m->code)));
-                m ++;
+                m++;
         }
         printf("---------------------------\n");
 }

@@ -234,7 +234,7 @@ static int pipe_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata)
         int *counter = userdata;
         int r;
 
-        (*counter) --;
+        (*counter)--;
 
         r = sd_netlink_message_get_errno(m);
 
@@ -276,10 +276,10 @@ static void test_pipe(int ifindex) {
         assert_se(sd_rtnl_message_new_link(rtnl, &m1, RTM_GETLINK, ifindex) >= 0);
         assert_se(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex) >= 0);
 
-        counter ++;
+        counter++;
         assert_se(sd_netlink_call_async(rtnl, m1, &pipe_handler, &counter, 0, NULL) >= 0);
 
-        counter ++;
+        counter++;
         assert_se(sd_netlink_call_async(rtnl, m2, &pipe_handler, &counter, 0, NULL) >= 0);
 
         while (counter > 0) {

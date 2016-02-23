@@ -206,7 +206,7 @@ _public_ sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot) {
         assert(slot->n_ref > 0);
 
         if (slot->n_ref > 1) {
-                slot->n_ref --;
+                slot->n_ref--;
                 return NULL;
         }
 

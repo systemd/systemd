@@ -66,7 +66,7 @@ static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
                 if (af != AF_UNSPEC && family != af)
                         continue;
 
-                c ++;
+                c++;
         }
         if (r < 0)
                 return r;

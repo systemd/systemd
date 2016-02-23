@@ -2560,7 +2560,7 @@ static int inner_child(
 
         envp[n_env] = strv_find_prefix(environ, "TERM=");
         if (envp[n_env])
-                n_env ++;
+                n_env++;
 
         if ((asprintf((char**)(envp + n_env++), "HOME=%s", home ? home: "/root") < 0) ||
             (asprintf((char**)(envp + n_env++), "USER=%s", arg_user ? arg_user : "root") < 0) ||

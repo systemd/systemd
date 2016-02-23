@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 
                 printf("%.*s\n", (int) l, (char*) d);
 
-                n ++;
+                n++;
                 if (n >= 10)
                         break;
         }

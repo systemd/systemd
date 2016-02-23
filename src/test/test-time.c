@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
 
         /* Ensure TIME_T_MAX works correctly */
         x = (uintmax_t) TIME_T_MAX;
-        x ++;
+        x++;
         assert((time_t) x < 0);
 
         return 0;

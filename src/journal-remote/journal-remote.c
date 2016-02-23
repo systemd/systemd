@@ -434,7 +434,7 @@ static int add_raw_socket(RemoteServer *s, int fd) {
                 return r;
 
         fd_ = -1;
-        s->active ++;
+        s->active++;
         return 0;
 }
 
@@ -742,7 +742,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        s->active ++;
+        s->active++;
         return 0;
 
 error:

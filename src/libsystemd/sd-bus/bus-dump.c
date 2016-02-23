@@ -198,7 +198,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         else if (type == SD_BUS_TYPE_DICT_ENTRY)
                                 fprintf(f, "%sDICT_ENTRY \"%s\" {\n", prefix, contents);
 
-                        level ++;
+                        level++;
 
                         continue;
                 }

@@ -530,7 +530,7 @@ static void skip_address_key(const char **p) {
         *p += strcspn(*p, ",");
 
         if (**p == ',')
-                (*p) ++;
+                (*p)++;
 }
 
 static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
@@ -695,7 +695,7 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
                                 goto fail;
                         }
 
-                        (*p) ++;
+                        (*p)++;
 
                         if (ul >= n_argv) {
                                 if (!GREEDY_REALLOC0(argv, allocated, ul + 2)) {
@@ -1668,7 +1668,7 @@ static int dispatch_wqueue(sd_bus *bus) {
                          * it got full, then all bets are off
                          * anyway. */
 
-                        bus->wqueue_size --;
+                        bus->wqueue_size--;
                         sd_bus_message_unref(bus->wqueue[0]);
                         memmove(bus->wqueue, bus->wqueue + 1, sizeof(sd_bus_message*) * bus->wqueue_size);
                         bus->windex = 0;
@@ -1717,7 +1717,7 @@ static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd
                         /* Dispatch a queued message */
 
                         *m = bus->rqueue[0];
-                        bus->rqueue_size --;
+                        bus->rqueue_size--;
                         memmove(bus->rqueue, bus->rqueue + 1, sizeof(sd_bus_message*) * bus->rqueue_size);
                         return 1;
                 }
@@ -1809,7 +1809,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                 if (!GREEDY_REALLOC(bus->wqueue, bus->wqueue_allocated, bus->wqueue_size + 1))
                         return -ENOMEM;
 
-                bus->wqueue[bus->wqueue_size ++] = sd_bus_message_ref(m);
+                bus->wqueue[bus->wqueue_size++] = sd_bus_message_ref(m);
         }
 
 finish:
@@ -2257,7 +2257,7 @@ static int process_timeout(sd_bus *bus) {
 
         slot = container_of(c, sd_bus_slot, reply_callback);
 
-        bus->iteration_counter ++;
+        bus->iteration_counter++;
 
         bus->current_message = m;
         bus->current_slot = sd_bus_slot_ref(slot);

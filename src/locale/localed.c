@@ -542,7 +542,7 @@ static int read_next_mapping(const char* filename,
                         return 0;
                 }
 
-                (*n) ++;
+                (*n)++;
 
                 l = strstrip(line);
                 if (l[0] == 0 || l[0] == '#')
