@@ -1572,6 +1572,8 @@ EXTRA_DIST += \
 	test/test-execute/exec-capabilityboundingset-merge.service \
 	test/test-execute/exec-capabilityboundingset-reset.service \
 	test/test-execute/exec-capabilityboundingset-simple.service \
+	test/test-execute/exec-capabilityambientset.service \
+	test/test-execute/exec-capabilityambientset-merge.service \
 	test/test-execute/exec-runtimedirectory.service \
 	test/test-execute/exec-runtimedirectory-mode.service \
 	test/test-execute/exec-runtimedirectory-owner.service \
