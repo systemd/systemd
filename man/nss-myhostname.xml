@@ -57,12 +57,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>nss-myhostname</command> is a plugin for the GNU
-    Name Service Switch (NSS) functionality of the GNU C Library
-    (<command>glibc</command>), primarily providing hostname resolution
-    for the locally configured system hostname as returned by
-    <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
-    The precise hostnames resolved by this module are:</para>
+    <para><command>nss-myhostname</command> is a plug-in module for the GNU Name Service Switch (NSS) functionality of
+    the GNU C Library (<command>glibc</command>), primarily providing hostname resolution for the locally configured
+    system hostname as returned by
+    <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.  The precise
+    hostnames resolved by this module are:</para>
 
     <itemizedlist>
       <listitem><para>The local, configured hostname is resolved to
@@ -80,7 +79,6 @@
       ordered by their metric. This assigns a stable hostname to the
       current gateway, useful for referencing it independently of the
       current network configuration state.</para></listitem>
-
     </itemizedlist>
 
     <para>Various software relies on an always-resolvable local
@@ -93,29 +91,25 @@
     changing <filename>/etc/hosts</filename> is unnecessary, and on
     many systems, the file becomes entirely optional.</para>
 
-    <para>To activate the NSS modules, <literal>myhostname</literal>
-    has to be added to the line starting with
-    <literal>hosts:</literal> in
-    <filename>/etc/nsswitch.conf</filename>.</para>
+    <para>To activate the NSS modules, add <literal>myhostname</literal> to the line starting with
+    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
-    <para>It is recommended to place <literal>myhostname</literal>
-    last in the <filename>nsswitch.conf</filename> line to make sure
-    that this mapping is only used as fallback, and that any DNS or
-    <filename>/etc/hosts</filename> based mapping takes
-    precedence.</para>
+    <para>It is recommended to place <literal>myhostname</literal> last in the <filename>nsswitch.conf</filename>'
+    <literal>hosts:</literal> line to make sure that this mapping is only used as fallback, and that any DNS or
+    <filename>/etc/hosts</filename> based mapping takes precedence.</para>
   </refsect1>
 
   <refsect1>
     <title>Example</title>
 
-    <para>Here is an example <filename>/etc/nsswitch.conf</filename>
-    file that enables <command>myhostname</command> correctly:</para>
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
+    <command>nss-myhostname</command> correctly:</para>
 
 <programlisting>passwd:         compat mymachines
 group:          compat mymachines
 shadow:         compat
 
-hosts:          files resolve mymachines <command>myhostname</command>
+hosts:          files mymachines resolve <command>myhostname</command>
 networks:       files
 
 protocols:      db files
