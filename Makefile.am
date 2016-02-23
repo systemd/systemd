@@ -1550,6 +1550,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-privatedevices-yes.service \
 	test/test-execute/exec-privatetmp-no.service \
 	test/test-execute/exec-privatetmp-yes.service \
+	test/test-execute/exec-spec-interpolation.service \
 	test/test-execute/exec-systemcallerrornumber.service \
 	test/test-execute/exec-systemcallfilter-failing2.service \
 	test/test-execute/exec-systemcallfilter-failing.service \
