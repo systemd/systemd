@@ -729,14 +729,50 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
         return 0;
 }
 
+static int acquire_search_path(const char *def, const char *envvar, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+        int r;
+
+        assert(def);
+        assert(envvar);
+
+        e = getenv(envvar);
+        if (e) {
+                r = path_split_and_make_absolute(e, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make $%s search path absolute: %m", envvar);
+        }
+
+        if (strv_isempty(l)) {
+                strv_free(l);
+
+                l = strv_new(def, NULL);
+                if (!l)
+                        return log_oom();
+        }
+
+        if (!path_strv_resolve_uniq(l, NULL))
+                return log_oom();
+
+        *ret = l;
+        l = NULL;
+
+        return 0;
+}
+
 static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
+        _cleanup_strv_free_ char **sysvinit_path = NULL;
         char **path;
         int r;
 
         assert(lp);
-        assert(all_services);
 
-        STRV_FOREACH(path, lp->sysvinit_path) {
+        r = acquire_search_path(SYSTEM_SYSVINIT_PATH, "SYSTEMD_SYSVINIT_PATH", &sysvinit_path);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(path, sysvinit_path) {
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
@@ -806,6 +842,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
 static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_services) {
         Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
         _cleanup_set_free_ Set *shutdown_services = NULL;
+        _cleanup_strv_free_ char **sysvrcnd_path = NULL;
         SysvStub *service;
         unsigned i;
         Iterator j;
@@ -814,7 +851,11 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
 
         assert(lp);
 
-        STRV_FOREACH(p, lp->sysvrcnd_path) {
+        r = acquire_search_path(SYSTEM_SYSVRCND_PATH, "SYSTEMD_SYSVRCND_PATH", &sysvrcnd_path);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(p, sysvrcnd_path) {
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
 
                         _cleanup_closedir_ DIR *d = NULL;
