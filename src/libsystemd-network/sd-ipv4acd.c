@@ -456,7 +456,7 @@ int sd_ipv4acd_set_callback(sd_ipv4acd *ll, sd_ipv4acd_callback_t cb, void *user
         return 0;
 }
 
-int sd_ipv4acd_set_address(sd_ipv4acd *ll, const struct in_addr *address){
+int sd_ipv4acd_set_address(sd_ipv4acd *ll, const struct in_addr *address) {
         assert_return(ll, -EINVAL);
         assert_return(address, -EINVAL);
         assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);

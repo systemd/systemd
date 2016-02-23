@@ -1484,7 +1484,7 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
                 printf("%s", draw_special_char(last ? DRAW_TREE_RIGHT : DRAW_TREE_BRANCH));
         }
 
-        if (arg_full){
+        if (arg_full) {
                 printf("%s\n", name);
                 return 0;
         }
@@ -6550,7 +6550,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         p = optarg;
-                        for(;;) {
+                        for (;;) {
                                 _cleanup_free_ char *type = NULL;
 
                                 r = extract_first_word(&p, &type, ",", 0);
@@ -6600,7 +6600,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         return log_oom();
                         } else {
                                 p = optarg;
-                                for(;;) {
+                                for (;;) {
                                         _cleanup_free_ char *prop = NULL;
 
                                         r = extract_first_word(&p, &prop, ",", 0);
@@ -6785,7 +6785,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         p = optarg;
-                        for(;;) {
+                        for (;;) {
                                 _cleanup_free_ char *s = NULL;
 
                                 r = extract_first_word(&p, &s, ",", 0);

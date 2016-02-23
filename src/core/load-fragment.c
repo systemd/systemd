@@ -119,7 +119,7 @@ int config_parse_unit_deps(
         assert(rvalue);
 
         p = rvalue;
-        for(;;) {
+        for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
                 int r;
 
@@ -1599,7 +1599,7 @@ int config_parse_service_sockets(
         assert(data);
 
         p = rvalue;
-        for(;;) {
+        for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
@@ -3361,7 +3361,7 @@ int config_parse_protect_home(
                 ProtectHome h;
 
                 h = protect_home_from_string(rvalue);
-                if (h < 0){
+                if (h < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
                         return 0;
                 }
@@ -3404,7 +3404,7 @@ int config_parse_protect_system(
                 ProtectSystem s;
 
                 s = protect_system_from_string(rvalue);
-                if (s < 0){
+                if (s < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
                         return 0;
                 }

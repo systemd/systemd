@@ -181,7 +181,7 @@ int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdat
         return 0;
 }
 
-int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address){
+int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address) {
         assert_return(ll, -EINVAL);
         assert_return(address, -EINVAL);
 

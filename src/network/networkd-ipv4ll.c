@@ -165,7 +165,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         return 0;
 }
 
-static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
+static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         Link *link = userdata;
         int r;
 

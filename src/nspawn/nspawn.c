@@ -561,7 +561,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CAPABILITY:
                 case ARG_DROP_CAPABILITY: {
                         p = optarg;
-                        for(;;) {
+                        for (;;) {
                                 _cleanup_free_ char *t = NULL;
 
                                 r = extract_first_word(&p, &t, ",", 0);
@@ -3618,7 +3618,7 @@ int main(int argc, char *argv[]) {
                         /* We failed to wait for the container, or the
                          * container exited abnormally */
                         goto finish;
-                else if (r > 0 || container_status == CONTAINER_TERMINATED){
+                else if (r > 0 || container_status == CONTAINER_TERMINATED) {
                         /* The container exited with a non-zero
                          * status, or with zero status and no reboot
                          * was requested. */

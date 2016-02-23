@@ -59,7 +59,7 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
         assert(m);
         assert(string);
 
-        for(;;) {
+        for (;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&string, &word, NULL, 0);
@@ -114,7 +114,7 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
         assert(m);
         assert(string);
 
-        for(;;) {
+        for (;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&string, &word, NULL, EXTRACT_QUOTES);

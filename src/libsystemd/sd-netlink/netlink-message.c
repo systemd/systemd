@@ -528,7 +528,7 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
 
         attribute = &m->containers[m->n_containers].attributes[type];
 
-        if(!attribute->offset)
+        if (!attribute->offset)
                 return -ENODATA;
 
         rta = (struct rtattr*)((uint8_t *) m->hdr + attribute->offset);
@@ -735,7 +735,7 @@ static int netlink_container_parse(sd_netlink_message *m,
         _cleanup_free_ struct netlink_attribute *attributes = NULL;
 
         attributes = new0(struct netlink_attribute, count);
-        if(!attributes)
+        if (!attributes)
                 return -ENOMEM;
 
         for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {

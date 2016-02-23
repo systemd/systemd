@@ -97,20 +97,20 @@ static void flush_progress(void) {
         fflush(stdout);
 }
 
-#define debug(_offset, _fmt, ...) do{                                   \
+#define debug(_offset, _fmt, ...) do {                                  \
                 flush_progress();                                       \
                 log_debug(OFSfmt": " _fmt, _offset, ##__VA_ARGS__);     \
-        } while(0)
+        } while (0)
 
-#define warning(_offset, _fmt, ...) do{                                 \
+#define warning(_offset, _fmt, ...) do {                                \
                 flush_progress();                                       \
                 log_warning(OFSfmt": " _fmt, _offset, ##__VA_ARGS__);   \
-        } while(0)
+        } while (0)
 
-#define error(_offset, _fmt, ...) do{                                   \
+#define error(_offset, _fmt, ...) do {                                  \
                 flush_progress();                                       \
                 log_error(OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
-        } while(0)
+        } while (0)
 
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         uint64_t i;

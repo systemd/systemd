@@ -482,7 +482,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
                         return -ENOMEM;
 
                 entry = strndup(word, len);
-                if(!entry)
+                if (!entry)
                         return -ENOMEM;
 
                 tok = entry;

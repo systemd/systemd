@@ -50,7 +50,7 @@
                 *_f = alloca(_fl + 10);           \
                 memcpy(*_f, "CODE_FUNC=", 10);    \
                 memcpy(*_f + 10, _func, _fl);     \
-        } while(false)
+        } while (false)
 
 /* We open a single fd, and we'll share it with the current process,
  * all its threads, and all its subprocesses. This means we need to

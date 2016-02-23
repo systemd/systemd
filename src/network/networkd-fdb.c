@@ -37,7 +37,7 @@ int fdb_entry_new_static(Network *const network,
         assert(network);
 
         /* search entry in hashmap first. */
-        if(section) {
+        if (section) {
                 fdb_entry = hashmap_get(network->fdb_entries_by_section, UINT_TO_PTR(section));
                 if (fdb_entry) {
                         *ret = fdb_entry;
@@ -141,10 +141,10 @@ int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
 
 /* remove and FDB entry. */
 void fdb_entry_free(FdbEntry *fdb_entry) {
-        if(!fdb_entry)
+        if (!fdb_entry)
                 return;
 
-        if(fdb_entry->network) {
+        if (fdb_entry->network) {
                 LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries,
                             fdb_entry);
 

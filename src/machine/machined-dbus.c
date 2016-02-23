@@ -1212,7 +1212,7 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
         r = unit_name_from_dbus_path(path, &unit);
         if (r == -EINVAL) /* not for a unit */
                 return 0;
-        if (r < 0){
+        if (r < 0) {
                 log_oom();
                 return 0;
         }

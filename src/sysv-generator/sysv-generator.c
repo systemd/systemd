@@ -864,7 +864,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 }
 
                                 service = hashmap_get(all_services, name);
-                                if (!service){
+                                if (!service) {
                                         log_debug("Ignoring %s symlink in %s, not generating %s.", de->d_name, rcnd_table[i].path, name);
                                         continue;
                                 }

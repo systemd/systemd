@@ -145,7 +145,7 @@ static int add_enumerated_to_set(
                                 continue;
                         }
 
-                        if (!object_path_is_valid(*k)){
+                        if (!object_path_is_valid(*k)) {
                                 free(*k);
                                 r = -EINVAL;
                                 continue;

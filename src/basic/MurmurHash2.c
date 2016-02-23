@@ -50,7 +50,7 @@ uint32_t MurmurHash2 ( const void * key, int len, uint32_t seed )
 
   const unsigned char * data = (const unsigned char *)key;
 
-  while(len >= 4)
+  while (len >= 4)
   {
     uint32_t k = *(uint32_t*)data;
 
