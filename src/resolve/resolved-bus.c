@@ -1137,7 +1137,6 @@ finish:
 static int bus_method_resolve_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         const char *name, *type, *domain;
-        _cleanup_free_ char *n = NULL;
         Manager *m = userdata;
         int family, ifindex;
         uint64_t flags;

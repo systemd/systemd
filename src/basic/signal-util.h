@@ -44,9 +44,9 @@ static inline void block_signals_reset(sigset_t *ss) {
         assert_se(sigprocmask(SIG_SETMASK, ss, NULL) >= 0);
 }
 
-#define BLOCK_SIGNALS(...)                                              \
-        _cleanup_(block_signals_reset) sigset_t _saved_sigset = ({      \
-                sigset_t t;                                             \
+#define BLOCK_SIGNALS(...)                                                        \
+        _cleanup_(block_signals_reset) _unused_ sigset_t _saved_sigset = ({       \
+                sigset_t t;                                                       \
                 assert_se(sigprocmask_many(SIG_BLOCK, &t, __VA_ARGS__, -1) >= 0); \
-                t;                                                      \
+                t;                                                                \
         })
