@@ -1843,18 +1843,6 @@ man/systemd-binfmt.html: man/systemd-binfmt.service.html
 
 endif
 
-if ENABLE_BOOTCHART
-MANPAGES += \
-	man/bootchart.conf.5 \
-	man/systemd-bootchart.1
-MANPAGES_ALIAS += \
-	man/bootchart.conf.d.5
-man/bootchart.conf.d.5: man/bootchart.conf.5
-man/bootchart.conf.d.html: man/bootchart.conf.html
-	$(html-alias)
-
-endif
-
 if ENABLE_COREDUMP
 MANPAGES += \
 	man/coredump.conf.5 \
@@ -2460,7 +2448,6 @@ endif
 
 EXTRA_DIST += \
 	man/binfmt.d.xml \
-	man/bootchart.conf.xml \
 	man/bootctl.xml \
 	man/bootup.xml \
 	man/busctl.xml \
@@ -2583,7 +2570,6 @@ EXTRA_DIST += \
 	man/systemd-ask-password.xml \
 	man/systemd-backlight@.service.xml \
 	man/systemd-binfmt.service.xml \
-	man/systemd-bootchart.xml \
 	man/systemd-cat.xml \
 	man/systemd-cgls.xml \
 	man/systemd-cgtop.xml \

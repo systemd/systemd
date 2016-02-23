@@ -22,7 +22,6 @@
 /systemd-ask-password-wall.service
 /systemd-backlight@.service
 /systemd-binfmt.service
-/systemd-bootchart.service
 /systemd-coredump@.service
 /systemd-firstboot.service
 /systemd-fsck-root.service

@@ -132,15 +132,6 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>bootchart.conf directives</title>
-
-                <para>Directives for configuring the behaviour of the
-                systemd-bootchart process.</para>
-
-                <variablelist id='bootchart-directives' />
-        </refsect1>
-
-        <refsect1>
                 <title>command line options</title>
 
                 <para>Command-line options accepted by programs in the

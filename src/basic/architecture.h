@@ -77,12 +77,10 @@ int uname_architecture(void);
 #if defined(__x86_64__)
 #  define native_architecture() ARCHITECTURE_X86_64
 #  define LIB_ARCH_TUPLE "x86_64-linux-gnu"
-#  define PROC_CPUINFO_MODEL "model name"
 #  define SECONDARY_ARCHITECTURE ARCHITECTURE_X86
 #elif defined(__i386__)
 #  define native_architecture() ARCHITECTURE_X86
 #  define LIB_ARCH_TUPLE "i386-linux-gnu"
-#  define PROC_CPUINFO_MODEL "model name"
 #elif defined(__powerpc64__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC64
@@ -93,7 +91,6 @@ int uname_architecture(void);
 #    define LIB_ARCH_TUPLE  "powerpc64le-linux-gnu"
 #    define SECONDARY_ARCHITECTURE ARCHITECTURE_PPC_LE
 #  endif
-#  define PROC_CPUINFO_MODEL "cpu"
 #elif defined(__powerpc__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC
@@ -102,18 +99,15 @@ int uname_architecture(void);
 #    define native_architecture() ARCHITECTURE_PPC_LE
 #    error "Missing LIB_ARCH_TUPLE for PPCLE"
 #  endif
-#  define PROC_CPUINFO_MODEL "cpu"
 #elif defined(__ia64__)
 #  define native_architecture() ARCHITECTURE_IA64
 #  define LIB_ARCH_TUPLE "ia64-linux-gnu"
 #elif defined(__hppa64__)
 #  define native_architecture() ARCHITECTURE_PARISC64
 #  error "Missing LIB_ARCH_TUPLE for HPPA64"
-#  define PROC_CPUINFO_MODEL "cpu"
 #elif defined(__hppa__)
 #  define native_architecture() ARCHITECTURE_PARISC
 #  define LIB_ARCH_TUPLE "hppa‑linux‑gnu"
-#  define PROC_CPUINFO_MODEL "cpu"
 #elif defined(__s390x__)
 #  define native_architecture() ARCHITECTURE_S390X
 #  define LIB_ARCH_TUPLE "s390x-linux-gnu"
@@ -124,11 +118,9 @@ int uname_architecture(void);
 #elif defined(__sparc64__)
 #  define native_architecture() ARCHITECTURE_SPARC64
 #  define LIB_ARCH_TUPLE "sparc64-linux-gnu"
-#  define PROC_CPUINFO_MODEL "cpu"
 #elif defined(__sparc__)
 #  define native_architecture() ARCHITECTURE_SPARC
 #  define LIB_ARCH_TUPLE "sparc-linux-gnu"
-#  define PROC_CPUINFO_MODEL "cpu"
 #elif defined(__mips64__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_MIPS64
@@ -137,7 +129,6 @@ int uname_architecture(void);
 #    define native_architecture() ARCHITECTURE_MIPS64_LE
 #    error "Missing LIB_ARCH_TUPLE for MIPS64_LE"
 #  endif
-#  define PROC_CPUINFO_MODEL "cpu model"
 #elif defined(__mips__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_MIPS
@@ -146,7 +137,6 @@ int uname_architecture(void);
 #    define native_architecture() ARCHITECTURE_MIPS_LE
 #    define LIB_ARCH_TUPLE "mipsel-linux-gnu"
 #  endif
-#  define PROC_CPUINFO_MODEL "cpu model"
 #elif defined(__alpha__)
 #  define native_architecture() ARCHITECTURE_ALPHA
 #  define LIB_ARCH_TUPLE "alpha-linux-gnu"
@@ -182,7 +172,6 @@ int uname_architecture(void);
 #      define LIB_ARCH_TUPLE "arm-linux-gnu"
 #    endif
 #  endif
-#  define PROC_CPUINFO_MODEL "model name"
 #elif defined(__sh64__)
 #  define native_architecture() ARCHITECTURE_SH64
 #  error "Missing LIB_ARCH_TUPLE for SH64"
@@ -200,11 +189,6 @@ int uname_architecture(void);
 #  error "Missing LIB_ARCH_TUPLE for CRIS"
 #else
 #  error "Please register your architecture here!"
-#endif
-
-#ifndef PROC_CPUINFO_MODEL
-#warning "PROC_CPUINFO_MODEL not defined for your architecture"
-#define PROC_CPUINFO_MODEL "model name"
 #endif
 
 const char *architecture_to_string(int a) _const_;

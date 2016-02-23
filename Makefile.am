@@ -4416,32 +4416,6 @@ EXTRA_DIST += \
 	units/systemd-vconsole-setup.service.in
 
 # ------------------------------------------------------------------------------
-if ENABLE_BOOTCHART
-systemd_bootchart_SOURCES = \
-	src/bootchart/bootchart.c \
-	src/bootchart/bootchart.h \
-	src/bootchart/store.c \
-	src/bootchart/store.h \
-	src/bootchart/svg.c \
-	src/bootchart/svg.h
-
-systemd_bootchart_LDADD = \
-	libshared.la
-
-rootlibexec_PROGRAMS += \
-	systemd-bootchart
-
-dist_pkgsysconf_DATA += \
-	src/bootchart/bootchart.conf
-
-nodist_systemunit_DATA += \
-	units/systemd-bootchart.service
-endif
-
-EXTRA_DIST += \
-	units/systemd-bootchart.service.in
-
-# ------------------------------------------------------------------------------
 if ENABLE_QUOTACHECK
 rootlibexec_PROGRAMS += \
 	systemd-quotacheck
