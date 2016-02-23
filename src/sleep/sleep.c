@@ -101,10 +101,12 @@ static int execute(char **modes, char **states) {
         if (!f)
                 return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
-        /* Configure the hibernation mode */
-        r = write_mode(modes);
-        if (r < 0)
-                return r;
+        if (strv_contains(states, "disk")) {
+                /* Configure the hibernation mode */
+                r = write_mode(modes);
+                if (r < 0)
+                        return r;
+        }
 
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, arguments);
 

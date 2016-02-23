@@ -267,8 +267,11 @@ int can_sleep(const char *verb) {
         if (r < 0)
                 return false;
 
-        if (!can_sleep_state(states) || !can_sleep_disk(modes))
+        if (!can_sleep_state(states))
                 return false;
 
-        return !strv_contains(states, "disk") || enough_memory_for_hibernation();
+        if (!strv_contains(states, "disk"))
+                return true;
+
+        return can_sleep_disk(modes) && enough_memory_for_hibernation();
 }
