@@ -270,5 +270,5 @@ int can_sleep(const char *verb) {
         if (!can_sleep_state(states) || !can_sleep_disk(modes))
                 return false;
 
-        return streq(verb, "suspend") || enough_memory_for_hibernation();
+        return !strv_contains(states, "disk") || enough_memory_for_hibernation();
 }
