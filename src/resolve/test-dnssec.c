@@ -327,10 +327,12 @@ static void test_dnssec_nsec3_hash(void) {
 int main(int argc, char*argv[]) {
 
         test_dnssec_canonicalize();
+#ifdef HAVE_GCRYPT
         test_dnssec_verify_dns_key();
         test_dnssec_verify_rrset();
         test_dnssec_verify_rrset2();
         test_dnssec_nsec3_hash();
+#endif
 
         return 0;
 }
