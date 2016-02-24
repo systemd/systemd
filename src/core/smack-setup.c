@@ -261,7 +261,7 @@ static int write_netlabel_rules(const char* srcdir) {
                 }
         }
 
-       return r;
+        return r;
 }
 
 #endif

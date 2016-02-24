@@ -1876,7 +1876,7 @@ static int exec_child(
                                  * also to the context secure_bits so that we don't try to
                                  * drop the bit away next. */
 
-                                 secure_bits |= 1<<SECURE_KEEP_CAPS;
+                                secure_bits |= 1<<SECURE_KEEP_CAPS;
                         }
                 }
 

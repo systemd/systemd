@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                 _cleanup_(sd_bus_message_unrefp)sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_message_unrefp)sd_bus_message *m = NULL;
                 int events_a, events_b, fd;
                 uint64_t timeout_a, timeout_b, t;
                 struct timespec _ts, *ts;
