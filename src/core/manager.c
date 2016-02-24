@@ -676,6 +676,7 @@ static int manager_setup_notify(Manager *m) {
                         .sa.sa_family = AF_UNIX,
                 };
                 static const int one = 1;
+                const char *e;
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
@@ -687,19 +688,13 @@ static int manager_setup_notify(Manager *m) {
 
                 fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
 
-                if (MANAGER_IS_SYSTEM(m))
-                        m->notify_socket = strdup("/run/systemd/notify");
-                else {
-                        const char *e;
-
-                        e = getenv("XDG_RUNTIME_DIR");
-                        if (!e) {
-                                log_error_errno(errno, "XDG_RUNTIME_DIR is not set: %m");
-                                return -EINVAL;
-                        }
-
-                        m->notify_socket = strappend(e, "/systemd/notify");
+                e = manager_get_runtime_prefix(m);
+                if (!e) {
+                        log_error("Failed to determine runtime prefix.");
+                        return -EINVAL;
                 }
+
+                m->notify_socket = strappend(e, "/systemd/notify");
                 if (!m->notify_socket)
                         return log_oom();
 
