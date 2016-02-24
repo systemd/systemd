@@ -140,6 +140,7 @@ struct Manager {
 
         sd_event_source *jobs_in_progress_event_source;
 
+        UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
         Set *unit_path_cache;
 
@@ -224,7 +225,6 @@ struct Manager {
         unsigned n_in_gc_queue;
 
         /* Flags */
-        ManagerRunningAs running_as;
         ManagerExitCode exit_code:5;
 
         bool dispatching_load_queue:1;
@@ -300,10 +300,13 @@ struct Manager {
         const char *unit_log_field;
         const char *unit_log_format_string;
 
-        int first_boot;
+        int first_boot; /* tri-state */
 };
 
-int manager_new(ManagerRunningAs running_as, bool test_run, Manager **m);
+#define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
+#define MANAGER_IS_USER(m) ((m)->unit_file_scope != UNIT_FILE_SYSTEM)
+
+int manager_new(UnitFileScope scope, bool test_run, Manager **m);
 Manager* manager_free(Manager *m);
 
 void manager_enumerate(Manager *m);

@@ -113,7 +113,7 @@ static void test_config_parse_exec(void) {
         Manager *m = NULL;
         Unit *u = NULL;
 
-        r = manager_new(MANAGER_USER, true, &m);
+        r = manager_new(UNIT_FILE_USER, true, &m);
         if (MANAGER_SKIP_TEST(r)) {
                 printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return;

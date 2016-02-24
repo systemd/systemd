@@ -4810,7 +4810,7 @@ static int cat(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        r = lookup_paths_init_from_scope(&lp, arg_scope, arg_root);
+        r = lookup_paths_init(&lp, arg_scope, arg_root);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine unit paths: %m");
 
@@ -5241,7 +5241,7 @@ static int enable_sysv_units(const char *verb, char **args) {
         /* Processes all SysV units, and reshuffles the array so that
          * afterwards only the native units remain */
 
-        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false, arg_root);
+        r = lookup_paths_init(&paths, arg_scope, arg_root);
         if (r < 0)
                 return r;
 
@@ -6074,7 +6074,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         assert(names);
         assert(paths);
 
-        r = lookup_paths_init_from_scope(&lp, arg_scope, arg_root);
+        r = lookup_paths_init(&lp, arg_scope, arg_root);
         if (r < 0)
                 return r;
 

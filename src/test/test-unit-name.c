@@ -209,7 +209,7 @@ static int test_unit_printf(void) {
         assert_se(get_home_dir(&home) >= 0);
         assert_se(get_shell(&shell) >= 0);
 
-        r = manager_new(MANAGER_USER, true, &m);
+        r = manager_new(UNIT_FILE_USER, true, &m);
         if (r == -EPERM || r == -EACCES || r == -EADDRINUSE) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;

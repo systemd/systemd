@@ -1156,7 +1156,7 @@ void job_shutdown_magic(Job *j) {
         if (j->type != JOB_START)
                 return;
 
-        if (j->unit->manager->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(j->unit->manager))
                 return;
 
         if (!unit_has_name(j->unit, SPECIAL_SHUTDOWN_TARGET))

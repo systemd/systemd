@@ -149,7 +149,7 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!UNIT(a)->default_dependencies)
                 return 0;
 
-        if (UNIT(a)->manager->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
                 return 0;
 
         r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);

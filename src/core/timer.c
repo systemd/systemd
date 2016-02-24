@@ -109,7 +109,7 @@ static int timer_add_default_dependencies(Timer *t) {
         if (r < 0)
                 return r;
 
-        if (UNIT(t)->manager->running_as == MANAGER_SYSTEM) {
+        if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
                 r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
                 if (r < 0)
                         return r;
@@ -135,7 +135,7 @@ static int timer_setup_persistent(Timer *t) {
         if (!t->persistent)
                 return 0;
 
-        if (UNIT(t)->manager->running_as == MANAGER_SYSTEM) {
+        if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
 
                 r = unit_require_mounts_for(UNIT(t), "/var/lib/systemd/timers");
                 if (r < 0)

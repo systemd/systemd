@@ -1187,7 +1187,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
 
         m->exit_code = MANAGER_REBOOT;
@@ -1206,7 +1206,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
 
         m->exit_code = MANAGER_POWEROFF;
@@ -1225,7 +1225,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Halt is only supported for system managers.");
 
         m->exit_code = MANAGER_HALT;
@@ -1244,7 +1244,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
 
         m->exit_code = MANAGER_KEXEC;
@@ -1265,7 +1265,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Root switching is only supported by system manager.");
 
         r = sd_bus_message_read(message, "ss", &root, &init);
@@ -1433,7 +1433,7 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (m->running_as == MANAGER_SYSTEM && detect_container() <= 0)
+        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "ExitCode can only be set for user service managers or in containers.");
 
         m->return_value = code;
@@ -1466,7 +1466,7 @@ static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bu
         if (!h)
                 return -ENOMEM;
 
-        r = unit_file_get_list(m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
+        r = unit_file_get_list(m->unit_file_scope, NULL, h);
         if (r < 0)
                 goto fail;
 
@@ -1498,7 +1498,6 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
         Manager *m = userdata;
         const char *name;
         UnitFileState state;
-        UnitFileScope scope;
         int r;
 
         assert(message);
@@ -1514,9 +1513,7 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
-        r = unit_file_get_state(scope, NULL, name, &state);
+        r = unit_file_get_state(m->unit_file_scope, NULL, name, &state);
         if (r < 0)
                 return r;
 
@@ -1526,7 +1523,6 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
 static int method_get_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *default_target = NULL;
         Manager *m = userdata;
-        UnitFileScope scope;
         int r;
 
         assert(message);
@@ -1538,9 +1534,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
-        r = unit_file_get_default(scope, NULL, &default_target);
+        r = unit_file_get_default(m->unit_file_scope, NULL, &default_target);
         if (r < 0)
                 return r;
 
@@ -1624,7 +1618,6 @@ static int method_enable_unit_files_generic(
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
-        UnitFileScope scope;
         int runtime, force, r;
 
         assert(message);
@@ -1644,9 +1637,7 @@ static int method_enable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
-        r = call(scope, runtime, NULL, l, force, &changes, &n_changes);
+        r = call(m->unit_file_scope, runtime, NULL, l, force, &changes, &n_changes);
         if (r == -ESHUTDOWN)
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
         if (r == -EADDRNOTAVAIL)
@@ -1688,7 +1679,6 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         unsigned n_changes = 0;
         Manager *m = userdata;
         UnitFilePresetMode mm;
-        UnitFileScope scope;
         int runtime, force, r;
         const char *mode;
 
@@ -1717,9 +1707,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
-        r = unit_file_preset(scope, runtime, NULL, l, mm, force, &changes, &n_changes);
+        r = unit_file_preset(m->unit_file_scope, runtime, NULL, l, mm, force, &changes, &n_changes);
         if (r < 0)
                 return r;
 
@@ -1736,7 +1724,6 @@ static int method_disable_unit_files_generic(
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
-        UnitFileScope scope;
         int r, runtime;
 
         assert(message);
@@ -1750,15 +1737,13 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(scope, runtime, NULL, l, &changes, &n_changes);
+        r = call(m->unit_file_scope, runtime, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return r;
 
@@ -1777,7 +1762,6 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         Manager *m = userdata;
-        UnitFileScope scope;
         const char *name;
         int force, r;
 
@@ -1798,9 +1782,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
-        r = unit_file_set_default(scope, NULL, name, force, &changes, &n_changes);
+        r = unit_file_set_default(m->unit_file_scope, NULL, name, force, &changes, &n_changes);
         if (r < 0)
                 return r;
 
@@ -1812,7 +1794,6 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         unsigned n_changes = 0;
         Manager *m = userdata;
         UnitFilePresetMode mm;
-        UnitFileScope scope;
         const char *mode;
         int force, runtime, r;
 
@@ -1841,9 +1822,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
-        r = unit_file_preset_all(scope, runtime, NULL, mm, force, &changes, &n_changes);
+        r = unit_file_preset_all(m->unit_file_scope, runtime, NULL, mm, force, &changes, &n_changes);
         if (r < 0) {
                 unit_file_changes_free(changes, n_changes);
                 return r;
@@ -1857,7 +1836,6 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         Manager *m = userdata;
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
-        UnitFileScope scope;
         int runtime, force, r;
         char *target;
         char *type;
@@ -1884,9 +1862,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (dep < 0)
                 return -EINVAL;
 
-        scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-
-        r = unit_file_add_dependency(scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
+        r = unit_file_add_dependency(m->unit_file_scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
         if (r == -ESHUTDOWN)
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
         if (r == -EADDRNOTAVAIL)

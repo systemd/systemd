@@ -814,7 +814,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        if (u->manager->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(u->manager))
                 return 0;
 
         if (c->private_tmp) {
@@ -2413,7 +2413,7 @@ int unit_set_default_slice(Unit *u) {
                 if (!escaped)
                         return -ENOMEM;
 
-                if (u->manager->running_as == MANAGER_SYSTEM)
+                if (MANAGER_IS_SYSTEM(u->manager))
                         b = strjoin("system-", escaped, ".slice", NULL);
                 else
                         b = strappend(escaped, ".slice");
@@ -2423,7 +2423,7 @@ int unit_set_default_slice(Unit *u) {
                 slice_name = b;
         } else
                 slice_name =
-                        u->manager->running_as == MANAGER_SYSTEM && !unit_has_name(u, SPECIAL_INIT_SCOPE)
+                        MANAGER_IS_SYSTEM(u->manager) && !unit_has_name(u, SPECIAL_INIT_SCOPE)
                         ? SPECIAL_SYSTEM_SLICE
                         : SPECIAL_ROOT_SLICE;
 
@@ -2884,7 +2884,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep
                 return r;
 
         r = unit_add_two_dependencies(u, UNIT_AFTER,
-                                      u->manager->running_as == MANAGER_SYSTEM ? dep : UNIT_WANTS,
+                                      MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
                                       device, true);
         if (r < 0)
                 return r;
@@ -3158,7 +3158,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 
         if (u->unit_file_state < 0 && u->fragment_path) {
                 r = unit_file_get_state(
-                                u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                u->manager->unit_file_scope,
                                 NULL,
                                 basename(u->fragment_path),
                                 &u->unit_file_state);
@@ -3174,7 +3174,7 @@ int unit_get_unit_file_preset(Unit *u) {
 
         if (u->unit_file_preset < 0 && u->fragment_path)
                 u->unit_file_preset = unit_file_query_preset(
-                                u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                u->manager->unit_file_scope,
                                 NULL,
                                 basename(u->fragment_path));
 
@@ -3225,7 +3225,7 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                if (u->manager->running_as == MANAGER_USER &&
+                if (MANAGER_IS_USER(u->manager) &&
                     !ec->working_directory) {
 
                         r = get_home_dir(&ec->working_directory);
@@ -3237,7 +3237,7 @@ int unit_patch_contexts(Unit *u) {
                         ec->working_directory_missing_ok = true;
                 }
 
-                if (u->manager->running_as == MANAGER_USER &&
+                if (MANAGER_IS_USER(u->manager) &&
                     (ec->syscall_whitelist ||
                      !set_isempty(ec->syscall_filter) ||
                      !set_isempty(ec->syscall_archs) ||
@@ -3318,7 +3318,7 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
 static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
         assert(u);
 
-        if (u->manager->running_as == MANAGER_USER) {
+        if (MANAGER_IS_USER(u->manager)) {
                 int r;
 
                 if (mode == UNIT_PERSISTENT && !transient)

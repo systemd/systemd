@@ -1443,7 +1443,7 @@ int main(int argc, char *argv[]) {
 
         if (streq_ptr(argv[optind], "verify"))
                 r = verify_units(argv+optind+1,
-                                 arg_user ? MANAGER_USER : MANAGER_SYSTEM,
+                                 arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM,
                                  arg_man);
         else {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

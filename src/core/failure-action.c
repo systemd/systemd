@@ -47,7 +47,7 @@ int failure_action(
         if (action == FAILURE_ACTION_NONE)
                 return -ECANCELED;
 
-        if (m->running_as == MANAGER_USER) {
+        if (!MANAGER_IS_SYSTEM(m)) {
                 /* Downgrade all options to simply exiting if we run
                  * in user mode */
 

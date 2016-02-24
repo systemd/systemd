@@ -102,7 +102,7 @@ static int user_data_home_dir(char **dir, const char *suffix) {
                 return -ENOMEM;
 
         *dir = res;
-        return 0;
+        return 1;
 }
 
 static char** user_dirs(
@@ -223,23 +223,32 @@ static char** user_dirs(
         return tmp;
 }
 
-char **generator_paths(ManagerRunningAs running_as) {
-        if (running_as == MANAGER_USER)
-                return strv_new("/run/systemd/user-generators",
-                                "/etc/systemd/user-generators",
-                                "/usr/local/lib/systemd/user-generators",
-                                USER_GENERATOR_PATH,
-                                NULL);
-        else
+char **generator_paths(UnitFileScope scope) {
+
+        switch (scope) {
+
+        case UNIT_FILE_SYSTEM:
                 return strv_new("/run/systemd/system-generators",
                                 "/etc/systemd/system-generators",
                                 "/usr/local/lib/systemd/system-generators",
                                 SYSTEM_GENERATOR_PATH,
                                 NULL);
+
+        case UNIT_FILE_GLOBAL:
+        case UNIT_FILE_USER:
+                return strv_new("/run/systemd/user-generators",
+                                "/etc/systemd/user-generators",
+                                "/usr/local/lib/systemd/user-generators",
+                                USER_GENERATOR_PATH,
+                                NULL);
+
+        default:
+                assert_not_reached("Hmm, unexpected scope.");
+        }
 }
 
 static int acquire_generator_dirs(
-                ManagerRunningAs running_as,
+                UnitFileScope scope,
                 char **generator,
                 char **generator_early,
                 char **generator_late) {
@@ -251,18 +260,28 @@ static int acquire_generator_dirs(
         assert(generator_early);
         assert(generator_late);
 
-        if (running_as == MANAGER_SYSTEM)
-                prefix = "/run/systemd/";
-        else {
-                const char *e;
+        switch (scope) {
 
-                assert(running_as == MANAGER_USER);
+        case UNIT_FILE_SYSTEM:
+                prefix = "/run/systemd/";
+                break;
+
+        case UNIT_FILE_USER: {
+                const char *e;
 
                 e = getenv("XDG_RUNTIME_DIR");
                 if (!e)
-                        return -EINVAL;
+                        return -ENXIO;
 
                 prefix = strjoina(e, "/systemd/", NULL);
+                break;
+        }
+
+        case UNIT_FILE_GLOBAL:
+                return -EOPNOTSUPP;
+
+        default:
+                assert_not_reached("Hmm, unexpected scope value.");
         }
 
         x = strappend(prefix, "generator");
@@ -285,19 +304,26 @@ static int acquire_generator_dirs(
         return 0;
 }
 
-static int acquire_config_dirs(ManagerRunningAs running_as, bool personal, char **persistent, char **runtime) {
+static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **runtime) {
         _cleanup_free_ char *a = NULL, *b = NULL;
         int r;
 
         assert(persistent);
         assert(runtime);
 
-        if (running_as == MANAGER_SYSTEM) {
+        switch (scope) {
+
+        case UNIT_FILE_SYSTEM:
                 a = strdup(SYSTEM_CONFIG_UNIT_PATH);
                 b = strdup("/run/systemd/system");
-        } else if (personal) {
-                assert(running_as == MANAGER_USER);
+                break;
 
+        case UNIT_FILE_GLOBAL:
+                a = strdup(USER_CONFIG_UNIT_PATH);
+                b = strdup("/run/systemd/user");
+                break;
+
+        case UNIT_FILE_USER:
                 r = user_config_home(&a);
                 if (r < 0)
                         return r;
@@ -310,11 +336,9 @@ static int acquire_config_dirs(ManagerRunningAs running_as, bool personal, char 
                 a = NULL;
 
                 return 0;
-        } else {
-                assert(running_as == MANAGER_USER);
 
-                a = strdup(USER_CONFIG_UNIT_PATH);
-                b = strdup("/run/systemd/user");
+        default:
+                assert_not_reached("Hmm, unexpected scope value.");
         }
 
         if (!a || !b)
@@ -350,8 +374,7 @@ static int patch_root_prefix(char **p, const char *root_dir) {
 
 int lookup_paths_init(
                 LookupPaths *p,
-                ManagerRunningAs running_as,
-                bool personal,
+                UnitFileScope scope,
                 const char *root_dir) {
 
         _cleanup_free_ char *generator = NULL, *generator_early = NULL, *generator_late = NULL,
@@ -362,15 +385,15 @@ int lookup_paths_init(
         int r;
 
         assert(p);
-        assert(running_as >= 0);
-        assert(running_as < _MANAGER_RUNNING_AS_MAX);
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        r = acquire_config_dirs(running_as, personal, &persistent_config, &runtime_config);
+        r = acquire_config_dirs(scope, &persistent_config, &runtime_config);
         if (r < 0)
                 return r;
 
-        r = acquire_generator_dirs(running_as, &generator, &generator_early, &generator_late);
-        if (r < 0)
+        r = acquire_generator_dirs(scope, &generator, &generator_early, &generator_late);
+        if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
                 return r;
 
         /* First priority is whatever has been passed to us via env
@@ -405,46 +428,56 @@ int lookup_paths_init(
                  * we include /lib in the search path for the system
                  * stuff but avoid it for user stuff. */
 
-                if (running_as == MANAGER_USER) {
-                        if (personal)
-                                add = user_dirs(persistent_config, runtime_config,
-                                                generator, generator_early, generator_late);
-                        else
-                                add = strv_new(
+                switch (scope) {
+
+                case UNIT_FILE_SYSTEM:
+                        add = strv_new(
+                                        /* If you modify this you also want to modify
+                                         * systemdsystemunitpath= in systemd.pc.in! */
+                                        STRV_IFNOTNULL(generator_early),
+                                        persistent_config,
+                                        "/etc/systemd/system",
+                                        runtime_config,
+                                        "/run/systemd/system",
+                                        STRV_IFNOTNULL(generator),
+                                        "/usr/local/lib/systemd/system",
+                                        SYSTEM_DATA_UNIT_PATH,
+                                        "/usr/lib/systemd/system",
+#ifdef HAVE_SPLIT_USR
+                                        "/lib/systemd/system",
+#endif
+                                        STRV_IFNOTNULL(generator_late),
+                                        NULL);
+                        break;
+
+                case UNIT_FILE_GLOBAL:
+                        add = strv_new(
                                         /* If you modify this you also want to modify
                                          * systemduserunitpath= in systemd.pc.in, and
                                          * the arrays in user_dirs() above! */
-                                        generator_early,
+                                        STRV_IFNOTNULL(generator_early),
                                         persistent_config,
                                         "/etc/systemd/user",
                                         runtime_config,
                                         "/run/systemd/user",
-                                        generator,
+                                        STRV_IFNOTNULL(generator),
                                         "/usr/local/lib/systemd/user",
                                         "/usr/local/share/systemd/user",
                                         USER_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/user",
                                         "/usr/share/systemd/user",
-                                        generator_late,
+                                        STRV_IFNOTNULL(generator_late),
                                         NULL);
-                } else
-                        add = strv_new(
-                                /* If you modify this you also want to modify
-                                 * systemdsystemunitpath= in systemd.pc.in! */
-                                generator_early,
-                                persistent_config,
-                                "/etc/systemd/system",
-                                runtime_config,
-                                "/run/systemd/system",
-                                generator,
-                                "/usr/local/lib/systemd/system",
-                                SYSTEM_DATA_UNIT_PATH,
-                                "/usr/lib/systemd/system",
-#ifdef HAVE_SPLIT_USR
-                                "/lib/systemd/system",
-#endif
-                                generator_late,
-                                NULL);
+                        break;
+
+                case UNIT_FILE_USER:
+                        add = user_dirs(persistent_config, runtime_config,
+                                        generator, generator_early, generator_late);
+                        break;
+
+                default:
+                        assert_not_reached("Hmm, unexpected scope?");
+                }
 
                 if (!add)
                         return -ENOMEM;
@@ -519,20 +552,4 @@ void lookup_paths_free(LookupPaths *p) {
         p->generator = mfree(p->generator);
         p->generator_early = mfree(p->generator_early);
         p->generator_late = mfree(p->generator_late);
-}
-
-int lookup_paths_init_from_scope(
-                LookupPaths *p,
-                UnitFileScope scope,
-                const char *root_dir) {
-
-        assert(p);
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
-
-        return lookup_paths_init(
-                        p,
-                        scope == UNIT_FILE_SYSTEM ? MANAGER_SYSTEM : MANAGER_USER,
-                        scope == UNIT_FILE_USER,
-                        root_dir);
 }

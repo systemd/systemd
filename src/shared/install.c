@@ -1442,7 +1442,7 @@ int unit_file_mask(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -1493,7 +1493,7 @@ int unit_file_unmask(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -1575,7 +1575,7 @@ int unit_file_link(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -1668,7 +1668,7 @@ int unit_file_add_dependency(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -1738,7 +1738,7 @@ int unit_file_enable(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -1786,7 +1786,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -1863,7 +1863,7 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -1899,7 +1899,7 @@ int unit_file_get_default(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -2001,7 +2001,7 @@ int unit_file_get_state(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -2203,7 +2203,7 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -2244,7 +2244,7 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 
@@ -2322,7 +2322,7 @@ int unit_file_get_list(
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, root_dir);
         if (r < 0)
                 return r;
 

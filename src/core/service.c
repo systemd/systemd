@@ -523,7 +523,7 @@ static int service_add_default_dependencies(Service *s) {
         /* Add a number of automatic dependencies useful for the
          * majority of services. */
 
-        if (UNIT(s)->manager->running_as == MANAGER_SYSTEM) {
+        if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
                 /* First, pull in the really early boot stuff, and
                  * require it, so that we fail if we can't acquire
                  * it. */
@@ -1211,7 +1211,7 @@ static int service_spawn(
                 if (asprintf(our_env + n_env++, "MAINPID="PID_FMT, s->main_pid) < 0)
                         return -ENOMEM;
 
-        if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(UNIT(s)->manager))
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
 

@@ -140,7 +140,7 @@ static int specifier_runtime(char specifier, void *data, void *userdata, char **
 
         assert(u);
 
-        if (u->manager->running_as == MANAGER_SYSTEM)
+        if (MANAGER_IS_SYSTEM(u->manager))
                 e = "/run";
         else {
                 e = getenv("XDG_RUNTIME_DIR");
