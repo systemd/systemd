@@ -20,37 +20,34 @@
 ***/
 
 #include <stdbool.h>
+
+typedef struct LookupPaths LookupPaths;
+typedef enum ManagerRunningAs ManagerRunningAs;
+
+#include "install.h"
 #include "macro.h"
 
-typedef struct LookupPaths {
-        char **unit_path;
-} LookupPaths;
+struct LookupPaths {
+        char **search_path;
+        char *generator;
+        char *generator_early;
+        char *generator_late;
+};
 
-typedef enum ManagerRunningAs {
+enum ManagerRunningAs {
         MANAGER_SYSTEM,
         MANAGER_USER,
         _MANAGER_RUNNING_AS_MAX,
         _MANAGER_RUNNING_AS_INVALID = -1
-} ManagerRunningAs;
+};
 
 int user_config_home(char **config_home);
 int user_runtime_dir(char **runtime_dir);
 
 char **generator_paths(ManagerRunningAs running_as);
 
-int lookup_paths_init(LookupPaths *p,
-                      ManagerRunningAs running_as,
-                      bool personal,
-                      const char *root_dir,
-                      const char *generator,
-                      const char *generator_early,
-                      const char *generator_late);
-
-#include "install.h"
-
-int lookup_paths_init_from_scope(LookupPaths *paths,
-                                 UnitFileScope scope,
-                                 const char *root_dir);
+int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal, const char *root_dir);
+int lookup_paths_init_from_scope(LookupPaths *p, UnitFileScope scope, const char *root_dir);
 
 void lookup_paths_free(LookupPaths *p);
 #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)

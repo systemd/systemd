@@ -1060,7 +1060,7 @@ static int unit_file_search(
 
         assert(info->name);
 
-        STRV_FOREACH(p, paths->unit_path) {
+        STRV_FOREACH(p, paths->search_path) {
                 _cleanup_free_ char *path = NULL;
 
                 path = strjoin(*p, "/", info->name, NULL);
@@ -1090,7 +1090,7 @@ static int unit_file_search(
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(p, paths->unit_path) {
+                STRV_FOREACH(p, paths->search_path) {
                         _cleanup_free_ char *path = NULL;
 
                         path = strjoin(*p, "/", template, NULL);
@@ -1348,7 +1348,7 @@ static int install_info_symlink_link(
         assert(config_path);
         assert(i->path);
 
-        r = in_search_path(i->path, paths->unit_path);
+        r = in_search_path(i->path, paths->search_path);
         if (r != 0)
                 return r;
 
@@ -1672,7 +1672,7 @@ int unit_file_link(
                 if (!S_ISREG(st.st_mode))
                         return -ENOTTY;
 
-                q = in_search_path(*i, paths.unit_path);
+                q = in_search_path(*i, paths.search_path);
                 if (q < 0)
                         return q;
                 if (q > 0)
@@ -2313,7 +2313,7 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, paths.unit_path) {
+        STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
                 _cleanup_free_ char *units_dir;
                 struct dirent *de;
@@ -2389,7 +2389,7 @@ int unit_file_get_list(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, paths.unit_path) {
+        STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
                 _cleanup_free_ char *units_dir;
                 struct dirent *de;

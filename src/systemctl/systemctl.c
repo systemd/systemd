@@ -2295,7 +2295,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
         assert(unit_name);
         assert(unit_path);
 
-        STRV_FOREACH(p, lp->unit_path) {
+        STRV_FOREACH(p, lp->search_path) {
                 _cleanup_free_ char *path;
 
                 path = path_join(arg_root, *p, unit_name);
@@ -2395,7 +2395,7 @@ static int unit_find_paths(
                 }
 
                 if (dropin_paths) {
-                        r = unit_file_find_dropin_paths(lp->unit_path, NULL, names, &dropins);
+                        r = unit_file_find_dropin_paths(lp->search_path, NULL, names, &dropins);
                         if (r < 0)
                                 return r;
                 }
@@ -5271,7 +5271,7 @@ static int enable_sysv_units(const char *verb, char **args) {
         /* Processes all SysV units, and reshuffles the array so that
          * afterwards only the native units remain */
 
-        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false, arg_root, NULL, NULL, NULL);
+        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false, arg_root);
         if (r < 0)
                 return r;
 
@@ -5295,7 +5295,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (path_is_absolute(name))
                         continue;
 
-                STRV_FOREACH(k, paths.unit_path) {
+                STRV_FOREACH(k, paths.search_path) {
                         _cleanup_free_ char *path = NULL;
 
                         path = path_join(arg_root, *k, name);

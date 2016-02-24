@@ -235,43 +235,119 @@ char **generator_paths(ManagerRunningAs running_as) {
                                 NULL);
 }
 
+static int acquire_generator_dirs(
+                ManagerRunningAs running_as,
+                char **generator,
+                char **generator_early,
+                char **generator_late) {
+
+        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
+        const char *prefix;
+
+        assert(generator);
+        assert(generator_early);
+        assert(generator_late);
+
+        if (running_as == MANAGER_SYSTEM)
+                prefix = "/run/systemd/";
+        else {
+                const char *e;
+
+                assert(running_as == MANAGER_USER);
+
+                e = getenv("XDG_RUNTIME_DIR");
+                if (!e)
+                        return -EINVAL;
+
+                prefix = strjoina(e, "/systemd/", NULL);
+        }
+
+        x = strappend(prefix, "generator");
+        if (!x)
+                return -ENOMEM;
+
+        y = strappend(prefix, "generator.early");
+        if (!y)
+                return -ENOMEM;
+
+        z = strappend(prefix, "generator.late");
+        if (!z)
+                return -ENOMEM;
+
+        *generator = x;
+        *generator_early = y;
+        *generator_late = z;
+
+        x = y = z = NULL;
+        return 0;
+}
+
+static int patch_root_prefix(char **p, const char *root_dir) {
+        char *c;
+
+        assert(p);
+
+        if (!*p)
+                return 0;
+
+        if (isempty(root_dir) || path_equal(root_dir, "/"))
+                return 0;
+
+        c = prefix_root(root_dir, *p);
+        if (!c)
+                return -ENOMEM;
+
+        free(*p);
+        *p = c;
+
+        return 0;
+}
+
 int lookup_paths_init(
                 LookupPaths *p,
                 ManagerRunningAs running_as,
                 bool personal,
-                const char *root_dir,
-                const char *generator,
-                const char *generator_early,
-                const char *generator_late) {
+                const char *root_dir) {
 
-        const char *e;
+        _cleanup_free_ char *generator = NULL, *generator_early = NULL, *generator_late = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
+        char **l = NULL;
+        const char *e;
         int r;
 
         assert(p);
+        assert(running_as >= 0);
+        assert(running_as < _MANAGER_RUNNING_AS_MAX);
+
+        r = acquire_generator_dirs(running_as, &generator, &generator_early, &generator_late);
+        if (r < 0)
+                return r;
 
         /* First priority is whatever has been passed to us via env
          * vars */
         e = getenv("SYSTEMD_UNIT_PATH");
         if (e) {
-                if (endswith(e, ":")) {
-                        e = strndupa(e, strlen(e) - 1);
+                const char *k;
+
+                k = endswith(e, ":");
+                if (k) {
+                        e = strndupa(e, k - e);
                         append = true;
                 }
 
                 /* FIXME: empty components in other places should be
                  * rejected. */
 
-                r = path_split_and_make_absolute(e, &p->unit_path);
+                r = path_split_and_make_absolute(e, &l);
                 if (r < 0)
                         return r;
         } else
-                p->unit_path = NULL;
+                l = NULL;
 
-        if (!p->unit_path || append) {
+        if (!l || append) {
                 /* Let's figure something out. */
 
-                _cleanup_strv_free_ char **unit_path;
+                _cleanup_strv_free_ char **add = NULL;
 
                 /* For the user units we include share/ in the search
                  * path in order to comply with the XDG basedir spec.
@@ -281,85 +357,114 @@ int lookup_paths_init(
 
                 if (running_as == MANAGER_USER) {
                         if (personal)
-                                unit_path = user_dirs(generator, generator_early, generator_late);
+                                add = user_dirs(generator, generator_early, generator_late);
                         else
-                                unit_path = strv_new(
+                                add = strv_new(
                                         /* If you modify this you also want to modify
                                          * systemduserunitpath= in systemd.pc.in, and
                                          * the arrays in user_dirs() above! */
-                                        STRV_IFNOTNULL(generator_early),
+                                        generator_early,
                                         USER_CONFIG_UNIT_PATH,
                                         "/etc/systemd/user",
                                         "/run/systemd/user",
-                                        STRV_IFNOTNULL(generator),
+                                        generator,
                                         "/usr/local/lib/systemd/user",
                                         "/usr/local/share/systemd/user",
                                         USER_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/user",
                                         "/usr/share/systemd/user",
-                                        STRV_IFNOTNULL(generator_late),
+                                        generator_late,
                                         NULL);
                 } else
-                        unit_path = strv_new(
+                        add = strv_new(
                                 /* If you modify this you also want to modify
                                  * systemdsystemunitpath= in systemd.pc.in! */
-                                STRV_IFNOTNULL(generator_early),
+                                generator_early,
                                 SYSTEM_CONFIG_UNIT_PATH,
                                 "/etc/systemd/system",
                                 "/run/systemd/system",
-                                STRV_IFNOTNULL(generator),
+                                generator,
                                 "/usr/local/lib/systemd/system",
                                 SYSTEM_DATA_UNIT_PATH,
                                 "/usr/lib/systemd/system",
 #ifdef HAVE_SPLIT_USR
                                 "/lib/systemd/system",
 #endif
-                                STRV_IFNOTNULL(generator_late),
+                                generator_late,
                                 NULL);
 
-                if (!unit_path)
+                if (!add)
                         return -ENOMEM;
 
-                r = strv_extend_strv(&p->unit_path, unit_path, false);
-                if (r < 0)
-                        return r;
+                if (l) {
+                        r = strv_extend_strv(&l, add, false);
+                        if (r < 0)
+                                return r;
+                } else {
+                        l = add;
+                        add = NULL;
+                }
         }
 
-        if (!path_strv_resolve_uniq(p->unit_path, root_dir))
+        r = patch_root_prefix(&generator, root_dir);
+        if (r < 0)
+                return r;
+        r = patch_root_prefix(&generator_early, root_dir);
+        if (r < 0)
+                return r;
+        r = patch_root_prefix(&generator_late, root_dir);
+        if (r < 0)
+                return r;
+
+        if (!path_strv_resolve_uniq(l, root_dir))
                 return -ENOMEM;
 
-        if (!strv_isempty(p->unit_path)) {
-                _cleanup_free_ char *t = strv_join(p->unit_path, "\n\t");
+        if (strv_isempty(l)) {
+                log_debug("Ignoring unit files.");
+                l = strv_free(l);
+        } else {
+                _cleanup_free_ char *t;
+
+                t = strv_join(l, "\n\t");
                 if (!t)
                         return -ENOMEM;
+
                 log_debug("Looking for unit files in (higher priority first):\n\t%s", t);
-        } else {
-                log_debug("Ignoring unit files.");
-                p->unit_path = strv_free(p->unit_path);
         }
 
+        p->search_path = l;
+        l = NULL;
+
+        p->generator = generator;
+        p->generator_early = generator_early;
+        p->generator_late = generator_late;
+        generator = generator_early = generator_late = NULL;
 
         return 0;
 }
 
 void lookup_paths_free(LookupPaths *p) {
-        assert(p);
+        if (!p)
+                return;
 
-        p->unit_path = strv_free(p->unit_path);
+        p->search_path = strv_free(p->search_path);
+        p->generator = mfree(p->generator);
+        p->generator_early = mfree(p->generator_early);
+        p->generator_late = mfree(p->generator_late);
 }
 
-int lookup_paths_init_from_scope(LookupPaths *paths,
-                                 UnitFileScope scope,
-                                 const char *root_dir) {
-        assert(paths);
+int lookup_paths_init_from_scope(
+                LookupPaths *p,
+                UnitFileScope scope,
+                const char *root_dir) {
+
+        assert(p);
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        zero(*paths);
-
-        return lookup_paths_init(paths,
-                                 scope == UNIT_FILE_SYSTEM ? MANAGER_SYSTEM : MANAGER_USER,
-                                 scope == UNIT_FILE_USER,
-                                 root_dir,
-                                 NULL, NULL, NULL);
+        return lookup_paths_init(
+                        p,
+                        scope == UNIT_FILE_SYSTEM ? MANAGER_SYSTEM : MANAGER_USER,
+                        scope == UNIT_FILE_USER,
+                        root_dir);
 }

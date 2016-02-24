@@ -1004,7 +1004,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = lookup_paths_init(&lp, MANAGER_SYSTEM, true, NULL, NULL, NULL, NULL);
+        r = lookup_paths_init(&lp, MANAGER_SYSTEM, true, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to find lookup paths: %m");
                 goto finish;

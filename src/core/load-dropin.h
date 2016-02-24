@@ -25,7 +25,7 @@
 /* Read service data supplementary drop-in directories */
 
 static inline int unit_find_dropin_paths(Unit *u, char ***paths) {
-        return unit_file_find_dropin_paths(u->manager->lookup_paths.unit_path,
+        return unit_file_find_dropin_paths(u->manager->lookup_paths.search_path,
                                            u->manager->unit_path_cache,
                                            u->names,
                                            paths);

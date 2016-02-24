@@ -1053,7 +1053,7 @@ static void manager_build_unit_path_cache(Manager *m) {
         /* This simply builds a list of files we know exist, so that
          * we don't always have to go to disk */
 
-        STRV_FOREACH(i, m->lookup_paths.unit_path) {
+        STRV_FOREACH(i, m->lookup_paths.search_path) {
                 struct dirent *de;
 
                 d = opendir(*i);
@@ -1116,18 +1116,13 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         assert(m);
 
-        dual_timestamp_get(&m->generators_start_timestamp);
-        r = manager_run_generators(m);
-        dual_timestamp_get(&m->generators_finish_timestamp);
+        r = lookup_paths_init(&m->lookup_paths, m->running_as, true, NULL);
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init(
-                        &m->lookup_paths, m->running_as, true,
-                        NULL,
-                        m->generator_unit_path,
-                        m->generator_unit_path_early,
-                        m->generator_unit_path_late);
+        dual_timestamp_get(&m->generators_start_timestamp);
+        r = manager_run_generators(m);
+        dual_timestamp_get(&m->generators_finish_timestamp);
         if (r < 0)
                 return r;
 
@@ -2542,17 +2537,12 @@ int manager_reload(Manager *m) {
         manager_undo_generators(m);
         lookup_paths_free(&m->lookup_paths);
 
-        /* Find new unit paths */
-        q = manager_run_generators(m);
+        q = lookup_paths_init(&m->lookup_paths, m->running_as, true, NULL);
         if (q < 0 && r >= 0)
                 r = q;
 
-        q = lookup_paths_init(
-                        &m->lookup_paths, m->running_as, true,
-                        NULL,
-                        m->generator_unit_path,
-                        m->generator_unit_path_early,
-                        m->generator_unit_path_late);
+        /* Find new unit paths */
+        q = manager_run_generators(m);
         if (q < 0 && r >= 0)
                 r = q;
 
@@ -2732,77 +2722,6 @@ void manager_check_finished(Manager *m) {
         manager_invalidate_startup_units(m);
 }
 
-static int create_generator_dir(Manager *m, char **generator, const char *name) {
-        char *p;
-        int r;
-
-        assert(m);
-        assert(generator);
-        assert(name);
-
-        if (*generator)
-                return 0;
-
-        if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
-                /* systemd --system, not running --test */
-
-                p = strappend("/run/systemd/", name);
-                if (!p)
-                        return log_oom();
-
-                r = mkdir_p_label(p, 0755);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create generator directory %s: %m", p);
-                        free(p);
-                        return r;
-                }
-        } else if (m->running_as == MANAGER_USER) {
-                const char *s = NULL;
-
-                s = getenv("XDG_RUNTIME_DIR");
-                if (!s)
-                        return -EINVAL;
-                p = strjoin(s, "/systemd/", name, NULL);
-                if (!p)
-                        return log_oom();
-
-                r = mkdir_p_label(p, 0755);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create generator directory %s: %m", p);
-                        free(p);
-                        return r;
-                }
-        } else {
-                /* systemd --system --test */
-
-                p = strjoin("/tmp/systemd-", name, ".XXXXXX", NULL);
-                if (!p)
-                        return log_oom();
-
-                if (!mkdtemp(p)) {
-                        log_error_errno(errno, "Failed to create generator directory %s: %m", p);
-                        free(p);
-                        return -errno;
-                }
-        }
-
-        *generator = p;
-        return 0;
-}
-
-static void trim_generator_dir(Manager *m, char **generator) {
-        assert(m);
-        assert(generator);
-
-        if (!*generator)
-                return;
-
-        if (rmdir(*generator) >= 0)
-                *generator = mfree(*generator);
-
-        return;
-}
-
 static int manager_run_generators(Manager *m) {
         _cleanup_strv_free_ char **paths = NULL;
         const char *argv[5];
@@ -2821,62 +2740,53 @@ static int manager_run_generators(Manager *m) {
         /* Optimize by skipping the whole process by not creating output directories
          * if no generators are found. */
         STRV_FOREACH(path, paths) {
-                r = access(*path, F_OK);
-                if (r == 0)
+                if (access(*path, F_OK) >= 0)
                         goto found;
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
         }
+
         return 0;
 
  found:
-        r = create_generator_dir(m, &m->generator_unit_path, "generator");
+        r = mkdir_p_label(m->lookup_paths.generator, 0755);
         if (r < 0)
                 goto finish;
 
-        r = create_generator_dir(m, &m->generator_unit_path_early, "generator.early");
+        r = mkdir_p_label(m->lookup_paths.generator_early, 0755);
         if (r < 0)
                 goto finish;
 
-        r = create_generator_dir(m, &m->generator_unit_path_late, "generator.late");
+        r = mkdir_p_label(m->lookup_paths.generator_late, 0755);
         if (r < 0)
                 goto finish;
 
         argv[0] = NULL; /* Leave this empty, execute_directory() will fill something in */
-        argv[1] = m->generator_unit_path;
-        argv[2] = m->generator_unit_path_early;
-        argv[3] = m->generator_unit_path_late;
+        argv[1] = m->lookup_paths.generator;
+        argv[2] = m->lookup_paths.generator_early;
+        argv[3] = m->lookup_paths.generator_late;
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
                 execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, (char**) argv);
 
 finish:
-        trim_generator_dir(m, &m->generator_unit_path);
-        trim_generator_dir(m, &m->generator_unit_path_early);
-        trim_generator_dir(m, &m->generator_unit_path_late);
+        /* Trim empty dirs */
+        (void) rmdir(m->lookup_paths.generator);
+        (void) rmdir(m->lookup_paths.generator_early);
+        (void) rmdir(m->lookup_paths.generator_late);
         return r;
-}
-
-static void remove_generator_dir(Manager *m, char **generator) {
-        assert(m);
-        assert(generator);
-
-        if (!*generator)
-                return;
-
-        strv_remove(m->lookup_paths.unit_path, *generator);
-        (void) rm_rf(*generator, REMOVE_ROOT);
-
-        *generator = mfree(*generator);
 }
 
 static void manager_undo_generators(Manager *m) {
         assert(m);
 
-        remove_generator_dir(m, &m->generator_unit_path);
-        remove_generator_dir(m, &m->generator_unit_path_early);
-        remove_generator_dir(m, &m->generator_unit_path_late);
+        if (m->lookup_paths.generator)
+                (void) rm_rf(m->lookup_paths.generator, REMOVE_ROOT);
+        if (m->lookup_paths.generator_early)
+                (void) rm_rf(m->lookup_paths.generator_early, REMOVE_ROOT);
+        if (m->lookup_paths.generator_late)
+                (void) rm_rf(m->lookup_paths.generator_late, REMOVE_ROOT);
 }
 
 int manager_environment_add(Manager *m, char **minus, char **plus) {
