@@ -294,8 +294,6 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = 0;
-
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
