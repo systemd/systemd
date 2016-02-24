@@ -5473,6 +5473,8 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 if (r == -ESHUTDOWN)
                         return log_error_errno(r, "Unit file is masked.");
+                if (r == -EADDRNOTAVAIL)
+                        return log_error_errno(r, "Unit file is generated.");
                 if (r < 0)
                         return log_error_errno(r, "Operation failed: %m");
 
@@ -5639,6 +5641,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
                 if (r == -ESHUTDOWN)
                         return log_error_errno(r, "Unit file is masked.");
+                if (r == -EADDRNOTAVAIL)
+                        return log_error_errno(r, "Unit file is generated.");
                 if (r < 0)
                         return log_error_errno(r, "Can't add dependency: %m");
 

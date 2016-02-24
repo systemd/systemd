@@ -1761,6 +1761,8 @@ int unit_file_add_dependency(
                 return r;
         if (target_info->type == UNIT_FILE_TYPE_MASKED)
                 return -ESHUTDOWN;
+        if (unit_file_is_generated(&paths, target_info->path))
+                return -EADDRNOTAVAIL;
 
         assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
 
@@ -1772,6 +1774,8 @@ int unit_file_add_dependency(
                         return r;
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
+                if (unit_file_is_generated(&paths, i->path))
+                        return -EADDRNOTAVAIL;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
 
@@ -1830,6 +1834,8 @@ int unit_file_enable(
                         return r;
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
+                if (unit_file_is_generated(&paths, i->path))
+                        return -EADDRNOTAVAIL;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
         }
@@ -1957,6 +1963,8 @@ int unit_file_set_default(
                 return r;
         if (i->type == UNIT_FILE_TYPE_MASKED)
                 return -ESHUTDOWN;
+        if (unit_file_is_generated(&paths, i->path))
+                return -EADDRNOTAVAIL;
 
         path = strjoina(config_path, "/" SPECIAL_DEFAULT_TARGET);
 
@@ -2254,6 +2262,8 @@ static int preset_prepare_one(
 
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
+                if (unit_file_is_generated(paths, i->path))
+                        return -EADDRNOTAVAIL;
         } else
                 r = install_info_discover(scope, minus, root_dir, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
 
