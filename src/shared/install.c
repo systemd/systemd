@@ -85,6 +85,7 @@ static int in_search_path(const char *path, char **search) {
 static int unit_file_is_generated(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
 
+        assert(p);
         assert(path);
 
         parent = dirname_malloc(path);
@@ -96,109 +97,26 @@ static int unit_file_is_generated(const LookupPaths *p, const char *path) {
                 path_equal(p->generator_late, parent);
 }
 
-static int get_config_path(UnitFileScope scope, bool runtime, const char *root_dir, char **ret) {
-        char *p = NULL;
-        int r;
+static int path_is_config(const LookupPaths *p, const char *path) {
+        _cleanup_free_ char *parent = NULL;
 
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
-        assert(ret);
-
-        /* This determines where we shall create or remove our
-         * installation ("configuration") symlinks */
-
-        switch (scope) {
-
-        case UNIT_FILE_SYSTEM:
-
-                if (runtime)
-                        p = path_join(root_dir, "/run/systemd/system", NULL);
-                else
-                        p = path_join(root_dir, SYSTEM_CONFIG_UNIT_PATH, NULL);
-                break;
-
-        case UNIT_FILE_GLOBAL:
-
-                if (root_dir)
-                        return -EINVAL;
-
-                if (runtime)
-                        p = strdup("/run/systemd/user");
-                else
-                        p = strdup(USER_CONFIG_UNIT_PATH);
-                break;
-
-        case UNIT_FILE_USER:
-
-                if (root_dir)
-                        return -EINVAL;
-
-                if (runtime)
-                        r = user_runtime_dir(&p);
-                else
-                        r = user_config_home(&p);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOENT;
-
-                break;
-
-        default:
-                assert_not_reached("Bad scope");
-        }
-
-        if (!p)
-                return -ENOMEM;
-
-        *ret = p;
-        return 0;
-}
-
-static bool is_config_path(UnitFileScope scope, const char *path) {
-        int r;
-
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(p);
         assert(path);
 
-        /* Checks whether the specified path is intended for
-         * configuration or is outside of it */
+        /* Checks whether the specified path is intended for configuration or is outside of it. We check both the
+         * top-level directory and the one actually configured. The latter is particularly relevant for cases where we
+         * operate on a root directory. */
 
-        switch (scope) {
+        if (path_startswith(path, "/etc") || path_startswith(path, "/run"))
+                return true;
 
-        case UNIT_FILE_SYSTEM:
-        case UNIT_FILE_GLOBAL:
-                return path_startswith(path, "/etc") ||
-                        path_startswith(path, SYSTEM_CONFIG_UNIT_PATH) ||
-                        path_startswith(path, "/run");
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
 
-
-        case UNIT_FILE_USER: {
-                _cleanup_free_ char *p = NULL;
-
-                r = user_config_home(&p);
-                if (r < 0)
-                        return r;
-                if (r > 0 && path_startswith(path, p))
-                        return true;
-
-                p = mfree(p);
-
-                r = user_runtime_dir(&p);
-                if (r < 0)
-                        return r;
-                if (r > 0 && path_startswith(path, p))
-                        return true;
-
-                return false;
-        }
-
-        default:
-                assert_not_reached("Bad scope");
-        }
+        return path_equal(parent, p->persistent_config) ||
+                path_equal(parent, p->runtime_config);
 }
-
 
 static int verify_root_dir(UnitFileScope scope, const char **root_dir) {
         int r;
@@ -659,24 +577,21 @@ static int find_symlinks(
 
 static int find_symlinks_in_scope(
                 UnitFileScope scope,
+                const LookupPaths *paths,
                 const char *root_dir,
                 const char *name,
                 UnitFileState *state) {
 
-        _cleanup_free_ char *normal_path = NULL, *runtime_path = NULL;
         bool same_name_link_runtime = false, same_name_link = false;
         int r;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(paths);
         assert(name);
 
-        /* First look in the normal config path */
-        r = get_config_path(scope, false, root_dir, &normal_path);
-        if (r < 0)
-                return r;
-
-        r = find_symlinks(root_dir, name, normal_path, &same_name_link);
+        /* First look in the persistent config path */
+        r = find_symlinks(root_dir, name, paths->persistent_config, &same_name_link);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -685,11 +600,7 @@ static int find_symlinks_in_scope(
         }
 
         /* Then look in runtime config path */
-        r = get_config_path(scope, true, root_dir, &runtime_path);
-        if (r < 0)
-                return r;
-
-        r = find_symlinks(root_dir, name, runtime_path, &same_name_link_runtime);
+        r = find_symlinks(root_dir, name, paths->runtime_config, &same_name_link_runtime);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -1182,8 +1093,13 @@ static int install_info_traverse(
                 if (++k > UNIT_FILE_FOLLOW_SYMLINK_MAX)
                         return -ELOOP;
 
-                if (!(flags & SEARCH_FOLLOW_CONFIG_SYMLINKS) && is_config_path(scope, i->path))
-                        return -ELOOP;
+                if (!(flags & SEARCH_FOLLOW_CONFIG_SYMLINKS)) {
+                        r = path_is_config(paths, i->path);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return -ELOOP;
+                }
 
                 r = install_info_follow(c, i, root_dir, flags);
                 if (r < 0) {
@@ -1514,7 +1430,8 @@ int unit_file_mask(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        _cleanup_free_ char *prefix = NULL;
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        const char *config_path;
         char **i;
         int r;
 
@@ -1525,9 +1442,11 @@ int unit_file_mask(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &prefix);
+        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
         if (r < 0)
                 return r;
+
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
@@ -1539,7 +1458,7 @@ int unit_file_mask(
                         continue;
                 }
 
-                path = path_make_absolute(*i, prefix);
+                path = path_make_absolute(*i, config_path);
                 if (!path)
                         return -ENOMEM;
 
@@ -1559,10 +1478,11 @@ int unit_file_unmask(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        _cleanup_free_ char *config_path = NULL;
         _cleanup_free_ char **todo = NULL;
         size_t n_todo = 0, n_allocated = 0;
+        const char *config_path;
         char **i;
         int r, q;
 
@@ -1573,9 +1493,11 @@ int unit_file_unmask(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
+        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
         if (r < 0)
                 return r;
+
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
@@ -1640,9 +1562,9 @@ int unit_file_link(
                 unsigned *n_changes) {
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
-        _cleanup_free_ char *config_path = NULL;
         _cleanup_free_ char **todo = NULL;
         size_t n_todo = 0, n_allocated = 0;
+        const char *config_path;
         char **i;
         int r, q;
 
@@ -1657,9 +1579,7 @@ int unit_file_link(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
-        if (r < 0)
-                return r;
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *full = NULL;
@@ -1729,8 +1649,8 @@ int unit_file_add_dependency(
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
-        _cleanup_free_ char *config_path = NULL;
         UnitFileInstallInfo *i, *target_info;
+        const char *config_path;
         char **f;
         int r;
 
@@ -1752,9 +1672,7 @@ int unit_file_add_dependency(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
-        if (r < 0)
-                return r;
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         r = install_info_discover(scope, &c, root_dir, &paths, target, SEARCH_FOLLOW_CONFIG_SYMLINKS, &target_info);
         if (r < 0)
@@ -1808,7 +1726,7 @@ int unit_file_enable(
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
-        _cleanup_free_ char *config_path = NULL;
+        const char *config_path;
         UnitFileInstallInfo *i;
         char **f;
         int r;
@@ -1824,9 +1742,7 @@ int unit_file_enable(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
-        if (r < 0)
-                return r;
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(f, files) {
                 r = install_info_discover(scope, &c, root_dir, &paths, *f, SEARCH_LOAD, &i);
@@ -1858,8 +1774,8 @@ int unit_file_disable(
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
-        _cleanup_free_ char *config_path = NULL;
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        const char *config_path;
         char **i;
         int r;
 
@@ -1874,9 +1790,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
-        if (r < 0)
-                return r;
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
@@ -1932,7 +1846,6 @@ int unit_file_set_default(
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
-        _cleanup_free_ char *config_path = NULL;
         UnitFileInstallInfo *i;
         const char *path;
         int r;
@@ -1954,10 +1867,6 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, false, root_dir, &config_path);
-        if (r < 0)
-                return r;
-
         r = install_info_discover(scope, &c, root_dir, &paths, name, 0, &i);
         if (r < 0)
                 return r;
@@ -1966,7 +1875,7 @@ int unit_file_set_default(
         if (unit_file_is_generated(&paths, i->path))
                 return -EADDRNOTAVAIL;
 
-        path = strjoina(config_path, "/" SPECIAL_DEFAULT_TARGET);
+        path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
 
         return create_symlink(i->path, path, force, changes, n_changes);
 }
@@ -2053,7 +1962,7 @@ int unit_file_lookup_state(
                         break;
                 }
 
-                r = find_symlinks_in_scope(scope, root_dir, i->name, &state);
+                r = find_symlinks_in_scope(scope, paths, root_dir, i->name, &state);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -2282,7 +2191,7 @@ int unit_file_preset(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
-        _cleanup_free_ char *config_path = NULL;
+        const char *config_path;
         char **i;
         int r;
 
@@ -2298,9 +2207,7 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
-        if (r < 0)
-                return r;
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
@@ -2325,7 +2232,7 @@ int unit_file_preset_all(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
-        _cleanup_free_ char *config_path = NULL;
+        const char *config_path = NULL;
         char **i;
         int r;
 
@@ -2341,9 +2248,7 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
-        if (r < 0)
-                return r;
+        config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
