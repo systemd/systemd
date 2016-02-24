@@ -106,6 +106,8 @@ static int user_data_home_dir(char **dir, const char *suffix) {
 }
 
 static char** user_dirs(
+                const char *persistent_config,
+                const char *runtime_config,
                 const char *generator,
                 const char *generator_early,
                 const char *generator_late) {
@@ -115,8 +117,6 @@ static char** user_dirs(
                 "/etc/systemd/user",
                 NULL
         };
-
-        const char * const runtime_unit_path = "/run/systemd/user";
 
         const char * const data_unit_paths[] = {
                 "/usr/local/lib/systemd/user",
@@ -183,6 +183,9 @@ static char** user_dirs(
                 if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
                         return NULL;
 
+        if (strv_extend(&res, persistent_config) < 0)
+                return NULL;
+
         if (strv_extend_strv(&res, (char**) config_unit_paths, false) < 0)
                 return NULL;
 
@@ -190,7 +193,7 @@ static char** user_dirs(
                 if (strv_extend(&res, runtime_dir) < 0)
                         return NULL;
 
-        if (strv_extend(&res, runtime_unit_path) < 0)
+        if (strv_extend(&res, runtime_config) < 0)
                 return NULL;
 
         if (generator)
@@ -282,6 +285,48 @@ static int acquire_generator_dirs(
         return 0;
 }
 
+static int acquire_config_dirs(ManagerRunningAs running_as, bool personal, char **persistent, char **runtime) {
+        _cleanup_free_ char *a = NULL, *b = NULL;
+        int r;
+
+        assert(persistent);
+        assert(runtime);
+
+        if (running_as == MANAGER_SYSTEM) {
+                a = strdup(SYSTEM_CONFIG_UNIT_PATH);
+                b = strdup("/run/systemd/system");
+        } else if (personal) {
+                assert(running_as == MANAGER_USER);
+
+                r = user_config_home(&a);
+                if (r < 0)
+                        return r;
+
+                r = user_runtime_dir(runtime);
+                if (r < 0)
+                        return r;
+
+                *persistent = a;
+                a = NULL;
+
+                return 0;
+        } else {
+                assert(running_as == MANAGER_USER);
+
+                a = strdup(USER_CONFIG_UNIT_PATH);
+                b = strdup("/run/systemd/user");
+        }
+
+        if (!a || !b)
+                return -ENOMEM;
+
+        *persistent = a;
+        *runtime = b;
+        a = b = NULL;
+
+        return 0;
+}
+
 static int patch_root_prefix(char **p, const char *root_dir) {
         char *c;
 
@@ -309,7 +354,8 @@ int lookup_paths_init(
                 bool personal,
                 const char *root_dir) {
 
-        _cleanup_free_ char *generator = NULL, *generator_early = NULL, *generator_late = NULL;
+        _cleanup_free_ char *generator = NULL, *generator_early = NULL, *generator_late = NULL,
+                *persistent_config = NULL, *runtime_config = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         char **l = NULL;
         const char *e;
@@ -318,6 +364,10 @@ int lookup_paths_init(
         assert(p);
         assert(running_as >= 0);
         assert(running_as < _MANAGER_RUNNING_AS_MAX);
+
+        r = acquire_config_dirs(running_as, personal, &persistent_config, &runtime_config);
+        if (r < 0)
+                return r;
 
         r = acquire_generator_dirs(running_as, &generator, &generator_early, &generator_late);
         if (r < 0)
@@ -357,15 +407,17 @@ int lookup_paths_init(
 
                 if (running_as == MANAGER_USER) {
                         if (personal)
-                                add = user_dirs(generator, generator_early, generator_late);
+                                add = user_dirs(persistent_config, runtime_config,
+                                                generator, generator_early, generator_late);
                         else
                                 add = strv_new(
                                         /* If you modify this you also want to modify
                                          * systemduserunitpath= in systemd.pc.in, and
                                          * the arrays in user_dirs() above! */
                                         generator_early,
-                                        USER_CONFIG_UNIT_PATH,
+                                        persistent_config,
                                         "/etc/systemd/user",
+                                        runtime_config,
                                         "/run/systemd/user",
                                         generator,
                                         "/usr/local/lib/systemd/user",
@@ -380,8 +432,9 @@ int lookup_paths_init(
                                 /* If you modify this you also want to modify
                                  * systemdsystemunitpath= in systemd.pc.in! */
                                 generator_early,
-                                SYSTEM_CONFIG_UNIT_PATH,
+                                persistent_config,
                                 "/etc/systemd/system",
+                                runtime_config,
                                 "/run/systemd/system",
                                 generator,
                                 "/usr/local/lib/systemd/system",
@@ -405,6 +458,13 @@ int lookup_paths_init(
                         add = NULL;
                 }
         }
+
+        r = patch_root_prefix(&persistent_config, root_dir);
+        if (r < 0)
+                return r;
+        r = patch_root_prefix(&runtime_config, root_dir);
+        if (r < 0)
+                return r;
 
         r = patch_root_prefix(&generator, root_dir);
         if (r < 0)
@@ -435,6 +495,10 @@ int lookup_paths_init(
         p->search_path = l;
         l = NULL;
 
+        p->persistent_config = persistent_config;
+        p->runtime_config = runtime_config;
+        persistent_config = runtime_config = NULL;
+
         p->generator = generator;
         p->generator_early = generator_early;
         p->generator_late = generator_late;
@@ -448,6 +512,10 @@ void lookup_paths_free(LookupPaths *p) {
                 return;
 
         p->search_path = strv_free(p->search_path);
+
+        p->persistent_config = mfree(p->persistent_config);
+        p->runtime_config = mfree(p->runtime_config);
+
         p->generator = mfree(p->generator);
         p->generator_early = mfree(p->generator_early);
         p->generator_late = mfree(p->generator_late);

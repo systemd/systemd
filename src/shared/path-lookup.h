@@ -29,6 +29,12 @@ typedef enum ManagerRunningAs ManagerRunningAs;
 
 struct LookupPaths {
         char **search_path;
+
+        /* Where we shall create or remove our installation symlinks, aka "configuration". */
+        char *persistent_config;
+        char *runtime_config;
+
+        /* Where to place generated unit files */
         char *generator;
         char *generator_early;
         char *generator_late;
