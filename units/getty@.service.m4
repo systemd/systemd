@@ -20,10 +20,8 @@ After=rc-local.service
 Before=getty.target
 IgnoreOnIsolate=yes
 
-# On systems without virtual consoles, don't start any getty. Note
-# that serial gettys are covered by serial-getty@.service, not this
-# unit.
-ConditionPathExists=/dev/tty0
+# Don't start getty unless the target TTY exists.
+ConditionPathExists=/dev/%I
 
 [Service]
 # the VT is cleared by TTYVTDisallocate
