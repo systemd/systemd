@@ -82,7 +82,7 @@ static int in_search_path(const char *path, char **search) {
         return false;
 }
 
-static int unit_file_is_generated(const LookupPaths *p, const char *path) {
+static int path_is_generator(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
 
         assert(p);
@@ -1695,7 +1695,7 @@ int unit_file_add_dependency(
                 return r;
         if (target_info->type == UNIT_FILE_TYPE_MASKED)
                 return -ESHUTDOWN;
-        if (unit_file_is_generated(&paths, target_info->path))
+        if (path_is_generator(&paths, target_info->path))
                 return -EADDRNOTAVAIL;
 
         assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
@@ -1708,7 +1708,7 @@ int unit_file_add_dependency(
                         return r;
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
-                if (unit_file_is_generated(&paths, i->path))
+                if (path_is_generator(&paths, i->path))
                         return -EADDRNOTAVAIL;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
@@ -1766,7 +1766,7 @@ int unit_file_enable(
                         return r;
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
-                if (unit_file_is_generated(&paths, i->path))
+                if (path_is_generator(&paths, i->path))
                         return -EADDRNOTAVAIL;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
@@ -1888,7 +1888,7 @@ int unit_file_set_default(
                 return r;
         if (i->type == UNIT_FILE_TYPE_MASKED)
                 return -ESHUTDOWN;
-        if (unit_file_is_generated(&paths, i->path))
+        if (path_is_generator(&paths, i->path))
                 return -EADDRNOTAVAIL;
 
         path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
@@ -1974,7 +1974,7 @@ int unit_file_lookup_state(
                 break;
 
         case UNIT_FILE_TYPE_REGULAR:
-                r = unit_file_is_generated(paths, i->path);
+                r = path_is_generator(paths, i->path);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -2191,7 +2191,7 @@ static int preset_prepare_one(
 
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
-                if (unit_file_is_generated(paths, i->path))
+                if (path_is_generator(paths, i->path))
                         return -EADDRNOTAVAIL;
         } else
                 r = install_info_discover(scope, minus, root_dir, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
