@@ -7,6 +7,8 @@ export PATH
 LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
+QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
+FSTYPE="${FSTYPE:-ext3}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
@@ -78,7 +80,7 @@ $KERNEL_APPEND \
 -kernel $KERNEL_BIN \
 "
 
-    if [ "$INITRD" ]; then
+    if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
     fi
 
@@ -86,6 +88,9 @@ $KERNEL_APPEND \
         QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
     fi
 
+    if [[ "$QEMU_TIMEOUT" != "infinity" ]]; then
+        QEMU_BIN="timeout --foreground $QEMU_TIMEOUT $QEMU_BIN"
+    fi
     ( set -x
       $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" $TESTDIR/rootdisk.img ) || return 1
 }
@@ -241,7 +246,7 @@ create_empty_image() {
 ,
 EOF
 
-    mkfs.ext3 -L systemd "${LOOPDEV}p1"
+    mkfs -t "$FSTYPE" -L systemd "${LOOPDEV}p1"
 }
 
 check_result_nspawn() {
