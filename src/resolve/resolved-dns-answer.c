@@ -757,7 +757,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
         assert(a);
 
         /* Tries to extend the DnsAnswer object. And if that's not
-         * possibly, since we are not the sole owner, then allocate a
+         * possible, since we are not the sole owner, then allocate a
          * new, appropriately sized one. Either way, after this call
          * the object will only have a single reference, and has room
          * for at least the specified number of RRs. */

@@ -361,7 +361,7 @@
 
     <para>The <literal>[MACVTAP]</literal> section applies for
     netdevs of kind <literal>macvtap</literal> and accepts the
-    same key as <literal>[MACVLAN].</literal> </para>
+    same key as <literal>[MACVLAN]</literal>.</para>
 
     </refsect1>
 

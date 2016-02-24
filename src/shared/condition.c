@@ -295,7 +295,7 @@ static int condition_test_needs_update(Condition *c) {
                 return false;
 
         /* Any other failure means we should allow the condition to be true,
-         * so that we rather invoke too many update tools then too
+         * so that we rather invoke too many update tools than too
          * few. */
 
         if (!path_is_absolute(c->parameter))

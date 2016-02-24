@@ -82,7 +82,7 @@ enum {
 struct DnsResourceKey {
         unsigned n_ref; /* (unsigned -1) for const keys, see below */
         uint16_t class, type;
-        char *_name; /* don't access directy, use dns_resource_key_name()! */
+        char *_name; /* don't access directly, use dns_resource_key_name()! */
 };
 
 /* Creates a temporary resource key. This is only useful to quickly
