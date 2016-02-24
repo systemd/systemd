@@ -306,6 +306,8 @@ struct Manager {
 #define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
 #define MANAGER_IS_USER(m) ((m)->unit_file_scope != UNIT_FILE_SYSTEM)
 
+#define MANAGER_IS_RELOADING(m) ((m)->n_reloading > 0)
+
 int manager_new(UnitFileScope scope, bool test_run, Manager **m);
 Manager* manager_free(Manager *m);
 
@@ -343,8 +345,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root);
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
 
 int manager_reload(Manager *m);
-
-bool manager_is_reloading_or_reexecuting(Manager *m) _pure_;
 
 void manager_reset_failed(Manager *m);
 

@@ -137,7 +137,7 @@ void job_uninstall(Job *j) {
         /* Detach from next 'bigger' objects */
 
         /* daemon-reload should be transparent to job observers */
-        if (j->manager->n_reloading <= 0)
+        if (!MANAGER_IS_RELOADING(j->manager))
                 bus_job_send_removed_signal(j);
 
         *pj = NULL;

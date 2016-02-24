@@ -2115,7 +2115,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
         /* Don't generate audit events if the service was already
          * started and we're just deserializing */
-        if (m->n_reloading > 0)
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         if (u->type != UNIT_SERVICE)
@@ -2149,7 +2149,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         /* Don't generate plymouth events if the service was already
          * started and we're just deserializing */
-        if (m->n_reloading > 0)
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         if (!MANAGER_IS_SYSTEM(m))
@@ -2572,12 +2572,6 @@ int manager_reload(Manager *m) {
         return r;
 }
 
-bool manager_is_reloading_or_reexecuting(Manager *m) {
-        assert(m);
-
-        return m->n_reloading != 0;
-}
-
 void manager_reset_failed(Manager *m) {
         Unit *u;
         Iterator i;
@@ -2674,7 +2668,7 @@ static void manager_notify_finished(Manager *m) {
 void manager_check_finished(Manager *m) {
         assert(m);
 
-        if (m->n_reloading > 0)
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         /* Verify that we are actually running currently. Initially

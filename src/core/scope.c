@@ -138,7 +138,7 @@ static int scope_verify(Scope *s) {
                 return 0;
 
         if (set_isempty(UNIT(s)->pids) &&
-            !manager_is_reloading_or_reexecuting(UNIT(s)->manager) &&
+            !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
             !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
                 log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
                 return -EINVAL;
@@ -154,7 +154,7 @@ static int scope_load(Unit *u) {
         assert(s);
         assert(u->load_state == UNIT_STUB);
 
-        if (!u->transient && !manager_is_reloading_or_reexecuting(u->manager))
+        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
                 return -ENOENT;
 
         u->load_state = UNIT_LOADED;
@@ -292,7 +292,7 @@ static int scope_start(Unit *u) {
 
         assert(s->state == SCOPE_DEAD);
 
-        if (!u->transient && !manager_is_reloading_or_reexecuting(u->manager))
+        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
                 return -ENOENT;
 
         (void) unit_realize_cgroup(u);

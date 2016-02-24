@@ -920,7 +920,7 @@ static void service_set_state(Service *s, ServiceState state) {
 
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
-        if (state == SERVICE_EXITED && UNIT(s)->manager->n_reloading <= 0)
+        if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(UNIT(s)->manager))
                 unit_prune_cgroup(UNIT(s));
 
         /* For remain_after_exit services, let's see if we can "release" the

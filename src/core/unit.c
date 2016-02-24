@@ -483,7 +483,7 @@ void unit_free(Unit *u) {
 
         assert(u);
 
-        if (u->manager->n_reloading <= 0)
+        if (!MANAGER_IS_RELOADING(u->manager))
                 unit_remove_transient(u);
 
         bus_unit_send_removed_signal(u);
@@ -1834,7 +1834,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         m = u->manager;
 
         /* Update timestamps for state changes */
-        if (m->n_reloading <= 0) {
+        if (!MANAGER_IS_RELOADING(m)) {
                 dual_timestamp_get(&u->state_change_timestamp);
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
@@ -1941,7 +1941,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         } else
                 unexpected = true;
 
-        if (m->n_reloading <= 0) {
+        if (!MANAGER_IS_RELOADING(m)) {
 
                 /* If this state change happened without being
                  * requested by a job, then let's retroactively start
@@ -1978,7 +1978,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (u->type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
-                    m->n_reloading <= 0) {
+                    !MANAGER_IS_RELOADING(m)) {
                         /* Write audit record if we have just finished starting up */
                         manager_send_unit_audit(m, u, AUDIT_SERVICE_START, true);
                         u->in_audit = true;
@@ -1995,7 +1995,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (u->type == UNIT_SERVICE &&
                     UNIT_IS_INACTIVE_OR_FAILED(ns) &&
                     !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    m->n_reloading <= 0) {
+                    !MANAGER_IS_RELOADING(m)) {
 
                         /* Hmm, if there was no start record written
                          * write it now, so that we always have a nice
@@ -2016,7 +2016,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         manager_recheck_journal(m);
         unit_trigger_notify(u);
 
-        if (u->manager->n_reloading <= 0) {
+        if (!MANAGER_IS_RELOADING(u->manager)) {
                 /* Maybe we finished startup and are now ready for
                  * being stopped because unneeded? */
                 unit_check_unneeded(u);
