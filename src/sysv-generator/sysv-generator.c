@@ -806,7 +806,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         if (hashmap_contains(all_services, name))
                                 continue;
 
-                        r = unit_file_lookup_state(UNIT_FILE_SYSTEM, NULL, lp, name, NULL);
+                        r = unit_file_lookup_state(UNIT_FILE_SYSTEM, lp, name, NULL);
                         if (r < 0 && r != -ENOENT) {
                                 log_debug_errno(r, "Failed to detect whether %s exists, skipping: %m", name);
                                 continue;

@@ -37,6 +37,9 @@ struct LookupPaths {
         char *generator;
         char *generator_early;
         char *generator_late;
+
+        /* The root directory prepended to all items above, or NULL */
+        char *root_dir;
 };
 
 int user_config_home(char **config_home);

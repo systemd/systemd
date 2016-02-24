@@ -28,6 +28,7 @@
 #include "macro.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -359,9 +360,6 @@ static int patch_root_prefix(char **p, const char *root_dir) {
         if (!*p)
                 return 0;
 
-        if (isempty(root_dir) || path_equal(root_dir, "/"))
-                return 0;
-
         c = prefix_root(root_dir, *p);
         if (!c)
                 return -ENOMEM;
@@ -377,7 +375,9 @@ int lookup_paths_init(
                 UnitFileScope scope,
                 const char *root_dir) {
 
-        _cleanup_free_ char *generator = NULL, *generator_early = NULL, *generator_late = NULL,
+        _cleanup_free_ char
+                *root = NULL,
+                *generator = NULL, *generator_early = NULL, *generator_late = NULL,
                 *persistent_config = NULL, *runtime_config = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         char **l = NULL;
@@ -387,6 +387,21 @@ int lookup_paths_init(
         assert(p);
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        if (!isempty(root_dir) && !path_equal(root_dir, "/")) {
+                if (scope == UNIT_FILE_USER)
+                        return -EINVAL;
+
+                r = is_dir(root_dir, true);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOTDIR;
+
+                root = strdup(root_dir);
+                if (!root)
+                        return -ENOMEM;
+        }
 
         r = acquire_config_dirs(scope, &persistent_config, &runtime_config);
         if (r < 0)
@@ -492,24 +507,24 @@ int lookup_paths_init(
                 }
         }
 
-        r = patch_root_prefix(&persistent_config, root_dir);
+        r = patch_root_prefix(&persistent_config, root);
         if (r < 0)
                 return r;
-        r = patch_root_prefix(&runtime_config, root_dir);
-        if (r < 0)
-                return r;
-
-        r = patch_root_prefix(&generator, root_dir);
-        if (r < 0)
-                return r;
-        r = patch_root_prefix(&generator_early, root_dir);
-        if (r < 0)
-                return r;
-        r = patch_root_prefix(&generator_late, root_dir);
+        r = patch_root_prefix(&runtime_config, root);
         if (r < 0)
                 return r;
 
-        if (!path_strv_resolve_uniq(l, root_dir))
+        r = patch_root_prefix(&generator, root);
+        if (r < 0)
+                return r;
+        r = patch_root_prefix(&generator_early, root);
+        if (r < 0)
+                return r;
+        r = patch_root_prefix(&generator_late, root);
+        if (r < 0)
+                return r;
+
+        if (!path_strv_resolve_uniq(l, root))
                 return -ENOMEM;
 
         if (strv_isempty(l)) {
@@ -537,6 +552,9 @@ int lookup_paths_init(
         p->generator_late = generator_late;
         generator = generator_early = generator_late = NULL;
 
+        p->root_dir = root;
+        root = NULL;
+
         return 0;
 }
 
@@ -552,4 +570,6 @@ void lookup_paths_free(LookupPaths *p) {
         p->generator = mfree(p->generator);
         p->generator_early = mfree(p->generator_early);
         p->generator_late = mfree(p->generator_late);
+
+        p->root_dir = mfree(p->root_dir);
 }
