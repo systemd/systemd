@@ -65,7 +65,7 @@ typedef struct {
         OrderedHashmap *have_processed;
 } InstallContext;
 
-static int in_search_path(const char *path, char **search) {
+static int in_search_path(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
         char **i;
 
@@ -75,7 +75,7 @@ static int in_search_path(const char *path, char **search) {
         if (!parent)
                 return -ENOMEM;
 
-        STRV_FOREACH(i, search)
+        STRV_FOREACH(i, p->search_path)
                 if (path_equal(parent, *i))
                         return true;
 
@@ -1294,7 +1294,7 @@ static int install_info_symlink_link(
         assert(config_path);
         assert(i->path);
 
-        r = in_search_path(i->path, paths->search_path);
+        r = in_search_path(paths, i->path);
         if (r != 0)
                 return r;
 
@@ -1622,7 +1622,7 @@ int unit_file_link(
                 if (!S_ISREG(st.st_mode))
                         return -ENOTTY;
 
-                q = in_search_path(*i, paths.search_path);
+                q = in_search_path(&paths, *i);
                 if (q < 0)
                         return q;
                 if (q > 0)
