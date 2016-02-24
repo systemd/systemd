@@ -118,6 +118,22 @@ static int path_is_config(const LookupPaths *p, const char *path) {
                 path_equal(parent, p->runtime_config);
 }
 
+static int path_is_runtime(const LookupPaths *p, const char *path) {
+        _cleanup_free_ char *parent = NULL;
+
+        assert(p);
+        assert(path);
+
+        if (path_startswith(path, "/run"))
+                return true;
+
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
+
+        return path_equal(parent, p->runtime_config);
+}
+
 static int verify_root_dir(UnitFileScope scope, const char **root_dir) {
         int r;
 
@@ -1950,7 +1966,11 @@ int unit_file_lookup_state(
         switch (i->type) {
 
         case UNIT_FILE_TYPE_MASKED:
-                state = path_startswith(i->path, "/run") ? UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
+                r = path_is_runtime(paths, i->path);
+                if (r < 0)
+                        return r;
+
+                state = r > 0 ? UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
                 break;
 
         case UNIT_FILE_TYPE_REGULAR:
