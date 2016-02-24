@@ -52,8 +52,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
         int r;
 
         if (section) {
-                route = hashmap_get(network->routes_by_section,
-                                    UINT_TO_PTR(section));
+                route = hashmap_get(network->routes_by_section, UINT_TO_PTR(section));
                 if (route) {
                         *ret = route;
                         route = NULL;
@@ -67,15 +66,17 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                 return r;
 
         route->protocol = RTPROT_STATIC;
-        route->network = network;
-
-        LIST_PREPEND(routes, network->static_routes, route);
 
         if (section) {
+                r = hashmap_put(network->routes_by_section, UINT_TO_PTR(route->section), route);
+                if (r < 0)
+                        return r;
+
                 route->section = section;
-                hashmap_put(network->routes_by_section,
-                            UINT_TO_PTR(route->section), route);
         }
+
+        LIST_PREPEND(routes, network->static_routes, route);
+        route->network = network;
 
         *ret = route;
         route = NULL;
