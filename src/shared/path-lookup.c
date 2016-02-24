@@ -451,6 +451,7 @@ int lookup_paths_init(
                                          * systemdsystemunitpath= in systemd.pc.in! */
                                         STRV_IFNOTNULL(generator_early),
                                         persistent_config,
+                                        SYSTEM_CONFIG_UNIT_PATH,
                                         "/etc/systemd/system",
                                         runtime_config,
                                         "/run/systemd/system",
@@ -472,6 +473,7 @@ int lookup_paths_init(
                                          * the arrays in user_dirs() above! */
                                         STRV_IFNOTNULL(generator_early),
                                         persistent_config,
+                                        USER_CONFIG_UNIT_PATH,
                                         "/etc/systemd/user",
                                         runtime_config,
                                         "/run/systemd/user",
