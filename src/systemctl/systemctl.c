@@ -4780,34 +4780,6 @@ static int show(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int init_home_and_lookup_paths(char **user_home, char **user_runtime, LookupPaths *lp) {
-        int r;
-
-        assert(user_home);
-        assert(user_runtime);
-        assert(lp);
-
-        if (arg_scope == UNIT_FILE_USER) {
-                r = user_config_home(user_home);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
-                else if (r == 0)
-                        return log_error_errno(ENOTDIR, "Cannot find units: $XDG_CONFIG_HOME and $HOME are not set.");
-
-                r = user_runtime_dir(user_runtime);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
-                else if (r == 0)
-                        return log_error_errno(ENOTDIR, "Cannot find units: $XDG_RUNTIME_DIR is not set.");
-        }
-
-        r = lookup_paths_init_from_scope(lp, arg_scope, arg_root);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query unit lookup paths: %m");
-
-        return 0;
-}
-
 static int cat_file(const char *filename, bool newline) {
         _cleanup_close_ int fd;
 
@@ -4826,8 +4798,6 @@ static int cat_file(const char *filename, bool newline) {
 }
 
 static int cat(int argc, char *argv[], void *userdata) {
-        _cleanup_free_ char *user_home = NULL;
-        _cleanup_free_ char *user_runtime = NULL;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         char **name;
@@ -4840,9 +4810,9 @@ static int cat(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        r = init_home_and_lookup_paths(&user_home, &user_runtime, &lp);
+        r = lookup_paths_init_from_scope(&lp, arg_scope, arg_root);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to determine unit paths: %m");
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -5901,49 +5871,29 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         return 0;
 }
 
-static int get_file_to_edit(const char *name, const char *user_home, const char *user_runtime, char **ret_path) {
-        _cleanup_free_ char *path = NULL, *path2 = NULL, *run = NULL;
+static int get_file_to_edit(
+                const LookupPaths *paths,
+                const char *name,
+                char **ret_path) {
+
+        _cleanup_free_ char *path = NULL, *run = NULL;
 
         assert(name);
         assert(ret_path);
 
-        switch (arg_scope) {
-                case UNIT_FILE_SYSTEM:
-                        path = path_join(arg_root, SYSTEM_CONFIG_UNIT_PATH, name);
-                        if (arg_runtime)
-                                run = path_join(arg_root, "/run/systemd/system/", name);
-                        break;
-                case UNIT_FILE_GLOBAL:
-                        path = path_join(arg_root, USER_CONFIG_UNIT_PATH, name);
-                        if (arg_runtime)
-                                run = path_join(arg_root, "/run/systemd/user/", name);
-                        break;
-                case UNIT_FILE_USER:
-                        assert(user_home);
-                        assert(user_runtime);
-
-                        path = path_join(arg_root, user_home, name);
-                        if (arg_runtime) {
-                                path2 = path_join(arg_root, USER_CONFIG_UNIT_PATH, name);
-                                if (!path2)
-                                        return log_oom();
-                                run = path_join(arg_root, user_runtime, name);
-                        }
-                        break;
-                default:
-                        assert_not_reached("Invalid scope");
-        }
-        if (!path || (arg_runtime && !run))
+        path = strjoin(paths->persistent_config, "/", name, NULL);
+        if (!path)
                 return log_oom();
+
+        if (arg_runtime) {
+                run = strjoin(paths->runtime_config, name, NULL);
+                if (!run)
+                        return log_oom();
+        }
 
         if (arg_runtime) {
                 if (access(path, F_OK) >= 0) {
                         log_error("Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.", run, path);
-                        return -EEXIST;
-                }
-
-                if (path2 && access(path2, F_OK) >= 0) {
-                        log_error("Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.", run, path2);
                         return -EEXIST;
                 }
 
@@ -5957,7 +5907,12 @@ static int get_file_to_edit(const char *name, const char *user_home, const char 
         return 0;
 }
 
-static int unit_file_create_dropin(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_new_path, char **ret_tmp_path) {
+static int unit_file_create_dropin(
+                const LookupPaths *paths,
+                const char *unit_name,
+                char **ret_new_path,
+                char **ret_tmp_path) {
+
         char *tmp_new_path, *tmp_tmp_path, *ending;
         int r;
 
@@ -5966,7 +5921,7 @@ static int unit_file_create_dropin(const char *unit_name, const char *user_home,
         assert(ret_tmp_path);
 
         ending = strjoina(unit_name, ".d/override.conf");
-        r = get_file_to_edit(ending, user_home, user_runtime, &tmp_new_path);
+        r = get_file_to_edit(paths, ending, &tmp_new_path);
         if (r < 0)
                 return r;
 
@@ -5983,10 +5938,9 @@ static int unit_file_create_dropin(const char *unit_name, const char *user_home,
 }
 
 static int unit_file_create_copy(
+                const LookupPaths *paths,
                 const char *unit_name,
                 const char *fragment_path,
-                const char *user_home,
-                const char *user_runtime,
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
@@ -5998,7 +5952,7 @@ static int unit_file_create_copy(
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        r = get_file_to_edit(unit_name, user_home, user_runtime, &tmp_new_path);
+        r = get_file_to_edit(paths, unit_name, &tmp_new_path);
         if (r < 0)
                 return r;
 
@@ -6113,8 +6067,6 @@ static int run_editor(char **paths) {
 }
 
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
-        _cleanup_free_ char *user_home = NULL;
-        _cleanup_free_ char *user_runtime = NULL;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
         char **name;
         int r;
@@ -6122,7 +6074,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         assert(names);
         assert(paths);
 
-        r = init_home_and_lookup_paths(&user_home, &user_runtime, &lp);
+        r = lookup_paths_init_from_scope(&lp, arg_scope, arg_root);
         if (r < 0)
                 return r;
 
@@ -6142,9 +6094,9 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 }
 
                 if (arg_full)
-                        r = unit_file_create_copy(*name, path, user_home, user_runtime, &new_path, &tmp_path);
+                        r = unit_file_create_copy(&lp, *name, path, &new_path, &tmp_path);
                 else
-                        r = unit_file_create_dropin(*name, user_home, user_runtime, &new_path, &tmp_path);
+                        r = unit_file_create_dropin(&lp, *name, &new_path, &tmp_path);
                 if (r < 0)
                         return r;
 
