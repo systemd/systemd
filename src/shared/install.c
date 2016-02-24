@@ -82,6 +82,20 @@ static int in_search_path(const char *path, char **search) {
         return false;
 }
 
+static int unit_file_is_generated(const LookupPaths *p, const char *path) {
+        _cleanup_free_ char *parent = NULL;
+
+        assert(path);
+
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
+
+        return path_equal(p->generator, parent) ||
+                path_equal(p->generator_early, parent) ||
+                path_equal(p->generator_late, parent);
+}
+
 static int get_config_path(UnitFileScope scope, bool runtime, const char *root_dir, char **ret) {
         char *p = NULL;
         int r;
@@ -2023,6 +2037,14 @@ int unit_file_lookup_state(
                 break;
 
         case UNIT_FILE_TYPE_REGULAR:
+                r = unit_file_is_generated(paths, i->path);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        state = UNIT_FILE_GENERATED;
+                        break;
+                }
+
                 r = find_symlinks_in_scope(scope, root_dir, i->name, &state);
                 if (r < 0)
                         return r;
@@ -2453,6 +2475,7 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_STATIC] = "static",
         [UNIT_FILE_DISABLED] = "disabled",
         [UNIT_FILE_INDIRECT] = "indirect",
+        [UNIT_FILE_GENERATED] = "generated",
         [UNIT_FILE_BAD] = "bad",
 };
 

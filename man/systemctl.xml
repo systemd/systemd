@@ -1168,22 +1168,27 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>static</literal></entry>
-                    <entry>The unit file is not enabled, and has no provisions for enabling in the <literal>[Install]</literal> section.</entry>
+                    <entry>The unit file is not enabled, and has no provisions for enabling in the <literal>[Install]</literal> unit file section.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> section, listing other unit files that might be enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>disabled</literal></entry>
-                    <entry>Unit file is not enabled, but contains an <literal>[Install]</literal> section with installation instructions.</entry>
+                    <entry>The unit file is not enabled, but contains an <literal>[Install]</literal> section with installation instructions.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                   <row>
+                    <entry><literal>generated</literal></entry>
+                    <entry>The unit file was generated dynamically via a generator tool. See <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Generated unit files may not be enabled, they are enabled implicitly by their generator.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
                     <entry><literal>bad</literal></entry>
-                    <entry>Unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
+                    <entry>The unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                 </tbody>

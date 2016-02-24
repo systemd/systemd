@@ -54,6 +54,7 @@ enum UnitFileState {
         UNIT_FILE_STATIC,
         UNIT_FILE_DISABLED,
         UNIT_FILE_INDIRECT,
+        UNIT_FILE_GENERATED,
         UNIT_FILE_BAD,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -1

@@ -5783,7 +5783,8 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                                    UNIT_FILE_ENABLED,
                                    UNIT_FILE_ENABLED_RUNTIME,
                                    UNIT_FILE_STATIC,
-                                   UNIT_FILE_INDIRECT))
+                                   UNIT_FILE_INDIRECT,
+                                   UNIT_FILE_GENERATED))
                                 enabled = true;
 
                         if (!arg_quiet)
@@ -5818,7 +5819,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "indirect"))
+                        if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "indirect", "generated"))
                                 enabled = true;
 
                         if (!arg_quiet)
@@ -5826,7 +5827,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        return !enabled;
+        return enabled ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static int is_system_running(int argc, char *argv[], void *userdata) {
