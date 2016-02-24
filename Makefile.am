@@ -1550,6 +1550,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-privatedevices-yes.service \
 	test/test-execute/exec-privatetmp-no.service \
 	test/test-execute/exec-privatetmp-yes.service \
+	test/test-execute/exec-spec-interpolation.service \
 	test/test-execute/exec-systemcallerrornumber.service \
 	test/test-execute/exec-systemcallfilter-failing2.service \
 	test/test-execute/exec-systemcallfilter-failing.service \
@@ -1571,6 +1572,11 @@ EXTRA_DIST += \
 	test/test-execute/exec-capabilityboundingset-merge.service \
 	test/test-execute/exec-capabilityboundingset-reset.service \
 	test/test-execute/exec-capabilityboundingset-simple.service \
+	test/test-execute/exec-capabilityambientset.service \
+	test/test-execute/exec-capabilityambientset-merge.service \
+	test/test-execute/exec-runtimedirectory.service \
+	test/test-execute/exec-runtimedirectory-mode.service \
+	test/test-execute/exec-runtimedirectory-owner.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
