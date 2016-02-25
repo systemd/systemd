@@ -53,14 +53,6 @@ static bool arg_no_pager = false;
 static bool arg_legend = true;
 static bool arg_all = false;
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret) {
         const char *t;
         char *p;
@@ -300,7 +292,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (arg_legend)
                 printf("%3s %-16s %-18s %-11s %-10s\n",
@@ -854,7 +846,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -950,7 +942,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (arg_legend)
                 printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",

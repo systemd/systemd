@@ -225,14 +225,6 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         return 0;
 }
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(arg_pager_end);
-}
-
 static char *format_timestamp_maybe_utc(char *buf, size_t l, usec_t t) {
 
         if (arg_utc)
@@ -278,7 +270,7 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
 
 static void help(void) {
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, arg_pager_end);
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
@@ -1183,7 +1175,7 @@ static int list_boots(sd_journal *j) {
         if (count == 0)
                 return count;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, arg_pager_end);
 
         /* numbers are one less, but we need an extra char for the sign */
         w = DECIMAL_STR_WIDTH(count - 1) + 1;
@@ -2061,7 +2053,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
-                        pager_open_if_enabled();
+                        pager_open(arg_no_pager, arg_pager_end);
 
                         if (optind < argc)
                                 r = catalog_list_items(stdout, database, oneline, argv + optind);
@@ -2368,7 +2360,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (!arg_follow)
-                pager_open_if_enabled();
+                pager_open(arg_no_pager, arg_pager_end);
 
         if (!arg_quiet) {
                 usec_t start, end;

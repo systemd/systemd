@@ -80,14 +80,6 @@ static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
@@ -135,7 +127,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                                 bus,
@@ -238,7 +230,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                                 bus,
@@ -707,7 +699,7 @@ static int show_machine(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (properties && argc <= 1) {
 
@@ -956,7 +948,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         if (argc <= 1) {
 
@@ -2189,7 +2181,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         double progress;
         int r;
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                                 bus,

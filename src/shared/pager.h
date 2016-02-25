@@ -23,7 +23,7 @@
 
 #include "macro.h"
 
-int pager_open(bool jump_to_end);
+int pager_open(bool no_pager, bool jump_to_end);
 void pager_close(void);
 bool pager_have(void) _pure_;
 

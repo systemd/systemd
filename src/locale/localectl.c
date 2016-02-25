@@ -46,14 +46,6 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_convert = true;
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
@@ -239,7 +231,7 @@ static int list_locales(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of locales: %m");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
         strv_print(l);
 
         return 0;
@@ -341,7 +333,7 @@ static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
 
         strv_sort(l);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         strv_print(l);
 
@@ -479,7 +471,7 @@ static int list_x11_keymaps(sd_bus *bus, char **args, unsigned n) {
         strv_sort(list);
         strv_uniq(list);
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
 
         strv_print(list);
         return 0;

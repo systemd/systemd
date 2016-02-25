@@ -40,14 +40,6 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_adjust_system_clock = false;
 
-static void pager_open_if_enabled(void) {
-
-        if (arg_no_pager)
-                return;
-
-        pager_open(false);
-}
-
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
@@ -313,7 +305,7 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of time zones: %m");
 
-        pager_open_if_enabled();
+        pager_open(arg_no_pager, false);
         strv_print(zones);
 
         return 0;
