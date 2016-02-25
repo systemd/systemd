@@ -418,13 +418,22 @@ static void unit_remove_transient(Unit *u) {
                 (void) unlink(u->fragment_path);
 
         STRV_FOREACH(i, u->dropin_paths) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = NULL, *pp = NULL;
+
+                p = dirname_malloc(*i); /* Get the drop-in directory from the drop-in file */
+                if (!p)
+                        continue;
+
+                pp = dirname_malloc(p); /* Get the config directory from the drop-in directory */
+                if (!pp)
+                        continue;
+
+                /* Only drop transient drop-ins */
+                if (!path_equal(u->manager->lookup_paths.transient, pp))
+                        continue;
 
                 (void) unlink(*i);
-
-                p = dirname_malloc(*i);
-                if (p)
-                        (void) rmdir(p);
+                (void) rmdir(p);
         }
 }
 
@@ -3315,35 +3324,24 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
         return *(ExecRuntime**) ((uint8_t*) u + offset);
 }
 
-static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
+static const char* unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode) {
         assert(u);
 
-        if (MANAGER_IS_USER(u->manager)) {
-                int r;
+        if (u->transient) /* Redirect drop-ins for transient units always into the transient directory. */
+                return u->manager->lookup_paths.transient;
 
-                if (mode == UNIT_PERSISTENT && !transient)
-                        r = user_config_home(dir);
-                else
-                        r = user_runtime_dir(dir);
-                if (r == 0)
-                        return -ENOENT;
+        if (mode == UNIT_RUNTIME)
+                return u->manager->lookup_paths.runtime_config;
 
-                return r;
-        }
+        if (mode == UNIT_PERSISTENT)
+                return u->manager->lookup_paths.persistent_config;
 
-        if (mode == UNIT_PERSISTENT && !transient)
-                *dir = strdup("/etc/systemd/system");
-        else
-                *dir = strdup("/run/systemd/system");
-        if (!*dir)
-                return -ENOMEM;
-
-        return 0;
+        return NULL;
 }
 
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
-
-        _cleanup_free_ char *dir = NULL, *p = NULL, *q = NULL;
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        const char *dir;
         int r;
 
         assert(u);
@@ -3351,9 +3349,9 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        r = unit_drop_in_dir(u, mode, u->transient, &dir);
-        if (r < 0)
-                return r;
+        dir = unit_drop_in_dir(u, mode);
+        if (!dir)
+                return -EINVAL;
 
         r = write_drop_in(dir, u->id, 50, name, data);
         if (r < 0)
@@ -3398,7 +3396,7 @@ int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *n
 }
 
 int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
-        _cleanup_free_ char *ndata = NULL;
+        const char *ndata;
 
         assert(u);
         assert(name);
@@ -3410,9 +3408,7 @@ int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        ndata = strjoin("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
-        if (!ndata)
-                return -ENOMEM;
+        ndata = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
 
         return unit_write_drop_in(u, mode, name, ndata);
 }

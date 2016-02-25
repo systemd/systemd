@@ -111,7 +111,8 @@ static char** user_dirs(
                 const char *runtime_config,
                 const char *generator,
                 const char *generator_early,
-                const char *generator_late) {
+                const char *generator_late,
+                const char *transient) {
 
         const char * const config_unit_paths[] = {
                 USER_CONFIG_UNIT_PATH,
@@ -172,6 +173,10 @@ static char** user_dirs(
                 return NULL;
 
         /* Now merge everything we found. */
+        if (transient)
+                if (strv_extend(&res, transient) < 0)
+                        return NULL;
+
         if (generator_early)
                 if (strv_extend(&res, generator_early) < 0)
                         return NULL;
@@ -305,6 +310,42 @@ static int acquire_generator_dirs(
         return 0;
 }
 
+static int acquire_transient_dir(UnitFileScope scope, char **ret) {
+        char *transient;
+
+        assert(ret);
+
+        switch (scope) {
+
+        case UNIT_FILE_SYSTEM:
+                transient = strdup("/run/systemd/transient");
+                break;
+
+        case UNIT_FILE_USER: {
+                const char *e;
+
+                e = getenv("XDG_RUNTIME_DIR");
+                if (!e)
+                        return -ENXIO;
+
+                transient = strjoin(e, "/systemd/transient", NULL);
+                break;
+        }
+
+        case UNIT_FILE_GLOBAL:
+                return -EOPNOTSUPP;
+
+        default:
+                assert_not_reached("Hmm, unexpected scope value.");
+        }
+
+        if (!transient)
+                return -ENOMEM;
+
+        *ret = transient;
+        return 0;
+}
+
 static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **runtime) {
         _cleanup_free_ char *a = NULL, *b = NULL;
         int r;
@@ -377,8 +418,9 @@ int lookup_paths_init(
 
         _cleanup_free_ char
                 *root = NULL,
+                *persistent_config = NULL, *runtime_config = NULL,
                 *generator = NULL, *generator_early = NULL, *generator_late = NULL,
-                *persistent_config = NULL, *runtime_config = NULL;
+                *transient = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         char **l = NULL;
         const char *e;
@@ -408,6 +450,10 @@ int lookup_paths_init(
                 return r;
 
         r = acquire_generator_dirs(scope, &generator, &generator_early, &generator_late);
+        if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
+                return r;
+
+        r = acquire_transient_dir(scope, &transient);
         if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
                 return r;
 
@@ -449,6 +495,7 @@ int lookup_paths_init(
                         add = strv_new(
                                         /* If you modify this you also want to modify
                                          * systemdsystemunitpath= in systemd.pc.in! */
+                                        STRV_IFNOTNULL(transient),
                                         STRV_IFNOTNULL(generator_early),
                                         persistent_config,
                                         SYSTEM_CONFIG_UNIT_PATH,
@@ -471,6 +518,7 @@ int lookup_paths_init(
                                         /* If you modify this you also want to modify
                                          * systemduserunitpath= in systemd.pc.in, and
                                          * the arrays in user_dirs() above! */
+                                        STRV_IFNOTNULL(transient),
                                         STRV_IFNOTNULL(generator_early),
                                         persistent_config,
                                         USER_CONFIG_UNIT_PATH,
@@ -489,7 +537,8 @@ int lookup_paths_init(
 
                 case UNIT_FILE_USER:
                         add = user_dirs(persistent_config, runtime_config,
-                                        generator, generator_early, generator_late);
+                                        generator, generator_early, generator_late,
+                                        transient);
                         break;
 
                 default:
@@ -526,6 +575,10 @@ int lookup_paths_init(
         if (r < 0)
                 return r;
 
+        r = patch_root_prefix(&transient, root);
+        if (r < 0)
+                return r;
+
         if (!path_strv_resolve_uniq(l, root))
                 return -ENOMEM;
 
@@ -554,6 +607,9 @@ int lookup_paths_init(
         p->generator_late = generator_late;
         generator = generator_early = generator_late = NULL;
 
+        p->transient = transient;
+        transient = NULL;
+
         p->root_dir = root;
         root = NULL;
 
@@ -572,6 +628,8 @@ void lookup_paths_free(LookupPaths *p) {
         p->generator = mfree(p->generator);
         p->generator_early = mfree(p->generator_early);
         p->generator_late = mfree(p->generator_late);
+
+        p->transient = mfree(p->transient);
 
         p->root_dir = mfree(p->root_dir);
 }

@@ -38,6 +38,9 @@ struct LookupPaths {
         char *generator_early;
         char *generator_late;
 
+        /* Where to place transient unit files */
+        char *transient;
+
         /* The root directory prepended to all items above, or NULL */
         char *root_dir;
 };

@@ -63,6 +63,7 @@
 #include "manager.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -1105,6 +1106,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         assert(m);
 
         r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, NULL);
+        if (r < 0)
+                return r;
+
+        /* Make sure the transient directory always exists, so that it remains in the search path */
+        r = mkdir_p_label(m->lookup_paths.transient, 0755);
         if (r < 0)
                 return r;
 
