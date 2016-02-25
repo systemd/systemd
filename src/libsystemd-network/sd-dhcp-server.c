@@ -280,10 +280,11 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
 }
 
 static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
+                                uint16_t destination_port,
                                 DHCPMessage *message, size_t len) {
         union sockaddr_union dest = {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(DHCP_PORT_CLIENT),
+                .in.sin_port = htobe16(destination_port),
                 .in.sin_addr.s_addr = destination,
         };
         struct iovec iov = {
@@ -342,6 +343,7 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                             DHCPRequest *req, DHCPPacket *packet,
                             int type, size_t optoffset) {
         be32_t destination = INADDR_ANY;
+        uint16_t destination_port = DHCP_PORT_CLIENT;
         int r;
 
         assert(server);
@@ -386,17 +388,19 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
          */
         if (req->message->giaddr) {
                 destination = req->message->giaddr;
+                destination_port = DHCP_PORT_SERVER;
                 if (type == DHCP_NAK)
                         packet->dhcp.flags = htobe16(0x8000);
         } else if (req->message->ciaddr && type != DHCP_NAK)
                 destination = req->message->ciaddr;
 
         if (destination != INADDR_ANY)
-                return dhcp_server_send_udp(server, destination, &packet->dhcp,
+                return dhcp_server_send_udp(server, destination,
+                                            destination_port, &packet->dhcp,
                                             sizeof(DHCPMessage) + optoffset);
         else if (requested_broadcast(req) || type == DHCP_NAK)
                 return dhcp_server_send_udp(server, INADDR_BROADCAST,
-                                            &packet->dhcp,
+                                            destination_port, &packet->dhcp,
                                             sizeof(DHCPMessage) + optoffset);
         else
                 /* we cannot send UDP packet to specific MAC address when the
@@ -579,7 +583,8 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
 
         memcpy(&packet->dhcp.chaddr, chaddr, ETH_ALEN);
 
-        r = dhcp_server_send_udp(server, address, &packet->dhcp,
+        r = dhcp_server_send_udp(server, address, DHCP_PORT_CLIENT,
+                                 &packet->dhcp,
                                  sizeof(DHCPMessage) + optoffset);
         if (r < 0)
                 return r;
