@@ -1,8 +1,7 @@
 ### Submission type
 
-[ ] Bug report
-
-[ ] Request for enhancement (RFE)
+  - [ ] Bug report
+  - [ ] Request for enhancement (RFE)
 
 *NOTE: Do not submit anything other than bug reports or RFEs via the issue tracker!*
 
