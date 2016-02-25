@@ -86,6 +86,7 @@ typedef struct JournalFile {
         bool seal:1;
         bool defrag_on_close:1;
         bool close_fd:1;
+        bool archive:1;
 
         bool tail_entry_monotonic_valid:1;
 
