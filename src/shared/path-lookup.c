@@ -412,6 +412,22 @@ static int patch_root_prefix(char **p, const char *root_dir) {
         return 0;
 }
 
+static int patch_root_prefix_strv(char **l, const char *root_dir) {
+        char **i;
+        int r;
+
+        if (!root_dir)
+                return 0;
+
+        STRV_FOREACH(i, l) {
+                r = patch_root_prefix(i, root_dir);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int lookup_paths_init(
                 LookupPaths *p,
                 UnitFileScope scope,
@@ -579,23 +595,11 @@ int lookup_paths_init(
         if (r < 0)
                 return r;
 
-        if (!path_strv_resolve_uniq(l, root))
+        r = patch_root_prefix_strv(l, root);
+        if (r < 0)
                 return -ENOMEM;
 
-        if (strv_isempty(l)) {
-                log_debug("Ignoring unit files.");
-                l = strv_free(l);
-        } else {
-                _cleanup_free_ char *t;
-
-                t = strv_join(l, "\n\t");
-                if (!t)
-                        return -ENOMEM;
-
-                log_debug("Looking for unit files in (higher priority first):\n\t%s", t);
-        }
-
-        p->search_path = l;
+        p->search_path = strv_uniq(l);
         l = NULL;
 
         p->persistent_config = persistent_config;
@@ -632,6 +636,79 @@ void lookup_paths_free(LookupPaths *p) {
         p->transient = mfree(p->transient);
 
         p->root_dir = mfree(p->root_dir);
+}
+
+int lookup_paths_reduce(LookupPaths *p) {
+        _cleanup_free_ struct stat *stats = NULL;
+        size_t n_stats = 0, allocated = 0;
+        unsigned c = 0;
+        int r;
+
+        assert(p);
+
+        /* Drop duplicates and non-existing directories from the search path. We figure out whether two directories are
+         * the same by comparing their device and inode numbers. Note one special tweak: when we have a root path set,
+         * we do not follow symlinks when retrieving them, because the kernel wouldn't take the root prefix into
+         * account when following symlinks. When we have no root path set this restriction does not apply however. */
+
+        if (!p->search_path)
+                return 0;
+
+        while (p->search_path[c]) {
+                struct stat st;
+                unsigned k;
+
+                if (p->root_dir)
+                        r = lstat(p->search_path[c], &st);
+                else
+                        r = stat(p->search_path[c], &st);
+                if (r < 0) {
+                        if (errno == ENOENT)
+                                goto remove_item;
+
+                        /* If something we don't grok happened, let's better leave it in. */
+                        log_debug_errno(errno, "Failed to stat %s: %m", p->search_path[c]);
+                        c++;
+                        continue;
+                }
+
+                for (k = 0; k < n_stats; k++) {
+                        if (stats[k].st_dev == st.st_dev &&
+                            stats[k].st_ino == st.st_ino)
+                                break;
+                }
+
+                if (k < n_stats) /* Is there already an entry with the same device/inode? */
+                        goto remove_item;
+
+                if (!GREEDY_REALLOC(stats, allocated, n_stats+1))
+                        return -ENOMEM;
+
+                stats[n_stats++] = st;
+                c++;
+                continue;
+
+        remove_item:
+                free(p->search_path[c]);
+                memmove(p->search_path + c,
+                        p->search_path + c + 1,
+                        (strv_length(p->search_path + c + 1) + 1) * sizeof(char*));
+        }
+
+        if (strv_isempty(p->search_path)) {
+                log_debug("Ignoring unit files.");
+                p->search_path = strv_free(p->search_path);
+        } else {
+                _cleanup_free_ char *t;
+
+                t = strv_join(p->search_path, "\n\t");
+                if (!t)
+                        return -ENOMEM;
+
+                log_debug("Looking for unit files in (higher priority first):\n\t%s", t);
+        }
+
+        return 0;
 }
 
 int lookup_paths_mkdir_generator(LookupPaths *p) {

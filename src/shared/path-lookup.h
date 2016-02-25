@@ -52,6 +52,8 @@ char **generator_paths(UnitFileScope scope);
 
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, const char *root_dir);
 
+int lookup_paths_reduce(LookupPaths *p);
+
 int lookup_paths_mkdir_generator(LookupPaths *p);
 void lookup_paths_trim_generator(LookupPaths *p);
 

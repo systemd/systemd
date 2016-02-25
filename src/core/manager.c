@@ -1120,6 +1120,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
         /* If we will deserialize make sure that during enumeration
@@ -2540,6 +2541,7 @@ int manager_reload(Manager *m) {
         if (q < 0 && r >= 0)
                 r = q;
 
+        lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */

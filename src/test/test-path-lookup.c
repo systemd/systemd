@@ -36,8 +36,8 @@ static void test_paths(UnitFileScope scope) {
         assert_se(mkdtemp(template));
 
         assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
-        assert_se(lookup_paths_init(&lp_without_env, scope, NULL) == 0);
-
+        assert_se(lookup_paths_init(&lp_without_env, scope, NULL) >= 0);
+        assert_se(lookup_paths_reduce(&lp_without_env) >= 0);
         assert_se(!strv_isempty(lp_without_env.search_path));
 
         systemd_unit_path = strjoina(template, "/systemd-unit-path");
@@ -45,6 +45,8 @@ static void test_paths(UnitFileScope scope) {
         assert_se(lookup_paths_init(&lp_with_env, scope, NULL) == 0);
         assert_se(strv_length(lp_with_env.search_path) == 1);
         assert_se(streq(lp_with_env.search_path[0], systemd_unit_path));
+        assert_se(lookup_paths_reduce(&lp_with_env) >= 0);
+        assert_se(strv_length(lp_with_env.search_path) == 0);
 
         assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
