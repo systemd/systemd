@@ -26,6 +26,7 @@
 #include "install.h"
 #include "log.h"
 #include "macro.h"
+#include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -457,8 +458,7 @@ int lookup_paths_init(
         if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
                 return r;
 
-        /* First priority is whatever has been passed to us via env
-         * vars */
+        /* First priority is whatever has been passed to us via env vars */
         e = getenv("SYSTEMD_UNIT_PATH");
         if (e) {
                 const char *k;
@@ -632,4 +632,37 @@ void lookup_paths_free(LookupPaths *p) {
         p->transient = mfree(p->transient);
 
         p->root_dir = mfree(p->root_dir);
+}
+
+int lookup_paths_mkdir_generator(LookupPaths *p) {
+        int r, q;
+
+        assert(p);
+
+        r = mkdir_p_label(p->generator, 0755);
+
+        q = mkdir_p_label(p->generator_early, 0755);
+        if (q < 0 && r >= 0)
+                r = q;
+
+        q = mkdir_p_label(p->generator_late, 0755);
+        if (q < 0 && r >= 0)
+                r = q;
+
+        return r;
+}
+
+void lookup_paths_trim_generator(LookupPaths *p) {
+        assert(p);
+
+        /* Trim empty dirs */
+
+        if (p->generator)
+                (void) rmdir(p->generator);
+
+        if (p->generator_early)
+                (void) rmdir(p->generator_early);
+
+        if (p->generator_late)
+                (void) rmdir(p->generator_late);
 }

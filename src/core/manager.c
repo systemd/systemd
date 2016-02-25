@@ -2737,15 +2737,7 @@ static int manager_run_generators(Manager *m) {
         return 0;
 
  found:
-        r = mkdir_p_label(m->lookup_paths.generator, 0755);
-        if (r < 0)
-                goto finish;
-
-        r = mkdir_p_label(m->lookup_paths.generator_early, 0755);
-        if (r < 0)
-                goto finish;
-
-        r = mkdir_p_label(m->lookup_paths.generator_late, 0755);
+        r = lookup_paths_mkdir_generator(&m->lookup_paths);
         if (r < 0)
                 goto finish;
 
@@ -2759,10 +2751,7 @@ static int manager_run_generators(Manager *m) {
                 execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, (char**) argv);
 
 finish:
-        /* Trim empty dirs */
-        (void) rmdir(m->lookup_paths.generator);
-        (void) rmdir(m->lookup_paths.generator_early);
-        (void) rmdir(m->lookup_paths.generator_late);
+        lookup_paths_trim_generator(&m->lookup_paths);
         return r;
 }
 
