@@ -11,7 +11,7 @@ SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*|3270
 KERNEL=="vport*", TAG+="systemd"
 
 SUBSYSTEM=="block", TAG+="systemd"
-SUBSYSTEM=="block", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
+SUBSYSTEM=="block", ACTION=="add", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
 
 # Ignore encrypted devices with no identified superblock on it, since
 # we are probably still calling mke2fs or mkswap on it.
