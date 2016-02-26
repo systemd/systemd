@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 
         r = loopback_setup();
         if (r < 0)
-                fprintf(stderr, "loopback: %s\n", strerror(-r));
+                log_error("loopback: %m");
 
-        return 0;
+        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

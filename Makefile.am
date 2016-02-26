@@ -1387,7 +1387,6 @@ EXTRA_DIST += \
 
 manual_tests += \
 	test-ns \
-	test-loopback \
 	test-hostname \
 	test-daemon \
 	test-cgroup \
@@ -1411,6 +1410,7 @@ manual_tests += \
 endif
 
 tests += \
+	test-loopback \
 	test-engine \
 	test-cgroup-mask \
 	test-job-type \
