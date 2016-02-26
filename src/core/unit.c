@@ -3365,7 +3365,6 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         if (r < 0)
                 return r;
 
-        strv_sort(u->dropin_paths);
         strv_uniq(u->dropin_paths);
 
         u->dropin_mtime = now(CLOCK_REALTIME);
