@@ -45,9 +45,6 @@ struct LookupPaths {
         char *root_dir;
 };
 
-int user_config_home(char **config_home);
-int user_runtime_dir(char **runtime_dir);
-
 char **generator_paths(UnitFileScope scope);
 
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, const char *root_dir);

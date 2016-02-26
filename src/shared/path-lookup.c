@@ -34,7 +34,7 @@
 #include "strv.h"
 #include "util.h"
 
-int user_config_home(char **config_home) {
+static int user_config_home(char **config_home) {
         const char *e;
         char *r;
 
@@ -63,7 +63,7 @@ int user_config_home(char **config_home) {
         return 0;
 }
 
-int user_runtime_dir(char **runtime_dir) {
+static int user_runtime_dir(char **runtime_dir) {
         const char *e;
         char *r;
 
