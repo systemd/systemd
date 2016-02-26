@@ -1375,7 +1375,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (!skip_setup) {
-                        if (clock_is_localtime() > 0) {
+                        if (clock_is_localtime(NULL) > 0) {
                                 int min;
 
                                 /*

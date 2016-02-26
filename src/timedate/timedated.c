@@ -78,7 +78,7 @@ static int context_read_data(Context *c) {
         c->zone = t;
         t = NULL;
 
-        c->local_rtc = clock_is_localtime() > 0;
+        c->local_rtc = clock_is_localtime(NULL) > 0;
 
         return 0;
 }

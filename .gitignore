@@ -158,6 +158,7 @@
 /test-cgroup
 /test-cgroup-mask
 /test-cgroup-util
+/test-clock
 /test-compress
 /test-compress-benchmark
 /test-condition
