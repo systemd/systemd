@@ -41,10 +41,14 @@ static void test_clock_is_localtime(void) {
                 /* no final EOL */
                 {"0.0 0 0\n0\nUTC", 0},
                 {"0.0 0 0\n0\nLOCAL", 1},
+                /* empty value -> defaults to UTC */
+                {"0.0 0 0\n0\n", 0},
                 /* unknown value -> defaults to UTC */
                 {"0.0 0 0\n0\nFOO\n", 0},
-                /* gibberish */
-                {"br0ken", -EIO},
+                /* no third line */
+                {"0.0 0 0", 0},
+                {"0.0 0 0\n", 0},
+                {"0.0 0 0\n0", 0},
         };
 
         /* without an adjtime file we default to UTC */
@@ -75,11 +79,9 @@ static void test_clock_is_localtime_system(void) {
 
         if (access("/etc/adjtime", F_OK) == 0) {
                 log_info("/etc/adjtime exists, clock_is_localtime() == %i", r);
-                /* we cannot assert much if /etc/adjtime exists, just that we
-                 * expect either an answer, or an EIO if the local file really
-                 * is badly malformed. I. e. we don't expect any other error
-                 * code or crash. */
-                assert(r == 0 || r == 1 || r == -EIO);
+                /* if /etc/adjtime exists we expect some answer, no error or
+                 * crash */
+                assert(r == 0 || r == 1);
         } else
                 /* default is UTC if there is no /etc/adjtime */
                 assert(r == 0);

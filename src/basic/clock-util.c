@@ -91,7 +91,8 @@ int clock_is_localtime(const char* adjtime_path) {
                         fgets(line, sizeof(line), f) &&
                         fgets(line, sizeof(line), f);
                 if (!b)
-                        return -EIO;
+                        /* less than three lines -> default to UTC */
+                        return 0;
 
                 truncate_nl(line);
                 return streq(line, "LOCAL");
@@ -99,6 +100,7 @@ int clock_is_localtime(const char* adjtime_path) {
         } else if (errno != ENOENT)
                 return -errno;
 
+        /* adjtime not present -> default to UTC */
         return 0;
 }
 
