@@ -1487,9 +1487,10 @@ AS_IF([test x"$cross_compiling" = "xyes"], [], [
 ])
 
 AC_ARG_ENABLE(tests,
-        [AC_HELP_STRING([--disable-tests], [disable tests])],
+        [AC_HELP_STRING([--disable-tests], [disable tests, or enable extra tests with =unsafe])],
         enable_tests=$enableval, enable_tests=yes)
-AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes])
+AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes -o x$enable_tests = xunsafe])
+AM_CONDITIONAL(ENABLE_UNSAFE_TESTS, [test x$enable_tests = xunsafe])
 
 AC_ARG_ENABLE(debug,
         [AC_HELP_STRING([--enable-debug@<:@=LIST@:>@], [enable extra debugging (hashmap,mmap-cache)])],
@@ -1611,6 +1612,7 @@ AC_MSG_RESULT([
         ldconfig support:        ${enable_ldconfig}
         hibernate support:       ${enable_hibernate}
         extra debugging:         ${enable_debug}
+        tests:                   ${enable_tests}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}

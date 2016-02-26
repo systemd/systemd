@@ -131,8 +131,12 @@ TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
 DISABLE_HARD_ERRORS = yes
 if ENABLE_TESTS
-noinst_PROGRAMS = $(manual_tests) $(tests)
+noinst_PROGRAMS = $(manual_tests) $(tests) $(unsafe_tests)
 TESTS = $(tests)
+if ENABLE_UNSAFE_TESTS
+TESTS += \
+	$(unsafe_tests)
+endif
 else
 noinst_PROGRAMS =
 TESTS =
@@ -1387,14 +1391,16 @@ EXTRA_DIST += \
 
 manual_tests += \
 	test-ns \
-	test-hostname \
 	test-cgroup \
 	test-install \
-	test-ipcrm \
 	test-btrfs \
 	test-acd \
 	test-ipv4ll-manual \
 	test-ask-password-api
+
+unsafe_tests = \
+	test-hostname \
+	test-ipcrm
 
 if HAVE_LIBIPTC
 manual_tests += \
