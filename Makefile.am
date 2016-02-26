@@ -1388,11 +1388,8 @@ EXTRA_DIST += \
 manual_tests += \
 	test-ns \
 	test-hostname \
-	test-daemon \
 	test-cgroup \
 	test-install \
-	test-watchdog \
-	test-log \
 	test-ipcrm \
 	test-btrfs \
 	test-acd \
@@ -1410,8 +1407,11 @@ manual_tests += \
 endif
 
 tests += \
+	test-daemon \
+	test-log \
 	test-loopback \
 	test-engine \
+	test-watchdog \
 	test-cgroup-mask \
 	test-job-type \
 	test-env-replace \
