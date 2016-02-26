@@ -1651,13 +1651,13 @@ test_dns_domain_LDADD = \
 
 
 if ENABLE_EFI
-manual_tests += \
-	test-boot-timestamp
+tests += \
+	test-boot-timestamps
 
-test_boot_timestamp_SOURCES = \
+test_boot_timestamps_SOURCES = \
 	src/test/test-boot-timestamps.c
 
-test_boot_timestamp_LDADD = \
+test_boot_timestamps_LDADD = \
 	libshared.la
 endif
 

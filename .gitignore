@@ -133,7 +133,7 @@
 /test-audit-type
 /test-barrier
 /test-bitmap
-/test-boot-timestamp
+/test-boot-timestamps
 /test-btrfs
 /test-bus-benchmark
 /test-bus-chat
