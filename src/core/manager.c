@@ -49,6 +49,7 @@
 #include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus.h"
+#include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -1026,7 +1027,6 @@ static void manager_coldplug(Manager *m) {
 
 static void manager_build_unit_path_cache(Manager *m) {
         char **i;
-        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(m);
@@ -1035,28 +1035,26 @@ static void manager_build_unit_path_cache(Manager *m) {
 
         m->unit_path_cache = set_new(&string_hash_ops);
         if (!m->unit_path_cache) {
-                log_error("Failed to allocate unit path cache.");
-                return;
+                r = -ENOMEM;
+                goto fail;
         }
 
         /* This simply builds a list of files we know exist, so that
          * we don't always have to go to disk */
 
         STRV_FOREACH(i, m->lookup_paths.search_path) {
+                _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
                 d = opendir(*i);
                 if (!d) {
                         if (errno != ENOENT)
-                                log_error_errno(errno, "Failed to open directory %s: %m", *i);
+                                log_warning_errno(errno, "Failed to open directory %s, ignoring: %m", *i);
                         continue;
                 }
 
-                while ((de = readdir(d))) {
+                FOREACH_DIRENT(de, d, r = -errno; goto fail) {
                         char *p;
-
-                        if (hidden_file(de->d_name))
-                                continue;
 
                         p = strjoin(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
                         if (!p) {
@@ -1068,19 +1066,14 @@ static void manager_build_unit_path_cache(Manager *m) {
                         if (r < 0)
                                 goto fail;
                 }
-
-                d = safe_closedir(d);
         }
 
         return;
 
 fail:
-        log_error_errno(r, "Failed to build unit path cache: %m");
-
-        set_free_free(m->unit_path_cache);
-        m->unit_path_cache = NULL;
+        log_warning_errno(r, "Failed to build unit path cache, proceeding without: %m");
+        m->unit_path_cache = set_free_free(m->unit_path_cache);
 }
-
 
 static void manager_distribute_fds(Manager *m, FDSet *fds) {
         Iterator i;
