@@ -2782,16 +2782,12 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
 }
 
 int exec_command_set(ExecCommand *c, const char *path, ...) {
-        va_list ap;
         char **l, *p;
 
         assert(c);
         assert(path);
 
-        va_start(ap, path);
-        l = strv_new_ap(path, ap);
-        va_end(ap);
-
+        l = strv_new(path, NULL);
         if (!l)
                 return -ENOMEM;
 
@@ -2812,16 +2808,12 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
 
 int exec_command_append(ExecCommand *c, const char *path, ...) {
         _cleanup_strv_free_ char **l = NULL;
-        va_list ap;
         int r;
 
         assert(c);
         assert(path);
 
-        va_start(ap, path);
-        l = strv_new_ap(path, ap);
-        va_end(ap);
-
+        l = strv_new(path, NULL);
         if (!l)
                 return -ENOMEM;
 

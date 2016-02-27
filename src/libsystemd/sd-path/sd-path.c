@@ -423,12 +423,7 @@ static int search_from_environment(
         }
 
         if (!l && first) {
-                va_list ap;
-
-                va_start(ap, first);
-                l = strv_new_ap(first, ap);
-                va_end(ap);
-
+                l = strv_new(first, NULL);
                 if (!l)
                         return -ENOMEM;
         }
