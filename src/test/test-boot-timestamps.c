@@ -34,7 +34,7 @@ static int test_acpi_fpdt(void) {
 
         r = acpi_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES);
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -ENODATA;
 
                 log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
                                r, "Failed to read ACPI FPDT: %m");
