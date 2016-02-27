@@ -588,7 +588,7 @@ static int parse_env_file_push(
         va_list aq, *ap = userdata;
 
         if (!utf8_is_valid(key)) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_invalid(key);
                 log_error("%s:%u: invalid UTF-8 in key '%s', ignoring.", strna(filename), line, p);
@@ -596,7 +596,7 @@ static int parse_env_file_push(
         }
 
         if (value && !utf8_is_valid(value)) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_invalid(value);
                 log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.", strna(filename), line, key, p);
@@ -1069,7 +1069,7 @@ int fflush_and_check(FILE *f) {
 
 /* This is much like like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern, int flags) {
-        _cleanup_umask_ mode_t u;
+        _cleanup_umask_ mode_t u = 0;
         int fd;
 
         assert(pattern);
