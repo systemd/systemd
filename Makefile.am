@@ -1448,6 +1448,7 @@ tests += \
 	test-prioq \
 	test-fileio \
 	test-time \
+	test-clock \
 	test-hashmap \
 	test-set \
 	test-bitmap \
@@ -1959,6 +1960,12 @@ test_time_SOURCES = \
 	src/test/test-time.c
 
 test_time_LDADD = \
+	libshared.la
+
+test_clock_SOURCES = \
+	src/test/test-clock.c
+
+test_clock_LDADD = \
 	libshared.la
 
 test_architecture_SOURCES = \

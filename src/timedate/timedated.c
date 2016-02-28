@@ -78,7 +78,7 @@ static int context_read_data(Context *c) {
         c->zone = t;
         t = NULL;
 
-        c->local_rtc = clock_is_localtime() > 0;
+        c->local_rtc = clock_is_localtime(NULL) > 0;
 
         return 0;
 }
@@ -125,30 +125,44 @@ static int context_write_data_local_rtc(Context *c) {
                 if (!w)
                         return -ENOMEM;
         } else {
-                char *p, *e;
+                char *p;
+                const char *e = "\n"; /* default if there is less than 3 lines */
+                const char *prepend = "";
                 size_t a, b;
 
-                p = strchr(s, '\n');
-                if (!p)
-                        return -EIO;
-
-                p = strchr(p+1, '\n');
-                if (!p)
-                        return -EIO;
-
-                p++;
-                e = strchr(p, '\n');
-                if (!e)
-                        return -EIO;
+                p = strchrnul(s, '\n');
+                if (*p == '\0') {
+                        /* only one line, no \n terminator */
+                        prepend = "\n0\n";
+                } else if (p[1] == '\0') {
+                        /* only one line, with \n terminator */
+                        ++p;
+                        prepend = "0\n";
+                } else {
+                        p = strchr(p+1, '\n');
+                        if (!p) {
+                                /* only two lines, no \n terminator */
+                                prepend = "\n";
+                                p = s + strlen(s);
+                        } else {
+                                char *end;
+                                /* third line might have a \n terminator or not */
+                                p++;
+                                end = strchr(p, '\n');
+                                /* if we actually have a fourth line, use that as suffix "e", otherwise the default \n */
+                                if (end)
+                                        e = end;
+                        }
+                }
 
                 a = p - s;
                 b = strlen(e);
 
-                w = new(char, a + (c->local_rtc ? 5 : 3) + b + 1);
+                w = new(char, a + (c->local_rtc ? 5 : 3) + strlen(prepend) + b + 1);
                 if (!w)
                         return -ENOMEM;
 
-                *(char*) mempcpy(stpcpy(mempcpy(w, s, a), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+                *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
                         if (unlink("/etc/adjtime") < 0)

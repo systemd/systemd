@@ -139,7 +139,7 @@ static int property_get_tainted(
         if (access("/proc/cgroups", F_OK) < 0)
                 e = stpcpy(e, "cgroups-missing:");
 
-        if (clock_is_localtime() > 0)
+        if (clock_is_localtime(NULL) > 0)
                 e = stpcpy(e, "local-hwclock:");
 
         /* remove the last ':' */

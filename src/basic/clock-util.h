@@ -21,7 +21,7 @@
 
 #include <time.h>
 
-int clock_is_localtime(void);
+int clock_is_localtime(const char* adjtime_path);
 int clock_set_timezone(int *min);
 int clock_reset_timewarp(void);
 int clock_get_hwclock(struct tm *tm);

@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (clock_is_localtime() > 0) {
+        if (clock_is_localtime(NULL) > 0) {
                 log_info("The system is configured to read the RTC time in the local time zone. "
                          "This mode can not be fully supported. All system time to RTC updates are disabled.");
                 m->rtc_local_time = true;
