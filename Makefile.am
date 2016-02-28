@@ -1541,6 +1541,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-passenvironment-repeated.service \
 	test/test-execute/exec-passenvironment.service \
 	test/test-execute/exec-group.service \
+	test/test-execute/exec-group-nfsnobody.service \
 	test/test-execute/exec-ignoresigpipe-no.service \
 	test/test-execute/exec-ignoresigpipe-yes.service \
 	test/test-execute/exec-personality-x86-64.service \
@@ -1557,7 +1558,9 @@ EXTRA_DIST += \
 	test/test-execute/exec-systemcallfilter-not-failing2.service \
 	test/test-execute/exec-systemcallfilter-not-failing.service \
 	test/test-execute/exec-systemcallfilter-system-user.service \
+	test/test-execute/exec-systemcallfilter-system-user-nfsnobody.service \
 	test/test-execute/exec-user.service \
+	test/test-execute/exec-user-nfsnobody.service \
 	test/test-execute/exec-workingdirectory.service \
 	test/test-execute/exec-umask-0177.service \
 	test/test-execute/exec-umask-default.service \
@@ -1574,10 +1577,13 @@ EXTRA_DIST += \
 	test/test-execute/exec-capabilityboundingset-reset.service \
 	test/test-execute/exec-capabilityboundingset-simple.service \
 	test/test-execute/exec-capabilityambientset.service \
+	test/test-execute/exec-capabilityambientset-nfsnobody.service \
 	test/test-execute/exec-capabilityambientset-merge.service \
+	test/test-execute/exec-capabilityambientset-merge-nfsnobody.service \
 	test/test-execute/exec-runtimedirectory.service \
 	test/test-execute/exec-runtimedirectory-mode.service \
 	test/test-execute/exec-runtimedirectory-owner.service \
+	test/test-execute/exec-runtimedirectory-owner-nfsnobody.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \

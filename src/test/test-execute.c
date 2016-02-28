@@ -134,23 +134,29 @@ static void test_exec_systemcall_system_mode_with_user(Manager *m) {
 #ifdef HAVE_SECCOMP
         if (getpwnam("nobody"))
                 test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
+        else if (getpwnam("nfsnobody"))
+                test(m, "exec-systemcallfilter-system-user-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_systemcall_system_mode_with_user, could not find nobody user: %m");
+                log_error_errno(errno, "Skipping test_exec_systemcall_system_mode_with_user, could not find nobody/nfsnobody user: %m");
 #endif
 }
 
 static void test_exec_user(Manager *m) {
         if (getpwnam("nobody"))
                 test(m, "exec-user.service", 0, CLD_EXITED);
+        else if (getpwnam("nfsnobody"))
+                test(m, "exec-user-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_user, could not find nobody user: %m");
+                log_error_errno(errno, "Skipping test_exec_user, could not find nobody/nfsnobody user: %m");
 }
 
 static void test_exec_group(Manager *m) {
         if (getgrnam("nobody"))
                 test(m, "exec-group.service", 0, CLD_EXITED);
+        else if (getgrnam("nfsnobody"))
+                test(m, "exec-group-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_group, could not find nobody group: %m");
+                log_error_errno(errno, "Skipping test_exec_group, could not find nobody/nfsnobody group: %m");
 }
 
 static void test_exec_environment(Manager *m) {
@@ -213,8 +219,10 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
         if (getgrnam("nobody"))
                 test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        else if (getgrnam("nfsnobody"))
+                test(m, "exec-runtimedirectory-owner-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_runtimedirectory-owner, could not find nobody group: %m");
+                log_error_errno(errno, "Skipping test_exec_runtimedirectory-owner, could not find nobody/nfsnobody group: %m");
 }
 
 static void test_exec_capabilityboundingset(Manager *m) {
@@ -243,9 +251,15 @@ static void test_exec_capabilityambientset(Manager *m) {
          * in the first place for the tests. */
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
         if (r >= 0 || errno != EINVAL) {
-                test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
-                test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
-        }
+                if (getpwnam("nobody")) {
+                        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+                } else if (getpwnam("nfsnobody")) {
+                        test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
+                        test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
+                } else
+                        log_error_errno(errno, "Skipping test_exec_capabilityambientset, could not find nobody/nfsnobody user: %m");
+        } else
+                log_error_errno(errno, "Skipping test_exec_capabilityambientset, the kernel does not support ambient capabilities: %m");
 }
 
 static void test_exec_privatenetwork(Manager *m) {

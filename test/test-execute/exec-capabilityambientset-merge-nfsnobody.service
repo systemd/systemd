@@ -1,0 +1,9 @@
+[Unit]
+Description=Test for AmbientCapabilities
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(grep "CapAmb:" /proc/self/status); test "$$c" = "CapAmb:	0000000000003000"'
+Type=oneshot
+User=nfsnobody
+AmbientCapabilities=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_RAW
