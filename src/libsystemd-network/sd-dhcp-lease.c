@@ -825,7 +825,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_client_id(lease, &client_id, &client_id_len);
         if (r >= 0) {
-                _cleanup_free_ char *client_id_hex;
+                _cleanup_free_ char *client_id_hex = NULL;
 
                 client_id_hex = hexmem(client_id, client_id_len);
                 if (!client_id_hex) {

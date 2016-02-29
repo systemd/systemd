@@ -408,7 +408,7 @@ static void client_stop(sd_dhcp_client *client, int error) {
 
 static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
                                uint8_t type, size_t *_optlen, size_t *_optoffset) {
-        _cleanup_free_ DHCPPacket *packet;
+        _cleanup_free_ DHCPPacket *packet = NULL;
         size_t optlen, optoffset, size;
         be16_t max_size;
         usec_t time_now;
