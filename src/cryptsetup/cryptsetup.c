@@ -2,6 +2,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2016 Johanna Abrahamsson
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -22,6 +23,12 @@
 #include <mntent.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <dlfcn.h>
+
+#ifdef HAVE_PKCS11
+#include <pkcs11-helper-1.0/pkcs11.h>
+#include "def.h"
+#endif
 
 #include "sd-device.h"
 
@@ -37,6 +44,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+
 
 static const char *arg_type = NULL; /* CRYPT_LUKS1, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
@@ -416,6 +424,268 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         return 0;
 }
 
+#ifdef HAVE_PKCS11
+#define PKCS11_FILL_ATTR(attr,typ,val,len) {(attr).type=(typ); (attr).pValue=(val); (attr).ulValueLen=len;}
+
+static int pkcs11_test_rv(CK_RV rv, const char* method) {
+        if (rv != CKR_OK) {
+                log_warning("Failed to %s (return value %lu)", method, rv);
+                return -1;
+        }
+        return 0;
+}
+
+static int pkcs11_probe_slot(CK_FUNCTION_LIST_PTR p11, CK_SLOT_ID slot_id, char ***passwords, usec_t until, char *object, char* token, char *type) {
+        CK_SESSION_HANDLE session = CK_INVALID_HANDLE;
+        CK_RV rv = 0;
+        CK_ATTRIBUTE attrs[2];
+        int attr = 0;
+        CK_OBJECT_CLASS clazz = CKO_DATA;
+        CK_OBJECT_HANDLE keyobject = CK_INVALID_HANDLE;
+        CK_ULONG returncount;
+        CK_ATTRIBUTE valueattribute = { CKA_VALUE, NULL, 0 };
+        CK_TOKEN_INFO info;
+        char *escaped_label=NULL;
+
+        rv = p11->C_OpenSession(slot_id, CKF_SERIAL_SESSION, NULL, NULL, &session);
+        if (pkcs11_test_rv(rv, "C_OpenSession"))
+                goto pkcs11_probe_slot_finally;
+
+        rv = p11->C_GetTokenInfo(slot_id, &info);
+        if (pkcs11_test_rv(rv, "C_GetTokenInfo"))
+                goto pkcs11_probe_slot_finally;
+
+        escaped_label = cescape_length((char*)info.label, sizeof(info.label));
+        if (!escaped_label) {
+                log_oom();
+                rv=-1;
+                goto pkcs11_probe_slot_finally;
+        }
+
+        if (type && streq(type, "private")) {
+                _cleanup_strv_free_erase_ char **pins = NULL;
+                _cleanup_free_ char *text=NULL;
+                char *id=NULL;
+
+                if (asprintf(&text, "Please enter PIN for pkcs11 slot with label %s!", escaped_label) < 0) {
+                        log_oom();
+                        rv=-1;
+                        goto pkcs11_probe_slot_finally;
+                }
+                id = strjoina("cryptsetup:", escaped_label);
+                if (ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, 0, &pins) < 0) {
+                        log_warning("Failed to query PIN!");
+                        rv=-1;
+                        goto pkcs11_probe_slot_finally;
+                }
+
+                if (strv_length(pins) > 0 && strlen(pins[0])) {
+                        rv = p11->C_Login(session, CKU_USER, (CK_UTF8CHAR *) pins[0], strlen(pins[0]));
+                        if (pkcs11_test_rv(rv, "C_Login"))
+                                goto pkcs11_probe_slot_finally;
+                }
+        }
+
+        PKCS11_FILL_ATTR(attrs[attr], CKA_CLASS, &clazz, sizeof(clazz));
+        attr++;
+        if (object)
+        {
+                PKCS11_FILL_ATTR(attrs[attr], CKA_LABEL, object, strlen(object));
+                attr++;
+        }
+
+        rv = p11->C_FindObjectsInit(session, attrs, attr);
+        if (pkcs11_test_rv(rv, "C_FindObjectsInit"))
+                goto pkcs11_probe_slot_finally;
+
+        rv = p11->C_FindObjects(session, &keyobject, 1, &returncount);
+        if (pkcs11_test_rv(rv, "C_FindObjects"))
+                goto pkcs11_probe_slot_finally;
+        if (!returncount) {
+                rv=-1;
+                goto pkcs11_probe_slot_finally;
+        }
+
+        p11->C_FindObjectsFinal(session);
+
+        rv = p11->C_GetAttributeValue(session, keyobject, &valueattribute, 1);
+        if (pkcs11_test_rv(rv, "C_GetAttributeValue"))
+                goto pkcs11_probe_slot_finally;
+
+        if (!(valueattribute.pValue = calloc(1, valueattribute.ulValueLen +1))) {
+                log_oom();
+                rv = -1;
+                goto pkcs11_probe_slot_finally;
+        }
+        rv = p11->C_GetAttributeValue(session, keyobject, &valueattribute, 1);
+        if (pkcs11_test_rv(rv, "C_GetAttributeValue"))
+                goto pkcs11_probe_slot_finally;
+
+        strv_push(passwords, (char *) valueattribute.pValue);
+
+pkcs11_probe_slot_finally:
+        if (p11 && session != CK_INVALID_HANDLE)
+                (void) p11->C_CloseSession(session);
+        return rv;
+}
+
+static int pkcs11_get_key(char ***passwords, const char *key_file, usec_t until) {
+        void *module = NULL;
+        CK_RV (*gfl)(CK_FUNCTION_LIST_PTR_PTR) = NULL;
+        CK_FUNCTION_LIST_PTR p11 = NULL;
+        _cleanup_free_ CK_SLOT_ID_PTR p11_slots = NULL;
+        CK_SLOT_ID waitforslot;
+        CK_ULONG p11_num_slots = 0;
+        CK_RV rv = 0;
+        unsigned int n;
+        const char *word = NULL, *state = NULL;
+        _cleanup_free_ char *object = NULL, *token = NULL, *type = NULL, *module_path = NULL;
+        size_t l;
+        bool blocking_unsupported = false;
+
+        assert(key_file);
+
+        FOREACH_WORD_SEPARATOR(word, l, key_file+7, ";", state) {
+                _cleanup_free_ char *o;
+
+                o = strndup(word, l);
+                if (!o)
+                        return log_oom();
+
+                if (startswith(o, "module-path=")) {
+                        module_path = strdup(o+12);
+                        if (!module_path)
+                                return log_oom();
+                } else if (startswith(o, "object=")) {
+                        object = strdup(o+7);
+                        if (!object)
+                                return log_oom();
+                } else if (startswith(o, "token=")) {
+                        token = strdup(o+6);
+                        if (!token)
+                                return log_oom();
+                } else if (startswith(o, "type=")) {
+                        type = strdup(o+5);
+                        if (!type)
+                                return log_oom();
+                }
+        }
+
+        (void)dlerror();
+        if (!module_path)
+        {
+                log_info("PKCS#11 URI with no module-path specified, using default opensc-pkcs11.so");
+                module = dlopen("opensc-pkcs11.so", RTLD_LAZY);
+        } else
+        {
+                module = dlopen(module_path, RTLD_LAZY);
+        }
+        if (module == NULL) {
+                char* error = dlerror();
+                log_warning("Failed to load pkcs11 module, error: %s", error);
+                return -1;
+        }
+
+        (void)dlerror();
+        gfl = (CK_RV (*)(CK_FUNCTION_LIST_PTR_PTR)) dlsym(module, "C_GetFunctionList");
+        if (gfl == NULL) {
+                char* error = dlerror();
+                log_warning("Failed to get pkcs11 function list function, error: %s", error);
+                return -1;
+        }
+
+        rv = gfl(&p11);
+        if (pkcs11_test_rv(rv, "Get pkcs11 function list"))
+                return -1;
+
+        rv = p11->C_Initialize(NULL);
+        if (rv == CKR_CRYPTOKI_ALREADY_INITIALIZED)
+                log_info("Cryptoki library has already been initialized");
+        else
+                if (pkcs11_test_rv(rv, "C_Initialize"))
+                        goto pkcs11_get_key_finally;
+
+        rv = p11->C_GetSlotList(CK_TRUE, NULL, &p11_num_slots);
+        if (pkcs11_test_rv(rv, "C_GetSlotList"))
+                goto pkcs11_get_key_finally;
+
+        p11_slots = calloc(p11_num_slots, sizeof(CK_SLOT_ID));
+        if (p11_slots == NULL) {
+                log_oom();
+                goto pkcs11_get_key_finally;
+        }
+
+        rv = p11->C_GetSlotList(CK_TRUE, p11_slots, &p11_num_slots);
+        if (pkcs11_test_rv(rv, "C_GetSlotList"))
+                goto pkcs11_get_key_finally;
+
+        for (n = 0; n < p11_num_slots; n++) {
+                if (pkcs11_probe_slot(p11, p11_slots[n], passwords, until, object, token, type) == CKR_OK && !strv_isempty(*passwords)) {
+                        goto pkcs11_get_key_finally;
+                }
+        }
+
+        /** If a timeout (until) is specified we cannot use the blocking version of C_WaitForSlotEvent
+         *  since it doesn't support a timeout **/
+
+        if (!until)
+                for (;;) {
+                        rv = p11->C_WaitForSlotEvent(0, &waitforslot, NULL_PTR);
+                        if (rv==CKR_FUNCTION_NOT_SUPPORTED)
+                        {
+                                blocking_unsupported = true;
+                                break;
+                        }
+                        if (rv!=CKR_NO_EVENT) {
+                                if (pkcs11_test_rv(rv, "C_WaitForSlotEvent"))
+                                        goto pkcs11_get_key_finally;
+                                if (pkcs11_probe_slot(p11, waitforslot, passwords, until, object, token, type) == CKR_OK && !strv_isempty(*passwords)) {
+                                        goto pkcs11_get_key_finally;
+                                }
+                        }
+                }
+
+        if (until || blocking_unsupported)
+                for (;;) {
+                        usec_t y;
+
+                        rv = p11->C_WaitForSlotEvent(CKF_DONT_BLOCK, &waitforslot, NULL_PTR);
+                        if (rv!=CKR_NO_EVENT) {
+                                if (pkcs11_test_rv(rv, "C_WaitForSlotEvent"))
+                                        goto pkcs11_get_key_finally;
+                                if (pkcs11_probe_slot(p11, waitforslot, passwords, until, object, token, type) == CKR_OK && !strv_isempty(*passwords)) {
+                                        goto pkcs11_get_key_finally;
+                                }
+                        }
+
+                        y = now(CLOCK_MONOTONIC);
+                        if (until && y > until) {
+                                goto pkcs11_get_key_finally;
+                        }
+
+                        /*Finalizing and (re-)Initializing is sometimes necessary to detect new smartcard readers*/
+                        (void) p11->C_Finalize(NULL_PTR);
+                        rv = p11->C_Initialize(NULL);
+                        if (rv == CKR_CRYPTOKI_ALREADY_INITIALIZED)
+                                log_info("Cryptoki library has already been initialized");
+                        else
+                                if (pkcs11_test_rv(rv, "C_Initialize"))
+                                        goto pkcs11_get_key_finally;
+
+                        usleep(100 * USEC_PER_MSEC);
+                }
+
+pkcs11_get_key_finally:
+        if (p11)
+                (void) p11->C_Finalize(NULL_PTR);
+
+        if (module)
+            dlclose(module);
+
+        return 0;
+}
+#endif
+
 static int attach_tcrypt(
                 struct crypt_device *cd,
                 const char *name,
@@ -547,7 +817,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                  crypt_get_volume_key_size(cd)*8,
                  crypt_get_device_name(cd));
 
-        if (key_file) {
+        if (key_file && !startswith(key_file, "pkcs11:")) {
                 r = crypt_activate_by_keyfile_offset(cd, name, arg_key_slot, key_file, arg_keyfile_size, arg_keyfile_offset, flags);
                 if (r < 0) {
                         log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
@@ -621,7 +891,7 @@ int main(int argc, char *argv[]) {
                     !streq(argv[4], "-") &&
                     !streq(argv[4], "none")) {
 
-                        if (!path_is_absolute(argv[4]))
+                        if (!path_is_absolute(argv[4]) && !startswith(argv[4], "pkcs11:"))
                                 log_error("Password file path '%s' is not absolute. Ignoring.", argv[4]);
                         else
                                 key_file = argv[4];
@@ -667,7 +937,7 @@ int main(int argc, char *argv[]) {
 
                 arg_key_size = (arg_key_size > 0 ? arg_key_size : (256 / 8));
 
-                if (key_file) {
+                if (key_file && !startswith(key_file, "pkcs11:")) {
                         struct stat st;
 
                         /* Ideally we'd do this on the open fd, but since this is just a
@@ -679,12 +949,20 @@ int main(int argc, char *argv[]) {
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
 
-                        if (!key_file) {
+                        if (!key_file && strv_isempty(passwords)) {
                                 k = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
                                 if (k == -EAGAIN)
                                         continue;
                                 else if (k < 0)
                                         goto finish;
+                        }
+
+                        if (key_file && startswith(key_file, "pkcs11:")) {
+#ifdef HAVE_PKCS11
+                                pkcs11_get_key(&passwords, key_file, until);
+#else
+                                log_error("PKCS#11 path defined in /etc/crypttab but systemd-cryptsetup compiled without libpkcs11-helper1");
+#endif
                         }
 
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))

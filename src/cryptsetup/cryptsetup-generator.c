@@ -2,6 +2,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2016 Johanna Abrahamsson
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -115,12 +116,15 @@ static int create_disk(
                 "After=cryptsetup-pre.target\n",
                 f);
 
+
         if (!nofail)
                 fprintf(f,
                         "Before=cryptsetup.target\n");
 
         if (password) {
-                if (STR_IN_SET(password, "/dev/urandom", "/dev/random", "/dev/hw_random"))
+                if (startswith(password, "pkcs11:"))
+                        fputs("After=pcscd.service\nRequires=pcscd.service\n", f);
+                else if (STR_IN_SET(password, "/dev/urandom", "/dev/random", "/dev/hw_random"))
                         fputs("After=systemd-random-seed.service\n", f);
                 else if (!streq(password, "-") && !streq(password, "none")) {
                         _cleanup_free_ char *uu;

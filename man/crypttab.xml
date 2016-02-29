@@ -93,12 +93,26 @@
     field is not present or the password is set to
     <literal>none</literal> or <literal>-</literal>, the password has
     to be manually entered during system boot. Otherwise, the field is
-    interpreted as a absolute path to a file containing the encryption
+    interpreted as either a absolute path to a file containing the encryption
+    password or a PKCS#11 URI to a data object containing the encryption
     password. For swap encryption, <filename>/dev/urandom</filename>
     or the hardware device <filename>/dev/hw_random</filename> can be
     used as the password file; using <filename>/dev/random</filename>
     may prevent boot completion if the system does not have enough
-    entropy to generate a truly random encryption key.</para>
+    entropy to generate a truly random encryption key.
+    For PKCS#11 URIs the following attributes are supported:
+    <option>module-path</option>,
+    <option>object</option>,
+    <option>token</option>,
+    <option>type</option>
+
+    <option>module-path</option> may specify a absolute path or a filename of a PKCS#11 provider.
+    If no <option>module-path</option> is specified the default "opensc-pkcs11.so" is used.
+
+    If type is set to private all tokens matching <option>token</option>,
+    or all tokens present in the system if <option>token</option> is not
+    specified, will be unlocked before listing their objects.
+</para>
 
     <para>The fourth field, if present, is a comma-delimited list of
     options. The following options are recognized:</para>

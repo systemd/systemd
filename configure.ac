@@ -241,6 +241,7 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,-z,relro \
         -Wl,-z,now \
         -pie \
+        -ldl \
         -Wl,-fuse-ld=gold])
 AC_SUBST([OUR_LDFLAGS], "$with_ldflags $sanitizer_ldflags")
 
@@ -853,6 +854,17 @@ if test "x$enable_libcryptsetup" != "xno"; then
         fi
 fi
 AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_pkcs11=no
+AC_ARG_ENABLE(pkcs11, AS_HELP_STRING([--disable-pkcs11], [disable support for PKCS11]))
+AS_IF([test "x$enable_pkcs11" != "xno"], [
+        PKG_CHECK_MODULES(PKCS11, [libpkcs11-helper-1],
+                [AC_DEFINE(HAVE_PKCS11, 1, [Define if pkcs11-helper-1 library is available]) have_pkcs11=yes],
+                [have_pkcs11=no])
+        AS_IF([test "x$have_pkcs11" = "xno" -a "x$enable_pkcs11" = "xyes"],
+                [AC_MSG_ERROR([*** libpkcs11-helper-1 support requested but libraries not found (--disable-pkcs11 disabled libpkcs11-helper-1 support)])])])
+AM_CONDITIONAL(HAVE_PKCS11, [test "$have_pkcs11" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_qrencode=no
@@ -1573,6 +1585,7 @@ AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
         libcryptsetup:                     ${have_libcryptsetup}
+        libpkcs11-helper-1:                ${have_pkcs11}
         PAM:                               ${have_pam}
         AUDIT:                             ${have_audit}
         IMA:                               ${have_ima}
