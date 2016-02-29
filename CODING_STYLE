@@ -213,6 +213,7 @@
   b) socket() and socketpair() must get SOCK_CLOEXEC passed
   c) recvmsg() must get MSG_CMSG_CLOEXEC set
   d) F_DUPFD_CLOEXEC should be used instead of F_DUPFD, and so on
+  f) invocations of fopen() should take "e"
 
 - We never use the POSIX version of basename() (which glibc defines it in
   libgen.h), only the GNU version (which glibc defines in string.h).
