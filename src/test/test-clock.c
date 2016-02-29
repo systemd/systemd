@@ -28,8 +28,8 @@
 
 static void test_clock_is_localtime(void) {
         char adjtime[] = "/tmp/test-adjtime.XXXXXX";
-        _cleanup_close_ int fd = -1;
-        FILE* f;
+        int fd = -1;
+        _cleanup_fclose_ FILE* f = NULL;
 
         static const struct scenario {
                 const char* contents;
