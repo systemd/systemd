@@ -56,10 +56,10 @@ static void test_clock_is_localtime(void) {
         assert_se(clock_is_localtime("/nonexisting/adjtime") == 0);
 
         fd = mkostemp_safe(adjtime, O_WRONLY|O_CLOEXEC);
-        assert(fd > 0);
+        assert_se(fd >= 0);
         log_info("adjtime test file: %s", adjtime);
         f = fdopen(fd, "w");
-        assert(f);
+        assert_se(f);
 
         for (size_t i = 0; i < ELEMENTSOF(scenarios); ++i) {
                 log_info("scenario #%zu:, expected result %i", i, scenarios[i].expected_result);
@@ -82,10 +82,10 @@ static void test_clock_is_localtime_system(void) {
                 log_info("/etc/adjtime exists, clock_is_localtime() == %i", r);
                 /* if /etc/adjtime exists we expect some answer, no error or
                  * crash */
-                assert(r == 0 || r == 1);
+                assert_se(r == 0 || r == 1);
         } else
                 /* default is UTC if there is no /etc/adjtime */
-                assert(r == 0);
+                assert_se(r == 0);
 }
 
 int main(int argc, char *argv[]) {
