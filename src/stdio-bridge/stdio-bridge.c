@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                 _cleanup_(sd_bus_message_unrefp)sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_message_unrefp)sd_bus_message *m = NULL;
                 int events_a, events_b, fd;
                 uint64_t timeout_a, timeout_b, t;
                 struct timespec _ts, *ts;
@@ -293,8 +293,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
-
-        r = 0;
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
