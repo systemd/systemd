@@ -62,17 +62,18 @@ static int user_config_home(char **ret) {
         return 0;
 }
 
-static int user_runtime_dir(char **ret) {
+static int user_runtime_dir(char **ret, const char *suffix) {
         const char *e;
         char *j;
 
         assert(ret);
+        assert(suffix);
 
         e = getenv("XDG_RUNTIME_DIR");
         if (!e)
                 return -ENXIO;
 
-        j = strappend(e, "/systemd/user");
+        j = strappend(e, suffix);
         if (!j)
                 return -ENOMEM;
 
@@ -85,6 +86,7 @@ static int user_data_home_dir(char **ret, const char *suffix) {
         char *j;
 
         assert(ret);
+        assert(suffix);
 
         /* We don't treat /etc/xdg/systemd here as the spec
          * suggests because we assume that that is a link to
@@ -301,26 +303,23 @@ static int acquire_generator_dirs(
 }
 
 static int acquire_transient_dir(UnitFileScope scope, char **ret) {
-        char *transient;
-
         assert(ret);
 
         switch (scope) {
 
-        case UNIT_FILE_SYSTEM:
+        case UNIT_FILE_SYSTEM: {
+                char *transient;
+
                 transient = strdup("/run/systemd/transient");
-                break;
+                if (!transient)
+                        return -ENOMEM;
 
-        case UNIT_FILE_USER: {
-                const char *e;
-
-                e = getenv("XDG_RUNTIME_DIR");
-                if (!e)
-                        return -ENXIO;
-
-                transient = strjoin(e, "/systemd/transient", NULL);
-                break;
+                *ret = transient;
+                return 0;
         }
+
+        case UNIT_FILE_USER:
+                return user_runtime_dir(ret, "/systemd/transient");
 
         case UNIT_FILE_GLOBAL:
                 return -EOPNOTSUPP;
@@ -329,11 +328,6 @@ static int acquire_transient_dir(UnitFileScope scope, char **ret) {
                 assert_not_reached("Hmm, unexpected scope value.");
         }
 
-        if (!transient)
-                return -ENOMEM;
-
-        *ret = transient;
-        return 0;
 }
 
 static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **runtime) {
@@ -360,7 +354,7 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
                 if (r < 0)
                         return r;
 
-                r = user_runtime_dir(runtime);
+                r = user_runtime_dir(runtime, "/systemd/user");
                 if (r < 0)
                         return r;
 
