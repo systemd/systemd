@@ -6,14 +6,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Container %I
+Description=Container %i
 Documentation=man:systemd-nspawn(1)
 PartOf=machines.target
 Before=machines.target
 After=network.target
 
 [Service]
-ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth --settings=override --machine=%I
+ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth --settings=override --machine=%i
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
