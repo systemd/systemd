@@ -34,55 +34,57 @@
 #include "strv.h"
 #include "util.h"
 
-static int user_config_home(char **config_home) {
+static int user_config_home(char **ret) {
         const char *e;
-        char *r;
+        char *j;
+
+        assert(ret);
 
         e = getenv("XDG_CONFIG_HOME");
         if (e) {
-                r = strappend(e, "/systemd/user");
-                if (!r)
+                j = strappend(e, "/systemd/user");
+                if (!j)
                         return -ENOMEM;
 
-                *config_home = r;
-                return 1;
         } else {
                 const char *home;
 
                 home = getenv("HOME");
-                if (home) {
-                        r = strappend(home, "/.config/systemd/user");
-                        if (!r)
-                                return -ENOMEM;
+                if (!home)
+                        return -ENXIO;
 
-                        *config_home = r;
-                        return 1;
-                }
+                j = strappend(home, "/.config/systemd/user");
+                if (!j)
+                        return -ENOMEM;
         }
 
+        *ret = j;
         return 0;
 }
 
-static int user_runtime_dir(char **runtime_dir) {
+static int user_runtime_dir(char **ret) {
         const char *e;
-        char *r;
+        char *j;
+
+        assert(ret);
 
         e = getenv("XDG_RUNTIME_DIR");
-        if (e) {
-                r = strappend(e, "/systemd/user");
-                if (!r)
-                        return -ENOMEM;
+        if (!e)
+                return -ENXIO;
 
-                *runtime_dir = r;
-                return 1;
-        }
+        j = strappend(e, "/systemd/user");
+        if (!j)
+                return -ENOMEM;
 
+        *ret = j;
         return 0;
 }
 
-static int user_data_home_dir(char **dir, const char *suffix) {
+static int user_data_home_dir(char **ret, const char *suffix) {
         const char *e;
-        char *res;
+        char *j;
+
+        assert(ret);
 
         /* We don't treat /etc/xdg/systemd here as the spec
          * suggests because we assume that that is a link to
@@ -90,20 +92,21 @@ static int user_data_home_dir(char **dir, const char *suffix) {
 
         e = getenv("XDG_DATA_HOME");
         if (e)
-                res = strappend(e, suffix);
+                j = strappend(e, suffix);
         else {
                 const char *home;
 
                 home = getenv("HOME");
-                if (home)
-                        res = strjoin(home, "/.local/share", suffix, NULL);
-                else
-                        return 0;
+                if (!home)
+                        return -ENXIO;
+
+
+                j = strjoin(home, "/.local/share", suffix, NULL);
         }
-        if (!res)
+        if (!j)
                 return -ENOMEM;
 
-        *dir = res;
+        *ret = j;
         return 1;
 }
 
@@ -131,8 +134,8 @@ static char** user_dirs(
         };
 
         const char *e;
-        _cleanup_free_ char *config_home = NULL, *runtime_dir = NULL, *data_home = NULL;
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_free_ char *data_home = NULL;
         _cleanup_free_ char **res = NULL;
         char **tmp;
         int r;
@@ -146,12 +149,6 @@ static char** user_dirs(
          * as data, and allow overriding as configuration.
          */
 
-        if (user_config_home(&config_home) < 0)
-                return NULL;
-
-        if (user_runtime_dir(&runtime_dir) < 0)
-                return NULL;
-
         e = getenv("XDG_CONFIG_DIRS");
         if (e) {
                 config_dirs = strv_split(e, ":");
@@ -160,7 +157,7 @@ static char** user_dirs(
         }
 
         r = user_data_home_dir(&data_home, "/systemd/user");
-        if (r < 0)
+        if (r < 0 && r != -ENXIO)
                 return NULL;
 
         e = getenv("XDG_DATA_DIRS");
@@ -182,10 +179,6 @@ static char** user_dirs(
                 if (strv_extend(&res, generator_early) < 0)
                         return NULL;
 
-        if (config_home)
-                if (strv_extend(&res, config_home) < 0)
-                        return NULL;
-
         if (!strv_isempty(config_dirs))
                 if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
                         return NULL;
@@ -195,10 +188,6 @@ static char** user_dirs(
 
         if (strv_extend_strv(&res, (char**) config_unit_paths, false) < 0)
                 return NULL;
-
-        if (runtime_dir)
-                if (strv_extend(&res, runtime_dir) < 0)
-                        return NULL;
 
         if (strv_extend(&res, runtime_config) < 0)
                 return NULL;
@@ -463,7 +452,7 @@ int lookup_paths_init(
         }
 
         r = acquire_config_dirs(scope, &persistent_config, &runtime_config);
-        if (r < 0)
+        if (r < 0 && r != -ENXIO)
                 return r;
 
         r = acquire_generator_dirs(scope, &generator, &generator_early, &generator_late);
