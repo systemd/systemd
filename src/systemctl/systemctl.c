@@ -152,7 +152,7 @@ static bool arg_now = false;
 
 static int daemon_reload(int argc, char *argv[], void* userdata);
 static int halt_now(enum action a);
-static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet);
+static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state);
 
 static bool original_stdout_is_tty;
 
@@ -1630,11 +1630,27 @@ static int list_dependencies_one(
                 if (arg_plain)
                         printf("  ");
                 else {
-                        int state;
+                        UnitActiveState active_state = _UNIT_ACTIVE_STATE_INVALID;
                         const char *on;
 
-                        state = check_one_unit(bus, *c, "activating\0active\0reloading\0", true);
-                        on = state > 0 ? ansi_highlight_green() : ansi_highlight_red();
+                        (void) get_state_one_unit(bus, *c, &active_state);
+                        switch (active_state) {
+                           case UNIT_ACTIVE:
+                           case UNIT_RELOADING:
+                           case UNIT_ACTIVATING:
+                              on = ansi_highlight_green();
+                              break;
+
+                           case UNIT_INACTIVE:
+                           case UNIT_DEACTIVATING:
+                              on = ansi_normal();
+                              break;
+
+                           default:
+                              on = ansi_highlight_red();
+                              break;
+                        }
+
                         printf("%s%s%s ", on, draw_special_char(DRAW_BLACK_CIRCLE), ansi_normal());
                 }
 
@@ -2399,18 +2415,19 @@ static int unit_find_paths(
         return r;
 }
 
-static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
+static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *buf = NULL;
-        const char *path, *state;
+        UnitActiveState state;
+        const char *path;
         int r;
 
         assert(name);
+        assert(active_state);
 
         /* We don't use unit_dbus_path_from_name() directly since we don't want to load the unit unnecessarily, if it
          * isn't loaded. */
-
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd1",
@@ -2426,7 +2443,7 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
 
                 /* The unit is currently not loaded, hence say it's "inactive", since all units that aren't loaded are
                  * considered inactive. */
-                state = "inactive";
+                state = UNIT_INACTIVE;
 
         } else {
                 r = sd_bus_message_read(reply, "o", &path);
@@ -2444,13 +2461,15 @@ static int check_one_unit(sd_bus *bus, const char *name, const char *good_states
                 if (r < 0)
                         return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
 
-                state = buf;
+                state = unit_active_state_from_string(buf);
+                if (state == _UNIT_ACTIVE_STATE_INVALID) {
+                        log_error("Invalid unit state '%s' for: %s", buf, name);
+                        return -EINVAL;
+                }
         }
 
-        if (!quiet)
-                puts(state);
-
-        return nulstr_contains(good_states, state);
+        *active_state = state;
+        return 0;
 }
 
 static int check_triggering_units(
@@ -2458,9 +2477,10 @@ static int check_triggering_units(
                 const char *name) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *path = NULL, *n = NULL, *state = NULL;
+        _cleanup_free_ char *path = NULL, *n = NULL, *load_state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
+        UnitActiveState active_state;
         char **i;
         int r;
 
@@ -2479,11 +2499,11 @@ static int check_triggering_units(
                         "org.freedesktop.systemd1.Unit",
                         "LoadState",
                         &error,
-                        &state);
+                        &load_state);
         if (r < 0)
                 return log_error_errno(r, "Failed to get load state of %s: %s", n, bus_error_message(&error, r));
 
-        if (streq(state, "masked"))
+        if (streq(load_state, "masked"))
                 return 0;
 
         r = sd_bus_get_property_strv(
@@ -2498,11 +2518,11 @@ static int check_triggering_units(
                 return log_error_errno(r, "Failed to get triggered by array of %s: %s", n, bus_error_message(&error, r));
 
         STRV_FOREACH(i, triggered_by) {
-                r = check_one_unit(bus, *i, "active\0reloading\0", true);
+                r = get_state_one_unit(bus, *i, &active_state);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check unit: %m");
+                        return r;
 
-                if (r == 0)
+                if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING))
                         continue;
 
                 if (print_warning_label) {
@@ -3163,11 +3183,12 @@ static int start_special(int argc, char *argv[], void *userdata) {
         return start_unit(argc, argv, userdata);
 }
 
-static int check_unit_generic(int code, const char *good_states, char **args) {
+static int check_unit_generic(int code, const UnitActiveState good_states[], int nb_states, char **args) {
         _cleanup_strv_free_ char **names = NULL;
+        UnitActiveState active_state;
         sd_bus *bus;
         char **name;
-        int r;
+        int r, i;
         bool found = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
@@ -3179,13 +3200,16 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                int state;
+                r = get_state_one_unit(bus, *name, &active_state);
+                if (r < 0)
+                        return r;
 
-                state = check_one_unit(bus, *name, good_states, arg_quiet);
-                if (state < 0)
-                        return state;
-                if (state > 0)
-                        found = true;
+                if (!arg_quiet)
+                        puts(unit_active_state_to_string(active_state));
+
+                for (i = 0; i < nb_states; ++i)
+                        if (good_states[i] == active_state)
+                                found = true;
         }
 
         /* use the given return code for the case that we won't find
@@ -3194,12 +3218,14 @@ static int check_unit_generic(int code, const char *good_states, char **args) {
 }
 
 static int check_unit_active(int argc, char *argv[], void *userdata) {
+        const UnitActiveState states[] = { UNIT_ACTIVE, UNIT_RELOADING };
         /* According to LSB: 3, "program is not running" */
-        return check_unit_generic(3, "active\0reloading\0", strv_skip(argv, 1));
+        return check_unit_generic(3, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
 static int check_unit_failed(int argc, char *argv[], void *userdata) {
-        return check_unit_generic(1, "failed\0", strv_skip(argv, 1));
+        const UnitActiveState states[] = { UNIT_FAILED };
+        return check_unit_generic(1, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
 static int kill_unit(int argc, char *argv[], void *userdata) {
