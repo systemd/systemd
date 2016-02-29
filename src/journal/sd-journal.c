@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <linux/magic.h>
 #include <poll.h>
 #include <stddef.h>
@@ -1957,7 +1958,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                                                   &f->compress_buffer, &f->compress_buffer_size,
                                                   field, field_length, '=');
                         if (r < 0)
-                                log_debug_errno(r, "Cannot decompress %s object of length %zu at offset "OFSfmt": %m",
+                                log_debug_errno(r, "Cannot decompress %s object of length %"PRIu64" at offset "OFSfmt": %m",
                                                 object_compressed_to_string(compression), l, p);
                         else if (r > 0) {
 
