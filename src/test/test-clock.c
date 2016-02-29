@@ -20,17 +20,18 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "macro.h"
+#include "clock-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "clock-util.h"
+#include "macro.h"
 
 static void test_clock_is_localtime(void) {
         char adjtime[] = "/tmp/test-adjtime.XXXXXX";
-        int fd;
+        _cleanup_close_ int fd = -1;
         FILE* f;
 
-        const struct scenario {
+        static const struct scenario {
                 const char* contents;
                 int expected_result;
         } scenarios[] = {
