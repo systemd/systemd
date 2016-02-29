@@ -131,10 +131,10 @@ static int context_write_data_local_rtc(Context *c) {
                 size_t a, b;
 
                 p = strchrnul(s, '\n');
-                if (*p == '\0') {
+                if (*p == '\0')
                         /* only one line, no \n terminator */
                         prepend = "\n0\n";
-                } else if (p[1] == '\0') {
+                else if (p[1] == '\0') {
                         /* only one line, with \n terminator */
                         ++p;
                         prepend = "0\n";
