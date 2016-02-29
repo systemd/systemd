@@ -234,12 +234,14 @@ int main(int argc, char *argv[]) {
 
                 fd = sd_bus_get_fd(a);
                 if (fd < 0) {
+                        r = fd;
                         log_error_errno(r, "Failed to get fd: %m");
                         goto finish;
                 }
 
                 events_a = sd_bus_get_events(a);
                 if (events_a < 0) {
+                        r = events_a;
                         log_error_errno(r, "Failed to get events mask: %m");
                         goto finish;
                 }
@@ -252,6 +254,7 @@ int main(int argc, char *argv[]) {
 
                 events_b = sd_bus_get_events(b);
                 if (events_b < 0) {
+                        r = events_b;
                         log_error_errno(r, "Failed to get events mask: %m");
                         goto finish;
                 }
