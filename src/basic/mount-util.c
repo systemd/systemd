@@ -47,7 +47,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
         if ((flags & AT_EMPTY_PATH) && isempty(filename))
                 xsprintf(path, "/proc/self/fdinfo/%i", fd);
         else {
-                subfd = openat(fd, filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
+                subfd = openat(fd, filename, O_CLOEXEC|O_PATH);
                 if (subfd < 0)
                         return -errno;
 
@@ -230,7 +230,7 @@ int path_is_mount_point(const char *t, int flags) {
         if (!parent)
                 return -ENOMEM;
 
-        fd = openat(AT_FDCWD, parent, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_PATH);
+        fd = openat(AT_FDCWD, parent, O_DIRECTORY|O_CLOEXEC|O_PATH);
         if (fd < 0)
                 return -errno;
 
