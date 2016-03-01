@@ -492,6 +492,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook445G1NotebookPC:pvr*
 # HP ProBook 450 G0
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook450G0:pvr*
+# HP ZBook
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
 # HP ProBook 6555b
