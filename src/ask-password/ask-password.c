@@ -34,6 +34,7 @@ static const char *arg_keyname = NULL;
 static char *arg_message = NULL;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_multiple = false;
+static bool arg_no_output = false;
 static AskPasswordFlags arg_flags = ASK_PASSWORD_PUSH_CACHE;
 
 static void help(void) {
@@ -48,6 +49,7 @@ static void help(void) {
                "     --no-tty         Ask question via agent even on TTY\n"
                "     --accept-cached  Accept cached passwords\n"
                "     --multiple       List multiple passwords if available\n"
+               "     --no-output      Do not print password to standard output\n"
                , program_invocation_short_name);
 }
 
@@ -62,6 +64,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MULTIPLE,
                 ARG_ID,
                 ARG_KEYNAME,
+                ARG_NO_OUTPUT,
         };
 
         static const struct option options[] = {
@@ -74,6 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
                 { "id",            required_argument, NULL, ARG_ID            },
                 { "keyname",       required_argument, NULL, ARG_KEYNAME       },
+                { "no-output",     no_argument,       NULL, ARG_NO_OUTPUT     },
                 {}
         };
 
@@ -125,6 +129,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_keyname = optarg;
                         break;
 
+                case ARG_NO_OUTPUT:
+                        arg_no_output = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -166,7 +174,8 @@ int main(int argc, char *argv[]) {
         }
 
         STRV_FOREACH(p, l) {
-                puts(*p);
+                if (!arg_no_output)
+                        puts(*p);
 
                 if (!arg_multiple)
                         break;
