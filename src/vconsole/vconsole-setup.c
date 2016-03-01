@@ -283,7 +283,9 @@ int main(int argc, char **argv) {
                 return EXIT_FAILURE;
         }
 
-        utf8 = is_locale_utf8();
+        /* The Linux virtual console supports UTF-8, so it's safe
+         * to assume UTF-8 is available. */
+        utf8 = is_locale_utf8(true);
 
         r = parse_env_file("/etc/vconsole.conf", NEWLINE,
                            "KEYMAP", &vc_keymap,

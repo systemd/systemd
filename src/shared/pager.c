@@ -109,7 +109,7 @@ int pager_open(bool no_pager, bool jump_to_end) {
                  * particularly important if we output UTF-8
                  * characters. */
                 less_charset = getenv("SYSTEMD_LESSCHARSET");
-                if (!less_charset && is_locale_utf8())
+                if (!less_charset && is_locale_utf8(false))
                         less_charset = "utf-8";
                 if (less_charset)
                         setenv("LESSCHARSET", less_charset, 1);

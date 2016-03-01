@@ -1650,7 +1650,7 @@ static int setup_keys(void) {
 
 #ifdef HAVE_QRENCODE
                 /* If this is not an UTF-8 system don't print any QR codes */
-                if (is_locale_utf8()) {
+                if (is_locale_utf8(false)) {
                         fputs("\nTo transfer the verification key to your phone please scan the QR code below:\n\n", stderr);
                         print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
                 }
