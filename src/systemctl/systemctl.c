@@ -7263,6 +7263,7 @@ static int parse_argv(int argc, char *argv[]) {
         return systemctl_parse_argv(argc, argv);
 }
 
+#ifdef HAVE_SYSV_COMPAT
 _pure_ static int action_to_runlevel(void) {
 
         static const char table[_ACTION_MAX] = {
@@ -7280,6 +7281,7 @@ _pure_ static int action_to_runlevel(void) {
 
         return table[arg_action];
 }
+#endif
 
 static int talk_initctl(void) {
 #ifdef HAVE_SYSV_COMPAT
