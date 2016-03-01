@@ -222,42 +222,37 @@ void init_gettext(void) {
         textdomain(GETTEXT_PACKAGE);
 }
 
-bool is_locale_utf8(void) {
+bool is_locale_utf8(bool assume_utf8) {
         const char *set;
         static int cached_answer = -1;
-
-        /* Note that we default to 'true' here, since today UTF8 is
-         * pretty much supported everywhere. */
 
         if (cached_answer >= 0)
                 goto out;
 
-        if (!setlocale(LC_ALL, "")) {
-                cached_answer = true;
+        cached_answer = assume_utf8;
+
+        if (!setlocale(LC_ALL, ""))
                 goto out;
-        }
 
         set = nl_langinfo(CODESET);
-        if (!set) {
-                cached_answer = true;
+        if (!set)
                 goto out;
-        }
 
         if (streq(set, "UTF-8")) {
                 cached_answer = true;
                 goto out;
         }
 
-        /* For LC_CTYPE=="C" return true, because CTYPE is effectly
-         * unset and everything can do to UTF-8 nowadays. */
-        set = setlocale(LC_CTYPE, NULL);
-        if (!set) {
-                cached_answer = true;
+        if (!assume_utf8)
                 goto out;
-        }
 
-        /* Check result, but ignore the result if C was set
-         * explicitly. */
+        /* If LC_CTYPE is C or POSIX, verify whether that was explicitly
+         * requested in the environment. */
+
+        set = setlocale(LC_CTYPE, NULL);
+        if (!set)
+                goto out;
+
         cached_answer =
                 STR_IN_SET(set, "C", "POSIX") &&
                 !getenv("LC_ALL") &&
@@ -296,7 +291,7 @@ const char *draw_special_char(DrawSpecialChar ch) {
                 }
         };
 
-        return draw_table[!is_locale_utf8()][ch];
+        return draw_table[!is_locale_utf8(false)][ch];
 }
 
 static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {

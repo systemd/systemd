@@ -53,7 +53,7 @@ bool locale_is_valid(const char *name);
 #define N_(String) String
 void init_gettext(void);
 
-bool is_locale_utf8(void);
+bool is_locale_utf8(bool assume_utf8);
 
 typedef enum DrawSpecialChar {
         DRAW_TREE_VERTICAL,
