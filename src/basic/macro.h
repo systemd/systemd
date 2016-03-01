@@ -361,6 +361,12 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 _found;                         \
         })
 
+#define SWAP_TWO(x, y) do {                        \
+                typeof(x) _t = (x);                \
+                (x) = (y);                         \
+                (y) = (_t);                        \
+        } while (false)
+
 /* Define C11 thread_local attribute even on older gcc compiler
  * version */
 #ifndef thread_local

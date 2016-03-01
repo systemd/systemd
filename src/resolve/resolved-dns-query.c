@@ -62,6 +62,7 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
 
         while ((t = set_steal_first(c->transactions))) {
                 set_remove(t->notify_query_candidates, c);
+                set_remove(t->notify_query_candidates_done, c);
                 dns_transaction_gc(t);
         }
 }
@@ -136,6 +137,10 @@ static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResource
                 goto gc;
 
         r = set_ensure_allocated(&t->notify_query_candidates, NULL);
+        if (r < 0)
+                goto gc;
+
+        r = set_ensure_allocated(&t->notify_query_candidates_done, NULL);
         if (r < 0)
                 goto gc;
 

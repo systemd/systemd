@@ -52,6 +52,7 @@ static void dns_transaction_flush_dnssec_transactions(DnsTransaction *t) {
 
         while ((z = set_steal_first(t->dnssec_transactions))) {
                 set_remove(z->notify_transactions, t);
+                set_remove(z->notify_transactions_done, t);
                 dns_transaction_gc(z);
         }
 }
@@ -100,13 +101,25 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 set_remove(c->transactions, t);
         set_free(t->notify_query_candidates);
 
+        while ((c = set_steal_first(t->notify_query_candidates_done)))
+                set_remove(c->transactions, t);
+        set_free(t->notify_query_candidates_done);
+
         while ((i = set_steal_first(t->notify_zone_items)))
                 i->probe_transaction = NULL;
         set_free(t->notify_zone_items);
 
+        while ((i = set_steal_first(t->notify_zone_items_done)))
+                i->probe_transaction = NULL;
+        set_free(t->notify_zone_items_done);
+
         while ((z = set_steal_first(t->notify_transactions)))
                 set_remove(z->dnssec_transactions, t);
         set_free(t->notify_transactions);
+
+        while ((z = set_steal_first(t->notify_transactions_done)))
+                set_remove(z->dnssec_transactions, t);
+        set_free(t->notify_transactions_done);
 
         dns_transaction_flush_dnssec_transactions(t);
         set_free(t->dnssec_transactions);
@@ -127,8 +140,11 @@ bool dns_transaction_gc(DnsTransaction *t) {
                 return true;
 
         if (set_isempty(t->notify_query_candidates) &&
+            set_isempty(t->notify_query_candidates_done) &&
             set_isempty(t->notify_zone_items) &&
-            set_isempty(t->notify_transactions)) {
+            set_isempty(t->notify_zone_items_done) &&
+            set_isempty(t->notify_transactions) &&
+            set_isempty(t->notify_transactions_done)) {
                 dns_transaction_free(t);
                 return false;
         }
@@ -266,6 +282,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         log_debug("We have the lexicographically larger IP address and thus lost in the conflict.");
 
         t->block_gc++;
+
         while ((z = set_first(t->notify_zone_items))) {
                 /* First, make sure the zone item drops the reference
                  * to us */
@@ -284,7 +301,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         DnsQueryCandidate *c;
         DnsZoneItem *z;
         DnsTransaction *d;
-        Iterator i;
         const char *st;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
@@ -333,39 +349,17 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
          * transaction isn't freed while we are still looking at it */
         t->block_gc++;
 
-        SET_FOREACH(c, t->notify_query_candidates, i)
+        SET_FOREACH_MOVE(c, t->notify_query_candidates_done, t->notify_query_candidates)
                 dns_query_candidate_notify(c);
-        SET_FOREACH(z, t->notify_zone_items, i)
+        SWAP_TWO(t->notify_query_candidates, t->notify_query_candidates_done);
+
+        SET_FOREACH_MOVE(z, t->notify_zone_items_done, t->notify_zone_items)
                 dns_zone_item_notify(z);
+        SWAP_TWO(t->notify_zone_items, t->notify_zone_items_done);
 
-        if (!set_isempty(t->notify_transactions)) {
-                DnsTransaction **nt;
-                unsigned j, n = 0;
-
-                /* We need to be careful when notifying other
-                 * transactions, as that might destroy other
-                 * transactions in our list. Hence, in order to be
-                 * able to safely iterate through the list of
-                 * transactions, take a GC lock on all of them
-                 * first. Then, in a second loop, notify them, but
-                 * first unlock that specific transaction. */
-
-                nt = newa(DnsTransaction*, set_size(t->notify_transactions));
-                SET_FOREACH(d, t->notify_transactions, i) {
-                        nt[n++] = d;
-                        d->block_gc++;
-                }
-
-                assert(n == set_size(t->notify_transactions));
-
-                for (j = 0; j < n; j++) {
-                        if (set_contains(t->notify_transactions, nt[j]))
-                                dns_transaction_notify(nt[j], t);
-
-                        nt[j]->block_gc--;
-                        dns_transaction_gc(nt[j]);
-                }
-        }
+        SET_FOREACH_MOVE(d, t->notify_transactions_done, t->notify_transactions)
+                dns_transaction_notify(d, t);
+        SWAP_TWO(t->notify_transactions, t->notify_transactions_done);
 
         t->block_gc--;
         dns_transaction_gc(t);
@@ -1623,6 +1617,10 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
                 goto gc;
 
         r = set_ensure_allocated(&aux->notify_transactions, NULL);
+        if (r < 0)
+                goto gc;
+
+        r = set_ensure_allocated(&aux->notify_transactions_done, NULL);
         if (r < 0)
                 goto gc;
 

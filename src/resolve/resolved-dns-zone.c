@@ -38,6 +38,7 @@ void dns_zone_item_probe_stop(DnsZoneItem *i) {
         i->probe_transaction = NULL;
 
         set_remove(t->notify_zone_items, i);
+        set_remove(t->notify_zone_items_done, i);
         dns_transaction_gc(t);
 }
 
@@ -183,6 +184,10 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         }
 
         r = set_ensure_allocated(&t->notify_zone_items, NULL);
+        if (r < 0)
+                goto gc;
+
+        r = set_ensure_allocated(&t->notify_zone_items_done, NULL);
         if (r < 0)
                 goto gc;
 
