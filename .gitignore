@@ -246,6 +246,7 @@
 /test-ring
 /test-rlimit-util
 /test-sched-prio
+/test-selinux
 /test-set
 /test-sigbus
 /test-signal-util

@@ -1479,7 +1479,8 @@ tests += \
 	test-dns-domain \
 	test-install-root \
 	test-rlimit-util \
-	test-signal-util
+	test-signal-util \
+	test-selinux
 
 if HAVE_ACL
 tests += \
@@ -1871,6 +1872,12 @@ test_signal_util_SOURCES = \
 	src/test/test-signal-util.c
 
 test_signal_util_LDADD = \
+	libshared.la
+
+test_selinux_SOURCES = \
+	src/test/test-selinux.c
+
+test_selinux_LDADD = \
 	libshared.la
 
 BUILT_SOURCES += \
