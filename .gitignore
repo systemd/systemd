@@ -248,6 +248,7 @@
 /test-sched-prio
 /test-selinux
 /test-set
+/test-sizeof
 /test-sigbus
 /test-signal-util
 /test-siphash24

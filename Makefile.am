@@ -1480,7 +1480,8 @@ tests += \
 	test-install-root \
 	test-rlimit-util \
 	test-signal-util \
-	test-selinux
+	test-selinux \
+	test-sizeof
 
 if HAVE_ACL
 tests += \
@@ -1878,6 +1879,12 @@ test_selinux_SOURCES = \
 	src/test/test-selinux.c
 
 test_selinux_LDADD = \
+	libshared.la
+
+test_sizeof_SOURCES = \
+	src/test/test-sizeof.c
+
+test_sizeof_LDADD = \
 	libshared.la
 
 BUILT_SOURCES += \
