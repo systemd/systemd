@@ -17,6 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -498,7 +499,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 total_out += n;
 
                 if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
-                        log_debug("Compressed stream longer than %zd bytes", max_bytes);
+                        log_debug("Compressed stream longer than %"PRIu64" bytes", max_bytes);
                         return -EFBIG;
                 }
 
@@ -649,7 +650,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                 total_out += produced;
 
                 if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
-                        log_debug("Decompressed stream longer than %zd bytes", max_bytes);
+                        log_debug("Decompressed stream longer than %"PRIu64" bytes", max_bytes);
                         r = -EFBIG;
                         goto cleanup;
                 }
