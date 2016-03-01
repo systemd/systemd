@@ -378,6 +378,7 @@ evdev:input:b0003v0458p0708*
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:pvr*
  KEYBOARD_KEY_81=fn_esc
  KEYBOARD_KEY_89=battery                                # Fn+F8
  KEYBOARD_KEY_8a=screenlock                             # Fn+F6
@@ -488,22 +489,20 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:pvr*
 # HP ProBook 440 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:pvr*
+# HP ProBook 440 G3
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook440G3:pvr*
 # HP ProBook 445 G1
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook445G1NotebookPC:pvr*
 # HP ProBook 450 G0
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook450G0:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
+ KEYBOARD_KEY_f8=unknown                                # rf kill; also reported via special evdev
 
 # HP ProBook 6555b
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard:pnHPProBook6555b:*
  KEYBOARD_KEY_b2=www                                    # Earth
 
-# HP ProBook 440 G3
-evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*440*G3*
- KEYBOARD_KEY_92=brightnessdown
- KEYBOARD_KEY_97=brightnessup
- KEYBOARD_KEY_ee=switchvideomode
- KEYBOARD_KEY_81=f20                                    # micmute
 
 ###########################################################
 # IBM
