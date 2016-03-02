@@ -289,31 +289,6 @@ static void test_in_set(void) {
         assert_se(!IN_SET(0, 1, 2, 3, 4));
 }
 
-static void test_writing_tmpfile(void) {
-        char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
-        _cleanup_free_ char *contents = NULL;
-        size_t size;
-        int fd, r;
-        struct iovec iov[3];
-
-        IOVEC_SET_STRING(iov[0], "abc\n");
-        IOVEC_SET_STRING(iov[1], ALPHANUMERICAL "\n");
-        IOVEC_SET_STRING(iov[2], "");
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        printf("tmpfile: %s", name);
-
-        r = writev(fd, iov, 3);
-        assert_se(r >= 0);
-
-        r = read_full_file(name, &contents, &size);
-        assert_se(r == 0);
-        printf("contents: %s", contents);
-        assert_se(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
-
-        unlink(name);
-}
-
 static void test_log2i(void) {
         assert_se(log2i(1) == 0);
         assert_se(log2i(2) == 1);
@@ -381,7 +356,6 @@ static void test_close_nointr(void) {
         unlink(name);
 }
 
-
 static void test_unlink_noerrno(void) {
         char name[] = "/tmp/test-close_nointr.XXXXXX";
         int fd;
@@ -424,73 +398,6 @@ static void test_readlink_and_make_absolute(void) {
         assert_se(unlink(name_alias) >= 0);
 
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-}
-
-static void test_search_and_fopen(void) {
-        const char *dirs[] = {"/tmp/foo/bar", "/tmp", NULL};
-        char name[] = "/tmp/test-search_and_fopen.XXXXXX";
-        int fd = -1;
-        int r;
-        FILE *f;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        close(fd);
-
-        r = search_and_fopen(basename(name), "r", NULL, dirs, &f);
-        assert_se(r >= 0);
-        fclose(f);
-
-        r = search_and_fopen(name, "r", NULL, dirs, &f);
-        assert_se(r >= 0);
-        fclose(f);
-
-        r = search_and_fopen(basename(name), "r", "/", dirs, &f);
-        assert_se(r >= 0);
-        fclose(f);
-
-        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
-        r = search_and_fopen("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
-
-        r = unlink(name);
-        assert_se(r == 0);
-
-        r = search_and_fopen(basename(name), "r", NULL, dirs, &f);
-        assert_se(r < 0);
-}
-
-
-static void test_search_and_fopen_nulstr(void) {
-        const char dirs[] = "/tmp/foo/bar\0/tmp\0";
-        char name[] = "/tmp/test-search_and_fopen.XXXXXX";
-        int fd = -1;
-        int r;
-        FILE *f;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        close(fd);
-
-        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f);
-        assert_se(r >= 0);
-        fclose(f);
-
-        r = search_and_fopen_nulstr(name, "r", NULL, dirs, &f);
-        assert_se(r >= 0);
-        fclose(f);
-
-        r = search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
-        r = search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
-
-        r = unlink(name);
-        assert_se(r == 0);
-
-        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f);
-        assert_se(r < 0);
 }
 
 static void test_glob_exists(void) {
@@ -670,42 +577,6 @@ static void test_sparse_write(void) {
         test_sparse_write_one(fd, test_e, sizeof(test_e));
 }
 
-static void test_tempfn(void) {
-        char *ret = NULL, *p;
-
-        assert_se(tempfn_xxxxxx("/foo/bar/waldo", NULL, &ret) >= 0);
-        assert_se(streq_ptr(ret, "/foo/bar/.#waldoXXXXXX"));
-        free(ret);
-
-        assert_se(tempfn_xxxxxx("/foo/bar/waldo", "[miau]", &ret) >= 0);
-        assert_se(streq_ptr(ret, "/foo/bar/.#[miau]waldoXXXXXX"));
-        free(ret);
-
-        assert_se(tempfn_random("/foo/bar/waldo", NULL, &ret) >= 0);
-        assert_se(p = startswith(ret, "/foo/bar/.#waldo"));
-        assert_se(strlen(p) == 16);
-        assert_se(in_charset(p, "0123456789abcdef"));
-        free(ret);
-
-        assert_se(tempfn_random("/foo/bar/waldo", "[wuff]", &ret) >= 0);
-        assert_se(p = startswith(ret, "/foo/bar/.#[wuff]waldo"));
-        assert_se(strlen(p) == 16);
-        assert_se(in_charset(p, "0123456789abcdef"));
-        free(ret);
-
-        assert_se(tempfn_random_child("/foo/bar/waldo", NULL, &ret) >= 0);
-        assert_se(p = startswith(ret, "/foo/bar/waldo/.#"));
-        assert_se(strlen(p) == 16);
-        assert_se(in_charset(p, "0123456789abcdef"));
-        free(ret);
-
-        assert_se(tempfn_random_child("/foo/bar/waldo", "[kikiriki]", &ret) >= 0);
-        assert_se(p = startswith(ret, "/foo/bar/waldo/.#[kikiriki]"));
-        assert_se(strlen(p) == 16);
-        assert_se(in_charset(p, "0123456789abcdef"));
-        free(ret);
-}
-
 static void test_fgetxattrat_fake(void) {
         char t[] = "/var/tmp/xattrtestXXXXXX";
         _cleanup_close_ int fd = -1;
@@ -760,15 +631,12 @@ int main(int argc, char *argv[]) {
         test_fstab_node_to_udev_node();
         test_get_files_in_directory();
         test_in_set();
-        test_writing_tmpfile();
         test_log2i();
         test_filename_is_valid();
         test_file_in_same_dir();
         test_close_nointr();
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
-        test_search_and_fopen();
-        test_search_and_fopen_nulstr();
         test_glob_exists();
         test_execute_directory();
         test_parse_proc_cmdline();
@@ -776,7 +644,6 @@ int main(int argc, char *argv[]) {
         test_same_fd();
         test_uid_ptr();
         test_sparse_write();
-        test_tempfn();
         test_fgetxattrat_fake();
         test_runlevel_to_target();
 
