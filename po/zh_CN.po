@@ -7,8 +7,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2015-10-27 02:24+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2016-03-02 08:48+0100\n"
 "PO-Revision-Date: 2015-10-28 15:00+0800\n"
 "Last-Translator: Boyuan Yang <073plan@gmail.com>\n"
 "Language-Team: Chinese <i18n-zh@googlegroups.com>\n"
@@ -389,7 +389,6 @@ msgid "Set a wall message"
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:56
-#, fuzzy
 msgid "Authentication is required to set a wall message"
 msgstr ""
 
@@ -497,31 +496,30 @@ msgid ""
 "shall be enabled."
 msgstr "设置是否启用网络时间同步需要验证。"
 
-#: ../src/core/dbus-unit.c:430
+#: ../src/core/dbus-unit.c:447
 msgid "Authentication is required to start '$(unit)'."
 msgstr "启动“$(unit)”需要验证。"
 
-#: ../src/core/dbus-unit.c:431
+#: ../src/core/dbus-unit.c:448
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "停止“$(unit)”需要验证。"
 
-#: ../src/core/dbus-unit.c:432
+#: ../src/core/dbus-unit.c:449
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "重新载入“$(unit)”需要验证。"
 
-#: ../src/core/dbus-unit.c:433 ../src/core/dbus-unit.c:434
+#: ../src/core/dbus-unit.c:450 ../src/core/dbus-unit.c:451
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "重新启动“$(unit)”需要验证。"
 
-#: ../src/core/dbus-unit.c:537
+#: ../src/core/dbus-unit.c:557
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "杀死“$(unit)”需要验证。"
 
-#: ../src/core/dbus-unit.c:567
+#: ../src/core/dbus-unit.c:587
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "重置“$(unit)”的失败（\"failed\"）状态需要验证。"
 
-#: ../src/core/dbus-unit.c:599
+#: ../src/core/dbus-unit.c:619
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "设置“$(unit)”的属性需要验证。"
-

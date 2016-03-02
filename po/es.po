@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-11-22 16:37+0100\n"
+"POT-Creation-Date: 2016-03-02 08:48+0100\n"
 "PO-Revision-Date: 2015-04-24 13:26+0200\n"
 "Last-Translator: Álex Puchades <alex94puchades@gmail.com>\n"
 "Language-Team: Español; Castellano <gnome-es-list@gnome.org>\n"
@@ -575,37 +575,37 @@ msgstr ""
 "Se requiere autenticación para activar/desactivar la sincronización de hora "
 "por red."
 
-#: ../src/core/dbus-unit.c:428
+#: ../src/core/dbus-unit.c:447
 #, fuzzy
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
 
-#: ../src/core/dbus-unit.c:429
+#: ../src/core/dbus-unit.c:448
 #, fuzzy
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
 
-#: ../src/core/dbus-unit.c:430
+#: ../src/core/dbus-unit.c:449
 #, fuzzy
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Se requiere autenticación para recargar el estado de systemd."
 
-#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+#: ../src/core/dbus-unit.c:450 ../src/core/dbus-unit.c:451
 #, fuzzy
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
 
-#: ../src/core/dbus-unit.c:535
+#: ../src/core/dbus-unit.c:557
 #, fuzzy
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "Se requiere autenticación para conectarse a un contenedor local."
 
-#: ../src/core/dbus-unit.c:565
+#: ../src/core/dbus-unit.c:587
 #, fuzzy
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Se requiere autenticación para establecer el nombre de equipo local."
 
-#: ../src/core/dbus-unit.c:597
+#: ../src/core/dbus-unit.c:619
 #, fuzzy
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
