@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_open();
-        mac_selinux_init("/dev");
+        mac_selinux_init();
 
         while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
                 switch (c) {

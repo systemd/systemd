@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
 
         log_debug("version %s", VERSION);
-        mac_selinux_init("/dev");
+        mac_selinux_init();
 
         action = argv[1];
         if (action == NULL) {

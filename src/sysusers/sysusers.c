@@ -1820,7 +1820,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mac_selinux_init(NULL);
+        r = mac_selinux_init();
         if (r < 0) {
                 log_error_errno(r, "SELinux setup failed: %m");
                 goto finish;
