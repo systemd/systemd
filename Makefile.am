@@ -4123,11 +4123,9 @@ catalog-remove-hook:
 UNINSTALL_DATA_HOOKS += \
 	catalog-remove-hook
 
-manual_tests += \
-	test-journal-enum
-
 tests += \
 	test-journal \
+	test-journal-enum \
 	test-journal-send \
 	test-journal-syslog \
 	test-journal-match \
