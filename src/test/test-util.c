@@ -31,7 +31,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "fstab-util.h"
 #include "glob-util.h"
 #include "io-util.h"
 #include "mkdir.h"
@@ -187,40 +186,6 @@ static void test_protect_errno(void) {
                 errno = 11;
         }
         assert_se(errno == 12);
-}
-
-static void test_fstab_node_to_udev_node(void) {
-        char *n;
-
-        n = fstab_node_to_udev_node("LABEL=applé/jack");
-        puts(n);
-        assert_se(streq(n, "/dev/disk/by-label/applé\\x2fjack"));
-        free(n);
-
-        n = fstab_node_to_udev_node("PARTLABEL=pinkié pie");
-        puts(n);
-        assert_se(streq(n, "/dev/disk/by-partlabel/pinkié\\x20pie"));
-        free(n);
-
-        n = fstab_node_to_udev_node("UUID=037b9d94-148e-4ee4-8d38-67bfe15bb535");
-        puts(n);
-        assert_se(streq(n, "/dev/disk/by-uuid/037b9d94-148e-4ee4-8d38-67bfe15bb535"));
-        free(n);
-
-        n = fstab_node_to_udev_node("PARTUUID=037b9d94-148e-4ee4-8d38-67bfe15bb535");
-        puts(n);
-        assert_se(streq(n, "/dev/disk/by-partuuid/037b9d94-148e-4ee4-8d38-67bfe15bb535"));
-        free(n);
-
-        n = fstab_node_to_udev_node("PONIES=awesome");
-        puts(n);
-        assert_se(streq(n, "PONIES=awesome"));
-        free(n);
-
-        n = fstab_node_to_udev_node("/dev/xda1");
-        puts(n);
-        assert_se(streq(n, "/dev/xda1"));
-        free(n);
 }
 
 static void test_in_set(void) {
@@ -426,7 +391,6 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_u64log2();
         test_protect_errno();
-        test_fstab_node_to_udev_node();
         test_in_set();
         test_log2i();
         test_glob_exists();
