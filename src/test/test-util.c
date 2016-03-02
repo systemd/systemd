@@ -19,28 +19,16 @@
 ***/
 
 #include <errno.h>
-#include <fcntl.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/xattr.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
 #include "def.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "mkdir.h"
-#include "parse-util.h"
-#include "path-util.h"
-#include "process-util.h"
 #include "rm-rf.h"
-#include "special.h"
 #include "string-util.h"
-#include "strv.h"
 #include "util.h"
-#include "virt.h"
 
 static void test_align_power2(void) {
         unsigned long i, p2;
