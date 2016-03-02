@@ -1426,6 +1426,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-cpu-set-util \
 	test-hexdecoct \
 	test-escape \
 	test-alloc-util \
@@ -1773,6 +1774,12 @@ test_web_util_SOURCES = \
 	src/test/test-web-util.c
 
 test_web_util_LDADD = \
+	libbasic.la
+
+test_cpu_set_util_SOURCES = \
+	src/test/test-cpu-set-util.c
+
+test_cpu_set_util_LDADD = \
 	libbasic.la
 
 test_escape_SOURCES = \
