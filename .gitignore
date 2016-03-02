@@ -256,6 +256,7 @@
 /test-siphash24
 /test-sleep
 /test-socket-util
+/test-stat-util
 /test-strbuf
 /test-string-util
 /test-strip-tab-ansi
