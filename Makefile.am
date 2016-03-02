@@ -1427,6 +1427,7 @@ tests += \
 	test-ellipsize \
 	test-util \
 	test-hexdecoct \
+	test-escape \
 	test-string-util \
 	test-extract-word \
 	test-parse-util \
@@ -1760,6 +1761,12 @@ test_hexdecoct_SOURCES = \
 	src/test/test-hexdecoct.c
 
 test_hexdecoct_LDADD = \
+	libbasic.la
+
+test_escape_SOURCES = \
+	src/test/test-escape.c
+
+test_escape_LDADD = \
 	libbasic.la
 
 test_string_util_SOURCES = \
