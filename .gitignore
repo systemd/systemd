@@ -189,6 +189,7 @@
 /test-firewall-util
 /test-fstab-util
 /test-hashmap
+/test-hexdecoct
 /test-hostname
 /test-hostname-util
 /test-id128

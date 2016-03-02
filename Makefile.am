@@ -1426,6 +1426,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-hexdecoct \
 	test-string-util \
 	test-extract-word \
 	test-parse-util \
@@ -1752,6 +1753,12 @@ test_util_SOURCES = \
 
 test_util_LDADD = \
 	libshared.la
+
+test_hexdecoct_SOURCES = \
+	src/test/test-hexdecoct.c
+
+test_hexdecoct_LDADD = \
+	libbasic.la
 
 test_string_util_SOURCES = \
 	src/test/test-string-util.c
