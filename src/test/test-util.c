@@ -20,7 +20,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -42,7 +41,6 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
-#include "signal-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -445,17 +443,6 @@ static void test_readlink_and_make_absolute(void) {
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
-static void test_ignore_signals(void) {
-        assert_se(ignore_signals(SIGINT, -1) >= 0);
-        assert_se(kill(getpid(), SIGINT) >= 0);
-        assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
-        assert_se(kill(getpid(), SIGUSR1) >= 0);
-        assert_se(kill(getpid(), SIGUSR2) >= 0);
-        assert_se(kill(getpid(), SIGTERM) >= 0);
-        assert_se(kill(getpid(), SIGPIPE) >= 0);
-        assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
-}
-
 static void test_is_symlink(void) {
         char name[] = "/tmp/test-is_symlink.XXXXXX";
         char name_link[] = "/tmp/test-is_symlink.link";
@@ -816,7 +803,6 @@ int main(int argc, char *argv[]) {
         test_close_nointr();
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
-        test_ignore_signals();
         test_is_symlink();
         test_search_and_fopen();
         test_search_and_fopen_nulstr();
