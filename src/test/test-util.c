@@ -51,7 +51,6 @@
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
-#include "web-util.h"
 #include "xattr-util.h"
 
 static void test_align_power2(void) {
@@ -479,18 +478,6 @@ static void test_files_same(void) {
 
         unlink(name);
         unlink(name_alias);
-}
-
-static void test_is_valid_documentation_url(void) {
-        assert_se(documentation_url_is_valid("http://www.freedesktop.org/wiki/Software/systemd"));
-        assert_se(documentation_url_is_valid("https://www.kernel.org/doc/Documentation/binfmt_misc.txt"));
-        assert_se(documentation_url_is_valid("file:/foo/foo"));
-        assert_se(documentation_url_is_valid("man:systemd.special(7)"));
-        assert_se(documentation_url_is_valid("info:bar"));
-
-        assert_se(!documentation_url_is_valid("foo:"));
-        assert_se(!documentation_url_is_valid("info:"));
-        assert_se(!documentation_url_is_valid(""));
 }
 
 static void test_file_in_same_dir(void) {
@@ -942,7 +929,6 @@ int main(int argc, char *argv[]) {
         test_log2i();
         test_filename_is_valid();
         test_files_same();
-        test_is_valid_documentation_url();
         test_file_in_same_dir();
         test_close_nointr();
         test_unlink_noerrno();

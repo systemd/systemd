@@ -276,6 +276,7 @@
 /test-util
 /test-verbs
 /test-watchdog
+/test-web-util
 /test-xml
 /timedatectl
 /udevadm
