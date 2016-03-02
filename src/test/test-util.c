@@ -223,14 +223,6 @@ static void test_fstab_node_to_udev_node(void) {
         free(n);
 }
 
-static void test_get_files_in_directory(void) {
-        _cleanup_strv_free_ char **l = NULL, **t = NULL;
-
-        assert_se(get_files_in_directory("/tmp", &l) >= 0);
-        assert_se(get_files_in_directory(".", &t) >= 0);
-        assert_se(get_files_in_directory(".", NULL) >= 0);
-}
-
 static void test_in_set(void) {
         assert_se(IN_SET(1, 1));
         assert_se(IN_SET(1, 1, 2, 3, 4));
@@ -250,50 +242,6 @@ static void test_log2i(void) {
         assert_se(log2i(33) == 5);
         assert_se(log2i(63) == 5);
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
-}
-
-static void test_unlink_noerrno(void) {
-        char name[] = "/tmp/test-close_nointr.XXXXXX";
-        int fd;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        assert_se(close_nointr(fd) >= 0);
-
-        {
-                PROTECT_ERRNO;
-                errno = -42;
-                assert_se(unlink_noerrno(name) >= 0);
-                assert_se(errno == -42);
-                assert_se(unlink_noerrno(name) < 0);
-                assert_se(errno == -42);
-        }
-}
-
-static void test_readlink_and_make_absolute(void) {
-        char tempdir[] = "/tmp/test-readlink_and_make_absolute";
-        char name[] = "/tmp/test-readlink_and_make_absolute/original";
-        char name2[] = "test-readlink_and_make_absolute/original";
-        char name_alias[] = "/tmp/test-readlink_and_make_absolute-alias";
-        char *r = NULL;
-
-        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid()) >= 0);
-        assert_se(touch(name) >= 0);
-
-        assert_se(symlink(name, name_alias) >= 0);
-        assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
-        assert_se(streq(r, name));
-        free(r);
-        assert_se(unlink(name_alias) >= 0);
-
-        assert_se(chdir(tempdir) >= 0);
-        assert_se(symlink(name2, name_alias) >= 0);
-        assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
-        assert_se(streq(r, name));
-        free(r);
-        assert_se(unlink(name_alias) >= 0);
-
-        assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
 static void test_glob_exists(void) {
@@ -479,11 +427,8 @@ int main(int argc, char *argv[]) {
         test_u64log2();
         test_protect_errno();
         test_fstab_node_to_udev_node();
-        test_get_files_in_directory();
         test_in_set();
         test_log2i();
-        test_unlink_noerrno();
-        test_readlink_and_make_absolute();
         test_glob_exists();
         test_execute_directory();
         test_parse_proc_cmdline();
