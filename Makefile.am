@@ -3709,8 +3709,10 @@ endif
 endif
 endif
 
+tests += \
+	test-libudev
+
 manual_tests += \
-	test-libudev \
 	test-udev
 
 test_libudev_SOURCES = \

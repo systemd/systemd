@@ -350,12 +350,14 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
 
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
+        bool arg_monitor = false;
         static const struct option options[] = {
                 { "syspath",   required_argument, NULL, 'p' },
                 { "subsystem", required_argument, NULL, 's' },
                 { "debug",     no_argument,       NULL, 'd' },
                 { "help",      no_argument,       NULL, 'h' },
                 { "version",   no_argument,       NULL, 'V' },
+                { "monitor",   no_argument,       NULL, 'm' },
                 {}
         };
         const char *syspath = "/devices/virtual/mem/null";
@@ -393,6 +395,10 @@ int main(int argc, char *argv[]) {
                         printf("%s\n", VERSION);
                         return EXIT_SUCCESS;
 
+                case 'm':
+                        arg_monitor = true;
+                        break;
+
                 case '?':
                         return EXIT_FAILURE;
 
@@ -420,7 +426,8 @@ int main(int argc, char *argv[]) {
 
         test_hwdb(udev, "usb:v0D50p0011*");
 
-        test_monitor(udev);
+        if (arg_monitor)
+                test_monitor(udev);
 
         return EXIT_SUCCESS;
 }
