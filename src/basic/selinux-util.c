@@ -217,7 +217,7 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
                 return -errno;
 
         sclass = string_to_security_class("process");
-        r = security_compute_create(mycon, fcon, sclass, (security_context_t *) label);
+        r = security_compute_create_raw(mycon, fcon, sclass, (security_context_t *) label);
         if (r < 0)
                 return -errno;
 #endif
@@ -296,7 +296,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
                 return -ENOMEM;
 
         sclass = string_to_security_class("process");
-        r = security_compute_create(mycon, fcon, sclass, (security_context_t *) label);
+        r = security_compute_create_raw(mycon, fcon, sclass, (security_context_t *) label);
         if (r < 0)
                 return -errno;
 #endif
@@ -350,7 +350,7 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
 
                 log_enforcing("Failed to determine SELinux security context for %s: %m", path);
         } else {
-                if (setfscreatecon(filecon) >= 0)
+                if (setfscreatecon_raw(filecon) >= 0)
                         return 0; /* Success! */
 
                 log_enforcing("Failed to set SELinux security context %s for %s: %m", filecon, path);
