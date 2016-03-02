@@ -191,6 +191,7 @@
 /test-fdset
 /test-fileio
 /test-firewall-util
+/test-fs-util
 /test-fstab-util
 /test-hashmap
 /test-hexdecoct
