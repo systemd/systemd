@@ -45,6 +45,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
@@ -173,7 +174,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info) {
         if (r < 0)
                 return r;
 
-        strncpy(info->name, name, sizeof(info->name));
+        strscpy(info->name, sizeof info->name, name);
 
         info->has_mac_address =
                 sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
