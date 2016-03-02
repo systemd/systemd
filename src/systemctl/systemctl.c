@@ -6162,8 +6162,18 @@ static int edit(int argc, char *argv[], void *userdata) {
                 r = daemon_reload(argc, argv, userdata);
 
 end:
-        STRV_FOREACH_PAIR(original, tmp, paths)
+        STRV_FOREACH_PAIR(original, tmp, paths) {
                 (void) unlink(*tmp);
+
+                /* Removing empty dropin dirs */
+                if (!arg_full) {
+                        _cleanup_free_ char *dir = dirname_malloc(*original);
+                        /* no need to check if the dir is empty, rmdir
+                         * does nothing if it is not the case.
+                         */
+                        (void) rmdir(dir);
+                }
+        }
 
         return r;
 }
