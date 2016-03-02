@@ -522,25 +522,6 @@ static void test_log2i(void) {
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
 }
 
-static void test_foreach_string(void) {
-        const char * const t[] = {
-                "foo",
-                "bar",
-                "waldo",
-                NULL
-        };
-        const char *x;
-        unsigned i = 0;
-
-        FOREACH_STRING(x, "foo", "bar", "waldo")
-                assert_se(streq_ptr(t[i++], x));
-
-        assert_se(i == 3);
-
-        FOREACH_STRING(x, "zzz")
-                assert_se(streq(x, "zzz"));
-}
-
 static void test_filename_is_valid(void) {
         char foo[FILENAME_MAX+2];
         int i;
@@ -1073,7 +1054,6 @@ int main(int argc, char *argv[]) {
         test_in_set();
         test_writing_tmpfile();
         test_log2i();
-        test_foreach_string();
         test_filename_is_valid();
         test_files_same();
         test_is_valid_documentation_url();
