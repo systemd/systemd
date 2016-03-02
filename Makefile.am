@@ -1430,6 +1430,7 @@ tests += \
 	test-escape \
 	test-alloc-util \
 	test-proc-cmdline \
+	test-io-util \
 	test-fs-util \
 	test-web-util \
 	test-stat-util \
@@ -1771,6 +1772,12 @@ test_alloc_util_SOURCES = \
 	src/test/test-alloc-util.c
 
 test_alloc_util_LDADD = \
+	libbasic.la
+
+test_io_util_SOURCES = \
+	src/test/test-io-util.c
+
+test_io_util_LDADD = \
 	libbasic.la
 
 test_fs_util_SOURCES = \

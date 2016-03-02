@@ -201,6 +201,7 @@
 /test-inhibit
 /test-install
 /test-install-root
+/test-io-util
 /test-ipcrm
 /test-ipv4ll
 /test-ipv4ll-manual
