@@ -44,7 +44,6 @@
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 #include "util.h"
 #include "virt.h"
 #include "xattr-util.h"
@@ -193,21 +192,6 @@ static void test_close_many(void) {
         unlink(name0);
         unlink(name1);
         unlink(name2);
-}
-
-static void test_parse_uid(void) {
-        int r;
-        uid_t uid;
-
-        r = parse_uid("100", &uid);
-        assert_se(r == 0);
-        assert_se(uid == 100);
-
-        r = parse_uid("65535", &uid);
-        assert_se(r == -ENXIO);
-
-        r = parse_uid("asdsdas", &uid);
-        assert_se(r == -EINVAL);
 }
 
 static void test_u64log2(void) {
@@ -488,15 +472,6 @@ static void test_same_fd(void) {
         assert_se(same_fd(b, a) == 0);
 }
 
-static void test_uid_ptr(void) {
-
-        assert_se(UID_TO_PTR(0) != NULL);
-        assert_se(UID_TO_PTR(1000) != NULL);
-
-        assert_se(PTR_TO_UID(UID_TO_PTR(0)) == 0);
-        assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
-}
-
 static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         char check[n];
 
@@ -580,7 +555,6 @@ int main(int argc, char *argv[]) {
         test_container_of();
         test_div_round_up();
         test_close_many();
-        test_parse_uid();
         test_u64log2();
         test_protect_errno();
         test_config_parse_iec_uint64();
@@ -596,7 +570,6 @@ int main(int argc, char *argv[]) {
         test_parse_proc_cmdline();
         test_raw_clone();
         test_same_fd();
-        test_uid_ptr();
         test_sparse_write();
         test_fgetxattrat_fake();
         test_runlevel_to_target();
