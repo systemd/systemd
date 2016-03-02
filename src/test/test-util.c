@@ -36,7 +36,6 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "special.h"
@@ -271,17 +270,6 @@ static void test_execute_directory(void) {
         (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
-static int parse_item(const char *key, const char *value) {
-        assert_se(key);
-
-        log_info("kernel cmdline option <%s> = <%s>", key, strna(value));
-        return 0;
-}
-
-static void test_parse_proc_cmdline(void) {
-        assert_se(parse_proc_cmdline(parse_item) >= 0);
-}
-
 static void test_raw_clone(void) {
         pid_t parent, pid, pid2;
 
@@ -375,12 +363,6 @@ cleanup:
         assert_se(rmdir(t) >= 0);
 }
 
-static void test_runlevel_to_target(void) {
-        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
-        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
-}
-
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -395,11 +377,9 @@ int main(int argc, char *argv[]) {
         test_log2i();
         test_glob_exists();
         test_execute_directory();
-        test_parse_proc_cmdline();
         test_raw_clone();
         test_sparse_write();
         test_fgetxattrat_fake();
-        test_runlevel_to_target();
 
         return 0;
 }
