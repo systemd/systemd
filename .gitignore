@@ -167,6 +167,7 @@
 /test-conf-parser
 /test-copy
 /test-coredump-vacuum
+/test-cpu-set-util
 /test-daemon
 /test-date
 /test-device-nodes
