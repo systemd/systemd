@@ -171,29 +171,6 @@ static void test_div_round_up(void) {
         assert_se(0xfffffffdU / 10U + !!(0xfffffffdU % 10U) == 429496730U);
 }
 
-static void test_close_many(void) {
-        int fds[3];
-        char name0[] = "/tmp/test-close-many.XXXXXX";
-        char name1[] = "/tmp/test-close-many.XXXXXX";
-        char name2[] = "/tmp/test-close-many.XXXXXX";
-
-        fds[0] = mkostemp_safe(name0, O_RDWR|O_CLOEXEC);
-        fds[1] = mkostemp_safe(name1, O_RDWR|O_CLOEXEC);
-        fds[2] = mkostemp_safe(name2, O_RDWR|O_CLOEXEC);
-
-        close_many(fds, 2);
-
-        assert_se(fcntl(fds[0], F_GETFD) == -1);
-        assert_se(fcntl(fds[1], F_GETFD) == -1);
-        assert_se(fcntl(fds[2], F_GETFD) >= 0);
-
-        safe_close(fds[2]);
-
-        unlink(name0);
-        unlink(name1);
-        unlink(name2);
-}
-
 static void test_u64log2(void) {
         assert_se(u64log2(0) == 0);
         assert_se(u64log2(8) == 3);
@@ -282,18 +259,6 @@ static void test_log2i(void) {
         assert_se(log2i(33) == 5);
         assert_se(log2i(63) == 5);
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
-}
-
-static void test_close_nointr(void) {
-        char name[] = "/tmp/test-test-close_nointr.XXXXXX";
-        int fd;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        assert_se(close_nointr(fd) >= 0);
-        assert_se(close_nointr(fd) < 0);
-
-        unlink(name);
 }
 
 static void test_unlink_noerrno(void) {
@@ -438,40 +403,6 @@ static void test_raw_clone(void) {
         }
 }
 
-static void test_same_fd(void) {
-        _cleanup_close_pair_ int p[2] = { -1, -1 };
-        _cleanup_close_ int a = -1, b = -1, c = -1;
-
-        assert_se(pipe2(p, O_CLOEXEC) >= 0);
-        assert_se((a = dup(p[0])) >= 0);
-        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
-        assert_se((c = dup(a)) >= 0);
-
-        assert_se(same_fd(p[0], p[0]) > 0);
-        assert_se(same_fd(p[1], p[1]) > 0);
-        assert_se(same_fd(a, a) > 0);
-        assert_se(same_fd(b, b) > 0);
-
-        assert_se(same_fd(a, p[0]) > 0);
-        assert_se(same_fd(p[0], a) > 0);
-        assert_se(same_fd(c, p[0]) > 0);
-        assert_se(same_fd(p[0], c) > 0);
-        assert_se(same_fd(a, c) > 0);
-        assert_se(same_fd(c, a) > 0);
-
-        assert_se(same_fd(p[0], p[1]) == 0);
-        assert_se(same_fd(p[1], p[0]) == 0);
-        assert_se(same_fd(p[0], b) == 0);
-        assert_se(same_fd(b, p[0]) == 0);
-        assert_se(same_fd(p[1], a) == 0);
-        assert_se(same_fd(a, p[1]) == 0);
-        assert_se(same_fd(p[1], b) == 0);
-        assert_se(same_fd(b, p[1]) == 0);
-
-        assert_se(same_fd(a, b) == 0);
-        assert_se(same_fd(b, a) == 0);
-}
-
 static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         char check[n];
 
@@ -554,7 +485,6 @@ int main(int argc, char *argv[]) {
         test_max();
         test_container_of();
         test_div_round_up();
-        test_close_many();
         test_u64log2();
         test_protect_errno();
         test_config_parse_iec_uint64();
@@ -562,14 +492,12 @@ int main(int argc, char *argv[]) {
         test_get_files_in_directory();
         test_in_set();
         test_log2i();
-        test_close_nointr();
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
         test_glob_exists();
         test_execute_directory();
         test_parse_proc_cmdline();
         test_raw_clone();
-        test_same_fd();
         test_sparse_write();
         test_fgetxattrat_fake();
         test_runlevel_to_target();

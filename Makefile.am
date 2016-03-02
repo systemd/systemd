@@ -1432,6 +1432,7 @@ tests += \
 	test-alloc-util \
 	test-web-util \
 	test-stat-util \
+	test-fd-util \
 	test-string-util \
 	test-extract-word \
 	test-parse-util \
@@ -1771,6 +1772,12 @@ test_alloc_util_SOURCES = \
 	src/test/test-alloc-util.c
 
 test_alloc_util_LDADD = \
+	libbasic.la
+
+test_fd_util_SOURCES = \
+	src/test/test-fd-util.c
+
+test_fd_util_LDADD = \
 	libbasic.la
 
 test_web_util_SOURCES = \
