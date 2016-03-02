@@ -27,7 +27,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "conf-parser.h"
 #include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -188,14 +187,6 @@ static void test_protect_errno(void) {
                 errno = 11;
         }
         assert_se(errno == 12);
-}
-
-static void test_config_parse_iec_uint64(void) {
-        uint64_t offset = 0;
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
-        assert_se(offset == 4 * 1024 * 1024);
-
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
 static void test_fstab_node_to_udev_node(void) {
@@ -487,7 +478,6 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_u64log2();
         test_protect_errno();
-        test_config_parse_iec_uint64();
         test_fstab_node_to_udev_node();
         test_get_files_in_directory();
         test_in_set();
