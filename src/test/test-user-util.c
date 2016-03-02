@@ -37,6 +37,30 @@ static void test_gid_to_name_one(gid_t gid, const char *name) {
         assert_se(streq_ptr(t, name));
 }
 
+static void test_parse_uid(void) {
+        int r;
+        uid_t uid;
+
+        r = parse_uid("100", &uid);
+        assert_se(r == 0);
+        assert_se(uid == 100);
+
+        r = parse_uid("65535", &uid);
+        assert_se(r == -ENXIO);
+
+        r = parse_uid("asdsdas", &uid);
+        assert_se(r == -EINVAL);
+}
+
+static void test_uid_ptr(void) {
+
+        assert_se(UID_TO_PTR(0) != NULL);
+        assert_se(UID_TO_PTR(1000) != NULL);
+
+        assert_se(PTR_TO_UID(UID_TO_PTR(0)) == 0);
+        assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
+}
+
 int main(int argc, char*argv[]) {
 
         test_uid_to_name_one(0, "root");
@@ -47,6 +71,9 @@ int main(int argc, char*argv[]) {
         test_gid_to_name_one(TTY_GID, "tty");
         test_gid_to_name_one(0xFFFF, "65535");
         test_gid_to_name_one(0xFFFFFFFF, "4294967295");
+
+        test_parse_uid();
+        test_uid_ptr();
 
         return 0;
 }
