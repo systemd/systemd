@@ -31,7 +31,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "glob-util.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -207,24 +206,6 @@ static void test_log2i(void) {
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
 }
 
-static void test_glob_exists(void) {
-        char name[] = "/tmp/test-glob_exists.XXXXXX";
-        int fd = -1;
-        int r;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        close(fd);
-
-        r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 1);
-
-        r = unlink(name);
-        assert_se(r == 0);
-        r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 0);
-}
-
 static void test_execute_directory(void) {
         char template_lo[] = "/tmp/test-readlink_and_make_absolute-lo.XXXXXXX";
         char template_hi[] = "/tmp/test-readlink_and_make_absolute-hi.XXXXXXX";
@@ -338,7 +319,6 @@ int main(int argc, char *argv[]) {
         test_protect_errno();
         test_in_set();
         test_log2i();
-        test_glob_exists();
         test_execute_directory();
         test_raw_clone();
         test_fgetxattrat_fake();
