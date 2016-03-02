@@ -31,7 +31,6 @@
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "def.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -227,56 +226,6 @@ static void test_parse_uid(void) {
 
         r = parse_uid("asdsdas", &uid);
         assert_se(r == -EINVAL);
-}
-
-static void test_cescape(void) {
-        _cleanup_free_ char *escaped;
-
-        assert_se(escaped = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
-        assert_se(streq(escaped, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
-}
-
-static void test_cunescape(void) {
-        _cleanup_free_ char *unescaped;
-
-        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
-        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
-        unescaped = mfree(unescaped);
-
-        /* incomplete sequences */
-        assert_se(cunescape("\\x0", 0, &unescaped) < 0);
-        assert_se(cunescape("\\x0", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\x0"));
-        unescaped = mfree(unescaped);
-
-        assert_se(cunescape("\\x", 0, &unescaped) < 0);
-        assert_se(cunescape("\\x", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\x"));
-        unescaped = mfree(unescaped);
-
-        assert_se(cunescape("\\", 0, &unescaped) < 0);
-        assert_se(cunescape("\\", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\"));
-        unescaped = mfree(unescaped);
-
-        assert_se(cunescape("\\11", 0, &unescaped) < 0);
-        assert_se(cunescape("\\11", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\11"));
-        unescaped = mfree(unescaped);
-
-        assert_se(cunescape("\\1", 0, &unescaped) < 0);
-        assert_se(cunescape("\\1", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\1"));
-        unescaped = mfree(unescaped);
-
-        assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
-        assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "ßßΠA"));
-        unescaped = mfree(unescaped);
-
-        assert_se(cunescape("\\073", 0, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, ";"));
 }
 
 static void test_memdup_multiply(void) {
@@ -924,39 +873,6 @@ static void test_sparse_write(void) {
         test_sparse_write_one(fd, test_e, sizeof(test_e));
 }
 
-static void test_shell_escape_one(const char *s, const char *bad, const char *expected) {
-        _cleanup_free_ char *r;
-
-        assert_se(r = shell_escape(s, bad));
-        assert_se(streq_ptr(r, expected));
-}
-
-static void test_shell_escape(void) {
-        test_shell_escape_one("", "", "");
-        test_shell_escape_one("\\", "", "\\\\");
-        test_shell_escape_one("foobar", "", "foobar");
-        test_shell_escape_one("foobar", "o", "f\\o\\obar");
-        test_shell_escape_one("foo:bar,baz", ",:", "foo\\:bar\\,baz");
-}
-
-static void test_shell_maybe_quote_one(const char *s, const char *expected) {
-        _cleanup_free_ char *r;
-
-        assert_se(r = shell_maybe_quote(s));
-        assert_se(streq(r, expected));
-}
-
-static void test_shell_maybe_quote(void) {
-
-        test_shell_maybe_quote_one("", "");
-        test_shell_maybe_quote_one("\\", "\"\\\\\"");
-        test_shell_maybe_quote_one("\"", "\"\\\"\"");
-        test_shell_maybe_quote_one("foobar", "foobar");
-        test_shell_maybe_quote_one("foo bar", "\"foo bar\"");
-        test_shell_maybe_quote_one("foo \"bar\" waldo", "\"foo \\\"bar\\\" waldo\"");
-        test_shell_maybe_quote_one("foo$bar", "\"foo\\$bar\"");
-}
-
 static void test_tempfn(void) {
         char *ret = NULL, *p;
 
@@ -1042,8 +958,6 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_close_many();
         test_parse_uid();
-        test_cescape();
-        test_cunescape();
         test_memdup_multiply();
         test_u64log2();
         test_protect_errno();
@@ -1072,8 +986,6 @@ int main(int argc, char *argv[]) {
         test_same_fd();
         test_uid_ptr();
         test_sparse_write();
-        test_shell_escape();
-        test_shell_maybe_quote();
         test_tempfn();
         test_fgetxattrat_fake();
         test_runlevel_to_target();

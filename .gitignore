@@ -181,6 +181,7 @@
 /test-ellipsize
 /test-engine
 /test-env-replace
+/test-escape
 /test-event
 /test-execute
 /test-extract-word
