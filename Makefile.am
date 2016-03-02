@@ -1429,6 +1429,7 @@ tests += \
 	test-hexdecoct \
 	test-escape \
 	test-alloc-util \
+	test-proc-cmdline \
 	test-fs-util \
 	test-web-util \
 	test-stat-util \
@@ -1776,6 +1777,12 @@ test_fs_util_SOURCES = \
 	src/test/test-fs-util.c
 
 test_fs_util_LDADD = \
+	libbasic.la
+
+test_proc_cmdline_SOURCES = \
+	src/test/test-proc-cmdline.c
+
+test_proc_cmdline_LDADD = \
 	libbasic.la
 
 test_fd_util_SOURCES = \

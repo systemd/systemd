@@ -241,6 +241,7 @@
 /test-path-lookup
 /test-path-util
 /test-prioq
+/test-proc-cmdline
 /test-process-util
 /test-pty
 /test-qcow2
