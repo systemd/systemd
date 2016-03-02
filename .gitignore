@@ -126,6 +126,7 @@
 /test-acd
 /test-acl-util
 /test-af-list
+/test-alloc-util
 /test-architecture
 /test-arphrd-list
 /test-ask-password-api

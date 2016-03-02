@@ -144,19 +144,6 @@ static void test_container_of(void) {
                                v1) == &myval);
 }
 
-static void test_alloca(void) {
-        static const uint8_t zero[997] = { };
-        char *t;
-
-        t = alloca_align(17, 512);
-        assert_se(!((uintptr_t)t & 0xff));
-        memzero(t, 17);
-
-        t = alloca0_align(997, 1024);
-        assert_se(!((uintptr_t)t & 0x1ff));
-        assert_se(!memcmp(t, zero, 997));
-}
-
 static void test_div_round_up(void) {
         int div;
 
@@ -226,19 +213,6 @@ static void test_parse_uid(void) {
 
         r = parse_uid("asdsdas", &uid);
         assert_se(r == -EINVAL);
-}
-
-static void test_memdup_multiply(void) {
-        int org[] = {1, 2, 3};
-        int *dup;
-
-        dup = (int*)memdup_multiply(org, sizeof(int), 3);
-
-        assert_se(dup);
-        assert_se(dup[0] == 1);
-        assert_se(dup[1] == 2);
-        assert_se(dup[2] == 3);
-        free(dup);
 }
 
 static void test_u64log2(void) {
@@ -954,11 +928,9 @@ int main(int argc, char *argv[]) {
         test_align_power2();
         test_max();
         test_container_of();
-        test_alloca();
         test_div_round_up();
         test_close_many();
         test_parse_uid();
-        test_memdup_multiply();
         test_u64log2();
         test_protect_errno();
         test_parse_cpu_set();
