@@ -42,7 +42,6 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "special.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -346,22 +345,6 @@ static void test_filename_is_valid(void) {
         assert_se(filename_is_valid("o.o"));
 }
 
-static void test_files_same(void) {
-        _cleanup_close_ int fd = -1;
-        char name[] = "/tmp/test-files_same.XXXXXX";
-        char name_alias[] = "/tmp/test-files_same.alias";
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        assert_se(symlink(name, name_alias) >= 0);
-
-        assert_se(files_same(name, name));
-        assert_se(files_same(name, name_alias));
-
-        unlink(name);
-        unlink(name_alias);
-}
-
 static void test_file_in_same_dir(void) {
         char *t;
 
@@ -441,24 +424,6 @@ static void test_readlink_and_make_absolute(void) {
         assert_se(unlink(name_alias) >= 0);
 
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-}
-
-static void test_is_symlink(void) {
-        char name[] = "/tmp/test-is_symlink.XXXXXX";
-        char name_link[] = "/tmp/test-is_symlink.link";
-        _cleanup_close_ int fd = -1;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        assert_se(symlink(name, name_link) >= 0);
-
-        assert_se(is_symlink(name) == 0);
-        assert_se(is_symlink(name_link) == 1);
-        assert_se(is_symlink("/a/file/which/does/not/exist/i/guess") < 0);
-
-
-        unlink(name);
-        unlink(name_link);
 }
 
 static void test_search_and_fopen(void) {
@@ -798,12 +763,10 @@ int main(int argc, char *argv[]) {
         test_writing_tmpfile();
         test_log2i();
         test_filename_is_valid();
-        test_files_same();
         test_file_in_same_dir();
         test_close_nointr();
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
-        test_is_symlink();
         test_search_and_fopen();
         test_search_and_fopen_nulstr();
         test_glob_exists();

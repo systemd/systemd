@@ -1431,6 +1431,7 @@ tests += \
 	test-escape \
 	test-alloc-util \
 	test-web-util \
+	test-stat-util \
 	test-string-util \
 	test-extract-word \
 	test-parse-util \
@@ -1782,6 +1783,12 @@ test_cpu_set_util_SOURCES = \
 	src/test/test-cpu-set-util.c
 
 test_cpu_set_util_LDADD = \
+	libbasic.la
+
+test_stat_util_SOURCES = \
+	src/test/test-stat-util.c
+
+test_stat_util_LDADD = \
 	libbasic.la
 
 test_escape_SOURCES = \
