@@ -1428,6 +1428,7 @@ tests += \
 	test-util \
 	test-hexdecoct \
 	test-escape \
+	test-alloc-util \
 	test-string-util \
 	test-extract-word \
 	test-parse-util \
@@ -1759,6 +1760,12 @@ test_hexdecoct_SOURCES = \
 	src/test/test-hexdecoct.c
 
 test_hexdecoct_LDADD = \
+	libbasic.la
+
+test_alloc_util_SOURCES = \
+	src/test/test-alloc-util.c
+
+test_alloc_util_LDADD = \
 	libbasic.la
 
 test_escape_SOURCES = \
