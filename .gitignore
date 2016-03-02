@@ -282,6 +282,7 @@
 /test-verbs
 /test-watchdog
 /test-web-util
+/test-xattr-util
 /test-xml
 /timedatectl
 /udevadm
