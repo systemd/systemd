@@ -154,3 +154,27 @@ enum nss_status _nss_##module##_getgrgid_r(             \
                 struct group *gr,                       \
                 char *buffer, size_t buflen,            \
                 int *errnop) _public_
+
+typedef enum nss_status (*_nss_gethostbyname4_r_t)(
+                const char *name,
+                struct gaih_addrtuple **pat,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop,
+                int32_t *ttlp);
+
+typedef enum nss_status (*_nss_gethostbyname3_r_t)(
+                const char *name,
+                int af,
+                struct hostent *result,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop,
+                int32_t *ttlp,
+                char **canonp);
+
+typedef enum nss_status (*_nss_gethostbyaddr2_r_t)(
+                const void* addr, socklen_t len,
+                int af,
+                struct hostent *result,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop,
+                int32_t *ttlp);
