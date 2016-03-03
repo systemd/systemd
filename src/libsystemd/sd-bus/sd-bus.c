@@ -313,10 +313,7 @@ _public_ int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t mask) {
         assert_return(!IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED), -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        if (b)
-                bus->creds_mask |= mask;
-        else
-                bus->creds_mask &= ~mask;
+        SET_FLAG(bus->creds_mask, mask, b);
 
         /* The well knowns we need unconditionally, so that matches can work */
         bus->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;

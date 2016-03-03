@@ -107,10 +107,7 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
                       m->hdr->nlmsg_type == RTM_GETNEIGH,
                       -EINVAL);
 
-        if (dump)
-                m->hdr->nlmsg_flags |= NLM_F_DUMP;
-        else
-                m->hdr->nlmsg_flags &= ~NLM_F_DUMP;
+        SET_FLAG(m->hdr->nlmsg_flags, NLM_F_DUMP, dump);
 
         return 0;
 }
