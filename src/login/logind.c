@@ -1126,7 +1126,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = mac_selinux_init("/run");
+        r = mac_selinux_init();
         if (r < 0) {
                 log_error_errno(r, "Could not initialize labelling: %m");
                 goto finish;

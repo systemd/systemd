@@ -1369,7 +1369,7 @@ int main(int argc, char *argv[]) {
                         dual_timestamp_get(&security_finish_timestamp);
                 }
 
-                if (mac_selinux_init(NULL) < 0) {
+                if (mac_selinux_init() < 0) {
                         error_message = "Failed to initialize SELinux policy";
                         goto finish;
                 }

@@ -1695,7 +1695,7 @@ int main(int argc, char *argv[]) {
 
         umask(022);
 
-        r = mac_selinux_init("/dev");
+        r = mac_selinux_init();
         if (r < 0) {
                 log_error_errno(r, "could not initialize labelling: %m");
                 goto exit;

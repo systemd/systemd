@@ -2288,7 +2288,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        mac_selinux_init(NULL);
+        mac_selinux_init();
 
         items = ordered_hashmap_new(&string_hash_ops);
         globs = ordered_hashmap_new(&string_hash_ops);
