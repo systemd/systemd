@@ -17,6 +17,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <signal.h>
+#include <unistd.h>
+
+#include "macro.h"
 #include "signal-util.h"
 
 static void test_block_signals(void) {
@@ -44,6 +48,20 @@ static void test_block_signals(void) {
         assert_se(sigismember(&ss, SIGVTALRM) == 0);
 }
 
+static void test_ignore_signals(void) {
+        assert_se(ignore_signals(SIGINT, -1) >= 0);
+        assert_se(kill(getpid(), SIGINT) >= 0);
+        assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
+        assert_se(kill(getpid(), SIGUSR1) >= 0);
+        assert_se(kill(getpid(), SIGUSR2) >= 0);
+        assert_se(kill(getpid(), SIGTERM) >= 0);
+        assert_se(kill(getpid(), SIGPIPE) >= 0);
+        assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_block_signals();
+        test_ignore_signals();
+
+        return 0;
 }

@@ -215,6 +215,14 @@ static void test_config_parse_nsec(void) {
         test_config_parse_nsec_one("garbage", 0);
 }
 
+static void test_config_parse_iec_uint64(void) {
+        uint64_t offset = 0;
+        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
+        assert_se(offset == 4 * 1024 * 1024);
+
+        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
+}
+
 int main(int argc, char **argv) {
         log_parse_environment();
         log_open();
@@ -230,6 +238,7 @@ int main(int argc, char **argv) {
         test_config_parse_mode();
         test_config_parse_sec();
         test_config_parse_nsec();
+        test_config_parse_iec_uint64();
 
         return 0;
 }

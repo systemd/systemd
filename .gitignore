@@ -126,6 +126,7 @@
 /test-acd
 /test-acl-util
 /test-af-list
+/test-alloc-util
 /test-architecture
 /test-arphrd-list
 /test-ask-password-api
@@ -166,6 +167,7 @@
 /test-conf-parser
 /test-copy
 /test-coredump-vacuum
+/test-cpu-set-util
 /test-daemon
 /test-date
 /test-device-nodes
@@ -181,20 +183,26 @@
 /test-ellipsize
 /test-engine
 /test-env-replace
+/test-escape
 /test-event
 /test-execute
 /test-extract-word
+/test-fd-util
 /test-fdset
 /test-fileio
 /test-firewall-util
+/test-fs-util
 /test-fstab-util
+/test-glob-util
 /test-hashmap
+/test-hexdecoct
 /test-hostname
 /test-hostname-util
 /test-id128
 /test-inhibit
 /test-install
 /test-install-root
+/test-io-util
 /test-ipcrm
 /test-ipv4ll
 /test-ipv4ll-manual
@@ -235,6 +243,7 @@
 /test-path-lookup
 /test-path-util
 /test-prioq
+/test-proc-cmdline
 /test-process-util
 /test-pty
 /test-qcow2
@@ -254,6 +263,7 @@
 /test-siphash24
 /test-sleep
 /test-socket-util
+/test-stat-util
 /test-strbuf
 /test-string-util
 /test-strip-tab-ansi
@@ -273,6 +283,8 @@
 /test-util
 /test-verbs
 /test-watchdog
+/test-web-util
+/test-xattr-util
 /test-xml
 /timedatectl
 /udevadm

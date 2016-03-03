@@ -433,6 +433,50 @@ static void test_path_is_mount_point(void) {
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
+static void test_file_in_same_dir(void) {
+        char *t;
+
+        t = file_in_same_dir("/", "a");
+        assert_se(streq(t, "/a"));
+        free(t);
+
+        t = file_in_same_dir("/", "/a");
+        assert_se(streq(t, "/a"));
+        free(t);
+
+        t = file_in_same_dir("", "a");
+        assert_se(streq(t, "a"));
+        free(t);
+
+        t = file_in_same_dir("a/", "a");
+        assert_se(streq(t, "a/a"));
+        free(t);
+
+        t = file_in_same_dir("bar/foo", "bar");
+        assert_se(streq(t, "bar/bar"));
+        free(t);
+}
+
+static void test_filename_is_valid(void) {
+        char foo[FILENAME_MAX+2];
+        int i;
+
+        assert_se(!filename_is_valid(""));
+        assert_se(!filename_is_valid("/bar/foo"));
+        assert_se(!filename_is_valid("/"));
+        assert_se(!filename_is_valid("."));
+        assert_se(!filename_is_valid(".."));
+
+        for (i=0; i<FILENAME_MAX+1; i++)
+                foo[i] = 'a';
+        foo[FILENAME_MAX+1] = '\0';
+
+        assert_se(!filename_is_valid(foo));
+
+        assert_se(filename_is_valid("foo_bar-333"));
+        assert_se(filename_is_valid("o.o"));
+}
+
 int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0]);
@@ -444,6 +488,8 @@ int main(int argc, char **argv) {
         test_path_startswith();
         test_prefix_root();
         test_path_is_mount_point();
+        test_file_in_same_dir();
+        test_filename_is_valid();
 
         return 0;
 }
