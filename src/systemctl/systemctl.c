@@ -6167,7 +6167,12 @@ end:
 
                 /* Removing empty dropin dirs */
                 if (!arg_full) {
-                        _cleanup_free_ char *dir = dirname_malloc(*original);
+                        _cleanup_free_ char *dir;
+
+                        dir = dirname_malloc(*original);
+                        if (!dir)
+                                return log_oom();
+
                         /* no need to check if the dir is empty, rmdir
                          * does nothing if it is not the case.
                          */
