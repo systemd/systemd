@@ -171,6 +171,19 @@ typedef enum nss_status (*_nss_gethostbyname3_r_t)(
                 int32_t *ttlp,
                 char **canonp);
 
+typedef enum nss_status (*_nss_gethostbyname2_r_t)(
+                const char *name,
+                int af,
+                struct hostent *result,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop);
+
+typedef enum nss_status (*_nss_gethostbyname_r_t)(
+                const char *name,
+                struct hostent *result,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop);
+
 typedef enum nss_status (*_nss_gethostbyaddr2_r_t)(
                 const void* addr, socklen_t len,
                 int af,
@@ -178,3 +191,9 @@ typedef enum nss_status (*_nss_gethostbyaddr2_r_t)(
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
                 int32_t *ttlp);
+typedef enum nss_status (*_nss_gethostbyaddr_r_t)(
+                const void* addr, socklen_t len,
+                int af,
+                struct hostent *host,
+                char *buffer, size_t buflen,
+                int *errnop, int *h_errnop);

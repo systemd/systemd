@@ -1008,9 +1008,9 @@ have_machined=no
 AC_ARG_ENABLE(machined, AS_HELP_STRING([--disable-machined], [disable machine daemon]))
 if test "x$enable_machined" != "xno"; then
         have_machined=yes
+        AC_DEFINE(HAVE_MACHINED, [1], [systemd-machined is enabled])
 fi
 AM_CONDITIONAL(ENABLE_MACHINED, [test "$have_machined" = "yes"])
-AS_IF([test "$have_machined" = "yes"], [ AC_DEFINE(HAVE_MACHINED, [1], [Machined support available]) ])
 
 # ------------------------------------------------------------------------------
 have_importd=no
@@ -1120,6 +1120,7 @@ AS_IF([test "x$enable_resolved" != "xno"], [
 
         have_resolved=yes
         M4_DEFINES="$M4_DEFINES -DENABLE_RESOLVED"
+        AC_DEFINE(HAVE_RESOLVED, [1], [systemd-resolved is enabled])
 ])
 AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
 
@@ -1321,6 +1322,7 @@ if test "x$enable_myhostname" != "xno"; then
         AC_CHECK_FUNCS([gethostbyaddr gethostbyname gettimeofday inet_ntoa memset select socket strcspn strdup strerror strncasecmp strcasecmp strspn])
 
         have_myhostname=yes
+        AC_DEFINE(HAVE_MYHOSTNAME, [1], [nss-myhostname is enabled])
 fi
 AM_CONDITIONAL(HAVE_MYHOSTNAME, [test "$have_myhostname" = "yes"])
 
