@@ -62,7 +62,8 @@ int failure_action(
                 log_and_status(m, "Rebooting as result of failure.");
 
                 update_reboot_param_file(reboot_arg);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, NULL);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET,
+                                                        JOB_REPLACE_IRREVERSIBLY, NULL);
 
                 break;
 
@@ -89,7 +90,8 @@ int failure_action(
 
         case FAILURE_ACTION_POWEROFF:
                 log_and_status(m, "Powering off as result of failure.");
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE, NULL);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET,
+                                                        JOB_REPLACE_IRREVERSIBLY, NULL);
                 break;
 
         case FAILURE_ACTION_POWEROFF_FORCE:
