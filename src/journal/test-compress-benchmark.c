@@ -105,6 +105,8 @@ static void test_compress_decompress(const char* label, const char* type,
                 int r;
 
                 size = permute(i);
+                if (size == 0)
+                        continue;
 
                 log_debug("%s %zu %zu", type, i, size);
 
