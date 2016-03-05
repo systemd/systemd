@@ -461,10 +461,7 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
         if (!!(f->flags & PTY_FORWARD_IGNORE_VHANGUP) == b)
                 return 0;
 
-        if (b)
-                f->flags |= PTY_FORWARD_IGNORE_VHANGUP;
-        else
-                f->flags &= ~PTY_FORWARD_IGNORE_VHANGUP;
+        SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
 
         if (!ignore_vhangup(f)) {
 

@@ -1131,10 +1131,7 @@ _public_ int sd_bus_message_set_expect_reply(sd_bus_message *m, int b) {
         assert_return(!m->sealed, -EPERM);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EPERM);
 
-        if (b)
-                m->header->flags &= ~BUS_MESSAGE_NO_REPLY_EXPECTED;
-        else
-                m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
+        SET_FLAG(m->header->flags, BUS_MESSAGE_NO_REPLY_EXPECTED, !b);
 
         return 0;
 }
@@ -1143,10 +1140,7 @@ _public_ int sd_bus_message_set_auto_start(sd_bus_message *m, int b) {
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        if (b)
-                m->header->flags &= ~BUS_MESSAGE_NO_AUTO_START;
-        else
-                m->header->flags |= BUS_MESSAGE_NO_AUTO_START;
+        SET_FLAG(m->header->flags, BUS_MESSAGE_NO_AUTO_START, !b);
 
         return 0;
 }
@@ -1155,10 +1149,7 @@ _public_ int sd_bus_message_set_allow_interactive_authorization(sd_bus_message *
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        if (b)
-                m->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
-        else
-                m->header->flags &= ~BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
+        SET_FLAG(m->header->flags, BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION, b);
 
         return 0;
 }

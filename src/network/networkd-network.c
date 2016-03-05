@@ -629,10 +629,7 @@ int config_parse_ipv4ll(
          * config_parse_address_family_boolean(), except that it
          * applies only to IPv4 */
 
-        if (parse_boolean(rvalue))
-                *link_local |= ADDRESS_FAMILY_IPV4;
-        else
-                *link_local &= ~ADDRESS_FAMILY_IPV4;
+        SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, parse_boolean(rvalue));
 
         return 0;
 }

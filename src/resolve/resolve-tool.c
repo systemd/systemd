@@ -1280,40 +1280,28 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --cname= argument.");
-                        if (r == 0)
-                                arg_flags |= SD_RESOLVED_NO_CNAME;
-                        else
-                                arg_flags &= ~SD_RESOLVED_NO_CNAME;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
                         break;
 
                 case ARG_SERVICE_ADDRESS:
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --service-address= argument.");
-                        if (r == 0)
-                                arg_flags |= SD_RESOLVED_NO_ADDRESS;
-                        else
-                                arg_flags &= ~SD_RESOLVED_NO_ADDRESS;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
                         break;
 
                 case ARG_SERVICE_TXT:
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --service-txt= argument.");
-                        if (r == 0)
-                                arg_flags |= SD_RESOLVED_NO_TXT;
-                        else
-                                arg_flags &= ~SD_RESOLVED_NO_TXT;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
                         break;
 
                 case ARG_SEARCH:
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --search argument.");
-                        if (r == 0)
-                                arg_flags |= SD_RESOLVED_NO_SEARCH;
-                        else
-                                arg_flags &= ~SD_RESOLVED_NO_SEARCH;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
                         break;
 
                 case ARG_STATISTICS:
