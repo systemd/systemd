@@ -971,7 +971,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
          * level.
          */
 
-        if (streq(key, "debug") && !value)
+        if (log_set_max_level != LOG_DEBUG && streq(key, "debug") && !value)
                 log_set_max_level(LOG_DEBUG);
 
         else if (streq(key, "systemd.log_target") && value) {
