@@ -245,7 +245,7 @@ static int process_locale(void) {
         int r;
 
         etc_localeconf = prefix_roota(arg_root, "/etc/locale.conf");
-        if (faccessat(AT_FDCWD, etc_localeconf, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        if (laccess(etc_localeconf, F_OK) >= 0)
                 return 0;
 
         if (arg_copy_locale && arg_root) {
@@ -319,7 +319,7 @@ static int process_timezone(void) {
         int r;
 
         etc_localtime = prefix_roota(arg_root, "/etc/localtime");
-        if (faccessat(AT_FDCWD, etc_localtime, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        if (laccess(etc_localtime, F_OK) >= 0)
                 return 0;
 
         if (arg_copy_timezone && arg_root) {
@@ -399,7 +399,7 @@ static int process_hostname(void) {
         int r;
 
         etc_hostname = prefix_roota(arg_root, "/etc/hostname");
-        if (faccessat(AT_FDCWD, etc_hostname, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        if (laccess(etc_hostname, F_OK) >= 0)
                 return 0;
 
         r = prompt_hostname();
@@ -424,7 +424,7 @@ static int process_machine_id(void) {
         int r;
 
         etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
-        if (faccessat(AT_FDCWD, etc_machine_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        if (laccess(etc_machine_id, F_OK) >= 0)
                 return 0;
 
         if (sd_id128_equal(arg_machine_id, SD_ID128_NULL))
@@ -450,7 +450,7 @@ static int prompt_root_password(void) {
                 return 0;
 
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
-        if (faccessat(AT_FDCWD, etc_shadow, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        if (laccess(etc_shadow, F_OK) >= 0)
                 return 0;
 
         print_welcome();
@@ -533,7 +533,7 @@ static int process_root_password(void) {
         int r;
 
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
-        if (faccessat(AT_FDCWD, etc_shadow, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        if (laccess(etc_shadow, F_OK) >= 0)
                 return 0;
 
         mkdir_parents(etc_shadow, 0755);
