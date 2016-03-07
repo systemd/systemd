@@ -5444,7 +5444,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 if (r == -ESHUTDOWN)
                         return log_error_errno(r, "Unit file is masked.");
                 if (r == -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Unit file is generated.");
+                        return log_error_errno(r, "Unit file is transient or generated.");
                 if (r < 0)
                         return log_error_errno(r, "Operation failed: %m");
 
@@ -5612,7 +5612,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 if (r == -ESHUTDOWN)
                         return log_error_errno(r, "Unit file is masked.");
                 if (r == -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Unit file is generated.");
+                        return log_error_errno(r, "Unit file is transient or generated.");
                 if (r < 0)
                         return log_error_errno(r, "Can't add dependency: %m");
 

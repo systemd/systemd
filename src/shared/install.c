@@ -119,6 +119,19 @@ static int path_is_generator(const LookupPaths *p, const char *path) {
                 path_equal(p->generator_late, parent);
 }
 
+static int path_is_transient(const LookupPaths *p, const char *path) {
+        _cleanup_free_ char *parent = NULL;
+
+        assert(p);
+        assert(path);
+
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
+
+        return path_equal(p->transient, parent);
+}
+
 static int path_is_config(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
         const char *rpath;
@@ -1710,6 +1723,8 @@ int unit_file_add_dependency(
                 return -ESHUTDOWN;
         if (path_is_generator(&paths, target_info->path))
                 return -EADDRNOTAVAIL;
+        if (path_is_transient(&paths, target_info->path))
+                return -EADDRNOTAVAIL;
 
         assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
 
@@ -1722,6 +1737,8 @@ int unit_file_add_dependency(
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
                 if (path_is_generator(&paths, i->path))
+                        return -EADDRNOTAVAIL;
+                if (path_is_transient(&paths, i->path))
                         return -EADDRNOTAVAIL;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
@@ -1776,6 +1793,8 @@ int unit_file_enable(
                 if (i->type == UNIT_FILE_TYPE_MASKED)
                         return -ESHUTDOWN;
                 if (path_is_generator(&paths, i->path))
+                        return -EADDRNOTAVAIL;
+                if (path_is_transient(&paths, i->path))
                         return -EADDRNOTAVAIL;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
@@ -1891,6 +1910,8 @@ int unit_file_set_default(
                 return -ESHUTDOWN;
         if (path_is_generator(&paths, i->path))
                 return -EADDRNOTAVAIL;
+        if (path_is_transient(&paths, i->path))
+                return -EADDRNOTAVAIL;
 
         old_path = skip_root(&paths, i->path);
         new_path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
@@ -1972,6 +1993,14 @@ int unit_file_lookup_state(
                         return r;
                 if (r > 0) {
                         state = UNIT_FILE_GENERATED;
+                        break;
+                }
+
+                r = path_is_transient(paths, i->path);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        state = UNIT_FILE_TRANSIENT;
                         break;
                 }
 
@@ -2176,6 +2205,8 @@ static int preset_prepare_one(
                         return -ESHUTDOWN;
                 if (path_is_generator(paths, i->path))
                         return -EADDRNOTAVAIL;
+                if (path_is_transient(paths, i->path))
+                        return -EADDRNOTAVAIL;
         } else
                 r = install_info_discover(scope, minus, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
 
@@ -2372,6 +2403,7 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_DISABLED] = "disabled",
         [UNIT_FILE_INDIRECT] = "indirect",
         [UNIT_FILE_GENERATED] = "generated",
+        [UNIT_FILE_TRANSIENT] = "transient",
         [UNIT_FILE_BAD] = "bad",
 };
 

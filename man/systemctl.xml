@@ -1187,6 +1187,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                     <entry>0</entry>
                   </row>
                   <row>
+                    <entry><literal>transient</literal></entry>
+                    <entry>The unit file has been created dynamically with the runtime API. Transient units may not be enabled.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
                     <entry><literal>bad</literal></entry>
                     <entry>The unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
                     <entry>&gt; 0</entry>

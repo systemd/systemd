@@ -1641,7 +1641,7 @@ static int method_enable_unit_files_generic(
         if (r == -ESHUTDOWN)
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
         if (r == -EADDRNOTAVAIL)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED, "Unit file is generated.");
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED, "Unit file is transient or generated.");
         if (r < 0)
                 return r;
 
@@ -1866,7 +1866,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (r == -ESHUTDOWN)
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
         if (r == -EADDRNOTAVAIL)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED, "Unit file is generated.");
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED, "Unit file is transient or generated.");
         if (r < 0)
                 return r;
 
