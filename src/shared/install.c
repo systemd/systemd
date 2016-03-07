@@ -82,6 +82,28 @@ static int in_search_path(const LookupPaths *p, const char *path) {
         return false;
 }
 
+static const char* skip_root(const LookupPaths *p, const char *path) {
+        if (p->root_dir) {
+                char *e;
+
+                e = path_startswith(path, p->root_dir);
+                if (!e)
+                        return NULL;
+
+                /* Make sure the returned path starts with a slash */
+                if (e[0] != '/') {
+                        if (e == path || e[-1] != '/')
+                                return NULL;
+
+                        e--;
+                }
+
+                return e;
+        }
+
+        return path;
+}
+
 static int path_is_generator(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
 
@@ -99,6 +121,7 @@ static int path_is_generator(const LookupPaths *p, const char *path) {
 
 static int path_is_config(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
+        const char *rpath;
 
         assert(p);
         assert(path);
@@ -107,7 +130,8 @@ static int path_is_config(const LookupPaths *p, const char *path) {
          * top-level directory and the one actually configured. The latter is particularly relevant for cases where we
          * operate on a root directory. */
 
-        if (path_startswith(path, "/etc") || path_startswith(path, "/run"))
+        rpath = skip_root(p, path);
+        if (rpath && (path_startswith(rpath, "/etc") || path_startswith(rpath, "/run")))
                 return true;
 
         parent = dirname_malloc(path);
@@ -120,11 +144,13 @@ static int path_is_config(const LookupPaths *p, const char *path) {
 
 static int path_is_runtime(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
+        const char *rpath;
 
         assert(p);
         assert(path);
 
-        if (path_startswith(path, "/run"))
+        rpath = skip_root(p, path);
+        if (rpath && path_startswith(rpath, "/run"))
                 return true;
 
         parent = dirname_malloc(path);
@@ -275,6 +301,7 @@ static int remove_marked_symlinks_fd(
                 int fd,
                 const char *path,
                 const char *config_path,
+                const LookupPaths *lp,
                 bool *restart,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
@@ -287,6 +314,7 @@ static int remove_marked_symlinks_fd(
         assert(fd >= 0);
         assert(path);
         assert(config_path);
+        assert(lp);
         assert(restart);
 
         d = fdopendir(fd);
@@ -322,12 +350,13 @@ static int remove_marked_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, restart, changes, n_changes);
+                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, lp, restart, changes, n_changes);
                         if (q < 0 && r == 0)
                                 r = q;
 
                 } else if (de->d_type == DT_LNK) {
                         _cleanup_free_ char *p = NULL, *dest = NULL;
+                        const char *rp;
                         bool found;
                         int q;
 
@@ -339,19 +368,16 @@ static int remove_marked_symlinks_fd(
                                 return -ENOMEM;
 
                         q = readlink_malloc(p, &dest);
+                        if (q == -ENOENT)
+                                continue;
                         if (q < 0) {
-                                if (q == -ENOENT)
-                                        continue;
-
                                 if (r == 0)
                                         r = q;
                                 continue;
                         }
 
-                        /* We remove all links pointing to a file or
-                         * path that is marked, as well as all files
-                         * sharing the same name as a file that is
-                         * marked. */
+                        /* We remove all links pointing to a file or path that is marked, as well as all files sharing
+                         * the same name as a file that is marked. */
 
                         found =
                                 set_contains(remove_symlinks_to, dest) ||
@@ -361,7 +387,7 @@ static int remove_marked_symlinks_fd(
                         if (!found)
                                 continue;
 
-                        if (unlink(p) < 0 && errno != ENOENT) {
+                        if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
                                 if (r == 0)
                                         r = -errno;
                                 continue;
@@ -372,7 +398,11 @@ static int remove_marked_symlinks_fd(
 
                         unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
 
-                        q = mark_symlink_for_removal(&remove_symlinks_to, p);
+                        /* Now, remember the full path (but with the root prefix removed) of the symlink we just
+                         * removed, and remove any symlinks to it, too */
+
+                        rp = skip_root(lp, p);
+                        q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: p);
                         if (q < 0)
                                 return q;
                         if (q > 0)
@@ -386,6 +416,7 @@ static int remove_marked_symlinks_fd(
 static int remove_marked_symlinks(
                 Set *remove_symlinks_to,
                 const char *config_path,
+                const LookupPaths *lp,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -394,6 +425,7 @@ static int remove_marked_symlinks(
         int r = 0;
 
         assert(config_path);
+        assert(lp);
 
         if (set_size(remove_symlinks_to) <= 0)
                 return 0;
@@ -411,7 +443,7 @@ static int remove_marked_symlinks(
                         return -errno;
 
                 /* This takes possession of cfd and closes it */
-                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, &restart, changes, n_changes);
+                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, lp, &restart, changes, n_changes);
                 if (r == 0)
                         r = q;
         } while (restart);
@@ -425,6 +457,7 @@ static int find_symlinks_fd(
                 int fd,
                 const char *path,
                 const char *config_path,
+                const LookupPaths *lp,
                 bool *same_name_link) {
 
         _cleanup_closedir_ DIR *d = NULL;
@@ -435,6 +468,7 @@ static int find_symlinks_fd(
         assert(fd >= 0);
         assert(path);
         assert(config_path);
+        assert(lp);
         assert(same_name_link);
 
         d = fdopendir(fd);
@@ -468,7 +502,7 @@ static int find_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = find_symlinks_fd(root_dir, name, nfd, p, config_path, same_name_link);
+                        q = find_symlinks_fd(root_dir, name, nfd, p, config_path, lp, same_name_link);
                         if (q > 0)
                                 return 1;
                         if (r == 0)
@@ -546,6 +580,7 @@ static int find_symlinks(
                 const char *root_dir,
                 const char *name,
                 const char *config_path,
+                const LookupPaths *lp,
                 bool *same_name_link) {
 
         int fd;
@@ -562,7 +597,7 @@ static int find_symlinks(
         }
 
         /* This takes possession of fd and closes it */
-        return find_symlinks_fd(root_dir, name, fd, config_path, config_path, same_name_link);
+        return find_symlinks_fd(root_dir, name, fd, config_path, config_path, lp, same_name_link);
 }
 
 static int find_symlinks_in_scope(
@@ -580,7 +615,7 @@ static int find_symlinks_in_scope(
         assert(name);
 
         /* First look in the persistent config path */
-        r = find_symlinks(paths->root_dir, name, paths->persistent_config, &same_name_link);
+        r = find_symlinks(paths->root_dir, name, paths->persistent_config, paths, &same_name_link);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -589,7 +624,7 @@ static int find_symlinks_in_scope(
         }
 
         /* Then look in runtime config path */
-        r = find_symlinks(paths->root_dir, name, paths->runtime_config, &same_name_link_runtime);
+        r = find_symlinks(paths->root_dir, name, paths->runtime_config, paths, &same_name_link_runtime);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -718,20 +753,6 @@ fail:
         return r;
 }
 
-static int install_info_add_auto(
-                InstallContext *c,
-                const char *name_or_path,
-                UnitFileInstallInfo **ret) {
-
-        assert(c);
-        assert(name_or_path);
-
-        if (path_is_absolute(name_or_path))
-                return install_info_add(c, NULL, name_or_path, ret);
-        else
-                return install_info_add(c, name_or_path, NULL, ret);
-}
-
 static int config_parse_also(
                 const char *unit,
                 const char *filename,
@@ -814,7 +835,6 @@ static int unit_file_load(
                 InstallContext *c,
                 UnitFileInstallInfo *info,
                 const char *path,
-                const char *root_dir,
                 SearchFlags flags) {
 
         const ConfigTableItem items[] = {
@@ -834,8 +854,6 @@ static int unit_file_load(
         assert(c);
         assert(info);
         assert(path);
-
-        path = prefix_roota(root_dir, path);
 
         if (!(flags & SEARCH_LOAD)) {
                 r = lstat(path, &st);
@@ -897,26 +915,26 @@ static int unit_file_load_or_readlink(
                 const char *root_dir,
                 SearchFlags flags) {
 
-        _cleanup_free_ char *np = NULL;
+        _cleanup_free_ char *target = NULL;
         int r;
 
-        r = unit_file_load(c, info, path, root_dir, flags);
+        r = unit_file_load(c, info, path, flags);
         if (r != -ELOOP)
                 return r;
 
         /* This is a symlink, let's read it. */
 
-        r = readlink_and_make_absolute_root(root_dir, path, &np);
+        r = readlink_malloc(path, &target);
         if (r < 0)
                 return r;
 
-        if (path_equal(np, "/dev/null"))
+        if (path_equal(target, "/dev/null"))
                 info->type = UNIT_FILE_TYPE_MASKED;
         else {
                 const char *bn;
                 UnitType a, b;
 
-                bn = basename(np);
+                bn = basename(target);
 
                 if (unit_name_is_valid(info->name, UNIT_NAME_PLAIN)) {
 
@@ -943,9 +961,16 @@ static int unit_file_load_or_readlink(
                 if (a < 0 || b < 0 || a != b)
                         return -EINVAL;
 
+                if (path_is_absolute(target))
+                        /* This is an absolute path, prefix the root so that we always deal with fully qualified paths */
+                        info->symlink_target = prefix_root(root_dir, target);
+                else
+                        /* This is a relative path, take it relative to the dir the symlink is located in. */
+                        info->symlink_target = file_in_same_dir(path, target);
+                if (!info->symlink_target)
+                        return -ENOMEM;
+
                 info->type = UNIT_FILE_TYPE_SYMLINK;
-                info->symlink_target = np;
-                np = NULL;
         }
 
         return 0;
@@ -1136,6 +1161,25 @@ static int install_info_traverse(
         return 0;
 }
 
+static int install_info_add_auto(
+                InstallContext *c,
+                const LookupPaths *paths,
+                const char *name_or_path,
+                UnitFileInstallInfo **ret) {
+
+        assert(c);
+        assert(name_or_path);
+
+        if (path_is_absolute(name_or_path)) {
+                const char *pp;
+
+                pp = prefix_roota(paths->root_dir, name_or_path);
+
+                return install_info_add(c, NULL, pp, ret);
+        } else
+                return install_info_add(c, name_or_path, NULL, ret);
+}
+
 static int install_info_discover(
                 UnitFileScope scope,
                 InstallContext *c,
@@ -1151,7 +1195,7 @@ static int install_info_discover(
         assert(paths);
         assert(name);
 
-        r = install_info_add_auto(c, name, &i);
+        r = install_info_add_auto(c, paths, name, &i);
         if (r < 0)
                 return r;
 
@@ -1160,6 +1204,7 @@ static int install_info_discover(
 
 static int install_info_symlink_alias(
                 UnitFileInstallInfo *i,
+                const LookupPaths *paths,
                 const char *config_path,
                 bool force,
                 UnitFileChange **changes,
@@ -1169,10 +1214,12 @@ static int install_info_symlink_alias(
         int r = 0, q;
 
         assert(i);
+        assert(paths);
         assert(config_path);
 
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
+                const char *rp;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
@@ -1182,7 +1229,9 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
-                q = create_symlink(i->path, alias_path, force, changes, n_changes);
+                rp = skip_root(paths, i->path);
+
+                q = create_symlink(rp ?: i->path, alias_path, force, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1192,6 +1241,7 @@ static int install_info_symlink_alias(
 
 static int install_info_symlink_wants(
                 UnitFileInstallInfo *i,
+                const LookupPaths *paths,
                 const char *config_path,
                 char **list,
                 const char *suffix,
@@ -1205,6 +1255,7 @@ static int install_info_symlink_wants(
         int r = 0, q;
 
         assert(i);
+        assert(paths);
         assert(config_path);
 
         if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
@@ -1225,6 +1276,7 @@ static int install_info_symlink_wants(
 
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
+                const char *rp;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
@@ -1239,7 +1291,9 @@ static int install_info_symlink_wants(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(i->path, path, force, changes, n_changes);
+                rp = skip_root(paths, i->path);
+
+                q = create_symlink(rp ?: i->path, path, force, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1256,6 +1310,7 @@ static int install_info_symlink_link(
                 unsigned *n_changes) {
 
         _cleanup_free_ char *path = NULL;
+        const char *rp;
         int r;
 
         assert(i);
@@ -1271,7 +1326,9 @@ static int install_info_symlink_link(
         if (!path)
                 return -ENOMEM;
 
-        return create_symlink(i->path, path, force, changes, n_changes);
+        rp = skip_root(paths, i->path);
+
+        return create_symlink(rp ?: i->path, path, force, changes, n_changes);
 }
 
 static int install_info_apply(
@@ -1291,13 +1348,13 @@ static int install_info_apply(
         if (i->type != UNIT_FILE_TYPE_REGULAR)
                 return 0;
 
-        r = install_info_symlink_alias(i, config_path, force, changes, n_changes);
+        r = install_info_symlink_alias(i, paths, config_path, force, changes, n_changes);
 
-        q = install_info_symlink_wants(i, config_path, i->wanted_by, ".wants/", force, changes, n_changes);
+        q = install_info_symlink_wants(i, paths, config_path, i->wanted_by, ".wants/", force, changes, n_changes);
         if (r == 0)
                 r = q;
 
-        q = install_info_symlink_wants(i, config_path, i->required_by, ".requires/", force, changes, n_changes);
+        q = install_info_symlink_wants(i, paths, config_path, i->required_by, ".requires/", force, changes, n_changes);
         if (r == 0)
                 r = q;
 
@@ -1502,6 +1559,7 @@ int unit_file_unmask(
         r = 0;
         STRV_FOREACH(i, todo) {
                 _cleanup_free_ char *path = NULL;
+                const char *rp;
 
                 path = path_make_absolute(*i, config_path);
                 if (!path)
@@ -1510,16 +1568,19 @@ int unit_file_unmask(
                 if (unlink(path) < 0) {
                         if (errno != -ENOENT && r >= 0)
                                 r = -errno;
-                } else {
-                        q = mark_symlink_for_removal(&remove_symlinks_to, path);
-                        if (q < 0)
-                                return q;
 
-                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+                        continue;
                 }
+
+                unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+
+                rp = skip_root(&paths, path);
+                q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: path);
+                if (q < 0)
+                        return q;
         }
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to, config_path, &paths, changes, n_changes);
         if (r >= 0)
                 r = q;
 
@@ -1592,13 +1653,15 @@ int unit_file_link(
 
         r = 0;
         STRV_FOREACH(i, todo) {
-                _cleanup_free_ char *path = NULL;
+                _cleanup_free_ char *new_path = NULL;
+                const char *old_path;
 
-                path = path_make_absolute(basename(*i), config_path);
-                if (!path)
+                old_path = skip_root(&paths, *i);
+                new_path = path_make_absolute(basename(*i), config_path);
+                if (!new_path)
                         return -ENOMEM;
 
-                q = create_symlink(*i, path, force, changes, n_changes);
+                q = create_symlink(old_path ?: *i, new_path, force, changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -1763,7 +1826,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        return remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
+        return remove_marked_symlinks(remove_symlinks_to, config_path, &paths, changes, n_changes);
 }
 
 int unit_file_reenable(
@@ -1805,14 +1868,14 @@ int unit_file_set_default(
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
         UnitFileInstallInfo *i;
-        const char *path;
+        const char *new_path, *old_path;
         int r;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(name);
 
-        if (unit_name_to_type(name) != UNIT_TARGET)
+        if (unit_name_to_type(name) != UNIT_TARGET) /* this also validates the name */
                 return -EINVAL;
         if (streq(name, SPECIAL_DEFAULT_TARGET))
                 return -EINVAL;
@@ -1829,9 +1892,10 @@ int unit_file_set_default(
         if (path_is_generator(&paths, i->path))
                 return -EADDRNOTAVAIL;
 
-        path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
+        old_path = skip_root(&paths, i->path);
+        new_path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
 
-        return create_symlink(i->path, path, force, changes, n_changes);
+        return create_symlink(old_path ?: i->path, new_path, force, changes, n_changes);
 }
 
 int unit_file_get_default(
@@ -2064,7 +2128,7 @@ static int execute_preset(
                 if (r < 0)
                         return r;
 
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
+                r = remove_marked_symlinks(remove_symlinks_to, config_path, paths, changes, n_changes);
         } else
                 r = 0;
 
@@ -2183,14 +2247,9 @@ int unit_file_preset_all(
 
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
-                _cleanup_free_ char *units_dir;
                 struct dirent *de;
 
-                units_dir = path_join(paths.root_dir, *i, NULL);
-                if (!units_dir)
-                        return -ENOMEM;
-
-                d = opendir(units_dir);
+                d = opendir(*i);
                 if (!d) {
                         if (errno == ENOENT)
                                 continue;
@@ -2255,14 +2314,9 @@ int unit_file_get_list(
 
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
-                _cleanup_free_ char *units_dir;
                 struct dirent *de;
 
-                units_dir = path_join(paths.root_dir, *i, NULL);
-                if (!units_dir)
-                        return -ENOMEM;
-
-                d = opendir(units_dir);
+                d = opendir(*i);
                 if (!d) {
                         if (errno == ENOENT)
                                 continue;
@@ -2288,11 +2342,11 @@ int unit_file_get_list(
                         if (!f)
                                 return -ENOMEM;
 
-                        f->path = path_make_absolute(de->d_name, units_dir);
+                        f->path = path_make_absolute(de->d_name, *i);
                         if (!f->path)
                                 return -ENOMEM;
 
-                        r = unit_file_lookup_state(scope, &paths, basename(f->path), &f->state);
+                        r = unit_file_lookup_state(scope, &paths, de->d_name, &f->state);
                         if (r < 0)
                                 f->state = UNIT_FILE_BAD;
 
