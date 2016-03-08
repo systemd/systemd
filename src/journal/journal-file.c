@@ -217,8 +217,10 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         if (!(f->fd >= 0 && f->header))
                 return -EINVAL;
 
-        if (f->header->state != STATE_ONLINE)
-                return 0;
+        /* An offlining journal is implicitly online and may modify f->header->state,
+         * we must also join any potentially lingering offline thread when not online. */
+        if (!journal_file_is_offlining(f) && f->header->state != STATE_ONLINE)
+                return journal_file_set_offline_thread_join(f);
 
         /* Restart an in-flight offline thread and wait if needed, or join a lingering done one. */
         restarted = journal_file_set_offline_try_restart(f);
