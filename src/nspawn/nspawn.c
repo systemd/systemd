@@ -87,6 +87,7 @@
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -3282,6 +3283,12 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 r = log_error_errno(r, "Failed to determine tty name: %m");
                 goto finish;
+        }
+
+        if (arg_selinux_apifs_context) {
+                r = mac_selinux_apply(console, arg_selinux_apifs_context);
+                if (r < 0)
+                        goto finish;
         }
 
         if (unlockpt(master) < 0) {
