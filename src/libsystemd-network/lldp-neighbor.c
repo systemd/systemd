@@ -446,7 +446,7 @@ static int format_mac_address(const void *data, size_t sz, char **ret) {
 
 static int format_network_address(const void *data, size_t sz, char **ret) {
         union in_addr_union a;
-        int family;
+        int family, r;
 
         if (sz == 6 && ((uint8_t*) data)[1] == 1) {
                 memcpy(&a.in, (uint8_t*) data + 2, sizeof(a.in));
@@ -457,7 +457,10 @@ static int format_network_address(const void *data, size_t sz, char **ret) {
         } else
                 return 0;
 
-        return in_addr_to_string(family, &a, ret);
+        r = in_addr_to_string(family, &a, ret);
+        if (r < 0)
+                return r;
+        return 1;
 }
 
 _public_ int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, const char **ret) {

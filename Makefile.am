@@ -131,8 +131,12 @@ TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
 DISABLE_HARD_ERRORS = yes
 if ENABLE_TESTS
-noinst_PROGRAMS = $(manual_tests) $(tests)
+noinst_PROGRAMS = $(manual_tests) $(tests) $(unsafe_tests)
 TESTS = $(tests)
+if ENABLE_UNSAFE_TESTS
+TESTS += \
+	$(unsafe_tests)
+endif
 else
 noinst_PROGRAMS =
 TESTS =
@@ -1387,18 +1391,16 @@ EXTRA_DIST += \
 
 manual_tests += \
 	test-ns \
-	test-loopback \
-	test-hostname \
-	test-daemon \
 	test-cgroup \
 	test-install \
-	test-watchdog \
-	test-log \
-	test-ipcrm \
 	test-btrfs \
 	test-acd \
 	test-ipv4ll-manual \
 	test-ask-password-api
+
+unsafe_tests = \
+	test-hostname \
+	test-ipcrm
 
 if HAVE_LIBIPTC
 manual_tests += \
@@ -1411,7 +1413,11 @@ manual_tests += \
 endif
 
 tests += \
+	test-daemon \
+	test-log \
+	test-loopback \
 	test-engine \
+	test-watchdog \
 	test-cgroup-mask \
 	test-job-type \
 	test-env-replace \
@@ -1651,13 +1657,13 @@ test_dns_domain_LDADD = \
 
 
 if ENABLE_EFI
-manual_tests += \
-	test-boot-timestamp
+tests += \
+	test-boot-timestamps
 
-test_boot_timestamp_SOURCES = \
+test_boot_timestamps_SOURCES = \
 	src/test/test-boot-timestamps.c
 
-test_boot_timestamp_LDADD = \
+test_boot_timestamps_LDADD = \
 	libshared.la
 endif
 
@@ -3703,8 +3709,10 @@ endif
 endif
 endif
 
+tests += \
+	test-libudev
+
 manual_tests += \
-	test-libudev \
 	test-udev
 
 test_libudev_SOURCES = \
@@ -4115,11 +4123,9 @@ catalog-remove-hook:
 UNINSTALL_DATA_HOOKS += \
 	catalog-remove-hook
 
-manual_tests += \
-	test-journal-enum
-
 tests += \
 	test-journal \
+	test-journal-enum \
 	test-journal-send \
 	test-journal-syslog \
 	test-journal-match \

@@ -119,7 +119,7 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         }
 
         if (ptr == 0)
-                return -EINVAL;
+                return -ENODATA;
 
         /* read Firmware Basic Boot Performance Data Record */
         fd = open("/dev/mem", O_CLOEXEC|O_RDONLY);
@@ -145,6 +145,10 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
 
         if (brec.type != ACPI_FPDT_BOOT_REC)
                 return -EINVAL;
+
+        if (brec.exit_services_exit == 0)
+                /* Non-UEFI compatible boot. */
+                return -ENODATA;
 
         if (brec.startup_start == 0 || brec.exit_services_exit < brec.startup_start)
                 return -EINVAL;

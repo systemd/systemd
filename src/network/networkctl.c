@@ -45,6 +45,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
@@ -147,7 +148,6 @@ static int link_info_compare(const void *a, const void *b) {
 }
 
 static int decode_link(sd_netlink_message *m, LinkInfo *info) {
-        static const struct ether_addr null_address = {};
         const char *name;
         uint16_t type;
         int r;
@@ -174,11 +174,11 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info) {
         if (r < 0)
                 return r;
 
-        strncpy(info->name, name, sizeof(info->name));
+        strscpy(info->name, sizeof info->name, name);
 
         info->has_mac_address =
                 sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
-                memcmp(&info->mac_address, &null_address, sizeof(struct ether_addr)) != 0;
+                memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
 
         info->has_mtu =
                 sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) &&

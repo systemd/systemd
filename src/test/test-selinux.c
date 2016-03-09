@@ -23,7 +23,9 @@
 #include "fd-util.h"
 #include "log.h"
 #include "selinux-util.h"
+#include "string-util.h"
 #include "time-util.h"
+#include "util.h"
 
 static void test_testing(void) {
         bool b;
@@ -31,18 +33,18 @@ static void test_testing(void) {
         log_info("============ %s ==========", __func__);
 
         b = mac_selinux_use();
-        log_info("mac_selinux_use → %d", b);
+        log_info("mac_selinux_use → %s", yes_no(b));
 
         b = mac_selinux_have();
-        log_info("mac_selinux_have → %d", b);
+        log_info("mac_selinux_have → %s", yes_no(b));
 
         mac_selinux_retest();
 
         b = mac_selinux_use();
-        log_info("mac_selinux_use → %d", b);
+        log_info("mac_selinux_use → %s", yes_no(b));
 
         b = mac_selinux_have();
-        log_info("mac_selinux_have → %d", b);
+        log_info("mac_selinux_have → %s", yes_no(b));
 }
 
 static void test_loading(void) {
@@ -76,16 +78,19 @@ static void test_misc(const char* fname) {
         log_info("============ %s ==========", __func__);
 
         r = mac_selinux_get_our_label(&label);
-        log_info_errno(r, "mac_selinux_get_our_label → %d (%m), \"%s\"", r, label);
+        log_info_errno(r, "mac_selinux_get_our_label → %d (%m), \"%s\"",
+                       r, strnull(label));
 
         r = mac_selinux_get_create_label_from_exe(fname, &label2);
-        log_info_errno(r, "mac_selinux_create_label_from_exe → %d (%m), \"%s\"", r, label2);
+        log_info_errno(r, "mac_selinux_create_label_from_exe → %d (%m), \"%s\"",
+                       r, strnull(label2));
 
         fd = socket(AF_INET, SOCK_DGRAM, 0);
         assert_se(fd >= 0);
 
         r = mac_selinux_get_child_mls_label(fd, fname, label2, &label3);
-        log_info_errno(r, "mac_selinux_get_child_mls_label → %d (%m), \"%s\"", r, label3);
+        log_info_errno(r, "mac_selinux_get_child_mls_label → %d (%m), \"%s\"",
+                       r, strnull(label3));
 }
 
 static void test_create_file_prepare(const char* fname) {

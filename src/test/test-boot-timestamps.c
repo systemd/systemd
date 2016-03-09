@@ -34,17 +34,18 @@ static int test_acpi_fpdt(void) {
 
         r = acpi_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
-                if (r != -ENOENT)
-                        log_error_errno(r, "Failed to read ACPI FPDT: %m");
-                return r;
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -ENODATA;
+
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
+                               r, "Failed to read ACPI FPDT: %m");
+                return ok ? 0 : r;
         }
 
         log_info("ACPI FPDT: loader start=%s exit=%s duration=%s",
                  format_timespan(ts_start, sizeof(ts_start), loader_start, USEC_PER_MSEC),
                  format_timespan(ts_exit, sizeof(ts_exit), loader_exit, USEC_PER_MSEC),
                  format_timespan(ts_span, sizeof(ts_span), loader_exit - loader_start, USEC_PER_MSEC));
-
-        return 0;
+        return 1;
 }
 
 static int test_efi_loader(void) {
@@ -57,33 +58,34 @@ static int test_efi_loader(void) {
 
         r = efi_loader_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
-                if (r != -ENOENT)
-                        log_error_errno(r, "Failed to read EFI loader data: %m");
-                return r;
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES);
+
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
+                               r, "Failed to read EFI loader data: %m");
+                return ok ? 0 : r;
         }
 
         log_info("EFI Loader: start=%s exit=%s duration=%s",
                  format_timespan(ts_start, sizeof(ts_start), loader_start, USEC_PER_MSEC),
                  format_timespan(ts_exit, sizeof(ts_exit), loader_exit, USEC_PER_MSEC),
                  format_timespan(ts_span, sizeof(ts_span), loader_exit - loader_start, USEC_PER_MSEC));
-
-        return 0;
+        return 1;
 }
 
-int main(int argc, char* argv[]) {
+static int test_boot_timestamps(void) {
         char s[MAX(FORMAT_TIMESPAN_MAX, FORMAT_TIMESTAMP_MAX)];
         int r;
         dual_timestamp fw, l, k;
-
-        test_acpi_fpdt();
-        test_efi_loader();
 
         dual_timestamp_from_monotonic(&k, 0);
 
         r = boot_timestamps(NULL, &fw, &l);
         if (r < 0) {
-                log_error_errno(r, "Failed to read variables: %m");
-                return 1;
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES);
+
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
+                               r, "Failed to read variables: %m");
+                return ok ? 0 : r;
         }
 
         log_info("Firmware began %s before kernel.", format_timespan(s, sizeof(s), fw.monotonic, 0));
@@ -91,6 +93,21 @@ int main(int argc, char* argv[]) {
         log_info("Firmware began %s.", format_timestamp(s, sizeof(s), fw.realtime));
         log_info("Loader began %s.", format_timestamp(s, sizeof(s), l.realtime));
         log_info("Kernel began %s.", format_timestamp(s, sizeof(s), k.realtime));
+        return 1;
+}
 
-        return 0;
+int main(int argc, char* argv[]) {
+        int p, q, r;
+
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+
+        p = test_acpi_fpdt();
+        assert(p >= 0);
+        q = test_efi_loader();
+        assert(q >= 0);
+        r = test_boot_timestamps();
+        assert(r >= 0);
+
+        return (p > 0 || q > 0 || r >> 0) ? EXIT_SUCCESS : EXIT_TEST_SKIP;
 }
