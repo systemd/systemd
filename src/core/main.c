@@ -85,6 +85,12 @@
 #include "virt.h"
 #include "watchdog.h"
 
+enum {
+        DUMP_UNITS_SEQUENCE = 1,
+        DUMP_JOBS_SEQUENCE,
+        DUMP_ALL_SEQUENCE
+};
+
 static enum {
         ACTION_RUN,
         ACTION_HELP,
@@ -126,6 +132,7 @@ static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_C(512);
 static sd_id128_t arg_machine_id = {};
+static int arg_dump_startup_seq;
 
 noreturn static void freeze_or_reboot(void) {
 
@@ -765,7 +772,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unit",                     required_argument, NULL, ARG_UNIT                     },
                 { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
                 { "user",                     no_argument,       NULL, ARG_USER                     },
-                { "test",                     no_argument,       NULL, ARG_TEST                     },
+                { "test",                     optional_argument, NULL, ARG_TEST                     },
                 { "no-pager",                 no_argument,       NULL, ARG_NO_PAGER                 },
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "version",                  no_argument,       NULL, ARG_VERSION                  },
@@ -875,6 +882,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TEST:
                         arg_action = ACTION_TEST;
+
+                        if (optarg) {
+                                if (streq(optarg, "units"))
+                                        arg_dump_startup_seq = DUMP_UNITS_SEQUENCE;
+                                else if (streq(optarg, "jobs"))
+                                        arg_dump_startup_seq = DUMP_JOBS_SEQUENCE;
+                                else {
+                                        log_error("Unknown argument to --test=: %s", optarg);
+                                        return -EINVAL;
+                                }
+                        } else
+                                arg_dump_startup_seq = DUMP_ALL_SEQUENCE;
+
                         break;
 
                 case ARG_NO_PAGER:
@@ -1777,9 +1797,13 @@ int main(int argc, char *argv[]) {
 
                 assert(target->load_state == UNIT_LOADED);
 
-                if (arg_action == ACTION_TEST) {
+                if (arg_action == ACTION_TEST && arg_dump_startup_seq & DUMP_UNITS_SEQUENCE) {
                         printf("-> By units:\n");
                         manager_dump_units(m, stdout, "\t");
+                        if (!(arg_dump_startup_seq & DUMP_JOBS_SEQUENCE)) {
+                                retval = EXIT_SUCCESS;
+                                goto finish;
+                        }
                 }
 
                 r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &default_unit_job);
@@ -1807,7 +1831,7 @@ int main(int argc, char *argv[]) {
                          "Loaded units and determined initial transaction in %s.",
                          format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
 
-                if (arg_action == ACTION_TEST) {
+                if (arg_action == ACTION_TEST && arg_dump_startup_seq & DUMP_JOBS_SEQUENCE) {
                         printf("-> By jobs:\n");
                         manager_dump_jobs(m, stdout, "\t");
                         retval = EXIT_SUCCESS;

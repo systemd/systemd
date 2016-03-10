@@ -92,10 +92,13 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>--test</option></term>
+        <term><option>--test<optional>=<replaceable>arg</replaceable></optional></option></term>
 
         <listitem><para>Determine startup sequence, dump it and exit.
-        This is an option useful for debugging only.</para></listitem>
+        Argument specifies startup sequence of what to dump. It may be
+        one of <option>units</option> or <option>jobs</option>.
+        If argument is not specified both will be dumped. This is an option
+        useful for debugging only.</para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--dump-configuration-items</option></term>
