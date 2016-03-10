@@ -199,5 +199,8 @@ int main(int argc, char* argv[]) {
         }
 
 finish:
+        if (getuid() && r >= 0) {
+                sleep(10);
+        }
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
