@@ -43,7 +43,7 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
         if (r < 0)
                 return r;
 
-        unaligned_write_be16(&duid->type, DHCP6_DUID_EN);
+        unaligned_write_be16(&duid->type, DHCP_DUID_TYPE_EN);
         unaligned_write_be32(&duid->en.pen, SYSTEMD_PEN);
 
         *len = sizeof(duid->type) + sizeof(duid->en);

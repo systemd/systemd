@@ -204,6 +204,12 @@
           understood to the base of 1024.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IAIDValue=</varname></term>
+        <listitem>
+          <para>Identity Association Identifier for the interface. This is a 32-bit value specified in host byte order.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

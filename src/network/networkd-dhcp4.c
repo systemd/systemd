@@ -625,7 +625,13 @@ int dhcp4_configure(Link *link) {
 
         switch (link->network->dhcp_client_identifier) {
         case DHCP_CLIENT_ID_DUID:
-                /* Library defaults to this. */
+                /* If configured, apply user specified DUID and/or IAID */
+                r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
+                                                 link->network->iaid_value,
+                                                 link->manager->dhcp_duid_len,
+                                                 &link->manager->dhcp_duid);
+                if (r < 0)
+                        return r;
                 break;
         case DHCP_CLIENT_ID_MAC:
                 r = sd_dhcp_client_set_client_id(link->dhcp_client,
