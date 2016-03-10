@@ -1960,15 +1960,21 @@ endif
 if ENABLE_NETWORKD
 MANPAGES += \
 	man/networkctl.1 \
+	man/networkd.conf.5 \
 	man/systemd-networkd-wait-online.service.8 \
 	man/systemd-networkd.service.8 \
 	man/systemd.netdev.5 \
 	man/systemd.network.5
 MANPAGES_ALIAS += \
+	man/networkd.conf.d.5 \
 	man/systemd-networkd-wait-online.8 \
 	man/systemd-networkd.8
+man/networkd.conf.d.5: man/networkd.conf.5
 man/systemd-networkd-wait-online.8: man/systemd-networkd-wait-online.service.8
 man/systemd-networkd.8: man/systemd-networkd.service.8
+man/networkd.conf.d.html: man/networkd.conf.html
+	$(html-alias)
+
 man/systemd-networkd-wait-online.html: man/systemd-networkd-wait-online.service.html
 	$(html-alias)
 
@@ -2479,6 +2485,7 @@ EXTRA_DIST += \
 	man/machinectl.xml \
 	man/modules-load.d.xml \
 	man/networkctl.xml \
+	man/networkd.conf.xml \
 	man/nss-myhostname.xml \
 	man/nss-mymachines.xml \
 	man/nss-resolve.xml \

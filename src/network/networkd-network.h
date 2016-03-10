@@ -30,6 +30,7 @@ typedef struct Network Network;
 #include "networkd-route.h"
 #include "networkd-util.h"
 #include "networkd.h"
+#include "sparse-endian.h"
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
@@ -144,6 +145,7 @@ struct Network {
 
         struct ether_addr *mac;
         unsigned mtu;
+        be32_t iaid_value;
 
         LLDPMode lldp_mode; /* LLDP reception */
         bool lldp_emit;     /* LLDP transmission */

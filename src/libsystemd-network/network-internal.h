@@ -62,6 +62,10 @@ int config_parse_ifalias(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,
                          int ltype, const char *rvalue, void *data, void *userdata);
 
+int config_parse_iaid_value(const char *unit, const char *filename, unsigned line,
+                            const char *section, unsigned section_line, const char *lvalue,
+                            int ltype, const char *rvalue, void *data, void *userdata);
+
 int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result);
 const char *net_get_name(struct udev_device *device);
 

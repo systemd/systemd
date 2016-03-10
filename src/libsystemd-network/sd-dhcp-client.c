@@ -82,7 +82,7 @@ struct sd_dhcp_client {
                         } _packed_ ll;
                         struct {
                                 /* 255: Node-specific (RFC 4361) */
-                                uint32_t iaid;
+                                be32_t iaid;
                                 struct duid duid;
                         } _packed_ ns;
                         struct {
@@ -298,6 +298,51 @@ int sd_dhcp_client_set_client_id(sd_dhcp_client *client, uint8_t type,
         return 0;
 }
 
+int sd_dhcp_client_set_iaid_duid(sd_dhcp_client *client, be32_t iaid,
+                                 size_t duid_len, struct duid *duid) {
+        DHCP_CLIENT_DONT_DESTROY(client);
+        int r;
+        assert_return(client, -EINVAL);
+        zero(client->client_id);
+
+        client->client_id.type = 255;
+
+        /* If IAID is not configured, generate it. */
+        if (iaid == 0) {
+                r = dhcp_identifier_set_iaid(client->index, client->mac_addr,
+                                             client->mac_addr_len,
+                                             &client->client_id.ns.iaid);
+                if (r < 0)
+                        return r;
+        } else
+                client->client_id.ns.iaid = iaid;
+
+        /* If DUID is not configured, generate DUID-EN. */
+        if (duid_len == 0) {
+                r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid,
+                                                &duid_len);
+                if (r < 0)
+                        return r;
+        } else {
+                r = dhcp_validate_duid_len(client->client_id.type,
+                                           duid_len - sizeof(client->client_id.type));
+                if (r < 0)
+                        return r;
+                memcpy(&client->client_id.ns.duid, duid, duid_len);
+        }
+
+        client->client_id_len = sizeof(client->client_id.type) + duid_len +
+                                sizeof(client->client_id.ns.iaid);
+
+        if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
+                log_dhcp_client(client, "Configured IAID+DUID, restarting.");
+                client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
+                sd_dhcp_client_start(client);
+        }
+
+        return 0;
+}
+
 int sd_dhcp_client_set_hostname(sd_dhcp_client *client,
                                 const char *hostname) {
         char *new_hostname = NULL;
@@ -469,7 +514,6 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
         if (client->arp_type == ARPHRD_ETHER)
                 memcpy(&packet->dhcp.chaddr, &client->mac_addr, ETH_ALEN);
 
-        /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (client->client_id_len == 0) {
                 size_t duid_len;
 

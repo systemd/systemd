@@ -26,6 +26,7 @@ Match.KernelCommandLine,                config_parse_net_condition,             
 Match.Architecture,                     config_parse_net_condition,                     CONDITION_ARCHITECTURE,        offsetof(Network, match_arch)
 Link.MACAddress,                        config_parse_hwaddr,                            0,                             offsetof(Network, mac)
 Link.MTUBytes,                          config_parse_iec_size,                          0,                             offsetof(Network, mtu)
+Link.IAIDValue,                         config_parse_iaid_value,                        0,                             offsetof(Network, iaid_value)
 Network.Description,                    config_parse_string,                            0,                             offsetof(Network, description)
 Network.Bridge,                         config_parse_netdev,                            0,                             offsetof(Network, bridge)
 Network.Bond,                           config_parse_netdev,                            0,                             offsetof(Network, bond)
