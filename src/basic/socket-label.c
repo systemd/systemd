@@ -122,7 +122,7 @@ int socket_address_listen(
 
                 r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
 
-                if (r < 0 && errno == EADDRINUSE) {
+                if (r == -EADDRINUSE) {
                         /* Unlink and try again */
                         unlink(a->sockaddr.un.sun_path);
                         r = bind(fd, &a->sockaddr.sa, a->size);
