@@ -660,6 +660,25 @@ static void test_strv_make_nulstr(void) {
         test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
 }
 
+static void test_foreach_string(void) {
+        const char * const t[] = {
+                "foo",
+                "bar",
+                "waldo",
+                NULL
+        };
+        const char *x;
+        unsigned i = 0;
+
+        FOREACH_STRING(x, "foo", "bar", "waldo")
+                assert_se(streq_ptr(t[i++], x));
+
+        assert_se(i == 3);
+
+        FOREACH_STRING(x, "zzz")
+                assert_se(streq(x, "zzz"));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -723,6 +742,8 @@ int main(int argc, char *argv[]) {
         test_strv_skip();
         test_strv_extend_n();
         test_strv_make_nulstr();
+
+        test_foreach_string();
 
         return 0;
 }

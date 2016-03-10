@@ -1432,6 +1432,18 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-cpu-set-util \
+	test-hexdecoct \
+	test-escape \
+	test-alloc-util \
+	test-proc-cmdline \
+	test-io-util \
+	test-glob-util \
+	test-xattr-util \
+	test-fs-util \
+	test-web-util \
+	test-stat-util \
+	test-fd-util \
 	test-string-util \
 	test-extract-word \
 	test-parse-util \
@@ -1760,6 +1772,78 @@ test_util_SOURCES = \
 
 test_util_LDADD = \
 	libshared.la
+
+test_hexdecoct_SOURCES = \
+	src/test/test-hexdecoct.c
+
+test_hexdecoct_LDADD = \
+	libbasic.la
+
+test_alloc_util_SOURCES = \
+	src/test/test-alloc-util.c
+
+test_alloc_util_LDADD = \
+	libbasic.la
+
+test_xattr_util_SOURCES = \
+	src/test/test-xattr-util.c
+
+test_xattr_util_LDADD = \
+	libbasic.la
+
+test_io_util_SOURCES = \
+	src/test/test-io-util.c
+
+test_io_util_LDADD = \
+	libbasic.la
+
+test_glob_util_SOURCES = \
+	src/test/test-glob-util.c
+
+test_glob_util_LDADD = \
+	libbasic.la
+
+test_fs_util_SOURCES = \
+	src/test/test-fs-util.c
+
+test_fs_util_LDADD = \
+	libbasic.la
+
+test_proc_cmdline_SOURCES = \
+	src/test/test-proc-cmdline.c
+
+test_proc_cmdline_LDADD = \
+	libbasic.la
+
+test_fd_util_SOURCES = \
+	src/test/test-fd-util.c
+
+test_fd_util_LDADD = \
+	libbasic.la
+
+test_web_util_SOURCES = \
+	src/test/test-web-util.c
+
+test_web_util_LDADD = \
+	libbasic.la
+
+test_cpu_set_util_SOURCES = \
+	src/test/test-cpu-set-util.c
+
+test_cpu_set_util_LDADD = \
+	libbasic.la
+
+test_stat_util_SOURCES = \
+	src/test/test-stat-util.c
+
+test_stat_util_LDADD = \
+	libbasic.la
+
+test_escape_SOURCES = \
+	src/test/test-escape.c
+
+test_escape_LDADD = \
+	libbasic.la
 
 test_string_util_SOURCES = \
 	src/test/test-string-util.c
