@@ -378,7 +378,8 @@ static bool should_umount(Mount *m) {
         MountParameters *p;
 
         if (path_equal(m->where, "/") ||
-            path_equal(m->where, "/usr"))
+            path_equal(m->where, "/usr") ||
+            path_startswith(m->where, "/run/initramfs"))
                 return false;
 
         p = get_mount_parameters(m);
@@ -402,13 +403,15 @@ static int mount_add_default_dependencies(Mount *m) {
         if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
-        /* We do not add any default dependencies to / and /usr, since
-         * they are guaranteed to stay mounted the whole time, since
-         * our system is on it. Also, don't bother with anything
-         * mounted below virtual file systems, it's also going to be
-         * virtual, and hence not worth the effort. */
+        /* We do not add any default dependencies to /, /usr or
+         * /run/initramfs/, since they are guaranteed to stay
+         * mounted the whole time, since our system is on it.
+         * Also, don't bother with anything mounted below virtual
+         * file systems, it's also going to be virtual, and hence
+         * not worth the effort. */
         if (path_equal(m->where, "/") ||
             path_equal(m->where, "/usr") ||
+            path_startswith(m->where, "/run/initramfs") ||
             path_startswith(m->where, "/proc") ||
             path_startswith(m->where, "/sys") ||
             path_startswith(m->where, "/dev"))

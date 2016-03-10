@@ -412,6 +412,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
 #ifndef HAVE_SPLIT_USR
                     || path_equal(m->path, "/usr")
 #endif
+                    || path_startswith(m->path, "/run/initramfs")
                 )
                         continue;
 
