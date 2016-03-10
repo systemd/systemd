@@ -23,7 +23,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -35,6 +34,7 @@
 #include "mkdir.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "umask-util.h"
 
 int socket_address_listen(
                 const SocketAddress *a,
@@ -112,28 +112,24 @@ int socket_address_listen(
                 return -errno;
 
         if (socket_address_family(a) == AF_UNIX && a->sockaddr.un.sun_path[0] != 0) {
-                mode_t old_mask;
-
                 /* Create parents */
-                mkdir_parents_label(a->sockaddr.un.sun_path, directory_mode);
+                (void) mkdir_parents_label(a->sockaddr.un.sun_path, directory_mode);
 
                 /* Enforce the right access mode for the socket */
-                old_mask = umask(~ socket_mode);
-
-                r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
-
-                if (r == -EADDRINUSE) {
-                        /* Unlink and try again */
-                        unlink(a->sockaddr.un.sun_path);
-                        r = bind(fd, &a->sockaddr.sa, a->size);
+                RUN_WITH_UMASK(~socket_mode) {
+                        r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
+                        if (r == -EADDRINUSE) {
+                                /* Unlink and try again */
+                                unlink(a->sockaddr.un.sun_path);
+                                if (bind(fd, &a->sockaddr.sa, a->size) < 0)
+                                        return -errno;
+                        } else if (r < 0)
+                                return r;
                 }
-
-                umask(old_mask);
-        } else
-                r = bind(fd, &a->sockaddr.sa, a->size);
-
-        if (r < 0)
-                return -errno;
+        } else {
+                if (bind(fd, &a->sockaddr.sa, a->size) < 0)
+                        return -errno;
+        }
 
         if (socket_address_can_accept(a))
                 if (listen(fd, backlog) < 0)
