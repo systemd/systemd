@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 
         r = get_user_creds(&name, &uid, NULL, NULL, NULL);
         if (r < 0) {
-                log_error("Failed to resolve \"nobody\": %m");
+                log_error_errno(r, "Failed to resolve \"%s\": %m", name);
                 return EXIT_FAILURE;
         }
 
