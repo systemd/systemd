@@ -74,7 +74,7 @@
 #endif
 
 #define _SD_DEFINE_POINTER_CLEANUP_FUNC(type, func)             \
-        static inline void func##p(type **p) {                  \
+        static __inline__ void func##p(type **p) {              \
                 if (*p)                                         \
                         func(*p);                               \
         }                                                       \
