@@ -89,13 +89,13 @@ enum {
         SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 32,
         SD_BUS_CREDS_DESCRIPTION        = 1ULL << 33,
         SD_BUS_CREDS_AUGMENT            = 1ULL << 63, /* special flag, if on sd-bus will augment creds struct, in a potentially race-full way. */
-        _SD_BUS_CREDS_ALL               = (1ULL << 34) -1,
+        _SD_BUS_CREDS_ALL               = (1ULL << 34) -1
 };
 
 enum {
         SD_BUS_NAME_REPLACE_EXISTING  = 1ULL << 0,
         SD_BUS_NAME_ALLOW_REPLACEMENT = 1ULL << 1,
-        SD_BUS_NAME_QUEUE             = 1ULL << 2,
+        SD_BUS_NAME_QUEUE             = 1ULL << 2
 };
 
 /* Callbacks */

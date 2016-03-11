@@ -34,7 +34,7 @@ enum {
         _SD_BUS_VTABLE_METHOD            = 'M',
         _SD_BUS_VTABLE_SIGNAL            = 'S',
         _SD_BUS_VTABLE_PROPERTY          = 'P',
-        _SD_BUS_VTABLE_WRITABLE_PROPERTY = 'W',
+        _SD_BUS_VTABLE_WRITABLE_PROPERTY = 'W'
 };
 
 enum {

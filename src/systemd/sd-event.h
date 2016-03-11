@@ -55,7 +55,7 @@ enum {
         SD_EVENT_RUNNING,
         SD_EVENT_EXITING,
         SD_EVENT_FINISHED,
-        SD_EVENT_PREPARING,
+        SD_EVENT_PREPARING
 };
 
 enum {
