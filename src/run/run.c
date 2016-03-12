@@ -83,8 +83,8 @@ static void polkit_agent_open_if_enabled(void) {
 static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
                "Run the specified command in a transient scope or service or timer\n"
-               "unit. If timer option is specified and unit is exist which is\n"
-               "specified with --unit option then command can be omitted.\n\n"
+               "unit. If a timer option is specified and the unit specified with\n"
+               "the --unit option exists, the command can be omitted.\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-ask-password            Do not prompt for password\n"
