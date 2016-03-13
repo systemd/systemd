@@ -239,10 +239,8 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         }
 
         r = mkfs_exists("btrfs");
-        if (r == -ENOENT) {
-                log_debug("mkfs.btrfs is missing, cannot create loopback file for /var/lib/machines.");
-                return 0;
-        }
+        if (r == 0)
+                return sd_bus_error_set_errnof(error, ENOENT, "Cannot set up /var/lib/machines, mkfs.btrfs is missing");
         if (r < 0)
                 return r;
 
