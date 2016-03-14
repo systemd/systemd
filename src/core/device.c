@@ -318,7 +318,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
          * the GC to have garbaged it. That's desired since the device
          * unit may have a dependency on the mount unit which was
          * added during the loading of the later. */
-        if (u && DEVICE(u)->state == DEVICE_PLUGGED) {
+        if (dev && u && DEVICE(u)->state == DEVICE_PLUGGED) {
                 /* This unit is in plugged state: we're sure it's
                  * attached to a device. */
                 if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
