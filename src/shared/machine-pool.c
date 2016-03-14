@@ -139,7 +139,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
 
                 execlp("mkfs.btrfs", "-Lvar-lib-machines", tmp, NULL);
                 if (errno == ENOENT)
-                        return 99;
+                        _exit(99);
 
                 _exit(EXIT_FAILURE);
         }
