@@ -24,6 +24,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "log.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -38,6 +39,8 @@ static void test_copy_file(void) {
         char fn_copy[] = "/tmp/test-copy_file.XXXXXX";
         size_t sz = 0;
         int fd;
+
+        log_info("%s", __func__);
 
         fd = mkostemp_safe(fn, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
@@ -66,6 +69,8 @@ static void test_copy_file_fd(void) {
         char text[] = "boohoo\nfoo\n\tbar\n";
         char buf[64] = {0};
 
+        log_info("%s", __func__);
+
         in_fd = mkostemp_safe(in_fn, O_RDWR);
         assert_se(in_fd >= 0);
         out_fd = mkostemp_safe(out_fn, O_RDWR);
@@ -90,6 +95,8 @@ static void test_copy_tree(void) {
         char **links = STRV_MAKE("link", "file",
                                  "link2", "dir1/file");
         char **p, **link;
+
+        log_info("%s", __func__);
 
         (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
@@ -173,11 +180,50 @@ static void test_copy_bytes(void) {
         assert_se(r == -EBADF);
 }
 
+static void test_copy_bytes_regular_file(const char *src, bool try_reflink) {
+        char fn2[] = "/tmp/test-copy-file-XXXXXX";
+        char fn3[] = "/tmp/test-copy-file-XXXXXX";
+        _cleanup_close_ int fd = -1, fd2 = -1, fd3 = -1;
+        int r;
+        struct stat buf, buf2, buf3;
+
+        log_info("%s try_reflink=%s", __func__, yes_no(try_reflink));
+
+        fd = open(src, O_RDONLY | O_CLOEXEC | O_NOCTTY);
+        assert_se(fd >= 0);
+
+        fd2 = mkostemp_safe(fn2, O_RDWR);
+        assert_se(fd2 >= 0);
+
+        fd3 = mkostemp_safe(fn3, O_WRONLY);
+        assert_se(fd3 >= 0);
+
+        r = copy_bytes(fd, fd2, (uint64_t) -1, try_reflink);
+        assert_se(r == 0);
+
+        assert_se(lseek(fd2, 0, SEEK_SET) == 0);
+
+        r = copy_bytes(fd2, fd3, (uint64_t) -1, try_reflink);
+        assert_se(r == 0);
+
+        assert_se(fstat(fd, &buf) == 0);
+        assert_se(fstat(fd2, &buf2) == 0);
+        assert_se(fstat(fd3, &buf3) == 0);
+
+        assert_se(buf.st_size == buf2.st_size);
+        assert_se(buf.st_size == buf3.st_size);
+
+        unlink(fn2);
+        unlink(fn3);
+}
+
 int main(int argc, char *argv[]) {
         test_copy_file();
         test_copy_file_fd();
         test_copy_tree();
         test_copy_bytes();
+        test_copy_bytes_regular_file(argv[0], false);
+        test_copy_bytes_regular_file(argv[0], true);
 
         return 0;
 }
