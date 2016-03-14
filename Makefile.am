@@ -6161,7 +6161,6 @@ DISTCHECK_CONFIGURE_FLAGS += \
 endif
 
 .PHONY: dist-check-help
-
 dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
 	for i in $(abspath $^); do                                             \
             if $$i  --help | grep -v 'default:' | grep -E -q '.{80}.' ; then   \
@@ -6169,6 +6168,18 @@ dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
 	        $$i  --help | awk 'length > 80' | grep -E --color=yes '.{80}'; \
 	        exit 1;                                                        \
             fi; done
+
+include_compilers = "$(CC)" "$(CC) -ansi" "$(CC) -std=iso9899:1990"
+public_headers = $(filter-out src/systemd/_sd-common.h, $(pkginclude_HEADERS) $(include_HEADERS))
+.PHONY: dist-check-includes
+dist-check-includes: $(public_headers)
+	@res=0;                                                        	        \
+	for i in $(abspath $^); do	                                        \
+	    for cc in $(include_compilers); do                                  \
+	        echo "$$cc -o/dev/null -c -x c -include "$$i" - </dev/null";    \
+	        $$cc -o/dev/null -c -x c -include "$$i" - </dev/null || res=1;  \
+	    done;                                                               \
+	done; exit $$res
 
 .PHONY: hwdb-update
 hwdb-update:

@@ -100,11 +100,11 @@ int sd_id128_get_boot(sd_id128_t *ret);
                 ((x).bytes[15] & 15) >= 10 ? 'a' + ((x).bytes[15] & 15) - 10 : '0' + ((x).bytes[15] & 15), \
                 0 })
 
-_sd_pure_ static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
+_sd_pure_ static __inline__ int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
 
-_sd_pure_ static inline int sd_id128_is_null(sd_id128_t a) {
+_sd_pure_ static __inline__ int sd_id128_is_null(sd_id128_t a) {
         return a.qwords[0] == 0 && a.qwords[1] == 0;
 }
 

@@ -72,7 +72,7 @@ enum {
         SD_JOURNAL_SYSTEM = 4,
         SD_JOURNAL_CURRENT_USER = 8,
 
-        SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM, /* deprecated name */
+        SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM /* deprecated name */
 };
 
 /* Wakeup event types */
