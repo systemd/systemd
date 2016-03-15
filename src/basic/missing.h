@@ -1177,3 +1177,33 @@ static inline key_serial_t request_key(const char *type, const char *description
 #endif
 
 #endif
+
+#ifndef __NR_copy_file_range
+#  if defined(__x86_64__)
+#    define __NR_copy_file_range 326
+#  elif defined(__i386__)
+#    define __NR_copy_file_range 377
+#  elif defined __s390__
+#    define __NR_copy_file_range 375
+#  elif defined __arm__
+#    define __NR_copy_file_range 391
+#  elif defined __aarch64__
+#    define __NR_copy_file_range 285
+#  else
+#    warning "__NR_copy_file_range not defined for your architecture"
+#  endif
+#endif
+
+#if !HAVE_DECL_COPY_FILE_RANGE
+static inline ssize_t copy_file_range(int fd_in, loff_t *off_in,
+                                      int fd_out, loff_t *off_out,
+                                      size_t len,
+                                      unsigned int flags) {
+#ifdef __NR_copy_file_range
+        return syscall(__NR_copy_file_range, fd_in, off_in, fd_out, off_out, len, flags);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
+#endif
