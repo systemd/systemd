@@ -595,9 +595,8 @@
         order to trigger an orderly shutdown of the
         container. Defaults to SIGRTMIN+3 if <option>--boot</option>
         is used (on systemd-compatible init systems SIGRTMIN+3
-        triggers an orderly shutdown). Takes a signal name like
-        <literal>SIGHUP</literal>, <literal>SIGTERM</literal> or
-        similar as argument.</para></listitem>
+        triggers an orderly shutdown). For a list of valid signals, see
+        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
