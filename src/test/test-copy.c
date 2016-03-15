@@ -180,14 +180,14 @@ static void test_copy_bytes(void) {
         assert_se(r == -EBADF);
 }
 
-static void test_copy_bytes_regular_file(const char *src, bool try_reflink) {
+static void test_copy_bytes_regular_file(const char *src, bool try_reflink, size_t max_bytes) {
         char fn2[] = "/tmp/test-copy-file-XXXXXX";
         char fn3[] = "/tmp/test-copy-file-XXXXXX";
         _cleanup_close_ int fd = -1, fd2 = -1, fd3 = -1;
         int r;
         struct stat buf, buf2, buf3;
 
-        log_info("%s try_reflink=%s", __func__, yes_no(try_reflink));
+        log_info("%s try_reflink=%s max_bytes=%zu", __func__, yes_no(try_reflink), max_bytes);
 
         fd = open(src, O_RDONLY | O_CLOEXEC | O_NOCTTY);
         assert_se(fd >= 0);
@@ -198,20 +198,31 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink) {
         fd3 = mkostemp_safe(fn3, O_WRONLY);
         assert_se(fd3 >= 0);
 
-        r = copy_bytes(fd, fd2, (uint64_t) -1, try_reflink);
-        assert_se(r == 0);
+        r = copy_bytes(fd, fd2, max_bytes, try_reflink);
+        if (max_bytes == (uint64_t) -1)
+                assert_se(r == 0);
+        else
+                assert_se(IN_SET(r, 0, 1));
 
         assert_se(lseek(fd2, 0, SEEK_SET) == 0);
 
-        r = copy_bytes(fd2, fd3, (uint64_t) -1, try_reflink);
-        assert_se(r == 0);
+        r = copy_bytes(fd2, fd3, max_bytes, try_reflink);
+        if (max_bytes == (uint64_t) -1)
+                assert_se(r == 0);
+        else
+                /* We cannot distinguish between the input being exactly max_bytes
+                 * or longer than max_bytes (without trying to read one more byte,
+                 * or calling stat, or FION_READ, etc, and we don't want to do any
+                 * of that). So we expect "truncation" since we know that file we
+                 * are copying is exactly max_bytes bytes. */
+                assert_se(r == 1);
 
         assert_se(fstat(fd, &buf) == 0);
         assert_se(fstat(fd2, &buf2) == 0);
         assert_se(fstat(fd3, &buf3) == 0);
 
-        assert_se(buf.st_size == buf2.st_size);
-        assert_se(buf.st_size == buf3.st_size);
+        assert_se((size_t) buf2.st_size == MIN((size_t) buf.st_size, max_bytes));
+        assert_se(buf3.st_size == buf2.st_size);
 
         unlink(fn2);
         unlink(fn3);
@@ -222,8 +233,12 @@ int main(int argc, char *argv[]) {
         test_copy_file_fd();
         test_copy_tree();
         test_copy_bytes();
-        test_copy_bytes_regular_file(argv[0], false);
-        test_copy_bytes_regular_file(argv[0], true);
+        test_copy_bytes_regular_file(argv[0], false, (uint64_t) -1);
+        test_copy_bytes_regular_file(argv[0], true, (uint64_t) -1);
+        test_copy_bytes_regular_file(argv[0], false, 1000); /* smaller than copy buffer size */
+        test_copy_bytes_regular_file(argv[0], true, 1000);
+        test_copy_bytes_regular_file(argv[0], false, 32000); /* larger than copy buffer size */
+        test_copy_bytes_regular_file(argv[0], true, 32000);
 
         return 0;
 }
