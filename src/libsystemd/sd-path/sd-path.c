@@ -89,7 +89,8 @@ static int from_home_dir(const char *envname, const char *suffix, char **buffer,
 static int from_user_dir(const char *field, char **buffer, const char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *b = NULL;
-        const char *fn = NULL;
+        _cleanup_free_ const char *fn = NULL;
+        const char *c = NULL;
         char line[LINE_MAX];
         size_t n;
         int r;
@@ -98,9 +99,13 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
         assert(buffer);
         assert(ret);
 
-        r = from_home_dir(NULL, ".config/user-dirs.dirs", &b, &fn);
+        r = from_home_dir("XDG_CONFIG_HOME", ".config", &b, &c);
         if (r < 0)
                 return r;
+
+        fn = strappend(c, "/user-dirs.dirs");
+        if (!fn)
+                return -ENOMEM;
 
         f = fopen(fn, "re");
         if (!f) {
