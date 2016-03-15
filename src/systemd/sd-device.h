@@ -22,6 +22,7 @@
 ***/
 
 #include <inttypes.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 
 #include "_sd-common.h"
