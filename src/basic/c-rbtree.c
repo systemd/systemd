@@ -195,11 +195,6 @@ static inline void c_rbnode_set_parent_and_color(CRBNode *n, CRBNode *p, unsigne
         n->__parent_and_color = (CRBNode*)((unsigned long)p | c);
 }
 
-/* same as c_rbnode_set_parent_and_color(), but keeps the current parent */
-static inline void c_rbnode_set_color(CRBNode *n, unsigned long c) {
-        c_rbnode_set_parent_and_color(n, c_rbnode_parent(n), c);
-}
-
 /* same as c_rbnode_set_parent_and_color(), but keeps the current color */
 static inline void c_rbnode_set_parent(CRBNode *n, CRBNode *p) {
         c_rbnode_set_parent_and_color(n, p, c_rbnode_color(n));
