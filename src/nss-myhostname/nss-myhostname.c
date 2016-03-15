@@ -480,7 +480,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         return NSS_STATUS_NOTFOUND;
 
 found:
-        if (!canonical || (!additional && additional_from_hostname)) {
+        if (!canonical || additional_from_hostname) {
                 hn = gethostname_malloc();
                 if (!hn) {
                         *errnop = ENOMEM;
@@ -490,8 +490,7 @@ found:
 
                 if (!canonical)
                         canonical = hn;
-
-                if (!additional && additional_from_hostname)
+                else
                         additional = hn;
         }
 
