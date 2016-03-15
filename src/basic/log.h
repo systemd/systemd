@@ -246,5 +246,4 @@ int log_syntax_internal(
                         log_syntax_internal(unit, _level, config_file, config_line, 0, __FILE__, __LINE__, __func__, \
                                             "String is not UTF-8 clean, ignoring assignment: %s", strna(_p)); \
                 }                                                       \
-                -EINVAL;                                                \
         })
