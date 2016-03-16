@@ -23,6 +23,8 @@ CHANGES WITH 230 in spe:
           systemd-socket-activate and installed into /usr/bin. It is now fully
           supported.
 
+        * ldconfig.service has been removed.
+
 CHANGES WITH 229:
 
         * The systemd-resolved DNS resolver service has gained a substantial
