@@ -224,6 +224,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>KillSignal=</option></term>
+
+        <listitem><para>Specify the process signal to send to the
+        container's PID 1 when nspawn itself receives SIGTERM, in
+        order to trigger an orderly shutdown of the container.
+        Defaults to SIGRTMIN+3 if <option>Boot=</option> is used
+        (on systemd-compatible init systems SIGRTMIN+3 triggers an
+        orderly shutdown). For a list of valid signals, see
+        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Personality=</varname></term>
 
         <listitem><para>Configures the kernel personality for the
