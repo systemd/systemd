@@ -88,7 +88,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                         log_open();
                         log_error("Failed to compute init label, ignoring.");
                 } else {
-                        r = setcon(label);
+                        r = setcon_raw(label);
 
                         log_open();
                         if (r < 0)

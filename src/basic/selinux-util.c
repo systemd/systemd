@@ -152,7 +152,7 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                         return 0;
 
                 if (r >= 0) {
-                        r = lsetfilecon(path, fcon);
+                        r = lsetfilecon_raw(path, fcon);
 
                         /* If the FS doesn't support labels, then exit without warning */
                         if (r < 0 && errno == EOPNOTSUPP)
@@ -262,7 +262,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         if (r < 0)
                 return -errno;
 
-        r = getpeercon(socket_fd, &peercon);
+        r = getpeercon_raw(socket_fd, &peercon);
         if (r < 0)
                 return -errno;
 
@@ -371,7 +371,7 @@ void mac_selinux_create_file_clear(void) {
         if (!mac_selinux_use())
                 return;
 
-        setfscreatecon(NULL);
+        setfscreatecon_raw(NULL);
 #endif
 }
 
@@ -402,7 +402,7 @@ void mac_selinux_create_socket_clear(void) {
         if (!mac_selinux_use())
                 return;
 
-        setsockcreatecon(NULL);
+        setsockcreatecon_raw(NULL);
 #endif
 }
 
@@ -461,7 +461,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                         return -errno;
 
         } else {
-                if (setfscreatecon(fcon) < 0) {
+                if (setfscreatecon_raw(fcon) < 0) {
                         log_enforcing("Failed to set SELinux security context %s for %s: %m", fcon, path);
                         if (security_getenforce() > 0)
                                 return -errno;
@@ -472,7 +472,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         r = bind(fd, addr, addrlen) < 0 ? -errno : 0;
 
         if (context_changed)
-                setfscreatecon(NULL);
+                setfscreatecon_raw(NULL);
 
         return r;
 

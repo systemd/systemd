@@ -199,6 +199,17 @@ EOF
     chmod 0755 $_valgrind_wrapper
 }
 
+create_strace_wrapper() {
+    local _strace_wrapper=$initdir/$ROOTLIBDIR/systemd-under-strace
+    ddebug "Create $_strace_wrapper"
+    cat >$_strace_wrapper <<EOF
+#!/bin/bash
+
+exec strace -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
+EOF
+    chmod 0755 $_strace_wrapper
+}
+
 install_fsck() {
     dracut_install /sbin/fsck*
     dracut_install -o /bin/fsck*
