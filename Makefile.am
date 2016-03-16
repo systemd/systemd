@@ -1087,15 +1087,6 @@ libfirewall_la_LIBADD = \
 	$(LIBIPTC_LIBS)
 endif
 
-# -----------------------------------------------------------------------------
-if ENABLE_LDCONFIG
-dist_systemunit_DATA += \
-	units/ldconfig.service
-
-SYSINIT_TARGET_WANTS += \
-	ldconfig.service
-endif
-
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libcore.la
