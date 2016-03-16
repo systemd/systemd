@@ -3507,7 +3507,19 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
                          * ours? Then let's try it the other way
                          * round */
 
-                        other = manager_get_unit((*u)->manager, k);
+                        /* If the symlink name we are looking at is unit template, then
+                           we must search for instance of this template */
+                        if (unit_name_is_valid(k, UNIT_NAME_TEMPLATE)) {
+                                _cleanup_free_ char *instance = NULL;
+
+                                r = unit_name_replace_instance(k, (*u)->instance, &instance);
+                                if (r < 0)
+                                        return r;
+
+                                other = manager_get_unit((*u)->manager, instance);
+                        } else
+                                other = manager_get_unit((*u)->manager, k);
+
                         free(k);
 
                         if (other) {
