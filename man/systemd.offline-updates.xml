@@ -6,6 +6,7 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
+  Copyright 2016 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -49,9 +50,7 @@
   <refsect1>
     <title>Implementing Offline System Updates</title>
 
-    <para>This is implemented starting with systemd 183.</para>
-
-    <para>Here are some guidelines how to implement "offline" OS updates with systemd. By "offline"
+    <para>This man page describes how to implement "offline" system updates with systemd. By "offline"
     OS updates we mean package installations and updates that are run with the system booted into a
     special system update mode, in order to avoid problems related to conflicts of libraries and
     services that are currently running with those on disk. This document is inspired by this
@@ -70,33 +69,45 @@
 
       <listitem>
         <para>When the user OK'ed the update, the symlink <filename>/system-update</filename> is
-        created that points to <filename noindex="true">/var/lib/system-update</filename>
-        (or wherever the upgrade package directory is called) and the system is rebooted. This
+        created that points to <filename noindex="true">/var/lib/system-update</filename> (or
+        wherever the directory with the upgrade files is located) and the system is rebooted. This
         symlink is in the root directory, since we need to check for it very early at boot, at a
         time where <filename>/var</filename> is not available yet.</para>
       </listitem>
 
       <listitem>
-        <para>Very early in the new boot a systemd generator checks whether
-        <filename>/system-update</filename> exists. If so, it (temporarily and for this boot only)
-        redirects (i.e. symlinks) <filename>default.target</filename> to
-        <filename>system-update.target</filename>, a new target that is intended to pull in the base
-        system (i.e. <filename>sysinit.target</filename>, so that all file systems are mounted but
-        little else) and the system update units.</para>
+        <para>Very early in the new boot
+        <citerefentry><refentrytitle>systemd-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        checks whether <filename>/system-update</filename> exists. If so, it (temporarily and for
+        this boot only) redirects (i.e. symlinks) <filename>default.target</filename> to
+        <filename>system-update.target</filename>, a special target that is pulls in the base system
+        (i.e. <filename>sysinit.target</filename>, so that all file systems are mounted but little
+        else) and the system update units.</para>
       </listitem>
 
       <listitem>
         <para>The system now continues to boot into <filename>default.target</filename>, and thus
-        into <filename>system-update.target</filename>. This target pulls in the OS update script,
-        which is executed after all file systems are mounted.</para>
+        into <filename>system-update.target</filename>. This target pulls in the system update unit,
+        which starts the system update script after all file systems have been mounted.</para>
       </listitem>
 
       <listitem>
-        <para>The system update script now creates a btrfs snapshot (if possible), then installs all
-        RPMs. After completion (regardless whether the update succeeded or failed) the
-        /system-update symlink is removed. In addition, on failure it reverts to the old btrfs state
-        (modulo the aforementioned symlink), on success it leaves the newly made changes in
-        place.</para>
+        <para>As the first step, the update script should check if the
+        <filename>/system-update</filename> symlink points to the the location used by that update
+        script. In case it does not exists or points to a different location, the script must exit
+        without error. It is possible for multiple update services to be installed, and for multiple
+        update scripts to be launched in parallel, and only the one that corresponds to the tool
+        that <emphasis>created</emphasis> the symlink before reboot should perform any actions. It
+        is unsafe to run multiple updates in parallel.</para>
+      </listitem>
+
+      <listitem>
+        <para>The update script should now do its job. If applicable and possible, it should
+        create a file system snapshot, then install all packages.
+        After completion (regardless whether the update succeeded or failed) the machine
+        must be rebooted, for example by calling <command>systemctl reboot</command>.
+        In addition, on failure the script should revert to the old file system snapshot
+        (without the symlink).</para>
       </listitem>
 
       <listitem>
@@ -122,19 +133,24 @@
       </listitem>
 
       <listitem>
-        <para>Make sure to remove the <filename>/system-update</filename> symlink early in the
-        update script to avoid reboot loops in case the update fails.</para>
+        <para>Make sure to remove the <filename>/system-update</filename> symlink as early as
+        possible in the update script to avoid reboot loops in case the update fails.</para>
       </listitem>
 
       <listitem>
-        <para>Use <varname>OnFailure=reboot.target</varname> in the service file for your update
-        script to ensure that a reboot is automatically triggered if the update fails.
-        <varname>OnFailure=</varname> makes sure that the specified unit is activated if your script
-        exits uncleanly (by non-zero error code, or signal/coredump). If your script succeeds you
-        should trigger the reboot in your own code, for example by invoking logind's
-        <command>Reboot()</command> call. See
+        <para>Use <varname>FailureAction=reboot</varname> in the service file for your update script
+        to ensure that a reboot is automatically triggered if the update fails.
+        <varname>FailureAction=</varname> makes sure that the specified unit is activated if your
+        script exits uncleanly (by non-zero error code, or signal/coredump). If your script succeeds
+        you should trigger the reboot in your own code, for example by invoking logind's
+        <command>Reboot()</command> call or calling <command>systemct reboot</command>. See
         <ulink url="http://www.freedesktop.org/wiki/Software/systemd/logind">logind dbus API</ulink>
         for details.</para>
+      </listitem>
+
+      <listitem>
+        <para>The update service should declare <varname>DefaultDependencies=false</varname>,
+        and pull in any services it requires explicitly.</para>
       </listitem>
     </orderedlist>
   </refsect1>
@@ -145,7 +161,9 @@
     <para>
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/SystemUpdates/">Implementing Offline System Updates</ulink>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>dnf.plugin.system-upgrade</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>
