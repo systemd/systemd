@@ -1345,7 +1345,7 @@ CHANGES WITH 219:
 
         * machinectl is now able to clone container images
           efficiently, if the underlying file system (btrfs) supports
-          it, with the new "machinectl list-images" command. It also
+          it, with the new "machinectl clone" command. It also
           gained commands for renaming and removing images, as well as
           marking them read-only or read-write (supported also on
           legacy file systems).
