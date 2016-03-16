@@ -1218,10 +1218,15 @@ static int status_welcome(void) {
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file: %m");
 
-        return status_printf(NULL, false, false,
-                             "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
-                             isempty(ansi_color) ? "1" : ansi_color,
-                             isempty(pretty_name) ? "Linux" : pretty_name);
+        if (log_get_show_color())
+                return status_printf(NULL, false, false,
+                                     "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
+                                     isempty(ansi_color) ? "1" : ansi_color,
+                                     isempty(pretty_name) ? "Linux" : pretty_name);
+        else
+                return status_printf(NULL, false, false,
+                                     "\nWelcome to %s!\n",
+                                     isempty(pretty_name) ? "Linux" : pretty_name);
 }
 
 static int write_container_id(void) {

@@ -690,17 +690,20 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
 }
 
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
-        static const char* const job_result_status_table[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = ANSI_GREEN            "  OK  " ANSI_NORMAL,
-                [JOB_TIMEOUT]     = ANSI_HIGHLIGHT_RED    " TIME " ANSI_NORMAL,
-                [JOB_FAILED]      = ANSI_HIGHLIGHT_RED    "FAILED" ANSI_NORMAL,
-                [JOB_DEPENDENCY]  = ANSI_HIGHLIGHT_YELLOW "DEPEND" ANSI_NORMAL,
-                [JOB_SKIPPED]     = ANSI_HIGHLIGHT        " INFO " ANSI_NORMAL,
-                [JOB_ASSERT]      = ANSI_HIGHLIGHT_YELLOW "ASSERT" ANSI_NORMAL,
-                [JOB_UNSUPPORTED] = ANSI_HIGHLIGHT_YELLOW "UNSUPP" ANSI_NORMAL,
+        static struct {
+                const char *color, *word;
+        } const statuses[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = {ANSI_GREEN,            "  OK  "},
+                [JOB_TIMEOUT]     = {ANSI_HIGHLIGHT_RED,    " TIME "},
+                [JOB_FAILED]      = {ANSI_HIGHLIGHT_RED,    "FAILED"},
+                [JOB_DEPENDENCY]  = {ANSI_HIGHLIGHT_YELLOW, "DEPEND"},
+                [JOB_SKIPPED]     = {ANSI_HIGHLIGHT,        " INFO "},
+                [JOB_ASSERT]      = {ANSI_HIGHLIGHT_YELLOW, "ASSERT"},
+                [JOB_UNSUPPORTED] = {ANSI_HIGHLIGHT_YELLOW, "UNSUPP"},
         };
 
         const char *format;
+        const char *status;
 
         assert(u);
         assert(t >= 0);
@@ -714,11 +717,16 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         if (!format)
                 return;
 
+        if (log_get_show_color())
+                status = strjoina(statuses[result].color, statuses[result].word, ANSI_NORMAL);
+        else
+                status = statuses[result].word;
+
         if (result != JOB_DONE)
                 manager_flip_auto_status(u->manager, true);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        unit_status_printf(u, job_result_status_table[result], format);
+        unit_status_printf(u, status, format);
         REENABLE_WARNING;
 
         if (t == JOB_START && result == JOB_FAILED) {

@@ -391,6 +391,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
 
                 if (delete) {
+                        const char *status;
                         /* logging for j not k here here to provide consistent narrative */
                         log_unit_warning(j->unit,
                                          "Breaking ordering cycle by deleting job %s/%s",
@@ -399,7 +400,13 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                        "Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                        delete->unit->id, job_type_to_string(delete->type),
                                        j->unit->id, job_type_to_string(j->type));
-                        unit_status_printf(delete->unit, ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL,
+
+                        if (log_get_show_color())
+                                status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
+                        else
+                                status = " SKIP ";
+
+                        unit_status_printf(delete->unit, status,
                                            "Ordering cycle found, skipping %s");
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;
