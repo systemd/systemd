@@ -73,7 +73,7 @@ int sync_cgroup(pid_t pid, bool unified_requested) {
 
         unified = cg_unified();
         if (unified < 0)
-                return log_error_errno(unified, "Failed to determine whether the unified hierachy is used: %m");
+                return log_error_errno(unified, "Failed to determine whether the unified hierarchy is used: %m");
 
         if ((unified > 0) == unified_requested)
                 return 0;
@@ -135,7 +135,7 @@ int create_subcgroup(pid_t pid, bool unified_requested) {
 
         unified = cg_unified();
         if (unified < 0)
-                return log_error_errno(unified, "Failed to determine whether the unified hierachy is used: %m");
+                return log_error_errno(unified, "Failed to determine whether the unified hierarchy is used: %m");
         if (unified == 0)
                 return 0;
 
