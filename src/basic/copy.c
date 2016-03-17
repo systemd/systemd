@@ -40,17 +40,38 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "umask-util.h"
 #include "xattr-util.h"
 
-#define COPY_BUFFER_SIZE (16*1024)
+#define COPY_BUFFER_SIZE (16*1024u)
+
+static ssize_t try_copy_file_range(int fd_in, loff_t *off_in,
+                                   int fd_out, loff_t *off_out,
+                                   size_t len,
+                                   unsigned int flags) {
+        static int have = -1;
+        ssize_t r;
+
+        if (have == false)
+                return -ENOSYS;
+
+        r = copy_file_range(fd_in, off_in, fd_out, off_out, len, flags);
+        if (_unlikely_(have < 0))
+                have = r >= 0 || errno != ENOSYS;
+        if (r >= 0)
+                return r;
+        else
+                return -errno;
+}
 
 int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
-        bool try_sendfile = true, try_splice = true;
+        bool try_cfr = true, try_sendfile = true, try_splice = true;
         int r;
+        size_t m = SSIZE_MAX; /* that the maximum that sendfile and c_f_r accept */
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -67,11 +88,9 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
         }
 
         for (;;) {
-                size_t m = COPY_BUFFER_SIZE;
                 ssize_t n;
 
                 if (max_bytes != (uint64_t) -1) {
-
                         if (max_bytes <= 0)
                                 return 1; /* return > 0 if we hit the max_bytes limit */
 
@@ -79,44 +98,59 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                                 m = (size_t) max_bytes;
                 }
 
+                /* First try copy_file_range(), unless we already tried */
+                if (try_cfr) {
+                        n = try_copy_file_range(fdf, NULL, fdt, NULL, m, 0u);
+                        if (n < 0) {
+                                if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV))
+                                        return n;
+
+                                try_cfr = false;
+                                /* use fallback below */
+                        } else if (n == 0) /* EOF */
+                                break;
+                        else
+                                /* Success! */
+                                goto next;
+                }
+
                 /* First try sendfile(), unless we already tried */
                 if (try_sendfile) {
-
                         n = sendfile(fdt, fdf, NULL, m);
                         if (n < 0) {
-                                if (errno != EINVAL && errno != ENOSYS)
+                                if (!IN_SET(errno, EINVAL, ENOSYS))
                                         return -errno;
 
                                 try_sendfile = false;
                                 /* use fallback below */
                         } else if (n == 0) /* EOF */
                                 break;
-                        else if (n > 0)
+                        else
                                 /* Success! */
                                 goto next;
                 }
 
-                /* The try splice, unless we already tried */
+                /* Then try splice, unless we already tried */
                 if (try_splice) {
                         n = splice(fdf, NULL, fdt, NULL, m, 0);
                         if (n < 0) {
-                                if (errno != EINVAL && errno != ENOSYS)
+                                if (!IN_SET(errno, EINVAL, ENOSYS))
                                         return -errno;
 
                                 try_splice = false;
                                 /* use fallback below */
                         } else if (n == 0) /* EOF */
                                 break;
-                        else if (n > 0)
+                        else
                                 /* Success! */
                                 goto next;
                 }
 
                 /* As a fallback just copy bits by hand */
                 {
-                        uint8_t buf[m];
+                        uint8_t buf[MIN(m, COPY_BUFFER_SIZE)];
 
-                        n = read(fdf, buf, m);
+                        n = read(fdf, buf, sizeof buf);
                         if (n < 0)
                                 return -errno;
                         if (n == 0) /* EOF */
@@ -132,6 +166,11 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                         assert(max_bytes >= (uint64_t) n);
                         max_bytes -= n;
                 }
+                /* sendfile accepts at most SSIZE_MAX-offset bytes to copy,
+                 * so reduce our maximum by the amount we already copied,
+                 * but don't go below our copy buffer size, unless we are
+                 * close the the limit of bytes we are allowed to copy. */
+                m = MAX(MIN(COPY_BUFFER_SIZE, max_bytes), m - n);
         }
 
         return 0; /* return 0 if we hit EOF earlier than the size limit */

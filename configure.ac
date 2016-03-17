@@ -296,8 +296,19 @@ LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([memfd_create, gettid, pivot_root, name_to_handle_at, setns, getrandom, renameat2, kcmp, keyctl, LO_FLAGS_PARTSCAN],
-               [], [], [[
+AC_CHECK_DECLS([
+        memfd_create,
+        gettid,
+        pivot_root,
+        name_to_handle_at,
+        setns,
+        getrandom,
+        renameat2,
+        kcmp,
+        keyctl,
+        LO_FLAGS_PARTSCAN,
+        copy_file_range],
+        [], [], [[
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/mount.h>

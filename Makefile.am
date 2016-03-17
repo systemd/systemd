@@ -744,6 +744,7 @@ noinst_LTLIBRARIES += \
 
 libbasic_la_SOURCES = \
 	src/basic/missing.h \
+	src/basic/missing_syscall.h \
 	src/basic/capability-util.c \
 	src/basic/capability-util.h \
 	src/basic/c-rbtree.c \
