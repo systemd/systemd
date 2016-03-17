@@ -42,8 +42,9 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*",  TAG+="uaccess"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", TAG+="uaccess"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="uaccess"
 
-# DRI video devices
+# DRI and frame buffer video devices
 SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"
+SUBSYSTEM=="graphics", KERNEL=="fb*", TAG+="uaccess"
 
 # KVM
 SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"
