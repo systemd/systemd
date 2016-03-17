@@ -27,7 +27,11 @@
 #include <sys/types.h>
 
 #define _printf_(a,b) __attribute__ ((format (printf, a, b)))
-#define _alloc_(...) __attribute__ ((alloc_size(__VA_ARGS__)))
+#ifdef __clang__
+#  define _alloc_(...)
+#else
+#  define _alloc_(...) __attribute__ ((alloc_size(__VA_ARGS__)))
+#endif
 #define _sentinel_ __attribute__ ((sentinel))
 #define _unused_ __attribute__ ((unused))
 #define _destructor_ __attribute__ ((destructor))
