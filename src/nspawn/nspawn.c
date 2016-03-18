@@ -977,6 +977,13 @@ static int verify_arguments(void) {
                 return -EINVAL;
         }
 
+#ifndef HAVE_LIBIPTC
+        if (arg_expose_ports) {
+                log_error("--port= is not supported, compiled without libiptc support.");
+                return -EOPNOTSUPP;
+        }
+#endif
+
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
 
