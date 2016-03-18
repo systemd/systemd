@@ -3945,6 +3945,34 @@ systemd_cat_SOURCES = \
 systemd_cat_LDADD = \
 	libjournal-core.la
 
+if HAVE_LIBCURL
+rootlibexec_PROGRAMS += \
+        systemd-journal-upload
+
+systemd_journal_upload_SOURCES = \
+        src/journal-remote/journal-upload.h \
+        src/journal-remote/journal-upload.c \
+        src/journal-remote/journal-upload-journal.c
+
+systemd_journal_upload_CFLAGS = \
+        $(AM_CFLAGS) \
+        $(LIBCURL_CFLAGS)
+
+systemd_journal_upload_LDADD = \
+        libshared.la \
+        $(LIBCURL_LIBS)
+
+nodist_systemunit_DATA += \
+        units/systemd-journal-upload.service
+
+nodist_pkgsysconf_DATA += \
+        src/journal-remote/journal-upload.conf
+endif
+
+EXTRA_DIST += \
+        units/systemd-journal-upload.service.in \
+        src/journal-remote/journal-upload.conf.in
+
 if HAVE_MICROHTTPD
 rootlibexec_PROGRAMS += \
 	systemd-journal-remote
@@ -4003,34 +4031,6 @@ EXTRA_DIST += \
 	src/journal-remote/journal-remote.conf.in \
 	src/journal-remote/log-generator.py
 endif
-
-if HAVE_LIBCURL
-rootlibexec_PROGRAMS += \
-	systemd-journal-upload
-
-systemd_journal_upload_SOURCES = \
-	src/journal-remote/journal-upload.h \
-	src/journal-remote/journal-upload.c \
-	src/journal-remote/journal-upload-journal.c
-
-systemd_journal_upload_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(LIBCURL_CFLAGS)
-
-systemd_journal_upload_LDADD = \
-	libshared.la \
-	$(LIBCURL_LIBS)
-
-nodist_systemunit_DATA += \
-	units/systemd-journal-upload.service
-
-nodist_pkgsysconf_DATA += \
-	src/journal-remote/journal-upload.conf
-endif
-
-EXTRA_DIST += \
-	units/systemd-journal-upload.service.in \
-	src/journal-remote/journal-upload.conf.in
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 journalctl_CFLAGS = \
