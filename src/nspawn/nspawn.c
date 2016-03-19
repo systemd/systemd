@@ -2719,13 +2719,6 @@ static int outer_child(
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "MS_SLAVE|MS_REC failed: %m");
 
-        r = mount_devices(directory,
-                          root_device, root_device_rw,
-                          home_device, home_device_rw,
-                          srv_device, srv_device_rw);
-        if (r < 0)
-                return r;
-
         r = determine_uid_shift(directory);
         if (r < 0)
                 return r;
@@ -3270,6 +3263,13 @@ int main(int argc, char *argv[]) {
                                   &secondary);
                 if (r < 0)
                         goto finish;
+
+                r = mount_devices(arg_directory,
+                                  root_device, root_device_rw,
+                                  home_device, home_device_rw,
+                                  srv_device, srv_device_rw);
+                if (r < 0)
+                        goto finish;
         }
 
         r = custom_mounts_prepare();
@@ -3672,6 +3672,9 @@ finish:
         /* Try to flush whatever is still queued in the pty */
         if (master >= 0)
                 (void) copy_bytes(master, STDOUT_FILENO, (uint64_t) -1, false);
+
+        if (arg_image && arg_directory)
+                (void) umount_recursive(arg_directory, MNT_DETACH);
 
         loop_remove(loop_nr, &image_fd);
 
