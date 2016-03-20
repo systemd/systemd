@@ -77,7 +77,7 @@
     which correspond to runlevels for which the script is
     enabled.</para>
 
-    <para><command>systemd</command> does not supports SysV scripts as
+    <para><command>systemd</command> does not support SysV scripts as
     part of early boot, so all wrapper units are ordered after
     <filename>basic.target</filename>.</para>
 
