@@ -112,6 +112,8 @@ static bool lldp_keep_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
         return true;
 }
 
+static int lldp_start_timer(sd_lldp *lldp, sd_lldp_neighbor *neighbor);
+
 static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *old = NULL;
         bool keep;
@@ -136,7 +138,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
                 if (lldp_neighbor_equal(n, old)) {
                         /* Is this equal, then restart the TTL counter, but don't do anyting else. */
-                        lldp_neighbor_start_ttl(old);
+                        lldp_start_timer(lldp, old);
                         lldp_callback(lldp, SD_LLDP_EVENT_REFRESHED, old);
                         return 0;
                 }
@@ -162,7 +164,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
         n->lldp = lldp;
 
-        lldp_neighbor_start_ttl(n);
+        lldp_start_timer(lldp, n);
         lldp_callback(lldp, old ? SD_LLDP_EVENT_UPDATED : SD_LLDP_EVENT_ADDED, n);
 
         return 1;
@@ -368,8 +370,6 @@ static int neighbor_compare_func(const void *a, const void *b) {
         return lldp_neighbor_id_hash_ops.compare(&(*x)->id, &(*y)->id);
 }
 
-static int lldp_start_timer(sd_lldp *lldp);
-
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_lldp *lldp = userdata;
         int r, q;
@@ -378,18 +378,21 @@ static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         if (r < 0)
                 return log_lldp_errno(r, "Failed to make space: %m");
 
-        q = lldp_start_timer(lldp);
+        q = lldp_start_timer(lldp, NULL);
         if (q < 0)
                 return log_lldp_errno(q, "Failed to restart timer: %m");
 
         return 0;
 }
 
-static int lldp_start_timer(sd_lldp *lldp) {
+static int lldp_start_timer(sd_lldp *lldp, sd_lldp_neighbor *neighbor) {
         sd_lldp_neighbor *n;
         int r;
 
         assert(lldp);
+
+        if (neighbor)
+                lldp_neighbor_start_ttl(neighbor);
 
         n = prioq_peek(lldp->neighbor_by_expiry);
         if (!n) {
@@ -440,7 +443,7 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
         if (!l)
                 return -ENOMEM;
 
-        r = lldp_start_timer(lldp);
+        r = lldp_start_timer(lldp, NULL);
         if (r < 0) {
                 free(l);
                 return r;
