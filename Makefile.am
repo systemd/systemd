@@ -5398,8 +5398,6 @@ libnetworkd_core_la_CFLAGS = \
 libnetworkd_core_la_SOURCES = \
 	src/libsystemd-network/network-internal.h \
 	src/network/networkd.h \
-	src/network/networkd-conf.h \
-	src/network/networkd-conf.c \
 	src/network/networkd-link.h \
 	src/network/networkd-link.c \
 	src/network/networkd-netdev.h \
@@ -5448,7 +5446,6 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-lldp-tx.c
 
 nodist_libnetworkd_core_la_SOURCES = \
-	src/network/networkd-gperf.c \
 	src/network/networkd-network-gperf.c \
 	src/network/networkd-netdev-gperf.c
 
@@ -5545,7 +5542,6 @@ BUSNAMES_TARGET_WANTS += \
 endif
 
 gperf_gperf_sources += \
-	src/network/networkd-gperf.gperf \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf
 

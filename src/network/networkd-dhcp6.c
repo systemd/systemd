@@ -230,16 +230,6 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 goto error;
 
-        r = sd_dhcp6_client_set_iaid(client, link->network->iaid_value);
-        if (r < 0)
-                goto error;
-
-        r = sd_dhcp6_client_set_duid(client,
-                                     link->manager->dhcp_duid_len,
-                                     &link->manager->dhcp_duid);
-        if (r < 0)
-                goto error;
-
         r = sd_dhcp6_client_set_index(client, link->ifindex);
         if (r < 0)
                 goto error;

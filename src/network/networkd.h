@@ -35,7 +35,6 @@ typedef struct Manager Manager;
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
-#include "dhcp-identifier.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -62,10 +61,6 @@ struct Manager {
         LIST_HEAD(AddressPool, address_pools);
 
         usec_t network_dirs_ts_usec;
-
-        DHCPDUIDType dhcp_duid_type;
-        size_t dhcp_duid_len;
-        struct duid dhcp_duid;
 };
 
 extern const char* const network_dirs[];
