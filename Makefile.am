@@ -1421,7 +1421,7 @@ tests += \
 	test-watchdog \
 	test-cgroup-mask \
 	test-job-type \
-	test-env-replace \
+	test-env-util \
 	test-strbuf \
 	test-strv \
 	test-path \
@@ -2197,10 +2197,10 @@ test_cgroup_util_SOURCES = \
 test_cgroup_util_LDADD = \
 	libshared.la
 
-test_env_replace_SOURCES = \
-	src/test/test-env-replace.c
+test_env_util_SOURCES = \
+	src/test/test-env-util.c
 
-test_env_replace_LDADD = \
+test_env_util_LDADD = \
 	libshared.la
 
 test_strbuf_SOURCES = \
