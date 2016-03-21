@@ -180,14 +180,14 @@ static void test_copy_bytes(void) {
         assert_se(r == -EBADF);
 }
 
-static void test_copy_bytes_regular_file(const char *src, bool try_reflink, size_t max_bytes) {
+static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint64_t max_bytes) {
         char fn2[] = "/tmp/test-copy-file-XXXXXX";
         char fn3[] = "/tmp/test-copy-file-XXXXXX";
         _cleanup_close_ int fd = -1, fd2 = -1, fd3 = -1;
         int r;
         struct stat buf, buf2, buf3;
 
-        log_info("%s try_reflink=%s max_bytes=%zu", __func__, yes_no(try_reflink), max_bytes);
+        log_info("%s try_reflink=%s max_bytes=%" PRIu64, __func__, yes_no(try_reflink), max_bytes);
 
         fd = open(src, O_RDONLY | O_CLOEXEC | O_NOCTTY);
         assert_se(fd >= 0);
@@ -221,7 +221,7 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, size
         assert_se(fstat(fd2, &buf2) == 0);
         assert_se(fstat(fd3, &buf3) == 0);
 
-        assert_se((size_t) buf2.st_size == MIN((size_t) buf.st_size, max_bytes));
+        assert_se((uint64_t) buf2.st_size == MIN((uint64_t) buf.st_size, max_bytes));
         assert_se(buf3.st_size == buf2.st_size);
 
         unlink(fn2);
