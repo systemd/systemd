@@ -24,6 +24,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/capability.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
@@ -1824,6 +1825,11 @@ static int exec_child(
 
         if (params->apply_permissions) {
 
+                bool use_address_families = context->address_families_whitelist ||
+                        !set_isempty(context->address_families);
+                bool use_syscall_filter = context->syscall_whitelist ||
+                        !set_isempty(context->syscall_filter) ||
+                        !set_isempty(context->syscall_archs);
                 int secure_bits = context->secure_bits;
 
                 for (i = 0; i < _RLIMIT_MAX; i++) {
@@ -1890,15 +1896,15 @@ static int exec_child(
                                 return -errno;
                         }
 
-                if (context->no_new_privileges)
+                if (context->no_new_privileges ||
+                    (!have_effective_cap(CAP_SYS_ADMIN) && (use_address_families || use_syscall_filter)))
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return -errno;
                         }
 
 #ifdef HAVE_SECCOMP
-                if (context->address_families_whitelist ||
-                    !set_isempty(context->address_families)) {
+                if (use_address_families) {
                         r = apply_address_families(context);
                         if (r < 0) {
                                 *exit_status = EXIT_ADDRESS_FAMILIES;
@@ -1906,9 +1912,7 @@ static int exec_child(
                         }
                 }
 
-                if (context->syscall_whitelist ||
-                    !set_isempty(context->syscall_filter) ||
-                    !set_isempty(context->syscall_archs)) {
+                if (use_syscall_filter) {
                         r = apply_seccomp(context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;

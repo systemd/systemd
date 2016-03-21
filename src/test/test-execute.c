@@ -130,18 +130,33 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 #endif
 }
 
+static void test_exec_systemcall_system_mode_with_user(Manager *m) {
+#ifdef HAVE_SECCOMP
+        if (getpwnam("nobody"))
+                test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
+        else if (getpwnam("nfsnobody"))
+                test(m, "exec-systemcallfilter-system-user-nfsnobody.service", 0, CLD_EXITED);
+        else
+                log_error_errno(errno, "Skipping test_exec_systemcall_system_mode_with_user, could not find nobody/nfsnobody user: %m");
+#endif
+}
+
 static void test_exec_user(Manager *m) {
         if (getpwnam("nobody"))
                 test(m, "exec-user.service", 0, CLD_EXITED);
+        else if (getpwnam("nfsnobody"))
+                test(m, "exec-user-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_user, could not find nobody user: %m");
+                log_error_errno(errno, "Skipping test_exec_user, could not find nobody/nfsnobody user: %m");
 }
 
 static void test_exec_group(Manager *m) {
         if (getgrnam("nobody"))
                 test(m, "exec-group.service", 0, CLD_EXITED);
+        else if (getgrnam("nfsnobody"))
+                test(m, "exec-group-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_group, could not find nobody group: %m");
+                log_error_errno(errno, "Skipping test_exec_group, could not find nobody/nfsnobody group: %m");
 }
 
 static void test_exec_environment(Manager *m) {
@@ -204,8 +219,10 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
         if (getgrnam("nobody"))
                 test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        else if (getgrnam("nfsnobody"))
+                test(m, "exec-runtimedirectory-owner-nfsnobody.service", 0, CLD_EXITED);
         else
-                log_error_errno(errno, "Skipping test_exec_runtimedirectory-owner, could not find nobody group: %m");
+                log_error_errno(errno, "Skipping test_exec_runtimedirectory-owner, could not find nobody/nfsnobody group: %m");
 }
 
 static void test_exec_capabilityboundingset(Manager *m) {
@@ -234,9 +251,15 @@ static void test_exec_capabilityambientset(Manager *m) {
          * in the first place for the tests. */
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
         if (r >= 0 || errno != EINVAL) {
-                test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
-                test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
-        }
+                if (getpwnam("nobody")) {
+                        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+                } else if (getpwnam("nfsnobody")) {
+                        test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
+                        test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
+                } else
+                        log_error_errno(errno, "Skipping test_exec_capabilityambientset, could not find nobody/nfsnobody user: %m");
+        } else
+                log_error_errno(errno, "Skipping test_exec_capabilityambientset, the kernel does not support ambient capabilities: %m");
 }
 
 static void test_exec_privatenetwork(Manager *m) {
@@ -267,8 +290,31 @@ static void test_exec_spec_interpolation(Manager *m) {
         test(m, "exec-spec-interpolation.service", 0, CLD_EXITED);
 }
 
+static int run_tests(ManagerRunningAs running_as, test_function_t *tests) {
+        test_function_t *test = NULL;
+        Manager *m = NULL;
+        int r;
+
+        assert_se(tests);
+
+        r = manager_new(running_as, true, &m);
+        if (MANAGER_SKIP_TEST(r)) {
+                printf("Skipping test: manager_new: %s\n", strerror(-r));
+                return EXIT_TEST_SKIP;
+        }
+        assert_se(r >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
+
+        for (test = tests; test && *test; test++)
+                (*test)(m);
+
+        manager_free(m);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
-        test_function_t tests[] = {
+        test_function_t user_tests[] = {
                 test_exec_workingdirectory,
                 test_exec_personality,
                 test_exec_ignoresigpipe,
@@ -291,8 +337,10 @@ int main(int argc, char *argv[]) {
                 test_exec_spec_interpolation,
                 NULL,
         };
-        test_function_t *test = NULL;
-        Manager *m = NULL;
+        test_function_t system_tests[] = {
+                test_exec_systemcall_system_mode_with_user,
+                NULL,
+        };
         int r;
 
         log_parse_environment();
@@ -317,18 +365,9 @@ int main(int argc, char *argv[]) {
         assert_se(unsetenv("VAR2") == 0);
         assert_se(unsetenv("VAR3") == 0);
 
-        r = manager_new(MANAGER_USER, true, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                printf("Skipping test: manager_new: %s\n", strerror(-r));
-                return EXIT_TEST_SKIP;
-        }
-        assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        r = run_tests(MANAGER_USER, user_tests);
+        if (r != 0)
+                return r;
 
-        for (test = tests; test && *test; test++)
-                (*test)(m);
-
-        manager_free(m);
-
-        return 0;
+        return run_tests(MANAGER_SYSTEM, system_tests);
 }
