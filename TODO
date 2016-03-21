@@ -727,6 +727,9 @@ Features:
     but much rather a disconnect on success.
   - when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
   - when a bus name of a service disappears from the bus make sure to queue further activation requests
+  - use *_raw API from libselinux
+    https://github.com/systemd/systemd/pull/1107
+    https://github.com/systemd/systemd/pull/2797
 
 * unit files:
   - allow port=0 in .socket units
