@@ -294,7 +294,7 @@ int config_parse(const char *unit,
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
-        bool section_ignored = false;
+        bool section_ignored = false, allow_bom = true;
         int r;
 
         assert(filename);
@@ -314,17 +314,22 @@ int config_parse(const char *unit,
 
         fd_warn_permissions(filename, fileno(f));
 
-        while (!feof(f)) {
-                char l[LINE_MAX], *p, *c = NULL, *e;
+        for (;;) {
+                char buf[LINE_MAX], *l, *p, *c = NULL, *e;
                 bool escaped = false;
 
-                if (!fgets(l, sizeof(l), f)) {
+                if (!fgets(buf, sizeof buf, f)) {
                         if (feof(f))
                                 break;
 
                         log_error_errno(errno, "Failed to read configuration file '%s': %m", filename);
                         return -errno;
                 }
+
+                l = buf;
+                if (allow_bom && startswith(l, UTF8_BYTE_ORDER_MARK))
+                        l += strlen(UTF8_BYTE_ORDER_MARK);
+                allow_bom = false;
 
                 truncate_nl(l);
 
