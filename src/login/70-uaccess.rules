@@ -76,4 +76,7 @@ SUBSYSTEM=="usb", ENV{ID_MEDIA_PLAYER}=="?*", TAG+="uaccess"
 # software-defined radio communication devices
 ENV{ID_SOFTWARE_RADIO}=="?*", TAG+="uaccess"
 
+# 3D printers, CNC machines, laser cutters, 3D scanners, etc.
+ENV{ID_MAKER_TOOL}=="?*", TAG+="uaccess"
+
 LABEL="uaccess_end"
