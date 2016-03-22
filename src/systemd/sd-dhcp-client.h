@@ -27,7 +27,6 @@
 
 #include "sd-dhcp-lease.h"
 #include "sd-event.h"
-#include "sparse-endian.h"
 
 #include "_sd-common.h"
 
@@ -83,7 +82,6 @@ enum {
         SD_DHCP_OPTION_END                         = 255,
 };
 
-struct duid;
 typedef struct sd_dhcp_client sd_dhcp_client;
 
 typedef void (*sd_dhcp_client_callback_t)(sd_dhcp_client *client, int event,
@@ -100,8 +98,6 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client, const uint8_t *addr,
                            size_t addr_len, uint16_t arp_type);
 int sd_dhcp_client_set_client_id(sd_dhcp_client *client, uint8_t type,
                                  const uint8_t *data, size_t data_len);
-int sd_dhcp_client_set_iaid_duid(sd_dhcp_client *client, be32_t iaid,
-                                 size_t duid_len, struct duid *duid);
 int sd_dhcp_client_get_client_id(sd_dhcp_client *client, uint8_t *type,
                                  const uint8_t **data, size_t *data_len);
 int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu);

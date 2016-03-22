@@ -21,7 +21,6 @@
 
 #include "capability-util.h"
 #include "networkd.h"
-#include "networkd-conf.h"
 #include "signal-util.h"
 #include "user-util.h"
 
@@ -89,10 +88,6 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Could not connect to bus: %m");
                 goto out;
         }
-
-        r = manager_parse_config_file(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse configuration file: %m");
 
         r = manager_load_config(m);
         if (r < 0) {

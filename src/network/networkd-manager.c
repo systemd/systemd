@@ -1037,8 +1037,6 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        m->dhcp_duid_type = _DHCP_DUID_TYPE_INVALID;
-
         *ret = m;
         m = NULL;
 
