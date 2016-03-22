@@ -1341,8 +1341,12 @@ static int socket_open_fds(Socket *s) {
                         break;
 
                 case SOCKET_USB_FUNCTION:
+                {
+                        _cleanup_free_ char *ep = NULL;
 
-                        p->fd = usbffs_address_create(p->path);
+                        ep = path_make_absolute("ep0", p->path);
+
+                        p->fd = usbffs_address_create(ep);
                         if (p->fd < 0) {
                                 r = p->fd;
                                 goto rollback;
@@ -1357,7 +1361,7 @@ static int socket_open_fds(Socket *s) {
                                 goto rollback;
 
                         break;
-
+                }
                 default:
                         assert_not_reached("Unknown port type");
                 }
