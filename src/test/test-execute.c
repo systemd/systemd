@@ -252,10 +252,11 @@ static void test_exec_capabilityambientset(Manager *m) {
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
         if (r >= 0 || errno != EINVAL) {
                 if (getpwnam("nobody")) {
-                        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
-                } else if (getpwnam("nfsnobody")) {
                         test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
                         test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
+                } else if (getpwnam("nfsnobody")) {
+                        test(m, "exec-capabilityambientset-nfsnobody.service", 0, CLD_EXITED);
+                        test(m, "exec-capabilityambientset-merge-nfsnobody.service", 0, CLD_EXITED);
                 } else
                         log_error_errno(errno, "Skipping test_exec_capabilityambientset, could not find nobody/nfsnobody user: %m");
         } else
