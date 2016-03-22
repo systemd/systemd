@@ -2,6 +2,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2016 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -177,8 +178,35 @@ static void test_env_name_is_valid(void) {
 
         assert_se(!env_name_is_valid(NULL));
         assert_se(!env_name_is_valid(""));
+        assert_se(!env_name_is_valid("xxx\a"));
+        assert_se(!env_name_is_valid("xxx\007b"));
+        assert_se(!env_name_is_valid("\007\009"));
         assert_se(!env_name_is_valid("5_starting_with_a_number_is_wrong"));
         assert_se(!env_name_is_valid("#¤%&?_only_numbers_letters_and_underscore_allowed"));
+}
+
+static void test_env_value_is_valid(void) {
+        assert_se(env_value_is_valid(""));
+        assert_se(env_value_is_valid("głąb kapuściany"));
+        assert_se(env_value_is_valid("printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
+}
+
+static void test_env_assignment_is_valid(void) {
+        assert_se(env_assignment_is_valid("a="));
+        assert_se(env_assignment_is_valid("b=głąb kapuściany"));
+        assert_se(env_assignment_is_valid("c=\\007\\009\\011"));
+        assert_se(env_assignment_is_valid("e=printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
+
+        assert_se(!env_assignment_is_valid("="));
+        assert_se(!env_assignment_is_valid("a b="));
+        assert_se(!env_assignment_is_valid("a ="));
+        assert_se(!env_assignment_is_valid(" b="));
+        /* no dots or dashes: http://tldp.org/LDP/abs/html/gotchas.html */
+        assert_se(!env_assignment_is_valid("a.b="));
+        assert_se(!env_assignment_is_valid("a-b="));
+        assert_se(!env_assignment_is_valid("\007=głąb kapuściany"));
+        assert_se(!env_assignment_is_valid("c\009=\007\009\011"));
+        assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));
 }
 
 int main(int argc, char *argv[]) {
@@ -189,6 +217,8 @@ int main(int argc, char *argv[]) {
         test_replace_env_arg();
         test_env_clean();
         test_env_name_is_valid();
+        test_env_value_is_valid();
+        test_env_assignment_is_valid();
 
         return 0;
 }
