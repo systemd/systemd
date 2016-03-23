@@ -17,9 +17,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <getopt.h>
+
 #include "alloc-util.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -155,6 +158,48 @@ static int generate_wants_symlinks(void) {
         return r;
 }
 
+static int parse_proc_1_cmdline(void) {
+        int c, r;
+        unsigned proc_1_argc;
+        _cleanup_free_ char *proc_1_cmdline = NULL;
+        _cleanup_strv_free_ char **proc_1_argv = NULL;
+        enum {
+                ARG_UNIT = 0x100,
+        };
+        static const struct option options[] = {
+                { "unit", required_argument, NULL, ARG_UNIT },
+        };
+
+        r = get_process_cmdline(1, 0, false, &proc_1_cmdline);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get /proc/1/cmdline: %m");
+
+        r = strv_split_extract(&proc_1_argv, proc_1_cmdline, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to split /proc/1/cmdline: %m");
+
+        opterr = 0;
+        proc_1_argc = strv_length(proc_1_argv);
+        while ((c = getopt_long(proc_1_argc, proc_1_argv, "", options, NULL)) >= 0) {
+                switch (c) {
+                case ARG_UNIT:
+                        r = free_and_strdup(&arg_default_unit, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set default unit %s: %m", optarg);
+                        break;
+
+                case '?':
+                        break;
+
+                default:
+                        assert_not_reached("Unhandled option code.");
+
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r, q;
 
@@ -179,8 +224,16 @@ int main(int argc, char *argv[]) {
         }
 
         r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r == -ENOMEM)
+                goto finish;
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        r = parse_proc_1_cmdline();
+        if (r == -ENOMEM)
+                goto finish;
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse /proc/1/cmdline, ignoring: %m");
 
         if (arg_debug_shell) {
                 r = strv_extend(&arg_wants, "debug-shell.service");
