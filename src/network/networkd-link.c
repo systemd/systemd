@@ -26,7 +26,6 @@
 #include "dhcp-lease-internal.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "lldp.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-link.h"
@@ -2234,8 +2233,8 @@ static int link_configure(Link *link) {
 
                 r = sd_lldp_match_capabilities(link->lldp,
                                                link->network->lldp_mode == LLDP_MODE_ROUTERS_ONLY ?
-                                               _LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :
-                                               _LLDP_SYSTEM_CAPABILITIES_ALL);
+                                               SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :
+                                               SD_LLDP_SYSTEM_CAPABILITIES_ALL);
                 if (r < 0)
                         return r;
 

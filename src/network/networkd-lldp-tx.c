@@ -24,7 +24,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
-#include "lldp.h"
 #include "networkd-lldp-tx.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -128,51 +127,51 @@ static int lldp_make_packet(
 
         h = (struct ether_header*) packet;
         h->ether_type = htobe16(ETHERTYPE_LLDP);
-        memcpy(h->ether_dhost, &(struct ether_addr) { LLDP_MULTICAST_ADDR }, ETH_ALEN);
+        memcpy(h->ether_dhost, &(struct ether_addr) { SD_LLDP_MULTICAST_ADDR }, ETH_ALEN);
         memcpy(h->ether_shost, hwaddr, ETH_ALEN);
 
         p = (uint8_t*) packet + sizeof(struct ether_header);
 
-        r = lldp_write_tlv_header(&p, LLDP_TYPE_CHASSIS_ID, 1 + machine_id_length);
+        r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_CHASSIS_ID, 1 + machine_id_length);
         if (r < 0)
                 return r;
-        *(p++) = LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED;
+        *(p++) = SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED;
         p = mempcpy(p, machine_id, machine_id_length);
 
-        r = lldp_write_tlv_header(&p, LLDP_TYPE_PORT_ID, 1 + ifname_length);
+        r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_PORT_ID, 1 + ifname_length);
         if (r < 0)
                 return r;
-        *(p++) = LLDP_PORT_SUBTYPE_INTERFACE_NAME;
+        *(p++) = SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME;
         p = mempcpy(p, ifname, ifname_length);
 
-        r = lldp_write_tlv_header(&p, LLDP_TYPE_TTL, 2);
+        r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_TTL, 2);
         if (r < 0)
                 return r;
         unaligned_write_be16(p, ttl);
         p += 2;
 
         if (port_description) {
-                r = lldp_write_tlv_header(&p, LLDP_TYPE_PORT_DESCRIPTION, port_description_length);
+                r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_PORT_DESCRIPTION, port_description_length);
                 if (r < 0)
                         return r;
                 p = mempcpy(p, port_description, port_description_length);
         }
 
         if (hostname) {
-                r = lldp_write_tlv_header(&p, LLDP_TYPE_SYSTEM_NAME, hostname_length);
+                r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_SYSTEM_NAME, hostname_length);
                 if (r < 0)
                         return r;
                 p = mempcpy(p, hostname, hostname_length);
         }
 
         if (pretty_hostname) {
-                r = lldp_write_tlv_header(&p, LLDP_TYPE_SYSTEM_DESCRIPTION, pretty_hostname_length);
+                r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_SYSTEM_DESCRIPTION, pretty_hostname_length);
                 if (r < 0)
                         return r;
                 p = mempcpy(p, pretty_hostname, pretty_hostname_length);
         }
 
-        r = lldp_write_tlv_header(&p, LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
+        r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
         if (r < 0)
                 return r;
         unaligned_write_be16(p, system_capabilities);
@@ -180,7 +179,7 @@ static int lldp_make_packet(
         unaligned_write_be16(p, enabled_capabilities);
         p += 2;
 
-        r = lldp_write_tlv_header(&p, LLDP_TYPE_END, 0);
+        r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_END, 0);
         if (r < 0)
                 return r;
 
@@ -200,7 +199,7 @@ static int lldp_send_packet(int ifindex, const void *packet, size_t packet_size)
                 .ll.sll_protocol = htobe16(ETHERTYPE_LLDP),
                 .ll.sll_ifindex = ifindex,
                 .ll.sll_halen = ETH_ALEN,
-                .ll.sll_addr = LLDP_MULTICAST_ADDR,
+                .ll.sll_addr = SD_LLDP_MULTICAST_ADDR,
         };
 
         _cleanup_close_ int fd = -1;
@@ -245,8 +244,8 @@ static int link_send_lldp(Link *link) {
                 ttl = (usec_t) UINT16_MAX;
 
         caps = (link->network && link->network->ip_forward != ADDRESS_FAMILY_NO) ?
-                LLDP_SYSTEM_CAPABILITIES_ROUTER :
-                LLDP_SYSTEM_CAPABILITIES_STATION;
+                SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
+                SD_LLDP_SYSTEM_CAPABILITIES_STATION;
 
         r = lldp_make_packet(&link->mac,
                              sd_id128_to_string(machine_id, machine_id_string),
@@ -255,7 +254,7 @@ static int link_send_lldp(Link *link) {
                              link->network ? link->network->description : NULL,
                              hostname,
                              pretty_hostname,
-                             LLDP_SYSTEM_CAPABILITIES_STATION|LLDP_SYSTEM_CAPABILITIES_BRIDGE|LLDP_SYSTEM_CAPABILITIES_ROUTER,
+                             SD_LLDP_SYSTEM_CAPABILITIES_STATION|SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE|SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
                              caps,
                              &packet, &packet_size);
         if (r < 0)
