@@ -131,7 +131,7 @@ static void print_status_info(StatusInfo *i) {
         assert(i);
 
         if (strv_isempty(i->locale))
-                puts("   System Locale: n/a\n");
+                puts("   System Locale: n/a");
         else {
                 char **j;
 
