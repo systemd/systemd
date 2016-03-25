@@ -1631,7 +1631,9 @@ static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
         log_unit_debug(u, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
 
         unit_unwatch_pid(u, si->si_pid);
-        UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
+
+        if (UNIT_VTABLE(u)->sigchld_event)
+                UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
 }
 
 static int manager_dispatch_sigchld(Manager *m) {
