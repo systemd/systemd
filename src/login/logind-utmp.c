@@ -65,7 +65,7 @@ bool logind_wall_tty_filter(const char *tty, void *userdata) {
 
         assert(m);
 
-        if (!startswith(tty, "/dev/"))
+        if (!startswith(tty, "/dev/") || !m->scheduled_shutdown_tty)
                 return true;
 
         return !streq(tty + 5, m->scheduled_shutdown_tty);

@@ -645,7 +645,7 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
         static const char *const generic_finished_stop_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Stopped %s.",
                 [JOB_FAILED]      = "Stopped (with error) %s.",
-                [JOB_TIMEOUT]     = "Timed out stoppping %s.",
+                [JOB_TIMEOUT]     = "Timed out stopping %s.",
         };
         static const char *const generic_finished_reload_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Reloaded %s.",
