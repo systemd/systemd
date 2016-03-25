@@ -765,7 +765,7 @@ int unit_set_cgroup_path(Unit *u, const char *path) {
 }
 
 int unit_watch_cgroup(Unit *u) {
-        _cleanup_free_ char *populated = NULL;
+        _cleanup_free_ char *events = NULL;
         int r;
 
         assert(u);
@@ -791,11 +791,11 @@ int unit_watch_cgroup(Unit *u) {
         if (r < 0)
                 return log_oom();
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.populated", &populated);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events", &events);
         if (r < 0)
                 return log_oom();
 
-        u->cgroup_inotify_wd = inotify_add_watch(u->manager->cgroup_inotify_fd, populated, IN_MODIFY);
+        u->cgroup_inotify_wd = inotify_add_watch(u->manager->cgroup_inotify_fd, events, IN_MODIFY);
         if (u->cgroup_inotify_wd < 0) {
 
                 if (errno == ENOENT) /* If the directory is already

@@ -101,6 +101,39 @@ int cg_read_pid(FILE *f, pid_t *_pid) {
         return 1;
 }
 
+int cg_read_event(const char *controller, const char *path, const char *event,
+                  char **val)
+{
+        _cleanup_free_ char *events = NULL, *content = NULL;
+        char *p, *line;
+        int r;
+
+        r = cg_get_path(controller, path, "cgroup.events", &events);
+        if (r < 0)
+                return r;
+
+        r = read_full_file(events, &content, NULL);
+        if (r < 0)
+                return r;
+
+        p = content;
+        while ((line = strsep(&p, "\n"))) {
+                char *key;
+
+                key = strsep(&line, " ");
+                if (!key || !line)
+                        return -EINVAL;
+
+                if (strcmp(key, event))
+                        continue;
+
+                *val = strdup(line);
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
         _cleanup_free_ char *fs = NULL;
         int r;
@@ -1007,18 +1040,12 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
                 return unified;
 
         if (unified > 0) {
-                _cleanup_free_ char *populated = NULL, *t = NULL;
+                _cleanup_free_ char *t = NULL;
 
                 /* On the unified hierarchy we can check empty state
-                 * via the "cgroup.populated" attribute. */
+                 * via the "populated" attribute of "cgroup.events". */
 
-                r = cg_get_path(controller, path, "cgroup.populated", &populated);
-                if (r < 0)
-                        return r;
-
-                r = read_one_line_file(populated, &t);
-                if (r == -ENOENT)
-                        return 1;
+                r = cg_read_event(controller, path, "populated", &t);
                 if (r < 0)
                         return r;
 
