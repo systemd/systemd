@@ -96,6 +96,8 @@ static inline bool CGROUP_BLKIO_WEIGHT_IS_OK(uint64_t x) {
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
 int cg_read_pid(FILE *f, pid_t *_pid);
+int cg_read_event(const char *controller, const char *path, const char *event,
+                  char **val);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
 int cg_read_subgroup(DIR *d, char **fn);

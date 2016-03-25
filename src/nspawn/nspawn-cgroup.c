@@ -55,8 +55,7 @@ int chown_cgroup(pid_t pid, uid_t uid_shift) {
                        "cgroup.events",
                        "cgroup.clone_children",
                        "cgroup.controllers",
-                       "cgroup.subtree_control",
-                       "cgroup.populated")
+                       "cgroup.subtree_control")
                 if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
                         log_full_errno(errno == ENOENT ? LOG_DEBUG :  LOG_WARNING, errno,
                                        "Failed to chown() cgroup file %s, ignoring: %m", fn);
