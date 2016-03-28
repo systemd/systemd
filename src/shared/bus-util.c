@@ -2030,7 +2030,7 @@ static const struct {
 
 static void log_job_error_with_service_result(const char* service, const char *result, const char* const* extra_args) {
         _cleanup_free_ char *service_shell_quoted = NULL;
-        const char *systemctl = "systemctl", *journalctl = "journalct";
+        const char *systemctl = "systemctl", *journalctl = "journalctl";
 
         assert(service);
 
