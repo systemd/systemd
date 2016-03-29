@@ -1664,7 +1664,7 @@ int main(int argc, char *argv[]) {
                 test_usr();
         }
 
-        if (arg_running_as == MANAGER_SYSTEM && arg_runtime_watchdog > 0)
+        if (arg_running_as == MANAGER_SYSTEM && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
                 watchdog_set_timeout(&arg_runtime_watchdog);
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)

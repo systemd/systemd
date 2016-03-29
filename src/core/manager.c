@@ -2016,7 +2016,7 @@ int manager_loop(Manager *m) {
         while (m->exit_code == MANAGER_OK) {
                 usec_t wait_usec;
 
-                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM)
+                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && m->running_as == MANAGER_SYSTEM)
                         watchdog_ping();
 
                 if (!ratelimit_test(&rl)) {
@@ -2041,7 +2041,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for half the watchdog time */
-                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM) {
+                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && m->running_as == MANAGER_SYSTEM) {
                         wait_usec = m->runtime_watchdog / 2;
                         if (wait_usec <= 0)
                                 wait_usec = 1;
