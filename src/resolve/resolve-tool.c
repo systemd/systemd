@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <gcrypt.h>
 #include <getopt.h>
 #include <net/if.h>
 
@@ -863,7 +862,7 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
         }
         domain++;
 
-        r = string_hashsum(address, domain - 1 - address, GCRY_MD_SHA224, &hashed);
+        r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
         if (r < 0)
                 return log_error_errno(r, "Hashing failed: %m");
 

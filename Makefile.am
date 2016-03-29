@@ -4262,7 +4262,9 @@ libsystemd_journal_internal_la_SOURCES = \
 	src/journal/mmap-cache.h \
 	src/journal/compress.c \
 	src/journal/audit-type.h \
-	src/journal/audit-type.c
+	src/journal/audit-type.c \
+	src/shared/gcrypt-util.h \
+	src/shared/gcrypt-util.c
 
 nodist_libsystemd_journal_internal_la_SOURCES = \
 	src/journal/audit_type-to-name.h
@@ -4294,9 +4296,7 @@ libsystemd_journal_internal_la_SOURCES += \
 	src/journal/journal-authenticate.c \
 	src/journal/journal-authenticate.h \
 	src/journal/fsprg.c \
-	src/journal/fsprg.h \
-	src/shared/gcrypt-util.c \
-	src/shared/gcrypt-util.h
+	src/journal/fsprg.h
 
 libsystemd_journal_internal_la_LIBADD += \
 	$(GCRYPT_LIBS)

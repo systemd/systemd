@@ -19,10 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_GCRYPT
 #include <gcrypt.h>
 
-#include "hexdecoct.h"
 #include "gcrypt-util.h"
+#include "hexdecoct.h"
 
 void initialize_libgcrypt(bool secmem) {
         const char *p;
@@ -67,3 +68,4 @@ int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
         *out = enc;
         return 0;
 }
+#endif
