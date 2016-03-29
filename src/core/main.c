@@ -2095,7 +2095,7 @@ finish:
 
                 assert(pos < ELEMENTSOF(command_line));
 
-                if (arm_reboot_watchdog && arg_shutdown_watchdog > 0) {
+                if (arm_reboot_watchdog && arg_shutdown_watchdog > 0 && arg_shutdown_watchdog != USEC_INFINITY) {
                         char *e;
 
                         /* If we reboot let's set the shutdown
