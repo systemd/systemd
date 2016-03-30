@@ -25,6 +25,7 @@
 #include "log.h"
 #include "utf8.h"
 #include "util.h"
+#include "sd-daemon.h"
 
 /**
  * Write up to size bytes to buf. Return negative on error, and number of
@@ -242,6 +243,32 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
         assert_not_reached("WTF?");
 }
 
+static inline void check_update_watchdog(Uploader *u) {
+        usec_t watchdog_usec;
+        static usec_t before;
+        usec_t after;
+        usec_t elapsed_time;
+        const char *watchdog_usec_env;
+
+        watchdog_usec_env = getenv("WATCHDOG_USEC");
+        if (watchdog_usec_env==NULL)
+                return;
+        watchdog_usec = strtoul(watchdog_usec_env, NULL, 10);
+        if (u->reset_reference_timestamp) {
+                before = now(CLOCK_MONOTONIC);
+                u->reset_reference_timestamp = false;
+        }
+        else {
+                after = now(CLOCK_MONOTONIC);
+                elapsed_time = usec_sub(after, before);
+                if (  elapsed_time > (watchdog_usec / 2) ) {
+                        log_debug("Update watchdog timer\n");
+                        sd_notify(false, "WATCHDOG=1");
+                        u->reset_reference_timestamp = true;
+                }
+        }
+}
+
 static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
         Uploader *u = userp;
         int r;
@@ -251,6 +278,8 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
 
         assert(u);
         assert(nmemb <= SSIZE_MAX / size);
+
+        check_update_watchdog(u);
 
         j = u->journal;
 
