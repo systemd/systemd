@@ -180,41 +180,29 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
         return dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
 }
 
-int sd_dhcp6_client_set_duid(
-                sd_dhcp6_client *client,
-                uint16_t type,
-                uint8_t *duid, size_t duid_len) {
+int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t duid_type,
+                             uint8_t *duid, size_t duid_len) {
+        int r;
         assert_return(client, -EINVAL);
-        assert_return(duid, -EINVAL);
-        assert_return(duid_len > 0 && duid_len <= MAX_DUID_LEN, -EINVAL);
-
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
-        switch (type) {
-        case DHCP6_DUID_LLT:
-                if (duid_len <= sizeof(client->duid.llt))
-                        return -EINVAL;
-                break;
-        case DHCP6_DUID_EN:
-                if (duid_len != sizeof(client->duid.en))
-                        return -EINVAL;
-                break;
-        case DHCP6_DUID_LL:
-                if (duid_len <= sizeof(client->duid.ll))
-                        return -EINVAL;
-                break;
-        case DHCP6_DUID_UUID:
-                if (duid_len != sizeof(client->duid.uuid))
-                        return -EINVAL;
-                break;
-        default:
-                /* accept unknown type in order to be forward compatible */
-                break;
+        if (duid_len > 0) {
+                r = dhcp_validate_duid_len(duid_type, duid_len);
+                if (r < 0)
+                        return r;
+                client->duid.type = htobe16(duid_type);
+                memcpy(&client->duid.raw.data, duid, duid_len);
+                client->duid_len = duid_len + sizeof(client->duid.type);
         }
 
-        client->duid.type = htobe16(type);
-        memcpy(&client->duid.raw.data, duid, duid_len);
-        client->duid_len = duid_len + sizeof(client->duid.type);
+        return 0;
+}
+
+int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
+        assert_return(client, -EINVAL);
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+
+        client->ia_na.id = htobe32(iaid);
 
         return 0;
 }

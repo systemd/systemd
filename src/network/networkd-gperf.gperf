@@ -1,0 +1,18 @@
+%{
+#include <stddef.h>
+#include "conf-parser.h"
+#include "networkd-conf.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name networkd_gperf_hash
+%define lookup-function-name networkd_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+DUID.Type,              config_parse_duid_type,                 0,                                  offsetof(Manager, duid_type)
+DUID.RawData,           config_parse_duid_rawdata,              DUID_CONFIG_SOURCE_GLOBAL,          offsetof(Manager, dhcp_duid)

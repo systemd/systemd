@@ -204,6 +204,12 @@
           understood to the base of 1024.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IAIDValue=</varname></term>
+        <listitem>
+          <para>Identity Association Identifier for the interface, a 32-bit unsigned integer.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -821,6 +827,86 @@
         </varlistentry>
       </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>[DUID] Section Options</title>
+
+    <para>This section configures the DHCP Unique Idendifier (DUID) value used by DHCP
+    protocol. DHCPv6 client protocol sends the DHCP Unique Identifier and the interface
+    Identity Association Identifier (IAID) to a DHCP server when acquiring a dynamic IPv6
+    address. DHCPv4 client protocol sends IAID and DUID to the DHCP server when acquiring
+    a dynamic IPv4 address if <option>ClientIdentifier=duid</option>. IAID and DUID allows a
+    DHCP server to uniquely identify the machine and the interface requesting a DHCP IP.</para>
+
+    <para>The DUID value specified here overrides the DUID that systemd-networkd generates
+    using the machine-id from the <filename>/etc/machine-id</filename> file, as well as the
+    global DUID that may be specified in <citerefentry><refentrytitle>networkd.conf
+    </refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>The configured DHCP DUID should conform to the specification in 
+    <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
+    <ulink url="http://tools.ietf.org/html/rfc6355">RFC 6355</ulink>.</para>
+
+    <para>The following options are available in <literal>[DUID]</literal> section:</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+        <listitem><para>The type of DUID specified in this section. The following values are
+        supported:</para>
+        <para>raw : If <literal>Type=raw</literal>, then <literal>RawData=</literal> specifies
+        the entire DUID. For e.g: <literal>RawData=00:02:00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</literal>
+        specifies a 14 byte long DUID-EN ("00:02"), with enterprise number 43793 ("00:00:ab:11"),
+        and identifier value "f9:2a:c2:77:29:f9:5c:00".</para><para>If Type is not specified and
+        RawData is specified, Type defaults to 'raw'.</para>
+        <para>Type will support the following values in the future:</para>
+        <para>link-layer-and-time : If <literal>Type=link-layer-and-time</literal>, then
+        <literal>MACAddress=</literal> and <literal>TimeStamp=</literal> specify the hardware
+        address and time-stamp for DUID-LLT.</para>
+        <para>vendor : If <literal>Type=vendor</literal>, then <literal>EnterpriseNumber=</literal>
+        and <literal>RawData=</literal> specify the enterprise number and identifier for DUID-EN.</para>
+        <para>link-layer : If <literal>Type=link-layer</literal>, then <literal>MACAddress=</literal>
+        specifies the hardware address for DUID-LL.</para>
+        <para>uuid : If <literal>Type=uuid</literal>, then <literal>UUID=</literal> specifies DUID-UUID.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RawData=</varname></term>
+        <listitem><para>Specifies the DUID bytes as a single newline-terminated, hexadecimal
+        string, with each byte separated by a ':'.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <para>The following options will be supported in the future:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem><para>Specifies the link-layer address for DUID Type <option>link-layer
+        </option> or <option>link-layer-and-time</option>.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TimeStamp=</varname></term>
+        <listitem><para>Specifies the DUID generation time for DUID Type <option>
+        link-layer-and-time</option>.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>EnterpriseNumber=</varname></term>
+        <listitem><para>Specifies the enterprise number for DUID Type <option>
+        vendor</option>.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UUID=</varname></term>
+        <listitem><para>Specifies the UUID for DUID Type <option>uuid</option>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>

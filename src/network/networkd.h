@@ -31,6 +31,7 @@
 
 typedef struct Manager Manager;
 
+#include "dhcp-identifier.h"
 #include "networkd-address-pool.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
@@ -61,6 +62,13 @@ struct Manager {
         LIST_HEAD(AddressPool, address_pools);
 
         usec_t network_dirs_ts_usec;
+
+        /* Value of Type in [DUID] section */
+        DUIDType duid_type;
+        /* DUID type code - RFC 3315 */
+        uint16_t dhcp_duid_type;
+        size_t dhcp_duid_len;
+        uint8_t dhcp_duid[MAX_DUID_LEN];
 };
 
 extern const char* const network_dirs[];
