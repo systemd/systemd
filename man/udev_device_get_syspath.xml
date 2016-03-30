@@ -127,6 +127,8 @@
       <funcprototype>
         <funcdef>struct udev_device *<function>udev_device_get_parent_with_subsystem_devtype</function></funcdef>
         <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>subsystem</parameter></paramdef>
+        <paramdef>const char *<parameter>devtype</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -137,8 +139,6 @@
       <funcprototype>
         <funcdef>const char *<function>udev_device_get_action</function></funcdef>
         <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
-        <paramdef>const char *<parameter>subsystem</parameter></paramdef>
-        <paramdef>const char *<parameter>devtype</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
