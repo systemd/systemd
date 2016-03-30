@@ -33,7 +33,6 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hwdb-util.h"
-#include "lldp.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "netlink-util.h"

@@ -24,7 +24,6 @@
 #include "in-addr-util.h"
 #include "lldp-internal.h"
 #include "lldp-neighbor.h"
-#include "lldp.h"
 #include "unaligned.h"
 
 static void lldp_neighbor_id_hash_func(const void *p, struct siphash *state) {
@@ -245,7 +244,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
                 switch (type) {
 
-                case LLDP_TYPE_END:
+                case SD_LLDP_TYPE_END:
                         if (length != 0) {
                                 log_lldp("End marker TLV not zero-sized, ignoring datagram.");
                                 return -EBADMSG;
@@ -257,7 +256,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
                         goto end_marker;
 
-                case LLDP_TYPE_CHASSIS_ID:
+                case SD_LLDP_TYPE_CHASSIS_ID:
                         if (length < 2 || length > 256) { /* includes the chassis subtype, hence one extra byte */
                                 log_lldp("Chassis ID field size out of range, ignoring datagram.");
                                 return -EBADMSG;
@@ -274,7 +273,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                         n->id.chassis_id_size = length;
                         break;
 
-                case LLDP_TYPE_PORT_ID:
+                case SD_LLDP_TYPE_PORT_ID:
                         if (length < 2 || length > 256) { /* includes the port subtype, hence one extra byte */
                                 log_lldp("Port ID field size out of range, ignoring datagram.");
                                 return -EBADMSG;
@@ -291,7 +290,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                         n->id.port_id_size = length;
                         break;
 
-                case LLDP_TYPE_TTL:
+                case SD_LLDP_TYPE_TTL:
                         if (length != 2) {
                                 log_lldp("TTL field has wrong size, ignoring datagram.");
                                 return -EBADMSG;
@@ -306,25 +305,25 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                         n->has_ttl = true;
                         break;
 
-                case LLDP_TYPE_PORT_DESCRIPTION:
+                case SD_LLDP_TYPE_PORT_DESCRIPTION:
                         r = parse_string(&n->port_description, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
-                case LLDP_TYPE_SYSTEM_NAME:
+                case SD_LLDP_TYPE_SYSTEM_NAME:
                         r = parse_string(&n->system_name, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
-                case LLDP_TYPE_SYSTEM_DESCRIPTION:
+                case SD_LLDP_TYPE_SYSTEM_DESCRIPTION:
                         r = parse_string(&n->system_description, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
-                case LLDP_TYPE_SYSTEM_CAPABILITIES:
+                case SD_LLDP_TYPE_SYSTEM_CAPABILITIES:
                         if (length != 4)
                                 log_lldp("System capabilities field has wrong size, ignoring.");
                         else {
@@ -335,7 +334,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
                         break;
 
-                case LLDP_TYPE_PRIVATE:
+                case SD_LLDP_TYPE_PRIVATE:
                         if (length < 4)
                                 log_lldp("Found private TLV that is too short, ignoring.");
 
@@ -479,18 +478,18 @@ _public_ int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, cons
 
         switch (*(uint8_t*) n->id.chassis_id) {
 
-        case LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT:
-        case LLDP_CHASSIS_SUBTYPE_INTERFACE_ALIAS:
-        case LLDP_CHASSIS_SUBTYPE_PORT_COMPONENT:
-        case LLDP_CHASSIS_SUBTYPE_INTERFACE_NAME:
-        case LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED:
+        case SD_LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT:
+        case SD_LLDP_CHASSIS_SUBTYPE_INTERFACE_ALIAS:
+        case SD_LLDP_CHASSIS_SUBTYPE_PORT_COMPONENT:
+        case SD_LLDP_CHASSIS_SUBTYPE_INTERFACE_NAME:
+        case SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED:
                 k = cescape_length((char*) n->id.chassis_id + 1, n->id.chassis_id_size - 1);
                 if (!k)
                         return -ENOMEM;
 
                 goto done;
 
-        case LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS:
+        case SD_LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS:
                 r = format_mac_address(n->id.chassis_id, n->id.chassis_id_size, &k);
                 if (r < 0)
                         return r;
@@ -499,7 +498,7 @@ _public_ int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, cons
 
                 break;
 
-        case LLDP_CHASSIS_SUBTYPE_NETWORK_ADDRESS:
+        case SD_LLDP_CHASSIS_SUBTYPE_NETWORK_ADDRESS:
                 r = format_network_address(n->id.chassis_id, n->id.chassis_id_size, &k);
                 if (r < 0)
                         return r;
@@ -550,17 +549,17 @@ _public_ int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const c
 
         switch (*(uint8_t*) n->id.port_id) {
 
-        case LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
-        case LLDP_PORT_SUBTYPE_PORT_COMPONENT:
-        case LLDP_PORT_SUBTYPE_INTERFACE_NAME:
-        case LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED:
+        case SD_LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
+        case SD_LLDP_PORT_SUBTYPE_PORT_COMPONENT:
+        case SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME:
+        case SD_LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED:
                 k = cescape_length((char*) n->id.port_id + 1, n->id.port_id_size - 1);
                 if (!k)
                         return -ENOMEM;
 
                 goto done;
 
-        case LLDP_PORT_SUBTYPE_MAC_ADDRESS:
+        case SD_LLDP_PORT_SUBTYPE_MAC_ADDRESS:
                 r = format_mac_address(n->id.port_id, n->id.port_id_size, &k);
                 if (r < 0)
                         return r;
@@ -569,7 +568,7 @@ _public_ int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const c
 
                 break;
 
-        case LLDP_PORT_SUBTYPE_NETWORK_ADDRESS:
+        case SD_LLDP_PORT_SUBTYPE_NETWORK_ADDRESS:
                 r = format_network_address(n->id.port_id, n->id.port_id_size, &k);
                 if (r < 0)
                         return r;
@@ -738,7 +737,7 @@ _public_ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[3], u
         assert_return(oui, -EINVAL);
         assert_return(subtype, -EINVAL);
 
-        r = sd_lldp_neighbor_tlv_is_type(n, LLDP_TYPE_PRIVATE);
+        r = sd_lldp_neighbor_tlv_is_type(n, SD_LLDP_TYPE_PRIVATE);
         if (r < 0)
                 return r;
         if (r == 0)

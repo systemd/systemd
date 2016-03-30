@@ -3423,7 +3423,6 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/sd-dhcp6-lease.c \
 	src/libsystemd-network/dhcp-identifier.h \
 	src/libsystemd-network/dhcp-identifier.c \
-	src/libsystemd-network/lldp.h \
 	src/libsystemd-network/lldp-internal.h \
 	src/libsystemd-network/lldp-network.h \
 	src/libsystemd-network/lldp-network.c \
