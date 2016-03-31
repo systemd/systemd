@@ -2780,6 +2780,21 @@ int link_update(Link *link, sd_netlink_message *m) {
                                                            ARPHRD_ETHER);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
+
+                                if (link->network->duid_type != _DUID_TYPE_INVALID)
+                                        r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
+                                                                         link->network->iaid,
+                                                                         link->network->dhcp_duid_type,
+                                                                         link->network->dhcp_duid,
+                                                                         link->network->dhcp_duid_len);
+                                else
+                                        r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
+                                                                         link->network->iaid,
+                                                                         link->manager->dhcp_duid_type,
+                                                                         link->manager->dhcp_duid,
+                                                                         link->manager->dhcp_duid_len);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not update DUID/IAID in DHCP client: %m");
                         }
 
                         if (link->dhcp6_client) {
@@ -2789,6 +2804,24 @@ int link_update(Link *link, sd_netlink_message *m) {
                                                             ARPHRD_ETHER);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
+
+                                r = sd_dhcp6_client_set_iaid(link->dhcp6_client,
+                                                             link->network->iaid);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not update DHCPv6 IAID: %m");
+
+                                if (link->network->duid_type != _DUID_TYPE_INVALID)
+                                        r = sd_dhcp6_client_set_duid(link->dhcp6_client,
+                                                                     link->network->dhcp_duid_type,
+                                                                     link->network->dhcp_duid,
+                                                                     link->network->dhcp_duid_len);
+                                else
+                                        r = sd_dhcp6_client_set_duid(link->dhcp6_client,
+                                                                     link->manager->dhcp_duid_type,
+                                                                     link->manager->dhcp_duid,
+                                                                     link->manager->dhcp_duid_len);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not update DHCPv6 DUID: %m");
                         }
                 }
         }

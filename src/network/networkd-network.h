@@ -24,6 +24,7 @@
 
 typedef struct Network Network;
 
+#include "dhcp-identifier.h"
 #include "networkd-address.h"
 #include "networkd-fdb.h"
 #include "networkd-netdev.h"
@@ -144,6 +145,13 @@ struct Network {
 
         struct ether_addr *mac;
         unsigned mtu;
+        uint32_t iaid;
+        /* Value of Type in [DUID] section */
+        DUIDType duid_type;
+        /* DUID type code - RFC 3315 */
+        uint16_t dhcp_duid_type;
+        size_t dhcp_duid_len;
+        uint8_t dhcp_duid[MAX_DUID_LEN];
 
         LLDPMode lldp_mode; /* LLDP reception */
         bool lldp_emit;     /* LLDP transmission */

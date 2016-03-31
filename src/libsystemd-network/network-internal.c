@@ -335,6 +335,35 @@ int config_parse_hwaddr(const char *unit,
         return 0;
 }
 
+int config_parse_iaid(const char *unit,
+                      const char *filename,
+                      unsigned line,
+                      const char *section,
+                      unsigned section_line,
+                      const char *lvalue,
+                      int ltype,
+                      const char *rvalue,
+                      void *data,
+                      void *userdata) {
+        uint32_t iaid;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou32(rvalue, &iaid);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Unable to read IAID: %s", rvalue);
+                return r;
+        }
+
+        *((uint32_t *)data) = iaid;
+
+        return 0;
+}
+
 void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
         unsigned i;
 

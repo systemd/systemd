@@ -62,13 +62,6 @@ enum {
 #define DHCP6_REB_TIMEOUT                       10 * USEC_PER_SEC
 #define DHCP6_REB_MAX_RT                        600 * USEC_PER_SEC
 
-enum {
-        DHCP6_DUID_LLT                          = 1,
-        DHCP6_DUID_EN                           = 2,
-        DHCP6_DUID_LL                           = 3,
-        DHCP6_DUID_UUID                         = 4,
-};
-
 enum DHCP6State {
         DHCP6_STATE_STOPPED                     = 0,
         DHCP6_STATE_INFORMATION_REQUEST         = 1,

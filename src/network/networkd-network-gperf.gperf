@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include "conf-parser.h"
 #include "networkd.h"
+#include "networkd-conf.h"
 #include "network-internal.h"
 %}
 struct ConfigPerfItem;
@@ -26,6 +27,9 @@ Match.KernelCommandLine,                config_parse_net_condition,             
 Match.Architecture,                     config_parse_net_condition,                     CONDITION_ARCHITECTURE,        offsetof(Network, match_arch)
 Link.MACAddress,                        config_parse_hwaddr,                            0,                             offsetof(Network, mac)
 Link.MTUBytes,                          config_parse_iec_size,                          0,                             offsetof(Network, mtu)
+Link.IAID,                              config_parse_iaid,                              0,                             offsetof(Network, iaid)
+DUID.Type,                              config_parse_duid_type,                         0,                             offsetof(Network, duid_type)
+DUID.RawData,                           config_parse_duid_rawdata,                      DUID_CONFIG_SOURCE_NETWORK,    offsetof(Network, dhcp_duid)
 Network.Description,                    config_parse_string,                            0,                             offsetof(Network, description)
 Network.Bridge,                         config_parse_netdev,                            0,                             offsetof(Network, bridge)
 Network.Bond,                           config_parse_netdev,                            0,                             offsetof(Network, bond)
