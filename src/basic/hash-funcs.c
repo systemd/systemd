@@ -34,7 +34,7 @@ const struct hash_ops string_hash_ops = {
 };
 
 void trivial_hash_func(const void *p, struct siphash *state) {
-        siphash24_compress(&p, sizeof(p), state);
+        siphash24_compress(p, sizeof(p), state);
 }
 
 int trivial_compare_func(const void *a, const void *b) {
