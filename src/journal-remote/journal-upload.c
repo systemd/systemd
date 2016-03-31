@@ -494,6 +494,7 @@ static int perform_upload(Uploader *u) {
 
         assert(u);
 
+        u->reset_reference_timestamp = true;
         code = curl_easy_perform(u->easy);
         if (code) {
                 if (u->error[0])
