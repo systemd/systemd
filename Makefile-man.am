@@ -1983,6 +1983,17 @@ man/systemd-networkd.html: man/systemd-networkd.service.html
 
 endif
 
+if ENABLE_NEWMEMORY_AUTO_ONLINE
+MANPAGES += \
+	man/systemd-newmemory-auto-online.service.8
+MANPAGES_ALIAS += \
+	man/systemd-newmemory-auto-online.8
+man/systemd-newmemory-auto-online.8: man/systemd-newmemory-auto-online.service.8
+man/systemd-newmemory-auto-online.html: man/systemd-newmemory-auto-online.service.html
+	$(html-alias)
+
+endif
+
 if ENABLE_QUOTACHECK
 MANPAGES += \
 	man/systemd-quotacheck.service.8
@@ -2612,6 +2623,7 @@ EXTRA_DIST += \
 	man/systemd-modules-load.service.xml \
 	man/systemd-networkd-wait-online.service.xml \
 	man/systemd-networkd.service.xml \
+	man/systemd-newmemory-auto-online.service.xml \
 	man/systemd-notify.xml \
 	man/systemd-nspawn.xml \
 	man/systemd-path.xml \

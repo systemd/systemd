@@ -1,0 +1,19 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Enable/Disable automatic onlining of newly added memory
+Documentation=man:systemd-newmemory-auto-online.service(8)
+DefaultDependencies=no
+Before=sysinit.target shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-newmemory-auto-online online
+ExecStop=@rootlibexecdir@/systemd-newmemory-auto-online offline
+TimeoutSec=90s
