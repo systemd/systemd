@@ -20,6 +20,7 @@ Match.Path,                             config_parse_strv,                      
 Match.Driver,                           config_parse_strv,                              0,                             offsetof(Network, match_driver)
 Match.Type,                             config_parse_strv,                              0,                             offsetof(Network, match_type)
 Match.Name,                             config_parse_ifnames,                           0,                             offsetof(Network, match_name)
+Match.AutoLL,                           config_parse_autoll,                            0,                             offsetof(Network, match_autoll)
 Match.Host,                             config_parse_net_condition,                     CONDITION_HOST,                offsetof(Network, match_host)
 Match.Virtualization,                   config_parse_net_condition,                     CONDITION_VIRTUALIZATION,      offsetof(Network, match_virt)
 Match.KernelCommandLine,                config_parse_net_condition,                     CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, match_kernel)

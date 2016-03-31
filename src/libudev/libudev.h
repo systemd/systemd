@@ -102,6 +102,7 @@ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev
 struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_device *udev_device);
 const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key);
 const char *udev_device_get_driver(struct udev_device *udev_device);
+const char *udev_device_get_autoll(struct udev_device *udev_device);
 dev_t udev_device_get_devnum(struct udev_device *udev_device);
 const char *udev_device_get_action(struct udev_device *udev_device);
 unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
