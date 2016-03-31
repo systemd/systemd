@@ -2934,7 +2934,11 @@ static bool fragment_mtime_changed(const char *path, usec_t mtime) {
                 /* What, cannot access this anymore? */
                 return true;
 
-        if (mtime > 0 && timespec_load(&st.st_mtim) != mtime)
+        if (mtime > 0)
+                /* For non-empty files check the mtime */
+                return timespec_load(&st.st_mtim) != mtime;
+        else if (!null_or_empty(&st))
+                /* For masked files check if they are still so */
                 return true;
 
         return false;
