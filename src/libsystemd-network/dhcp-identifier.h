@@ -75,7 +75,7 @@ int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_i
 static inline int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len) {
         struct duid d;
 
-        assert_return(duid_len > 0 && duid_len <= MAX_DUID_LEN, -EINVAL);
+        assert(duid_len > 0);
 
         switch (duid_type) {
         case DUID_TYPE_LLT:
@@ -95,6 +95,8 @@ static inline int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len) {
                         return -EINVAL;
                 break;
         default:
+                if (duid_len > sizeof(d.raw))
+                        return -EINVAL;
                 /* accept unknown type in order to be forward compatible */
                 break;
         }
