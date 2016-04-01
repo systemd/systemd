@@ -93,6 +93,7 @@
 /systemd-networkd-wait-online
 /systemd-notify
 /systemd-nspawn
+/systemd-newmemory-auto-online
 /systemd-path
 /systemd-pull
 /systemd-quotacheck

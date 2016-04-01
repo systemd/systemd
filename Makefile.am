@@ -4601,6 +4601,24 @@ EXTRA_DIST += \
 	units/systemd-backlight@.service.in
 
 # ------------------------------------------------------------------------------
+if ENABLE_NEWMEMORY_AUTO_ONLINE
+rootlibexec_PROGRAMS += \
+	systemd-newmemory-auto-online
+
+nodist_systemunit_DATA += \
+	units/systemd-newmemory-auto-online.service
+
+systemd_newmemory_auto_online_SOURCES = \
+	src/newmemory-auto-online/newmemory-auto-online.c
+
+systemd_newmemory_auto_online_LDADD = \
+	libshared.la
+endif
+
+EXTRA_DIST += \
+	units/systemd-newmemory-auto-online.service.in
+
+# ------------------------------------------------------------------------------
 if ENABLE_RFKILL
 rootlibexec_PROGRAMS += \
 	systemd-rfkill

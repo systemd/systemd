@@ -998,6 +998,14 @@ fi
 AM_CONDITIONAL(ENABLE_BACKLIGHT, [test "$have_backlight" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_newmemory_auto_online=no
+AC_ARG_ENABLE(newmemory_auto_online, AS_HELP_STRING([--disable-newmemory-auto-online], [disable new memory auto onlining tool]))
+if test "x$enable_newmemory_auto_online" != "xno"; then
+        have_newmemory_auto_online=yes
+fi
+AM_CONDITIONAL(ENABLE_NEWMEMORY_AUTO_ONLINE, [test "$have_newmemory_auto_online" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_rfkill=no
 AC_ARG_ENABLE(rfkill, AS_HELP_STRING([--disable-rfkill], [disable rfkill tools]))
 if test "x$enable_rfkill" != "xno"; then
@@ -1581,6 +1589,7 @@ AC_MSG_RESULT([
         firstboot:               ${have_firstboot}
         randomseed:              ${have_randomseed}
         backlight:               ${have_backlight}
+        newmemory-auto-online:   ${have_newmemory_auto_online}
         rfkill:                  ${have_rfkill}
         logind:                  ${have_logind}
         machined:                ${have_machined}

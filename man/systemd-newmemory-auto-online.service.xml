@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  This file is part of systemd.
+
+  Copyright 2016 Vitaly Kuznetsov
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+<refentry id="systemd-newmemory-auto-online.service" conditional='ENABLE_NEWMEMORY_AUTO_ONLINE'>
+
+  <refentryinfo>
+    <title>systemd-newmemory-auto-online.service</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Vitaly</firstname>
+        <surname>Kuznetsov</surname>
+        <email>vkuznets@redhat.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-newmemory-auto-online.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-newmemory-auto-online.service</refname>
+    <refname>systemd-newmemory-auto-online</refname>
+    <refpurpose>Enable and disable automatic onlining for the newly added memory.</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-newmemory-auto-online.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-newmemory-auto-online</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-newmemory-auto-online.service</filename>
+    is a service that enables and disables automatic onlining for all newly
+    added memory blocks. When the service is disabled all newly added memory
+    stays in 'offline' state until someone enables it through the
+    <filename>/sys/devices/system/memory/memory*/state</filename> interface.
+    This service enables automatic onlining through the
+    <filename>/sys/devices/system/memory/auto_online_blocks</filename>
+    interface. This is particularly important for virtual machines where memory
+    hotplug is used to address high memory pressure.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
