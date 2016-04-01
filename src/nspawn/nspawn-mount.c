@@ -526,10 +526,10 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 
         (void) mkdir_p_label(m->source, 0755);
 
-        if (strv_length(m->lower) == 0)
-                lower = strdup(where);
-        else
-                lower = joined_and_escaped_lower_dirs(m->lower);
+        if (strv_isempty(m->lower) && strv_extend(&m->lower, where) < 0)
+                return log_oom();
+
+        lower = joined_and_escaped_lower_dirs(m->lower);
 
         if (!lower)
                 return log_oom();
