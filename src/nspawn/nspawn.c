@@ -676,18 +676,16 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         if (n == 2) {
-                                /* If two parameters are specified,
-                                 * the first one is the lower, the
-                                 * second one the upper directory. And
-                                 * we'll also define the destination
-                                 * mount point the same as the upper. */
+                                /* If two parameters are spesified,
+                                 * the first one is the lower inside the
+                                 * container and also the destination.
+                                 * the upper is the second parameter.
+                                 * This can be used to overlay a read-only
+                                 * root filesystem.
+                                 */
                                 upper = lower[1];
-                                lower[1] = NULL;
-
-                                destination = strdup(upper);
-                                if (!destination)
-                                        return log_oom();
-
+                                destination = lower[0];
+                                lower = NULL;
                         } else {
                                 upper = lower[n - 2];
                                 destination = lower[n - 1];
