@@ -47,15 +47,12 @@ static clockid_t map_clock_id(clockid_t c) {
         /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus, clock_gettime() will
          * fail for them. Since they are essentially the same as their non-ALARM pendants (their only difference is
          * when timers are set on them), let's just map them accordingly. This way, we can get the correct time even on
-         * those archs.
-         *
-         * Also, older kernels don't support CLOCK_BOOTTIME: fall back to CLOCK_MONOTONIC. */
+         * those archs. */
 
         switch (c) {
 
-        case CLOCK_BOOTTIME:
         case CLOCK_BOOTTIME_ALARM:
-                return clock_boottime_or_monotonic ();
+                return CLOCK_BOOTTIME;
 
         case CLOCK_REALTIME_ALARM:
                 return CLOCK_REALTIME;
