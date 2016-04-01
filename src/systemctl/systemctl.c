@@ -1896,13 +1896,13 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                         printf("%s%s%s ", on_state, circle ? draw_special_char(DRAW_BLACK_CIRCLE) : " ", off_state);
 
                 if (m->is_host)
-                        printf("%-*s (host) %s%-*s%s %s%*u%s %*u\n",
+                        printf("%-*s (host) %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
                                (int) (namelen - (sizeof(" (host)")-1)), strna(m->name),
                                on_state, statelen, strna(m->state), off_state,
                                on_failed, failedlen, m->n_failed_units, off_failed,
                                jobslen, m->n_jobs);
                 else
-                        printf("%-*s %s%-*s%s %s%*u%s %*u\n",
+                        printf("%-*s %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
                                namelen, strna(m->name),
                                on_state, statelen, strna(m->state), off_state,
                                on_failed, failedlen, m->n_failed_units, off_failed,
@@ -4637,8 +4637,8 @@ static int show_system_status(sd_bus *bus) {
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);
 
-        printf("     Jobs: %u queued\n", mi.n_jobs);
-        printf("   Failed: %u units\n", mi.n_failed_units);
+        printf("     Jobs: %" PRIu32 " queued\n", mi.n_jobs);
+        printf("   Failed: %" PRIu32 " units\n", mi.n_failed_units);
 
         printf("    Since: %s; %s\n",
                format_timestamp(since2, sizeof(since2), mi.timestamp),
