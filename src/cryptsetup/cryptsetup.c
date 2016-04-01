@@ -719,8 +719,12 @@ int main(int argc, char *argv[]) {
                 int k;
 
                 k = crypt_init_by_name(&cd, argv[2]);
-                if (k) {
-                        log_error_errno(k, "crypt_init() failed: %m");
+                if (k == -ENODEV) {
+                        log_info("Volume %s already inactive.", argv[2]);
+                        r = EXIT_SUCCESS;
+                        goto finish;
+                } else if (k) {
+                        log_error_errno(k, "crypt_init_by_name() failed: %m");
                         goto finish;
                 }
 
