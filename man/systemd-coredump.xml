@@ -91,6 +91,15 @@
     may be used to list and extract coredumps or load them in
     <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     </para>
+
+    <para>The coredump helper is invoked anew each time. Therefore, any configuration
+    changes will take effect on the invocation of <command>systemd-coredump</command>.
+    If the sysctl configuration is modified, it must be updated in the kernel before
+    it takes effect, see
+    <citerefentry><refentrytitle>systemd-sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
