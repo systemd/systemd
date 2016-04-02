@@ -94,8 +94,8 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                         if (max_bytes <= 0)
                                 return 1; /* return > 0 if we hit the max_bytes limit */
 
-                        if ((uint64_t) m > max_bytes)
-                                m = (size_t) max_bytes;
+                        if (m > max_bytes)
+                                m = max_bytes;
                 }
 
                 /* First try copy_file_range(), unless we already tried */
