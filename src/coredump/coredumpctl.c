@@ -664,7 +664,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 #endif
                 } else {
                         if (r == -ENOENT)
-                                log_error("Cannot retrieve coredump from journal nor disk.");
+                                log_error("Cannot retrieve coredump from journal or disk.");
                         else
                                 log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
                         goto error;
