@@ -60,12 +60,13 @@
     signal and dumps core. For it to be used in this capacity, it must
     be specified by the
     <varname>kernel.core_pattern</varname> <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    setting. Systemd installs
-    <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> which
-    configures <varname>kernel.core_pattern</varname> to invoke
-    <command>systemd-coredump</command>. This file may be masked or
-    overridden to use a different setting following normal
-    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> rules.</para>
+    setting. The syntax of this setting is explained in
+    <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Systemd installs <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> which configures
+    <varname>kernel.core_pattern</varname> to invoke <command>systemd-coredump</command>.
+    This file may be masked or overridden to use a different setting following normal
+    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    rules.</para>
 
     <para>The behavior of a specific program upon reception of a
     signal is governed by a few factors which are described in detail
@@ -77,18 +78,19 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
     </para>
 
-    <para><command>systemd-coredump</command> will log the coredump
-    including a backtrace if possible, and store the core (contents of
-    process' memory contents) in an external file on disk in
-    <filename>/var/lib/systemd/coredump</filename>, or directly in
-    the journal. This behavior may be modified using
-    <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>The behaviour of <command>systemd-coredump</command> is configured through
+    <filename>/etc/systemd/coredump.conf</filename> and other configuration files. See
+    <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details. By default, <command>systemd-coredump</command> will log the coredump including a
+    backtrace if possible, and store the core (contents of process' memory contents) in an external
+    file on disk in <filename>/var/lib/systemd/coredump</filename>.</para>
 
-    <para>Apart from the
-    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    log viewer,
+    <para>The log entry and a backtrace are stored in the journal, and can be viewed with
+    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    may be used to list and extract coredumps.</para>
+    may be used to list and extract coredumps or load them in
+    <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
