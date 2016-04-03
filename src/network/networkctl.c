@@ -700,6 +700,7 @@ static int link_status_one(
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
+        _cleanup_free_ char *clientid = NULL, *duid = NULL, *iaid = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
@@ -803,6 +804,18 @@ static int link_status_one(
                 printf("       Time Zone: %s\n", tz);
 
         (void) dump_lldp_neighbors("    Connected To: ", info->ifindex);
+
+        (void) sd_network_link_get_clientid(info->ifindex, &clientid);
+        if (clientid)
+                printf("        CLIENTID: %s\n", clientid);
+
+        (void) sd_network_link_get_iaid(info->ifindex, &iaid);
+        if (iaid)
+                printf("            IAID: %s\n", iaid);
+
+        (void) sd_network_link_get_duid(info->ifindex, &duid);
+        if (duid)
+                printf("            DUID: %s", duid);
 
         return 0;
 }

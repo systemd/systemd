@@ -24,6 +24,7 @@
 
 #include "sd-dhcp6-lease.h"
 
+#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 
 struct sd_dhcp6_lease {
@@ -35,6 +36,8 @@ struct sd_dhcp6_lease {
         bool rapid_commit;
 
         DHCP6IA ia;
+        struct duid *duid;
+        size_t duid_len;
 
         DHCP6Address *addr_iter;
 
@@ -63,6 +66,7 @@ int dhcp6_lease_set_rapid_commit(sd_dhcp6_lease *lease);
 int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *rapid_commit);
 
 int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid);
+int dhcp6_lease_set_duid(sd_dhcp6_lease *lease, struct duid *duid, size_t duid_len);
 
 int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,
@@ -72,3 +76,5 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval,
                          size_t optlen) ;
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret);
+
+int dhcp6_lease_save(sd_dhcp6_lease *lease, const char *lease_file);

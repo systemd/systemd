@@ -18,13 +18,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <arpa/inet.h>
 #include <errno.h>
 
 #include "alloc-util.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "hexdecoct.h"
+#include "network-internal.h"
 #include "strv.h"
 #include "util.h"
+
 
 int dhcp6_lease_clear_timers(DHCP6IA *ia) {
         assert_return(ia, -EINVAL);
@@ -145,6 +151,15 @@ int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
 
         *iaid = lease->ia.id;
 
+        return 0;
+}
+
+int dhcp6_lease_set_duid(sd_dhcp6_lease *lease, struct duid *duid, size_t duid_len) {
+        assert_return(lease, -EINVAL);
+        assert_return(duid, -EINVAL);
+
+        lease->duid = duid;
+        lease->duid_len = duid_len;
         return 0;
 }
 
@@ -407,4 +422,103 @@ int dhcp6_lease_new(sd_dhcp6_lease **ret) {
 
         *ret = lease;
         return 0;
+}
+
+int dhcp6_lease_save(sd_dhcp6_lease *lease, const char *lease_file) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        char **hosts, **dhcp6_domains = NULL;
+        bool space = false;
+        const char *paddr6;
+        char addr6[INET6_ADDRSTRLEN];
+        struct in6_addr ip6_addr, *ip6_addrs;
+        uint32_t lifetime_preferred, lifetime_valid;
+        be32_t iaid_lease;
+        int r;
+
+        assert(lease);
+        assert(lease_file);
+
+        r = fopen_temporary(lease_file, &f, &temp_path);
+        if (r < 0)
+                goto fail;
+
+        fchmod(fileno(f), 0644);
+
+        fprintf(f, "# This is private data. Do not parse.\n");
+
+        sd_dhcp6_lease_reset_address_iter(lease);
+        do {
+                r = sd_dhcp6_lease_get_address(lease, &ip6_addr,
+                                               &lifetime_preferred,
+                                               &lifetime_valid);
+                if (r >= 0) {
+                        paddr6 = inet_ntop(AF_INET6, &ip6_addr, addr6,
+                                           INET6_ADDRSTRLEN);
+                        if (paddr6 != NULL) {
+                                fprintf(f, "ADDRESS=%s\n", paddr6);
+                                fprintf(f, "LIFETIME_PREFERRED=%u\n", lifetime_preferred);
+                                fprintf(f, "LIFETIME_VALID=%u\n", lifetime_valid);
+                        }
+                }
+        } while (r >=0);
+
+        r = sd_dhcp6_lease_get_dns(lease, &ip6_addrs);
+        if (r > 0) {
+                fputs("DNS=", f);
+                serialize_in6_addrs(f, ip6_addrs, r);
+                fputs("\n", f);
+        }
+
+        r = sd_dhcp6_lease_get_ntp_addrs(lease, &ip6_addrs);
+        if (r > 0) {
+                fputs("NTP=", f);
+                serialize_in6_addrs(f, ip6_addrs, r);
+                space = true;
+        }
+
+        r = sd_dhcp6_lease_get_ntp_fqdn(lease, &hosts);
+        if (r > 0)
+                fputstrv(f, hosts, NULL, &space);
+        fputs("\n", f);
+
+        r = sd_dhcp6_lease_get_domains(lease, &dhcp6_domains);
+        if (r > 0) {
+                space = false;
+                fputs("DOMAINS=", f);
+                fputstrv(f, dhcp6_domains, NULL, &space);
+                fputs("\n", f);
+        }
+
+        r = dhcp6_lease_get_iaid(lease, &iaid_lease);
+        if (r == 0)
+                fprintf(f, "IAID=%u\n", be32toh(iaid_lease));
+
+        if (lease->duid_len > 0) {
+                _cleanup_free_ char *duid_hex;
+
+                duid_hex = hexmem(lease->duid, lease->duid_len);
+                if (duid_hex == NULL) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+                fprintf(f, "DUID=%s\n", duid_hex);
+        }
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
+
+        if (rename(temp_path, lease_file) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        return 0;
+
+fail:
+        if (temp_path)
+                (void) unlink(temp_path);
+
+        return log_error_errno(r, "Failed to save lease data %s: %m", lease_file);
 }

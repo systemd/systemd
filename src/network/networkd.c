@@ -64,6 +64,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'leases': %m");
 
+        r = mkdir_safe_label("/run/systemd/netif/leases6", 0755, uid, gid);
+        if (r < 0)
+                log_warning_errno(r, "Could not create runtime directory 'leases6': %m");
+
         r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'lldp': %m");

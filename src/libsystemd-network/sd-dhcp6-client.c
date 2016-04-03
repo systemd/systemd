@@ -198,11 +198,40 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t duid_type,
         return 0;
 }
 
+int sd_dhcp6_client_get_duid(sd_dhcp6_client *client, uint16_t *duid_type,
+                             const uint8_t **duid, size_t *duid_len) {
+        assert_return(client, -EINVAL);
+        assert_return(duid_type, -EINVAL);
+        assert_return(duid_len, -EINVAL);
+        assert_return(duid, -EINVAL);
+        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+
+        *duid_type = 0;
+        *duid_len = 0;
+        *duid = NULL;
+        if (client->duid_len > 0) {
+                *duid_type = be16toh(client->duid.type);
+                *duid_len = client->duid_len - sizeof(client->duid.type);
+                *duid = client->duid.raw.data;
+        }
+
+        return 0;
+}
+
 int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
         assert_return(client, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         client->ia_na.id = htobe32(iaid);
+
+        return 0;
+}
+
+int sd_dhcp6_client_get_iaid(sd_dhcp6_client *client, uint32_t *iaid) {
+        assert_return(client, -EINVAL);
+        assert_return(iaid, -EINVAL);
+
+        *iaid = be32toh(client->ia_na.id);
 
         return 0;
 }
@@ -740,6 +769,10 @@ static int client_parse_message(sd_dhcp6_client *client,
                         r = dhcp6_option_parse_ia(&optval, &optlen, optcode,
                                                   &lease->ia);
                         if (r < 0 && r != -ENOMSG)
+                                return r;
+
+                        r = dhcp6_lease_set_duid(lease, &client->duid, client->duid_len);
+                        if (r < 0)
                                 return r;
 
                         r = dhcp6_lease_get_iaid(lease, &iaid_lease);
