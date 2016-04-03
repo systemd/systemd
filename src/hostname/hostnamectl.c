@@ -145,7 +145,8 @@ static void print_status_info(StatusInfo *i) {
 
         if (!isempty(i->architecture))
                 printf("      Architecture: %s\n", i->architecture);
-                printf("      %s",up_time());
+        
+        printf("      %s",up_time());
 }
 
 static int show_one_name(sd_bus *bus, const char* attr) {
