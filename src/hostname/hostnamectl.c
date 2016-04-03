@@ -22,6 +22,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysinfo.h>
+#include <sys/types.h>
 
 #include "sd-bus.h"
 #include "sd-id128.h"
@@ -33,6 +35,8 @@
 #include "hostname-util.h"
 #include "spawn-polkit-agent.h"
 #include "util.h"
+
+#define UPTIME_BUFF_SIZE 45
 
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -68,6 +72,26 @@ typedef struct StatusInfo {
         char *virtualization;
         char *architecture;
 } StatusInfo;
+
+char * up_time() {
+
+        struct sysinfo sys_info;
+        int days, hours, mins;
+        char *uptime;
+        if(sysinfo(&sys_info) != 0)
+                perror("sysinfo");
+
+        days = sys_info.uptime / 86400;
+        hours = (sys_info.uptime / 3600) - (days * 24);
+        mins = (sys_info.uptime / 60) - (days * 1440) - (hours * 60);
+
+        uptime = malloc (UPTIME_BUFF_SIZE + sizeof (int) * 3);
+
+        sprintf(uptime,"Uptime:  %d days, %d hours, %d minutes, %ld seconds\n",days, hours, mins, sys_info.uptime % 60);
+
+        return uptime;
+
+}
 
 static void print_status_info(StatusInfo *i) {
         sd_id128_t mid = {}, bid = {};
@@ -121,7 +145,7 @@ static void print_status_info(StatusInfo *i) {
 
         if (!isempty(i->architecture))
                 printf("      Architecture: %s\n", i->architecture);
-
+                printf("      %s",up_time());
 }
 
 static int show_one_name(sd_bus *bus, const char* attr) {
