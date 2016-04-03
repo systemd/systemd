@@ -19,9 +19,57 @@ CHANGES WITH 230 in spe:
           again don't consider turning this on in your stable, LTS or
           production release just yet.
 
+        * systemd-resolve conveniently resolves DANE records with the --tlsa
+          option and OPENPGPKEY records with the --openpgp option.
+
         * Testing tool /usr/lib/systemd/systemd-activate is renamed to
           systemd-socket-activate and installed into /usr/bin. It is now fully
           supported.
+
+        * The unified cgroup hierarchy added in Linux 4.5 is now supported.
+          Use systemd.unified_cgroup_hierarchy=1 on the kernel command line
+          to enable.
+          WARNING: it is not possible to use previous systemd versions with
+          systemd.unified_cgroup_hierarchy=1 and the new kernel. Therefore it
+          is necessary to also update systemd in the initramfs if using the
+          unified hierarchy. Updated selinux policy is also required.
+
+        * LLDP support has been extended, and both passive (receive-only)
+          and active (sender) modes are supported. Passive mode
+          ("routers-only") is enabled by default in systemd-networkd.
+          Active LLDP mode is enabled by default for containers on the
+          internal network.
+          "networkctl lldp" can be used to list information gathered.
+
+        * Headers for LLDP support (sd-lldp.h) are now public.
+
+        * The Unique Identifier sent in DHCP requests can be configured.
+
+        * systemd-journald now uses separate threads to flush changes to
+          disk when closing journal files.
+
+        * systemd-ask-password skips printing of the password to stdout
+          with --no-output which can be useful in scripts.
+
+        * Framebuffer devices (/dev/fb*) and 3D printers and scanners
+          (devices tagged with ID_MAKER_TOOL) are now tagged with
+          "uaccess" and are available to logged in users.
+
+        * systemd-bootchart has been split out to a separate repository:
+          https://github.com/systemd/systemd-bootchart
+
+        * Compatibility libraries libsystemd-daemon.so, libsystemd-journal.so,
+          libsystemd-id128.so, and libsystemd-login.so which have been
+          deprecated since systemd-209 have been removed along along with the
+          corresponding pkg-config files. All symbols provided by the those
+          libraries are provided by libsystemd.so.
+
+        * Capabilities= setting has been removed (it is ignored for backwards
+          compatibility). AmbientCapabilities= and CapabilityBoundingSet=
+          should be used instead.
+
+        * systemd-bus-proxyd has been removed, as kdbus will not be merged
+          in current form.
 
 CHANGES WITH 229:
 
