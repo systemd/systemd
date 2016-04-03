@@ -136,7 +136,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", NULL);
+                execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", "--xattrs", "--xattrs-include=*", NULL);
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -210,7 +210,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "-C", path, "-c", ".", NULL);
+                execlp("tar", "tar", "-C", path, "-c", "--xattrs", "--xattrs-include=*", ".", NULL);
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
