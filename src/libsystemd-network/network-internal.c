@@ -355,8 +355,9 @@ int config_parse_iaid(const char *unit,
 
         r = safe_atou32(rvalue, &iaid);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Unable to read IAID: %s", rvalue);
-                return r;
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Unable to read IAID, ignoring assignment: %s", rvalue);
+                return 0;
         }
 
         *((uint32_t *)data) = iaid;

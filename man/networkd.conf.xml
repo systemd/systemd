@@ -95,54 +95,23 @@
         <term><varname>Type=</varname></term>
         <listitem><para>The type of DUID specified in this section. The following values are
         supported:</para>
-        <para>raw : If <literal>Type=raw</literal>, then <literal>RawData=</literal> specifies
-        the entire DUID. For e.g: <literal>RawData=00:02:00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</literal>
-        specifies a 14 byte long DUID-EN ("00:02"), with enterprise number 43793 ("00:00:ab:11"),
-        and identifier value "f9:2a:c2:77:29:f9:5c:00".</para><para>If Type is not specified and
-        RawData is specified, Type defaults to 'raw'.</para>
-        <para>Type will support the following values in the future:</para>
-        <para>link-layer-and-time : If <literal>Type=link-layer-and-time</literal>, then
-        <literal>MACAddress=</literal> and <literal>TimeStamp=</literal> specify the hardware
-        address and time-stamp for DUID-LLT.</para>
-        <para>vendor : If <literal>Type=vendor</literal>, then <literal>EnterpriseNumber=</literal>
-        and <literal>RawData=</literal> specify the enterprise number and identifier for DUID-EN.</para>
-        <para>link-layer : If <literal>Type=link-layer</literal>, then <literal>MACAddress=</literal>
-        specifies the hardware address for DUID-LL.</para>
-        <para>uuid : If <literal>Type=uuid</literal>, then <literal>UUID=</literal> specifies DUID-UUID.
-        </para></listitem>
+        <variablelist>
+          <varlistentry>
+            <term><option>raw</option> </term>
+            <listitem><para>If <literal>Type=raw</literal>, then <literal>RawData=</literal> specifies the
+            entire DUID. For example, <literal>RawData=00:02:00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</literal>
+            specifies a 14 byte long DUID-EN ("00:02"), with enterprise number 43793 ("00:00:ab:11"),
+            and identifier value "f9:2a:c2:77:29:f9:5c:00".</para><para>If Type is not specified and
+            RawData is specified, Type defaults to 'raw'.</para></listitem>
+          </varlistentry>
+        </variablelist>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>RawData=</varname></term>
         <listitem><para>Specifies the DUID bytes as a single newline-terminated, hexadecimal
         string, with each byte separated by a ':'.</para></listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
-
-  <refsect1>
-    <para>The following options will be supported in the future:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term><varname>MACAddress=</varname></term>
-        <listitem><para>Specifies the link-layer address for DUID Type <option>link-layer
-        </option> or <option>link-layer-and-time</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>TimeStamp=</varname></term>
-        <listitem><para>Specifies the DUID generation time for DUID Type <option>
-        link-layer-and-time</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>EnterpriseNumber=</varname></term>
-        <listitem><para>Specifies the enterprise number for DUID Type
-        <option>vendor</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>UUID=</varname></term>
-        <listitem><para>Specifies the UUID for DUID Type <option>uuid</option>.</para>
-        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
