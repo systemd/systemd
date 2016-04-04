@@ -878,7 +878,7 @@ static int start_transient_service(
                 (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
 
                 if (!arg_quiet)
-                        log_info("Running as unit %s\nPress ^] three times within 1s to disconnect TTY.", service);
+                        log_info("Running as unit: %s\nPress ^] three times within 1s to disconnect TTY.", service);
 
                 r = pty_forward_new(event, master, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &forward);
                 if (r < 0)
@@ -896,7 +896,7 @@ static int start_transient_service(
                         fputc('\n', stdout);
 
         } else if (!arg_quiet)
-                log_info("Running as unit %s", service);
+                log_info("Running as unit: %s", service);
 
         return 0;
 }
@@ -1038,7 +1038,7 @@ static int start_transient_scope(
                 return r;
 
         if (!arg_quiet)
-                log_info("Running scope as unit %s", scope);
+                log_info("Running scope as unit: %s", scope);
 
         execvpe(argv[0], argv, env);
 
@@ -1189,9 +1189,9 @@ static int start_transient_timer(
         if (r < 0)
                 return r;
 
-        log_info("Running timer as unit %s", timer);
+        log_info("Running timer as unit: %s", timer);
         if (argv[0])
-                log_info("Will run service as unit %s", service);
+                log_info("Will run service as unit: %s", service);
 
         return 0;
 }
