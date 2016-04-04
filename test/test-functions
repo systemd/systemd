@@ -213,6 +213,9 @@ EOF
 install_fsck() {
     dracut_install /sbin/fsck*
     dracut_install -o /bin/fsck*
+
+    # fskc.reiserfs calls reiserfsck. so, install it
+    dracut_install -o reiserfsck
 }
 
 install_dmevent() {
@@ -257,7 +260,13 @@ create_empty_image() {
 ,
 EOF
 
-    mkfs -t "$FSTYPE" -L systemd "${LOOPDEV}p1"
+    local _label="-L systemd"
+    # mkfs.reiserfs doesn't know -L. so, use --label instead
+    [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd"
+    if ! mkfs -t "${FSTYPE}" ${_label} "${LOOPDEV}p1" -q; then
+        dfatal "Failed to mkfs -t ${FSTYPE}"
+        exit 1
+    fi
 }
 
 check_result_nspawn() {
@@ -351,7 +360,7 @@ install_config_files() {
     echo systemd-testsuite > $initdir/etc/hostname
     # fstab
     cat >$initdir/etc/fstab <<EOF
-LABEL=systemd           /       ext3    rw 0 1
+LABEL=systemd           /       ${FSTYPE}    rw 0 1
 EOF
 }
 
