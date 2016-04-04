@@ -153,6 +153,8 @@ static int add_locales_from_libdir (Set *locales) {
         FOREACH_DIRENT(entry, dir, return -errno) {
                 char *z;
 
+                dirent_ensure_type(dir, entry);
+
                 if (entry->d_type != DT_DIR)
                         continue;
 
