@@ -29,6 +29,7 @@ my $udev_bin_gdb        = "gdb --args $udev_bin";
 my $udev_bin_strace     = "strace -efile $udev_bin";
 my $udev_dev            = "test/dev";
 my $udev_run            = "test/run";
+my $udev_tmpfs          = "test/tmpfs";
 my $udev_rules_dir      = "$udev_run/udev/rules.d";
 my $udev_rules          = "$udev_rules_dir/udev-test.rules";
 my $EXIT_TEST_SKIP      = 77;
@@ -1412,6 +1413,12 @@ sub udev_setup {
         chown (0, 0, $udev_dev) || die "unable to chown $udev_dev\n";
         chmod (0755, $udev_dev) || die "unable to chmod $udev_dev\n";
 
+        system("umount", "$udev_tmpfs");
+        system("rm", "-rf", "$udev_tmpfs");
+        mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
+        system("mount", "-o", "rw,mode=755,nosuid,noexec,nodev", "-t", "tmpfs", "tmpfs", "$udev_tmpfs") && die "unable to mount tmpfs";
+        system("cp", "-r", "test/sys/", "$udev_tmpfs") && die "unable to copy test/sys";
+
         system("rm", "-rf", "$udev_run");
 }
 
@@ -1545,6 +1552,8 @@ print "$error errors occurred\n\n";
 # cleanup
 system("rm", "-rf", "$udev_dev");
 system("rm", "-rf", "$udev_run");
+system("umount", "$udev_tmpfs");
+system("rm", "-rf", "$udev_tmpfs");
 
 if ($error > 0) {
     exit(1);
