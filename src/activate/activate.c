@@ -316,19 +316,31 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
 }
 
 /* SIGCHLD handler. */
-static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
+static void sigchld_hdl(int sig) {
         PROTECT_ERRNO;
 
-        log_info("Child %d died with code %d", t->si_pid, t->si_status);
+        for (;;) {
+                siginfo_t si;
+                int r;
 
-        /* Wait for a dead child. */
-        (void) waitpid(t->si_pid, NULL, 0);
+                si.si_pid = 0;
+                r = waitid(P_ALL, 0, &si, WEXITED|WNOHANG);
+                if (r < 0) {
+                        if (errno != ECHILD)
+                                log_error_errno(errno, "Failed to reap children: %m");
+                        return;
+                }
+                if (si.si_pid == 0)
+                        return;
+
+                log_info("Child %d died with code %d", si.si_pid, si.si_status);
+        }
 }
 
 static int install_chld_handler(void) {
         static const struct sigaction act = {
-                .sa_flags = SA_SIGINFO,
-                .sa_sigaction = sigchld_hdl,
+                .sa_flags = SA_NOCLDSTOP,
+                .sa_handler = sigchld_hdl,
         };
 
         int r;
