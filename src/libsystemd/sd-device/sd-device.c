@@ -1457,15 +1457,20 @@ static int device_properties_prepare(sd_device *device) {
                 return r;
 
         if (device->property_devlinks_outdated) {
-                char *devlinks = NULL;
+                _cleanup_free_ char *devlinks = NULL;
+                size_t devlinks_allocated = 0, devlinks_len = 0;
                 const char *devlink;
 
-                devlink = sd_device_get_devlink_first(device);
-                if (devlink)
-                        devlinks = strdupa(devlink);
+                for (devlink = sd_device_get_devlink_first(device); devlink; devlink = sd_device_get_devlink_next(device)) {
+                        char *e;
 
-                while ((devlink = sd_device_get_devlink_next(device)))
-                        devlinks = strjoina(devlinks, " ", devlink);
+                        if (!GREEDY_REALLOC(devlinks, devlinks_allocated, devlinks_len + strlen(devlink) + 2))
+                                return -ENOMEM;
+                        if (devlinks_len > 0)
+                                stpcpy(devlinks + devlinks_len++, " ");
+                        e = stpcpy(devlinks + devlinks_len, devlink);
+                        devlinks_len = e - devlinks;
+                }
 
                 r = device_add_property_internal(device, "DEVLINKS", devlinks);
                 if (r < 0)
@@ -1475,17 +1480,23 @@ static int device_properties_prepare(sd_device *device) {
         }
 
         if (device->property_tags_outdated) {
-                char *tags = NULL;
+                _cleanup_free_ char *tags = NULL;
+                size_t tags_allocated = 0, tags_len = 0;
                 const char *tag;
 
-                tag = sd_device_get_tag_first(device);
-                if (tag)
-                        tags = strjoina(":", tag);
+                if (!GREEDY_REALLOC(tags, tags_allocated, 2))
+                        return -ENOMEM;
+                stpcpy(tags, ":");
+                tags_len++;
 
-                while ((tag = sd_device_get_tag_next(device)))
-                        tags = strjoina(tags, ":", tag);
+                for (tag = sd_device_get_tag_first(device); tag; tag = sd_device_get_tag_next(device)) {
+                        char *e;
 
-                tags = strjoina(tags, ":");
+                        if (!GREEDY_REALLOC(tags, tags_allocated, tags_len + strlen(tag) + 1))
+                                return -ENOMEM;
+                        e = stpcpy(stpcpy(tags + tags_len, tag), ":");
+                        tags_len = e - tags;
+                }
 
                 r = device_add_property_internal(device, "TAGS", tags);
                 if (r < 0)
