@@ -44,6 +44,10 @@ int polkit_agent_open(void) {
         if (agent_pid > 0)
                 return 0;
 
+        /* Clients that run as root don't need to activate/query polkit */
+        if (geteuid() == 0)
+                return 0;
+
         /* We check STDIN here, not STDOUT, since this is about input,
          * not output */
         if (!isatty(STDIN_FILENO))
