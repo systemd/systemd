@@ -48,6 +48,7 @@ typedef struct Uploader {
 
         size_t entries_sent;
         char *last_cursor, *current_cursor;
+        bool reset_reference_timestamp;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
