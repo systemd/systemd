@@ -328,8 +328,8 @@
           Gigabytes, or Terabytes, respectively, to the base of
           1000. (Example:
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
-          controls the <literal>blkio.read_bps_device</literal> and
-          <literal>blkio.write_bps_device</literal> control group
+          controls the <literal>blkio.throttle.read_bps_device</literal> and
+          <literal>blkio.throttle.write_bps_device</literal> control group
           attributes. Use this option multiple times to set bandwidth
           limits for multiple devices. For details about these control
           group attributes, see <ulink
