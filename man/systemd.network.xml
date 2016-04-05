@@ -853,23 +853,6 @@
     <variablelist class='network-directives'>
 
       <varlistentry>
-        <term><varname>Type=</varname></term>
-        <listitem><para>The type of DUID specified in this section. The following values are
-        supported:</para>
-        <variablelist>
-          <varlistentry>
-            <term><option>raw</option> </term>
-            <listitem><para>If <literal>Type=raw</literal>, then <literal>RawData=</literal> specifies the
-            entire DUID. For example, <literal>RawData=00:02:00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</literal>
-            specifies a 14 byte long DUID-EN ("00:02"), with enterprise number 43793 ("00:00:ab:11"),
-            and identifier value "f9:2a:c2:77:29:f9:5c:00".</para><para>If Type is not specified and
-            RawData is specified, Type defaults to 'raw'.</para></listitem>
-          </varlistentry>
-        </variablelist>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>RawData=</varname></term>
         <listitem><para>Specifies the DUID bytes as a single newline-terminated, hexadecimal
         string, with each byte separated by a ':'.</para></listitem>
