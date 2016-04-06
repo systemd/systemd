@@ -130,15 +130,14 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_no_pager, false);
 
-        r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.machine1",
-                                "/org/freedesktop/machine1",
-                                "org.freedesktop.machine1.Manager",
-                                "ListMachines",
-                                &error,
-                                &reply,
-                                NULL);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "ListMachines",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0) {
                 log_error("Could not get machines: %s", bus_error_message(&error, -r));
                 return r;
@@ -233,15 +232,14 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_no_pager, false);
 
-        r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.machine1",
-                                "/org/freedesktop/machine1",
-                                "org.freedesktop.machine1.Manager",
-                                "ListImages",
-                                &error,
-                                &reply,
-                                "");
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "ListImages",
+                               &error,
+                               &reply,
+                               "");
         if (r < 0) {
                 log_error("Could not get images: %s", bus_error_message(&error, -r));
                 return r;
@@ -714,15 +712,14 @@ static int show_machine(int argc, char *argv[], void *userdata) {
         for (i = 1; i < argc; i++) {
                 const char *path = NULL;
 
-                r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.machine1",
-                                        "/org/freedesktop/machine1",
-                                        "org.freedesktop.machine1.Manager",
-                                        "GetMachine",
-                                        &error,
-                                        &reply,
-                                        "s", argv[i]);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.machine1",
+                                       "/org/freedesktop/machine1",
+                                       "org.freedesktop.machine1.Manager",
+                                       "GetMachine",
+                                       &error,
+                                       &reply,
+                                       "s", argv[i]);
                 if (r < 0) {
                         log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
                         return r;
@@ -2184,15 +2181,14 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_no_pager, false);
 
-        r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.import1",
-                                "/org/freedesktop/import1",
-                                "org.freedesktop.import1.Manager",
-                                "ListTransfers",
-                                &error,
-                                &reply,
-                                NULL);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.import1",
+                               "/org/freedesktop/import1",
+                               "org.freedesktop.import1.Manager",
+                               "ListTransfers",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0) {
                 log_error("Could not get transfers: %s", bus_error_message(&error, -r));
                 return r;
