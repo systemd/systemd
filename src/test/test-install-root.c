@@ -30,6 +30,8 @@ static void test_basic_mask_and_enable(const char *root) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
 
+        log_set_max_level(LOG_DEBUG);
+
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "a.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", NULL) == -ENOENT);
