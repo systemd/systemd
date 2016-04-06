@@ -221,7 +221,7 @@ static char** user_dirs(
         return tmp;
 }
 
-char **generator_paths(UnitFileScope scope) {
+char **generator_binary_paths(UnitFileScope scope) {
 
         switch (scope) {
 

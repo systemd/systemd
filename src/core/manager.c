@@ -2715,7 +2715,7 @@ static int manager_run_generators(Manager *m) {
         if (m->test_run)
                 return 0;
 
-        paths = generator_paths(m->unit_file_scope);
+        paths = generator_binary_paths(m->unit_file_scope);
         if (!paths)
                 return log_oom();
 

@@ -45,7 +45,7 @@ struct LookupPaths {
         char *root_dir;
 };
 
-char **generator_paths(UnitFileScope scope);
+char **generator_binary_paths(UnitFileScope scope);
 
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, const char *root_dir);
 

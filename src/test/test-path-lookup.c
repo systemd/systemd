@@ -51,13 +51,13 @@ static void test_paths(UnitFileScope scope) {
         assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
-static void print_generator_paths(UnitFileScope scope) {
+static void print_generator_binary_paths(UnitFileScope scope) {
         _cleanup_strv_free_ char **paths;
         char **dir;
 
         log_info("Generators dirs (%s):", scope == UNIT_FILE_SYSTEM ? "system" : "user");
 
-        paths = generator_paths(scope);
+        paths = generator_binary_paths(scope);
         STRV_FOREACH(dir, paths)
                 log_info("        %s", *dir);
 }
@@ -71,8 +71,8 @@ int main(int argc, char **argv) {
         test_paths(UNIT_FILE_USER);
         test_paths(UNIT_FILE_GLOBAL);
 
-        print_generator_paths(UNIT_FILE_SYSTEM);
-        print_generator_paths(UNIT_FILE_USER);
+        print_generator_binary_paths(UNIT_FILE_SYSTEM);
+        print_generator_binary_paths(UNIT_FILE_USER);
 
         return EXIT_SUCCESS;
 }
