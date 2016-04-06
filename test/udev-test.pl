@@ -35,6 +35,11 @@ my $udev_rules_dir      = "$udev_run/udev/rules.d";
 my $udev_rules          = "$udev_rules_dir/udev-test.rules";
 my $EXIT_TEST_SKIP      = 77;
 
+my $rules_10k_tags      = "";
+for (my $i = 1; $i <= 10000; ++$i) {
+    $rules_10k_tags .= 'KERNEL=="sda", TAG+="test' . $i . "\"\n";
+}
+
 my @tests = (
         {
                 desc            => "no rules",
@@ -1319,6 +1324,25 @@ KERNEL=="sda", IMPORT{builtin}="path_id"
 KERNEL=="sda", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/\$env{ID_PATH}"
 EOF
         },
+        {
+                desc            => "add and match tag",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                not_exp_name    => "bad" ,
+                rules           => <<EOF
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", TAG+="green"
+TAGS=="green", SYMLINK+="found"
+TAGS=="blue", SYMLINK+="bad"
+EOF
+        },
+        {
+                desc            => "don't crash with lots of tags",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                rules           => $rules_10k_tags . <<EOF
+TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="found"
+EOF
+        },
 );
 
 sub udev {
@@ -1331,13 +1355,13 @@ sub udev {
         close CONF;
 
         if ($valgrind > 0) {
-                system("$udev_bin_valgrind $action $devpath");
+                return system("$udev_bin_valgrind $action $devpath");
         } elsif ($gdb > 0) {
-                system("$udev_bin_gdb $action $devpath");
+                return system("$udev_bin_gdb $action $devpath");
         } elsif ($strace > 0) {
-                system("$udev_bin_strace $action $devpath");
+                return system("$udev_bin_strace $action $devpath");
         } else {
-                system("$udev_bin", "$action", "$devpath");
+                return system("$udev_bin", "$action", "$devpath");
         }
 }
 
@@ -1425,11 +1449,16 @@ sub udev_setup {
 
 sub run_test {
         my ($rules, $number) = @_;
+        my $rc;
 
         print "TEST $number: $rules->{desc}\n";
         print "device \'$rules->{devpath}\' expecting node/link \'$rules->{exp_name}\'\n";
 
-        udev("add", $rules->{devpath}, \$rules->{rules});
+        $rc = udev("add", $rules->{devpath}, \$rules->{rules});
+        if ($rc != 0) {
+                print "$udev_bin add failed with code $rc\n";
+                $error++;
+        }
         if (defined($rules->{not_exp_name})) {
                 if ((-e "$udev_dev/$rules->{not_exp_name}") ||
                     (-l "$udev_dev/$rules->{not_exp_name}")) {
@@ -1470,7 +1499,11 @@ sub run_test {
                 return;
         }
 
-        udev("remove", $rules->{devpath}, \$rules->{rules});
+        $rc = udev("remove", $rules->{devpath}, \$rules->{rules});
+        if ($rc != 0) {
+                print "$udev_bin remove failed with code $rc\n";
+                $error++;
+        }
         if ((-e "$udev_dev/$rules->{exp_name}") ||
             (-l "$udev_dev/$rules->{exp_name}")) {
                 print "remove:      error";
