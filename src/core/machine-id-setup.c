@@ -120,10 +120,7 @@ static int generate_machine_id(char id[34], const char *root) {
 
         assert(id);
 
-        if (isempty(root))
-                dbus_machine_id = "/var/lib/dbus/machine-id";
-        else
-                dbus_machine_id = strjoina(root, "/var/lib/dbus/machine-id");
+        dbus_machine_id = prefix_roota(root, "/var/lib/dbus/machine-id");
 
         /* First, try reading the D-Bus machine id, unless it is a symlink */
         fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
@@ -203,18 +200,8 @@ int machine_id_setup(const char *root, sd_id128_t machine_id) {
         char id[34]; /* 32 + \n + \0 */
         int r;
 
-        if (isempty(root))  {
-                etc_machine_id = "/etc/machine-id";
-                run_machine_id = "/run/machine-id";
-        } else {
-                char *x;
-
-                x = strjoina(root, "/etc/machine-id");
-                etc_machine_id = path_kill_slashes(x);
-
-                x = strjoina(root, "/run/machine-id");
-                run_machine_id = path_kill_slashes(x);
-        }
+        etc_machine_id = prefix_roota(root, "/etc/machine-id");
+        run_machine_id = prefix_roota(root, "/run/machine-id");
 
         RUN_WITH_UMASK(0000) {
                 /* We create this 0444, to indicate that this isn't really
@@ -301,14 +288,7 @@ int machine_id_commit(const char *root) {
         char id[34]; /* 32 + \n + \0 */
         int r;
 
-        if (isempty(root))
-                etc_machine_id = "/etc/machine-id";
-        else {
-                char *x;
-
-                x = strjoina(root, "/etc/machine-id");
-                etc_machine_id = path_kill_slashes(x);
-        }
+        etc_machine_id = prefix_roota(root, "/etc/machine-id");
 
         r = path_is_mount_point(etc_machine_id, 0);
         if (r < 0)
