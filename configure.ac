@@ -889,7 +889,7 @@ AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
 have_libcurl=no
 AC_ARG_ENABLE(libcurl, AS_HELP_STRING([--disable-libcurl], [disable libcurl support]))
 if test "x$enable_libcurl" != "xno"; then
-        PKG_CHECK_MODULES(LIBCURL, [libcurl],
+        PKG_CHECK_MODULES(LIBCURL, [libcurl >= 7.32.0],
                 [AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available])
                  have_libcurl=yes
                  M4_DEFINES="$M4_DEFINES -DHAVE_LIBCURL"],
