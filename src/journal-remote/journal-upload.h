@@ -4,6 +4,7 @@
 
 #include "sd-event.h"
 #include "sd-journal.h"
+#include "time-util.h"
 
 typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */
@@ -48,6 +49,8 @@ typedef struct Uploader {
 
         size_t entries_sent;
         char *last_cursor, *current_cursor;
+        usec_t watchdog_timestamp;
+        usec_t watchdog_usec;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
