@@ -930,7 +930,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
         return 0;
 }
 
-int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all) {
+int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool value, bool all) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -970,7 +970,7 @@ int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, ch
                         if (r < 0)
                                 return r;
 
-                        r = bus_print_property(name, reply, false, all);
+                        r = bus_print_property(name, reply, value, all);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
