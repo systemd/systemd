@@ -832,7 +832,7 @@
   <refsect1>
     <title>[DUID] Section Options</title>
 
-    <para>This section configures the DHCP Unique Idendifier (DUID) value used by DHCP
+    <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCP
     protocol. DHCPv6 client protocol sends the DHCP Unique Identifier and the interface
     Identity Association Identifier (IAID) to a DHCP server when acquiring a dynamic IPv6
     address. DHCPv4 client protocol sends IAID and DUID to the DHCP server when acquiring
