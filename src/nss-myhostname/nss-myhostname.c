@@ -127,7 +127,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         memcpy(r_name, canonical, l+1);
         idx = ALIGN(l+1);
 
-        if (n_addresses <= 0) {
+        assert(n_addresses >= 0);
+        if (n_addresses == 0) {
                 /* Second, fill in IPv6 tuple */
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
                 r_tuple->next = r_tuple_prev;
@@ -453,38 +454,33 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         }
 
         n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
-        if (n_addresses > 0) {
-                for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
-                        if (af != a->family)
-                                continue;
+        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
+                if (af != a->family)
+                        continue;
 
-                        if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0)
-                                goto found;
-                }
+                if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0)
+                        goto found;
         }
 
         addresses = mfree(addresses);
 
         n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
-        if (n_addresses > 0) {
-                for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
-                        if (af != a->family)
-                                continue;
+        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
+                if (af != a->family)
+                        continue;
 
-                        if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
-                                canonical = "gateway";
-                                goto found;
-                        }
+                if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
+                        canonical = "gateway";
+                        goto found;
                 }
         }
 
         *errnop = ENOENT;
         *h_errnop = HOST_NOT_FOUND;
-
         return NSS_STATUS_NOTFOUND;
 
 found:
-        if (!canonical || (!additional && additional_from_hostname)) {
+        if (!canonical || additional_from_hostname) {
                 hn = gethostname_malloc();
                 if (!hn) {
                         *errnop = ENOMEM;
@@ -494,8 +490,7 @@ found:
 
                 if (!canonical)
                         canonical = hn;
-
-                if (!additional && additional_from_hostname)
+                else
                         additional = hn;
         }
 

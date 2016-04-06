@@ -155,8 +155,7 @@ int local_addresses(sd_netlink *context, int ifindex, int af, struct local_addre
                 n_list++;
         };
 
-        if (n_list > 0)
-                qsort(list, n_list, sizeof(struct local_address), address_compare);
+        qsort_safe(list, n_list, sizeof(struct local_address), address_compare);
 
         *ret = list;
         list = NULL;

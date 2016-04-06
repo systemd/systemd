@@ -238,6 +238,7 @@
 /test-network
 /test-network-tables
 /test-ns
+/test-nss
 /test-parse-util
 /test-path
 /test-path-lookup

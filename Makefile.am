@@ -4875,6 +4875,17 @@ EXTRA_DIST += \
 	src/timesync/timesyncd.conf.in
 
 # ------------------------------------------------------------------------------
+test_nss_SOURCES = \
+	src/test/test-nss.c
+
+test_nss_LDADD = \
+	libsystemd-internal.la \
+	-ldl
+
+tests += \
+	test-nss
+
+# ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME
 libnss_myhostname_la_SOURCES = \
 	src/nss-myhostname/nss-myhostname.sym \

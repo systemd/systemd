@@ -56,6 +56,38 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 return (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
         }
 
+#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,scope) \
+        scope int name##_to_string_alloc(type i, char **str) {          \
+                char *s;                                                \
+                if (i < 0 || i > max)                                   \
+                        return -ERANGE;                                 \
+                if (i < (type) ELEMENTSOF(name##_table)) {              \
+                        s = strdup(name##_table[i]);                    \
+                        if (!s)                                         \
+                                return -ENOMEM;                         \
+                } else {                                                \
+                        if (asprintf(&s, "%i", i) < 0)                  \
+                                return -ENOMEM;                         \
+                }                                                       \
+                *str = s;                                               \
+                return 0;                                               \
+        }
+
+#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,scope) \
+        type name##_from_string(const char *s) {                        \
+                type i;                                                 \
+                unsigned u = 0;                                         \
+                if (!s)                                                 \
+                        return (type) -1;                               \
+                for (i = 0; i < (type) ELEMENTSOF(name##_table); i++)   \
+                        if (streq_ptr(name##_table[i], s))              \
+                                return i;                               \
+                if (safe_atou(s, &u) >= 0 && u <= max)                  \
+                        return (type) u;                                \
+                return (type) -1;                                       \
+        }                                                               \
+
+
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
@@ -75,31 +107,11 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 /* For string conversions where numbers are also acceptable */
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
-        int name##_to_string_alloc(type i, char **str) {                \
-                char *s;                                                \
-                if (i < 0 || i > max)                                   \
-                        return -ERANGE;                                 \
-                if (i < (type) ELEMENTSOF(name##_table)) {              \
-                        s = strdup(name##_table[i]);                    \
-                        if (!s)                                         \
-                                return -ENOMEM;                         \
-                } else {                                                \
-                        if (asprintf(&s, "%i", i) < 0)                  \
-                                return -ENOMEM;                         \
-                }                                                       \
-                *str = s;                                               \
-                return 0;                                               \
-        }                                                               \
-        type name##_from_string(const char *s) {                        \
-                type i;                                                 \
-                unsigned u = 0;                                         \
-                if (!s)                                                 \
-                        return (type) -1;                               \
-                for (i = 0; i < (type) ELEMENTSOF(name##_table); i++)   \
-                        if (streq_ptr(name##_table[i], s))              \
-                                return i;                               \
-                if (safe_atou(s, &u) >= 0 && u <= max)                  \
-                        return (type) u;                                \
-                return (type) -1;                                       \
-        }                                                               \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,)  \
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,) \
         struct __useless_struct_to_allow_trailing_semicolon__
+
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max) \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max) \
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,static)
