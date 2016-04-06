@@ -27,9 +27,10 @@ my $strace              = 0;
 my $udev_bin_valgrind   = "valgrind --tool=memcheck --leak-check=yes --track-origins=yes --quiet $udev_bin";
 my $udev_bin_gdb        = "gdb --args $udev_bin";
 my $udev_bin_strace     = "strace -efile $udev_bin";
-my $udev_dev            = "test/dev";
 my $udev_run            = "test/run";
 my $udev_tmpfs          = "test/tmpfs";
+my $udev_sys            = "${udev_tmpfs}/sys";
+my $udev_dev            = "${udev_tmpfs}/dev";
 my $udev_rules_dir      = "$udev_run/udev/rules.d";
 my $udev_rules          = "$udev_rules_dir/udev-test.rules";
 my $EXIT_TEST_SKIP      = 77;
@@ -703,7 +704,7 @@ EOF
                 desc            => "big major number test",
                 devpath         => "/devices/virtual/misc/misc-fake1",
                 exp_name        => "node",
-                exp_majorminor  => "511:1",
+                exp_majorminor  => "4095:1",
                 rules                => <<EOF
 KERNEL=="misc-fake1", SYMLINK+="node"
 EOF
@@ -712,7 +713,7 @@ EOF
                 desc            => "big major and big minor number test",
                 devpath         => "/devices/virtual/misc/misc-fake89999",
                 exp_name        => "node",
-                exp_majorminor  => "511:89999",
+                exp_majorminor  => "4095:89999",
                 rules           => <<EOF
 KERNEL=="misc-fake89999", SYMLINK+="node"
 EOF
@@ -1406,18 +1407,18 @@ sub major_minor_test {
 }
 
 sub udev_setup {
-        system("rm", "-rf", "$udev_dev");
+        system("umount", $udev_tmpfs);
+        rmdir($udev_tmpfs);
+        mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
+        system("mount", "-o", "rw,mode=755,nosuid,noexec,nodev", "-t", "tmpfs", "tmpfs", $udev_tmpfs) && die "unable to mount tmpfs";
+
         mkdir($udev_dev) || die "unable to create udev_dev: $udev_dev\n";
         # setting group and mode of udev_dev ensures the tests work
         # even if the parent directory has setgid bit enabled.
         chown (0, 0, $udev_dev) || die "unable to chown $udev_dev\n";
         chmod (0755, $udev_dev) || die "unable to chmod $udev_dev\n";
 
-        system("umount", "$udev_tmpfs");
-        system("rm", "-rf", "$udev_tmpfs");
-        mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
-        system("mount", "-o", "rw,mode=755,nosuid,noexec,nodev", "-t", "tmpfs", "tmpfs", "$udev_tmpfs") && die "unable to mount tmpfs";
-        system("cp", "-r", "test/sys/", "$udev_tmpfs") && die "unable to copy test/sys";
+        system("cp", "-r", "test/sys/", $udev_sys) && die "unable to copy test/sys";
 
         system("rm", "-rf", "$udev_run");
 }
@@ -1550,10 +1551,9 @@ if ($list[0]) {
 print "$error errors occurred\n\n";
 
 # cleanup
-system("rm", "-rf", "$udev_dev");
 system("rm", "-rf", "$udev_run");
 system("umount", "$udev_tmpfs");
-system("rm", "-rf", "$udev_tmpfs");
+rmdir($udev_tmpfs);
 
 if ($error > 0) {
     exit(1);
