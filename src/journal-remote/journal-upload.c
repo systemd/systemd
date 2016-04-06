@@ -463,6 +463,8 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         if (r < 0)
                 return log_error_errno(r, "Failed to set up signals: %m");
 
+        (void) sd_watchdog_enabled(false, &u->watchdog_usec);
+
         return load_cursor_state(u);
 }
 
@@ -494,7 +496,7 @@ static int perform_upload(Uploader *u) {
 
         assert(u);
 
-        u->reset_reference_timestamp = true;
+        u->watchdog_timestamp = now(CLOCK_MONOTONIC);
         code = curl_easy_perform(u->easy);
         if (code) {
                 if (u->error[0])

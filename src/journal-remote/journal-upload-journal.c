@@ -244,24 +244,18 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 }
 
 static inline void check_update_watchdog(Uploader *u) {
-        usec_t watchdog_usec;
-        static usec_t before;
         usec_t after;
         usec_t elapsed_time;
 
-        if (sd_watchdog_enabled(false, &watchdog_usec) < 0)
+        if (u->watchdog_usec <= 0)
                 return;
-        if (u->reset_reference_timestamp) {
-                before = now(CLOCK_MONOTONIC);
-                u->reset_reference_timestamp = false;
-        } else {
-                after = now(CLOCK_MONOTONIC);
-                elapsed_time = usec_sub(after, before);
-                if (elapsed_time > watchdog_usec / 2) {
-                        log_debug("Update watchdog timer");
-                        sd_notify(false, "WATCHDOG=1");
-                        u->reset_reference_timestamp = true;
-                }
+
+        after = now(CLOCK_MONOTONIC);
+        elapsed_time = usec_sub(after, u->watchdog_timestamp);
+        if (elapsed_time > u->watchdog_usec / 2) {
+                log_debug("Update watchdog timer");
+                sd_notify(false, "WATCHDOG=1");
+                u->watchdog_timestamp = after;
         }
 }
 
