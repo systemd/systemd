@@ -45,11 +45,15 @@
 
   <refnamediv>
     <refname>systemd-coredump</refname>
+    <refname>systemd-coredump.socket</refname>
+    <refname>systemd-coredump@.service</refname>
     <refpurpose>Log and store core dumps</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>/usr/lib/systemd/systemd-coredump</filename></para>
+    <para><filename>systemd-coredump@.service</filename></para>
+    <para><filename>systemd-coredump.socket</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -84,6 +88,13 @@
     for details. By default, <command>systemd-coredump</command> will log the coredump including a
     backtrace if possible, and store the core (contents of process' memory contents) in an external
     file on disk in <filename>/var/lib/systemd/coredump</filename>.</para>
+
+    <para>When the kernel invokes <command>systemd-coredump</command> to handle a coredump,
+    it will connect to the socket created by the <filename>systemd-coredump.socket</filename>
+    unit, which in turn will spawn a <filename>systemd-coredump@.service</filename> instance
+    to process the coredump. Hence <filename>systemd-coredump.socket</filename>
+    and <filename>systemd-coredump@.service</filename> are helper units which do the actual
+    processing of coredumps and are subject to normal service management.</para>
 
     <para>The log entry and a backtrace are stored in the journal, and can be viewed with
     <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
