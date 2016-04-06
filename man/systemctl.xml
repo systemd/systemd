@@ -233,6 +233,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem>
+          <para>When printing properties with <command>show</command>,
+          only print the value, and skip the property name and
+          <literal>=</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--show-types</option></term>
 
         <listitem>
