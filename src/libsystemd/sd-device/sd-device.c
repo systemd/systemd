@@ -1492,7 +1492,7 @@ static int device_properties_prepare(sd_device *device) {
                 for (tag = sd_device_get_tag_first(device); tag; tag = sd_device_get_tag_next(device)) {
                         char *e;
 
-                        if (!GREEDY_REALLOC(tags, tags_allocated, tags_len + strlen(tag) + 1))
+                        if (!GREEDY_REALLOC(tags, tags_allocated, tags_len + strlen(tag) + 2))
                                 return -ENOMEM;
                         e = stpcpy(stpcpy(tags + tags_len, tag), ":");
                         tags_len = e - tags;
