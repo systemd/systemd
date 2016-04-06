@@ -1850,9 +1850,19 @@ MANPAGES += \
 	man/coredumpctl.1 \
 	man/systemd-coredump.8
 MANPAGES_ALIAS += \
-	man/coredump.conf.d.5
+	man/coredump.conf.d.5 \
+	man/systemd-coredump.socket.8 \
+	man/systemd-coredump@.service.8
 man/coredump.conf.d.5: man/coredump.conf.5
+man/systemd-coredump.socket.8: man/systemd-coredump.8
+man/systemd-coredump@.service.8: man/systemd-coredump.8
 man/coredump.conf.d.html: man/coredump.conf.html
+	$(html-alias)
+
+man/systemd-coredump.socket.html: man/systemd-coredump.html
+	$(html-alias)
+
+man/systemd-coredump@.service.html: man/systemd-coredump.html
 	$(html-alias)
 
 endif

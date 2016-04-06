@@ -224,7 +224,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>KillSignal=</option></term>
+        <term><varname>KillSignal=</varname></term>
 
         <listitem><para>Specify the process signal to send to the
         container's PID 1 when nspawn itself receives SIGTERM, in

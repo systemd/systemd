@@ -18,6 +18,8 @@
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 # The contents of this are an example to be copied into systemd.spec.
+#
+# Minimum rpm version supported: 4.13.0
 
 %transfiletriggerin -P 900900 -p <lua> -- @systemunitdir@ /etc/systemd/system
 -- This script will run after any package is initially installed or

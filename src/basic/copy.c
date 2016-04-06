@@ -71,7 +71,7 @@ static ssize_t try_copy_file_range(int fd_in, loff_t *off_in,
 int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
         bool try_cfr = true, try_sendfile = true, try_splice = true;
         int r;
-        size_t m = SSIZE_MAX; /* that the maximum that sendfile and c_f_r accept */
+        size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -94,8 +94,8 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                         if (max_bytes <= 0)
                                 return 1; /* return > 0 if we hit the max_bytes limit */
 
-                        if ((uint64_t) m > max_bytes)
-                                m = (size_t) max_bytes;
+                        if (m > max_bytes)
+                                m = max_bytes;
                 }
 
                 /* First try copy_file_range(), unless we already tried */

@@ -112,7 +112,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size < 9)
                 return -ENOBUFS;
 
-        r = LZ4_compress_limitedOutput(src, dst + 8, src_size, (int) dst_alloc_size - 8);
+        r = LZ4_compress_limitedOutput(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8);
         if (r <= 0)
                 return -ENOBUFS;
 
@@ -176,7 +176,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
                         return -ENOMEM;
 
                 s.avail_out = space - used;
-                s.next_out = *dst + used;
+                s.next_out = *(uint8_t**)dst + used;
         }
 
         *dst_size = space - s.avail_out;
@@ -215,7 +215,7 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
         } else
                 out = *dst;
 
-        r = LZ4_decompress_safe(src + 8, out, src_size - 8, size);
+        r = LZ4_decompress_safe((char*)src + 8, out, src_size - 8, size);
         if (r < 0 || r != size)
                 return -EBADMSG;
 
@@ -291,7 +291,7 @@ int decompress_startswith_xz(const void *src, uint64_t src_size,
                 if (!(greedy_realloc(buffer, buffer_size, *buffer_size * 2, 1)))
                         return -ENOMEM;
 
-                s.next_out = *buffer + *buffer_size - s.avail_out;
+                s.next_out = *(uint8_t**)buffer + *buffer_size - s.avail_out;
         }
 
 #else
@@ -324,7 +324,7 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
         if (!(greedy_realloc(buffer, buffer_size, ALIGN_8(prefix_len + 1), 1)))
                 return -ENOMEM;
 
-        r = LZ4_decompress_safe_partial(src + 8, *buffer, src_size - 8,
+        r = LZ4_decompress_safe_partial((char*)src + 8, *buffer, src_size - 8,
                                         prefix_len + 1, *buffer_size);
         if (r >= 0)
                 size = (unsigned) r;

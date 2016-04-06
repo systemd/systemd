@@ -100,7 +100,6 @@ enum {
           SD_LLDP_SYSTEM_CAPABILITIES_SVLAN|                            \
           SD_LLDP_SYSTEM_CAPABILITIES_TPMR))
 
-
 #define SD_LLDP_OUI_802_1 (uint8_t[]) { 0x00, 0x80, 0xc2 }
 #define SD_LLDP_OUI_802_3 (uint8_t[]) { 0x00, 0x12, 0x0f }
 

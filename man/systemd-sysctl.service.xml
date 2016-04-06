@@ -62,24 +62,29 @@
     <para><filename>systemd-sysctl.service</filename> is an early boot
     service that configures
     <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    kernel parameters.</para>
+    kernel parameters by invoking <command>/usr/lib/systemd/systemd-sysctl</command>.</para>
 
-    <para>If invoked with no arguments, it applies all directives from
-    all configuration files in
-    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    are searched for a matching file. If one or more filenames are passed on
-    the command line, only the directives in these files are applied.
-    </para>
+    <para>When invoked with no arguments, <command>/usr/lib/systemd/systemd-sysctl</command> applies
+    all directives from configuration files listed in
+    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    If one or more filenames are passed on the command line, only the directives in these files are
+    applied.</para>
+
+    <para>In addition, <option>--prefix=</option> option may be used to limit which sysctl
+    settings are applied.</para>
 
     <para>See
     <citerefentry project='man-pages'><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for information about the configuration of this service.</para>
+    for information about the configuration of sysctl settings. After sysctl configuration is
+    changed on disk, it must be written to the files in <filename>/proc/sys</filename> before it
+    takes effect. It is possible to update specific settings, or simply to reload all configuration,
+    see Examples below.</para>
   </refsect1>
 
   <refsect1><title>Options</title>
     <variablelist>
-      <varlistentry id='path'>
-        <term><option>--path=</option></term>
+      <varlistentry id='prefix'>
+        <term><option>--prefix=</option></term>
         <listitem>
           <para>Only apply rules with the specified prefix.</para>
         </listitem>
@@ -89,6 +94,50 @@
       <xi:include href="standard-options.xml" xpointer="version" />
 
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Reset all sysctl settings</title>
+
+      <programlisting>systemctl restart systemd-sysctl</programlisting>
+    </example>
+
+    <example>
+      <title>View coredump handler configuration</title>
+
+      <programlisting># sysctl kernel.core_pattern
+kernel.core_pattern = |/usr/libexec/abrt-hook-ccpp %s %c %p %u %g %t %P %I
+</programlisting>
+    </example>
+
+    <example>
+      <title>Update coredump handler configuration</title>
+
+      <programlisting># /usr/lib/systemd/systemd-sysctl --prefix kernel.core_pattern</programlisting>
+
+      <para>This searches all the directories listed in
+      <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for configuration files and writes <filename>/proc/sys/kernel/core_pattern</filename>.</para>
+    </example>
+
+    <example>
+      <title>Update coredump handler configuration according to a specific file</title>
+
+      <programlisting># /usr/lib/systemd/systemd-sysctl 50-coredump.conf</programlisting>
+
+      <para>This applies all the settings found in <filename>50-coredump.conf</filename>.
+      Either <filename>/etc/sysctl.d/50-coredump.conf</filename>, or
+      <filename>/run/sysctl.d/50-coredump.conf</filename>, or
+      <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> will be used, in the order
+      of preference.</para>
+    </example>
+
+    <para>See
+    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for various ways to directly apply sysctl settings.</para>
   </refsect1>
 
   <refsect1>

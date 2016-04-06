@@ -90,6 +90,18 @@ static inline int safe_atoli(const char *s, long int *ret_u) {
 }
 #endif
 
+#if SIZE_MAX == UINT_MAX
+static inline int safe_atozu(const char *s, size_t *ret_u) {
+        assert_cc(sizeof(size_t) == sizeof(unsigned));
+        return safe_atou(s, ret_u);
+}
+#else
+static inline int safe_atozu(const char *s, size_t *ret_u) {
+        assert_cc(sizeof(size_t) == sizeof(long unsigned));
+        return safe_atolu(s, ret_u);
+}
+#endif
+
 int safe_atod(const char *s, double *ret_d);
 
 int parse_fractional_part_u(const char **s, size_t digits, unsigned *res);
