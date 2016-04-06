@@ -53,6 +53,7 @@ int lookup_paths_reduce(LookupPaths *p);
 
 int lookup_paths_mkdir_generator(LookupPaths *p);
 void lookup_paths_trim_generator(LookupPaths *p);
+void lookup_paths_flush_generator(LookupPaths *p);
 
 void lookup_paths_free(LookupPaths *p);
 #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)

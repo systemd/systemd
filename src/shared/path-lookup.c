@@ -726,3 +726,14 @@ void lookup_paths_trim_generator(LookupPaths *p) {
         if (p->generator_late)
                 (void) rmdir(p->generator_late);
 }
+
+void lookup_paths_flush_generator(LookupPaths *p) {
+        assert(p);
+
+        if (p->generator)
+                (void) rm_rf(p->generator, REMOVE_ROOT);
+        if (p->generator_early)
+                (void) rm_rf(p->generator_early, REMOVE_ROOT);
+        if (p->generator_late)
+                (void) rm_rf(p->generator_late, REMOVE_ROOT);
+}

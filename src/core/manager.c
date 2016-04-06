@@ -100,7 +100,6 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_run_generators(Manager *m);
-static void manager_undo_generators(Manager *m);
 
 static void manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
@@ -930,7 +929,7 @@ Manager* manager_free(Manager *m) {
          * around */
         manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
-        manager_undo_generators(m);
+        lookup_paths_flush_generator(&m->lookup_paths);
 
         bus_done(m);
 
@@ -2522,7 +2521,7 @@ int manager_reload(Manager *m) {
 
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
-        manager_undo_generators(m);
+        lookup_paths_flush_generator(&m->lookup_paths);
         lookup_paths_free(&m->lookup_paths);
 
         q = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, NULL);
@@ -2748,17 +2747,6 @@ static int manager_run_generators(Manager *m) {
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);
         return r;
-}
-
-static void manager_undo_generators(Manager *m) {
-        assert(m);
-
-        if (m->lookup_paths.generator)
-                (void) rm_rf(m->lookup_paths.generator, REMOVE_ROOT);
-        if (m->lookup_paths.generator_early)
-                (void) rm_rf(m->lookup_paths.generator_early, REMOVE_ROOT);
-        if (m->lookup_paths.generator_late)
-                (void) rm_rf(m->lookup_paths.generator_late, REMOVE_ROOT);
 }
 
 int manager_environment_add(Manager *m, char **minus, char **plus) {
