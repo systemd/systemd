@@ -1331,13 +1331,13 @@ sub udev {
         close CONF;
 
         if ($valgrind > 0) {
-                system("$udev_bin_valgrind $action $devpath");
+                return system("$udev_bin_valgrind $action $devpath");
         } elsif ($gdb > 0) {
-                system("$udev_bin_gdb $action $devpath");
+                return system("$udev_bin_gdb $action $devpath");
         } elsif ($strace > 0) {
-                system("$udev_bin_strace $action $devpath");
+                return system("$udev_bin_strace $action $devpath");
         } else {
-                system("$udev_bin", "$action", "$devpath");
+                return system("$udev_bin", "$action", "$devpath");
         }
 }
 
@@ -1425,11 +1425,16 @@ sub udev_setup {
 
 sub run_test {
         my ($rules, $number) = @_;
+        my $rc;
 
         print "TEST $number: $rules->{desc}\n";
         print "device \'$rules->{devpath}\' expecting node/link \'$rules->{exp_name}\'\n";
 
-        udev("add", $rules->{devpath}, \$rules->{rules});
+        $rc = udev("add", $rules->{devpath}, \$rules->{rules});
+        if ($rc != 0) {
+                print "$udev_bin add failed with code $rc\n";
+                $error++;
+        }
         if (defined($rules->{not_exp_name})) {
                 if ((-e "$udev_dev/$rules->{not_exp_name}") ||
                     (-l "$udev_dev/$rules->{not_exp_name}")) {
@@ -1470,7 +1475,11 @@ sub run_test {
                 return;
         }
 
-        udev("remove", $rules->{devpath}, \$rules->{rules});
+        $rc = udev("remove", $rules->{devpath}, \$rules->{rules});
+        if ($rc != 0) {
+                print "$udev_bin remove failed with code $rc\n";
+                $error++;
+        }
         if ((-e "$udev_dev/$rules->{exp_name}") ||
             (-l "$udev_dev/$rules->{exp_name}")) {
                 print "remove:      error";
