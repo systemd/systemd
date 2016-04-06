@@ -24,6 +24,7 @@
 
 #ifdef HAVE_XKBCOMMON
 #include <xkbcommon/xkbcommon.h>
+#include <dlfcn.h>
 #endif
 
 #include "sd-bus.h"
@@ -1101,6 +1102,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 }
 
 #ifdef HAVE_XKBCOMMON
+
 _printf_(3, 0)
 static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
         const char *fmt;
@@ -1109,7 +1111,24 @@ static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char 
         log_internalv(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, fmt, args);
 }
 
+#define LOAD_SYMBOL(symbol, dl, name)                                   \
+        ({                                                              \
+                (symbol) = (typeof(symbol)) dlvsym((dl), (name), "V_0.5.0"); \
+                (symbol) ? 0 : -EOPNOTSUPP;                             \
+        })
+
 static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
+
+        /* We dlopen() the library in order to make the dependency soft. The library (and what it pulls in) is huge
+         * after all, hence let's support XKB maps when the library is around, and refuse otherwise. The function
+         * pointers to the shared library are below: */
+
+        struct xkb_context* (*symbol_xkb_context_new)(enum xkb_context_flags flags) = NULL;
+        void (*symbol_xkb_context_unref)(struct xkb_context *context) = NULL;
+        void (*symbol_xkb_context_set_log_fn)(struct xkb_context *context, void (*log_fn)(struct xkb_context *context, enum xkb_log_level level, const char *format, va_list args)) = NULL;
+        struct xkb_keymap* (*symbol_xkb_keymap_new_from_names)(struct xkb_context *context, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags) = NULL;
+        void (*symbol_xkb_keymap_unref)(struct xkb_keymap *keymap) = NULL;
+
         const struct xkb_rule_names rmlvo = {
                 .model          = model,
                 .layout         = layout,
@@ -1118,35 +1137,68 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
         };
         struct xkb_context *ctx = NULL;
         struct xkb_keymap *km = NULL;
+        void *dl;
         int r;
 
-        /* compile keymap from RMLVO information to check out its validity */
+        /* Compile keymap from RMLVO information to check out its validity */
 
-        ctx = xkb_context_new(XKB_CONTEXT_NO_ENVIRONMENT_NAMES);
+        dl = dlopen("libxkbcommon.so.0", RTLD_LAZY);
+        if (!dl)
+                return -EOPNOTSUPP;
+
+        r = LOAD_SYMBOL(symbol_xkb_context_new, dl, "xkb_context_new");
+        if (r < 0)
+                goto finish;
+
+        r = LOAD_SYMBOL(symbol_xkb_context_unref, dl, "xkb_context_unref");
+        if (r < 0)
+                goto finish;
+
+        r = LOAD_SYMBOL(symbol_xkb_context_set_log_fn, dl, "xkb_context_set_log_fn");
+        if (r < 0)
+                goto finish;
+
+        r = LOAD_SYMBOL(symbol_xkb_keymap_new_from_names, dl, "xkb_keymap_new_from_names");
+        if (r < 0)
+                goto finish;
+
+        r = LOAD_SYMBOL(symbol_xkb_keymap_unref, dl, "xkb_keymap_unref");
+        if (r < 0)
+                goto finish;
+
+        ctx = symbol_xkb_context_new(XKB_CONTEXT_NO_ENVIRONMENT_NAMES);
         if (!ctx) {
                 r = -ENOMEM;
-                goto exit;
+                goto finish;
         }
 
-        xkb_context_set_log_fn(ctx, log_xkb);
+        symbol_xkb_context_set_log_fn(ctx, log_xkb);
 
-        km = xkb_keymap_new_from_names(ctx, &rmlvo, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        km = symbol_xkb_keymap_new_from_names(ctx, &rmlvo, XKB_KEYMAP_COMPILE_NO_FLAGS);
         if (!km) {
                 r = -EINVAL;
-                goto exit;
+                goto finish;
         }
 
         r = 0;
 
-exit:
-        xkb_keymap_unref(km);
-        xkb_context_unref(ctx);
+finish:
+        if (symbol_xkb_keymap_unref && km)
+                symbol_xkb_keymap_unref(km);
+
+        if (symbol_xkb_context_unref && ctx)
+                symbol_xkb_context_unref(ctx);
+
+        (void) dlclose(dl);
         return r;
 }
+
 #else
+
 static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
         return 0;
 }
+
 #endif
 
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1203,7 +1255,11 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 if (r < 0) {
                         log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
                                         strempty(model), strempty(layout), strempty(variant), strempty(options));
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot compile XKB keymap, refusing");
+
+                        if (r == -EOPNOTSUPP)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
+
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
                 }
 
                 if (free_and_strdup(&c->x11_layout, layout) < 0 ||

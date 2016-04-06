@@ -4729,8 +4729,7 @@ systemd_localed_SOURCES = \
 	src/locale/localed.c
 
 systemd_localed_LDADD = \
-	libshared.la \
-	$(XKBCOMMON_LIBS)
+	libshared.la
 
 systemd_localed_CFLAGS = \
 	$(AM_CFLAGS) \
