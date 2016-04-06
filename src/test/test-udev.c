@@ -40,11 +40,11 @@ static int fake_filesystems(void) {
                 const char *target;
                 const char *error;
         } fakefss[] = {
-                { "test/sys", "/sys",                   "failed to mount test /sys" },
-                { "test/dev", "/dev",                   "failed to mount test /dev" },
-                { "test/run", "/run",                   "failed to mount test /run" },
-                { "test/run", "/etc/udev/rules.d",      "failed to mount empty /etc/udev/rules.d" },
-                { "test/run", UDEVLIBEXECDIR "/rules.d","failed to mount empty " UDEVLIBEXECDIR "/rules.d" },
+                { "test/tmpfs/sys", "/sys",                   "failed to mount test /sys" },
+                { "test/dev",       "/dev",                   "failed to mount test /dev" },
+                { "test/run",       "/run",                   "failed to mount test /run" },
+                { "test/run",       "/etc/udev/rules.d",      "failed to mount empty /etc/udev/rules.d" },
+                { "test/run",       UDEVLIBEXECDIR "/rules.d","failed to mount empty " UDEVLIBEXECDIR "/rules.d" },
         };
         unsigned int i;
         int err;
