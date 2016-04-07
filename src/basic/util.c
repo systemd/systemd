@@ -55,6 +55,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -781,7 +782,8 @@ int update_reboot_param_file(const char *param) {
         int r = 0;
 
         if (param) {
-                r = write_string_file(REBOOT_PARAM_FILE, param, WRITE_STRING_FILE_CREATE);
+                RUN_WITH_UMASK(0022)
+                        r = write_string_file(REBOOT_PARAM_FILE, param, WRITE_STRING_FILE_CREATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write reboot param to "REBOOT_PARAM_FILE": %m");
         } else
