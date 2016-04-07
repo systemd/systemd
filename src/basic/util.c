@@ -778,16 +778,24 @@ uint64_t physical_memory(void) {
         return (uint64_t) mem * (uint64_t) page_size();
 }
 
-int update_reboot_param_file(const char *param) {
-        int r = 0;
+int update_reboot_parameter_and_warn(const char *param) {
+        int r;
 
-        if (param) {
-                RUN_WITH_UMASK(0022)
-                        r = write_string_file(REBOOT_PARAM_FILE, param, WRITE_STRING_FILE_CREATE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write reboot param to "REBOOT_PARAM_FILE": %m");
-        } else
-                (void) unlink(REBOOT_PARAM_FILE);
+        if (isempty(param)) {
+                if (unlink("/run/systemd/reboot-param") < 0) {
+                        if (errno == ENOENT)
+                                return 0;
+
+                        return log_warning_errno(errno, "Failed to unlink reboot parameter file: %m");
+                }
+
+                return 0;
+        }
+
+        RUN_WITH_UMASK(0022)
+                r = write_string_file("/run/systemd/reboot-param", param, WRITE_STRING_FILE_CREATE);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to write reboot parameter file: %m");
 
         return 0;
 }

@@ -397,9 +397,14 @@ int main(int argc, char *argv[]) {
                 if (!in_container) {
                         _cleanup_free_ char *param = NULL;
 
-                        if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
+                        r = read_one_line_file("/run/systemd/reboot-param", &param);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to read reboot parameter file: %m");
+
+                        if (!isempty(param)) {
                                 log_info("Rebooting with argument '%s'.", param);
                                 syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
+                                log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                         }
                 }
 

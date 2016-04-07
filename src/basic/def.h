@@ -41,8 +41,6 @@
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE
 
-#define REBOOT_PARAM_FILE "/run/systemd/reboot-param"
-
 #ifdef HAVE_SPLIT_USR
 #define KBD_KEYMAP_DIRS                         \
         "/usr/share/keymaps/\0"                 \

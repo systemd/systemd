@@ -3136,7 +3136,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (a == ACTION_REBOOT && argc > 1) {
-                r = update_reboot_param_file(argv[1]);
+                r = update_reboot_parameter_and_warn(argv[1]);
                 if (r < 0)
                         return r;
 
@@ -6949,7 +6949,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
-                r = update_reboot_param_file(argc == optind + 1 ? argv[optind] : NULL);
+                r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL);
                 if (r < 0)
                         return r;
         } else if (optind < argc) {
@@ -7450,6 +7450,7 @@ static int start_with_fallback(void) {
 }
 
 static int halt_now(enum action a) {
+        int r;
 
         /* The kernel will automaticall flush ATA disks and suchlike
          * on reboot(), but the file systems need to be synce'd
@@ -7476,9 +7477,14 @@ static int halt_now(enum action a) {
         case ACTION_REBOOT: {
                 _cleanup_free_ char *param = NULL;
 
-                if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
+                r = read_one_line_file("/run/systemd/reboot-param", &param);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to read reboot parameter file: %m");
+
+                if (!isempty(param)) {
                         log_info("Rebooting with argument '%s'.", param);
                         (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
+                        log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                 }
 
                 log_info("Rebooting.");
