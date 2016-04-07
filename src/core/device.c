@@ -322,7 +322,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
                 /* This unit is in plugged state: we're sure it's
                  * attached to a device. */
                 if (!path_equal(DEVICE(u)->sysfs, sysfs)) {
-                        log_unit_error(u, "Dev %s appeared twice with different sysfs paths %s and %s",
+                        log_unit_debug(u, "Dev %s appeared twice with different sysfs paths %s and %s",
                                        e, DEVICE(u)->sysfs, sysfs);
                         return -EEXIST;
                 }
