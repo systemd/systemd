@@ -4882,7 +4882,7 @@ test_nss_LDADD = \
 	libsystemd-internal.la \
 	-ldl
 
-tests += \
+manual_tests += \
 	test-nss
 
 # ------------------------------------------------------------------------------
