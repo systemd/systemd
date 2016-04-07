@@ -2052,6 +2052,25 @@ int unit_file_get_state(
         return unit_file_lookup_state(scope, &paths, name, ret);
 }
 
+int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *name) {
+        _cleanup_(install_context_done) InstallContext c = {};
+        int r;
+
+        assert(paths);
+        assert(name);
+
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        r = install_info_discover(scope, &c, paths, name, 0, NULL);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
         _cleanup_strv_free_ char **files = NULL;
         char **p;

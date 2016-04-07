@@ -5223,8 +5223,10 @@ static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
 #if defined(HAVE_SYSV_COMPAT)
-        unsigned f = 0;
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        unsigned f = 0;
+
+        /* Processes all SysV units, and reshuffles the array so that afterwards only the native units remain */
 
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return 0;
@@ -5238,24 +5240,28 @@ static int enable_sysv_units(const char *verb, char **args) {
                         "is-enabled"))
                 return 0;
 
-        /* Processes all SysV units, and reshuffles the array so that
-         * afterwards only the native units remain */
-
         r = lookup_paths_init(&paths, arg_scope, arg_root);
         if (r < 0)
                 return r;
 
         r = 0;
         while (args[f]) {
-                const char *name;
+
+                const char *argv[] = {
+                        ROOTLIBEXECDIR "/systemd-sysv-install",
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                };
+
                 _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
-                unsigned c = 1;
-                const char *argv[6] = { ROOTLIBEXECDIR "/systemd-sysv-install", NULL, NULL, NULL, NULL };
-                char **k;
-                int j;
-                pid_t pid;
                 siginfo_t status;
+                const char *name;
+                unsigned c = 1;
+                pid_t pid;
+                int j;
 
                 name = args[f++];
 
@@ -5265,21 +5271,13 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (path_is_absolute(name))
                         continue;
 
-                STRV_FOREACH(k, paths.search_path) {
-                        _cleanup_free_ char *path = NULL;
+                j = unit_file_exists(arg_scope, &paths, name);
+                if (j < 0)
+                        return log_error_errno(j, "Failed to lookup unit file state: %m");
+                found_native = j > 0;
 
-                        path = path_join(arg_root, *k, name);
-                        if (!path)
-                                return log_oom();
-
-                        found_native = access(path, F_OK) >= 0;
-                        if (found_native)
-                                break;
-                }
-
-                /* If we have both a native unit and a SysV script,
-                 * enable/disable them both (below); for is-enabled, prefer the
-                 * native unit */
+                /* If we have both a native unit and a SysV script, enable/disable them both (below); for is-enabled,
+                 * prefer the native unit */
                 if (found_native && streq(verb, "is-enabled"))
                         continue;
 
@@ -5293,9 +5291,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                         continue;
 
                 if (found_native)
-                        log_info("Synchronizing state of %s with SysV init with %s...", name, argv[0]);
+                        log_info("Synchronizing state of %s with SysV service script with %s.", name, argv[0]);
                 else
-                        log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
+                        log_info("%s is not a native service, redirecting to systemd-sysv-install.", name);
 
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
@@ -5308,7 +5306,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!l)
                         return log_oom();
 
-                log_info("Executing %s", l);
+                log_info("Executing: %s", l);
 
                 pid = fork();
                 if (pid < 0)
