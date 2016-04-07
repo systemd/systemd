@@ -223,30 +223,6 @@ static char** user_dirs(
         return tmp;
 }
 
-char **generator_binary_paths(UnitFileScope scope) {
-
-        switch (scope) {
-
-        case UNIT_FILE_SYSTEM:
-                return strv_new("/run/systemd/system-generators",
-                                "/etc/systemd/system-generators",
-                                "/usr/local/lib/systemd/system-generators",
-                                SYSTEM_GENERATOR_PATH,
-                                NULL);
-
-        case UNIT_FILE_GLOBAL:
-        case UNIT_FILE_USER:
-                return strv_new("/run/systemd/user-generators",
-                                "/etc/systemd/user-generators",
-                                "/usr/local/lib/systemd/user-generators",
-                                USER_GENERATOR_PATH,
-                                NULL);
-
-        default:
-                assert_not_reached("Hmm, unexpected scope.");
-        }
-}
-
 static int acquire_generator_dirs(
                 UnitFileScope scope,
                 char **generator,
@@ -814,4 +790,28 @@ void lookup_paths_flush_generator(LookupPaths *p) {
                 (void) rm_rf(p->generator_early, REMOVE_ROOT);
         if (p->generator_late)
                 (void) rm_rf(p->generator_late, REMOVE_ROOT);
+}
+
+char **generator_binary_paths(UnitFileScope scope) {
+
+        switch (scope) {
+
+        case UNIT_FILE_SYSTEM:
+                return strv_new("/run/systemd/system-generators",
+                                "/etc/systemd/system-generators",
+                                "/usr/local/lib/systemd/system-generators",
+                                SYSTEM_GENERATOR_PATH,
+                                NULL);
+
+        case UNIT_FILE_GLOBAL:
+        case UNIT_FILE_USER:
+                return strv_new("/run/systemd/user-generators",
+                                "/etc/systemd/user-generators",
+                                "/usr/local/lib/systemd/user-generators",
+                                USER_GENERATOR_PATH,
+                                NULL);
+
+        default:
+                assert_not_reached("Hmm, unexpected scope.");
+        }
 }

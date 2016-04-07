@@ -58,8 +58,6 @@ struct LookupPaths {
         char *root_dir;
 };
 
-char **generator_binary_paths(UnitFileScope scope);
-
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, const char *root_dir);
 
 int lookup_paths_reduce(LookupPaths *p);
@@ -70,3 +68,5 @@ void lookup_paths_flush_generator(LookupPaths *p);
 
 void lookup_paths_free(LookupPaths *p);
 #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
+
+char **generator_binary_paths(UnitFileScope scope);
