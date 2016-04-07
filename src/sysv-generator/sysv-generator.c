@@ -806,11 +806,11 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         if (hashmap_contains(all_services, name))
                                 continue;
 
-                        r = unit_file_lookup_state(UNIT_FILE_SYSTEM, lp, name, NULL);
-                        if (r < 0 && r != -ENOENT) {
+                        r = unit_file_exists(UNIT_FILE_SYSTEM, lp, name);
+                        if (r < 0) {
                                 log_debug_errno(r, "Failed to detect whether %s exists, skipping: %m", name);
                                 continue;
-                        } else if (r >= 0) {
+                        } else if (r > 0) {
                                 log_debug("Native unit for %s already exists, skipping.", name);
                                 continue;
                         }
