@@ -5318,7 +5318,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                         (void) reset_signal_mask();
 
                         execv(argv[0], (char**) argv);
-                        log_error_errno(r, "Failed to execute %s: %m", argv[0]);
+                        log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
                 }
 
