@@ -5340,9 +5340,11 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 }
 
                         } else if (status.si_status != 0)
-                                return -EINVAL;
-                } else
+                                return -EBADE; /* We don't warn here, under the assumption the script already showed an explanation */
+                } else {
+                        log_error("Unexpected waitid() result.");
                         return -EPROTO;
+                }
 
                 if (found_native)
                         continue;
@@ -5413,8 +5415,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        /* If the operation was fully executed by the SysV compat,
-         * let's finish early */
+        /* If the operation was fully executed by the SysV compat, let's finish early */
         if (strv_isempty(names))
                 return 0;
 
