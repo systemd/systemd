@@ -240,8 +240,6 @@ static int link_send_lldp(Link *link) {
         (void) parse_env_file("/etc/machine-info", NEWLINE, "PRETTY_HOSTNAME", &pretty_hostname, NULL);
 
         ttl = DIV_ROUND_UP(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1, USEC_PER_SEC);
-        if (ttl > (usec_t) UINT16_MAX)
-                ttl = (usec_t) UINT16_MAX;
 
         caps = (link->network && link->network->ip_forward != ADDRESS_FAMILY_NO) ?
                 SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
