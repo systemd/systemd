@@ -1507,7 +1507,7 @@ int unit_file_mask(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -1554,7 +1554,7 @@ int unit_file_unmask(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -1636,7 +1636,7 @@ int unit_file_link(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -1727,7 +1727,7 @@ int unit_file_add_dependency(
         if (!unit_name_is_valid(target, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -1791,7 +1791,7 @@ int unit_file_enable(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -1834,7 +1834,7 @@ int unit_file_disable(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -1907,7 +1907,7 @@ int unit_file_set_default(
         if (streq(name, SPECIAL_DEFAULT_TARGET))
                 return -EINVAL;
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -1939,7 +1939,7 @@ int unit_file_get_default(
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(name);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -2045,7 +2045,7 @@ int unit_file_get_state(
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(name);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -2255,7 +2255,7 @@ int unit_file_preset(
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(mode < _UNIT_FILE_PRESET_MAX);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -2292,7 +2292,7 @@ int unit_file_preset_all(
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(mode < _UNIT_FILE_PRESET_MAX);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
@@ -2361,7 +2361,7 @@ int unit_file_get_list(
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(h);
 
-        r = lookup_paths_init(&paths, scope, root_dir);
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
 

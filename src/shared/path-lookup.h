@@ -26,6 +26,10 @@ typedef struct LookupPaths LookupPaths;
 #include "install.h"
 #include "macro.h"
 
+typedef enum LookupPathsFlags {
+        LOOKUP_PATHS_EXCLUDE_GENERATED = 1,
+} LookupPathsFlags;
+
 struct LookupPaths {
         /* Where we look for unit files. This includes the individual special paths below, but also any vendor
          * supplied, static unit file paths. */
@@ -58,7 +62,7 @@ struct LookupPaths {
         char *root_dir;
 };
 
-int lookup_paths_init(LookupPaths *p, UnitFileScope scope, const char *root_dir);
+int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);
 
 int lookup_paths_reduce(LookupPaths *p);
 

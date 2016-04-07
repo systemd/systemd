@@ -441,6 +441,7 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
 int lookup_paths_init(
                 LookupPaths *p,
                 UnitFileScope scope,
+                LookupPathsFlags flags,
                 const char *root_dir) {
 
         _cleanup_free_ char
@@ -477,9 +478,11 @@ int lookup_paths_init(
         if (r < 0 && r != -ENXIO)
                 return r;
 
-        r = acquire_generator_dirs(scope, &generator, &generator_early, &generator_late);
-        if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
-                return r;
+        if ((flags & LOOKUP_PATHS_EXCLUDE_GENERATED) == 0) {
+                r = acquire_generator_dirs(scope, &generator, &generator_early, &generator_late);
+                if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
+                        return r;
+        }
 
         r = acquire_transient_dir(scope, &transient);
         if (r < 0 && r != -EOPNOTSUPP && r != -ENXIO)
@@ -751,6 +754,9 @@ int lookup_paths_mkdir_generator(LookupPaths *p) {
 
         assert(p);
 
+        if (!p->generator || !p->generator_early || !p->generator_late)
+                return -EINVAL;
+
         r = mkdir_p_label(p->generator, 0755);
 
         q = mkdir_p_label(p->generator_early, 0755);
@@ -771,10 +777,8 @@ void lookup_paths_trim_generator(LookupPaths *p) {
 
         if (p->generator)
                 (void) rmdir(p->generator);
-
         if (p->generator_early)
                 (void) rmdir(p->generator_early);
-
         if (p->generator_late)
                 (void) rmdir(p->generator_late);
 }

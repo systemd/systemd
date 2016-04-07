@@ -1097,7 +1097,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         assert(m);
 
-        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, NULL);
+        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -2524,7 +2524,7 @@ int manager_reload(Manager *m) {
         lookup_paths_flush_generator(&m->lookup_paths);
         lookup_paths_free(&m->lookup_paths);
 
-        q = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, NULL);
+        q = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
         if (q < 0 && r >= 0)
                 r = q;
 
