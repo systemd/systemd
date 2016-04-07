@@ -1514,7 +1514,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         if (!i)
                 return log_oom();
 
-        r = mnt_table_parse_mtab(t, NULL);
+        r = mnt_table_parse_mtab(t, "/proc/self/mountinfo");
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
