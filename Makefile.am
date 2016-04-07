@@ -747,8 +747,6 @@ libbasic_la_SOURCES = \
 	src/basic/missing_syscall.h \
 	src/basic/capability-util.c \
 	src/basic/capability-util.h \
-	src/basic/c-rbtree.c \
-	src/basic/c-rbtree.h \
 	src/basic/conf-files.c \
 	src/basic/conf-files.h \
 	src/basic/stdio-util.h \
@@ -1494,7 +1492,6 @@ tests += \
 	test-copy \
 	test-cap-list \
 	test-sigbus \
-	test-rbtree \
 	test-verbs \
 	test-af-list \
 	test-arphrd-list \
@@ -1746,12 +1743,6 @@ test_sigbus_SOURCES = \
 	src/test/test-sigbus.c
 
 test_sigbus_LDADD = \
-	libshared.la
-
-test_rbtree_SOURCES = \
-	src/test/test-rbtree.c
-
-test_rbtree_LDADD = \
 	libshared.la
 
 test_condition_SOURCES = \
