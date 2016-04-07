@@ -95,6 +95,9 @@ struct Unit {
         usec_t source_mtime;
         usec_t dropin_mtime;
 
+        /* If this is a transient unit we are currently writing, this is where we are writing it to */
+        FILE *transient_file;
+
         /* If there is something to do with this unit, then this is the installed job for it */
         Job *job;
 

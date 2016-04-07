@@ -52,6 +52,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
@@ -491,6 +492,9 @@ void unit_free(Unit *u) {
         char *t;
 
         assert(u);
+
+        if (u->transient_file)
+                fclose(u->transient_file);
 
         if (!MANAGER_IS_RELOADING(u->manager))
                 unit_remove_transient(u);
@@ -1230,6 +1234,15 @@ int unit_load(Unit *u) {
 
         if (u->load_state != UNIT_STUB)
                 return 0;
+
+        if (u->transient_file) {
+                r = fflush_and_check(u->transient_file);
+                if (r < 0)
+                        goto fail;
+
+                fclose(u->transient_file);
+                u->transient_file = NULL;
+        }
 
         if (UNIT_VTABLE(u)->load) {
                 r = UNIT_VTABLE(u)->load(u);
@@ -3327,14 +3340,17 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
 static const char* unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode) {
         assert(u);
 
+        if (!IN_SET(mode, UNIT_RUNTIME, UNIT_PERSISTENT))
+                return NULL;
+
         if (u->transient) /* Redirect drop-ins for transient units always into the transient directory. */
                 return u->manager->lookup_paths.transient;
 
         if (mode == UNIT_RUNTIME)
-                return u->manager->lookup_paths.runtime_config;
+                return u->manager->lookup_paths.runtime_control;
 
         if (mode == UNIT_PERSISTENT)
-                return u->manager->lookup_paths.persistent_config;
+                return u->manager->lookup_paths.persistent_control;
 
         return NULL;
 }
@@ -3345,6 +3361,13 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         int r;
 
         assert(u);
+
+        if (u->transient_file) {
+                /* When this is a transient unit file in creation, then let's not create a new drop-in but instead
+                 * write to the transient unit file. */
+                fputs(data, u->transient_file);
+                return 0;
+        }
 
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
@@ -3435,23 +3458,49 @@ int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const
 }
 
 int unit_make_transient(Unit *u) {
+        FILE *f;
+        char *path;
+
         assert(u);
 
         if (!UNIT_VTABLE(u)->can_transient)
                 return -EOPNOTSUPP;
 
-        u->load_state = UNIT_STUB;
-        u->load_error = 0;
-        u->transient = true;
+        path = strjoin(u->manager->lookup_paths.transient, "/", u->id, NULL);
+        if (!path)
+                return -ENOMEM;
 
-        u->fragment_path = mfree(u->fragment_path);
+        /* Let's open the file we'll write the transient settings into. This file is kept open as long as we are
+         * creating the transient, and is closed in unit_load(), as soon as we start loading the file. */
+
+        RUN_WITH_UMASK(0022)
+                f = fopen(path, "we");
+        if (!f) {
+                free(path);
+                return -errno;
+        }
+
+        if (u->transient_file)
+                fclose(u->transient_file);
+        u->transient_file = f;
+
+        free(u->fragment_path);
+        u->fragment_path = path;
+
         u->source_path = mfree(u->source_path);
         u->dropin_paths = strv_free(u->dropin_paths);
         u->fragment_mtime = u->source_mtime = u->dropin_mtime = 0;
 
+        u->load_state = UNIT_STUB;
+        u->load_error = 0;
+        u->transient = true;
+
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
         unit_add_to_load_queue(u);
+
+        fputs("# This is a transient unit file, created programmatically via the systemd API. Do not edit.\n",
+              u->transient_file);
 
         return 0;
 }

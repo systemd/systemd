@@ -155,25 +155,26 @@ static int scope_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
+                /* Refuse to load non-transient scope units, but allow them while reloading. */
                 return -ENOENT;
 
-        u->load_state = UNIT_LOADED;
-
-        r = unit_load_dropin(u);
+        r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
                 return r;
 
-        r = unit_patch_contexts(u);
-        if (r < 0)
-                return r;
+        if (u->load_state == UNIT_LOADED) {
+                r = unit_patch_contexts(u);
+                if (r < 0)
+                        return r;
 
-        r = unit_set_default_slice(u);
-        if (r < 0)
-                return r;
+                r = unit_set_default_slice(u);
+                if (r < 0)
+                        return r;
 
-        r = scope_add_default_dependencies(s);
-        if (r < 0)
-                return r;
+                r = scope_add_default_dependencies(s);
+                if (r < 0)
+                        return r;
+        }
 
         return scope_verify(s);
 }

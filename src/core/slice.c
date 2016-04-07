@@ -135,6 +135,7 @@ static int slice_load(Unit *u) {
         int r;
 
         assert(s);
+        assert(u->load_state == UNIT_STUB);
 
         r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
