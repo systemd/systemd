@@ -3379,17 +3379,19 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         prefixed = strjoina("# This is a drop-in unit file extension, created via \"systemctl set-property\" or an equivalent operation. Do not edit.\n",
                             data);
 
-        r = write_drop_in(dir, u->id, 50, name, prefixed);
-        if (r < 0)
-                return r;
-
         r = drop_in_file(dir, u->id, 50, name, &p, &q);
         if (r < 0)
                 return r;
 
-        r = strv_extend(&u->dropin_paths, q);
+        (void) mkdir_p(p, 0755);
+        r = write_string_file_atomic_label(q, prefixed);
         if (r < 0)
                 return r;
+
+        r = strv_push(&u->dropin_paths, q);
+        if (r < 0)
+                return r;
+        q = NULL;
 
         strv_uniq(u->dropin_paths);
 
