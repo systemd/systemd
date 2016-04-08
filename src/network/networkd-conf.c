@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   This file is part of systemd.
 
@@ -24,6 +22,7 @@
 #include "conf-parser.h"
 #include "def.h"
 #include "dhcp-identifier.h"
+#include "hexdecoct.h"
 #include "networkd-conf.h"
 #include "string-table.h"
 
@@ -58,53 +57,39 @@ int config_parse_duid_rawdata(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        int r;
-        long byte;
-        char *cbyte, *pnext;
+        int r, n1, n2, byte;
+        char *cbyte;
         const char *pduid = rvalue;
-        size_t count = 0, duid_index = 0;
-        Manager *m;
-        Network *n;
-        DUIDType *duid_type;
-        uint16_t *dhcp_duid_type;
-        size_t *dhcp_duid_len;
-        uint8_t *dhcp_duid;
+        Manager *m = userdata;
+        Network *n = userdata;
+        DUIDType duidtype;
+        uint16_t dhcp_duid_type = 0;
+        uint8_t dhcp_duid[MAX_DUID_LEN];
+        size_t len, count = 0, duid_start_offset = 0, dhcp_duid_len = 0;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(userdata);
 
-        if (ltype == DUID_CONFIG_SOURCE_GLOBAL) {
-                m = userdata;
-                duid_type = &m->duid_type;
-                dhcp_duid_type = &m->dhcp_duid_type;
-                dhcp_duid_len = &m->dhcp_duid_len;
-                dhcp_duid = m->dhcp_duid;
-        } else {
-                /* DUID_CONFIG_SOURCE_NETWORK */
-                n = userdata;
-                duid_type = &n->duid_type;
-                dhcp_duid_type = &n->dhcp_duid_type;
-                dhcp_duid_len = &n->dhcp_duid_len;
-                dhcp_duid = n->dhcp_duid;
-        }
+        duidtype = (ltype == DUID_CONFIG_SOURCE_GLOBAL) ? m->duid_type
+                                                        : n->duid_type;
 
-        if (*duid_type == _DUID_TYPE_INVALID)
-                *duid_type = DUID_TYPE_RAW;
+        if (duidtype == _DUID_TYPE_INVALID)
+                duidtype = DUID_TYPE_RAW;
 
-        switch (*duid_type) {
+        switch (duidtype) {
         case DUID_TYPE_LLT:
                 /* RawData contains DUID-LLT link-layer address (offset 6) */
-                duid_index = 6;
+                duid_start_offset = 6;
                 break;
         case DUID_TYPE_EN:
                 /* RawData contains DUID-EN identifier (offset 4) */
-                duid_index = 4;
+                duid_start_offset = 4;
                 break;
         case DUID_TYPE_LL:
                 /* RawData contains DUID-LL link-layer address (offset 2) */
-                duid_index = 2;
+                duid_start_offset = 2;
                 break;
         case DUID_TYPE_UUID:
                 /* RawData specifies UUID (offset 0) - fall thru */
@@ -114,42 +99,66 @@ int config_parse_duid_rawdata(
                 break;
         }
 
-        if (*duid_type != DUID_TYPE_RAW)
-                *dhcp_duid_type = (uint16_t)(*duid_type);
+        if (duidtype != DUID_TYPE_RAW)
+                dhcp_duid_type = (uint16_t)duidtype;
 
         /* RawData contains DUID in format " NN:NN:NN... " */
-        while (true) {
+        for (;;) {
                 r = extract_first_word(&pduid, &cbyte, ":", 0);
                 if (r < 0) {
-                        log_error("Failed to read DUID.");
-                        return -EINVAL;
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to read DUID, ignoring assignment: %s.", rvalue);
+                        goto exit;
                 }
                 if (r == 0)
                         break;
-                if (duid_index >= MAX_DUID_LEN) {
-                        log_error("DUID length exceeds maximum length.");
-                        return -EINVAL;
+                if ((duid_start_offset + dhcp_duid_len) >= MAX_DUID_LEN) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Max DUID length exceeded, ignoring assignment: %s.", rvalue);
+                        goto exit;
                 }
 
-                errno = 0;
-                byte = strtol(cbyte, &pnext, 16);
-                if ((errno == ERANGE && (byte == LONG_MAX || byte == LONG_MIN))
-                    || (errno != 0 && byte == 0) || (cbyte == pnext)) {
-                        log_error("Invalid DUID byte: %s.", cbyte);
-                        return -EINVAL; 
+                len = strlen(cbyte);
+                if ((len == 0) || (len > 2)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
+                        goto exit;
                 }
+                n2 = 0;
+                n1 = unhexchar(cbyte[0]);
+                if (len == 2)
+                        n2 = unhexchar(cbyte[1]);
+                if ((n1 < 0) || (n2 < 0)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid DUID byte: %s. Ignoring assignment: %s.", cbyte, rvalue);
+                        goto exit;
+                }
+                byte = (n1 << (4 * (len-1))) | n2;
 
                 /* If DUID_TYPE_RAW, first two bytes hold DHCP DUID type code */
-                if ((*duid_type == DUID_TYPE_RAW) && (count < 2)) {
-                        *dhcp_duid_type |= (byte << (8 * (1 - count)));
+                if ((duidtype == DUID_TYPE_RAW) && (count < 2)) {
+                        dhcp_duid_type |= (byte << (8 * (1 - count)));
                         count++;
                         continue;
                 }
 
-                dhcp_duid[duid_index++] = byte;
+                dhcp_duid[duid_start_offset + dhcp_duid_len] = byte;
+                dhcp_duid_len++;
         }
 
-        *dhcp_duid_len = duid_index;
+        if (ltype == DUID_CONFIG_SOURCE_GLOBAL) {
+                m->duid_type = duidtype;
+                m->dhcp_duid_type = dhcp_duid_type;
+                m->dhcp_duid_len = dhcp_duid_len;
+                memcpy(&m->dhcp_duid[duid_start_offset], dhcp_duid, dhcp_duid_len);
+        } else {
+                /* DUID_CONFIG_SOURCE_NETWORK */
+                n->duid_type = duidtype;
+                n->dhcp_duid_type = dhcp_duid_type;
+                n->dhcp_duid_len = dhcp_duid_len;
+                memcpy(&n->dhcp_duid[duid_start_offset], dhcp_duid, dhcp_duid_len);
+        }
 
+exit:
         return 0;
 }
