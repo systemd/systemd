@@ -85,25 +85,27 @@ static int in_search_path(const LookupPaths *p, const char *path) {
 }
 
 static const char* skip_root(const LookupPaths *p, const char *path) {
-        if (p->root_dir) {
-                char *e;
+        char *e;
 
-                e = path_startswith(path, p->root_dir);
-                if (!e)
+        assert(p);
+        assert(path);
+
+        if (!p->root_dir)
+                return path;
+
+        e = path_startswith(path, p->root_dir);
+        if (!e)
+                return NULL;
+
+        /* Make sure the returned path starts with a slash */
+        if (e[0] != '/') {
+                if (e == path || e[-1] != '/')
                         return NULL;
 
-                /* Make sure the returned path starts with a slash */
-                if (e[0] != '/') {
-                        if (e == path || e[-1] != '/')
-                                return NULL;
-
-                        e--;
-                }
-
-                return e;
+                e--;
         }
 
-        return path;
+        return e;
 }
 
 static int path_is_generator(const LookupPaths *p, const char *path) {
