@@ -64,6 +64,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "loopback-setup.h"
+#include "machine-id-setup.h"
 #include "machine-image.h"
 #include "macro.h"
 #include "missing.h"
@@ -1402,6 +1403,25 @@ static int setup_journal(const char *directory) {
         id = strstrip(b);
         if (isempty(id) && try)
                 return 0;
+        else if (isempty(id)) {
+                sd_id128_t new_id;
+                char s[33] = {};
+
+                /* Machine ID is empty let's populate new one for this container */
+                r = sd_id128_randomize(&new_id);
+                if (r < 0)
+                        return log_error_errno(r, "Faile to generate random machine ID: %m");
+
+                r = machine_id_setup(directory ?: "/", new_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to setup machine ID: %m");
+
+                (void) sd_id128_to_string(new_id, s);
+
+                id = strdup(s);
+                if (!id)
+                        return log_oom();
+        }
 
         /* Verify validity */
         r = sd_id128_from_string(id, &machine_id);
