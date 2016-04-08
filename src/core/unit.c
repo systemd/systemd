@@ -3357,7 +3357,7 @@ static const char* unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode) {
 
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
         _cleanup_free_ char *p = NULL, *q = NULL;
-        const char *dir;
+        const char *dir, *prefixed;
         int r;
 
         assert(u);
@@ -3376,7 +3376,10 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         if (!dir)
                 return -EINVAL;
 
-        r = write_drop_in(dir, u->id, 50, name, data);
+        prefixed = strjoina("# This is a drop-in unit file extension, created via \"systemctl set-property\" or an equivalent operation. Do not edit.\n",
+                            data);
+
+        r = write_drop_in(dir, u->id, 50, name, prefixed);
         if (r < 0)
                 return r;
 
