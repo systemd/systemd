@@ -118,6 +118,7 @@ REQUIREMENTS:
         glibc >= 2.16
         libcap
         libmount >= 2.27.1 (from util-linux)
+                (util-linux *must* be built with --enable-libmount-force-mountinfo)
         libseccomp >= 1.0.0 (optional)
         libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)
