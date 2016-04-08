@@ -1245,6 +1245,28 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
+          <term><command>revert <replaceable>NAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Revert one or more unit files to their vendor versions. This command removes drop-in configuration
+            files that modify the specified units, as well as any user-configured unit file that overrides a matching
+            vendor supplied unit file. Specifically, for a unit <literal>foo.service</literal> the matching directories
+            <literal>foo.service.d/</literal> with all their contained files are removed, both below the persistent and
+            runtime configuration directories (i.e. below <filename>/etc/systemd/system</filename> and
+            <filename>/run/systemd/system</filename>); if the unit file has a vendor-supplied version (i.e. a unit file
+            located below <filename>/usr</filename>) any matching peristent or runtime unit file that overrides it is
+            removed, too. Note that if a unit file has no vendor-supplied version (i.e. is only defined below
+            <filename>/etc/systemd/system</filename> or <filename>/run/systemd/system</filename>, but not in a unit
+            file stored below <filename>/usr</filename>), then it is not removed. Also, if a unit is masked, it is
+            unmasked.</para>
+
+            <para>Effectively, this command may be used to undo all changes made with <command>systemctl
+            edit</command>, <command>systemctl set-property</command> and <command>systemctl mask</command> and puts
+            the original unit file with its settings back in effect.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>add-wants <replaceable>TARGET</replaceable>
           <replaceable>NAME</replaceable>...</command></term>
           <term><command>add-requires <replaceable>TARGET</replaceable>

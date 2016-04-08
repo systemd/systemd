@@ -1758,6 +1758,33 @@ static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_
         return method_disable_unit_files_generic(message, userdata, "enable", unit_file_unmask, error);
 }
 
+static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **l = NULL;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read_strv(message, &l);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_unit_files_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes);
+        if (r < 0)
+                return r;
+
+        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
+}
+
 static int method_set_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
@@ -2005,6 +2032,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("PresetUnitFilesWithMode", "assbb", "ba(sss)", method_preset_unit_files_with_mode, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MaskUnitFiles", "asbb", "a(sss)", method_mask_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UnmaskUnitFiles", "asb", "a(sss)", method_unmask_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RevertUnitFiles", "as", "a(sss)", method_revert_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDefaultTarget", "sb", "a(sss)", method_set_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetDefaultTarget", NULL, "s", method_get_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PresetAllUnitFiles", "sbb", "a(sss)", method_preset_all_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),

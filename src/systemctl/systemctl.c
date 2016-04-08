@@ -1993,7 +1993,7 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
                 if (changes[i].type == UNIT_FILE_SYMLINK)
                         log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
                 else
-                        log_info("Removed symlink %s.", changes[i].path);
+                        log_info("Removed %s.", changes[i].path);
         }
 }
 
@@ -5437,6 +5437,8 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                         r = unit_file_mask(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
                         r = unit_file_unmask(arg_scope, arg_runtime, arg_root, names, &changes, &n_changes);
+                else if (streq(verb, "revert"))
+                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
                 else
                         assert_not_reached("Unknown verb");
 
@@ -5455,7 +5457,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int expect_carries_install_info = false;
-                bool send_force = true, send_preset_mode = false;
+                bool send_runtime = true, send_force = true, send_preset_mode = false;
                 const char *method;
                 sd_bus *bus;
 
@@ -5490,6 +5492,9 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 else if (streq(verb, "unmask")) {
                         method = "UnmaskUnitFiles";
                         send_force = false;
+                } else if (streq(verb, "revert")) {
+                        method = "RevertUnitFiles";
+                        send_runtime = send_force = false;
                 } else
                         assert_not_reached("Unknown verb");
 
@@ -5513,9 +5518,11 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                                 return bus_log_create_error(r);
                 }
 
-                r = sd_bus_message_append(m, "b", arg_runtime);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                if (send_runtime) {
+                        r = sd_bus_message_append(m, "b", arg_runtime);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 if (send_force) {
                         r = sd_bus_message_append(m, "b", arg_force);
@@ -6280,6 +6287,8 @@ static void systemctl_help(void) {
                "  unmask NAME...                  Unmask one or more units\n"
                "  link PATH...                    Link one or more units files into\n"
                "                                  the search path\n"
+               "  revert NAME...                  Revert one or more unit files to vendor\n"
+               "                                  version\n"
                "  add-wants TARGET NAME...        Add 'Wants' dependency for the target\n"
                "                                  on specified one or more units\n"
                "  add-requires TARGET NAME...     Add 'Requires' dependency for the target\n"
@@ -7403,6 +7412,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "mask",                  2,        VERB_ANY, 0,             enable_unit       },
                 { "unmask",                2,        VERB_ANY, 0,             enable_unit       },
                 { "link",                  2,        VERB_ANY, 0,             enable_unit       },
+                { "revert",                2,        VERB_ANY, 0,             enable_unit       },
                 { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root       },
                 { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies },
                 { "set-default",           2,        2,        0,             set_default       },

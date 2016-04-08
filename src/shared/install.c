@@ -45,6 +45,7 @@
 #include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
@@ -136,27 +137,35 @@ static int path_is_transient(const LookupPaths *p, const char *path) {
         return path_equal(p->transient, parent);
 }
 
-static int path_is_config(const LookupPaths *p, const char *path) {
+static int path_is_control(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
-        const char *rpath;
 
         assert(p);
         assert(path);
 
-        /* Checks whether the specified path is intended for configuration or is outside of it. We check both the
-         * top-level directory and the one actually configured. The latter is particularly relevant for cases where we
-         * operate on a root directory. */
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
 
-        rpath = skip_root(p, path);
-        if (rpath && (path_startswith(rpath, "/etc") || path_startswith(rpath, "/run")))
-                return true;
+        return path_equal(parent, p->persistent_control) ||
+                path_equal(parent, p->runtime_control);
+}
+
+static int path_is_config(const LookupPaths *p, const char *path) {
+        _cleanup_free_ char *parent = NULL;
+
+        assert(p);
+        assert(path);
+
+        /* Note that we do *not* have generic checks for /etc or /run in place, since with them we couldn't discern
+         * configuration from transient or generated units */
 
         parent = dirname_malloc(path);
         if (!parent)
                 return -ENOMEM;
 
         return path_equal(parent, p->persistent_config) ||
-                path_equal(parent, p->runtime_config);
+               path_equal(parent, p->runtime_config);
 }
 
 static int path_is_runtime(const LookupPaths *p, const char *path) {
@@ -166,6 +175,9 @@ static int path_is_runtime(const LookupPaths *p, const char *path) {
         assert(p);
         assert(path);
 
+        /* Everything in /run is considered runtime. On top of that we also add explicit checks for the various runtime
+         * directories, as safety net. */
+
         rpath = skip_root(p, path);
         if (rpath && path_startswith(rpath, "/run"))
                 return true;
@@ -174,7 +186,33 @@ static int path_is_runtime(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(parent, p->runtime_config);
+        return path_equal(parent, p->runtime_config) ||
+               path_equal(parent, p->generator) ||
+               path_equal(parent, p->generator_early) ||
+               path_equal(parent, p->generator_late) ||
+               path_equal(parent, p->transient) ||
+               path_equal(parent, p->runtime_control);
+}
+
+static int path_is_vendor(const LookupPaths *p, const char *path) {
+        const char *rpath;
+
+        assert(p);
+        assert(path);
+
+        rpath = skip_root(p, path);
+        if (!rpath)
+                return 0;
+
+        if (path_startswith(rpath, "/usr"))
+                return true;
+
+#ifdef HAVE_SPLIT_USR
+        if (path_startswith(rpath, "/lib"))
+                return true;
+#endif
+
+        return path_equal(rpath, SYSTEM_DATA_UNIT_PATH);
 }
 
 int unit_file_changes_add(
@@ -1699,6 +1737,182 @@ int unit_file_link(
                 if (q < 0 && r >= 0)
                         r = q;
         }
+
+        return r;
+}
+
+static int path_shall_revert(const LookupPaths *paths, const char *path) {
+        int r;
+
+        assert(paths);
+        assert(path);
+
+        /* Checks whether the path is one where the drop-in directories shall be removed. */
+
+        r = path_is_config(paths, path);
+        if (r != 0)
+                return r;
+
+        r = path_is_control(paths, path);
+        if (r != 0)
+                return r;
+
+        return path_is_transient(paths, path);
+}
+
+int unit_file_revert(
+                UnitFileScope scope,
+                const char *root_dir,
+                char **files,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
+
+        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        /* _cleanup_(install_context_done) InstallContext c = {}; */
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_strv_free_ char **todo = NULL;
+        size_t n_todo = 0, n_allocated = 0;
+        char **i;
+        int r, q;
+
+        /* Puts a unit file back into vendor state. This means:
+         *
+         * a) we remove all drop-in snippets added by the user ("config"), add to transient units ("transient"), and
+         *    added via "systemctl set-property" ("control"), but not if the drop-in is generated ("generated").
+         *
+         * c) if there's a vendor unit file (i.e. one in /usr) we remove any configured overriding unit files (i.e. in
+         *    "config", but not in "transient" or "control" or even "generated").
+         *
+         * We remove all that in both the runtime and the persistant directories, if that applies.
+         */
+
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, files) {
+                bool has_vendor = false;
+                char **p;
+
+                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
+                        return -EINVAL;
+
+                STRV_FOREACH(p, paths.search_path) {
+                        _cleanup_free_ char *path = NULL, *dropin = NULL;
+                        struct stat st;
+
+                        path = path_make_absolute(*i, *p);
+                        if (!path)
+                                return -ENOMEM;
+
+                        r = lstat(path, &st);
+                        if (r < 0) {
+                                if (errno != ENOENT)
+                                        return -errno;
+                        } else if (S_ISREG(st.st_mode)) {
+                                /* Check if there's a vendor version */
+                                r = path_is_vendor(&paths, path);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        has_vendor = true;
+                        }
+
+                        dropin = strappend(path, ".d");
+                        if (!dropin)
+                                return -ENOMEM;
+
+                        r = lstat(dropin, &st);
+                        if (r < 0) {
+                                if (errno != ENOENT)
+                                        return -errno;
+                        } else if (S_ISDIR(st.st_mode)) {
+                                /* Remove the drop-ins */
+                                r = path_shall_revert(&paths, dropin);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0) {
+                                        if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
+                                                return -ENOMEM;
+
+                                        todo[n_todo++] = dropin;
+                                        dropin = NULL;
+                                }
+                        }
+                }
+
+                if (!has_vendor)
+                        continue;
+
+                /* OK, there's a vendor version, hence drop all configuration versions */
+                STRV_FOREACH(p, paths.search_path) {
+                        _cleanup_free_ char *path = NULL;
+                        struct stat st;
+
+                        path = path_make_absolute(*i, *p);
+                        if (!path)
+                                return -ENOMEM;
+
+                        r = lstat(path, &st);
+                        if (r < 0) {
+                                if (errno != ENOENT)
+                                        return -errno;
+                        } else if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
+                                r = path_is_config(&paths, path);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0) {
+                                        if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
+                                                return -ENOMEM;
+
+                                        todo[n_todo++] = path;
+                                        path = NULL;
+                                }
+                        }
+                }
+        }
+
+        strv_uniq(todo);
+
+        r = 0;
+        STRV_FOREACH(i, todo) {
+                _cleanup_strv_free_ char **fs = NULL;
+                const char *rp;
+                char **j;
+
+                (void) get_files_in_directory(*i, &fs);
+
+                q = rm_rf(*i, REMOVE_ROOT|REMOVE_PHYSICAL);
+                if (q < 0 && q != -ENOENT && r >= 0) {
+                        r = q;
+                        continue;
+                }
+
+                STRV_FOREACH(j, fs) {
+                        _cleanup_free_ char *t = NULL;
+
+                        t = strjoin(*i, "/", *j, NULL);
+                        if (!t)
+                                return -ENOMEM;
+
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, t, NULL);
+                }
+
+                unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, *i, NULL);
+
+                rp = skip_root(&paths, *i);
+                q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: *i);
+                if (q < 0)
+                        return q;
+        }
+
+        q = remove_marked_symlinks(remove_symlinks_to, paths.runtime_config, &paths, changes, n_changes);
+        if (r >= 0)
+                r = q;
+
+        q = remove_marked_symlinks(remove_symlinks_to, paths.persistent_config, &paths, changes, n_changes);
+        if (r >= 0)
+                r = q;
 
         return r;
 }
