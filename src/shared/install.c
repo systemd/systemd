@@ -1600,7 +1600,7 @@ int unit_file_unmask(
                         return -ENOMEM;
 
                 if (unlink(path) < 0) {
-                        if (errno != -ENOENT && r >= 0)
+                        if (errno != ENOENT && r >= 0)
                                 r = -errno;
 
                         continue;
