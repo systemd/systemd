@@ -65,6 +65,8 @@ typedef struct {
         OrderedHashmap *have_processed;
 } InstallContext;
 
+static int unit_file_lookup_state(UnitFileScope scope, const LookupPaths *paths, const char *name, UnitFileState *ret);
+
 static int in_search_path(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
         char **i;
@@ -1958,7 +1960,7 @@ int unit_file_get_default(
         return 0;
 }
 
-int unit_file_lookup_state(
+static int unit_file_lookup_state(
                 UnitFileScope scope,
                 const LookupPaths *paths,
                 const char *name,
