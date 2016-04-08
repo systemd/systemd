@@ -47,6 +47,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "signal-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -3062,8 +3063,7 @@ bool unit_active_or_pending(Unit *u) {
 int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
         assert(u);
         assert(w >= 0 && w < _KILL_WHO_MAX);
-        assert(signo > 0);
-        assert(signo < _NSIG);
+        assert(SIGNAL_VALID(signo));
 
         if (!UNIT_VTABLE(u)->kill)
                 return -EOPNOTSUPP;

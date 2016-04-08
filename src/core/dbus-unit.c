@@ -27,6 +27,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "selinux-access.h"
+#include "signal-util.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
@@ -547,7 +548,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument %s", swho);
         }
 
-        if (signo <= 0 || signo >= _NSIG)
+        if (!SIGNAL_VALID(signo))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
         r = bus_verify_manage_units_async_full(
@@ -1002,7 +1003,6 @@ int bus_unit_queue_job(
                         type = JOB_TRY_RELOAD;
         }
 
-
         if (type == JOB_STOP &&
             (u->load_state == UNIT_NOT_FOUND || u->load_state == UNIT_ERROR) &&
             unit_active_state(u) == UNIT_INACTIVE)
@@ -1259,6 +1259,7 @@ int bus_unit_set_properties(
 }
 
 int bus_unit_check_load_state(Unit *u, sd_bus_error *error) {
+        assert(u);
 
         if (u->load_state == UNIT_LOADED)
                 return 0;

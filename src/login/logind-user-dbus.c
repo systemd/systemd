@@ -25,6 +25,7 @@
 #include "formats-util.h"
 #include "logind-user.h"
 #include "logind.h"
+#include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -222,7 +223,7 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        if (signo <= 0 || signo >= _NSIG)
+        if (!SIGNAL_VALID(signo))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = user_kill(u, signo);
