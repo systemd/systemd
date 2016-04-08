@@ -3829,9 +3829,11 @@ check_DATA += \
 endif
 
 # packed sysfs test tree
-test/sys:
+test/sys: test/sys.tar.xz
+	-rm -rf test/sys
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)tar -C test/ -xJf $(top_srcdir)/test/sys.tar.xz
+	-touch test/sys
 
 test-sys-distclean:
 	-rm -rf test/sys
