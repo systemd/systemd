@@ -106,14 +106,10 @@
     <varname>After=</varname> and <varname>Requires=</varname> on
     their immediate parent slice unit.</para>
 
-    <para>Unless <varname>DefaultDependencies=false</varname>
-    is used, slice units will implicitly have dependencies of
-    type <varname>Conflicts=</varname> and
-    <varname>Before=</varname> on
-    <filename>shutdown.target</filename>. These ensure
-    that slice units are removed prior to system
-    shutdown. Only slice units involved with early boot or
-    late system shutdown should disable this option.
+    <para>Unless <varname>DefaultDependencies=false</varname> is used in the <literal>[Unit]</literal> section, slice
+    units will implicitly have dependencies of type <varname>Conflicts=</varname> and <varname>Before=</varname> on
+    <filename>shutdown.target</filename>. These ensure that slice units are removed prior to system shutdown. Only
+    slice units involved with early boot or late system shutdown should disable this option.
     </para>
   </refsect1>
 
