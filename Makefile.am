@@ -1383,6 +1383,9 @@ pkgconfigdata_DATA += \
 nodist_rpmmacros_DATA = \
 	src/core/macros.systemd
 
+BUILT_SOURCES += \
+	src/core/triggers.systemd
+
 EXTRA_DIST += \
 	src/core/systemd.pc.in \
 	src/core/macros.systemd.in \
