@@ -21,7 +21,9 @@
 
 #include "macro.h"
 #include "manager.h"
+#include "rm-rf.h"
 #include "test-helper.h"
+#include "tests.h"
 #include "unit.h"
 
 static int test_cgroup_mask(void) {
@@ -107,7 +109,11 @@ static int test_cgroup_mask(void) {
 }
 
 int main(int argc, char* argv[]) {
+        _cleanup_(rm_rf_and_freep) char *runtime_dir = NULL;
         int rc = 0;
+
+        assert_se(runtime_dir = setup_fake_runtime_dir());
         TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
+
         return rc;
 }

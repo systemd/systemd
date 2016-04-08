@@ -21,15 +21,20 @@
 
 #include "macro.h"
 #include "manager.h"
+#include "rm-rf.h"
 #include "test-helper.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
+        _cleanup_(rm_rf_and_freep) char *runtime_dir = NULL;
         Manager *m = NULL;
         Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched;
         Service *ser;
         FILE *serial = NULL;
         FDSet *fdset = NULL;
         int r;
+
+        assert_se(runtime_dir = setup_fake_runtime_dir());
 
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);

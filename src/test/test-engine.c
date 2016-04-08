@@ -23,9 +23,12 @@
 
 #include "bus-util.h"
 #include "manager.h"
+#include "rm-rf.h"
 #include "test-helper.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
+        _cleanup_(rm_rf_and_freep) char *runtime_dir = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL;
@@ -33,6 +36,8 @@ int main(int argc, char *argv[]) {
         FDSet *fdset = NULL;
         Job *j;
         int r;
+
+        assert_se(runtime_dir = setup_fake_runtime_dir());
 
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);

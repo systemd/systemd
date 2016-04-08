@@ -35,10 +35,12 @@
 #include "install.h"
 #include "load-fragment.h"
 #include "macro.h"
+#include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "test-helper.h"
+#include "tests.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -840,10 +842,13 @@ static void test_config_parse_pass_environ(void) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(rm_rf_and_freep) char *runtime_dir = NULL;
         int r;
 
         log_parse_environment();
         log_open();
+
+        assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = test_unit_file_get_set();
         test_config_parse_exec();
