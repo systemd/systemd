@@ -2751,10 +2751,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_RELOAD:
-                                if (f == SERVICE_SUCCESS) {
-                                        service_load_pid_file(s, true);
-                                        service_search_main_pid(s);
-                                }
+                                if (f == SERVICE_SUCCESS)
+                                        if (service_load_pid_file(s, true) < 0)
+                                                service_search_main_pid(s);
 
                                 s->reload_result = f;
                                 service_enter_running(s, SERVICE_SUCCESS);
