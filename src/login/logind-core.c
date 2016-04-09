@@ -367,6 +367,9 @@ bool manager_shall_kill(Manager *m, const char *user) {
         if (!m->kill_user_processes)
                 return false;
 
+        if (!m->kill_exclude_users && streq(user, "root"))
+                return false;
+
         if (strv_contains(m->kill_exclude_users, user))
                 return false;
 
