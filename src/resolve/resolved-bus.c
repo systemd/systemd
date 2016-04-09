@@ -424,8 +424,9 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (added <= 0) {
                 _cleanup_free_ char *ip = NULL;
 
-                in_addr_to_string(q->request_family, &q->request_address, &ip);
-                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Address '%s' does not have any RR of requested type", strna(ip));
+                (void) in_addr_to_string(q->request_family, &q->request_address, &ip);
+                r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR,
+                                               "Address '%s' does not have any RR of requested type", strnull(ip));
                 goto finish;
         }
 
