@@ -2648,7 +2648,8 @@ static int inner_child(
                 execvpe(arg_parameters[0], arg_parameters, env_use);
         else {
                 if (!arg_chdir)
-                        chdir(home ?: "/root");
+                        /* If we cannot change the directory, we'll end up in /, that is expected. */
+                        (void) chdir(home ?: "/root");
 
                 execle("/bin/bash", "-bash", NULL, env_use);
                 execle("/bin/sh", "-sh", NULL, env_use);
