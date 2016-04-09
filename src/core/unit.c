@@ -3480,11 +3480,12 @@ int unit_make_transient(Unit *u) {
         /* Let's open the file we'll write the transient settings into. This file is kept open as long as we are
          * creating the transient, and is closed in unit_load(), as soon as we start loading the file. */
 
-        RUN_WITH_UMASK(0022)
+        RUN_WITH_UMASK(0022) {
                 f = fopen(path, "we");
-        if (!f) {
-                free(path);
-                return -errno;
+                if (!f) {
+                        free(path);
+                        return -errno;
+                }
         }
 
         if (u->transient_file)
