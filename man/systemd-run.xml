@@ -341,10 +341,10 @@
   <refsect1>
     <title>Examples</title>
 
-    <para>The following command will log the environment variables
-    provided by systemd to services:</para>
+    <example>
+      <title>Logging environment variables provided by systemd to services</title>
 
-    <programlisting># systemd-run env
+      <programlisting># systemd-run env
 Running as unit: run-19945.service
 # journalctl -u run-19945.service
 Sep 08 07:37:21 bupkis systemd[1]: Starting /usr/bin/env...
@@ -352,19 +352,27 @@ Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env.
 Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Sep 08 07:37:21 bupkis env[19948]: LANG=en_US.UTF-8
 Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64</programlisting>
+    </example>
 
-    <para>The following command invokes the
-    <citerefentry project='man-pages'><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    tool, but lowers the block I/O weight for it to 10. See
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more information on the <varname>BlockIOWeight=</varname>
-    property.</para>
+    <example>
+      <title>Limiting resources available to a command</title>
 
-    <programlisting># systemd-run -p BlockIOWeight=10 updatedb</programlisting>
+      <programlisting># systemd-run -p BlockIOWeight=10 updatedb</programlisting>
 
-    <para>The following command will touch a file after 30 seconds.</para>
+      <para>This command invokes the
+      <citerefentry project='man-pages'><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      tool, but lowers the block I/O weight for it to 10. See
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for more information on the <varname>BlockIOWeight=</varname>
+      property.</para>
+    </example>
 
-    <programlisting># date; systemd-run --on-active=30 --timer-property=AccuracySec=100ms /bin/touch /tmp/foo
+    <example>
+      <title>Running commands at a specified time</title>
+
+      <para>The following command will touch a file after 30 seconds.</para>
+
+      <programlisting># date; systemd-run --on-active=30 --timer-property=AccuracySec=100ms /bin/touch /tmp/foo
 Mon Dec  8 20:44:24 KST 2014
 Running as unit: run-71.timer
 Will run service as unit: run-71.service
@@ -376,13 +384,16 @@ Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo.
 -- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
 Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo...
 Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisting>
+    </example>
 
-    <para>The following command invokes <filename>/bin/bash</filename>
-    as a service passing its standard input, output and error to
-    the calling TTY.</para>
+    <example>
+      <title>Allowing access to the tty</title>
 
-    <programlisting># systemd-run -t --send-sighup /bin/bash</programlisting>
+      <para>The following command invokes <filename>/bin/bash</filename> as a service
+      passing its standard input, output and error to the calling TTY.</para>
 
+      <programlisting># systemd-run -t --send-sighup /bin/bash</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
