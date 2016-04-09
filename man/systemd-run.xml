@@ -394,6 +394,50 @@ Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisti
 
       <programlisting># systemd-run -t --send-sighup /bin/bash</programlisting>
     </example>
+
+    <example>
+      <title>Start <command>screen</command> as a user service</title>
+
+      <programlisting>$ systemd-run --scope --user screen
+Running scope as unit run-r14b0047ab6df45bfb45e7786cc839e76.scope.
+
+$ screen -ls
+There is a screen on:
+        492..laptop     (Detached)
+1 Socket in /var/run/screen/S-fatima.
+</programlisting>
+
+      <para>This starts the <command>screen</command> process as a child of the
+      <command>systemd --user</command> process that was started by
+      <filename>user@.service</filename>, in a scope unit. A
+      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      unit is used instead of a
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      unit, because <command>screen</command> will exit when detaching from the terminal,
+      and a service unit would be terminated. Running <command>screen</command>
+      as a user unit has the advantage that it is not part of the session scope.
+      If <varname>KillUserProcesses=yes</varname> is configured in
+      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      the default, the session scope will be terminated when the user logs
+      out of that session.</para>
+
+      <para>The <filename>user@.service</filename> is started automatically
+      when the user first logs in, and stays around as long as at least one
+      login session is open. After the user logs out of the last session,
+      <filename>user@.service</filename> and all services underneath it
+      are terminated. This behaviour is the default, when "lingering" is
+      not enabled for that user. Enabling lingering means that
+      <filename>user@.service</filename> is started automatically during
+      boot, even if the user is not logged in, and that the service is
+      not terminated when the user logs out.</para>
+
+      <para>Enabling lingering allows the user to run processes without being logged in,
+      for example to allow <command>screen</command> to persist after the user logs out,
+      even if the session scope is terminated. In the default configuration, users can
+      enable lingering for themselves:</para>
+
+      <programlisting>$ loginctl enable-linger</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
