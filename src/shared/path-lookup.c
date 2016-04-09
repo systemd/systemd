@@ -249,7 +249,7 @@ static int acquire_generator_dirs(
                 if (!e)
                         return -ENXIO;
 
-                prefix = strjoina(e, "/systemd/", NULL);
+                prefix = strjoina(e, "/systemd/");
                 break;
         }
 

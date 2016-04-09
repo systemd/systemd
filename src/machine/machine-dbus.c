@@ -730,7 +730,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 return r;
 
         /* Name and mode */
-        unit = strjoina("container-shell@", p, ".service", NULL);
+        unit = strjoina("container-shell@", p, ".service");
         r = sd_bus_message_append(tm, "ss", unit, "fail");
         if (r < 0)
                 return r;

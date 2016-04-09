@@ -513,7 +513,7 @@ static int session_start_scope(Session *s) {
                 if (!scope)
                         return log_oom();
 
-                description = strjoina("Session ", s->id, " of user ", s->user->name, NULL);
+                description = strjoina("Session ", s->id, " of user ", s->user->name);
 
                 r = manager_start_scope(
                                 s->manager,

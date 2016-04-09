@@ -2518,12 +2518,11 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                 return -EBUSY;
 
         match = strjoina("type='signal',"
-                        "sender='org.freedesktop.DBus',"
-                        "path='/org/freedesktop/DBus',"
-                        "interface='org.freedesktop.DBus',"
-                        "member='NameOwnerChanged',"
-                        "arg0='", name, "'",
-                        NULL);
+                         "sender='org.freedesktop.DBus',"
+                         "path='/org/freedesktop/DBus',"
+                         "interface='org.freedesktop.DBus',"
+                         "member='NameOwnerChanged',"
+                         "arg0='", name, "'");
 
         return sd_bus_add_match(bus, &u->match_bus_slot, match, signal_name_owner_changed, u);
 }
@@ -3437,7 +3436,7 @@ int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        ndata = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
+        ndata = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data);
 
         return unit_write_drop_in(u, mode, name, ndata);
 }

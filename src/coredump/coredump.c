@@ -1095,7 +1095,7 @@ static int process_kernel(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[n_iovec++], core_environ);
         }
 
-        core_timestamp = strjoina("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP], "000000", NULL);
+        core_timestamp = strjoina("COREDUMP_TIMESTAMP=", context[CONTEXT_TIMESTAMP], "000000");
         IOVEC_SET_STRING(iovec[n_iovec++], core_timestamp);
 
         IOVEC_SET_STRING(iovec[n_iovec++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");

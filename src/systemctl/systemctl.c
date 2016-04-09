@@ -3254,7 +3254,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
 
         /* --fail was specified */
         if (streq(arg_job_mode, "fail"))
-                kill_who = strjoina(arg_kill_who, "-fail", NULL);
+                kill_who = strjoina(arg_kill_who, "-fail");
 
         r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
         if (r < 0)

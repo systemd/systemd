@@ -1734,7 +1734,7 @@ static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) 
         if (r <= 0)
                 return r;
 
-        wc = strjoina("*.", common_suffix, NULL);
+        wc = strjoina("*.", common_suffix);
         return dns_name_between(dns_resource_key_name(rr->key), wc, rr->nsec.next_domain_name);
 }
 
