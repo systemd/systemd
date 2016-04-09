@@ -137,7 +137,7 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
                 if (sd_event_add_io(g->event, &io, fd, events, curl_glue_on_io, g) < 0)
                         return -1;
 
-                sd_event_source_set_description(io, "curl-io");
+                (void) sd_event_source_set_description(io, "curl-io");
 
                 r = hashmap_put(g->ios, FD_TO_PTR(s), io);
                 if (r < 0) {
@@ -204,7 +204,7 @@ static int curl_glue_timer_callback(CURLM *curl, long timeout_ms, void *userdata
                 if (sd_event_add_time(g->event, &g->timer, clock_boottime_or_monotonic(), usec, 0, curl_glue_on_timer, g) < 0)
                         return -1;
 
-                sd_event_source_set_description(g->timer, "curl-timer");
+                (void) sd_event_source_set_description(g->timer, "curl-timer");
         }
 
         return 0;

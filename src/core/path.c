@@ -110,16 +110,14 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                 } else {
                         exists = true;
 
-                        /* Path exists, we don't need to watch parent
-                           too closely. */
+                        /* Path exists, we don't need to watch parent too closely. */
                         if (oldslash) {
                                 char *cut2 = oldslash + (oldslash == s->path);
                                 char tmp2 = *cut2;
                                 *cut2 = '\0';
 
-                                inotify_add_watch(s->inotify_fd, s->path, IN_MOVE_SELF);
-                                /* Error is ignored, the worst can happen is
-                                   we get spurious events. */
+                                (void) inotify_add_watch(s->inotify_fd, s->path, IN_MOVE_SELF);
+                                /* Error is ignored, the worst can happen is we get spurious events. */
 
                                 *cut2 = tmp2;
                         }
