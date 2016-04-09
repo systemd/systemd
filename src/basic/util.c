@@ -419,13 +419,17 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
                         _exit(EXIT_FAILURE);
                 }
 
-                if (!stdout_is_tty)
-                        dup2(fd, STDOUT_FILENO);
+                if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
-                if (!stderr_is_tty)
-                        dup2(fd, STDERR_FILENO);
+                if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
-                if (fd > 2)
+                if (fd > STDERR_FILENO)
                         close(fd);
         }
 
