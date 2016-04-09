@@ -579,9 +579,10 @@ static void resolve_free(sd_resolve *resolve) {
                         (void) send(resolve->fds[REQUEST_SEND_FD], &req, req.length, MSG_NOSIGNAL);
         }
 
-        /* Now terminate them and wait until they are gone. */
+        /* Now terminate them and wait until they are gone.
+           If we get an error than most likely the thread already exited. */
         for (i = 0; i < resolve->n_valid_workers; i++)
-                pthread_join(resolve->workers[i], NULL);
+                (void) pthread_join(resolve->workers[i], NULL);
 
         /* Close all communication channels */
         for (i = 0; i < _FD_MAX; i++)
