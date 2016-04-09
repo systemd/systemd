@@ -148,8 +148,12 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
         for (;;) {
                 if (!address_pool_prefix_is_taken(p, &u, prefixlen)) {
                         _cleanup_free_ char *s = NULL;
+                        int r;
 
-                        in_addr_to_string(p->family, &u, &s);
+                        r = in_addr_to_string(p->family, &u, &s);
+                        if (r < 0)
+                                return r;
+
                         log_debug("Found range %s/%u", strna(s), prefixlen);
 
                         *found = u;
