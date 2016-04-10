@@ -39,12 +39,13 @@ static int fake_filesystems(void) {
                 const char *src;
                 const char *target;
                 const char *error;
+                bool ignore_mount_error;
         } fakefss[] = {
-                { "test/tmpfs/sys", "/sys",                   "failed to mount test /sys" },
-                { "test/tmpfs/dev", "/dev",                   "failed to mount test /dev" },
-                { "test/run",       "/run",                   "failed to mount test /run" },
-                { "test/run",       "/etc/udev/rules.d",      "failed to mount empty /etc/udev/rules.d" },
-                { "test/run",       UDEVLIBEXECDIR "/rules.d","failed to mount empty " UDEVLIBEXECDIR "/rules.d" },
+                { "test/tmpfs/sys", "/sys",                    "failed to mount test /sys",                        false },
+                { "test/tmpfs/dev", "/dev",                    "failed to mount test /dev",                        false },
+                { "test/run",       "/run",                    "failed to mount test /run",                        false },
+                { "test/run",       "/etc/udev/rules.d",       "failed to mount empty /etc/udev/rules.d",          true },
+                { "test/run",       UDEVLIBEXECDIR "/rules.d", "failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
         };
         unsigned int i;
         int err;
@@ -66,8 +67,10 @@ static int fake_filesystems(void) {
                 err = mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
                 if (err < 0) {
                         err = -errno;
-                        fprintf(stderr, "%s %m\n", fakefss[i].error);
-                        return err;
+                        fprintf(stderr, "%s %m%s\n", fakefss[i].error, fakefss[i].ignore_mount_error ? ", ignoring" : "");
+                        if (!fakefss[i].ignore_mount_error)
+                                return err;
+                        err = 0;
                 }
         }
 out:
