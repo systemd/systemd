@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = parse_sleep_config(arg_verb, &modes, &states);
+        r = parse_sleep_config(arg_verb, &modes, &states, NULL);
         if (r < 0)
                 goto finish;
 

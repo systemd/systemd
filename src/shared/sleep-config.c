@@ -39,12 +39,13 @@
 
 #define USE(x, y) do { (x) = (y); (y) = NULL; } while (0)
 
-int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
+int parse_sleep_config(const char *verb, char ***_modes, char ***_states, bool *_hibernate_anyway) {
 
         _cleanup_strv_free_ char
                 **suspend_mode = NULL, **suspend_state = NULL,
                 **hibernate_mode = NULL, **hibernate_state = NULL,
                 **hybrid_mode = NULL, **hybrid_state = NULL;
+        bool hibernate_anyway = false;
         char **modes, **states;
 
         const ConfigTableItem items[] = {
@@ -54,6 +55,7 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
                 { "Sleep",   "HibernateState",   config_parse_strv,  0, &hibernate_state },
                 { "Sleep",   "HybridSleepMode",  config_parse_strv,  0, &hybrid_mode  },
                 { "Sleep",   "HybridSleepState", config_parse_strv,  0, &hybrid_state },
+                { "Sleep",   "HibernateAnyway",  config_parse_bool,  0, &hibernate_anyway },
                 {}
         };
 
@@ -104,6 +106,10 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
 
         *_modes = modes;
         *_states = states;
+
+        if (_hibernate_anyway)
+                *_hibernate_anyway = hibernate_anyway;
+
         return 0;
 }
 
@@ -257,18 +263,19 @@ static bool enough_memory_for_hibernation(void) {
 
 int can_sleep(const char *verb) {
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
+        bool hibernate_anyway = false;
         int r;
 
         assert(streq(verb, "suspend") ||
                streq(verb, "hibernate") ||
                streq(verb, "hybrid-sleep"));
 
-        r = parse_sleep_config(verb, &modes, &states);
+        r = parse_sleep_config(verb, &modes, &states, &hibernate_anyway);
         if (r < 0)
                 return false;
 
         if (!can_sleep_state(states) || !can_sleep_disk(modes))
                 return false;
 
-        return streq(verb, "suspend") || enough_memory_for_hibernation();
+        return streq(verb, "suspend") || hibernate_anyway || enough_memory_for_hibernation();
 }

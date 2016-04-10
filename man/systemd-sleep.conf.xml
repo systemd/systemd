@@ -158,6 +158,20 @@
         neither succeeds, the operation will be aborted.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>HibernateAnyway=no</varname></term>
+
+        <listitem><para>Bypass hibernation checks, such as
+        checking if a swap partition is mounted or if
+        there is enough swap space available for hibernation
+        to succeed. This can be useful when a system with a
+        Solid State Disk (SSD) has no normal swap partition
+        or file configured, and a custom systemd unit is
+        used to mount a swap file just before hibernating
+        and unmount it just after resuming.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
