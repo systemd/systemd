@@ -132,6 +132,14 @@ mouse:usb:v046dpc063:name:DELL DELL USB Laser Mouse:
  MOUSE_DPI=1000@125
 
 ##########################################
+# Dynex
+#########################################
+
+# Dynex Wired Optical Mouse (DX-WMSE2)
+mouse:usb:v0461p4d46:name:USB Optical Mouse:
+ MOUSE_DPI=1000@125
+
+##########################################
 # Fujitsu Siemens
 ##########################################
 
