@@ -22,9 +22,26 @@ CHANGES WITH 230 in spe:
         * systemd-resolve conveniently resolves DANE records with the --tlsa
           option and OPENPGPKEY records with the --openpgp option.
 
-        * Testing tool /usr/lib/systemd/systemd-activate is renamed to
-          systemd-socket-activate and installed into /usr/bin. It is now fully
-          supported.
+        * systemd-logind will now by default terminate user processes that are
+          part of the user session scope unit (session-XX.scope) when the user
+          logs out. This behaviour is controlled by the
+          KillUserProcesses=yes|no setting in logind.conf, and previous default
+          of "no" is now changed to "yes". This means that user sessions will
+          be properly cleaned up after, but additional steps are necessary to
+          allow intentionally long-running processes to survive logout.
+
+          While the user is logged in at least once, user@.service is running,
+          and any service that should survive the end of any individual login
+          session can be started at a user service or scope using systemd-run.
+          systemd-run(1) man page has been extended with an example which
+          shows how to run screen in a scope unit underneath user@.service.
+          The same command works for tmux.
+
+          After the user logs out of all sessions, user@.service will be
+          terminated too, by default, unless the user has "lingering" enabled.
+          To effectively allow users to run long-term tasks even if they are
+          logged out, lingering must be enabled for them. See loginctl(1)
+          for details.
 
         * The unified cgroup hierarchy added in Linux 4.5 is now supported.
           Use systemd.unified_cgroup_hierarchy=1 on the kernel command line
@@ -44,6 +61,10 @@ CHANGES WITH 230 in spe:
         * Headers for LLDP support (sd-lldp.h) are now public.
 
         * The Unique Identifier sent in DHCP requests can be configured.
+
+        * Testing tool /usr/lib/systemd/systemd-activate is renamed to
+          systemd-socket-activate and installed into /usr/bin. It is now fully
+          supported.
 
         * systemd-journald now uses separate threads to flush changes to
           disk when closing journal files.

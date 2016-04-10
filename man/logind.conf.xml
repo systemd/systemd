@@ -124,7 +124,7 @@
         corresponding to the session and all processes inside that scope will be
         terminated. If false, the scope is "abandonded", see
         <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        and processes are not killed. Defaults to <literal>no</literal>.</para>
+        and processes are not killed. Defaults to <literal>yes</literal>.</para>
 
         <para>In addition to session processes, user process may run under the user
         manager unit <filename>user@.service</filename>. Depending on the linger
