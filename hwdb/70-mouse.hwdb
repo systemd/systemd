@@ -428,6 +428,14 @@ mouse:usb:v22d4p1308:name:Laview Technology Mionix Avior 7000:
  MOUSE_WHEEL_CLICK_ANGLE=15
 
 ##########################################
+# MODECOM
+##########################################
+
+# MODECOM MC-WM4 Wireless Optical Mouse
+mouse:usb:v0e8fp00a7:name:DaKai 2.4G RX:
+ MOUSE_DPI=*800@126 1600@126
+
+##########################################
 # Oklick
 ##########################################
 
@@ -451,3 +459,11 @@ mouse:usb:v1532p0042:name:Razer Razer Abyssus:
 mouse:usb:v1e7dp2c2e:name:ROCCAT ROCCAT Lua:
  MOUSE_DPI=250@125 500@125 1000@125 1250@125 1500@125 1750@125 2000@125 250@250 500@250 1000@250 1250@250 1500@250 1750@250 2000@250 250@500 500@500 1000@500 1250@500 1500@500 1750@500 2000@500 250@1000 500@1000 *1000@1000 1250@1000 1500@1000 1750@1000 2000@1000
  MOUSE_WHEEL_CLICK_ANGLE=15
+
+##########################################
+# Sharkoon
+##########################################
+
+# Sharkoon Shark Force Gaming Mouse
+mouse:usb:v093ap2521:name:USB OPTICAL MOUSE:
+ MOUSE_DPI=*1000@125 1600@125 600@125
