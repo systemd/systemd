@@ -146,6 +146,41 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>keyscript=</option></term>
+
+        <listitem><para>Invokes a custom executable to retrieve the password,
+        passing the third field of crypttab as first and only argument. The first line
+        of output produced by the executable will be used as passphrase to unlock
+        the corresponding source device. The key script needs to have an absolute path.
+        </para>
+
+        <para>For compatibility with Debian, the following subset of
+        environment variables will be set:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term>CRYPTTAB_KEY</term>
+            <listitem><para>Same as the using the first parameter directly,
+              see above.</para></listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>CRYPTTAB_NAME</term>
+            <listitem><para>The target name.</para></listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>CRYPTTAB_SOURCE</term>
+            <listitem><para>The source device.</para></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <para>Note that, if the executable returns with error status
+          different than EAGAIN, it will not be used on subsequent retries,
+          falling back on a normal password prompt instead.
+        </para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>offset=</option></term>
 
         <listitem><para>Start offset in the backend device, in 512-byte sectors.

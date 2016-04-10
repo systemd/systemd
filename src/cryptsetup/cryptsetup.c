@@ -18,10 +18,15 @@
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <libcryptsetup.h>
 #include <mntent.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 
@@ -44,6 +49,7 @@ static unsigned arg_key_size = 0;
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
 static unsigned arg_keyfile_offset = 0;
+static char *arg_key_script = NULL;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
 static unsigned arg_tries = 3;
@@ -64,7 +70,6 @@ static usec_t arg_timeout = 0;
     checkargs=
     noearly=
     loud=
-    keyscript=
 */
 
 static int parse_one_option(const char *option) {
@@ -128,6 +133,16 @@ static int parse_one_option(const char *option) {
                         log_error("keyfile-offset= parse failure, ignoring.");
                         return 0;
                 }
+
+        } else if (startswith(option, "keyscript=")) {
+                if (!path_is_absolute(option+10)) {
+                        log_error("Keyscript path '%s' is not absolute, refusing.", option+10);
+                        return -EINVAL;
+                }
+
+                arg_key_script = strdup(option+10);
+                if (!arg_key_script)
+                        return log_oom();
 
         } else if (startswith(option, "hash=")) {
                 char *t;
@@ -570,6 +585,95 @@ static int attach_luks_or_plain(struct crypt_device *cd,
         return r;
 }
 
+static int execute_key_script(const char *target, const char *source, const char *keyfile, char ***passwords) {
+    pid_t pid;
+    int pipefd[2];
+    struct stat st;
+
+    assert(arg_key_script);
+
+
+    /* Ideally we'd do this on the open fd, but since this is just a
+     * warning it's OK to do this in two steps. */
+    if (stat(arg_key_script, &st) >= 0 && S_ISREG(st.st_mode) && (st.st_mode & S_IWOTH))
+            log_warning("Key script %s is world-writable. This is not a good idea!", arg_key_script);
+
+
+    if (pipe2(pipefd, 0) != 0)
+    {
+        int e = errno;
+        log_error_errno(e, "Cannot create pipe for user key script output");
+        return -e;
+    }
+
+    pid = fork();
+    if (pid == -1)
+    {
+        int e = errno;
+        log_error_errno(e, "Cannot spawn new process to run user key script");
+        return -e;
+    }
+
+    if (pid == 0)
+    {
+        char *arg_keyfile = strdup(keyfile);
+        char *const args[] = { arg_key_script, arg_keyfile, NULL };
+        _cleanup_strv_free_erase_ char **envp = NULL;
+        char *s;
+        size_t n = 0;
+
+        close(pipefd[0]);
+
+        asprintf(&s, "CRYPTTAB_NAME=%s", target);
+        strv_push(&envp, s); ++n;
+        asprintf(&s, "CRYPTTAB_SOURCE=%s", source);
+        strv_push(&envp, s); ++n;
+        asprintf(&s, "CRYPTTAB_KEY=%s", keyfile);
+        strv_push(&envp, s); ++n;
+
+        if (!arg_keyfile || strv_length(envp) != n)
+        {
+            log_oom();
+            return -ENOMEM;
+        }
+
+        dup2(pipefd[1], STDOUT_FILENO);
+        execve(arg_key_script, args, envp);
+        log_error_errno(errno, "Cannot execute user key script %s", arg_key_script);
+        return -EAGAIN;
+    }
+    else
+    {
+        int status;
+        int r;
+
+        close(pipefd[1]);
+        r = waitpid(pid, &status, 0);
+        if (r == -1 || !WIFEXITED(status))
+        {
+            log_error("User key script terminated abnormally");
+            return -EAGAIN;
+        }
+
+        r = WEXITSTATUS(status);
+        if (r == EXIT_SUCCESS)
+        {
+            char line[LINE_MAX];
+            char *passphrase;
+
+            while (read(pipefd[0], line, sizeof(line)-1) == EAGAIN);
+            close(pipefd[0]);
+            line[sizeof(line) - 1] = '\0';
+            truncate_nl(line);
+            passphrase = strdup(line);
+            r = strv_push_prepend(passwords, passphrase);
+        }
+
+        return r;
+    }
+}
+
+
 static int help(void) {
 
         printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
@@ -683,6 +787,20 @@ int main(int argc, char *argv[]) {
                                 k = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
                                 if (k == -EAGAIN)
                                         continue;
+                                else if (k < 0)
+                                        goto finish;
+                        }
+                        else if (arg_key_script) {
+                                k = execute_key_script(argv[2], argv[3], key_file, &passwords);
+                                if (k == 0)
+                                {
+                                    key_file = NULL;
+                                }
+                                if (k == -EAGAIN)
+                                {
+                                    arg_key_script = NULL;
+                                    continue;
+                                }
                                 else if (k < 0)
                                         goto finish;
                         }
