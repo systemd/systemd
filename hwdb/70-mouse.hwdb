@@ -467,3 +467,11 @@ mouse:usb:v1e7dp2c2e:name:ROCCAT ROCCAT Lua:
 # Sharkoon Shark Force Gaming Mouse
 mouse:usb:v093ap2521:name:USB OPTICAL MOUSE:
  MOUSE_DPI=*1000@125 1600@125 600@125
+
+##########################################
+# SteelSeries
+##########################################
+
+# SteelSeries Sensei Raw
+mouse:usb:v1038p1369:name:SteelSeries Sensei Raw Gaming Mouse:
+ MOUSE_DPI=1000@1022
