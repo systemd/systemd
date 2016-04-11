@@ -33,8 +33,6 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_lldp sd_lldp;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
-#define SD_LLDP_MULTICAST_ADDR     { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
-
 /* IEEE 802.3AB Clause 9: TLV Types */
 enum {
         SD_LLDP_TYPE_END                  =   0,
