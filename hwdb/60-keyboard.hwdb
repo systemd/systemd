@@ -502,6 +502,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard:pnHPProBook6555b:*
 
 # HP ProBook 440 G3
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*440*G3*
+# HP ProBook 640 G2
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*640*G2*
  KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=unknown                                # rf kill; also reported via special evdev
 
