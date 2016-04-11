@@ -355,7 +355,8 @@
         <listitem><para>Set the specified UUID for the container. The
         init system will initialize
         <filename>/etc/machine-id</filename> from this if this file is
-        not set yet. </para></listitem>
+        not set yet. Note that this option takes effect only if
+        /etc/machine-id in the container is unpopulated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
