@@ -832,7 +832,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         return 0;
 }
 
-static int service_search_main_pid(Service *s) {
+static void service_search_main_pid(Service *s) {
         pid_t pid = 0;
         int r;
 
@@ -841,30 +841,24 @@ static int service_search_main_pid(Service *s) {
         /* If we know it anyway, don't ever fallback to unreliable
          * heuristics */
         if (s->main_pid_known)
-                return 0;
+                return;
 
         if (!s->guess_main_pid)
-                return 0;
+                return;
 
         assert(s->main_pid <= 0);
 
-        r = unit_search_main_pid(UNIT(s), &pid);
-        if (r < 0)
-                return r;
+        if (unit_search_main_pid(UNIT(s), &pid) < 0)
+                return;
 
         log_unit_debug(UNIT(s), "Main PID guessed: "PID_FMT, pid);
-        r = service_set_main_pid(s, pid);
-        if (r < 0)
-                return r;
+        if (service_set_main_pid(s, pid) < 0)
+                return;
 
         r = unit_watch_pid(UNIT(s), pid);
-        if (r < 0) {
+        if (r < 0)
                 /* FIXME: we need to do something here */
                 log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", pid);
-                return r;
-        }
-
-        return 0;
 }
 
 static void service_set_state(Service *s, ServiceState state) {
@@ -2729,7 +2723,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                 break;
                                         }
                                 } else
-                                        (void) service_search_main_pid(s);
+                                        service_search_main_pid(s);
 
                                 service_enter_start_post(s);
                                 break;
@@ -2751,16 +2745,15 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                 break;
                                         }
                                 } else
-                                        (void) service_search_main_pid(s);
+                                        service_search_main_pid(s);
 
                                 service_enter_running(s, SERVICE_SUCCESS);
                                 break;
 
                         case SERVICE_RELOAD:
-                                if (f == SERVICE_SUCCESS) {
-                                        service_load_pid_file(s, true);
-                                        (void) service_search_main_pid(s);
-                                }
+                                if (f == SERVICE_SUCCESS)
+                                        if (service_load_pid_file(s, true) < 0)
+                                                service_search_main_pid(s);
 
                                 s->reload_result = f;
                                 service_enter_running(s, SERVICE_SUCCESS);

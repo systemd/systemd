@@ -262,7 +262,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         if (manager_our_packet(t->scope->manager, p) != 0)
                 return;
 
-        in_addr_to_string(p->family, &p->sender, &pretty);
+        (void) in_addr_to_string(p->family, &p->sender, &pretty);
 
         log_debug("Transaction %" PRIu16 " for <%s> on scope %s on %s/%s got tentative packet from %s.",
                   t->id,
@@ -270,7 +270,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->name : "*",
                   af_to_name_short(t->scope->family),
-                  pretty);
+                  strnull(pretty));
 
         /* RFC 4795, Section 4.1 says that the peer with the
          * lexicographically smaller IP address loses */

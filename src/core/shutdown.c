@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
                 goto error;
         }
 
-        cg_get_root_path(&cgroup);
+        (void) cg_get_root_path(&cgroup);
 
         use_watchdog = !!getenv("WATCHDOG_USEC");
 

@@ -58,7 +58,7 @@ static gcry_mpi_t mpi_import(const void *buf, size_t buflen) {
         gcry_mpi_t h;
         unsigned len;
 
-        gcry_mpi_scan(&h, GCRYMPI_FMT_USG, buf, buflen, NULL);
+        assert_se(gcry_mpi_scan(&h, GCRYMPI_FMT_USG, buf, buflen, NULL) == 0);
         len = (gcry_mpi_get_nbits(h) + 7) / 8;
         assert(len <= buflen);
         assert(gcry_mpi_cmp_ui(h, 0) >= 0);
