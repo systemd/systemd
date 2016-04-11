@@ -5446,6 +5446,8 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Unit file is masked.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "Unit file is transient or generated.");
+                if (r == -ELOOP)
+                        return log_error_errno(r, "Refusing to operate on linked unit file.");
                 if (r < 0)
                         return log_error_errno(r, "Operation failed: %m");
 

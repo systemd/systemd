@@ -35,6 +35,7 @@
 #define BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE "org.freedesktop.systemd1.TransactionIsDestructive"
 #define BUS_ERROR_UNIT_MASKED "org.freedesktop.systemd1.UnitMasked"
 #define BUS_ERROR_UNIT_GENERATED "org.freedesktop.systemd1.UnitGenerated"
+#define BUS_ERROR_UNIT_LINKED "org.freedesktop.systemd1.UnitLinked"
 #define BUS_ERROR_JOB_TYPE_NOT_APPLICABLE "org.freedesktop.systemd1.JobTypeNotApplicable"
 #define BUS_ERROR_NO_ISOLATION "org.freedesktop.systemd1.NoIsolation"
 #define BUS_ERROR_SHUTTING_DOWN "org.freedesktop.systemd1.ShuttingDown"
