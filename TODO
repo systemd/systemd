@@ -564,8 +564,6 @@ Features:
   - to allow "linking" of nspawn containers, extend --network-bridge= so
     that it can dynamically create bridge interfaces that are refcounted
     by the containers on them. For each group of containers to link together
-  - refuses to boot containers without /etc/machine-id (OK?), and with empty
-    /etc/machine-id (not OK).
   - nspawn -x should support ephemeral instances of gpt images
   - emulate /dev/kmsg using CUSE and turn off the syslog syscall
     with seccomp. That should provide us with a useful log buffer that

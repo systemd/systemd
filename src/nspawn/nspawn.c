@@ -64,6 +64,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "loopback-setup.h"
+#include "machine-id-setup.h"
 #include "machine-image.h"
 #include "macro.h"
 #include "missing.h"
@@ -1375,11 +1376,11 @@ static int setup_hostname(void) {
 }
 
 static int setup_journal(const char *directory) {
-        sd_id128_t machine_id, this_id;
+        sd_id128_t this_id;
         _cleanup_free_ char *b = NULL, *d = NULL;
-        const char *etc_machine_id, *p, *q;
+        const char *p, *q;
         bool try;
-        char *id;
+        char id[33];
         int r;
 
         /* Don't link journals in ephemeral mode */
@@ -1391,28 +1392,11 @@ static int setup_journal(const char *directory) {
 
         try = arg_link_journal_try || arg_link_journal == LINK_AUTO;
 
-        etc_machine_id = prefix_roota(directory, "/etc/machine-id");
-
-        r = read_one_line_file(etc_machine_id, &b);
-        if (r == -ENOENT && try)
-                return 0;
-        else if (r < 0)
-                return log_error_errno(r, "Failed to read machine ID from %s: %m", etc_machine_id);
-
-        id = strstrip(b);
-        if (isempty(id) && try)
-                return 0;
-
-        /* Verify validity */
-        r = sd_id128_from_string(id, &machine_id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse machine ID from %s: %m", etc_machine_id);
-
         r = sd_id128_get_machine(&this_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve machine ID: %m");
 
-        if (sd_id128_equal(machine_id, this_id)) {
+        if (sd_id128_equal(arg_uuid, this_id)) {
                 log_full(try ? LOG_WARNING : LOG_ERR,
                          "Host and machine ids are equal (%s): refusing to link journals", id);
                 if (try)
@@ -1431,6 +1415,8 @@ static int setup_journal(const char *directory) {
         r = userns_mkdir(directory, "/var/log/journal", 0755, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /var/log/journal: %m");
+
+        (void) sd_id128_to_string(arg_uuid, id);
 
         p = strjoina("/var/log/journal/", id);
         q = prefix_roota(directory, p);
@@ -2201,6 +2187,38 @@ static int mount_device(const char *what, const char *where, const char *directo
 #endif
 }
 
+static int setup_machine_id(const char *directory) {
+        int r;
+        const char *etc_machine_id, *t;
+        _cleanup_free_ char *s = NULL;
+
+        etc_machine_id = prefix_roota(directory, "/etc/machine-id");
+
+        r = read_one_line_file(etc_machine_id, &s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read machine ID from %s: %m", etc_machine_id);
+
+        t = strstrip(s);
+
+        if (!isempty(t)) {
+                r = sd_id128_from_string(t, &arg_uuid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse machine ID from %s: %m", etc_machine_id);
+        } else {
+                if (sd_id128_is_null(arg_uuid)) {
+                        r = sd_id128_randomize(&arg_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate random machine ID: %m");
+                }
+        }
+
+        r = machine_id_setup(directory, arg_uuid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to setup machine ID: %m");
+
+        return 0;
+}
+
 static int mount_devices(
                 const char *where,
                 const char *root_device, bool root_device_rw,
@@ -2458,6 +2476,7 @@ static int inner_child(
                 FDSet *fds) {
 
         _cleanup_free_ char *home = NULL;
+        char as_uuid[37];
         unsigned n_env = 1;
         const char *envp[] = {
                 "PATH=" DEFAULT_PATH_SPLIT_USR,
@@ -2575,12 +2594,10 @@ static int inner_child(
             (asprintf((char**)(envp + n_env++), "LOGNAME=%s", arg_user ? arg_user : "root") < 0))
                 return log_oom();
 
-        if (!sd_id128_equal(arg_uuid, SD_ID128_NULL)) {
-                char as_uuid[37];
+        assert(!sd_id128_equal(arg_uuid, SD_ID128_NULL));
 
-                if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_format_as_uuid(arg_uuid, as_uuid)) < 0)
-                        return log_oom();
-        }
+        if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_format_as_uuid(arg_uuid, as_uuid)) < 0)
+                return log_oom();
 
         if (fdset_size(fds) > 0) {
                 r = fdset_cloexec(fds, false);
@@ -2670,6 +2687,7 @@ static int outer_child(
                 bool interactive,
                 bool secondary,
                 int pid_socket,
+                int uuid_socket,
                 int kmsg_socket,
                 int rtnl_socket,
                 int uid_shift_socket,
@@ -2683,6 +2701,7 @@ static int outer_child(
         assert(directory);
         assert(console);
         assert(pid_socket >= 0);
+        assert(uuid_socket >= 0);
         assert(kmsg_socket >= 0);
 
         cg_unified_flush();
@@ -2797,6 +2816,10 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = setup_machine_id(directory);
+        if (r < 0)
+                return r;
+
         r = setup_journal(directory);
         if (r < 0)
                 return r;
@@ -2822,6 +2845,7 @@ static int outer_child(
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
                 pid_socket = safe_close(pid_socket);
+                uuid_socket = safe_close(uuid_socket);
                 uid_shift_socket = safe_close(uid_shift_socket);
 
                 /* The inner child has all namespaces that are
@@ -2843,7 +2867,16 @@ static int outer_child(
                 return -EIO;
         }
 
+        l = send(uuid_socket, &arg_uuid, sizeof(arg_uuid), MSG_NOSIGNAL);
+        if (l < 0)
+                return log_error_errno(errno, "Failed to send machine ID: %m");
+        if (l != sizeof(arg_uuid)) {
+                log_error("Short write while sending machine ID.");
+                return -EIO;
+        }
+
         pid_socket = safe_close(pid_socket);
+        uuid_socket = safe_close(uuid_socket);
         kmsg_socket = safe_close(kmsg_socket);
         rtnl_socket = safe_close(rtnl_socket);
 
@@ -3319,7 +3352,8 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 }, rtnl_socket_pair[2] = { -1, -1 }, pid_socket_pair[2] = { -1, -1 }, uid_shift_socket_pair[2] = { -1, -1 };
+                _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 }, rtnl_socket_pair[2] = { -1, -1 },
+                        pid_socket_pair[2] = { -1, -1 }, uuid_socket_pair[2] = { -1, -1 }, uid_shift_socket_pair[2] = { -1, -1 };
                 ContainerStatus container_status;
                 _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 static const struct sigaction sa = {
@@ -3351,6 +3385,11 @@ int main(int argc, char *argv[]) {
 
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pid_socket_pair) < 0) {
                         r = log_error_errno(errno, "Failed to create pid socket pair: %m");
+                        goto finish;
+                }
+
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uuid_socket_pair) < 0) {
+                        r = log_error_errno(errno, "Failed to create id socket pair: %m");
                         goto finish;
                 }
 
@@ -3394,6 +3433,7 @@ int main(int argc, char *argv[]) {
                         kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
                         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                         pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
+                        uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
                         uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
 
                         (void) reset_all_signal_handlers();
@@ -3408,6 +3448,7 @@ int main(int argc, char *argv[]) {
                                         interactive,
                                         secondary,
                                         pid_socket_pair[1],
+                                        uuid_socket_pair[1],
                                         kmsg_socket_pair[1],
                                         rtnl_socket_pair[1],
                                         uid_shift_socket_pair[1],
@@ -3425,6 +3466,7 @@ int main(int argc, char *argv[]) {
                 kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
                 rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
                 pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
+                uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
                 uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
 
                 /* Wait for the outer child. */
@@ -3445,6 +3487,18 @@ int main(int argc, char *argv[]) {
                 }
                 if (l != sizeof(pid)) {
                         log_error("Short read while reading inner child PID.");
+                        r = EIO;
+                        goto finish;
+                }
+
+                /* We also retrieve container UUID in case it was generated by outer child */
+                l = recv(uuid_socket_pair[0], &arg_uuid, sizeof(arg_uuid), 0);
+                if (l < 0) {
+                        r = log_error_errno(errno, "Failed to read container machine ID: %m");
+                        goto finish;
+                }
+                if (l != sizeof(arg_uuid)) {
+                        log_error("Short read while reading container machined ID.");
                         r = EIO;
                         goto finish;
                 }
