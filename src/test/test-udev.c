@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "fs-util.h"
+#include "log.h"
 #include "missing.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -48,33 +49,22 @@ static int fake_filesystems(void) {
                 { "test/run",       UDEVLIBEXECDIR "/rules.d", "failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
         };
         unsigned int i;
-        int err;
 
-        err = unshare(CLONE_NEWNS);
-        if (err < 0) {
-                err = -errno;
-                fprintf(stderr, "failed to call unshare(): %m\n");
-                goto out;
-        }
+        if (unshare(CLONE_NEWNS) < 0)
+                return log_error_errno(errno, "failed to call unshare(): %m");
 
-        if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0) {
-                err = -errno;
-                fprintf(stderr, "failed to mount / as private: %m\n");
-                goto out;
-        }
+        if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0)
+                return log_error_errno(errno, "failed to mount / as private: %m");
 
         for (i = 0; i < ELEMENTSOF(fakefss); i++) {
-                err = mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
-                if (err < 0) {
-                        err = -errno;
-                        fprintf(stderr, "%s %m%s\n", fakefss[i].error, fakefss[i].ignore_mount_error ? ", ignoring" : "");
+                if (mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL) < 0) {
+                        log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "%s: %m", fakefss[i].error);
                         if (!fakefss[i].ignore_mount_error)
-                                return err;
-                        err = 0;
+                                return -errno;
                 }
         }
-out:
-        return err;
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -86,6 +76,9 @@ int main(int argc, char *argv[]) {
         const char *devpath;
         const char *action;
         int err;
+
+        log_parse_environment();
+        log_open();
 
         err = fake_filesystems();
         if (err < 0)
