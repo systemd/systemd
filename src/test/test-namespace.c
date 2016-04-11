@@ -69,8 +69,10 @@ static void test_netns(void) {
         int r, n = 0;
         siginfo_t si;
 
-        if (geteuid() > 0)
-                return;
+        if (geteuid() > 0) {
+                log_info("Skipping test: not root");
+                exit(EXIT_TEST_SKIP);
+        }
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, s) >= 0);
 
@@ -123,6 +125,9 @@ int main(int argc, char *argv[]) {
         sd_id128_t bid;
         char boot_id[SD_ID128_STRING_MAX];
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *zz = NULL;
+
+        log_parse_environment();
+        log_open();
 
         assert_se(sd_id128_get_boot(&bid) >= 0);
         sd_id128_to_string(bid, boot_id);
