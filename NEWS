@@ -43,6 +43,9 @@ CHANGES WITH 230 in spe:
           logged out, lingering must be enabled for them. See loginctl(1)
           for details.
 
+          Previous defaults can be restored at compile time by the
+          --without-kill-user-processes option.
+
         * The unified cgroup hierarchy added in Linux 4.5 is now supported.
           Use systemd.unified_cgroup_hierarchy=1 on the kernel command line
           to enable.

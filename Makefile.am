@@ -5725,7 +5725,7 @@ dist_dbussystemservice_DATA += \
 dist_dbuspolicy_DATA += \
 	src/login/org.freedesktop.login1.conf
 
-dist_pkgsysconf_DATA += \
+nodist_pkgsysconf_DATA += \
 	src/login/logind.conf
 
 polkitpolicy_files += \
@@ -5762,7 +5762,8 @@ gperf_gperf_sources += \
 EXTRA_DIST += \
 	src/login/71-seat.rules.in \
 	src/login/73-seat-late.rules.in \
-	units/systemd-logind.service.in
+	units/systemd-logind.service.in \
+	src/login/logind.conf.in
 
 # ------------------------------------------------------------------------------
 if HAVE_PAM
@@ -5879,6 +5880,7 @@ substitutions = \
        '|NTP_SERVERS=$(NTP_SERVERS)|' \
        '|DNS_SERVERS=$(DNS_SERVERS)|' \
        '|DEFAULT_DNSSEC_MODE=$(DEFAULT_DNSSEC_MODE)|' \
+       '|KILL_USER_PROCESSES=$(KILL_USER_PROCESSES)|' \
        '|systemuidmax=$(SYSTEM_UID_MAX)|' \
        '|systemgidmax=$(SYSTEM_GID_MAX)|' \
        '|TTY_GID=$(TTY_GID)|' \
