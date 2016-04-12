@@ -1651,8 +1651,10 @@ static int method_enable_unit_files_generic(
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = call(m->unit_file_scope, runtime, NULL, l, force, &changes, &n_changes);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_free(changes, n_changes);
                 return install_error(error, r);
+        }
 
         return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes);
 }
@@ -1717,8 +1719,10 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_preset(m->unit_file_scope, runtime, NULL, l, mm, force, &changes, &n_changes);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_free(changes, n_changes);
                 return install_error(error, r);
+        }
 
         return reply_unit_file_changes_and_free(m, message, r, changes, n_changes);
 }
@@ -1753,8 +1757,10 @@ static int method_disable_unit_files_generic(
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = call(m->unit_file_scope, runtime, NULL, l, &changes, &n_changes);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_free(changes, n_changes);
                 return install_error(error, r);
+        }
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
@@ -1788,8 +1794,10 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_free(changes, n_changes);
                 return install_error(error, r);
+        }
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
@@ -1819,8 +1827,10 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_set_default(m->unit_file_scope, NULL, name, force, &changes, &n_changes);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_free(changes, n_changes);
                 return install_error(error, r);
+        }
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
@@ -1899,8 +1909,10 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
                 return -EINVAL;
 
         r = unit_file_add_dependency(m->unit_file_scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_free(changes, n_changes);
                 return install_error(error, r);
+        }
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
