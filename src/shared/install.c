@@ -2193,7 +2193,7 @@ static int execute_preset(
                 int q;
 
                 /* Returns number of symlinks that where supposed to be installed. */
-                q = install_context_apply(scope, plus, paths, config_path, root_dir, force, SEARCH_LOAD, changes, n_changes);
+                q = install_context_apply(scope, plus, paths, config_path, root_dir, force, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
