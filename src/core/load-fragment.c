@@ -2847,11 +2847,12 @@ int config_parse_device_allow(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *path = NULL, *t = NULL;
         CGroupContext *c = data;
         CGroupDeviceAllow *a;
-        const char *m;
+        const char *m = NULL;
         size_t n;
+        int r;
 
         if (isempty(rvalue)) {
                 while (c->device_allow)
@@ -2860,8 +2861,16 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        n = strcspn(rvalue, WHITESPACE);
-        path = strndup(rvalue, n);
+        r = unit_full_printf(userdata, rvalue, &t);
+        if(r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve specifiers in %s, ignoring: %m",
+                           rvalue);
+        }
+
+        n = strcspn(t, WHITESPACE);
+
+        path = strndup(t, n);
         if (!path)
                 return log_oom();
 
@@ -2872,7 +2881,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        m = rvalue + n + strspn(rvalue + n, WHITESPACE);
+        m = t + n + strspn(t + n, WHITESPACE);
         if (isempty(m))
                 m = "rwm";
 
