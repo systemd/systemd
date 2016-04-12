@@ -1628,6 +1628,13 @@ int main(int argc, char *argv[]) {
                 if (v > 0)
                         log_info("Detected virtualization %s.", virtualization_to_string(v));
 
+#if defined(__s390__)
+                if (v == VIRTUALIZATION_NONE || v == VIRTUALIZATION_ZVM) {
+                        log_info("Disabling LogColor due to detected virtualization mode.");
+                        log_show_color(false);
+                }
+#endif
+
                 write_container_id();
 
                 log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
