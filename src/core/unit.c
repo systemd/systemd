@@ -47,11 +47,13 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "signal-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "umask-util.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
@@ -418,13 +420,22 @@ static void unit_remove_transient(Unit *u) {
                 (void) unlink(u->fragment_path);
 
         STRV_FOREACH(i, u->dropin_paths) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = NULL, *pp = NULL;
+
+                p = dirname_malloc(*i); /* Get the drop-in directory from the drop-in file */
+                if (!p)
+                        continue;
+
+                pp = dirname_malloc(p); /* Get the config directory from the drop-in directory */
+                if (!pp)
+                        continue;
+
+                /* Only drop transient drop-ins */
+                if (!path_equal(u->manager->lookup_paths.transient, pp))
+                        continue;
 
                 (void) unlink(*i);
-
-                p = dirname_malloc(*i);
-                if (p)
-                        (void) rmdir(p);
+                (void) rmdir(p);
         }
 }
 
@@ -483,7 +494,10 @@ void unit_free(Unit *u) {
 
         assert(u);
 
-        if (u->manager->n_reloading <= 0)
+        if (u->transient_file)
+                fclose(u->transient_file);
+
+        if (!MANAGER_IS_RELOADING(u->manager))
                 unit_remove_transient(u);
 
         bus_unit_send_removed_signal(u);
@@ -814,7 +828,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        if (u->manager->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(u->manager))
                 return 0;
 
         if (c->private_tmp) {
@@ -1221,6 +1235,17 @@ int unit_load(Unit *u) {
 
         if (u->load_state != UNIT_STUB)
                 return 0;
+
+        if (u->transient_file) {
+                r = fflush_and_check(u->transient_file);
+                if (r < 0)
+                        goto fail;
+
+                fclose(u->transient_file);
+                u->transient_file = NULL;
+
+                u->dropin_mtime = now(CLOCK_REALTIME);
+        }
 
         if (UNIT_VTABLE(u)->load) {
                 r = UNIT_VTABLE(u)->load(u);
@@ -1834,7 +1859,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         m = u->manager;
 
         /* Update timestamps for state changes */
-        if (m->n_reloading <= 0) {
+        if (!MANAGER_IS_RELOADING(m)) {
                 dual_timestamp_get(&u->state_change_timestamp);
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
@@ -1941,7 +1966,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         } else
                 unexpected = true;
 
-        if (m->n_reloading <= 0) {
+        if (!MANAGER_IS_RELOADING(m)) {
 
                 /* If this state change happened without being
                  * requested by a job, then let's retroactively start
@@ -1978,7 +2003,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (u->type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
-                    m->n_reloading <= 0) {
+                    !MANAGER_IS_RELOADING(m)) {
                         /* Write audit record if we have just finished starting up */
                         manager_send_unit_audit(m, u, AUDIT_SERVICE_START, true);
                         u->in_audit = true;
@@ -1995,7 +2020,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (u->type == UNIT_SERVICE &&
                     UNIT_IS_INACTIVE_OR_FAILED(ns) &&
                     !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    m->n_reloading <= 0) {
+                    !MANAGER_IS_RELOADING(m)) {
 
                         /* Hmm, if there was no start record written
                          * write it now, so that we always have a nice
@@ -2016,7 +2041,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         manager_recheck_journal(m);
         unit_trigger_notify(u);
 
-        if (u->manager->n_reloading <= 0) {
+        if (!MANAGER_IS_RELOADING(u->manager)) {
                 /* Maybe we finished startup and are now ready for
                  * being stopped because unneeded? */
                 unit_check_unneeded(u);
@@ -2413,7 +2438,7 @@ int unit_set_default_slice(Unit *u) {
                 if (!escaped)
                         return -ENOMEM;
 
-                if (u->manager->running_as == MANAGER_SYSTEM)
+                if (MANAGER_IS_SYSTEM(u->manager))
                         b = strjoin("system-", escaped, ".slice", NULL);
                 else
                         b = strappend(escaped, ".slice");
@@ -2423,7 +2448,7 @@ int unit_set_default_slice(Unit *u) {
                 slice_name = b;
         } else
                 slice_name =
-                        u->manager->running_as == MANAGER_SYSTEM && !unit_has_name(u, SPECIAL_INIT_SCOPE)
+                        MANAGER_IS_SYSTEM(u->manager) && !unit_has_name(u, SPECIAL_INIT_SCOPE)
                         ? SPECIAL_SYSTEM_SLICE
                         : SPECIAL_ROOT_SLICE;
 
@@ -2884,7 +2909,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep
                 return r;
 
         r = unit_add_two_dependencies(u, UNIT_AFTER,
-                                      u->manager->running_as == MANAGER_SYSTEM ? dep : UNIT_WANTS,
+                                      MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
                                       device, true);
         if (r < 0)
                 return r;
@@ -3040,8 +3065,7 @@ bool unit_active_or_pending(Unit *u) {
 int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
         assert(u);
         assert(w >= 0 && w < _KILL_WHO_MAX);
-        assert(signo > 0);
-        assert(signo < _NSIG);
+        assert(SIGNAL_VALID(signo));
 
         if (!UNIT_VTABLE(u)->kill)
                 return -EOPNOTSUPP;
@@ -3158,7 +3182,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 
         if (u->unit_file_state < 0 && u->fragment_path) {
                 r = unit_file_get_state(
-                                u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                u->manager->unit_file_scope,
                                 NULL,
                                 basename(u->fragment_path),
                                 &u->unit_file_state);
@@ -3174,7 +3198,7 @@ int unit_get_unit_file_preset(Unit *u) {
 
         if (u->unit_file_preset < 0 && u->fragment_path)
                 u->unit_file_preset = unit_file_query_preset(
-                                u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                u->manager->unit_file_scope,
                                 NULL,
                                 basename(u->fragment_path));
 
@@ -3225,7 +3249,7 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                if (u->manager->running_as == MANAGER_USER &&
+                if (MANAGER_IS_USER(u->manager) &&
                     !ec->working_directory) {
 
                         r = get_home_dir(&ec->working_directory);
@@ -3237,7 +3261,7 @@ int unit_patch_contexts(Unit *u) {
                         ec->working_directory_missing_ok = true;
                 }
 
-                if (u->manager->running_as == MANAGER_USER &&
+                if (MANAGER_IS_USER(u->manager) &&
                     (ec->syscall_whitelist ||
                      !set_isempty(ec->syscall_filter) ||
                      !set_isempty(ec->syscall_archs) ||
@@ -3315,59 +3339,62 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
         return *(ExecRuntime**) ((uint8_t*) u + offset);
 }
 
-static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient, char **dir) {
+static const char* unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode) {
         assert(u);
 
-        if (u->manager->running_as == MANAGER_USER) {
-                int r;
+        if (!IN_SET(mode, UNIT_RUNTIME, UNIT_PERSISTENT))
+                return NULL;
 
-                if (mode == UNIT_PERSISTENT && !transient)
-                        r = user_config_home(dir);
-                else
-                        r = user_runtime_dir(dir);
-                if (r == 0)
-                        return -ENOENT;
+        if (u->transient) /* Redirect drop-ins for transient units always into the transient directory. */
+                return u->manager->lookup_paths.transient;
 
-                return r;
-        }
+        if (mode == UNIT_RUNTIME)
+                return u->manager->lookup_paths.runtime_control;
 
-        if (mode == UNIT_PERSISTENT && !transient)
-                *dir = strdup("/etc/systemd/system");
-        else
-                *dir = strdup("/run/systemd/system");
-        if (!*dir)
-                return -ENOMEM;
+        if (mode == UNIT_PERSISTENT)
+                return u->manager->lookup_paths.persistent_control;
 
-        return 0;
+        return NULL;
 }
 
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
-
-        _cleanup_free_ char *dir = NULL, *p = NULL, *q = NULL;
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        const char *dir, *prefixed;
         int r;
 
         assert(u);
 
+        if (u->transient_file) {
+                /* When this is a transient unit file in creation, then let's not create a new drop-in but instead
+                 * write to the transient unit file. */
+                fputs(data, u->transient_file);
+                return 0;
+        }
+
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        r = unit_drop_in_dir(u, mode, u->transient, &dir);
-        if (r < 0)
-                return r;
+        dir = unit_drop_in_dir(u, mode);
+        if (!dir)
+                return -EINVAL;
 
-        r = write_drop_in(dir, u->id, 50, name, data);
-        if (r < 0)
-                return r;
+        prefixed = strjoina("# This is a drop-in unit file extension, created via \"systemctl set-property\" or an equivalent operation. Do not edit.\n",
+                            data);
 
         r = drop_in_file(dir, u->id, 50, name, &p, &q);
         if (r < 0)
                 return r;
 
-        r = strv_extend(&u->dropin_paths, q);
+        (void) mkdir_p(p, 0755);
+        r = write_string_file_atomic_label(q, prefixed);
         if (r < 0)
                 return r;
 
-        strv_sort(u->dropin_paths);
+        r = strv_push(&u->dropin_paths, q);
+        if (r < 0)
+                return r;
+        q = NULL;
+
         strv_uniq(u->dropin_paths);
 
         u->dropin_mtime = now(CLOCK_REALTIME);
@@ -3398,7 +3425,7 @@ int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *n
 }
 
 int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
-        _cleanup_free_ char *ndata = NULL;
+        const char *ndata;
 
         assert(u);
         assert(name);
@@ -3410,9 +3437,7 @@ int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        ndata = strjoin("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
-        if (!ndata)
-                return -ENOMEM;
+        ndata = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
 
         return unit_write_drop_in(u, mode, name, ndata);
 }
@@ -3440,23 +3465,49 @@ int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const
 }
 
 int unit_make_transient(Unit *u) {
+        FILE *f;
+        char *path;
+
         assert(u);
 
         if (!UNIT_VTABLE(u)->can_transient)
                 return -EOPNOTSUPP;
 
-        u->load_state = UNIT_STUB;
-        u->load_error = 0;
-        u->transient = true;
+        path = strjoin(u->manager->lookup_paths.transient, "/", u->id, NULL);
+        if (!path)
+                return -ENOMEM;
 
-        u->fragment_path = mfree(u->fragment_path);
+        /* Let's open the file we'll write the transient settings into. This file is kept open as long as we are
+         * creating the transient, and is closed in unit_load(), as soon as we start loading the file. */
+
+        RUN_WITH_UMASK(0022)
+                f = fopen(path, "we");
+        if (!f) {
+                free(path);
+                return -errno;
+        }
+
+        if (u->transient_file)
+                fclose(u->transient_file);
+        u->transient_file = f;
+
+        free(u->fragment_path);
+        u->fragment_path = path;
+
         u->source_path = mfree(u->source_path);
         u->dropin_paths = strv_free(u->dropin_paths);
         u->fragment_mtime = u->source_mtime = u->dropin_mtime = 0;
 
+        u->load_state = UNIT_STUB;
+        u->load_error = 0;
+        u->transient = true;
+
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
         unit_add_to_load_queue(u);
+
+        fputs("# This is a transient unit file, created programmatically via the systemd API. Do not edit.\n",
+              u->transient_file);
 
         return 0;
 }

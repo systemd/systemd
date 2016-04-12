@@ -401,8 +401,7 @@ int image_remove(Image *i) {
 
         assert(i);
 
-        if (path_equal(i->path, "/") ||
-            path_startswith(i->path, "/usr"))
+        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -474,8 +473,7 @@ int image_rename(Image *i, const char *new_name) {
         if (!image_name_is_valid(new_name))
                 return -EINVAL;
 
-        if (path_equal(i->path, "/") ||
-            path_startswith(i->path, "/usr"))
+        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -642,8 +640,7 @@ int image_read_only(Image *i, bool b) {
         int r;
         assert(i);
 
-        if (path_equal(i->path, "/") ||
-            path_startswith(i->path, "/usr"))
+        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
                 return -EROFS;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -751,8 +748,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
 int image_set_limit(Image *i, uint64_t referenced_max) {
         assert(i);
 
-        if (path_equal(i->path, "/") ||
-            path_startswith(i->path, "/usr"))
+        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)

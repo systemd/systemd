@@ -1,9 +1,7 @@
-#pragma once
-
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2016 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,16 +17,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "dropin.h"
-#include "unit.h"
+#include <stdlib.h>
+#include <util.h>
 
-/* Read service data supplementary drop-in directories */
+#include "tests.h"
 
-static inline int unit_find_dropin_paths(Unit *u, char ***paths) {
-        return unit_file_find_dropin_paths(u->manager->lookup_paths.search_path,
-                                           u->manager->unit_path_cache,
-                                           u->names,
-                                           paths);
+char* setup_fake_runtime_dir(void) {
+        char t[] = "/tmp/fake-xdg-runtime-XXXXXX", *p;
+
+        assert_se(mkdtemp(t));
+        assert_se(setenv("XDG_RUNTIME_DIR", t, 1) >= 0);
+        assert_se(p = strdup(t));
+
+        return p;
 }
-
-int unit_load_dropin(Unit *u);

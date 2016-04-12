@@ -747,8 +747,6 @@ libbasic_la_SOURCES = \
 	src/basic/missing_syscall.h \
 	src/basic/capability-util.c \
 	src/basic/capability-util.h \
-	src/basic/c-rbtree.c \
-	src/basic/c-rbtree.h \
 	src/basic/conf-files.c \
 	src/basic/conf-files.h \
 	src/basic/stdio-util.h \
@@ -1038,7 +1036,9 @@ libshared_la_SOURCES = \
 	src/shared/machine-pool.c \
 	src/shared/machine-pool.h \
 	src/shared/resolve-util.c \
-	src/shared/resolve-util.h
+	src/shared/resolve-util.h \
+	src/shared/tests.h \
+	src/shared/tests.c
 
 if HAVE_UTMP
 libshared_la_SOURCES += \
@@ -1494,7 +1494,6 @@ tests += \
 	test-copy \
 	test-cap-list \
 	test-sigbus \
-	test-rbtree \
 	test-verbs \
 	test-af-list \
 	test-arphrd-list \
@@ -1746,12 +1745,6 @@ test_sigbus_SOURCES = \
 	src/test/test-sigbus.c
 
 test_sigbus_LDADD = \
-	libshared.la
-
-test_rbtree_SOURCES = \
-	src/test/test-rbtree.c
-
-test_rbtree_LDADD = \
 	libshared.la
 
 test_condition_SOURCES = \
@@ -4729,8 +4722,7 @@ systemd_localed_SOURCES = \
 	src/locale/localed.c
 
 systemd_localed_LDADD = \
-	libshared.la \
-	$(XKBCOMMON_LIBS)
+	libshared.la
 
 systemd_localed_CFLAGS = \
 	$(AM_CFLAGS) \

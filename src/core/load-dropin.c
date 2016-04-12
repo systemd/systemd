@@ -44,6 +44,7 @@ static int add_dependency_consumer(
 }
 
 int unit_load_dropin(Unit *u) {
+        _cleanup_strv_free_ char **l = NULL;
         Iterator i;
         char *t, **f;
         int r;
@@ -55,7 +56,7 @@ int unit_load_dropin(Unit *u) {
         SET_FOREACH(t, u->names, i) {
                 char **p;
 
-                STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
+                STRV_FOREACH(p, u->manager->lookup_paths.search_path) {
                         unit_file_process_dir(u->manager->unit_path_cache, *p, t, ".wants", UNIT_WANTS,
                                               add_dependency_consumer, u, NULL);
                         unit_file_process_dir(u->manager->unit_path_cache, *p, t, ".requires", UNIT_REQUIRES,
@@ -63,10 +64,18 @@ int unit_load_dropin(Unit *u) {
                 }
         }
 
-        u->dropin_paths = strv_free(u->dropin_paths);
-        r = unit_find_dropin_paths(u, &u->dropin_paths);
+        r = unit_find_dropin_paths(u, &l);
         if (r <= 0)
                 return 0;
+
+        if (!u->dropin_paths) {
+                u->dropin_paths = l;
+                l = NULL;
+        } else {
+                r = strv_extend_strv(&u->dropin_paths, l, true);
+                if (r < 0)
+                        return log_oom();
+        }
 
         STRV_FOREACH(f, u->dropin_paths) {
                 config_parse(u->id, *f, NULL,

@@ -58,7 +58,7 @@
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-nspawn</command>
-      <arg choice="plain">-b</arg>
+      <arg choice="plain">--boot</arg>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="opt" rep="repeat">ARGS</arg>
     </cmdsynopsis>
@@ -263,7 +263,7 @@
         signals. It is recommended to use this mode to invoke arbitrary commands in containers, unless they have been
         modified to run correctly as PID 1. Or in other words: this switch should be used for pretty much all commands,
         except when the command refers to an init or shell implementation, as these are generally capable of running
-        correctly as PID 1). This option may not be combined with <option>--boot</option> or
+        correctly as PID 1. This option may not be combined with <option>--boot</option> or
         <option>--share-system</option>.</para>
         </listitem>
       </varlistentry>
@@ -294,12 +294,12 @@
             <tbody>
               <row>
                 <entry>Neither <option>--as-pid2</option> nor <option>--boot</option> specified</entry>
-                <entry>The passed parameters are interpreted as command line, which is executed as PID 1 in the container.</entry>
+                <entry>The passed parameters are interpreted as the command line, which is executed as PID 1 in the container.</entry>
               </row>
 
               <row>
                 <entry><option>--as-pid2</option> specified</entry>
-                <entry>The passed parameters are interpreted as command line, which are executed as PID 2 in the container. A stub init process is run as PID 1.</entry>
+                <entry>The passed parameters are interpreted as the command line, which is executed as PID 2 in the container. A stub init process is run as PID 1.</entry>
               </row>
 
               <row>

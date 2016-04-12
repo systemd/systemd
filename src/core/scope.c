@@ -138,7 +138,7 @@ static int scope_verify(Scope *s) {
                 return 0;
 
         if (set_isempty(UNIT(s)->pids) &&
-            !manager_is_reloading_or_reexecuting(UNIT(s)->manager) &&
+            !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
             !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
                 log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
                 return -EINVAL;
@@ -154,26 +154,27 @@ static int scope_load(Unit *u) {
         assert(s);
         assert(u->load_state == UNIT_STUB);
 
-        if (!u->transient && !manager_is_reloading_or_reexecuting(u->manager))
+        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
+                /* Refuse to load non-transient scope units, but allow them while reloading. */
                 return -ENOENT;
 
-        u->load_state = UNIT_LOADED;
-
-        r = unit_load_dropin(u);
+        r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
                 return r;
 
-        r = unit_patch_contexts(u);
-        if (r < 0)
-                return r;
+        if (u->load_state == UNIT_LOADED) {
+                r = unit_patch_contexts(u);
+                if (r < 0)
+                        return r;
 
-        r = unit_set_default_slice(u);
-        if (r < 0)
-                return r;
+                r = unit_set_default_slice(u);
+                if (r < 0)
+                        return r;
 
-        r = scope_add_default_dependencies(s);
-        if (r < 0)
-                return r;
+                r = scope_add_default_dependencies(s);
+                if (r < 0)
+                        return r;
+        }
 
         return scope_verify(s);
 }
@@ -292,7 +293,7 @@ static int scope_start(Unit *u) {
 
         assert(s->state == SCOPE_DEAD);
 
-        if (!u->transient && !manager_is_reloading_or_reexecuting(u->manager))
+        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
                 return -ENOENT;
 
         (void) unit_realize_cgroup(u);

@@ -1145,8 +1145,7 @@ _public_ int sd_event_add_signal(
         int r;
 
         assert_return(e, -EINVAL);
-        assert_return(sig > 0, -EINVAL);
-        assert_return(sig < _NSIG, -EINVAL);
+        assert_return(SIGNAL_VALID(sig), -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -2200,7 +2199,7 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events) {
                 if (_unlikely_(n != sizeof(si)))
                         return -EIO;
 
-                assert(si.ssi_signo < _NSIG);
+                assert(SIGNAL_VALID(si.ssi_signo));
 
                 read_one = true;
 

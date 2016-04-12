@@ -417,6 +417,9 @@ CHANGES WITH 228:
 
           https://sourceware.org/bugzilla/show_bug.cgi?id=19108
 
+          Note that only util-linux versions built with
+          --enable-libmount-force-mountinfo are supported.
+
         * Support for the ".snapshot" unit type has been removed. This
           feature turned out to be little useful and little used, and
           has now been removed from the core and from systemctl.

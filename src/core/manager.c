@@ -49,6 +49,7 @@
 #include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus.h"
+#include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -62,6 +63,7 @@
 #include "macro.h"
 #include "manager.h"
 #include "missing.h"
+#include "mkdir.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -98,7 +100,6 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_run_generators(Manager *m);
-static void manager_undo_generators(Manager *m);
 
 static void manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
@@ -491,7 +492,7 @@ static int manager_setup_signals(Manager *m) {
         if (r < 0)
                 return r;
 
-        if (m->running_as == MANAGER_SYSTEM)
+        if (MANAGER_IS_SYSTEM(m))
                 return enable_special_signals(m);
 
         return 0;
@@ -518,7 +519,7 @@ static void manager_clean_environment(Manager *m) {
 static int manager_default_environment(Manager *m) {
         assert(m);
 
-        if (m->running_as == MANAGER_SYSTEM) {
+        if (MANAGER_IS_SYSTEM(m)) {
                 /* The system manager always starts with a clean
                  * environment for its children. It does not import
                  * the kernel or the parents exported variables.
@@ -547,43 +548,36 @@ static int manager_default_environment(Manager *m) {
 }
 
 
-int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
-
-        static const char * const unit_log_fields[_MANAGER_RUNNING_AS_MAX] = {
-                [MANAGER_SYSTEM] = "UNIT=",
-                [MANAGER_USER] = "USER_UNIT=",
-        };
-
-        static const char * const unit_log_format_strings[_MANAGER_RUNNING_AS_MAX] = {
-                [MANAGER_SYSTEM] = "UNIT=%s",
-                [MANAGER_USER] = "USER_UNIT=%s",
-        };
-
+int manager_new(UnitFileScope scope, bool test_run, Manager **_m) {
         Manager *m;
         int r;
 
         assert(_m);
-        assert(running_as >= 0);
-        assert(running_as < _MANAGER_RUNNING_AS_MAX);
+        assert(IN_SET(scope, UNIT_FILE_SYSTEM, UNIT_FILE_USER));
 
         m = new0(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-#ifdef ENABLE_EFI
-        if (running_as == MANAGER_SYSTEM && detect_container() <= 0)
-                boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
-#endif
-
-        m->running_as = running_as;
+        m->unit_file_scope = scope;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
         m->default_tasks_accounting = true;
         m->default_tasks_max = UINT64_C(512);
 
+#ifdef ENABLE_EFI
+        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
+                boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
+#endif
+
         /* Prepare log fields we can use for structured logging */
-        m->unit_log_field = unit_log_fields[running_as];
-        m->unit_log_format_string = unit_log_format_strings[running_as];
+        if (MANAGER_IS_SYSTEM(m)) {
+                m->unit_log_field = "UNIT=";
+                m->unit_log_format_string = "UNIT=%s";
+        } else {
+                m->unit_log_field = "USER_UNIT=";
+                m->unit_log_format_string = "USER_UNIT=%s";
+        }
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
@@ -683,6 +677,7 @@ static int manager_setup_notify(Manager *m) {
                         .sa.sa_family = AF_UNIX,
                 };
                 static const int one = 1;
+                const char *e;
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
@@ -694,19 +689,13 @@ static int manager_setup_notify(Manager *m) {
 
                 fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
 
-                if (m->running_as == MANAGER_SYSTEM)
-                        m->notify_socket = strdup("/run/systemd/notify");
-                else {
-                        const char *e;
-
-                        e = getenv("XDG_RUNTIME_DIR");
-                        if (!e) {
-                                log_error_errno(errno, "XDG_RUNTIME_DIR is not set: %m");
-                                return -EINVAL;
-                        }
-
-                        m->notify_socket = strappend(e, "/systemd/notify");
+                e = manager_get_runtime_prefix(m);
+                if (!e) {
+                        log_error("Failed to determine runtime prefix.");
+                        return -EINVAL;
                 }
+
+                m->notify_socket = strappend(e, "/systemd/notify");
                 if (!m->notify_socket)
                         return log_oom();
 
@@ -756,8 +745,8 @@ static int manager_setup_kdbus(Manager *m) {
                 return -ESOCKTNOSUPPORT;
 
         m->kdbus_fd = bus_kernel_create_bus(
-                        m->running_as == MANAGER_SYSTEM ? "system" : "user",
-                        m->running_as == MANAGER_SYSTEM, &p);
+                        MANAGER_IS_SYSTEM(m) ? "system" : "user",
+                        MANAGER_IS_SYSTEM(m), &p);
 
         if (m->kdbus_fd < 0)
                 return log_debug_errno(m->kdbus_fd, "Failed to set up kdbus: %m");
@@ -778,7 +767,7 @@ static int manager_connect_bus(Manager *m, bool reexecuting) {
         try_bus_connect =
                 m->kdbus_fd >= 0 ||
                 reexecuting ||
-                (m->running_as == MANAGER_USER && getenv("DBUS_SESSION_BUS_ADDRESS"));
+                (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS"));
 
         /* Try to connect to the buses, if possible. */
         return bus_init(m, try_bus_connect);
@@ -940,7 +929,7 @@ Manager* manager_free(Manager *m) {
          * around */
         manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
-        manager_undo_generators(m);
+        lookup_paths_flush_generator(&m->lookup_paths);
 
         bus_done(m);
 
@@ -1037,7 +1026,6 @@ static void manager_coldplug(Manager *m) {
 
 static void manager_build_unit_path_cache(Manager *m) {
         char **i;
-        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(m);
@@ -1046,28 +1034,26 @@ static void manager_build_unit_path_cache(Manager *m) {
 
         m->unit_path_cache = set_new(&string_hash_ops);
         if (!m->unit_path_cache) {
-                log_error("Failed to allocate unit path cache.");
-                return;
+                r = -ENOMEM;
+                goto fail;
         }
 
         /* This simply builds a list of files we know exist, so that
          * we don't always have to go to disk */
 
-        STRV_FOREACH(i, m->lookup_paths.unit_path) {
+        STRV_FOREACH(i, m->lookup_paths.search_path) {
+                _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
                 d = opendir(*i);
                 if (!d) {
                         if (errno != ENOENT)
-                                log_error_errno(errno, "Failed to open directory %s: %m", *i);
+                                log_warning_errno(errno, "Failed to open directory %s, ignoring: %m", *i);
                         continue;
                 }
 
-                while ((de = readdir(d))) {
+                FOREACH_DIRENT(de, d, r = -errno; goto fail) {
                         char *p;
-
-                        if (hidden_file(de->d_name))
-                                continue;
 
                         p = strjoin(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
                         if (!p) {
@@ -1079,19 +1065,14 @@ static void manager_build_unit_path_cache(Manager *m) {
                         if (r < 0)
                                 goto fail;
                 }
-
-                d = safe_closedir(d);
         }
 
         return;
 
 fail:
-        log_error_errno(r, "Failed to build unit path cache: %m");
-
-        set_free_free(m->unit_path_cache);
-        m->unit_path_cache = NULL;
+        log_warning_errno(r, "Failed to build unit path cache, proceeding without: %m");
+        m->unit_path_cache = set_free_free(m->unit_path_cache);
 }
-
 
 static void manager_distribute_fds(Manager *m, FDSet *fds) {
         Iterator i;
@@ -1116,21 +1097,22 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         assert(m);
 
+        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        if (r < 0)
+                return r;
+
+        /* Make sure the transient directory always exists, so that it remains in the search path */
+        r = mkdir_p_label(m->lookup_paths.transient, 0755);
+        if (r < 0)
+                return r;
+
         dual_timestamp_get(&m->generators_start_timestamp);
         r = manager_run_generators(m);
         dual_timestamp_get(&m->generators_finish_timestamp);
         if (r < 0)
                 return r;
 
-        r = lookup_paths_init(
-                        &m->lookup_paths, m->running_as, true,
-                        NULL,
-                        m->generator_unit_path,
-                        m->generator_unit_path_early,
-                        m->generator_unit_path_late);
-        if (r < 0)
-                return r;
-
+        lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
         /* If we will deserialize make sure that during enumeration
@@ -1744,7 +1726,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 }
 
                 log_received_signal(sfsi.ssi_signo == SIGCHLD ||
-                                    (sfsi.ssi_signo == SIGTERM && m->running_as == MANAGER_USER)
+                                    (sfsi.ssi_signo == SIGTERM && MANAGER_IS_USER(m))
                                     ? LOG_DEBUG : LOG_INFO,
                                     &sfsi);
 
@@ -1755,7 +1737,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case SIGTERM:
-                        if (m->running_as == MANAGER_SYSTEM) {
+                        if (MANAGER_IS_SYSTEM(m)) {
                                 /* This is for compatibility with the
                                  * original sysvinit */
                                 m->exit_code = MANAGER_REEXECUTE;
@@ -1765,7 +1747,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         /* Fall through */
 
                 case SIGINT:
-                        if (m->running_as == MANAGER_SYSTEM) {
+                        if (MANAGER_IS_SYSTEM(m)) {
 
                                 /* If the user presses C-A-D more than
                                  * 7 times within 2s, we reboot
@@ -1791,14 +1773,14 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case SIGWINCH:
-                        if (m->running_as == MANAGER_SYSTEM)
+                        if (MANAGER_IS_SYSTEM(m))
                                 manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
                         break;
 
                 case SIGPWR:
-                        if (m->running_as == MANAGER_SYSTEM)
+                        if (MANAGER_IS_SYSTEM(m))
                                 manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
@@ -1906,7 +1888,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                 break;
 
                         case 24:
-                                if (m->running_as == MANAGER_USER) {
+                                if (MANAGER_IS_USER(m)) {
                                         m->exit_code = MANAGER_EXIT;
                                         return 0;
                                 }
@@ -2022,7 +2004,7 @@ int manager_loop(Manager *m) {
         while (m->exit_code == MANAGER_OK) {
                 usec_t wait_usec;
 
-                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && m->running_as == MANAGER_SYSTEM)
+                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && MANAGER_IS_SYSTEM(m))
                         watchdog_ping();
 
                 if (!ratelimit_test(&rl)) {
@@ -2047,7 +2029,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for half the watchdog time */
-                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && m->running_as == MANAGER_SYSTEM) {
+                if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && MANAGER_IS_SYSTEM(m)) {
                         wait_usec = m->runtime_watchdog / 2;
                         if (wait_usec <= 0)
                                 wait_usec = 1;
@@ -2118,7 +2100,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         const char *msg;
         int audit_fd, r;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return;
 
         audit_fd = get_audit_fd();
@@ -2127,7 +2109,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
         /* Don't generate audit events if the service was already
          * started and we're just deserializing */
-        if (m->n_reloading > 0)
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         if (u->type != UNIT_SERVICE)
@@ -2161,10 +2143,10 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         /* Don't generate plymouth events if the service was already
          * started and we're just deserializing */
-        if (m->n_reloading > 0)
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return;
 
         if (detect_container() > 0)
@@ -2208,7 +2190,7 @@ int manager_open_serialization(Manager *m, FILE **_f) {
 
         assert(_f);
 
-        path = m->running_as == MANAGER_SYSTEM ? "/run/systemd" : "/tmp";
+        path = MANAGER_IS_SYSTEM(m) ? "/run/systemd" : "/tmp";
         fd = open_tmpfile(path, O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
@@ -2539,23 +2521,19 @@ int manager_reload(Manager *m) {
 
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
-        manager_undo_generators(m);
+        lookup_paths_flush_generator(&m->lookup_paths);
         lookup_paths_free(&m->lookup_paths);
+
+        q = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        if (q < 0 && r >= 0)
+                r = q;
 
         /* Find new unit paths */
         q = manager_run_generators(m);
         if (q < 0 && r >= 0)
                 r = q;
 
-        q = lookup_paths_init(
-                        &m->lookup_paths, m->running_as, true,
-                        NULL,
-                        m->generator_unit_path,
-                        m->generator_unit_path_early,
-                        m->generator_unit_path_late);
-        if (q < 0 && r >= 0)
-                r = q;
-
+        lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */
@@ -2589,12 +2567,6 @@ int manager_reload(Manager *m) {
         return r;
 }
 
-bool manager_is_reloading_or_reexecuting(Manager *m) {
-        assert(m);
-
-        return m->n_reloading != 0;
-}
-
 void manager_reset_failed(Manager *m) {
         Unit *u;
         Iterator i;
@@ -2626,7 +2598,7 @@ static void manager_notify_finished(Manager *m) {
         if (m->test_run)
                 return;
 
-        if (m->running_as == MANAGER_SYSTEM && detect_container() <= 0) {
+        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
 
                 /* Note that m->kernel_usec.monotonic is always at 0,
                  * and m->firmware_usec.monotonic and
@@ -2691,7 +2663,7 @@ static void manager_notify_finished(Manager *m) {
 void manager_check_finished(Manager *m) {
         assert(m);
 
-        if (m->n_reloading > 0)
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         /* Verify that we are actually running currently. Initially
@@ -2732,77 +2704,6 @@ void manager_check_finished(Manager *m) {
         manager_invalidate_startup_units(m);
 }
 
-static int create_generator_dir(Manager *m, char **generator, const char *name) {
-        char *p;
-        int r;
-
-        assert(m);
-        assert(generator);
-        assert(name);
-
-        if (*generator)
-                return 0;
-
-        if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
-                /* systemd --system, not running --test */
-
-                p = strappend("/run/systemd/", name);
-                if (!p)
-                        return log_oom();
-
-                r = mkdir_p_label(p, 0755);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create generator directory %s: %m", p);
-                        free(p);
-                        return r;
-                }
-        } else if (m->running_as == MANAGER_USER) {
-                const char *s = NULL;
-
-                s = getenv("XDG_RUNTIME_DIR");
-                if (!s)
-                        return -EINVAL;
-                p = strjoin(s, "/systemd/", name, NULL);
-                if (!p)
-                        return log_oom();
-
-                r = mkdir_p_label(p, 0755);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create generator directory %s: %m", p);
-                        free(p);
-                        return r;
-                }
-        } else {
-                /* systemd --system --test */
-
-                p = strjoin("/tmp/systemd-", name, ".XXXXXX", NULL);
-                if (!p)
-                        return log_oom();
-
-                if (!mkdtemp(p)) {
-                        log_error_errno(errno, "Failed to create generator directory %s: %m", p);
-                        free(p);
-                        return -errno;
-                }
-        }
-
-        *generator = p;
-        return 0;
-}
-
-static void trim_generator_dir(Manager *m, char **generator) {
-        assert(m);
-        assert(generator);
-
-        if (!*generator)
-                return;
-
-        if (rmdir(*generator) >= 0)
-                *generator = mfree(*generator);
-
-        return;
-}
-
 static int manager_run_generators(Manager *m) {
         _cleanup_strv_free_ char **paths = NULL;
         const char *argv[5];
@@ -2814,69 +2715,38 @@ static int manager_run_generators(Manager *m) {
         if (m->test_run)
                 return 0;
 
-        paths = generator_paths(m->running_as);
+        paths = generator_binary_paths(m->unit_file_scope);
         if (!paths)
                 return log_oom();
 
         /* Optimize by skipping the whole process by not creating output directories
          * if no generators are found. */
         STRV_FOREACH(path, paths) {
-                r = access(*path, F_OK);
-                if (r == 0)
+                if (access(*path, F_OK) >= 0)
                         goto found;
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
         }
+
         return 0;
 
  found:
-        r = create_generator_dir(m, &m->generator_unit_path, "generator");
-        if (r < 0)
-                goto finish;
-
-        r = create_generator_dir(m, &m->generator_unit_path_early, "generator.early");
-        if (r < 0)
-                goto finish;
-
-        r = create_generator_dir(m, &m->generator_unit_path_late, "generator.late");
+        r = lookup_paths_mkdir_generator(&m->lookup_paths);
         if (r < 0)
                 goto finish;
 
         argv[0] = NULL; /* Leave this empty, execute_directory() will fill something in */
-        argv[1] = m->generator_unit_path;
-        argv[2] = m->generator_unit_path_early;
-        argv[3] = m->generator_unit_path_late;
+        argv[1] = m->lookup_paths.generator;
+        argv[2] = m->lookup_paths.generator_early;
+        argv[3] = m->lookup_paths.generator_late;
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
                 execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, (char**) argv);
 
 finish:
-        trim_generator_dir(m, &m->generator_unit_path);
-        trim_generator_dir(m, &m->generator_unit_path_early);
-        trim_generator_dir(m, &m->generator_unit_path_late);
+        lookup_paths_trim_generator(&m->lookup_paths);
         return r;
-}
-
-static void remove_generator_dir(Manager *m, char **generator) {
-        assert(m);
-        assert(generator);
-
-        if (!*generator)
-                return;
-
-        strv_remove(m->lookup_paths.unit_path, *generator);
-        (void) rm_rf(*generator, REMOVE_ROOT);
-
-        *generator = mfree(*generator);
-}
-
-static void manager_undo_generators(Manager *m) {
-        assert(m);
-
-        remove_generator_dir(m, &m->generator_unit_path);
-        remove_generator_dir(m, &m->generator_unit_path_early);
-        remove_generator_dir(m, &m->generator_unit_path_late);
 }
 
 int manager_environment_add(Manager *m, char **minus, char **plus) {
@@ -2941,7 +2811,7 @@ void manager_recheck_journal(Manager *m) {
 
         assert(m);
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return;
 
         u = manager_get_unit(m, SPECIAL_JOURNALD_SOCKET);
@@ -2965,7 +2835,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
         assert(m);
         assert(IN_SET(mode, SHOW_STATUS_AUTO, SHOW_STATUS_NO, SHOW_STATUS_YES, SHOW_STATUS_TEMPORARY));
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return;
 
         if (m->show_status != mode)
@@ -2982,7 +2852,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
 static bool manager_get_show_status(Manager *m, StatusType type) {
         assert(m);
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return false;
 
         if (m->no_console_output)
@@ -3004,7 +2874,7 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
 void manager_set_first_boot(Manager *m, bool b) {
         assert(m);
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(m))
                 return;
 
         if (m->first_boot != (int) b) {
@@ -3050,7 +2920,7 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
 const char *manager_get_runtime_prefix(Manager *m) {
         assert(m);
 
-        return m->running_as == MANAGER_SYSTEM ?
+        return MANAGER_IS_SYSTEM(m) ?
                "/run" :
                getenv("XDG_RUNTIME_DIR");
 }

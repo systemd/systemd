@@ -1993,7 +1993,7 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
                 if (changes[i].type == UNIT_FILE_SYMLINK)
                         log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
                 else
-                        log_info("Removed symlink %s.", changes[i].path);
+                        log_info("Removed %s.", changes[i].path);
         }
 }
 
@@ -2295,7 +2295,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
         assert(unit_name);
         assert(unit_path);
 
-        STRV_FOREACH(p, lp->unit_path) {
+        STRV_FOREACH(p, lp->search_path) {
                 _cleanup_free_ char *path;
 
                 path = path_join(arg_root, *p, unit_name);
@@ -2395,7 +2395,7 @@ static int unit_find_paths(
                 }
 
                 if (dropin_paths) {
-                        r = unit_file_find_dropin_paths(lp->unit_path, NULL, names, &dropins);
+                        r = unit_file_find_dropin_paths(lp->search_path, NULL, names, &dropins);
                         if (r < 0)
                                 return r;
                 }
@@ -3136,7 +3136,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (a == ACTION_REBOOT && argc > 1) {
-                r = update_reboot_param_file(argv[1]);
+                r = update_reboot_parameter_and_warn(argv[1]);
                 if (r < 0)
                         return r;
 
@@ -4780,34 +4780,6 @@ static int show(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int init_home_and_lookup_paths(char **user_home, char **user_runtime, LookupPaths *lp) {
-        int r;
-
-        assert(user_home);
-        assert(user_runtime);
-        assert(lp);
-
-        if (arg_scope == UNIT_FILE_USER) {
-                r = user_config_home(user_home);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
-                else if (r == 0)
-                        return log_error_errno(ENOTDIR, "Cannot find units: $XDG_CONFIG_HOME and $HOME are not set.");
-
-                r = user_runtime_dir(user_runtime);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
-                else if (r == 0)
-                        return log_error_errno(ENOTDIR, "Cannot find units: $XDG_RUNTIME_DIR is not set.");
-        }
-
-        r = lookup_paths_init_from_scope(lp, arg_scope, arg_root);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query unit lookup paths: %m");
-
-        return 0;
-}
-
 static int cat_file(const char *filename, bool newline) {
         _cleanup_close_ int fd;
 
@@ -4826,8 +4798,6 @@ static int cat_file(const char *filename, bool newline) {
 }
 
 static int cat(int argc, char *argv[], void *userdata) {
-        _cleanup_free_ char *user_home = NULL;
-        _cleanup_free_ char *user_runtime = NULL;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         char **name;
@@ -4840,9 +4810,9 @@ static int cat(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        r = init_home_and_lookup_paths(&user_home, &user_runtime, &lp);
+        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to determine unit paths: %m");
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -5253,8 +5223,10 @@ static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
 #if defined(HAVE_SYSV_COMPAT)
-        unsigned f = 0;
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        unsigned f = 0;
+
+        /* Processes all SysV units, and reshuffles the array so that afterwards only the native units remain */
 
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return 0;
@@ -5268,24 +5240,28 @@ static int enable_sysv_units(const char *verb, char **args) {
                         "is-enabled"))
                 return 0;
 
-        /* Processes all SysV units, and reshuffles the array so that
-         * afterwards only the native units remain */
-
-        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false, arg_root, NULL, NULL, NULL);
+        r = lookup_paths_init(&paths, arg_scope, LOOKUP_PATHS_EXCLUDE_GENERATED, arg_root);
         if (r < 0)
                 return r;
 
         r = 0;
         while (args[f]) {
-                const char *name;
+
+                const char *argv[] = {
+                        ROOTLIBEXECDIR "/systemd-sysv-install",
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                };
+
                 _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
-                unsigned c = 1;
-                const char *argv[6] = { ROOTLIBEXECDIR "/systemd-sysv-install", NULL, NULL, NULL, NULL };
-                char **k;
-                int j;
-                pid_t pid;
                 siginfo_t status;
+                const char *name;
+                unsigned c = 1;
+                pid_t pid;
+                int j;
 
                 name = args[f++];
 
@@ -5295,21 +5271,13 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (path_is_absolute(name))
                         continue;
 
-                STRV_FOREACH(k, paths.unit_path) {
-                        _cleanup_free_ char *path = NULL;
+                j = unit_file_exists(arg_scope, &paths, name);
+                if (j < 0 && !IN_SET(j, -ELOOP, -ESHUTDOWN, -EADDRNOTAVAIL))
+                        return log_error_errno(j, "Failed to lookup unit file state: %m");
+                found_native = j != 0;
 
-                        path = path_join(arg_root, *k, name);
-                        if (!path)
-                                return log_oom();
-
-                        found_native = access(path, F_OK) >= 0;
-                        if (found_native)
-                                break;
-                }
-
-                /* If we have both a native unit and a SysV script,
-                 * enable/disable them both (below); for is-enabled, prefer the
-                 * native unit */
+                /* If we have both a native unit and a SysV script, enable/disable them both (below); for is-enabled,
+                 * prefer the native unit */
                 if (found_native && streq(verb, "is-enabled"))
                         continue;
 
@@ -5323,9 +5291,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                         continue;
 
                 if (found_native)
-                        log_info("Synchronizing state of %s with SysV init with %s...", name, argv[0]);
+                        log_info("Synchronizing state of %s with SysV service script with %s.", name, argv[0]);
                 else
-                        log_info("%s is not a native service, redirecting to systemd-sysv-install", name);
+                        log_info("%s is not a native service, redirecting to systemd-sysv-install.", name);
 
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
@@ -5338,7 +5306,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!l)
                         return log_oom();
 
-                log_info("Executing %s", l);
+                log_info("Executing: %s", l);
 
                 pid = fork();
                 if (pid < 0)
@@ -5350,7 +5318,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                         (void) reset_signal_mask();
 
                         execv(argv[0], (char**) argv);
-                        log_error_errno(r, "Failed to execute %s: %m", argv[0]);
+                        log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
                 }
 
@@ -5372,9 +5340,11 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 }
 
                         } else if (status.si_status != 0)
-                                return -EINVAL;
-                } else
+                                return -EBADE; /* We don't warn here, under the assumption the script already showed an explanation */
+                } else {
+                        log_error("Unexpected waitid() result.");
                         return -EPROTO;
+                }
 
                 if (found_native)
                         continue;
@@ -5445,8 +5415,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        /* If the operation was fully executed by the SysV compat,
-         * let's finish early */
+        /* If the operation was fully executed by the SysV compat, let's finish early */
         if (strv_isempty(names))
                 return 0;
 
@@ -5468,11 +5437,17 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                         r = unit_file_mask(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
                         r = unit_file_unmask(arg_scope, arg_runtime, arg_root, names, &changes, &n_changes);
+                else if (streq(verb, "revert"))
+                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
                 else
                         assert_not_reached("Unknown verb");
 
                 if (r == -ESHUTDOWN)
                         return log_error_errno(r, "Unit file is masked.");
+                if (r == -EADDRNOTAVAIL)
+                        return log_error_errno(r, "Unit file is transient or generated.");
+                if (r == -ELOOP)
+                        return log_error_errno(r, "Refusing to operate on linked unit file.");
                 if (r < 0)
                         return log_error_errno(r, "Operation failed: %m");
 
@@ -5484,7 +5459,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int expect_carries_install_info = false;
-                bool send_force = true, send_preset_mode = false;
+                bool send_runtime = true, send_force = true, send_preset_mode = false;
                 const char *method;
                 sd_bus *bus;
 
@@ -5519,6 +5494,9 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 else if (streq(verb, "unmask")) {
                         method = "UnmaskUnitFiles";
                         send_force = false;
+                } else if (streq(verb, "revert")) {
+                        method = "RevertUnitFiles";
+                        send_runtime = send_force = false;
                 } else
                         assert_not_reached("Unknown verb");
 
@@ -5542,9 +5520,11 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                                 return bus_log_create_error(r);
                 }
 
-                r = sd_bus_message_append(m, "b", arg_runtime);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                if (send_runtime) {
+                        r = sd_bus_message_append(m, "b", arg_runtime);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 if (send_force) {
                         r = sd_bus_message_append(m, "b", arg_force);
@@ -5639,6 +5619,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
                 if (r == -ESHUTDOWN)
                         return log_error_errno(r, "Unit file is masked.");
+                if (r == -EADDRNOTAVAIL)
+                        return log_error_errno(r, "Unit file is transient or generated.");
                 if (r < 0)
                         return log_error_errno(r, "Can't add dependency: %m");
 
@@ -5783,7 +5765,8 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                                    UNIT_FILE_ENABLED,
                                    UNIT_FILE_ENABLED_RUNTIME,
                                    UNIT_FILE_STATIC,
-                                   UNIT_FILE_INDIRECT))
+                                   UNIT_FILE_INDIRECT,
+                                   UNIT_FILE_GENERATED))
                                 enabled = true;
 
                         if (!arg_quiet)
@@ -5818,7 +5801,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "indirect"))
+                        if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "indirect", "generated"))
                                 enabled = true;
 
                         if (!arg_quiet)
@@ -5826,7 +5809,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        return !enabled;
+        return enabled ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static int is_system_running(int argc, char *argv[], void *userdata) {
@@ -5896,49 +5879,29 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         return 0;
 }
 
-static int get_file_to_edit(const char *name, const char *user_home, const char *user_runtime, char **ret_path) {
-        _cleanup_free_ char *path = NULL, *path2 = NULL, *run = NULL;
+static int get_file_to_edit(
+                const LookupPaths *paths,
+                const char *name,
+                char **ret_path) {
+
+        _cleanup_free_ char *path = NULL, *run = NULL;
 
         assert(name);
         assert(ret_path);
 
-        switch (arg_scope) {
-                case UNIT_FILE_SYSTEM:
-                        path = path_join(arg_root, SYSTEM_CONFIG_UNIT_PATH, name);
-                        if (arg_runtime)
-                                run = path_join(arg_root, "/run/systemd/system/", name);
-                        break;
-                case UNIT_FILE_GLOBAL:
-                        path = path_join(arg_root, USER_CONFIG_UNIT_PATH, name);
-                        if (arg_runtime)
-                                run = path_join(arg_root, "/run/systemd/user/", name);
-                        break;
-                case UNIT_FILE_USER:
-                        assert(user_home);
-                        assert(user_runtime);
-
-                        path = path_join(arg_root, user_home, name);
-                        if (arg_runtime) {
-                                path2 = path_join(arg_root, USER_CONFIG_UNIT_PATH, name);
-                                if (!path2)
-                                        return log_oom();
-                                run = path_join(arg_root, user_runtime, name);
-                        }
-                        break;
-                default:
-                        assert_not_reached("Invalid scope");
-        }
-        if (!path || (arg_runtime && !run))
+        path = strjoin(paths->persistent_config, "/", name, NULL);
+        if (!path)
                 return log_oom();
+
+        if (arg_runtime) {
+                run = strjoin(paths->runtime_config, name, NULL);
+                if (!run)
+                        return log_oom();
+        }
 
         if (arg_runtime) {
                 if (access(path, F_OK) >= 0) {
                         log_error("Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.", run, path);
-                        return -EEXIST;
-                }
-
-                if (path2 && access(path2, F_OK) >= 0) {
-                        log_error("Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.", run, path2);
                         return -EEXIST;
                 }
 
@@ -5952,7 +5915,12 @@ static int get_file_to_edit(const char *name, const char *user_home, const char 
         return 0;
 }
 
-static int unit_file_create_dropin(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_new_path, char **ret_tmp_path) {
+static int unit_file_create_dropin(
+                const LookupPaths *paths,
+                const char *unit_name,
+                char **ret_new_path,
+                char **ret_tmp_path) {
+
         char *tmp_new_path, *tmp_tmp_path, *ending;
         int r;
 
@@ -5961,7 +5929,7 @@ static int unit_file_create_dropin(const char *unit_name, const char *user_home,
         assert(ret_tmp_path);
 
         ending = strjoina(unit_name, ".d/override.conf");
-        r = get_file_to_edit(ending, user_home, user_runtime, &tmp_new_path);
+        r = get_file_to_edit(paths, ending, &tmp_new_path);
         if (r < 0)
                 return r;
 
@@ -5978,10 +5946,9 @@ static int unit_file_create_dropin(const char *unit_name, const char *user_home,
 }
 
 static int unit_file_create_copy(
+                const LookupPaths *paths,
                 const char *unit_name,
                 const char *fragment_path,
-                const char *user_home,
-                const char *user_runtime,
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
@@ -5993,7 +5960,7 @@ static int unit_file_create_copy(
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        r = get_file_to_edit(unit_name, user_home, user_runtime, &tmp_new_path);
+        r = get_file_to_edit(paths, unit_name, &tmp_new_path);
         if (r < 0)
                 return r;
 
@@ -6108,8 +6075,6 @@ static int run_editor(char **paths) {
 }
 
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
-        _cleanup_free_ char *user_home = NULL;
-        _cleanup_free_ char *user_runtime = NULL;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
         char **name;
         int r;
@@ -6117,7 +6082,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         assert(names);
         assert(paths);
 
-        r = init_home_and_lookup_paths(&user_home, &user_runtime, &lp);
+        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
                 return r;
 
@@ -6137,9 +6102,9 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 }
 
                 if (arg_full)
-                        r = unit_file_create_copy(*name, path, user_home, user_runtime, &new_path, &tmp_path);
+                        r = unit_file_create_copy(&lp, *name, path, &new_path, &tmp_path);
                 else
-                        r = unit_file_create_dropin(*name, user_home, user_runtime, &new_path, &tmp_path);
+                        r = unit_file_create_dropin(&lp, *name, &new_path, &tmp_path);
                 if (r < 0)
                         return r;
 
@@ -6324,6 +6289,8 @@ static void systemctl_help(void) {
                "  unmask NAME...                  Unmask one or more units\n"
                "  link PATH...                    Link one or more units files into\n"
                "                                  the search path\n"
+               "  revert NAME...                  Revert one or more unit files to vendor\n"
+               "                                  version\n"
                "  add-wants TARGET NAME...        Add 'Wants' dependency for the target\n"
                "                                  on specified one or more units\n"
                "  add-requires TARGET NAME...     Add 'Requires' dependency for the target\n"
@@ -6992,7 +6959,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
-                r = update_reboot_param_file(argc == optind + 1 ? argv[optind] : NULL);
+                r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL);
                 if (r < 0)
                         return r;
         } else if (optind < argc) {
@@ -7447,6 +7414,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "mask",                  2,        VERB_ANY, 0,             enable_unit       },
                 { "unmask",                2,        VERB_ANY, 0,             enable_unit       },
                 { "link",                  2,        VERB_ANY, 0,             enable_unit       },
+                { "revert",                2,        VERB_ANY, 0,             enable_unit       },
                 { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root       },
                 { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies },
                 { "set-default",           2,        2,        0,             set_default       },
@@ -7493,6 +7461,7 @@ static int start_with_fallback(void) {
 }
 
 static int halt_now(enum action a) {
+        int r;
 
         /* The kernel will automaticall flush ATA disks and suchlike
          * on reboot(), but the file systems need to be synce'd
@@ -7519,9 +7488,14 @@ static int halt_now(enum action a) {
         case ACTION_REBOOT: {
                 _cleanup_free_ char *param = NULL;
 
-                if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
+                r = read_one_line_file("/run/systemd/reboot-param", &param);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to read reboot parameter file: %m");
+
+                if (!isempty(param)) {
                         log_info("Rebooting with argument '%s'.", param);
                         (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
+                        log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                 }
 
                 log_info("Rebooting.");

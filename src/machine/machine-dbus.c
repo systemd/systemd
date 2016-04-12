@@ -46,6 +46,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
@@ -166,7 +167,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
-        if (signo <= 0 || signo >= _NSIG)
+        if (!SIGNAL_VALID(signo))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = bus_verify_polkit_async(

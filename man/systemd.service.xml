@@ -100,18 +100,13 @@
     their activated <filename>.socket</filename> units via an
     automatic <varname>After=</varname> dependency.</para>
 
-    <para>Unless <varname>DefaultDependencies=</varname> is set to
-    <option>false</option>, service units will implicitly have
-    dependencies of type <varname>Requires=</varname> and
-    <varname>After=</varname> on <filename>sysinit.target</filename>,
-    a dependency of type <varname>After=</varname> on
-    <filename>basic.target</filename> as well as dependencies of
-    type <varname>Conflicts=</varname> and <varname>Before=</varname>
-    on <filename>shutdown.target</filename>. These ensure that normal
-    service units pull in basic system initialization, and are
-    terminated cleanly prior to system shutdown. Only services
-    involved with early boot or late system shutdown should disable
-    this option.</para>
+    <para>Unless <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> is set to
+    <option>false</option>, service units will implicitly have dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>After=</varname> on
+    <filename>basic.target</filename> as well as dependencies of type <varname>Conflicts=</varname> and
+    <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that normal service units pull in
+    basic system initialization, and are terminated cleanly prior to system shutdown. Only services involved with early
+    boot or late system shutdown should disable this option.</para>
 
     <para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
     default a per-template slice unit (see

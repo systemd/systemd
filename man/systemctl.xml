@@ -1168,22 +1168,32 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><literal>static</literal></entry>
-                    <entry>The unit file is not enabled, and has no provisions for enabling in the <literal>[Install]</literal> section.</entry>
+                    <entry>The unit file is not enabled, and has no provisions for enabling in the <literal>[Install]</literal> unit file section.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> section, listing other unit files that might be enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>disabled</literal></entry>
-                    <entry>Unit file is not enabled, but contains an <literal>[Install]</literal> section with installation instructions.</entry>
+                    <entry>The unit file is not enabled, but contains an <literal>[Install]</literal> section with installation instructions.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                   <row>
+                    <entry><literal>generated</literal></entry>
+                    <entry>The unit file was generated dynamically via a generator tool. See <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Generated unit files may not be enabled, they are enabled implicitly by their generator.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>transient</literal></entry>
+                    <entry>The unit file has been created dynamically with the runtime API. Transient units may not be enabled.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
                     <entry><literal>bad</literal></entry>
-                    <entry>Unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
+                    <entry>The unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                 </tbody>
@@ -1231,6 +1241,28 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             command is that a unit file is available for
             <command>start</command> and other commands although it
             is not installed directly in the unit search path.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>revert <replaceable>NAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Revert one or more unit files to their vendor versions. This command removes drop-in configuration
+            files that modify the specified units, as well as any user-configured unit file that overrides a matching
+            vendor supplied unit file. Specifically, for a unit <literal>foo.service</literal> the matching directories
+            <literal>foo.service.d/</literal> with all their contained files are removed, both below the persistent and
+            runtime configuration directories (i.e. below <filename>/etc/systemd/system</filename> and
+            <filename>/run/systemd/system</filename>); if the unit file has a vendor-supplied version (i.e. a unit file
+            located below <filename>/usr</filename>) any matching peristent or runtime unit file that overrides it is
+            removed, too. Note that if a unit file has no vendor-supplied version (i.e. is only defined below
+            <filename>/etc/systemd/system</filename> or <filename>/run/systemd/system</filename>, but not in a unit
+            file stored below <filename>/usr</filename>), then it is not removed. Also, if a unit is masked, it is
+            unmasked.</para>
+
+            <para>Effectively, this command may be used to undo all changes made with <command>systemctl
+            edit</command>, <command>systemctl set-property</command> and <command>systemctl mask</command> and puts
+            the original unit file with its settings back in effect.</para>
           </listitem>
         </varlistentry>
 

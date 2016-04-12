@@ -255,7 +255,7 @@ int signal_from_string(const char *s) {
         }
         if (safe_atou(s, &u) >= 0) {
                 signo = (int) u + offset;
-                if (signo > 0 && signo < _NSIG)
+                if (SIGNAL_VALID(signo))
                         return signo;
         }
         return -EINVAL;

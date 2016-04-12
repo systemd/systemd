@@ -291,14 +291,14 @@ static void test_exec_spec_interpolation(Manager *m) {
         test(m, "exec-spec-interpolation.service", 0, CLD_EXITED);
 }
 
-static int run_tests(ManagerRunningAs running_as, test_function_t *tests) {
+static int run_tests(UnitFileScope scope, test_function_t *tests) {
         test_function_t *test = NULL;
         Manager *m = NULL;
         int r;
 
         assert_se(tests);
 
-        r = manager_new(running_as, true, &m);
+        r = manager_new(scope, true, &m);
         if (MANAGER_SKIP_TEST(r)) {
                 printf("Skipping test: manager_new: %s\n", strerror(-r));
                 return EXIT_TEST_SKIP;
@@ -366,9 +366,9 @@ int main(int argc, char *argv[]) {
         assert_se(unsetenv("VAR2") == 0);
         assert_se(unsetenv("VAR3") == 0);
 
-        r = run_tests(MANAGER_USER, user_tests);
+        r = run_tests(UNIT_FILE_USER, user_tests);
         if (r != 0)
                 return r;
 
-        return run_tests(MANAGER_SYSTEM, system_tests);
+        return run_tests(UNIT_FILE_SYSTEM, system_tests);
 }

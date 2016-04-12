@@ -231,14 +231,12 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *var = NULL;
         Manager *m = NULL;
         FILE *serial = NULL;
         FDSet *fdset = NULL;
-
-        _cleanup_free_ char *var = NULL;
-
         char **filename;
         int r = 0, k;
 
@@ -255,7 +253,7 @@ int verify_units(char **filenames, ManagerRunningAs running_as, bool check_man) 
 
         assert_se(set_unit_path(var) >= 0);
 
-        r = manager_new(running_as, true, &m);
+        r = manager_new(scope, true, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
 

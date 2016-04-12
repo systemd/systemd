@@ -54,6 +54,8 @@ enum UnitFileState {
         UNIT_FILE_STATIC,
         UNIT_FILE_DISABLED,
         UNIT_FILE_INDIRECT,
+        UNIT_FILE_GENERATED,
+        UNIT_FILE_TRANSIENT,
         UNIT_FILE_BAD,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -1
@@ -126,17 +128,18 @@ static inline bool UNIT_FILE_INSTALL_INFO_HAS_ALSO(UnitFileInstallInfo *i) {
 int unit_file_enable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_disable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_reenable(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
-int unit_file_link(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_preset(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFilePresetMode mode, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_preset_all(UnitFileScope scope, bool runtime, const char *root_dir, UnitFilePresetMode mode, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_mask(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_unmask(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
+int unit_file_link(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes);
+int unit_file_revert(UnitFileScope scope, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_set_default(UnitFileScope scope, const char *root_dir, const char *file, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_get_default(UnitFileScope scope, const char *root_dir, char **name);
 int unit_file_add_dependency(UnitFileScope scope, bool runtime, const char *root_dir, char **files, const char *target, UnitDependency dep, bool force, UnitFileChange **changes, unsigned *n_changes);
 
-int unit_file_lookup_state(UnitFileScope scope, const char *root_dir,const LookupPaths *paths, const char *name, UnitFileState *ret);
 int unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
+int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *name);
 
 int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h);
 Hashmap* unit_file_list_free(Hashmap *h);

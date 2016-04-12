@@ -336,8 +336,7 @@ static int mount_add_device_links(Mount *m) {
         if (path_equal(m->where, "/"))
                 return 0;
 
-        if (mount_is_auto(p) && !mount_is_automount(p) &&
-            UNIT(m)->manager->running_as == MANAGER_SYSTEM)
+        if (mount_is_auto(p) && !mount_is_automount(p) && MANAGER_IS_SYSTEM(UNIT(m)->manager))
                 device_wants_mount = true;
 
         r = unit_add_node_link(UNIT(m), p->what, device_wants_mount, m->from_fragment ? UNIT_BINDS_TO : UNIT_REQUIRES);
@@ -353,7 +352,7 @@ static int mount_add_quota_links(Mount *m) {
 
         assert(m);
 
-        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
                 return 0;
 
         p = get_mount_parameters_fragment(m);
@@ -400,7 +399,7 @@ static int mount_add_default_dependencies(Mount *m) {
         if (!UNIT(m)->default_dependencies)
                 return 0;
 
-        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
+        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
                 return 0;
 
         /* We do not add any default dependencies to /, /usr or
@@ -1396,7 +1395,7 @@ static int mount_setup_unit(
                         goto fail;
                 }
 
-                if (m->running_as == MANAGER_SYSTEM) {
+                if (MANAGER_IS_SYSTEM(m)) {
                         const char* target;
 
                         target = mount_needs_network(options, fstype) ?  SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
@@ -1424,7 +1423,7 @@ static int mount_setup_unit(
                         }
                 }
 
-                if (m->running_as == MANAGER_SYSTEM &&
+                if (MANAGER_IS_SYSTEM(m) &&
                     mount_needs_network(options, fstype)) {
                         /* _netdev option may have shown up late, or on a
                          * remount. Add remote-fs dependencies, even though

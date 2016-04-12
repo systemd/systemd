@@ -2338,6 +2338,50 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int clean_images(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        uint64_t usage, total = 0;
+        char fb[FORMAT_BYTES_MAX];
+        sd_bus *bus = userdata;
+        const char *name;
+        unsigned c = 0;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "CleanPool",
+                        &error,
+                        &reply,
+                        "s", arg_all ? "all" : "hidden");
+        if (r < 0)
+                return log_error_errno(r, "Could not clean pool: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(st)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(st)", &name, &usage)) > 0) {
+                log_info("Removed image '%s'. Freed exclusive disk space: %s",
+                         name, format_bytes(fb, sizeof(fb), usage));
+
+                total += usage;
+                c++;
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        log_info("Removed %u images in total. Total freed exclusive disk space %s.",
+                 c, format_bytes(fb, sizeof(fb), total));
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -2396,6 +2440,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
                "  remove NAME...              Remove an image\n"
                "  set-limit [NAME] BYTES      Set image or pool size limit (disk quota)\n\n"
+               "  clean                       Remove hidden (or all) images\n"
                "Image Transfer Commands:\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
@@ -2635,6 +2680,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "list-transfers",  VERB_ANY, 1,        0,            list_transfers    },
                 { "cancel-transfer", 2,        VERB_ANY, 0,            cancel_transfer   },
                 { "set-limit",       2,        3,        0,            set_limit         },
+                { "clean",           VERB_ANY, 1,        0,            clean_images      },
                 {}
         };
 

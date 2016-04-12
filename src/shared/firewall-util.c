@@ -17,14 +17,24 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#warning "Temporary work-around for broken glibc vs. linux kernel header definitions"
+#warning "This really should be removed sooner rather than later, when this is fixed upstream"
+#define _NET_IF_H 1
+
 #include <alloca.h>
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>
-#include <net/if.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <net/if.h>
+#include <linux/if.h>
+#ifndef IFNAMSIZ
+#undef _NET_IF_H
+/* Let's make sure to include this one, too, if IFNAMSIZ isn't defined yet, as it is for kernels <= 4.2 */
+#include <net/if.h>
+#endif
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter/nf_nat.h>
 #include <linux/netfilter/xt_addrtype.h>

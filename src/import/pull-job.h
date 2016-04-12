@@ -44,15 +44,6 @@ typedef enum PullJobState {
 
 #define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
 
-typedef enum PullJobCompression {
-        PULL_JOB_UNCOMPRESSED,
-        PULL_JOB_XZ,
-        PULL_JOB_GZIP,
-        PULL_JOB_BZIP2,
-        _PULL_JOB_COMPRESSION_MAX,
-        _PULL_JOB_COMPRESSION_INVALID = -1,
-} PullJobCompression;
-
 struct PullJob {
         PullJobState state;
         int error;

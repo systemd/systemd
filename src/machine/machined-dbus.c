@@ -802,6 +802,93 @@ static int method_mark_image_read_only(sd_bus_message *message, void *userdata, 
         return bus_image_method_mark_read_only(message, i, error);
 }
 
+static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        enum {
+                REMOVE_ALL,
+                REMOVE_HIDDEN,
+        } mode;
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        Manager *m = userdata;
+        Image *image;
+        const char *mm;
+        Iterator i;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &mm);
+        if (r < 0)
+                return r;
+
+        if (streq(mm, "all"))
+                mode = REMOVE_ALL;
+        else if (streq(mm, "hidden"))
+                mode = REMOVE_HIDDEN;
+        else
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mode '%s'.", mm);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-machines",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        images = hashmap_new(&string_hash_ops);
+        if (!images)
+                return -ENOMEM;
+
+        r = image_discover(images);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(st)");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(image, images, i) {
+
+                /* We can't remove vendor images (i.e. those in /usr) */
+                if (IMAGE_IS_VENDOR(image))
+                        continue;
+
+                if (IMAGE_IS_HOST(image))
+                        continue;
+
+                if (mode == REMOVE_HIDDEN && !IMAGE_IS_HIDDEN(image))
+                        continue;
+
+                r = image_remove(image);
+                if (r == -EBUSY) /* keep images that are currently being used. */
+                        continue;
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to remove image %s: %m", image->name);
+
+                r = sd_bus_message_append(reply, "(st)", image->name, image->usage_exclusive);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         uint64_t limit;
@@ -1144,6 +1231,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPoolLimit", "t", NULL, method_set_pool_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CleanPool", "s", "a(st)", method_clean_pool, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MapFromMachineUser", "su", "u", method_map_from_machine_user, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MapToMachineUser", "u", "sou", method_map_to_machine_user, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MapFromMachineGroup", "su", "u", method_map_from_machine_group, SD_BUS_VTABLE_UNPRIVILEGED),

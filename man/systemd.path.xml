@@ -91,16 +91,12 @@
     <para>An implicit <varname>Before=</varname> dependency is added
     between a path unit and the unit it is supposed to activate.</para>
 
-    <para>Unless <varname>DefaultDependencies=false</varname> is used,
-    path units will implicitly have dependencies of type
-    <varname>Before=</varname> on <filename>paths.target</filename>,
-    dependencies of type <varname>After=</varname> and
-    <varname>Requires=</varname> on
-    <filename>sysinit.target</filename>, and have dependencies of type
-    <varname>Conflicts=</varname> and <varname>Before=</varname> on
-    <filename>shutdown.target</filename>. These ensure that path units
-    are terminated cleanly prior to system shutdown. Only path units
-    involved with early boot or late system shutdown should disable
+    <para>Unless <varname>DefaultDependencies=false</varname> in the <literal>[Unit]</literal> section is used, path
+    units will implicitly have dependencies of type <varname>Before=</varname> on <filename>paths.target</filename>,
+    dependencies of type <varname>After=</varname> and <varname>Requires=</varname> on
+    <filename>sysinit.target</filename>, and have dependencies of type <varname>Conflicts=</varname> and
+    <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that path units are terminated
+    cleanly prior to system shutdown. Only path units involved with early boot or late system shutdown should disable
     this option.
     </para>
   </refsect1>

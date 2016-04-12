@@ -30,6 +30,8 @@
 #include "string-util.h"
 #include "unaligned.h"
 
+#define LLDP_MULTICAST_ADDR { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
+
 /* The LLDP spec calls this "txFastInit", see 9.2.5.19 */
 #define LLDP_TX_FAST_INIT 4U
 
@@ -127,7 +129,7 @@ static int lldp_make_packet(
 
         h = (struct ether_header*) packet;
         h->ether_type = htobe16(ETHERTYPE_LLDP);
-        memcpy(h->ether_dhost, &(struct ether_addr) { SD_LLDP_MULTICAST_ADDR }, ETH_ALEN);
+        memcpy(h->ether_dhost, &(struct ether_addr) { LLDP_MULTICAST_ADDR }, ETH_ALEN);
         memcpy(h->ether_shost, hwaddr, ETH_ALEN);
 
         p = (uint8_t*) packet + sizeof(struct ether_header);
@@ -199,7 +201,7 @@ static int lldp_send_packet(int ifindex, const void *packet, size_t packet_size)
                 .ll.sll_protocol = htobe16(ETHERTYPE_LLDP),
                 .ll.sll_ifindex = ifindex,
                 .ll.sll_halen = ETH_ALEN,
-                .ll.sll_addr = SD_LLDP_MULTICAST_ADDR,
+                .ll.sll_addr = LLDP_MULTICAST_ADDR,
         };
 
         _cleanup_close_ int fd = -1;

@@ -133,7 +133,9 @@
 
         <para>When listing VM or container images, do not suppress
         images beginning in a dot character
-        (<literal>.</literal>).</para></listitem>
+        (<literal>.</literal>).</para>
+
+        <para>When cleaning VM or container images, remove all images, not just hidden ones.</para></listitem>
       </varlistentry>
 
        <varlistentry>
@@ -217,9 +219,11 @@
         <term><option>--read-only</option></term>
 
         <listitem><para>When used with <command>bind</command>, applies
-        a read-only bind mount.</para></listitem>
-      </varlistentry>
+        a read-only bind mount.</para>
 
+        <para>When used with <command>clone</command>, <command>import-raw</command> or <command>import-tar</command> a
+        read-only container or VM image is created.</para></listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><option>-n</option></term>
@@ -599,7 +603,10 @@
         all other settings that could identify the instance
         unmodified. The original image and the cloned copy will hence
         share these credentials, and it might be necessary to manually
-        change them in the copy.</para></listitem>
+        change them in the copy.</para>
+
+        <para>If combined with the <option>--read-only</option> switch a read-only cloned image is
+        created.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -658,6 +665,23 @@
         name alters both the quota setting within the file system as
         well as the loopback file and file system size
         itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>clean</command></term>
+
+        <listitem><para>Remove hidden VM or container images (or all). This command removes all hidden machine images
+        from <filename>/var/lib/machines</filename>, i.e. those whose name begins with a dot. Use <command>machinectl
+        list-images --all</command> to see a list of all machine images, including the hidden ones.</para>
+
+        <para>When combined with the <option>--all</option> switch removes all images, not just hidden ones. This
+        command effectively empties <filename>/var/lib/machines</filename>.</para>
+
+        <para>Note that commands such as <command>machinectl pull-tar</command> or <command>machinectl
+        pull-raw</command> usually create hidden, read-only, unmodified machine images from the downloaded image first,
+        before cloning a writable working copy of it, in order to avoid duplicate downloads in case of images that are
+        reused multiple times. Use <command>machinectl clean</command> to remove old, hidden images created this
+        way.</para></listitem>
       </varlistentry>
 
     </variablelist></refsect2>

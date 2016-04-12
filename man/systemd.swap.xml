@@ -95,12 +95,10 @@
     dependencies on the device units or the mount units of the files
     they are activated from.</para>
 
-    <para>Swap units with <varname>DefaultDependencies=</varname>
-    enabled implicitly acquire a <varname>Conflicts=</varname> and an
-    <varname>After=</varname> dependency on
-    <filename>umount.target</filename> so that they are deactivated at
-    shutdown, unless <varname>DefaultDependencies=no</varname> is
-    specified.</para>
+    <para>Swap units with <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> section enabled
+    implicitly acquire a <varname>Conflicts=</varname> and an <varname>After=</varname> dependency on
+    <filename>umount.target</filename> so that they are deactivated at shutdown, unless
+    <varname>DefaultDependencies=no</varname> is specified.</para>
 
     <para>Additional implicit dependencies may be added as result of
     execution and resource control parameters as documented in

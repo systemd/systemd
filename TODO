@@ -33,16 +33,29 @@ Janitorial Clean-ups:
 
 Features:
 
-* when using UTF8, ellipsize with "…" rather than "...", so that we can show more contents before truncating
+* transient units: don't bother with actually setting unit properties, we
+  reload the unit file anyway
 
-* machinectl remove --hidden + machinectl remove --all
+* https://github.com/systemd/systemd/pull/2886 is fucked
+
+* make sure resolved can be restarted without losing pushed-in dns config
+
+* fix https://github.com/systemd/systemd/pull/2890, this shouldn't be exported
+  like this.
+
+* journald: sigbus API via a signal-handler safe function that people may call
+  from the SIGBUS handler
+
+* resolved: cefmz.x.incapdns.net fails to authenticate
+
+* when using UTF8, ellipsize with "…" rather than "...", so that we can show more contents before truncating
 
 * move specifier expansion from service_spawn() into load-fragment.c
 
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
 
 * resolved: maybe, after all, implement local listening for DNS packets on port
-  53.
+  127.0.0.53:53.
 
 * delay activation of logind until somebody logs in, or when /dev/tty0 pulls it
   in or lingering is on (so that containers don't bother with it until PAM is used). also exit-on-idle
@@ -67,12 +80,6 @@ Features:
 * when we detect that there are waiting jobs but no running jobs, do something
 
 * push CPUAffinity= also into the "cpuset" cgroup controller (only after the cpuset controller got ported to the unified hierarchy)
-
-* add a new command "systemctl revert" or so, that removes all dropin
-  snippets in /run and /etc, and all unit files with counterparts in
-  /usr, and thus undoes what "systemctl set-property" and "systemctl
-  edit" create. Maybe even add "systemctl revert -a" to do this for
-  all units.
 
 * PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
 

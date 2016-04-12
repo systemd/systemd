@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2015 Lennart Poettering
+  Copyright 2016 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,23 +19,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/stat.h>
-
-typedef enum RemoveFlags {
-        REMOVE_ONLY_DIRECTORIES = 1,
-        REMOVE_ROOT = 2,
-        REMOVE_PHYSICAL = 4, /* if not set, only removes files on tmpfs, never physical file systems */
-        REMOVE_SUBVOLUME = 8,
-} RemoveFlags;
-
-int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);
-int rm_rf(const char *path, RemoveFlags flags);
-
-/* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
-static inline void rm_rf_and_free(char *p) {
-        if (!p)
-                return;
-        (void) rm_rf(p, REMOVE_ROOT);
-        free(p);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_and_free);
+char* setup_fake_runtime_dir(void);

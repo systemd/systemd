@@ -1265,7 +1265,7 @@ int manager_setup_cgroup(Manager *m) {
          * it. This is to support live upgrades from older systemd
          * versions where PID 1 was moved there. Also see
          * cg_get_root_path(). */
-        if (!e && m->running_as == MANAGER_SYSTEM) {
+        if (!e && MANAGER_IS_SYSTEM(m)) {
                 e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
                 if (!e)
                         e = endswith(m->cgroup_root, "/system"); /* even more legacy */
@@ -1318,7 +1318,7 @@ int manager_setup_cgroup(Manager *m) {
 
                         (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
-                } else if (m->running_as == MANAGER_SYSTEM) {
+                } else if (MANAGER_IS_SYSTEM(m)) {
 
                         /* On the legacy hierarchy we only get
                          * notifications via cgroup agents. (Which

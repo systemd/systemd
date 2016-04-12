@@ -66,18 +66,16 @@
     <para><literallayout><filename>/etc/systemd/system/*</filename>
 <filename>/run/systemd/system/*</filename>
 <filename>/usr/lib/systemd/system/*</filename>
-<filename>...</filename>
+<filename>…</filename>
     </literallayout></para>
 
-    <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
-<filename>$HOME/.config/systemd/user/*</filename>
+    <para><literallayout><filename>~/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
-<filename>$XDG_DATA_HOME/systemd/user/*</filename>
-<filename>$HOME/.local/share/systemd/user/*</filename>
+<filename>~/.local/share/systemd/user/*</filename>
 <filename>/usr/lib/systemd/user/*</filename>
-<filename>...</filename>
+<filename>…</filename>
     </literallayout></para>
   </refsynopsisdiv>
 

@@ -97,16 +97,12 @@
     <filename>foo@.service</filename> must exist from which services
     are instantiated for each incoming connection.</para>
 
-    <para>Unless <varname>DefaultDependencies=</varname> is set to
-    <option>false</option>, socket units will implicitly have
-    dependencies of type <varname>Requires=</varname> and
-    <varname>After=</varname> on <filename>sysinit.target</filename>
-    as well as dependencies of type <varname>Conflicts=</varname> and
-    <varname>Before=</varname> on
-    <filename>shutdown.target</filename>. These ensure that socket
-    units pull in basic system initialization, and are terminated
-    cleanly prior to system shutdown. Only sockets involved with early
-    boot or late system shutdown should disable this option.</para>
+    <para>Unless <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> section is set to
+    <option>false</option>, socket units will implicitly have dependencies of type <varname>Requires=</varname> and
+    <varname>After=</varname> on <filename>sysinit.target</filename> as well as dependencies of type
+    <varname>Conflicts=</varname> and <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure
+    that socket units pull in basic system initialization, and are terminated cleanly prior to system shutdown. Only
+    sockets involved with early boot or late system shutdown should disable this option.</para>
 
     <para>Socket units will have a <varname>Before=</varname>
     dependency on the service which they trigger added implicitly. No

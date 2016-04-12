@@ -837,9 +837,9 @@ int bus_exec_context_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
 
-                        if (isempty(uu)) {
+                        if (isempty(uu))
                                 c->user = mfree(c->user);
-                        } else {
+                        else {
                                 char *t;
 
                                 t = strdup(uu);
@@ -864,9 +864,9 @@ int bus_exec_context_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
 
-                        if (isempty(gg)) {
+                        if (isempty(gg))
                                 c->group = mfree(c->group);
-                        } else {
+                        else {
                                 char *t;
 
                                 t = strdup(gg);
