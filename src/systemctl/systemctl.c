@@ -5272,9 +5272,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                         continue;
 
                 j = unit_file_exists(arg_scope, &paths, name);
-                if (j < 0)
+                if (j < 0 && !IN_SET(j, -ELOOP, -ESHUTDOWN, -EADDRNOTAVAIL))
                         return log_error_errno(j, "Failed to lookup unit file state: %m");
-                found_native = j > 0;
+                found_native = j != 0;
 
                 /* If we have both a native unit and a SysV script, enable/disable them both (below); for is-enabled,
                  * prefer the native unit */
