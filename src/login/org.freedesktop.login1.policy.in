@@ -111,6 +111,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.set-self-linger">
+                <_description>Allow non-logged-in user to run programs</_description>
+                <_message>Explicit request is required to run programs as a non-logged-in user.</_message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.login1.set-user-linger">
                 <_description>Allow non-logged-in users to run programs</_description>
                 <_message>Authentication is required to run programs as a non-logged-in user.</_message>

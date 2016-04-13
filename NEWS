@@ -40,8 +40,9 @@ CHANGES WITH 230 in spe:
           After the user logs out of all sessions, user@.service will be
           terminated too, by default, unless the user has "lingering" enabled.
           To effectively allow users to run long-term tasks even if they are
-          logged out, lingering must be enabled for them. See loginctl(1)
-          for details.
+          logged out, lingering must be enabled for them. See loginctl(1) for
+          details. The default polkit policy was modified to allow users to
+          set lingering for themselves without authentication.
 
           Previous defaults can be restored at compile time by the
           --without-kill-user-processes option.
