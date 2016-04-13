@@ -8,6 +8,7 @@ LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" 
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
+NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 FSTYPE="${FSTYPE:-ext3}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
@@ -96,8 +97,12 @@ $KERNEL_APPEND \
 }
 
 run_nspawn() {
+    local _nspawn_cmd="../../systemd-nspawn --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND"
+    if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
+        _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
+    fi
     set -x
-    ../../systemd-nspawn --register=no --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
+    $_nspawn_cmd
 }
 
 setup_basic_environment() {
