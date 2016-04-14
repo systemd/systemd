@@ -375,6 +375,7 @@ int mount_setup(bool loaded_policy) {
                 before_relabel = now(CLOCK_MONOTONIC);
 
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                nftw("/dev/shm", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
                 nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
                 after_relabel = now(CLOCK_MONOTONIC);
