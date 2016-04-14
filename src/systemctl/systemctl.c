@@ -6087,8 +6087,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 return r;
 
         STRV_FOREACH(name, names) {
-                _cleanup_free_ char *path = NULL;
-                char *new_path, *tmp_path;
+                _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL;
 
                 r = unit_find_paths(bus, *name, &lp, &path, NULL);
                 if (r < 0)
@@ -6111,6 +6110,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 r = strv_push_pair(paths, new_path, tmp_path);
                 if (r < 0)
                         return log_oom();
+                new_path = tmp_path = NULL;
         }
 
         return 0;
