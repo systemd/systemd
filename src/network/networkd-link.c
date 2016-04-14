@@ -165,6 +165,21 @@ static bool link_ipv6_forward_enabled(Link *link) {
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
+static bool link_proxy_arp_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->proxy_arp < 0)
+                return false;
+
+        return true;
+}
+
 static bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
@@ -1037,6 +1052,22 @@ static int link_set_bridge_fdb(Link *const link) {
         }
 
         return r;
+}
+
+static int link_set_proxy_arp(Link *const link) {
+        const char *p = NULL;
+        int r;
+
+        if (!link_proxy_arp_enabled(link))
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/proxy_arp");
+
+        r = write_string_file(p, one_zero(link->network->proxy_arp), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot configure proxy ARP for interface: %m");
+
+        return 0;
 }
 
 static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
@@ -2166,6 +2197,10 @@ static int link_configure(Link *link) {
         r = link_set_bridge_fdb(link);
         if (r < 0)
                 return r;
+
+        r = link_set_proxy_arp(link);
+        if (r < 0)
+               return r;
 
         r = link_set_ipv4_forward(link);
         if (r < 0)

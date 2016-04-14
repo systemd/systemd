@@ -549,6 +549,15 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>ProxyARP=</varname></term>
+          <listitem><para>A boolean. Configures proxy ARP. Proxy ARP is the technique in which one host,
+          usually a router, answers ARP requests intended for another machine. By "faking" its identity,
+          the router accepts responsibility for routing packets to the "real" destination. (see <ulink
+          url="https://tools.ietf.org/html/rfc1027">RFC 1027</ulink>.
+          Defaults to unset.
+        </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
@@ -844,7 +853,7 @@
     global DUID that may be specified in <citerefentry><refentrytitle>networkd.conf
     </refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para>The configured DHCP DUID should conform to the specification in 
+    <para>The configured DHCP DUID should conform to the specification in
     <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
     <ulink url="http://tools.ietf.org/html/rfc6355">RFC 6355</ulink>.</para>
 
