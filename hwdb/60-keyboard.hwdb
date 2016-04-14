@@ -575,6 +575,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
+# HP ProBook 11 G1
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook11G1:pvr*
+ KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_d8=f21                                    # touchpad toggle
+ KEYBOARD_KEY_d9=f21                                    # touchpad toggle
+
 # HP ZBook Studio G4
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPZBookStudioG4:pvr*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
