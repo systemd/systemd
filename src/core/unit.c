@@ -2518,12 +2518,11 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                 return -EBUSY;
 
         match = strjoina("type='signal',"
-                        "sender='org.freedesktop.DBus',"
-                        "path='/org/freedesktop/DBus',"
-                        "interface='org.freedesktop.DBus',"
-                        "member='NameOwnerChanged',"
-                        "arg0='", name, "'",
-                        NULL);
+                         "sender='org.freedesktop.DBus',"
+                         "path='/org/freedesktop/DBus',"
+                         "interface='org.freedesktop.DBus',"
+                         "member='NameOwnerChanged',"
+                         "arg0='", name, "'");
 
         return sd_bus_add_match(bus, &u->match_bus_slot, match, signal_name_owner_changed, u);
 }
@@ -3437,7 +3436,7 @@ int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *
         if (!IN_SET(mode, UNIT_PERSISTENT, UNIT_RUNTIME))
                 return 0;
 
-        ndata = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
+        ndata = strjoina("[", UNIT_VTABLE(u)->private_section, "]\n", data);
 
         return unit_write_drop_in(u, mode, name, ndata);
 }
@@ -3480,11 +3479,12 @@ int unit_make_transient(Unit *u) {
         /* Let's open the file we'll write the transient settings into. This file is kept open as long as we are
          * creating the transient, and is closed in unit_load(), as soon as we start loading the file. */
 
-        RUN_WITH_UMASK(0022)
+        RUN_WITH_UMASK(0022) {
                 f = fopen(path, "we");
-        if (!f) {
-                free(path);
-                return -errno;
+                if (!f) {
+                        free(path);
+                        return -errno;
+                }
         }
 
         if (u->transient_file)

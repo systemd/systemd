@@ -358,7 +358,7 @@ static void test_strv_extend_strv_concat(void) {
 }
 
 static void test_strv_extend_strv(void) {
-        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **n = NULL;
 
         a = strv_new("abc", "def", "ghi", NULL);
         b = strv_new("jkl", "mno", "abc", "pqr", NULL);
@@ -373,8 +373,14 @@ static void test_strv_extend_strv(void) {
         assert_se(streq(a[3], "jkl"));
         assert_se(streq(a[4], "mno"));
         assert_se(streq(a[5], "pqr"));
-
         assert_se(strv_length(a) == 6);
+
+        assert_se(strv_extend_strv(&n, b, false) >= 0);
+        assert_se(streq(n[0], "jkl"));
+        assert_se(streq(n[1], "mno"));
+        assert_se(streq(n[2], "abc"));
+        assert_se(streq(n[3], "pqr"));
+        assert_se(strv_length(n) == 4);
 }
 
 static void test_strv_extend(void) {

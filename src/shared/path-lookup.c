@@ -249,7 +249,7 @@ static int acquire_generator_dirs(
                 if (!e)
                         return -ENXIO;
 
-                prefix = strjoina(e, "/systemd/", NULL);
+                prefix = strjoina(e, "/systemd/");
                 break;
         }
 
@@ -451,7 +451,7 @@ int lookup_paths_init(
                 *transient = NULL,
                 *persistent_control = NULL, *runtime_control = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
-        char **l = NULL;
+        _cleanup_strv_free_ char **paths = NULL;
         const char *e;
         int r;
 
@@ -506,13 +506,12 @@ int lookup_paths_init(
                 /* FIXME: empty components in other places should be
                  * rejected. */
 
-                r = path_split_and_make_absolute(e, &l);
+                r = path_split_and_make_absolute(e, &paths);
                 if (r < 0)
                         return r;
-        } else
-                l = NULL;
+        }
 
-        if (!l || append) {
+        if (!paths || append) {
                 /* Let's figure something out. */
 
                 _cleanup_strv_free_ char **add = NULL;
@@ -587,14 +586,9 @@ int lookup_paths_init(
                 if (!add)
                         return -ENOMEM;
 
-                if (l) {
-                        r = strv_extend_strv(&l, add, false);
-                        if (r < 0)
+                r = strv_extend_strv(&paths, add, true);
+                if (r < 0)
                                 return r;
-                } else {
-                        l = add;
-                        add = NULL;
-                }
         }
 
         r = patch_root_prefix(&persistent_config, root);
@@ -626,12 +620,12 @@ int lookup_paths_init(
         if (r < 0)
                 return r;
 
-        r = patch_root_prefix_strv(l, root);
+        r = patch_root_prefix_strv(paths, root);
         if (r < 0)
                 return -ENOMEM;
 
-        p->search_path = strv_uniq(l);
-        l = NULL;
+        p->search_path = strv_uniq(paths);
+        paths = NULL;
 
         p->persistent_config = persistent_config;
         p->runtime_config = runtime_config;
