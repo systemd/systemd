@@ -109,6 +109,9 @@ struct Link {
         sd_dhcp_server *dhcp_server;
 
         sd_ndisc *ndisc_router_discovery;
+
+        usec_t router_solicitation_interval;
+
         sd_dhcp6_client *dhcp6_client;
         bool rtnl_extended_attrs;
 

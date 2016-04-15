@@ -141,6 +141,8 @@ struct Network {
         int ipv6_hop_limit;
         int proxy_arp;
 
+        usec_t router_solicitation_interval;
+
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 

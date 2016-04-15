@@ -222,6 +222,7 @@ int ndisc_configure(Link *link) {
         int r;
 
         assert_return(link, -EINVAL);
+        assert_return(link->network, -EINVAL);
 
         r = sd_ndisc_new(&link->ndisc_router_discovery);
         if (r < 0)
@@ -238,6 +239,12 @@ int ndisc_configure(Link *link) {
         r = sd_ndisc_set_index(link->ndisc_router_discovery, link->ifindex);
         if (r < 0)
                 return r;
+
+        if (link->network->router_solicitation_interval > 0) {
+                r = sd_ndisc_set_router_solicitation_interval(link->ndisc_router_discovery, link->network->router_solicitation_interval);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_ndisc_set_callback(link->ndisc_router_discovery,
                                   ndisc_router_handler,
