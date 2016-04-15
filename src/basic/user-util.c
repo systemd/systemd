@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "missing.h"
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
