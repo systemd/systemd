@@ -1610,7 +1610,7 @@ fail:
 static int install_error(sd_bus_error *error, int c) {
         assert(c < 0);
 
-        if (c == -ESHUTDOWN)
+        if (c == -ERFKILL)
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
         if (c == -EADDRNOTAVAIL)
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED, "Unit file is transient or generated.");

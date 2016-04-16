@@ -80,7 +80,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
         /* Enabling a masked unit should fail! */
-        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("a.service"), false, &changes, &n_changes) == -ESHUTDOWN);
+        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("a.service"), false, &changes, &n_changes) == -ERFKILL);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 

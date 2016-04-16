@@ -5272,7 +5272,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                         continue;
 
                 j = unit_file_exists(arg_scope, &paths, name);
-                if (j < 0 && !IN_SET(j, -ELOOP, -ESHUTDOWN, -EADDRNOTAVAIL))
+                if (j < 0 && !IN_SET(j, -ELOOP, -ERFKILL, -EADDRNOTAVAIL))
                         return log_error_errno(j, "Failed to lookup unit file state: %m");
                 found_native = j != 0;
 
@@ -5442,7 +5442,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached("Unknown verb");
 
-                if (r == -ESHUTDOWN)
+                if (r == -ERFKILL)
                         return log_error_errno(r, "Unit file is masked.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "Unit file is transient or generated.");
@@ -5617,7 +5617,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unsigned n_changes = 0;
 
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
-                if (r == -ESHUTDOWN)
+                if (r == -ERFKILL)
                         return log_error_errno(r, "Unit file is masked.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "Unit file is transient or generated.");

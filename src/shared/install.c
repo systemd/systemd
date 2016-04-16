@@ -754,7 +754,7 @@ static int install_info_may_process(UnitFileInstallInfo *i, const LookupPaths *p
          * not subject to enable/disable operations. */
 
         if (i->type == UNIT_FILE_TYPE_MASKED)
-                return -ESHUTDOWN;
+                return -ERFKILL;
         if (path_is_generator(paths, i->path))
                 return -EADDRNOTAVAIL;
         if (path_is_transient(paths, i->path))
