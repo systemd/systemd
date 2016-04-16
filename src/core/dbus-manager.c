@@ -1565,11 +1565,13 @@ static int reply_unit_file_changes_and_free(
         unsigned i;
         int r;
 
-        if (n_changes > 0) {
-                r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
-        }
+        for (i = 0; i < n_changes; i++)
+                if (unit_file_change_is_modification(changes[i].type)) {
+                        r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
+                        break;
+                }
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
