@@ -6718,7 +6718,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
