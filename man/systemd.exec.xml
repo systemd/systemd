@@ -859,9 +859,12 @@
         reading only, writing will be refused even if the usual file
         access controls would permit this. Directories listed in
         <varname>InaccessibleDirectories=</varname> will be made
-        inaccessible for processes inside the namespace. Note that
-        restricting access with these options does not extend to
-        submounts of a directory that are created later on. These
+        inaccessible for processes inside the namespace, and may not
+        countain any other mountpoints, including those specified by
+        <varname>ReadWriteDirectories=</varname> or
+        <varname>ReadOnlyDirectories=</varname>.
+        Note that restricting access with these options does not extend
+        to submounts of a directory that are created later on. These
         options may be specified more than once, in which case all
         directories listed will have limited access from within the
         namespace. If the empty string is assigned to this option, the
