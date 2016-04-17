@@ -77,8 +77,12 @@ enum UnitFileChangeType {
         _UNIT_FILE_CHANGE_TYPE_INVALID = -1
 };
 
+/* type can either one of the UnitFileChangeTypes listed above, or a negative error.
+ * If source is specified, it should be the contents of the path symlink.
+ * In case of an error, source should be the existing symlink contents or NULL
+ */
 struct UnitFileChange {
-        UnitFileChangeType type;
+        int type; /* UnitFileChangeType or bust */
         char *path;
         char *source;
 };
@@ -233,6 +237,7 @@ Hashmap* unit_file_list_free(Hashmap *h);
 
 int unit_file_changes_add(UnitFileChange **changes, unsigned *n_changes, UnitFileChangeType type, const char *path, const char *source);
 void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes);
+void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, unsigned n_changes, bool quiet);
 
 int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name);
 

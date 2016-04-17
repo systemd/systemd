@@ -2200,20 +2200,16 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
-                if (!quiet) {
-                        if (streq(type, "symlink"))
-                                log_info("Created symlink from %s to %s.", path, source);
-                        else if (streq(type, "unlink"))
-                                log_info("Removed symlink %s.", path);
-                        else if (streq(type, "masked"))
-                                log_info("Unit %s is masked, ignoring.", path);
-                        else
-                                log_notice("Manager reported unknown change type \"%s\" for %s.", type, path);
+                /* We expect only "success" changes to be sent over the bus.
+                   Hence, reject anything negative. */
+                UnitFileChangeType ch = unit_file_change_type_from_string(type);
+
+                if (ch < 0) {
+                        log_notice("Manager reported unknown change type \"%s\" for path \"%s\", ignoring.", type, path);
+                        continue;
                 }
 
-                r = unit_file_changes_add(changes, n_changes,
-                                          unit_file_change_type_from_string(type),
-                                          path, source);
+                r = unit_file_changes_add(changes, n_changes, ch, path, source);
                 if (r < 0)
                         return r;
         }
@@ -2224,6 +2220,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        unit_file_dump_changes(0, NULL, *changes, *n_changes, false);
         return 0;
 }
 
