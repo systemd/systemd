@@ -48,6 +48,10 @@ bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b);
 char* path_join(const char *root, const char *path, const char *rest);
 
+static inline bool path_equal_ptr(const char *a, const char *b) {
+        return !!a == !!b && (!a || path_equal(a, b));
+}
+
 /* Note: the search terminates on the first NULL item. */
 #define PATH_IN_SET(p, ...)                                     \
         ({                                                      \

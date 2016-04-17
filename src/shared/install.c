@@ -119,9 +119,9 @@ static int path_is_generator(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(p->generator, parent) ||
-                path_equal(p->generator_early, parent) ||
-                path_equal(p->generator_late, parent);
+        return path_equal_ptr(parent, p->generator) ||
+               path_equal_ptr(parent, p->generator_early) ||
+               path_equal_ptr(parent, p->generator_late);
 }
 
 static int path_is_transient(const LookupPaths *p, const char *path) {
@@ -134,7 +134,7 @@ static int path_is_transient(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(p->transient, parent);
+        return path_equal_ptr(parent, p->transient);
 }
 
 static int path_is_control(const LookupPaths *p, const char *path) {
@@ -147,8 +147,8 @@ static int path_is_control(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(parent, p->persistent_control) ||
-                path_equal(parent, p->runtime_control);
+        return path_equal_ptr(parent, p->persistent_control) ||
+               path_equal_ptr(parent, p->runtime_control);
 }
 
 static int path_is_config(const LookupPaths *p, const char *path) {
@@ -164,8 +164,8 @@ static int path_is_config(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(parent, p->persistent_config) ||
-               path_equal(parent, p->runtime_config);
+        return path_equal_ptr(parent, p->persistent_config) ||
+               path_equal_ptr(parent, p->runtime_config);
 }
 
 static int path_is_runtime(const LookupPaths *p, const char *path) {
@@ -186,12 +186,12 @@ static int path_is_runtime(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(parent, p->runtime_config) ||
-               path_equal(parent, p->generator) ||
-               path_equal(parent, p->generator_early) ||
-               path_equal(parent, p->generator_late) ||
-               path_equal(parent, p->transient) ||
-               path_equal(parent, p->runtime_control);
+        return path_equal_ptr(parent, p->runtime_config) ||
+               path_equal_ptr(parent, p->generator) ||
+               path_equal_ptr(parent, p->generator_early) ||
+               path_equal_ptr(parent, p->generator_late) ||
+               path_equal_ptr(parent, p->transient) ||
+               path_equal_ptr(parent, p->runtime_control);
 }
 
 static int path_is_vendor(const LookupPaths *p, const char *path) {
