@@ -1989,12 +1989,20 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
 
         assert(changes || n_changes == 0);
 
-        for (i = 0; i < n_changes; i++) {
-                if (changes[i].type == UNIT_FILE_SYMLINK)
+        for (i = 0; i < n_changes; i++)
+                switch(changes[i].type) {
+                case UNIT_FILE_SYMLINK:
                         log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
-                else
+                        break;
+                case UNIT_FILE_UNLINK:
                         log_info("Removed %s.", changes[i].path);
-        }
+                        break;
+                case UNIT_FILE_IS_MASKED:
+                        log_info("Unit %s is masked, ignoring.", changes[i].path);
+                        break;
+                default:
+                        assert_not_reached("bad change type");
+                }
 }
 
 static int set_default(int argc, char *argv[], void *userdata) {
@@ -5272,7 +5280,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                         continue;
 
                 j = unit_file_exists(arg_scope, &paths, name);
-                if (j < 0 && !IN_SET(j, -ELOOP, -ESHUTDOWN, -EADDRNOTAVAIL))
+                if (j < 0 && !IN_SET(j, -ELOOP, -ERFKILL, -EADDRNOTAVAIL))
                         return log_error_errno(j, "Failed to lookup unit file state: %m");
                 found_native = j != 0;
 
@@ -5442,7 +5450,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached("Unknown verb");
 
-                if (r == -ESHUTDOWN)
+                if (r == -ERFKILL)
                         return log_error_errno(r, "Unit file is masked.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "Unit file is transient or generated.");
@@ -5617,7 +5625,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unsigned n_changes = 0;
 
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
-                if (r == -ESHUTDOWN)
+                if (r == -ERFKILL)
                         return log_error_errno(r, "Unit file is masked.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "Unit file is transient or generated.");
@@ -6718,7 +6726,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument_and_warn(optarg, false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;

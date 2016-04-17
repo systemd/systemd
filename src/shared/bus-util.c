@@ -2203,11 +2203,17 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
                 if (!quiet) {
                         if (streq(type, "symlink"))
                                 log_info("Created symlink from %s to %s.", path, source);
-                        else
+                        else if (streq(type, "unlink"))
                                 log_info("Removed symlink %s.", path);
+                        else if (streq(type, "masked"))
+                                log_info("Unit %s is masked, ignoring.", path);
+                        else
+                                log_notice("Manager reported unknown change type \"%s\" for %s.", type, path);
                 }
 
-                r = unit_file_changes_add(changes, n_changes, streq(type, "symlink") ? UNIT_FILE_SYMLINK : UNIT_FILE_UNLINK, path, source);
+                r = unit_file_changes_add(changes, n_changes,
+                                          unit_file_change_type_from_string(type),
+                                          path, source);
                 if (r < 0)
                         return r;
         }

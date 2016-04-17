@@ -119,9 +119,9 @@ static int path_is_generator(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(p->generator, parent) ||
-                path_equal(p->generator_early, parent) ||
-                path_equal(p->generator_late, parent);
+        return path_equal_ptr(parent, p->generator) ||
+               path_equal_ptr(parent, p->generator_early) ||
+               path_equal_ptr(parent, p->generator_late);
 }
 
 static int path_is_transient(const LookupPaths *p, const char *path) {
@@ -134,7 +134,7 @@ static int path_is_transient(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(p->transient, parent);
+        return path_equal_ptr(parent, p->transient);
 }
 
 static int path_is_control(const LookupPaths *p, const char *path) {
@@ -147,8 +147,8 @@ static int path_is_control(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(parent, p->persistent_control) ||
-                path_equal(parent, p->runtime_control);
+        return path_equal_ptr(parent, p->persistent_control) ||
+               path_equal_ptr(parent, p->runtime_control);
 }
 
 static int path_is_config(const LookupPaths *p, const char *path) {
@@ -164,8 +164,8 @@ static int path_is_config(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(parent, p->persistent_config) ||
-               path_equal(parent, p->runtime_config);
+        return path_equal_ptr(parent, p->persistent_config) ||
+               path_equal_ptr(parent, p->runtime_config);
 }
 
 static int path_is_runtime(const LookupPaths *p, const char *path) {
@@ -186,12 +186,12 @@ static int path_is_runtime(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        return path_equal(parent, p->runtime_config) ||
-               path_equal(parent, p->generator) ||
-               path_equal(parent, p->generator_early) ||
-               path_equal(parent, p->generator_late) ||
-               path_equal(parent, p->transient) ||
-               path_equal(parent, p->runtime_control);
+        return path_equal_ptr(parent, p->runtime_config) ||
+               path_equal_ptr(parent, p->generator) ||
+               path_equal_ptr(parent, p->generator_early) ||
+               path_equal_ptr(parent, p->generator_late) ||
+               path_equal_ptr(parent, p->transient) ||
+               path_equal_ptr(parent, p->runtime_control);
 }
 
 static int path_is_vendor(const LookupPaths *p, const char *path) {
@@ -754,7 +754,7 @@ static int install_info_may_process(UnitFileInstallInfo *i, const LookupPaths *p
          * not subject to enable/disable operations. */
 
         if (i->type == UNIT_FILE_TYPE_MASKED)
-                return -ESHUTDOWN;
+                return -ERFKILL;
         if (path_is_generator(paths, i->path))
                 return -EADDRNOTAVAIL;
         if (path_is_transient(paths, i->path))
@@ -2539,6 +2539,9 @@ int unit_file_preset_all(
                                 continue;
 
                         r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name);
+                        if (r == -ERFKILL)
+                                r = unit_file_changes_add(changes, n_changes,
+                                                          UNIT_FILE_IS_MASKED, de->d_name, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2652,6 +2655,7 @@ DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
 static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX] = {
         [UNIT_FILE_SYMLINK] = "symlink",
         [UNIT_FILE_UNLINK] = "unlink",
+        [UNIT_FILE_IS_MASKED] = "masked",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);

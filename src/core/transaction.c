@@ -939,7 +939,7 @@ int transaction_add_job_and_dependencies(
                                 if (r < 0) {
                                         /* unit masked, job type not applicable and unit not found are not considered as errors. */
                                         log_unit_full(dep,
-                                                      IN_SET(r, -ESHUTDOWN, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                                      IN_SET(r, -ERFKILL, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
                                                       r, "Cannot add dependency job, ignoring: %s",
                                                       bus_error_message(e, r));
                                         sd_bus_error_free(e);
