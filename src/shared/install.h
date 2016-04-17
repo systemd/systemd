@@ -77,15 +77,19 @@ enum UnitFileChangeType {
         _UNIT_FILE_CHANGE_TYPE_INVALID = -1
 };
 
-static inline bool unit_file_change_is_modification(UnitFileChangeType type) {
-        return IN_SET(type, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK);
-}
-
 struct UnitFileChange {
         UnitFileChangeType type;
         char *path;
         char *source;
 };
+
+static inline bool unit_file_changes_have_modification(const UnitFileChange* changes, unsigned n_changes) {
+        unsigned i;
+        for (i = 0; i < n_changes; i++)
+                if (IN_SET(changes[i].type, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
+                        return true;
+        return false;
+}
 
 struct UnitFileList {
         char *path;
