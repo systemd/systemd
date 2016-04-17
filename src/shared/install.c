@@ -434,8 +434,7 @@ static int remove_marked_symlinks_fd(
                         /* We remove all links pointing to a file or path that is marked, as well as all files sharing
                          * the same name as a file that is marked. */
 
-                        found =
-                                set_contains(remove_symlinks_to, dest) ||
+                        found = set_contains(remove_symlinks_to, dest) ||
                                 set_contains(remove_symlinks_to, basename(dest)) ||
                                 set_contains(remove_symlinks_to, de->d_name);
 
@@ -1481,7 +1480,7 @@ static int install_context_apply(
                         if (q < 0)
                                 r = q;
                         else
-                                r+= q;
+                                r += q;
                 }
         }
 
@@ -2413,7 +2412,7 @@ static int execute_preset(
                         if (q < 0)
                                 r = q;
                         else
-                                r+= q;
+                                r += q;
                 }
         }
 

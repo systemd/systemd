@@ -46,6 +46,9 @@ int main(int argc, char* argv[]) {
         unsigned n_changes = 0;
         UnitFileState state = 0;
 
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+
         h = hashmap_new(&string_hash_ops);
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);
         assert_se(r == 0);
@@ -65,12 +68,12 @@ int main(int argc, char* argv[]) {
 
         unit_file_list_free(h);
 
-        log_error("enable");
+        log_info("/*** enable **/");
 
         r = unit_file_enable(UNIT_FILE_SYSTEM, false, NULL, (char**) files, false, &changes, &n_changes);
         assert_se(r >= 0);
 
-        log_error("enable2");
+        log_info("/*** enable2 **/");
 
         r = unit_file_enable(UNIT_FILE_SYSTEM, false, NULL, (char**) files, false, &changes, &n_changes);
         assert_se(r >= 0);
@@ -82,8 +85,7 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_ENABLED);
 
-        log_error("disable");
-
+        log_info("/*** disable ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -97,13 +99,13 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_DISABLED);
 
-        log_error("mask");
+        log_info("/*** mask ***/");
         changes = NULL;
         n_changes = 0;
 
         r = unit_file_mask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, false, &changes, &n_changes);
         assert_se(r >= 0);
-        log_error("mask2");
+        log_info("/*** mask2 ***/");
         r = unit_file_mask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, false, &changes, &n_changes);
         assert_se(r >= 0);
 
@@ -114,58 +116,13 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_MASKED);
 
-        log_error("unmask");
+        log_info("/*** unmask ***/");
         changes = NULL;
         n_changes = 0;
 
         r = unit_file_unmask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
         assert_se(r >= 0);
-        log_error("unmask2");
-        r = unit_file_unmask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
-        assert_se(r >= 0);
-
-        dump_changes(changes, n_changes);
-        unit_file_changes_free(changes, n_changes);
-
-        r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, files[0], &state);
-        assert_se(r >= 0);
-        assert_se(state == UNIT_FILE_DISABLED);
-
-        log_error("mask");
-        changes = NULL;
-        n_changes = 0;
-
-        r = unit_file_mask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, false, &changes, &n_changes);
-        assert_se(r >= 0);
-
-        dump_changes(changes, n_changes);
-        unit_file_changes_free(changes, n_changes);
-
-        r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, files[0], &state);
-        assert_se(r >= 0);
-        assert_se(state == UNIT_FILE_MASKED);
-
-        log_error("disable");
-        changes = NULL;
-        n_changes = 0;
-
-        r = unit_file_disable(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
-        assert_se(r >= 0);
-        log_error("disable2");
-        r = unit_file_disable(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
-        assert_se(r >= 0);
-
-        dump_changes(changes, n_changes);
-        unit_file_changes_free(changes, n_changes);
-
-        r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, files[0], &state);
-        assert_se(r >= 0);
-        assert_se(state == UNIT_FILE_MASKED);
-
-        log_error("umask");
-        changes = NULL;
-        n_changes = 0;
-
+        log_info("/*** unmask2 ***/");
         r = unit_file_unmask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
         assert_se(r >= 0);
 
@@ -176,7 +133,52 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_DISABLED);
 
-        log_error("enable files2");
+        log_info("/*** mask ***/");
+        changes = NULL;
+        n_changes = 0;
+
+        r = unit_file_mask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, false, &changes, &n_changes);
+        assert_se(r >= 0);
+
+        dump_changes(changes, n_changes);
+        unit_file_changes_free(changes, n_changes);
+
+        r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, files[0], &state);
+        assert_se(r >= 0);
+        assert_se(state == UNIT_FILE_MASKED);
+
+        log_info("/*** disable ***/");
+        changes = NULL;
+        n_changes = 0;
+
+        r = unit_file_disable(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
+        assert_se(r >= 0);
+        log_info("/*** disable2 ***/");
+        r = unit_file_disable(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
+        assert_se(r >= 0);
+
+        dump_changes(changes, n_changes);
+        unit_file_changes_free(changes, n_changes);
+
+        r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, files[0], &state);
+        assert_se(r >= 0);
+        assert_se(state == UNIT_FILE_MASKED);
+
+        log_info("/*** umask ***/");
+        changes = NULL;
+        n_changes = 0;
+
+        r = unit_file_unmask(UNIT_FILE_SYSTEM, false, NULL, (char**) files, &changes, &n_changes);
+        assert_se(r >= 0);
+
+        dump_changes(changes, n_changes);
+        unit_file_changes_free(changes, n_changes);
+
+        r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, files[0], &state);
+        assert_se(r >= 0);
+        assert_se(state == UNIT_FILE_DISABLED);
+
+        log_info("/*** enable files2 ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -190,7 +192,7 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_ENABLED);
 
-        log_error("disable files2");
+        log_info("/*** disable files2 ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -203,7 +205,7 @@ int main(int argc, char* argv[]) {
         r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, basename(files2[0]), &state);
         assert_se(r < 0);
 
-        log_error("link files2");
+        log_info("/*** link files2 ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -217,7 +219,7 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_LINKED);
 
-        log_error("disable files2");
+        log_info("/*** disable files2 ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -230,7 +232,7 @@ int main(int argc, char* argv[]) {
         r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, basename(files2[0]), &state);
         assert_se(r < 0);
 
-        log_error("link files2");
+        log_info("/*** link files2 ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -244,7 +246,7 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_LINKED);
 
-        log_error("reenable files2");
+        log_info("/*** reenable files2 ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -258,7 +260,7 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_ENABLED);
 
-        log_error("disable files2");
+        log_info("/*** disable files2 ***/");
         changes = NULL;
         n_changes = 0;
 
@@ -270,7 +272,7 @@ int main(int argc, char* argv[]) {
 
         r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, basename(files2[0]), &state);
         assert_se(r < 0);
-        log_error("preset files");
+        log_info("/*** preset files ***/");
         changes = NULL;
         n_changes = 0;
 

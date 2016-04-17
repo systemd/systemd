@@ -5684,23 +5684,22 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
 }
 
 static int preset_all(int argc, char *argv[], void *userdata) {
-        UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
         int r;
 
         if (install_client_side()) {
+                UnitFileChange *changes = NULL;
+                unsigned n_changes = 0;
 
                 r = unit_file_preset_all(arg_scope, arg_runtime, arg_root, arg_preset_mode, arg_force, &changes, &n_changes);
-                if (r < 0) {
+                if (r < 0)
                         log_error_errno(r, "Operation failed: %m");
-                        goto finish;
+                else {
+                        if (!arg_quiet)
+                                dump_unit_file_changes(changes, n_changes);
                 }
 
-                if (!arg_quiet)
-                        dump_unit_file_changes(changes, n_changes);
-
-                r = 0;
-
+                unit_file_changes_free(changes, n_changes);
+                return r;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -5731,16 +5730,10 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                if (!arg_no_reload)
-                        r = daemon_reload(argc, argv, userdata);
-                else
-                        r = 0;
+                if (arg_no_reload)
+                        return 0;
+                return daemon_reload(argc, argv, userdata);
         }
-
-finish:
-        unit_file_changes_free(changes, n_changes);
-
-        return r;
 }
 
 static int unit_is_enabled(int argc, char *argv[], void *userdata) {

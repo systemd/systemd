@@ -1731,8 +1731,8 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
-                Manager *m, const
-                char *verb,
+                Manager *m,
+                const char *verb,
                 int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
                 sd_bus_error *error) {
 
@@ -1885,8 +1885,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         int runtime, force, r;
-        char *target;
-        char *type;
+        char *target, *type;
         UnitDependency dep;
 
         assert(message);
