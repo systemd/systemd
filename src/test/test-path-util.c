@@ -90,6 +90,12 @@ static void test_path(void) {
                 assert_se(path_equal(path_kill_slashes(p2), "/aaa/./ccc"));
                 assert_se(path_equal(path_kill_slashes(p3), "/./"));
         }
+
+        assert_se(PATH_IN_SET("/bin", "/", "/bin", "/foo"));
+        assert_se(PATH_IN_SET("/bin", "/bin"));
+        assert_se(PATH_IN_SET("/bin", "/foo/bar", "/bin"));
+        assert_se(PATH_IN_SET("/", "/", "/", "/foo/bar"));
+        assert_se(!PATH_IN_SET("/", "/abc", "/def"));
 }
 
 static void test_find_binary(const char *self) {

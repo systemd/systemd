@@ -569,10 +569,10 @@ static int binary_is_good(const char *binary) {
         if (r < 0)
                 return r;
 
-        return !path_equal(d, "true") &&
-               !path_equal(d, "/bin/true") &&
-               !path_equal(d, "/usr/bin/true") &&
-               !path_equal(d, "/dev/null");
+        return !PATH_IN_SET(d, "true"
+                               "/bin/true",
+                               "/usr/bin/true",
+                               "/dev/null");
 }
 
 int fsck_exists(const char *fstype) {
