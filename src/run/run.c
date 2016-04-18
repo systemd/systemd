@@ -125,7 +125,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
-                ARG_NO_ASK_PASSWORD,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_SCOPE,
@@ -133,12 +132,11 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DESCRIPTION,
                 ARG_SLICE,
                 ARG_SEND_SIGHUP,
+                ARG_SERVICE_TYPE,
                 ARG_EXEC_USER,
                 ARG_EXEC_GROUP,
-                ARG_SERVICE_TYPE,
                 ARG_NICE,
                 ARG_SETENV,
-                ARG_TTY,
                 ARG_ON_ACTIVE,
                 ARG_ON_BOOT,
                 ARG_ON_STARTUP,
@@ -147,6 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ON_CALENDAR,
                 ARG_TIMER_PROPERTY,
                 ARG_NO_BLOCK,
+                ARG_NO_ASK_PASSWORD,
         };
 
         static const struct option options[] = {
@@ -168,7 +167,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "nice",              required_argument, NULL, ARG_NICE             },
                 { "setenv",            required_argument, NULL, ARG_SETENV           },
                 { "property",          required_argument, NULL, 'p'                  },
-                { "tty",               no_argument,       NULL, 't'                  },
+                { "tty",               no_argument,       NULL, 't'                  }, /* deprecated */
+                { "pty",               no_argument,       NULL, 't'                  },
                 { "quiet",             no_argument,       NULL, 'q'                  },
                 { "on-active",         required_argument, NULL, ARG_ON_ACTIVE        },
                 { "on-boot",           required_argument, NULL, ARG_ON_BOOT          },
