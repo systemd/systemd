@@ -732,7 +732,7 @@ int config_parse_strv(const char *unit,
         for (;;) {
                 char *word = NULL;
                 int r;
-                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES);
+                r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
