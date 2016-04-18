@@ -673,7 +673,7 @@
         space they use falls below the specified size (specified with
         the usual <literal>K</literal>, <literal>M</literal>,
         <literal>G</literal> and <literal>T</literal> suffixes), or all
-        journal files contain no data older than the specified
+        archived journal files contain no data older than the specified
         timespan (specified with the usual <literal>s</literal>,
         <literal>m</literal>, <literal>h</literal>,
         <literal>days</literal>, <literal>months</literal>,
