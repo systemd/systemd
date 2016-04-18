@@ -2527,7 +2527,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         }
 
         dual_timestamp_get(&e->timestamp);
-        e->timestamp_boottime = now(CLOCK_BOOTTIME);
+        e->timestamp_boottime = now(clock_boottime_or_monotonic());
 
         for (i = 0; i < m; i++) {
 

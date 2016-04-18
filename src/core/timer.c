@@ -320,7 +320,7 @@ static usec_t monotonic_to_boottime(usec_t t) {
         if (t <= 0)
                 return 0;
 
-        a = now(CLOCK_BOOTTIME);
+        a = now(clock_boottime_or_monotonic());
         b = now(CLOCK_MONOTONIC);
 
         if (t + a > b)

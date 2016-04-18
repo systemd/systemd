@@ -156,7 +156,7 @@ static int property_get_next_elapse_monotonic(
                 usec_t a, b;
 
                 a = now(CLOCK_MONOTONIC);
-                b = now(CLOCK_BOOTTIME);
+                b = now(clock_boottime_or_monotonic());
 
                 if (t->next_elapse_monotonic_or_boottime + a > b)
                         x = t->next_elapse_monotonic_or_boottime + a - b;
