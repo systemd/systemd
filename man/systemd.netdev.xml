@@ -310,6 +310,17 @@
             of the Listening and Learning states before the Forwarding state is entered.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastQuerier=</varname></term>
+          <listitem>
+            <para>A boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
+            If enabled, the kernel will send general ICMP queries from a zero source address.
+            This feature should allow faster convergence on startup, but it causes some
+            multicast-aware switches to misbehave and disrupt forwarding of multicast packets.
+            When unset, the kernel's default setting applies.
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
   </refsect1>
