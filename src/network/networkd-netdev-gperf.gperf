@@ -92,3 +92,4 @@ Bond.LearnPacketIntervalSec, config_parse_sec,                   0,             
 Bridge.HelloTimeSec,         config_parse_sec,                   0,                             offsetof(Bridge, hello_time)
 Bridge.MaxAgeSec,            config_parse_sec,                   0,                             offsetof(Bridge, max_age)
 Bridge.ForwardDelaySec,      config_parse_sec,                   0,                             offsetof(Bridge, forward_delay)
+Bridge.MulticastQuerier,     config_parse_tristate,              0,                             offsetof(Bridge, mcast_querier)

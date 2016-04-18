@@ -89,6 +89,12 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MAX_AGE attribute: %m");
         }
 
+        if (b->mcast_querier >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BR_MCAST_QUERIER, b->mcast_querier);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MCAST_QUERIER attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
@@ -106,8 +112,19 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         return r;
 }
 
+static void bridge_init(NetDev *n) {
+        Bridge *b;
+
+        b = BRIDGE(n);
+
+        assert(b);
+
+        b->mcast_querier = -1;
+}
+
 const NetDevVTable bridge_vtable = {
         .object_size = sizeof(Bridge),
+        .init = bridge_init,
         .sections = "Match\0NetDev\0Bridge\0",
         .post_create = netdev_bridge_post_create,
         .create_type = NETDEV_CREATE_MASTER,
