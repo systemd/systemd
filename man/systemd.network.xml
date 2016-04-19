@@ -202,6 +202,8 @@
           <para>The maximum transmission unit in bytes to set for the
           device. The usual suffixes K, M, G, are supported and are
           understood to the base of 1024.</para>
+          <para>Note that if IPv6 is enabled on the interface, and the MTU is chosen
+          below 1280 (the minimum MTU for IPv6) it will automatically be increased to this value.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -209,6 +211,14 @@
         <listitem>
           <para>Identity Association Identifier for the interface, a 32-bit unsigned integer.</para>
         </listitem>
+      </varlistentry>
+      <varlistentry>
+      <listitem>
+        <para>Note that if any interface where no static IPv6 address is configured, and
+        neither DHCPv6 nor IPv6LL is enabled, shall be considered an IPv6 less interface.
+        IPv6 will be automatically disabled for that interface bywriting "1" to
+        /proc/sys/net/ipv6/conf/[ifname]/disable_ipv6.</para>
+      </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
