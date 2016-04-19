@@ -274,7 +274,7 @@ static int mount_add_mount_links(Mount *m) {
         pm = get_mount_parameters_fragment(m);
         if (pm && pm->what &&
             path_is_absolute(pm->what) &&
-            !mount_is_network(pm)) {
+            (mount_is_bind(pm) || !mount_is_network(pm))) {
 
                 r = unit_require_mounts_for(UNIT(m), pm->what);
                 if (r < 0)
