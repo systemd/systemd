@@ -74,7 +74,7 @@ enum UnitFileChangeType {
         UNIT_FILE_UNLINK,
         UNIT_FILE_IS_MASKED,
         _UNIT_FILE_CHANGE_TYPE_MAX,
-        _UNIT_FILE_CHANGE_TYPE_INVALID = -1
+        _UNIT_FILE_CHANGE_INVALID = INT_MIN
 };
 
 /* type can either one of the UnitFileChangeTypes listed above, or a negative error.
@@ -243,6 +243,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
+/* from_string conversion is unreliable because of the overlap between -EPERM and -1 for error. */
 
 const char *unit_file_change_type_to_string(UnitFileChangeType s) _const_;
 UnitFileChangeType unit_file_change_type_from_string(const char *s) _pure_;
