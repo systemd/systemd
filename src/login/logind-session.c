@@ -797,7 +797,7 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         /* Graphical sessions should really implement a real
          * idle hint logic */
-        if (s->display)
+        if (SESSION_TYPE_IS_GRAPHICAL(s->type))
                 goto dont_know;
 
         /* For sessions with an explicitly configured tty, let's check
