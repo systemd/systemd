@@ -399,6 +399,18 @@ int network_apply(Manager *manager, Network *network, Link *link) {
         return 0;
 }
 
+bool network_has_static_ipv6_addresses(Network *network) {
+        Address *address;
+
+        assert(network);
+
+        while ((address = network->static_addresses))
+               if (address->family == AF_INET6)
+                       return true;
+
+        return false;
+}
+
 int config_parse_netdev(const char *unit,
                 const char *filename,
                 unsigned line,

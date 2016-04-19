@@ -186,6 +186,8 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, struct udev_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);
 int network_apply(Manager *manager, Network *network, Link *link);
 
+bool network_has_static_ipv6_addresses(Network *network);
+
 int config_parse_netdev(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_tunnel(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
