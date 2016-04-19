@@ -16,7 +16,7 @@ _coredumpctl_command(){
         cmd="${${_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd  )); then
             # user can set zstyle ':completion:*:*:coredumpctl:*' sort no for coredumps to be ordered by date, otherwise they get ordered by pid
-            _dumps=( "${(foa)$(coredumpctl list | awk 'BEGIN{OFS=":"} /^\s/ {sub(/[[ \t]+/, ""); print $5,$0}' 2>/dev/null)}" )
+            _dumps=( "${(foa)$(coredumpctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $5,$0}' 2>/dev/null)}" )
             if [[ -n "$_dumps" ]]; then
                 _describe -t pids 'coredumps' _dumps
             else
