@@ -1565,13 +1565,11 @@ static int reply_unit_file_changes_and_free(
         unsigned i;
         int r;
 
-        for (i = 0; i < n_changes; i++)
-                if (unit_file_change_is_modification(changes[i].type)) {
-                        r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
-                        break;
-                }
+        if (unit_file_changes_have_modification(changes, n_changes)) {
+                r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
+        }
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -1587,15 +1585,19 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        for (i = 0; i < n_changes; i++) {
-                r = sd_bus_message_append(
-                                reply, "(sss)",
-                                unit_file_change_type_to_string(changes[i].type),
-                                changes[i].path,
-                                changes[i].source);
-                if (r < 0)
-                        goto fail;
-        }
+        for (i = 0; i < n_changes; i++)
+                if (changes[i].type >= 0) {
+                        const char *change = unit_file_change_type_to_string(changes[i].type);
+                        assert(change != NULL);
+
+                        r = sd_bus_message_append(
+                                        reply, "(sss)",
+                                        change,
+                                        changes[i].path,
+                                        changes[i].source);
+                        if (r < 0)
+                                goto fail;
+                }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
@@ -1609,17 +1611,56 @@ fail:
         return r;
 }
 
-static int install_error(sd_bus_error *error, int c) {
+/* Create an error reply, using the error information from changes[]
+ * if possible, and fall back to generating an error from error code c.
+ * The error message only describes the first error.
+ *
+ * Coordinate with unit_file_dump_changes() in install.c.
+ */
+static int install_error(
+                sd_bus_error *error,
+                int c,
+                UnitFileChange *changes,
+                unsigned n_changes) {
+        int r;
+        unsigned i;
         assert(c < 0);
 
-        if (c == -ERFKILL)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
-        if (c == -EADDRNOTAVAIL)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED, "Unit file is transient or generated.");
-        if (c == -ELOOP)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED, "Refusing to operate on linked unit file.");
+        for (i = 0; i < n_changes; i++)
+                switch(changes[i].type) {
+                case 0 ... INT_MAX:
+                        continue;
+                case -EEXIST:
+                        if (changes[i].source)
+                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
+                                                      "File %s already exists and is a symlink to %s.",
+                                                      changes[i].path, changes[i].source);
+                        else
+                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
+                                                      "File %s already exists.",
+                                                      changes[i].path);
+                        goto found;
+                case -ERFKILL:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED,
+                                              "Unit file %s is masked.", changes[i].path);
+                        goto found;
+                case -EADDRNOTAVAIL:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
+                                              "Unit %s is transient or generated.", changes[i].path);
+                        goto found;
+                case -ELOOP:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED,
+                                              "Refusing to operate on linked unit file %s", changes[i].path);
+                        goto found;
+                default:
+                        r = sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
+                        goto found;
+                }
 
-        return c;
+        r = c;
+ found:
+        unit_file_changes_free(changes, n_changes);
+        return r;
 }
 
 static int method_enable_unit_files_generic(
@@ -1653,10 +1694,8 @@ static int method_enable_unit_files_generic(
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = call(m->unit_file_scope, runtime, NULL, l, force, &changes, &n_changes);
-        if (r < 0) {
-                unit_file_changes_free(changes, n_changes);
-                return install_error(error, r);
-        }
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes);
 }
@@ -1721,18 +1760,16 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_preset(m->unit_file_scope, runtime, NULL, l, mm, force, &changes, &n_changes);
-        if (r < 0) {
-                unit_file_changes_free(changes, n_changes);
-                return install_error(error, r);
-        }
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, r, changes, n_changes);
 }
 
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
-                Manager *m, const
-                char *verb,
+                Manager *m,
+                const char *verb,
                 int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
                 sd_bus_error *error) {
 
@@ -1759,10 +1796,8 @@ static int method_disable_unit_files_generic(
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = call(m->unit_file_scope, runtime, NULL, l, &changes, &n_changes);
-        if (r < 0) {
-                unit_file_changes_free(changes, n_changes);
-                return install_error(error, r);
-        }
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
@@ -1796,10 +1831,8 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes);
-        if (r < 0) {
-                unit_file_changes_free(changes, n_changes);
-                return install_error(error, r);
-        }
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
@@ -1829,10 +1862,8 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_set_default(m->unit_file_scope, NULL, name, force, &changes, &n_changes);
-        if (r < 0) {
-                unit_file_changes_free(changes, n_changes);
-                return install_error(error, r);
-        }
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
@@ -1871,10 +1902,8 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_preset_all(m->unit_file_scope, runtime, NULL, mm, force, &changes, &n_changes);
-        if (r < 0) {
-                unit_file_changes_free(changes, n_changes);
-                return install_error(error, r);
-        }
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }
@@ -1885,8 +1914,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         int runtime, force, r;
-        char *target;
-        char *type;
+        char *target, *type;
         UnitDependency dep;
 
         assert(message);
@@ -1911,10 +1939,8 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
                 return -EINVAL;
 
         r = unit_file_add_dependency(m->unit_file_scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
-        if (r < 0) {
-                unit_file_changes_free(changes, n_changes);
-                return install_error(error, r);
-        }
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes);
 }

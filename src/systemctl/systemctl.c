@@ -1984,27 +1984,6 @@ static int get_default(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_changes) {
-        unsigned i;
-
-        assert(changes || n_changes == 0);
-
-        for (i = 0; i < n_changes; i++)
-                switch(changes[i].type) {
-                case UNIT_FILE_SYMLINK:
-                        log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
-                        break;
-                case UNIT_FILE_UNLINK:
-                        log_info("Removed %s.", changes[i].path);
-                        break;
-                case UNIT_FILE_IS_MASKED:
-                        log_info("Unit %s is masked, ignoring.", changes[i].path);
-                        break;
-                default:
-                        assert_not_reached("bad change type");
-                }
-}
-
 static int set_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *unit = NULL;
         int r;
@@ -2021,14 +2000,9 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 unsigned n_changes = 0;
 
                 r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set default target: %m");
-
-                if (!arg_quiet)
-                        dump_unit_file_changes(changes, n_changes);
-
+                unit_file_dump_changes(r, "set default", changes, n_changes, arg_quiet);
                 unit_file_changes_free(changes, n_changes);
-                r = 0;
+                return r;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -3117,7 +3091,7 @@ static int set_exit_code(uint8_t code) {
                         NULL,
                         "y", code);
         if (r < 0)
-                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set exit code: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -4967,7 +4941,7 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
                  * reply */
                 r = 0;
         else if (r < 0)
-                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
 
         return r < 0 ? r : 0;
 }
@@ -5450,18 +5424,9 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached("Unknown verb");
 
-                if (r == -ERFKILL)
-                        return log_error_errno(r, "Unit file is masked.");
-                if (r == -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Unit file is transient or generated.");
-                if (r == -ELOOP)
-                        return log_error_errno(r, "Refusing to operate on linked unit file.");
+                unit_file_dump_changes(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
-                        return log_error_errno(r, "Operation failed: %m");
-
-                if (!arg_quiet)
-                        dump_unit_file_changes(changes, n_changes);
-
+                        return r;
                 r = 0;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
@@ -5542,7 +5507,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 r = sd_bus_call(bus, m, 0, &error, &reply);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to %s unit: %s", verb, bus_error_message(&error, r));
 
                 if (expect_carries_install_info) {
                         r = sd_bus_message_read(reply, "b", &carries_install_info);
@@ -5562,15 +5527,18 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (carries_install_info == 0)
-                log_warning("The unit files have no [Install] section. They are not meant to be enabled\n"
-                            "using systemctl.\n"
+                log_warning("The unit files have no installation config (WantedBy, RequiredBy, Also, Alias\n"
+                            "settings in the [Install] section, and DefaultInstance for template units).\n"
+                            "This means they are not meant to be enabled using systemctl.\n"
                             "Possible reasons for having this kind of units are:\n"
                             "1) A unit may be statically enabled by being symlinked from another unit's\n"
                             "   .wants/ or .requires/ directory.\n"
                             "2) A unit's purpose may be to act as a helper for some other unit which has\n"
                             "   a requirement dependency on it.\n"
                             "3) A unit may be started when needed via activation (socket, path, timer,\n"
-                            "   D-Bus, udev, scripted systemctl call, ...).\n");
+                            "   D-Bus, udev, scripted systemctl call, ...).\n"
+                            "4) In case of template units, the unit is meant to be enabled with some\n"
+                            "   instance name specified.");
 
         if (arg_now && n_changes > 0 && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
                 char *new_args[n_changes + 2];
@@ -5625,18 +5593,9 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 unsigned n_changes = 0;
 
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
-                if (r == -ERFKILL)
-                        return log_error_errno(r, "Unit file is masked.");
-                if (r == -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Unit file is transient or generated.");
-                if (r < 0)
-                        return log_error_errno(r, "Can't add dependency: %m");
-
-                if (!arg_quiet)
-                        dump_unit_file_changes(changes, n_changes);
-
+                unit_file_dump_changes(r, "add dependency on", changes, n_changes, arg_quiet);
                 unit_file_changes_free(changes, n_changes);
-
+                return r;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -5668,39 +5627,29 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
 
                 r = sd_bus_call(bus, m, 0, &error, &reply);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to add dependency: %s", bus_error_message(&error, r));
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
                 if (r < 0)
                         return r;
 
-                if (!arg_no_reload)
-                        r = daemon_reload(argc, argv, userdata);
-                else
-                        r = 0;
+                if (arg_no_reload)
+                        return 0;
+                return daemon_reload(argc, argv, userdata);
         }
-
-        return r;
 }
 
 static int preset_all(int argc, char *argv[], void *userdata) {
-        UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
         int r;
 
         if (install_client_side()) {
+                UnitFileChange *changes = NULL;
+                unsigned n_changes = 0;
 
                 r = unit_file_preset_all(arg_scope, arg_runtime, arg_root, arg_preset_mode, arg_force, &changes, &n_changes);
-                if (r < 0) {
-                        log_error_errno(r, "Operation failed: %m");
-                        goto finish;
-                }
-
-                if (!arg_quiet)
-                        dump_unit_file_changes(changes, n_changes);
-
-                r = 0;
-
+                unit_file_dump_changes(r, "preset", changes, n_changes, arg_quiet);
+                unit_file_changes_free(changes, n_changes);
+                return r;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -5725,22 +5674,16 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                                 arg_runtime,
                                 arg_force);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to preset all units: %s", bus_error_message(&error, r));
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
                 if (r < 0)
                         return r;
 
-                if (!arg_no_reload)
-                        r = daemon_reload(argc, argv, userdata);
-                else
-                        r = 0;
+                if (arg_no_reload)
+                        return 0;
+                return daemon_reload(argc, argv, userdata);
         }
-
-finish:
-        unit_file_changes_free(changes, n_changes);
-
-        return r;
 }
 
 static int unit_is_enabled(int argc, char *argv[], void *userdata) {

@@ -276,6 +276,70 @@ void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes) {
         free(changes);
 }
 
+void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, unsigned n_changes, bool quiet) {
+        unsigned i;
+        bool logged = false;
+
+        assert(changes || n_changes == 0);
+        /* If verb is not specified, errors are not allowed! */
+        assert(verb || r >= 0);
+
+        for (i = 0; i < n_changes; i++) {
+                assert(verb || changes[i].type >= 0);
+
+                switch(changes[i].type) {
+                case UNIT_FILE_SYMLINK:
+                        if (!quiet)
+                                log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
+                        break;
+                case UNIT_FILE_UNLINK:
+                        if (!quiet)
+                                log_info("Removed %s.", changes[i].path);
+                        break;
+                case UNIT_FILE_IS_MASKED:
+                        if (!quiet)
+                                log_info("Unit %s is masked, ignoring.", changes[i].path);
+                        break;
+                case -EEXIST:
+                        if (changes[i].source)
+                                log_error_errno(changes[i].type,
+                                                "Failed to %s unit, file %s already exists and is a symlink to %s.",
+                                                verb, changes[i].path, changes[i].source);
+                        else
+                                log_error_errno(changes[i].type,
+                                                "Failed to %s unit, file %s already exists.",
+                                                verb, changes[i].path);
+                        logged = true;
+                        break;
+                case -ERFKILL:
+                        log_error_errno(changes[i].type, "Failed to %s unit, unit %s is masked.",
+                                        verb, changes[i].path);
+                        logged = true;
+                        break;
+                case -EADDRNOTAVAIL:
+                        log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
+                                        verb, changes[i].path);
+                        logged = true;
+                        break;
+                case -ELOOP:
+                        log_error_errno(changes[i].type, "Failed to %s unit, refusing to operate on linked unit file %s",
+                                        verb, changes[i].path);
+                        logged = true;
+                        break;
+                default:
+                        assert(changes[i].type < 0);
+                        log_error_errno(changes[i].type, "Failed to %s unit, file %s: %m.",
+                                        verb, changes[i].path);
+                        logged = true;
+                }
+        }
+
+        if (r < 0 && !logged)
+                log_error_errno(r, "Failed to %s: %m.", verb);
+}
+
+
+
 static int create_symlink(
                 const char *old_path,
                 const char *new_path,
@@ -300,8 +364,10 @@ static int create_symlink(
                 return 1;
         }
 
-        if (errno != EEXIST)
+        if (errno != EEXIST) {
+                unit_file_changes_add(changes, n_changes, -errno, new_path, NULL);
                 return -errno;
+        }
 
         r = readlink_malloc(new_path, &dest);
         if (r < 0)
@@ -310,8 +376,10 @@ static int create_symlink(
         if (path_equal(dest, old_path))
                 return 0;
 
-        if (!force)
+        if (!force) {
+                unit_file_changes_add(changes, n_changes, -EEXIST, new_path, dest);
                 return -EEXIST;
+        }
 
         r = symlink_atomic(old_path, new_path);
         if (r < 0)
@@ -421,6 +489,7 @@ static int remove_marked_symlinks_fd(
                         p = path_make_absolute(de->d_name, path);
                         if (!p)
                                 return -ENOMEM;
+                        path_kill_slashes(p);
 
                         q = readlink_malloc(p, &dest);
                         if (q == -ENOENT)
@@ -434,8 +503,7 @@ static int remove_marked_symlinks_fd(
                         /* We remove all links pointing to a file or path that is marked, as well as all files sharing
                          * the same name as a file that is marked. */
 
-                        found =
-                                set_contains(remove_symlinks_to, dest) ||
+                        found = set_contains(remove_symlinks_to, dest) ||
                                 set_contains(remove_symlinks_to, basename(dest)) ||
                                 set_contains(remove_symlinks_to, de->d_name);
 
@@ -445,10 +513,10 @@ static int remove_marked_symlinks_fd(
                         if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
                                 if (r == 0)
                                         r = -errno;
+                                unit_file_changes_add(changes, n_changes, -errno, p, NULL);
                                 continue;
                         }
 
-                        path_kill_slashes(p);
                         (void) rmdir_parents(p, config_path);
 
                         unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
@@ -746,19 +814,26 @@ static UnitFileInstallInfo *install_info_find(InstallContext *c, const char *nam
         return ordered_hashmap_get(c->will_process, name);
 }
 
-static int install_info_may_process(UnitFileInstallInfo *i, const LookupPaths *paths) {
+static int install_info_may_process(
+                UnitFileInstallInfo *i,
+                const LookupPaths *paths,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
         assert(i);
         assert(paths);
 
         /* Checks whether the loaded unit file is one we should process, or is masked, transient or generated and thus
          * not subject to enable/disable operations. */
 
-        if (i->type == UNIT_FILE_TYPE_MASKED)
+        if (i->type == UNIT_FILE_TYPE_MASKED) {
+                unit_file_changes_add(changes, n_changes, -ERFKILL, i->path, NULL);
                 return -ERFKILL;
-        if (path_is_generator(paths, i->path))
+        }
+        if (path_is_generator(paths, i->path) ||
+            path_is_transient(paths, i->path)) {
+                unit_file_changes_add(changes, n_changes, -EADDRNOTAVAIL, i->path, NULL);
                 return -EADDRNOTAVAIL;
-        if (path_is_transient(paths, i->path))
-                return -EADDRNOTAVAIL;
+        }
 
         return 0;
 }
@@ -1391,8 +1466,10 @@ static int install_info_symlink_link(
         assert(i->path);
 
         r = in_search_path(paths, i->path);
-        if (r != 0)
+        if (r < 0)
                 return r;
+        if (r > 0)
+                return 0;
 
         path = strjoin(config_path, "/", i->name, NULL);
         if (!path)
@@ -1431,7 +1508,8 @@ static int install_info_apply(
                 r = q;
 
         q = install_info_symlink_link(i, paths, config_path, force, changes, n_changes);
-        if (r == 0)
+        /* Do not count links to the unit file towards the "carries_install_info" count */
+        if (r == 0 && q < 0)
                 r = q;
 
         return r;
@@ -1481,7 +1559,7 @@ static int install_context_apply(
                         if (q < 0)
                                 r = q;
                         else
-                                r+= q;
+                                r += q;
                 }
         }
 
@@ -1638,8 +1716,11 @@ int unit_file_unmask(
                         return -ENOMEM;
 
                 if (unlink(path) < 0) {
-                        if (errno != ENOENT && r >= 0)
-                                r = -errno;
+                        if (errno != ENOENT) {
+                                if (r >= 0)
+                                        r = -errno;
+                                unit_file_changes_add(changes, n_changes, -errno, path, NULL);
+                        }
 
                         continue;
                 }
@@ -1954,7 +2035,7 @@ int unit_file_add_dependency(
         r = install_info_discover(scope, &c, &paths, target, SEARCH_FOLLOW_CONFIG_SYMLINKS, &target_info);
         if (r < 0)
                 return r;
-        r = install_info_may_process(target_info, &paths);
+        r = install_info_may_process(target_info, &paths, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1966,7 +2047,7 @@ int unit_file_add_dependency(
                 r = install_info_discover(scope, &c, &paths, *f, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
                 if (r < 0)
                         return r;
-                r = install_info_may_process(i, &paths);
+                r = install_info_may_process(i, &paths, changes, n_changes);
                 if (r < 0)
                         return r;
 
@@ -2019,7 +2100,7 @@ int unit_file_enable(
                 r = install_info_discover(scope, &c, &paths, *f, SEARCH_LOAD, &i);
                 if (r < 0)
                         return r;
-                r = install_info_may_process(i, &paths);
+                r = install_info_may_process(i, &paths, changes, n_changes);
                 if (r < 0)
                         return r;
 
@@ -2132,7 +2213,7 @@ int unit_file_set_default(
         r = install_info_discover(scope, &c, &paths, name, 0, &i);
         if (r < 0)
                 return r;
-        r = install_info_may_process(i, &paths);
+        r = install_info_may_process(i, &paths, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -2164,7 +2245,7 @@ int unit_file_get_default(
         r = install_info_discover(scope, &c, &paths, SPECIAL_DEFAULT_TARGET, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
         if (r < 0)
                 return r;
-        r = install_info_may_process(i, &paths);
+        r = install_info_may_process(i, &paths, NULL, 0);
         if (r < 0)
                 return r;
 
@@ -2413,7 +2494,7 @@ static int execute_preset(
                         if (q < 0)
                                 r = q;
                         else
-                                r+= q;
+                                r += q;
                 }
         }
 
@@ -2426,7 +2507,9 @@ static int preset_prepare_one(
                 InstallContext *minus,
                 LookupPaths *paths,
                 UnitFilePresetMode mode,
-                const char *name) {
+                const char *name,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
 
         UnitFileInstallInfo *i;
         int r;
@@ -2444,7 +2527,7 @@ static int preset_prepare_one(
                 if (r < 0)
                         return r;
 
-                r = install_info_may_process(i, paths);
+                r = install_info_may_process(i, paths, changes, n_changes);
                 if (r < 0)
                         return r;
         } else
@@ -2483,7 +2566,7 @@ int unit_file_preset(
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i);
+                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i, changes, n_changes);
                 if (r < 0)
                         return r;
         }
@@ -2538,7 +2621,8 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name);
+                        /* we don't pass changes[] in, because we want to handle errors on our own */
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name, NULL, 0);
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);

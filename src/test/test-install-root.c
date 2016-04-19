@@ -107,7 +107,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 
         /* Enabling it again should succeed but be a NOP */
-        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("a.service"), false, &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("a.service"), false, &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
