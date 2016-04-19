@@ -49,6 +49,7 @@
 #include "journald-native.h"
 #include "log.h"
 #include "macro.h"
+#include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -212,6 +213,10 @@ static int fix_xattr(int fd, const char *context[_CONTEXT_MAX]) {
 
 #define filename_escape(s) xescape((s), "./ ")
 
+static inline const char *coredump_tmpfile_name(const char *s) {
+        return s ? s : "(unnamed temporary file)";
+}
+
 static int fix_permissions(
                 int fd,
                 const char *filename,
@@ -220,7 +225,6 @@ static int fix_permissions(
                 uid_t uid) {
 
         assert(fd >= 0);
-        assert(filename);
         assert(target);
         assert(context);
 
@@ -230,10 +234,20 @@ static int fix_permissions(
         (void) fix_xattr(fd, context);
 
         if (fsync(fd) < 0)
-                return log_error_errno(errno, "Failed to sync coredump %s: %m", filename);
+                return log_error_errno(errno, "Failed to sync coredump %s: %m", coredump_tmpfile_name(filename));
 
-        if (rename(filename, target) < 0)
-                return log_error_errno(errno, "Failed to rename coredump %s -> %s: %m", filename, target);
+        if (filename) {
+                if (rename(filename, target) < 0)
+                        return log_error_errno(errno, "Failed to rename coredump %s -> %s: %m", filename, target);
+        } else {
+                _cleanup_free_ char *proc_fd_path = NULL;
+
+                if (asprintf(&proc_fd_path, "/proc/self/fd/%d", fd) < 0)
+                        return log_oom();
+
+                if (linkat(AT_FDCWD, proc_fd_path, AT_FDCWD, target, AT_SYMLINK_FOLLOW) < 0)
+                        return log_error_errno(errno, "Failed to create coredump %s: %m", target);
+        }
 
         return 0;
 }
@@ -294,6 +308,33 @@ static int make_filename(const char *context[_CONTEXT_MAX], char **ret) {
         return 0;
 }
 
+static int open_coredump_tmpfile(const char *target, char **ret_filename) {
+        _cleanup_free_ char *tmp = NULL;
+        int fd;
+        int r;
+
+        assert(target);
+        assert(ret_filename);
+
+        fd = open("/var/lib/systemd/coredump", O_TMPFILE|O_CLOEXEC|O_NOCTTY|O_RDWR, 0640);
+        if (fd < 0) {
+                log_debug_errno(errno, "Failed to use O_TMPFILE: %m");
+
+                r = tempfn_random(target, NULL, &tmp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine temporary file name: %m");
+
+                fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
+        }
+
+        *ret_filename = tmp;
+        tmp = NULL;
+
+        return fd;
+}
+
 static int save_external_coredump(
                 const char *context[_CONTEXT_MAX],
                 int input_fd,
@@ -335,15 +376,11 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine coredump file name: %m");
 
-        r = tempfn_random(fn, NULL, &tmp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary file name: %m");
-
         mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
-        fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
+        fd = open_coredump_tmpfile(fn, &tmp);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
+                return fd;
 
         r = copy_bytes(input_fd, fd, max_size, false);
         if (r == -EFBIG) {
@@ -358,12 +395,12 @@ static int save_external_coredump(
         }
 
         if (fstat(fd, &st) < 0) {
-                log_error_errno(errno, "Failed to fstat coredump %s: %m", tmp);
+                log_error_errno(errno, "Failed to fstat coredump %s: %m", coredump_tmpfile_name(tmp));
                 goto fail;
         }
 
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_error_errno(errno, "Failed to seek on %s: %m", tmp);
+                log_error_errno(errno, "Failed to seek on %s: %m", coredump_tmpfile_name(tmp));
                 goto fail;
         }
 
@@ -381,21 +418,13 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                r = tempfn_random(fn_compressed, NULL, &tmp_compressed);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to determine temporary file name for %s: %m", fn_compressed);
+                fd_compressed = open_coredump_tmpfile(fn_compressed, &tmp_compressed);
+                if (fd_compressed < 0)
                         goto uncompressed;
-                }
-
-                fd_compressed = open(tmp_compressed, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
-                if (fd_compressed < 0) {
-                        log_error_errno(errno, "Failed to create file %s: %m", tmp_compressed);
-                        goto uncompressed;
-                }
 
                 r = compress_stream(fd, fd_compressed, -1);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to compress %s: %m", tmp_compressed);
+                        log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
                         goto fail_compressed;
                 }
 
@@ -404,7 +433,8 @@ static int save_external_coredump(
                         goto fail_compressed;
 
                 /* OK, this worked, we can get rid of the uncompressed version now */
-                unlink_noerrno(tmp);
+                if (tmp)
+                        unlink_noerrno(tmp);
 
                 *ret_filename = fn_compressed;     /* compressed */
                 *ret_node_fd = fd_compressed;      /* compressed */
@@ -417,7 +447,8 @@ static int save_external_coredump(
                 return 0;
 
         fail_compressed:
-                (void) unlink(tmp_compressed);
+                if (tmp_compressed)
+                        (void) unlink(tmp_compressed);
         }
 
 uncompressed:
@@ -438,7 +469,8 @@ uncompressed:
         return 0;
 
 fail:
-        (void) unlink(tmp);
+        if (tmp)
+                (void) unlink(tmp);
         return r;
 }
 
