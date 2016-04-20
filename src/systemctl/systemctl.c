@@ -325,6 +325,8 @@ static int compare_unit_info(const void *a, const void *b) {
 }
 
 static bool output_show_unit(const UnitInfo *u, char **patterns) {
+        assert(u);
+
         if (!strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
                 return false;
 
@@ -1281,6 +1283,8 @@ static int compare_unit_file_list(const void *a, const void *b) {
 }
 
 static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
+        assert(u);
+
         if (!strv_fnmatch_or_empty(patterns, basename(u->path), FNM_NOESCAPE))
                 return false;
 
