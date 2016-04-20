@@ -75,6 +75,7 @@
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
+#include "nspawn-patch-uid.h"
 #include "nspawn-register.h"
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
@@ -175,6 +176,7 @@ static ExposePort *arg_expose_ports = NULL;
 static char **arg_property = NULL;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static bool arg_userns = false;
+static bool arg_userns_chown = false;
 static int arg_kill_signal = 0;
 static bool arg_unified_cgroup_hierarchy = false;
 static SettingsMask arg_settings_mask = 0;
@@ -204,6 +206,7 @@ static void help(void) {
                "     --property=NAME=VALUE  Set scope unit property\n"
                "     --private-users[=UIDBASE[:NUIDS]]\n"
                "                            Run within user namespace\n"
+               "     --private-user-chown   Adjust OS tree file ownership for private user range\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
                "                            Assign an existing network interface to the\n"
@@ -349,6 +352,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KILL_SIGNAL,
                 ARG_SETTINGS,
                 ARG_CHDIR,
+                ARG_PRIVATE_USERS_CHOWN,
         };
 
         static const struct option options[] = {
@@ -392,6 +396,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "port",                  required_argument, NULL, 'p'                   },
                 { "property",              required_argument, NULL, ARG_PROPERTY          },
                 { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS     },
+                { "private-users-chown",   optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN},
                 { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL       },
                 { "settings",              required_argument, NULL, ARG_SETTINGS          },
                 { "chdir",                 required_argument, NULL, ARG_CHDIR             },
@@ -825,6 +830,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_userns = true;
                         break;
 
+                case ARG_PRIVATE_USERS_CHOWN:
+                        arg_userns_chown = true;
+                        break;
+
                 case ARG_KILL_SIGNAL:
                         arg_kill_signal = signal_from_string_try_harder(optarg);
                         if (arg_kill_signal < 0) {
@@ -933,8 +942,15 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_userns && access("/proc/self/uid_map", F_OK) < 0)
-                return log_error_errno(EOPNOTSUPP, "--private-users= is not supported, kernel compiled without user namespace support.");
+        if (arg_userns && access("/proc/self/uid_map", F_OK) < 0) {
+                log_error("--private-users= is not supported, kernel compiled without user namespace support.");
+                return -EOPNOTSUPP;
+        }
+
+        if (arg_userns_chown && arg_read_only) {
+                log_error("--read-only and --private-users-chown may not be combined.");
+                return -EINVAL;
+        }
 
         if (argc > optind) {
                 arg_parameters = strv_copy(argv + optind);
@@ -2218,6 +2234,29 @@ static int setup_machine_id(const char *directory) {
         return 0;
 }
 
+static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
+        int r;
+
+        assert(directory);
+
+        if (!arg_userns || !arg_userns_chown)
+                return 0;
+
+        r = path_patch_uid(directory, arg_uid_shift, arg_uid_range);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "Automatic UID/GID adjusting is only supported for UID/GID ranges starting at multiples of 2^16 with a range of 2^16.");
+        if (r == -EBADE)
+                return log_error_errno(r, "Upper 16 bits of root directory UID and GID do not match.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust UID/GID shift of OS tree: %m");
+        if (r == 0)
+                log_debug("Root directory of image is already owned by the right UID/GID range, skipping recursive chown operation.");
+        else
+                log_debug("Patched directory tree to match UID/GID range.");
+
+        return r;
+}
+
 static int mount_devices(
                 const char *where,
                 const char *root_device, bool root_device_rw,
@@ -2762,6 +2801,10 @@ static int outer_child(
         /* Turn directory into bind mount */
         if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to make bind mount: %m");
+
+        r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
+        if (r < 0)
+                return r;
 
         r = setup_volatile(directory, arg_volatile_mode, arg_userns, arg_uid_shift, arg_uid_range, arg_selinux_context);
         if (r < 0)
