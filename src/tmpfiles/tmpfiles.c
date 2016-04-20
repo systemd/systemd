@@ -1276,11 +1276,11 @@ static int create_item(Item *i) {
                 if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
                         r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
                         if (r == -ENOTTY)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because of unsupported file system or because directory is not a subvolume: %m", i->path);
+                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
                         else if (r == -EROFS)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because of read-only file system: %m", i->path);
+                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
                         else if (r == -ENOPROTOOPT)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" because quota support is disabled: %m", i->path);
+                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
                         else if (r < 0)
                                 q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
                         else if (r > 0)
