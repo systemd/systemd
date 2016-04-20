@@ -34,6 +34,9 @@ typedef enum OutputMode {
         _OUTPUT_MODE_INVALID = -1
 } OutputMode;
 
+/* The output flags definitions are shared by the logs and process tree output. Some apply to both, some only to the
+ * logs output, others only to the process tree output. */
+
 typedef enum OutputFlags {
         OUTPUT_SHOW_ALL       = 1 << 0,
         OUTPUT_FOLLOW         = 1 << 1,
@@ -43,4 +46,5 @@ typedef enum OutputFlags {
         OUTPUT_CATALOG        = 1 << 5,
         OUTPUT_BEGIN_NEWLINE  = 1 << 6,
         OUTPUT_UTC            = 1 << 7,
+        OUTPUT_KERNEL_THREADS = 1 << 8,
 } OutputFlags;

@@ -3746,7 +3746,7 @@ static void print_status_info(
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, false, extra, k, get_output_flags());
+                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, extra, k, get_output_flags());
                 } else if (r < 0)
                         log_warning_errno(r, "Failed to dump process list, ignoring: %s", bus_error_message(&error, r));
         }
@@ -4663,7 +4663,7 @@ static int show_system_status(sd_bus *bus) {
                 else
                         c = 0;
 
-                show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, false, get_output_flags());
+                show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, get_output_flags());
         }
 
         return 0;

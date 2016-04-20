@@ -37,7 +37,15 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
-static void show_pid_array(pid_t pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, bool kernel_threads, OutputFlags flags) {
+static void show_pid_array(
+                pid_t pids[],
+                unsigned n_pids,
+                const char *prefix,
+                unsigned n_columns,
+                bool extra,
+                bool more,
+                OutputFlags flags) {
+
         unsigned i, j, pid_width;
 
         if (n_pids == 0)
@@ -81,7 +89,6 @@ static int show_cgroup_one_by_path(
                 const char *prefix,
                 unsigned n_columns,
                 bool more,
-                bool kernel_threads,
                 OutputFlags flags) {
 
         char *fn;
@@ -103,7 +110,7 @@ static int show_cgroup_one_by_path(
 
         while ((r = cg_read_pid(f, &pid)) > 0) {
 
-                if (!kernel_threads && is_kernel_thread(pid) > 0)
+                if (!(flags & OUTPUT_KERNEL_THREADS) && is_kernel_thread(pid) > 0)
                         continue;
 
                 if (!GREEDY_REALLOC(pids, n_allocated, n + 1))
@@ -116,7 +123,7 @@ static int show_cgroup_one_by_path(
         if (r < 0)
                 return r;
 
-        show_pid_array(pids, n, prefix, n_columns, false, more, kernel_threads, flags);
+        show_pid_array(pids, n, prefix, n_columns, false, more, flags);
 
         return 0;
 }
@@ -125,7 +132,6 @@ int show_cgroup_by_path(
                 const char *path,
                 const char *prefix,
                 unsigned n_columns,
-                bool kernel_threads,
                 OutputFlags flags) {
 
         _cleanup_free_ char *fn = NULL, *p1 = NULL, *last = NULL, *p2 = NULL;
@@ -161,7 +167,7 @@ int show_cgroup_by_path(
                         continue;
 
                 if (!shown_pids) {
-                        show_cgroup_one_by_path(path, prefix, n_columns, true, kernel_threads, flags);
+                        show_cgroup_one_by_path(path, prefix, n_columns, true, flags);
                         shown_pids = true;
                 }
 
@@ -174,7 +180,7 @@ int show_cgroup_by_path(
                                         return -ENOMEM;
                         }
 
-                        show_cgroup_by_path(last, p1, n_columns-2, kernel_threads, flags);
+                        show_cgroup_by_path(last, p1, n_columns-2, flags);
                         free(last);
                 }
 
@@ -186,7 +192,7 @@ int show_cgroup_by_path(
                 return r;
 
         if (!shown_pids)
-                show_cgroup_one_by_path(path, prefix, n_columns, !!last, kernel_threads, flags);
+                show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
                 printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_RIGHT), cg_unescape(basename(last)));
@@ -197,7 +203,7 @@ int show_cgroup_by_path(
                                 return -ENOMEM;
                 }
 
-                show_cgroup_by_path(last, p2, n_columns-2, kernel_threads, flags);
+                show_cgroup_by_path(last, p2, n_columns-2, flags);
         }
 
         return 0;
@@ -207,8 +213,6 @@ int show_cgroup(const char *controller,
                 const char *path,
                 const char *prefix,
                 unsigned n_columns,
-                bool kernel_threads,
-
                 OutputFlags flags) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -219,7 +223,7 @@ int show_cgroup(const char *controller,
         if (r < 0)
                 return r;
 
-        return show_cgroup_by_path(p, prefix, n_columns, kernel_threads, flags);
+        return show_cgroup_by_path(p, prefix, n_columns, flags);
 }
 
 static int show_extra_pids(
@@ -262,7 +266,7 @@ static int show_extra_pids(
                 copy[j++] = pids[i];
         }
 
-        show_pid_array(copy, j, prefix, n_columns, true, false, false, flags);
+        show_pid_array(copy, j, prefix, n_columns, true, false, flags);
 
         return 0;
 }
@@ -272,7 +276,6 @@ int show_cgroup_and_extra(
                 const char *path,
                 const char *prefix,
                 unsigned n_columns,
-                bool kernel_threads,
                 const pid_t extra_pids[],
                 unsigned n_extra_pids,
                 OutputFlags flags) {
@@ -281,7 +284,7 @@ int show_cgroup_and_extra(
 
         assert(path);
 
-        r = show_cgroup(controller, path, prefix, n_columns, kernel_threads, flags);
+        r = show_cgroup(controller, path, prefix, n_columns, flags);
         if (r < 0)
                 return r;
 
@@ -292,7 +295,6 @@ int show_cgroup_and_extra_by_spec(
                 const char *spec,
                 const char *prefix,
                 unsigned n_columns,
-                bool kernel_threads,
                 const pid_t extra_pids[],
                 unsigned n_extra_pids,
                 OutputFlags flags) {
@@ -306,5 +308,5 @@ int show_cgroup_and_extra_by_spec(
         if (r < 0)
                 return r;
 
-        return show_cgroup_and_extra(controller, path, prefix, n_columns, kernel_threads, extra_pids, n_extra_pids, flags);
+        return show_cgroup_and_extra(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }

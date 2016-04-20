@@ -191,7 +191,8 @@ int main(int argc, char *argv[]) {
 
         output_flags =
                 arg_all * OUTPUT_SHOW_ALL |
-                (arg_full > 0) * OUTPUT_FULL_WIDTH;
+                (arg_full > 0) * OUTPUT_FULL_WIDTH |
+                arg_kernel_threads * OUTPUT_KERNEL_THREADS;
 
         if (optind < argc) {
                 _cleanup_free_ char *root = NULL;
@@ -209,7 +210,7 @@ int main(int argc, char *argv[]) {
                                 printf("Directory %s:\n", argv[i]);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(argv[i], NULL, 0, arg_kernel_threads, output_flags);
+                                q = show_cgroup_by_path(argv[i], NULL, 0, output_flags);
                         } else {
                                 _cleanup_free_ char *c = NULL, *p = NULL, *j = NULL;
                                 const char *controller, *path;
@@ -235,7 +236,7 @@ int main(int argc, char *argv[]) {
 
                                 show_cg_info(controller, path);
 
-                                q = show_cgroup(controller, path, NULL, 0, arg_kernel_threads, output_flags);
+                                q = show_cgroup(controller, path, NULL, 0, output_flags);
                         }
 
                         if (q < 0)
@@ -258,7 +259,7 @@ int main(int argc, char *argv[]) {
                                 printf("Working directory %s:\n", cwd);
                                 fflush(stdout);
 
-                                r = show_cgroup_by_path(cwd, NULL, 0, arg_kernel_threads, output_flags);
+                                r = show_cgroup_by_path(cwd, NULL, 0, output_flags);
                                 done = true;
                         }
                 }
@@ -273,7 +274,7 @@ int main(int argc, char *argv[]) {
                         show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
                         printf("-.slice\n");
-                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_kernel_threads, output_flags);
+                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, output_flags);
                 }
         }
 
