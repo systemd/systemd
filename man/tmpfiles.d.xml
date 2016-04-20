@@ -168,6 +168,12 @@
           of the directory will be removed when <option>--remove</option> is used.
           </para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>e</varname></term>
+          <listitem><para>Similar to <varname>d</varname>, but the directory will not be
+          created if it does not exist. Lines of this type accept shell-style globs in
+          place of normal path names.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -581,7 +587,7 @@
       unconditionally.</para>
 
       <para>The age field only applies to lines starting with
-      <varname>d</varname>, <varname>D</varname>,
+      <varname>d</varname>, <varname>D</varname>, <varname>e</varname>,
       <varname>v</varname>, <varname>q</varname>,
       <varname>Q</varname>, <varname>C</varname>, <varname>x</varname>
       and <varname>X</varname>. If omitted or set to
@@ -658,7 +664,21 @@ d /var/tmp 1777 root root 30d
       <programlisting># /usr/lib/tmpfiles.d/abrt.conf
 d /var/tmp/abrt 0755 abrt abrt -
 </programlisting>
+    </example>
 
+    <example>
+      <title>Apply clean up during boot and based on time</title>
+
+      <programlisting># /usr/lib/tmpfiles.d/dnf.conf
+r! /var/cache/dnf/*/*/download_lock.pid
+r! /var/cache/dnf/*/*/metadata_lock.pid
+r! /var/lib/dnf/rpmdb_lock.pid
+e  /var/chache/dnf/ - - - 30d
+</programlisting>
+
+     <para>The lock files will be removed during boot. Any files and directories in
+     <filename>/var/chache/dnf/</filename> will be removed after they have not been
+     accessed in 30 days.</para>
     </example>
   </refsect1>
 
