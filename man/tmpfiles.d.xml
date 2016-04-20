@@ -157,13 +157,17 @@
 
         <varlistentry>
           <term><varname>d</varname></term>
-          <listitem><para>Create a directory if it does not exist yet.
-          </para></listitem>
+          <listitem><para>Create a directory. The mode and ownership will be adjusted if
+          specified and the directory already exists. Contents of this directory are subject
+          to time based cleanup if the time argument is specified.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>D</varname></term>
-          <listitem><para>Create or empty a directory.</para></listitem>
+          <listitem><para>Similar to <varname>d</varname>, but in addition the contents
+          of the directory will be removed when <option>--remove</option> is used.
+          </para></listitem>
+        </varlistentry>
         </varlistentry>
 
         <varlistentry>
@@ -612,22 +616,49 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
     <example>
-      <title>/etc/tmpfiles.d/screen.conf example</title>
-      <para><command>screen</command> needs two directories created at
-      boot with specific modes and ownership.</para>
+      <title>Create directories with specific mode and ownership</title>
+      <para>
+      <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      needs two directories created at boot with specific modes and ownership:</para>
 
-      <programlisting>d /run/screens  1777 root root 10d
-d /run/uscreens 0755 root root 10d12h
-t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
+      <programlisting># /usr/lib/tmpfiles.d/screen.conf
+d /run/screens  1777 root screen 10d
+d /run/uscreens 0755 root screen 10d12h
+</programlisting>
+
+      <para>Contents of <filename>/run/screens</filename> and /run/uscreens will
+      cleaned up after 10 and 10½ days, respectively.</para>
     </example>
-    <example>
-      <title>/etc/tmpfiles.d/abrt.conf example</title>
-      <para><command>abrt</command> needs a directory created at boot with specific mode and ownership and its content should be preserved.</para>
 
-      <programlisting>d /var/tmp/abrt 0755 abrt abrt
-x /var/tmp/abrt/*</programlisting>
+    <example>
+      <title>Create a directory with a SMACK attribute</title>
+      <programlisting>D /run/cups - - - -
+t /run/cups - - - - security.SMACK64=printing user.attr-with-spaces="foo bar"
+      </programlisting>
+
+      <para>The direcory will be owned by root and have default mode. It's contents are
+      not subject to time based cleanup, but will be obliterated when
+      <command>systemd-tmpfiles --remove</command> runs.</para>
+    </example>
+
+    <example>
+      <title>Create a directory and prevent its contents from cleanup</title>
+      <para>
+      <citerefentry><refentrytitle>abrt</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      needs a directory created at boot with specific mode and ownership and its content
+      should be preserved from the automatic cleanup applied to the contents of
+      <filename>/var/tmp</filename>:</para>
+
+      <programlisting># /usr/lib/tmpfiles.d/tmp.conf
+d /var/tmp 1777 root root 30d
+</programlisting>
+
+      <programlisting># /usr/lib/tmpfiles.d/abrt.conf
+d /var/tmp/abrt 0755 abrt abrt -
+</programlisting>
+
     </example>
   </refsect1>
 
