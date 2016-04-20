@@ -731,6 +731,18 @@ void valgrind_summary_hack(void) {
 #endif
 }
 
+int pid_compare_func(const void *a, const void *b) {
+        const pid_t *p = a, *q = b;
+
+        /* Suitable for usage in qsort() */
+
+        if (*p < *q)
+                return -1;
+        if (*p > *q)
+                return 1;
+        return 0;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

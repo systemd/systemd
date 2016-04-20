@@ -642,6 +642,30 @@ static int method_set_unit_properties(sd_bus_message *message, void *userdata, s
         return bus_unit_method_set_properties(message, u, error);
 }
 
+static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = manager_load_unit(m, name, NULL, error, &u);
+        if (r < 0)
+                return r;
+
+        r = bus_unit_check_load_state(u, error);
+        if (r < 0)
+                return r;
+
+        return bus_unit_method_get_processes(message, u, error);
+}
+
 static int transient_unit_from_message(
                 Manager *m,
                 sd_bus_message *message,
@@ -2042,6 +2066,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ResetFailedUnit", "s", NULL, method_reset_failed_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetUnitProperties", "sba(sv)", NULL, method_set_unit_properties, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetUnitProcesses", "s", "a(sus)", method_get_unit_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJob", "u", "o", method_get_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CancelJob", "u", NULL, method_cancel_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ClearJobs", NULL, NULL, method_clear_jobs, SD_BUS_VTABLE_UNPRIVILEGED),

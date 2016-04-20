@@ -1790,6 +1790,14 @@ static int mount_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, MOUNT(u)->control_pid, error);
 }
 
+static int mount_control_pid(Unit *u) {
+        Mount *m = MOUNT(u);
+
+        assert(m);
+
+        return m->control_pid;
+}
+
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
         [MOUNT_EXEC_MOUNT] = "ExecMount",
         [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",
@@ -1850,6 +1858,8 @@ const UnitVTable mount_vtable = {
         .sigchld_event = mount_sigchld_event,
 
         .reset_failed = mount_reset_failed,
+
+        .control_pid = mount_control_pid,
 
         .bus_vtable = bus_mount_vtable,
         .bus_set_property = bus_mount_set_property,

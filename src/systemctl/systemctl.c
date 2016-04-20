@@ -39,6 +39,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
@@ -3434,6 +3435,7 @@ typedef struct UnitStatusInfo {
 } UnitStatusInfo;
 
 static void print_status_info(
+                sd_bus *bus,
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
@@ -3444,6 +3446,7 @@ static void print_status_info(
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         const char *path;
         char **t, **t2;
+        int r;
 
         assert(i);
 
@@ -3716,25 +3719,26 @@ static void print_status_info(
                 printf("      CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
         }
 
-        if (i->control_group &&
-            (i->main_pid > 0 || i->control_pid > 0 ||
-             (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group) == 0))) {
-                unsigned c;
-
+        if (i->control_group)
                 printf("   CGroup: %s\n", i->control_group);
 
-                if (IN_SET(arg_transport,
-                           BUS_TRANSPORT_LOCAL,
-                           BUS_TRANSPORT_MACHINE)) {
+        {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                static const char prefix[] = "           ";
+                unsigned c;
+
+                c = columns();
+                if (c > sizeof(prefix) - 1)
+                        c -= sizeof(prefix) - 1;
+                else
+                        c = 0;
+
+                r = unit_show_processes(bus, i->id, i->control_group, prefix, c, get_output_flags(), &error);
+                if (r == -EBADR) {
                         unsigned k = 0;
                         pid_t extra[2];
-                        static const char prefix[] = "           ";
 
-                        c = columns();
-                        if (c > sizeof(prefix) - 1)
-                                c -= sizeof(prefix) - 1;
-                        else
-                                c = 0;
+                        /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
 
                         if (i->main_pid > 0)
                                 extra[k++] = i->main_pid;
@@ -3743,7 +3747,8 @@ static void print_status_info(
                                 extra[k++] = i->control_pid;
 
                         show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, false, extra, k, get_output_flags());
-                }
+                } else if (r < 0)
+                        log_warning_errno(r, "Failed to dump process list, ignoring: %s", bus_error_message(&error, r));
         }
 
         if (i->id && arg_transport == BUS_TRANSPORT_LOCAL)
@@ -4504,7 +4509,7 @@ static int show_one(
                 if (streq(verb, "help"))
                         show_unit_help(&info);
                 else
-                        print_status_info(&info, ellipsized);
+                        print_status_info(bus, &info, ellipsized);
         }
 
         strv_free(info.documentation);

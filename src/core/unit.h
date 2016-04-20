@@ -390,6 +390,12 @@ struct UnitVTable {
         /* Returns the next timeout of a unit */
         int (*get_timeout)(Unit *u, usec_t *timeout);
 
+        /* Returns the main PID if there is any defined, or 0. */
+        pid_t (*main_pid)(Unit *u);
+
+        /* Returns the main PID if there is any defined, or 0. */
+        pid_t (*control_pid)(Unit *u);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in
@@ -600,6 +606,9 @@ int unit_require_mounts_for(Unit *u, const char *path);
 bool unit_type_supported(UnitType t);
 
 bool unit_is_pristine(Unit *u);
+
+pid_t unit_control_pid(Unit *u);
+pid_t unit_main_pid(Unit *u);
 
 static inline bool unit_supported(Unit *u) {
         return unit_type_supported(u->type);

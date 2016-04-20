@@ -999,6 +999,14 @@ static bool busname_supported(void) {
         return supported;
 }
 
+static int busname_control_pid(Unit *u) {
+        BusName *n = BUSNAME(u);
+
+        assert(n);
+
+        return n->control_pid;
+}
+
 static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
         [BUSNAME_SUCCESS] = "success",
         [BUSNAME_FAILURE_RESOURCES] = "resources",
@@ -1051,6 +1059,8 @@ const UnitVTable busname_vtable = {
         .reset_failed = busname_reset_failed,
 
         .supported = busname_supported,
+
+        .control_pid = busname_control_pid,
 
         .bus_vtable = bus_busname_vtable,
 

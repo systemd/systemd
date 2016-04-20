@@ -1037,6 +1037,8 @@ libshared_la_SOURCES = \
 	src/shared/machine-pool.h \
 	src/shared/resolve-util.c \
 	src/shared/resolve-util.h \
+	src/shared/bus-unit-util.c \
+	src/shared/bus-unit-util.h \
 	src/shared/tests.h \
 	src/shared/tests.c
 

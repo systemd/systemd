@@ -24,8 +24,10 @@
 #include "cgroup-util.h"
 #include "dbus-unit.h"
 #include "dbus.h"
+#include "fd-util.h"
 #include "locale-util.h"
 #include "log.h"
+#include "process-util.h"
 #include "selinux-access.h"
 #include "signal-util.h"
 #include "special.h"
@@ -841,6 +843,146 @@ static int property_get_cgroup(
         return sd_bus_message_append(reply, "s", t);
 }
 
+static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *pids) {
+        _cleanup_free_ char *buf = NULL, *cmdline = NULL;
+        int r;
+
+        assert(reply);
+        assert(pid > 0);
+
+        r = set_put(pids, PID_TO_PTR(pid));
+        if (r == -EEXIST || r == 0)
+                return 0;
+        if (r < 0)
+                return r;
+
+        if (!p) {
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
+                if (r == -ESRCH)
+                        return 0;
+                if (r < 0)
+                        return r;
+
+                p = buf;
+        }
+
+        (void) get_process_cmdline(pid, 0, true, &cmdline);
+
+        return sd_bus_message_append(reply,
+                                     "(sus)",
+                                     p,
+                                     (uint32_t) pid,
+                                     cmdline);
+}
+
+static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(reply);
+        assert(p);
+
+        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, p, &f);
+        if (r == ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                pid_t pid;
+
+                r = cg_read_pid(f, &pid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (is_kernel_thread(pid) > 0)
+                        continue;
+
+                r = append_process(reply, p, pid, pids);
+                if (r < 0)
+                        return r;
+        }
+
+        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, p, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *g = NULL, *j = NULL;
+
+                r = cg_read_subgroup(d, &g);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                j = strjoin(p, "/", g, NULL);
+                if (!j)
+                        return -ENOMEM;
+
+                r = append_cgroup(reply, j, pids);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(set_freep) Set *pids = NULL;
+        _cleanup_free_ char *p = NULL;
+        Unit *u = userdata;
+        pid_t pid;
+        int r;
+
+        assert(message);
+
+        pids = set_new(NULL);
+        if (!pids)
+                return -ENOMEM;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(sus)");
+        if (r < 0)
+                return r;
+
+        if (u->cgroup_path) {
+                r = append_cgroup(reply, u->cgroup_path, pids);
+                if (r < 0)
+                        return r;
+        }
+
+        /* The main and control pids might live outside of the cgroup, hence fetch them separately */
+        pid = unit_main_pid(u);
+        if (pid > 0) {
+                r = append_process(reply, NULL, pid, pids);
+                if (r < 0)
+                        return r;
+        }
+
+        pid = unit_control_pid(u);
+        if (pid > 0) {
+                r = append_process(reply, NULL, pid, pids);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
@@ -848,6 +990,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_PROPERTY("TasksCurrent", "t", property_get_current_tasks, 0, 0),
+        SD_BUS_METHOD("GetProcesses", NULL, "a(sus)", bus_unit_method_get_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
