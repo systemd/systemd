@@ -272,6 +272,16 @@
 
             <varlistentry>
               <term>
+                <option>short-unix</option>
+              </term>
+              <listitem>
+                <para>is very similar, but shows seconds passed since January 1st 1970 UTC instead of wallclock
+                timestamps ("UNIX time"). The time is shown with microsecond accuracy.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term>
                 <option>verbose</option>
               </term>
               <listitem>

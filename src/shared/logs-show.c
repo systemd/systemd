@@ -344,16 +344,22 @@ static int output_short(
 
                 t = (time_t) (x / USEC_PER_SEC);
 
-                switch(mode) {
+                switch (mode) {
+
+                case OUTPUT_SHORT_UNIX:
+                        r = snprintf(buf, sizeof(buf), "%10llu.%06llu", (unsigned long long) t, (unsigned long long) (x % USEC_PER_SEC));
+                        break;
+
                 case OUTPUT_SHORT_ISO:
                         r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm));
                         break;
+
                 case OUTPUT_SHORT_PRECISE:
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                         if (r > 0)
-                                snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-                                         ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
+                                snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
                         break;
+
                 default:
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                 }
@@ -894,6 +900,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_SHORT_ISO] = output_short,
         [OUTPUT_SHORT_PRECISE] = output_short,
         [OUTPUT_SHORT_MONOTONIC] = output_short,
+        [OUTPUT_SHORT_UNIX] = output_short,
         [OUTPUT_VERBOSE] = output_verbose,
         [OUTPUT_EXPORT] = output_export,
         [OUTPUT_JSON] = output_json,
