@@ -24,15 +24,12 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "sd-bus-vtable.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 
 #include "hashmap.h"
-#include "install.h"
 #include "macro.h"
 #include "string-util.h"
-#include "time-util.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
@@ -126,22 +123,6 @@ assert_cc(sizeof(mode_t) == sizeof(uint32_t));
 int bus_log_parse_error(int r);
 int bus_log_create_error(int r);
 
-typedef struct UnitInfo {
-        const char *machine;
-        const char *id;
-        const char *description;
-        const char *load_state;
-        const char *active_state;
-        const char *sub_state;
-        const char *following;
-        const char *unit_path;
-        uint32_t job_id;
-        const char *job_type;
-        const char *job_path;
-} UnitInfo;
-
-int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
-
 #define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \
         int function(sd_bus *bus,                                       \
                      const char *path,                                  \
@@ -172,20 +153,6 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 #define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
         SD_BUS_PROPERTY(name, "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, realtime), (flags)), \
         SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, monotonic), (flags))
-
-int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment);
-
-typedef struct BusWaitForJobs BusWaitForJobs;
-
-int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret);
-void bus_wait_for_jobs_free(BusWaitForJobs *d);
-int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
-int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_args);
-int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForJobs*, bus_wait_for_jobs_free);
-
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, UnitFileChange **changes, unsigned *n_changes);
 
 int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path);
 int bus_path_decode_unique(const char *path, const char *prefix, char **ret_sender, char **ret_external);

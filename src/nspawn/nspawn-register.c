@@ -20,6 +20,7 @@
 #include "sd-bus.h"
 
 #include "bus-error.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "nspawn-register.h"
 #include "stat-util.h"
