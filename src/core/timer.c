@@ -373,7 +373,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
          * rather than the monotonic clock. */
 
         ts_realtime = now(CLOCK_REALTIME);
-        ts_monotonic = now(t->wake_system ? CLOCK_BOOTTIME : CLOCK_MONOTONIC);
+        ts_monotonic = now(t->wake_system ? clock_boottime_or_monotonic() : CLOCK_MONOTONIC);
         t->next_elapse_monotonic_or_boottime = t->next_elapse_realtime = 0;
 
         LIST_FOREACH(value, v, t->values) {
