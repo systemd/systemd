@@ -195,16 +195,14 @@
       </varlistentry>
 
       <varlistentry>
-         <term><option>--setenv=</option></term>
+        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
 
-         <listitem><para>When used with the <command>shell</command>
-         command, sets an environment variable to pass to the executed
-         shell. Takes a pair of environment variable name and value,
-         separated by <literal>=</literal> as argument. This switch
-         may be used multiple times to set multiple environment
-         variables. Note that this switch is not supported for the
-         <command>login</command> command (see
-         below).</para></listitem>
+         <listitem><para>When used with the <command>shell</command> command, sets an environment
+         variable to pass to the executed shell. Takes an environment variable name and value,
+         separated by <literal>=</literal>. This switch may be used multiple times to set multiple
+         environment variables. Note that this switch is not supported for the
+         <command>login</command> command (see below).</para></listitem>
       </varlistentry>
 
       <varlistentry>

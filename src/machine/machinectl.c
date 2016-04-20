@@ -2402,7 +2402,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --kill-who=WHO           Who to send signal to\n"
                "  -s --signal=SIGNAL          Which signal to send\n"
                "     --uid=USER               Specify user ID to invoke shell as\n"
-               "     --setenv=VAR=VALUE       Add an environment variable for shell\n"
+               "  -E --setenv=VAR=VALUE       Add an environment variable for shell\n"
                "     --read-only              Create read-only bind mount\n"
                "     --mkdir                  Create directory before bind mounting, if missing\n"
                "  -n --lines=INTEGER          Number of journal entries to show\n"
@@ -2470,7 +2470,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_FORMAT,
                 ARG_UID,
-                ARG_SETENV,
         };
 
         static const struct option options[] = {
@@ -2496,7 +2495,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "format",          required_argument, NULL, ARG_FORMAT          },
                 { "uid",             required_argument, NULL, ARG_UID             },
-                { "setenv",          required_argument, NULL, ARG_SETENV          },
+                { "setenv",          required_argument, NULL, 'E'                 },
                 {}
         };
 
@@ -2624,7 +2623,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_uid = optarg;
                         break;
 
-                case ARG_SETENV:
+                case 'E':
                         if (!env_assignment_is_valid(optarg)) {
                                 log_error("Environment assignment invalid: %s", optarg);
                                 return -EINVAL;
