@@ -2198,7 +2198,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int read_config_file(const char *fn, bool ignore_enoent) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_fclose_ FILE *_f = NULL;
+        FILE *f;
         char line[LINE_MAX];
         Iterator iterator;
         unsigned v = 0;
@@ -2207,16 +2208,23 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
 
         assert(fn);
 
-        r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &f);
-        if (r < 0) {
-                if (ignore_enoent && r == -ENOENT) {
-                        log_debug_errno(r, "Failed to open \"%s\": %m", fn);
-                        return 0;
-                }
+        if (streq(fn, "-")) {
+                log_debug("Reading config from stdin.");
+                fn = "<stdin>";
+                f = stdin;
+        } else {
+                r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &_f);
+                if (r < 0) {
+                        if (ignore_enoent && r == -ENOENT) {
+                                log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
+                                return 0;
+                        }
 
-                return log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
+                        return log_error_errno(r, "Failed to open '%s': %m", fn);
+                }
+                log_debug("Reading config file \"%s\".", fn);
+                f = _f;
         }
-        log_debug("Reading config file \"%s\".", fn);
 
         FOREACH_LINE(line, f, break) {
                 char *l;
