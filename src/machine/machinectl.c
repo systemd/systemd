@@ -33,6 +33,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
@@ -331,8 +332,8 @@ static int list_images(int argc, char *argv[], void *userdata) {
 }
 
 static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         const char *cgroup;
         int r;
@@ -340,9 +341,6 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
 
         assert(bus);
         assert(unit);
-
-        if (arg_transport == BUS_TRANSPORT_REMOTE)
-                return 0;
 
         path = unit_dbus_path_from_name(unit);
         if (!path)
@@ -357,16 +355,14 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
                         &error,
                         &reply,
                         "s");
-        if (r < 0) {
-                log_error("Failed to query ControlGroup: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query ControlGroup: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &cgroup);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
+        if (isempty(cgroup))
                 return 0;
 
         c = columns();
@@ -375,7 +371,21 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         else
                 c = 0;
 
-        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, false, &leader, leader > 0, get_output_flags());
+        r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags(), &error);
+        if (r == -EBADR) {
+
+                if (arg_transport == BUS_TRANSPORT_REMOTE)
+                        return 0;
+
+                /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
+
+                if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
+                        return 0;
+
+                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, false, &leader, leader > 0, get_output_flags());
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to dump process list: %s", bus_error_message(&error, r));
+
         return 0;
 }
 
