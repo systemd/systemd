@@ -50,6 +50,7 @@ typedef enum OutputFlags {
         OUTPUT_BEGIN_NEWLINE  = 1 << 6,
         OUTPUT_UTC            = 1 << 7,
         OUTPUT_KERNEL_THREADS = 1 << 8,
+        OUTPUT_NO_HOSTNAME    = 1 << 9,
 } OutputFlags;
 
 const char* output_mode_to_string(OutputMode m) _const_;

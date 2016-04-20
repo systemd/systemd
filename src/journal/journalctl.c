@@ -95,6 +95,7 @@ static bool arg_boot = false;
 static sd_id128_t arg_boot_id = {};
 static int arg_boot_offset = 0;
 static bool arg_dmesg = false;
+static bool arg_no_hostname = false;
 static const char *arg_cursor = NULL;
 static const char *arg_after_cursor = NULL;
 static bool arg_show_cursor = false;
@@ -304,6 +305,7 @@ static void help(void) {
                "  -a --all                 Show all fields, including long and unprintable\n"
                "  -q --quiet               Do not show info messages and privilege warning\n"
                "     --no-pager            Do not pipe output into a pager\n"
+               "     --no-hostname         Suppress output of hostname field\n"
                "  -m --merge               Show entries from all available journals\n"
                "  -D --directory=PATH      Show journal files from directory\n"
                "     --file=PATH           Show journal file\n"
@@ -370,6 +372,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
+                ARG_NO_HOSTNAME,
         };
 
         static const struct option options[] = {
@@ -427,6 +430,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
                 { "vacuum-files",   required_argument, NULL, ARG_VACUUM_FILES   },
                 { "vacuum-time",    required_argument, NULL, ARG_VACUUM_TIME    },
+                { "no-hostname",    no_argument,       NULL, ARG_NO_HOSTNAME    },
                 {}
         };
 
@@ -778,6 +782,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'N':
                         arg_action = ACTION_LIST_FIELD_NAMES;
+                        break;
+
+                case ARG_NO_HOSTNAME:
+                        arg_no_hostname = true;
                         break;
 
                 case 'x':
@@ -2444,7 +2452,8 @@ int main(int argc, char *argv[]) {
                                 arg_full * OUTPUT_FULL_WIDTH |
                                 colors_enabled() * OUTPUT_COLOR |
                                 arg_catalog * OUTPUT_CATALOG |
-                                arg_utc * OUTPUT_UTC;
+                                arg_utc * OUTPUT_UTC |
+                                arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                         r = output_journal(stdout, j, arg_output, 0, flags, &ellipsized);
                         need_seek = true;

@@ -373,6 +373,12 @@ static int output_short(
                 n += strlen(buf);
         }
 
+        if (hostname && (flags & OUTPUT_NO_HOSTNAME)) {
+                /* Suppress display of the hostname if this is requested. */
+                hostname = NULL;
+                hostname_len = 0;
+        }
+
         if (hostname && shall_print(hostname, hostname_len, flags)) {
                 fprintf(f, " %.*s", (int) hostname_len, hostname);
                 n += hostname_len + 1;
