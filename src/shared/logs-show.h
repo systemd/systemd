@@ -68,6 +68,3 @@ void json_escape(
                 const char* p,
                 size_t l,
                 OutputFlags flags);
-
-const char* output_mode_to_string(OutputMode m) _const_;
-OutputMode output_mode_from_string(const char *s) _pure_;

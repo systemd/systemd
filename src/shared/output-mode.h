@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "macro.h"
+
 typedef enum OutputMode {
         OUTPUT_SHORT,
         OUTPUT_SHORT_ISO,
@@ -48,3 +50,6 @@ typedef enum OutputFlags {
         OUTPUT_UTC            = 1 << 7,
         OUTPUT_KERNEL_THREADS = 1 << 8,
 } OutputFlags;
+
+const char* output_mode_to_string(OutputMode m) _const_;
+OutputMode output_mode_from_string(const char *s) _pure_;

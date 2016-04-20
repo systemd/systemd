@@ -1292,18 +1292,3 @@ int show_journal_by_unit(
 
         return show_journal(f, j, mode, n_columns, not_before, how_many, flags, ellipsized);
 }
-
-static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
-        [OUTPUT_SHORT] = "short",
-        [OUTPUT_SHORT_ISO] = "short-iso",
-        [OUTPUT_SHORT_PRECISE] = "short-precise",
-        [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
-        [OUTPUT_VERBOSE] = "verbose",
-        [OUTPUT_EXPORT] = "export",
-        [OUTPUT_JSON] = "json",
-        [OUTPUT_JSON_PRETTY] = "json-pretty",
-        [OUTPUT_JSON_SSE] = "json-sse",
-        [OUTPUT_CAT] = "cat"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);
