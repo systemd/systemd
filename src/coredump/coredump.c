@@ -224,6 +224,8 @@ static int fix_permissions(
                 const char *context[_CONTEXT_MAX],
                 uid_t uid) {
 
+        int r;
+
         assert(fd >= 0);
         assert(target);
         assert(context);
@@ -236,18 +238,9 @@ static int fix_permissions(
         if (fsync(fd) < 0)
                 return log_error_errno(errno, "Failed to sync coredump %s: %m", coredump_tmpfile_name(filename));
 
-        if (filename) {
-                if (rename(filename, target) < 0)
-                        return log_error_errno(errno, "Failed to rename coredump %s -> %s: %m", filename, target);
-        } else {
-                _cleanup_free_ char *proc_fd_path = NULL;
-
-                if (asprintf(&proc_fd_path, "/proc/self/fd/%d", fd) < 0)
-                        return log_oom();
-
-                if (linkat(AT_FDCWD, proc_fd_path, AT_FDCWD, target, AT_SYMLINK_FOLLOW) < 0)
-                        return log_error_errno(errno, "Failed to create coredump %s: %m", target);
-        }
+        r = link_tmpfile(fd, filename, target);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move coredump %s into place: %m", target);
 
         return 0;
 }
@@ -308,33 +301,6 @@ static int make_filename(const char *context[_CONTEXT_MAX], char **ret) {
         return 0;
 }
 
-static int open_coredump_tmpfile(const char *target, char **ret_filename) {
-        _cleanup_free_ char *tmp = NULL;
-        int fd;
-        int r;
-
-        assert(target);
-        assert(ret_filename);
-
-        fd = open("/var/lib/systemd/coredump", O_TMPFILE|O_CLOEXEC|O_NOCTTY|O_RDWR, 0640);
-        if (fd < 0) {
-                log_debug_errno(errno, "Failed to use O_TMPFILE: %m");
-
-                r = tempfn_random(target, NULL, &tmp);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine temporary file name: %m");
-
-                fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
-        }
-
-        *ret_filename = tmp;
-        tmp = NULL;
-
-        return fd;
-}
-
 static int save_external_coredump(
                 const char *context[_CONTEXT_MAX],
                 int input_fd,
@@ -378,9 +344,9 @@ static int save_external_coredump(
 
         mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
-        fd = open_coredump_tmpfile(fn, &tmp);
+        fd = open_tmpfile_linkable(fn, O_RDWR|O_CLOEXEC, &tmp);
         if (fd < 0)
-                return fd;
+                return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
 
         r = copy_bytes(input_fd, fd, max_size, false);
         if (r == -EFBIG) {
@@ -418,9 +384,11 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                fd_compressed = open_coredump_tmpfile(fn_compressed, &tmp_compressed);
-                if (fd_compressed < 0)
+                fd_compressed = open_tmpfile_linkable(fn_compressed, O_RDWR|O_CLOEXEC, &tmp_compressed);
+                if (fd_compressed < 0) {
+                        log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
                         goto uncompressed;
+                }
 
                 r = compress_stream(fd, fd_compressed, -1);
                 if (r < 0) {

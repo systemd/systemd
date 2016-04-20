@@ -122,12 +122,14 @@ static int open_journal(RequestMeta *m) {
 }
 
 static int request_meta_ensure_tmp(RequestMeta *m) {
+        assert(m);
+
         if (m->tmp)
                 rewind(m->tmp);
         else {
                 int fd;
 
-                fd = open_tmpfile("/tmp", O_RDWR|O_CLOEXEC);
+                fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
