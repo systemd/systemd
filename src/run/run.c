@@ -103,7 +103,7 @@ static void help(void) {
                "     --uid=USER                   Run as system user\n"
                "     --gid=GROUP                  Run as system group\n"
                "     --nice=NICE                  Nice level\n"
-               "     --setenv=NAME=VALUE          Set environment\n"
+               "  -E --setenv=NAME=VALUE          Set environment\n"
                "  -t --pty                        Run service on pseudo tty\n"
                "  -q --quiet                      Suppress information messages during runtime\n\n"
                "Timer options:\n\n"
@@ -136,7 +136,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_EXEC_USER,
                 ARG_EXEC_GROUP,
                 ARG_NICE,
-                ARG_SETENV,
                 ARG_ON_ACTIVE,
                 ARG_ON_BOOT,
                 ARG_ON_STARTUP,
@@ -165,7 +164,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uid",               required_argument, NULL, ARG_EXEC_USER        },
                 { "gid",               required_argument, NULL, ARG_EXEC_GROUP       },
                 { "nice",              required_argument, NULL, ARG_NICE             },
-                { "setenv",            required_argument, NULL, ARG_SETENV           },
+                { "setenv",            required_argument, NULL, 'E'                  },
                 { "property",          required_argument, NULL, 'p'                  },
                 { "tty",               no_argument,       NULL, 't'                  }, /* deprecated */
                 { "pty",               no_argument,       NULL, 't'                  },
@@ -266,7 +265,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_nice_set = true;
                         break;
 
-                case ARG_SETENV:
+                case 'E':
                         if (strv_extend(&arg_environment, optarg) < 0)
                                 return log_oom();
 
