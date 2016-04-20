@@ -1135,14 +1135,19 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
 }
 
 bool colors_enabled(void) {
-        const char *colors;
+        static int enabled = -1;
 
-        colors = getenv("SYSTEMD_COLORS");
-        if (!colors) {
-                if (streq_ptr(getenv("TERM"), "dumb"))
-                        return false;
-                return on_tty();
+        if (_unlikely_(enabled < 0)) {
+                const char *colors;
+
+                colors = getenv("SYSTEMD_COLORS");
+                if (colors)
+                        enabled = parse_boolean(colors) != 0;
+                else if (streq_ptr(getenv("TERM"), "dumb"))
+                        enabled = false;
+                else
+                        enabled = on_tty();
         }
 
-        return parse_boolean(colors) != 0;
+        return enabled;
 }
