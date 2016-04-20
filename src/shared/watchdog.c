@@ -128,7 +128,7 @@ int watchdog_ping(void) {
         int r;
 
         if(watchdog_user_mode)
-                reutrn sd_notify(0, "WATCHDOG=1");
+                return sd_notify(0, "WATCHDOG=1");
 
         if (watchdog_fd < 0) {
                 r = open_watchdog();
