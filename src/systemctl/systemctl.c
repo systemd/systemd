@@ -341,6 +341,12 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
         if (arg_all)
                 return true;
 
+        /* Note that '--all' is not purely a state filter, but also a
+         * filter that hides units that "follow" other units (which is
+         * used for device units that appear under different names). */
+        if (!isempty(u->following))
+                return false;
+
         if (!strv_isempty(arg_states))
                 return true;
 
@@ -349,7 +355,7 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
         if (u->job_id > 0)
                 return true;
 
-        if (streq(u->active_state, "inactive") || u->following[0])
+        if (streq(u->active_state, "inactive"))
                 return false;
 
         return true;
