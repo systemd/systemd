@@ -81,8 +81,6 @@ Features:
 
 * push CPUAffinity= also into the "cpuset" cgroup controller (only after the cpuset controller got ported to the unified hierarchy)
 
-* PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
-
 * consider throwing a warning if a service declares it wants to be "Before=" a .device unit.
 
 * there's probably something wrong with having user mounts below /sys,
