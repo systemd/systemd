@@ -250,7 +250,7 @@ static void help(void) {
                "                            the container\n"
                "     --overlay-ro=PATH[:PATH...]:PATH\n"
                "                            Similar, but creates a read-only overlay mount\n"
-               "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
+               "  -E --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
                "     --share-system         Share system namespaces with host\n"
                "     --register=BOOLEAN     Register container as machine\n"
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
@@ -333,7 +333,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TMPFS,
                 ARG_OVERLAY,
                 ARG_OVERLAY_RO,
-                ARG_SETENV,
                 ARG_SHARE_SYSTEM,
                 ARG_REGISTER,
                 ARG_KEEP_UNIT,
@@ -374,7 +373,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "overlay-ro",            required_argument, NULL, ARG_OVERLAY_RO        },
                 { "machine",               required_argument, NULL, 'M'                   },
                 { "slice",                 required_argument, NULL, 'S'                   },
-                { "setenv",                required_argument, NULL, ARG_SETENV            },
+                { "setenv",                required_argument, NULL, 'E'                   },
                 { "selinux-context",       required_argument, NULL, 'Z'                   },
                 { "selinux-apifs-context", required_argument, NULL, 'L'                   },
                 { "quiet",                 no_argument,       NULL, 'q'                   },
@@ -711,7 +710,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_SETENV: {
+                case 'E': {
                         char **n;
 
                         if (!env_assignment_is_valid(optarg)) {

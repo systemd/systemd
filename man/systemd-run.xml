@@ -226,11 +226,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--setenv=</option></term>
+        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
 
-        <listitem><para>Runs the service process with the specified
-        environment variables set. Also see
-        <varname>Environment=</varname> in
+        <listitem><para>Runs the service process with the specified environment variable set.
+        Also see <varname>Environment=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>

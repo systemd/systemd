@@ -737,7 +737,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--setenv=</option></term>
+        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
 
         <listitem><para>Specifies an environment variable assignment
         to pass to the init process in the container, in the format

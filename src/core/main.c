@@ -1338,7 +1338,7 @@ int main(int argc, char *argv[]) {
         saved_argv = argv;
         saved_argc = argc;
 
-        log_show_color(isatty(STDERR_FILENO) > 0);
+        log_show_color(colors_enabled());
         log_set_upgrade_syslog_to_journal(true);
 
         /* Disable the umask logic */
