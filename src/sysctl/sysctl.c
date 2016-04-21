@@ -36,6 +36,8 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "util.h"
+#include "alloc-util.h"
+#include "specifier.h"
 
 static char **arg_prefixes = NULL;
 
@@ -62,13 +64,13 @@ static int apply_all(Hashmap *sysctl_options) {
         return r;
 }
 
-static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_enoent) {
+static int parse_file(Hashmap *sysctl_options, const char *path, const char **dirs, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(path);
 
-        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
+        r = search_and_fopen(path, "re", NULL, dirs, &f);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -228,9 +230,37 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static const char **init_conf_file_dirs(const char *dirs) {
+        static const Specifier specifier_table[] = {
+                { 'k', specifier_kernel_release, NULL }, {}
+        };
+        const char *dir;
+        char **r = NULL;
+
+        NULSTR_FOREACH(dir, dirs) {
+                _cleanup_free_ char *p = NULL, *kdir = NULL;
+
+                p = strjoin(dir, "/", "%k", NULL);
+                if (!p)
+                        goto fail;
+                if (specifier_printf(p, specifier_table, NULL, &kdir) < 0)
+                        goto fail;
+                if (strv_extend(&r, kdir) < 0)
+                        goto fail;
+                if (strv_extend(&r, dir) < 0)
+                        goto fail;
+        }
+        return (const char **)r;
+fail:
+        strv_free(r);
+        return NULL;
+}
+
+
 int main(int argc, char *argv[]) {
         int r = 0, k;
         Hashmap *sysctl_options;
+        const char **sysctl_dirs;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -248,13 +278,19 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        sysctl_dirs = init_conf_file_dirs(conf_file_dirs);
+        if (!sysctl_dirs) {
+                log_error_errno(r, "Failed to init conf file dirs: %m");
+                goto finish;
+        }
+
         r = 0;
 
         if (argc > optind) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        k = parse_file(sysctl_options, argv[i], false);
+                        k = parse_file(sysctl_options, argv[i], sysctl_dirs, false);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -262,14 +298,14 @@ int main(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
-                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+                r = conf_files_list_strv(&files, ".conf", NULL, sysctl_dirs);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
                         goto finish;
                 }
 
                 STRV_FOREACH(f, files) {
-                        k = parse_file(sysctl_options, *f, true);
+                        k = parse_file(sysctl_options, *f, sysctl_dirs, true);
                         if (k < 0 && r == 0)
                                 r = k;
                 }

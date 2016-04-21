@@ -46,8 +46,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
+    <para><filename>/etc/sysctl.d/$(uname -r)/*.conf</filename></para>
     <para><filename>/etc/sysctl.d/*.conf</filename></para>
+    <para><filename>/run/sysctl.d/$(uname -r)/*.conf</filename></para>
     <para><filename>/run/sysctl.d/*.conf</filename></para>
+    <para><filename>/usr/lib/sysctl.d/$(uname -r)/*.conf</filename></para>
     <para><filename>/usr/lib/sysctl.d/*.conf</filename></para>
   </refsynopsisdiv>
 
