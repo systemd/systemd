@@ -1666,7 +1666,6 @@ static int install_error(
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                const char *verb,
                 int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
@@ -1701,15 +1700,15 @@ static int method_enable_unit_files_generic(
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_reenable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
 }
 
 static int unit_file_preset_without_mode(UnitFileScope scope, bool runtime, const char *root_dir, char **files, bool force, UnitFileChange **changes, unsigned *n_changes) {
@@ -1717,11 +1716,11 @@ static int unit_file_preset_without_mode(UnitFileScope scope, bool runtime, cons
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, "enable", unit_file_preset_without_mode, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, "disable", unit_file_mask, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1769,7 +1768,6 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                const char *verb,
                 int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
                 sd_bus_error *error) {
 
@@ -1803,11 +1801,11 @@ static int method_disable_unit_files_generic(
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, "disable", unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
 }
 
 static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, "enable", unit_file_unmask, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, error);
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
