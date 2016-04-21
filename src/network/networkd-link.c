@@ -99,6 +99,15 @@ static bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
+static bool link_ipv6_enabled(Link *link) {
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return false;
+
+        return link_dhcp6_enabled(link) || link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
+}
+
 static bool link_lldp_rx_enabled(Link *link) {
         assert(link);
 
@@ -216,6 +225,31 @@ static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
         return link->network->ipv6_privacy_extensions;
+}
+
+static int link_enable_ipv6(Link *link) {
+        const char *p = NULL;
+        bool disabled;
+        int r;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        disabled = !link_ipv6_enabled(link);
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/disable_ipv6");
+
+        r = write_string_file(p, one_zero(disabled), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot %s IPv6 for interface %s: %m", disabled ? "disable" : "enable", link->ifname);
+        else {
+                if (disabled)
+                        log_link_info(link, "IPv6 disabled for interface: %m");
+                else
+                        log_link_info(link, "IPv6 enabled for interface: %m");
+        }
+
+        return 0;
 }
 
 void link_update_operstate(Link *link) {
@@ -1510,7 +1544,21 @@ static int link_up(Link *link) {
                         return log_link_error_errno(link, r, "Could not set MAC address: %m");
         }
 
+        /* If IPv6 not configured (no static IPv6 address and neither DHCPv6 nor IPv6LL is enabled)
+           for this interface then disable IPv6 else enable it. */
+        (void) link_enable_ipv6(link);
+
         if (link->network->mtu) {
+                /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
+                   on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
+                if (link_ipv6_enabled(link) && link->network->mtu < IPV6_MIN_MTU) {
+
+                        log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as "
+                                         "IPv6 is requested and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes: %m");
+
+                        link->network->mtu = IPV6_MIN_MTU;
+                }
+
                 r = sd_netlink_message_append_u32(req, IFLA_MTU, link->network->mtu);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set MTU: %m");
@@ -1520,7 +1568,7 @@ static int link_up(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
 
-        if (socket_ipv6_is_supported()) {
+        if (link_ipv6_enabled(link)) {
                 /* if the kernel lacks ipv6 support setting IFF_UP fails if any ipv6 options are passed */
                 r = sd_netlink_message_open_container(req, AF_INET6);
                 if (r < 0)

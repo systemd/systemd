@@ -828,6 +828,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #define IPV6_UNICAST_IF 76
 #endif
 
+#ifndef IPV6_MIN_MTU
+#define IPV6_MIN_MTU 1280
+#endif
+
 #ifndef IFF_MULTI_QUEUE
 #define IFF_MULTI_QUEUE 0x100
 #endif
