@@ -312,7 +312,10 @@
         This allows users who are not logged in to run long-running
         services. Takes one or more user names or numeric UIDs as
         argument. If no argument is specified, enables/disables
-        lingering for the user of the session of the caller.
+        lingering for the user of the session of the caller.</para>
+
+        <para>See also <varname>KillUserProcesses=</varname> setting in
+        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 
@@ -408,6 +411,37 @@
 
     <para>On success, 0 is returned, a non-zero failure code
     otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Querying user status</title>
+
+      <programlisting>$ loginctl user-status
+fatima (1005)
+           Since: Sat 2016-04-09 14:23:31 EDT; 54min ago
+           State: active
+        Sessions: 5 *3
+            Unit: user-1005.slice
+                  ├─user@1005.service
+                    ...
+                  ├─session-3.scope
+                    ...
+                  └─session-5.scope
+                    ├─3473 login -- fatima
+                    └─3515 -zsh
+
+Apr 09 14:40:30 laptop login[2325]: pam_unix(login:session):
+                       session opened for user fatima by LOGIN(uid=0)
+Apr 09 14:40:30 laptop login[2325]: LOGIN ON tty3 BY fatima
+</programlisting>
+
+      <para>There are two sessions, 3 and 5. Session 3 is a graphical session,
+      marked with a star. The tree of processing including the two corresponding
+      scope units and the user manager unit are shown.</para>
+    </example>
   </refsect1>
 
   <xi:include href="less-variables.xml" />

@@ -1014,6 +1014,16 @@ fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
 AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(HAVE_LOGIND, [1], [Logind support available]) ])
 
+AC_ARG_WITH([kill-user-processes],
+        [AS_HELP_STRING([--without-kill-user-processes], [Set logind's KillUserProcesses=no by default])])
+AS_IF([test "$with_kill_user_processes" != "no"],
+       [kill_user_processes=true
+        KILL_USER_PROCESSES=yes],
+       [kill_user_processes=false
+        KILL_USER_PROCESSES=no])
+AC_DEFINE_UNQUOTED(KILL_USER_PROCESSES, [$kill_user_processes], [Default KillUserProcesses setting])
+AC_SUBST(KILL_USER_PROCESSES)
+
 # ------------------------------------------------------------------------------
 have_machined=no
 AC_ARG_ENABLE(machined, AS_HELP_STRING([--disable-machined], [disable machine daemon]))
@@ -1554,106 +1564,107 @@ AC_OUTPUT
 AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
-        libcryptsetup:           ${have_libcryptsetup}
-        PAM:                     ${have_pam}
-        AUDIT:                   ${have_audit}
-        IMA:                     ${have_ima}
-        AppArmor:                ${have_apparmor}
-        SELinux:                 ${have_selinux}
-        SECCOMP:                 ${have_seccomp}
-        SMACK:                   ${have_smack}
-        ZLIB:                    ${have_zlib}
-        XZ:                      ${have_xz}
-        LZ4:                     ${have_lz4}
-        BZIP2:                   ${have_bzip2}
-        ACL:                     ${have_acl}
-        GCRYPT:                  ${have_gcrypt}
-        QRENCODE:                ${have_qrencode}
-        MICROHTTPD:              ${have_microhttpd}
-        GNUTLS:                  ${have_gnutls}
-        libcurl:                 ${have_libcurl}
-        libidn:                  ${have_libidn}
-        libiptc:                 ${have_libiptc}
-        ELFUTILS:                ${have_elfutils}
-        binfmt:                  ${have_binfmt}
-        vconsole:                ${have_vconsole}
-        quotacheck:              ${have_quotacheck}
-        tmpfiles:                ${have_tmpfiles}
-        sysusers:                ${have_sysusers}
-        firstboot:               ${have_firstboot}
-        randomseed:              ${have_randomseed}
-        backlight:               ${have_backlight}
-        rfkill:                  ${have_rfkill}
-        logind:                  ${have_logind}
-        machined:                ${have_machined}
-        importd:                 ${have_importd}
-        hostnamed:               ${have_hostnamed}
-        timedated:               ${have_timedated}
-        timesyncd:               ${have_timesyncd}
-        Default NTP servers:     ${NTP_SERVERS}
-        time epoch:              ${TIME_EPOCH}
-        localed:                 ${have_localed}
-        networkd:                ${have_networkd}
-        resolved:                ${have_resolved}
-        Default DNS servers:     ${DNS_SERVERS}
-        Default DNSSEC mode:     ${DEFAULT_DNSSEC_MODE}
-        coredump:                ${have_coredump}
-        polkit:                  ${have_polkit}
-        efi:                     ${have_efi}
-        gnuefi:                  ${have_gnuefi}
-        efi arch:                ${EFI_ARCH}
-        EFI machine type:        ${EFI_MACHINE_TYPE_NAME}
-        EFI CC                   ${EFI_CC}
-        EFI libdir:              ${EFI_LIB_DIR}
-        EFI ldsdir:              ${EFI_LDS_DIR}
-        EFI includedir:          ${EFI_INC_DIR}
-        kmod:                    ${have_kmod}
-        xkbcommon:               ${have_xkbcommon}
-        blkid:                   ${have_blkid}
-        libmount:                ${have_libmount}
-        dbus:                    ${have_dbus}
-        nss-myhostname:          ${have_myhostname}
-        hwdb:                    ${enable_hwdb}
-        tpm:                     ${have_tpm}
-        kdbus:                   ${have_kdbus}
-        Python:                  ${have_python}
-        man pages:               ${have_manpages}
-        test coverage:           ${have_coverage}
-        Split /usr:              ${enable_split_usr}
-        SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
-        utmp/wtmp support:       ${have_utmp}
-        ldconfig support:        ${enable_ldconfig}
-        hibernate support:       ${enable_hibernate}
-        extra debugging:         ${enable_debug}
-        tests:                   ${enable_tests}
+        libcryptsetup:                     ${have_libcryptsetup}
+        PAM:                               ${have_pam}
+        AUDIT:                             ${have_audit}
+        IMA:                               ${have_ima}
+        AppArmor:                          ${have_apparmor}
+        SELinux:                           ${have_selinux}
+        SECCOMP:                           ${have_seccomp}
+        SMACK:                             ${have_smack}
+        ZLIB:                              ${have_zlib}
+        XZ:                                ${have_xz}
+        LZ4:                               ${have_lz4}
+        BZIP2:                             ${have_bzip2}
+        ACL:                               ${have_acl}
+        GCRYPT:                            ${have_gcrypt}
+        QRENCODE:                          ${have_qrencode}
+        MICROHTTPD:                        ${have_microhttpd}
+        GNUTLS:                            ${have_gnutls}
+        libcurl:                           ${have_libcurl}
+        libidn:                            ${have_libidn}
+        libiptc:                           ${have_libiptc}
+        ELFUTILS:                          ${have_elfutils}
+        binfmt:                            ${have_binfmt}
+        vconsole:                          ${have_vconsole}
+        quotacheck:                        ${have_quotacheck}
+        tmpfiles:                          ${have_tmpfiles}
+        sysusers:                          ${have_sysusers}
+        firstboot:                         ${have_firstboot}
+        randomseed:                        ${have_randomseed}
+        backlight:                         ${have_backlight}
+        rfkill:                            ${have_rfkill}
+        logind:                            ${have_logind}
+        Default KillUserProcesses setting: ${KILL_USER_PROCESSES}
+        machined:                          ${have_machined}
+        importd:                           ${have_importd}
+        hostnamed:                         ${have_hostnamed}
+        timedated:                         ${have_timedated}
+        timesyncd:                         ${have_timesyncd}
+        Default NTP servers:               ${NTP_SERVERS}
+        time epoch:                        ${TIME_EPOCH}
+        localed:                           ${have_localed}
+        networkd:                          ${have_networkd}
+        resolved:                          ${have_resolved}
+        Default DNS servers:               ${DNS_SERVERS}
+        Default DNSSEC mode:               ${DEFAULT_DNSSEC_MODE}
+        coredump:                          ${have_coredump}
+        polkit:                            ${have_polkit}
+        efi:                               ${have_efi}
+        gnuefi:                            ${have_gnuefi}
+        efi arch:                          ${EFI_ARCH}
+        EFI machine type:                  ${EFI_MACHINE_TYPE_NAME}
+        EFI CC                             ${EFI_CC}
+        EFI libdir:                        ${EFI_LIB_DIR}
+        EFI ldsdir:                        ${EFI_LDS_DIR}
+        EFI includedir:                    ${EFI_INC_DIR}
+        kmod:                              ${have_kmod}
+        xkbcommon:                         ${have_xkbcommon}
+        blkid:                             ${have_blkid}
+        libmount:                          ${have_libmount}
+        dbus:                              ${have_dbus}
+        nss-myhostname:                    ${have_myhostname}
+        hwdb:                              ${enable_hwdb}
+        tpm:                               ${have_tpm}
+        kdbus:                             ${have_kdbus}
+        Python:                            ${have_python}
+        man pages:                         ${have_manpages}
+        test coverage:                     ${have_coverage}
+        Split /usr:                        ${enable_split_usr}
+        SysV compatibility:                ${SYSTEM_SYSV_COMPAT}
+        utmp/wtmp support:                 ${have_utmp}
+        ldconfig support:                  ${enable_ldconfig}
+        hibernate support:                 ${enable_hibernate}
+        extra debugging:                   ${enable_debug}
+        tests:                             ${enable_tests}
 
-        prefix:                  ${prefix}
-        rootprefix:              ${with_rootprefix}
-        sysconf dir:             ${sysconfdir}
-        datarootdir:             ${datarootdir}
-        includedir:              ${includedir}
-        lib dir:                 ${libdir}
-        rootlib dir:             ${with_rootlibdir}
-        SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
-        SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
-        Build Python:            ${PYTHON}
-        PAM modules dir:         ${with_pamlibdir}
-        PAM configuration dir:   ${with_pamconfdir}
-        D-Bus policy dir:        ${with_dbuspolicydir}
-        D-Bus session dir:       ${with_dbussessionservicedir}
-        D-Bus system dir:        ${with_dbussystemservicedir}
-        Bash completions dir:    ${with_bashcompletiondir}
-        Zsh completions dir:     ${with_zshcompletiondir}
-        Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
-        Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
-        Wheel group:             ${have_wheel_group}
-        Debug shell:             ${SUSHELL} @ ${DEBUGTTY}
-        TTY GID:                 ${TTY_GID}
-        Maximum System UID:      ${SYSTEM_UID_MAX}
-        Maximum System GID:      ${SYSTEM_GID_MAX}
-        Certificate root:        ${CERTIFICATEROOT}
+        prefix:                            ${prefix}
+        rootprefix:                        ${with_rootprefix}
+        sysconf dir:                       ${sysconfdir}
+        datarootdir:                       ${datarootdir}
+        includedir:                        ${includedir}
+        lib dir:                           ${libdir}
+        rootlib dir:                       ${with_rootlibdir}
+        SysV init scripts:                 ${SYSTEM_SYSVINIT_PATH}
+        SysV rc?.d directories:            ${SYSTEM_SYSVRCND_PATH}
+        Build Python:                      ${PYTHON}
+        PAM modules dir:                   ${with_pamlibdir}
+        PAM configuration dir:             ${with_pamconfdir}
+        D-Bus policy dir:                  ${with_dbuspolicydir}
+        D-Bus session dir:                 ${with_dbussessionservicedir}
+        D-Bus system dir:                  ${with_dbussystemservicedir}
+        Bash completions dir:              ${with_bashcompletiondir}
+        Zsh completions dir:               ${with_zshcompletiondir}
+        Extra start script:                ${RC_LOCAL_SCRIPT_PATH_START}
+        Extra stop script:                 ${RC_LOCAL_SCRIPT_PATH_STOP}
+        Wheel group:                       ${have_wheel_group}
+        Debug shell:                       ${SUSHELL} @ ${DEBUGTTY}
+        TTY GID:                           ${TTY_GID}
+        Maximum System UID:                ${SYSTEM_UID_MAX}
+        Maximum System GID:                ${SYSTEM_GID_MAX}
+        Certificate root:                  ${CERTIFICATEROOT}
 
-        CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
-        CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}
-        LDFLAGS:                 ${OUR_LDFLAGS} ${LDFLAGS}
+        CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
+        CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
+        LDFLAGS:  ${OUR_LDFLAGS} ${LDFLAGS}
 ])

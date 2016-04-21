@@ -119,30 +119,46 @@
       <varlistentry>
         <term><varname>KillUserProcesses=</varname></term>
 
-        <listitem><para>Takes a boolean argument. Configures whether
-        the processes of a user should be killed when the user
-        completely logs out (i.e. after the user's last session
-        ended). Defaults to <literal>no</literal>.</para>
+        <listitem><para>Takes a boolean argument. Configures whether the processes of a
+        user should be killed when the user logs out. If true, the scope unit
+        corresponding to the session and all processes inside that scope will be
+        terminated. If false, the scope is "abandonded", see
+        <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        and processes are not killed. Defaults to <literal>yes</literal>,
+        but see the options <varname>KillOnlyUsers=</varname> and
+        <varname>KillExcludeUsers=</varname> below.</para>
 
-        <para>Note that setting <varname>KillUserProcesses=1</varname>
+        <para>In addition to session processes, user process may run under the user
+        manager unit <filename>user@.service</filename>. Depending on the linger
+        settings, this may allow users to run processes independent of their login
+        sessions. See the description of <command>enable-linger</command> in
+        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para>
+
+        <para>Note that setting <varname>KillUserProcesses=yes</varname>
         will break tools like
-        <citerefentry project='die-net'><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry project='die-net'><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and
+        <citerefentry project='die-net'><refentrytitle>tmux</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        unless they are moved out of the session scope. See example in
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>KillOnlyUsers=</varname></term>
         <term><varname>KillExcludeUsers=</varname></term>
 
-        <listitem><para>These settings take space-separated lists of
-        usernames that influence the effect of
-        <varname>KillUserProcesses=</varname>. If not empty, only
-        processes of users listed in <varname>KillOnlyUsers=</varname>
-        will be killed when they log out entirely. Processes of users
-        listed in <varname>KillExcludeUsers=</varname> are excluded
-        from being killed. <varname>KillExcludeUsers=</varname>
-        defaults to <literal>root</literal> and takes precedence over
-        <varname>KillOnlyUsers=</varname>, which defaults to the empty
-        list.</para></listitem>
+        <listitem><para>These settings take space-separated lists of usernames that override
+        the <varname>KillUserProcesses=</varname> setting. A user name may be added to
+        <varname>KillExcludeUsers=</varname> to exclude the processes in the session scopes of
+        that user from being killed even if <varname>KillUserProcesses=yes</varname> is set. If
+        <varname>KillExcludeUsers=</varname> is not set, the <literal>root</literal> user is
+        excluded by default. <varname>KillExcludeUsers=</varname> may be set to an empty value
+        to override this default. If a user is not excluded, <varname>KillOnlyUsers=</varname>
+        is checked next. If this setting is specified, only the session scopes of those users
+        will be killed. Otherwise, users are subject to the
+        <varname>KillUserProcesses=yes</varname> setting.</para></listitem>
       </varlistentry>
 
       <varlistentry>

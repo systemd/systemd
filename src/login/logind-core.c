@@ -364,16 +364,16 @@ bool manager_shall_kill(Manager *m, const char *user) {
         assert(m);
         assert(user);
 
-        if (!m->kill_user_processes)
+        if (!m->kill_exclude_users && streq(user, "root"))
                 return false;
 
         if (strv_contains(m->kill_exclude_users, user))
                 return false;
 
-        if (strv_isempty(m->kill_only_users))
-                return true;
+        if (!strv_isempty(m->kill_only_users))
+                return strv_contains(m->kill_only_users, user);
 
-        return strv_contains(m->kill_only_users, user);
+        return m->kill_user_processes;
 }
 
 static int vt_is_busy(unsigned int vtnr) {

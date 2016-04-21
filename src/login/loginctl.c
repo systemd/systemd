@@ -293,6 +293,7 @@ typedef struct SessionStatusInfo {
 
 typedef struct UserStatusInfo {
         uid_t uid;
+        bool linger;
         char *name;
         struct dual_timestamp timestamp;
         char *state;
@@ -551,6 +552,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         static const struct bus_properties_map map[]  = {
                 { "Name",               "s",     NULL,                     offsetof(UserStatusInfo, name)                },
+                { "Linger",             "b",     NULL,                     offsetof(UserStatusInfo, linger)              },
                 { "Slice",              "s",     NULL,                     offsetof(UserStatusInfo, slice)               },
                 { "State",              "s",     NULL,                     offsetof(UserStatusInfo, state)               },
                 { "UID",                "u",     NULL,                     offsetof(UserStatusInfo, uid)                 },
@@ -595,15 +597,15 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
                 char **l;
                 printf("\tSessions:");
 
-                STRV_FOREACH(l, i.sessions) {
-                        if (streq_ptr(*l, i.display))
-                                printf(" *%s", *l);
-                        else
-                                printf(" %s", *l);
-                }
+                STRV_FOREACH(l, i.sessions)
+                        printf(" %s%s",
+                               streq_ptr(*l, i.display) ? "*" : "",
+                               *l);
 
                 printf("\n");
         }
+
+        printf("\t  Linger: %s\n", yes_no(i.linger));
 
         if (i.slice) {
                 printf("\t    Unit: %s\n", i.slice);

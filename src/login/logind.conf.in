@@ -14,7 +14,7 @@
 [Login]
 #NAutoVTs=6
 #ReserveVT=6
-#KillUserProcesses=no
+#KillUserProcesses=@KILL_USER_PROCESSES@
 #KillOnlyUsers=
 #KillExcludeUsers=root
 #InhibitDelayMaxSec=5
