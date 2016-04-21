@@ -104,12 +104,13 @@ An _OS installer_ picks the right place for `$BOOT` as defined above (possibly c
 There are a couple of items that are out of focus for this specifications: 
 
 * If userspace can figure out the available boot options, then this is only useful so much: we'd still need to come up with a way how userspace could communicate to the boot loader the default boot loader entry temporarily or persistently. Defining a common scheme for this is certainly a good idea, but out of focus for this specifications. 
-* This specifications is just about "Free" Operating systems. Hooking in other operating systems (like Windows, MacOS) into the boot menu is a different story, and should probably happen outside of this specification. For example, boot loaders might choose to detect other available OSes dynamically at runtime without explicit configuration (like Gummiboot does it), or via natvie configuration (for example via explicit Grub2 configuration generated once at installation). 
+* This specifications is just about "Free" Operating systems. Hooking in other operating systems (like Windows, MacOS) into the boot menu is a different story, and should probably happen outside of this specification. For example, boot loaders might choose to detect other available OSes dynamically at runtime without explicit configuration (like <strike>Gummiboot</strike> sd-boot does it), or via native configuration (for example via explicit Grub2 configuration generated once at installation). 
 * This specification leaves undefined what to do about systems which are upgraded from an OS that does not implement this specification. As the previous boot loader logic was largely handled by in distribution-specific ways we probably should leave the upgrade path (and whether there actually is one) to the distributions. The simplest solution might be to simply continue with the old scheme for old installations and use this new scheme only for new installations. 
 
 
 ## Links
 
-[[http://www.freedesktop.org/wiki/Software/gummiboot/]]
+<strike>http://www.freedesktop.org/wiki/Software/gummiboot/</strike><br>
+[[https://www.freedesktop.org/software/systemd/man/bootctl.html]]
 
 [[http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch?h=f20]]
