@@ -381,12 +381,18 @@ static void test_byaddr(void *handle,
 
 #ifdef HAVE_MYHOSTNAME
 #  define MODULE1 "myhostname\0"
+#else
+#  define MODULE1
 #endif
 #ifdef HAVE_RESOLVED
 #  define MODULE2 "resolve\0"
+#else
+#  define MODULE2
 #endif
 #ifdef HAVE_MACHINED
 #  define MODULE3 "mymachines\0"
+#else
+#  define MODULE3
 #endif
 #define MODULE4 "dns\0"
 
