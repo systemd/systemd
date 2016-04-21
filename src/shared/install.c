@@ -370,8 +370,14 @@ static int create_symlink(
         }
 
         r = readlink_malloc(new_path, &dest);
-        if (r < 0)
+        if (r < 0) {
+                /* translate EINVAL (non-symlink exists) to EEXIST */
+                if (r == -EINVAL)
+                        r = -EEXIST;
+
+                unit_file_changes_add(changes, n_changes, r, new_path, NULL);
                 return r;
+        }
 
         if (path_equal(dest, old_path))
                 return 0;
@@ -382,8 +388,10 @@ static int create_symlink(
         }
 
         r = symlink_atomic(old_path, new_path);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_add(changes, n_changes, r, new_path, NULL);
                 return r;
+        }
 
         unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
         unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
