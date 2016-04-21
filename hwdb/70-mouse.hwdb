@@ -475,3 +475,11 @@ mouse:usb:v093ap2521:name:USB OPTICAL MOUSE:
 # SteelSeries Sensei Raw
 mouse:usb:v1038p1369:name:SteelSeries Sensei Raw Gaming Mouse:
  MOUSE_DPI=1000@1022
+
+##########################################
+# Trust
+##########################################
+
+# Trust illuminated mouse gxt 152
+mouse:usb:v145fp01ac:name:HID-compliant Mouse Trust Gaming Mouse:
+ MOUSE_DPI=*800@528 1200@537 1600@536 2400@521
