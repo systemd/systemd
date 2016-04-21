@@ -299,7 +299,6 @@ void link_update_operstate(Link *link) {
                 link->operstate = operstate;
                 link_send_changed(link, "OperationalState", NULL);
                 link_dirty(link);
-                manager_dirty(link->manager);
         }
 }
 
@@ -3228,14 +3227,17 @@ void link_dirty(Link *link) {
 
         assert(link);
 
+        /* mark manager dirty as link is dirty */
+        manager_dirty(link->manager);
+
         r = set_ensure_allocated(&link->manager->dirty_links, NULL);
         if (r < 0)
                 /* allocation errors are ignored */
                 return;
 
         r = set_put(link->manager->dirty_links, link);
-        if (r < 0)
-                /* allocation errors are ignored */
+        if (r <= 0)
+                /* don't take another ref if the link was already dirty */
                 return;
 
         link_ref(link);
