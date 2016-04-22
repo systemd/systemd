@@ -444,7 +444,9 @@
       <varlistentry>
         <term><option>-U</option></term>
 
-        <listitem><para>Equivalent to <option>--private-users=pick</option>.</para></listitem>
+        <listitem><para>If the kernel supports the user namespaces feature, equivalent to
+        <option>--private-users=pick</option>, otherwise equivalent to
+        <option>--private-users=no</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

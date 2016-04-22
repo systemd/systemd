@@ -866,11 +866,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'U':
-                        arg_userns_mode = USER_NAMESPACE_PICK;
-                        arg_uid_shift = UID_INVALID;
-                        arg_uid_range = UINT32_C(0x10000);
+                        if (userns_supported()) {
+                                arg_userns_mode = USER_NAMESPACE_PICK;
+                                arg_uid_shift = UID_INVALID;
+                                arg_uid_range = UINT32_C(0x10000);
 
-                        arg_settings_mask |= SETTING_USERNS;
+                                arg_settings_mask |= SETTING_USERNS;
+                        }
+
                         break;
 
                 case ARG_PRIVATE_USERS_CHOWN:
@@ -990,7 +993,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_userns_mode != USER_NAMESPACE_NO && access("/proc/self/uid_map", F_OK) < 0) {
+        if (arg_userns_mode != USER_NAMESPACE_NO && !userns_supported()) {
                 log_error("--private-users= is not supported, kernel compiled without user namespace support.");
                 return -EOPNOTSUPP;
         }
