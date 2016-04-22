@@ -2499,12 +2499,39 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        bool reorder = false;
         int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:M:qn:o:", options, NULL)) >= 0)
+        for (;;) {
+                const char *option_string;
+
+                if (reorder)
+                        option_string = "hp:als:H:M:qn:o:";
+                else
+                        option_string = "+hp:als:H:M:qn:o:";
+
+                c = getopt_long(argc, argv, option_string, options, NULL);
+                if (c < 0) {
+                        /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
+                         * for switches after the main verb. However, for "shell" we really don't want that, since we
+                         * want that switches passed after that are passed to the program to execute, and not processed
+                         * by us. To make this possible, we'll first invoke getopt_long() with reordering disabled
+                         * (i.e. with the "+" prefix in the option string), and as soon as we hit the end (i.e. the
+                         * verb) we check if that's "shell". If it is, we exit the loop, since we don't want any
+                         * further options processed. However, if it is anything else, we process the same argument
+                         * again, but this time allow reordering. */
+
+                        if (!reorder && optind < argc && !streq(argv[optind], "shell")) {
+                                reorder = true;
+                                optind--;
+                                continue;
+                        }
+
+                        break;
+                }
 
                 switch (c) {
 
@@ -2640,6 +2667,7 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+        }
 
         return 1;
 }
