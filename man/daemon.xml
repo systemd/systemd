@@ -234,7 +234,7 @@
         bus-activatable by supplying a D-Bus service activation
         configuration file. This has multiple advantages: your daemon
         may be started lazily on-demand; it may be started in parallel
-        to other daemons requiring it -- which maximizes
+        to other daemons requiring it — which maximizes
         parallelization and boot-up speed; your daemon can be
         restarted on failure without losing any bus requests, as the
         bus queues requests for activatable services. See below for

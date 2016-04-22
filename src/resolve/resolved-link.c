@@ -468,7 +468,7 @@ static void link_read_settings(Link *l) {
         }
         if (r > 0) {
 
-                /* If this link used to be managed, but is now unmanaged, flush all our settings -- but only once. */
+                /* If this link used to be managed, but is now unmanaged, flush all our settings — but only once. */
                 if (l->is_managed)
                         link_flush_settings(l);
 

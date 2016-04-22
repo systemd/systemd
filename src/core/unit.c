@@ -3600,7 +3600,7 @@ int unit_kill_context(
                          * cases. It doesn't work at all in
                          * containers, and outside of containers it
                          * can be confused easily by left-over
-                         * directories in the cgroup -- which however
+                         * directories in the cgroup — which however
                          * should not exist in non-delegated units. On
                          * the unified hierarchy that's different,
                          * there we get proper events. Hence rely on

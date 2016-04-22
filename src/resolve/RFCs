@@ -8,7 +8,7 @@ D = Comprehensively Implemented, by a dependency of resolved
 Y https://tools.ietf.org/html/rfc1034 → DOMAIN NAMES - CONCEPTS AND FACILITIES
 Y https://tools.ietf.org/html/rfc1035 → DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
 ? https://tools.ietf.org/html/rfc1101 → DNS Encoding of Network Names and Other Types
-Y https://tools.ietf.org/html/rfc1123 → Requirements for Internet Hosts -- Application and Support
+Y https://tools.ietf.org/html/rfc1123 → Requirements for Internet Hosts — Application and Support
 ~ https://tools.ietf.org/html/rfc1464 → Using the Domain Name System To Store Arbitrary String Attributes
 Y https://tools.ietf.org/html/rfc1536 → Common DNS Implementation Errors and Suggested Fixes
 Y https://tools.ietf.org/html/rfc1876 → A Means for Expressing Location Information in the Domain Name System

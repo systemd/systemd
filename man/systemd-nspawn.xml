@@ -502,7 +502,7 @@
         host interface name and container interface name. The latter
         may be omitted in which case the container and host sides will
         be assigned the same name. This switch is independent of
-        <option>--network-veth</option>, and -- in contrast -- may be
+        <option>--network-veth</option>, and — in contrast — may be
         used multiple times, and allows configuration of the network
         interface names. Note that <option>--network-bridge=</option>
         has no effect on interfaces created with

@@ -63,7 +63,7 @@ static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, c
                 return 0;
         }
 
-        printf("Host: %s -- Serv: %s\n", strna(host), strna(serv));
+        printf("Host: %s — Serv: %s\n", strna(host), strna(serv));
         return 0;
 }
 

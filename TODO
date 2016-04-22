@@ -384,7 +384,7 @@ Features:
 
 * systemd-inhibit: make taking delay locks useful: support sending SIGINT or SIGTERM on PrepareForSleep()
 
-* remove any syslog support from log.c -- we probably cannot do this before split-off udev is gone for good
+* remove any syslog support from log.c — we probably cannot do this before split-off udev is gone for good
 
 * shutdown logging: store to EFI var, and store to USB stick?
 

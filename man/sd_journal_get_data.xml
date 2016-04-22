@@ -148,7 +148,7 @@
     <function>sd_journal_enumerate_unique()</function>. This threshold
     is a hint only: it indicates that the client program is interested
     only in the initial parts of the data fields, up to the threshold
-    in size -- but the library might still return larger data objects.
+    in size — but the library might still return larger data objects.
     That means applications should not rely exclusively on this
     setting to limit the size of the data fields returned, but need to
     apply a explicit size limit on the returned data as well. This

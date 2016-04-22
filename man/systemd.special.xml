@@ -742,7 +742,7 @@
           defined what that is supposed to mean, with one exception:
           at shutdown, a unit that is ordered after
           <filename>network.target</filename> will be stopped before
-          the network -- to whatever level it might be set up then --
+          the network — to whatever level it might be set up then —
           is shut down. It is hence useful when writing service files
           that require network access on shutdown, which should order
           themselves after this target, but not pull it in. Also see

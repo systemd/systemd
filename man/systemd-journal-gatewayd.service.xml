@@ -262,7 +262,7 @@
         <term><uri>boot</uri></term>
 
         <listitem><para>Limit events to the current boot of the system
-        (like <command>journalctl --this--boot</command>).</para></listitem>
+        (like <command>journalctl --this-boot</command>).</para></listitem>
       </varlistentry>
 
       <varlistentry>
