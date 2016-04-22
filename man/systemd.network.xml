@@ -217,7 +217,7 @@
         <para>Note that an interface without any static IPv6 addresses configured, and neither
         DHCPv6 nor IPv6LL enabled, shall be considered to have no IPv6 support. IPv6 will be
         automatically disabled for that interface by writing "1" to
-        <filename>/proc/sys/net/ipv6/conf/<replaceable>ifname</replaceable>/disable_ipv6.</filename>
+        <filename>/proc/sys/net/ipv6/conf/<replaceable>ifname</replaceable>/disable_ipv6</filename>.
         </para>
       </listitem>
       </varlistentry>

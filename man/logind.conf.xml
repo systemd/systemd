@@ -122,7 +122,7 @@
         <listitem><para>Takes a boolean argument. Configures whether the processes of a
         user should be killed when the user logs out. If true, the scope unit
         corresponding to the session and all processes inside that scope will be
-        terminated. If false, the scope is "abandonded", see
+        terminated. If false, the scope is "abandoned", see
         <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         and processes are not killed. Defaults to <literal>yes</literal>,
         but see the options <varname>KillOnlyUsers=</varname> and

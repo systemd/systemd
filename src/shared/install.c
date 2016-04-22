@@ -1861,7 +1861,7 @@ int unit_file_revert(
          * c) if there's a vendor unit file (i.e. one in /usr) we remove any configured overriding unit files (i.e. in
          *    "config", but not in "transient" or "control" or even "generated").
          *
-         * We remove all that in both the runtime and the persistant directories, if that applies.
+         * We remove all that in both the runtime and the persistent directories, if that applies.
          */
 
         r = lookup_paths_init(&paths, scope, 0, root_dir);
