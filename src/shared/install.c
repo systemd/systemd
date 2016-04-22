@@ -1390,7 +1390,6 @@ static int install_info_symlink_wants(
                 const char *config_path,
                 char **list,
                 const char *suffix,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -1438,7 +1437,7 @@ static int install_info_symlink_wants(
 
                 rp = skip_root(paths, i->path);
 
-                q = create_symlink(rp ?: i->path, path, force, changes, n_changes);
+                q = create_symlink(rp ?: i->path, path, true, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1497,11 +1496,11 @@ static int install_info_apply(
 
         r = install_info_symlink_alias(i, paths, config_path, force, changes, n_changes);
 
-        q = install_info_symlink_wants(i, paths, config_path, i->wanted_by, ".wants/", force, changes, n_changes);
+        q = install_info_symlink_wants(i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
         if (r == 0)
                 r = q;
 
-        q = install_info_symlink_wants(i, paths, config_path, i->required_by, ".requires/", force, changes, n_changes);
+        q = install_info_symlink_wants(i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
         if (r == 0)
                 r = q;
 
