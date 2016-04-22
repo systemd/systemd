@@ -212,9 +212,10 @@ static void help(void) {
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
                "     --property=NAME=VALUE  Set scope unit property\n"
+               "  -U --private-users=pick   Run within user namespace, pick UID/GID range automatically\n"
                "     --private-users[=UIDBASE[:NUIDS]]\n"
-               "                            Run within user namespace\n"
-               "     --private-user-chown   Adjust OS tree file ownership for private user range\n"
+               "                            Run within user namespace, user configured UID/GID range\n"
+               "     --private-user-chown   Adjust OS tree file ownership for private UID/GID range\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
                "                            Assign an existing network interface to the\n"
@@ -425,7 +426,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:abL:M:jS:Z:qi:xp:n", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:u:abL:M:jS:Z:qi:xp:nU", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -858,6 +859,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PRIVATE_USERS_CHOWN:
                         arg_userns_chown = true;
+                        break;
+
+                case 'U':
+                        arg_userns = true;
+                        arg_userns_chown = true;
+                        arg_uid_shift = UID_INVALID;
+                        arg_uid_range = 0x10000U;
+                        arg_uid_shift_pick = true;
                         break;
 
                 case ARG_KILL_SIGNAL:
