@@ -222,8 +222,8 @@ int unit_file_changes_add(
                 const char *path,
                 const char *source) {
 
+        _cleanup_free_ char *p = NULL, *s = NULL;
         UnitFileChange *c;
-        unsigned i;
 
         assert(path);
         assert(!changes == !n_changes);
@@ -234,29 +234,22 @@ int unit_file_changes_add(
         c = realloc(*changes, (*n_changes + 1) * sizeof(UnitFileChange));
         if (!c)
                 return -ENOMEM;
-
         *changes = c;
-        i = *n_changes;
 
-        c[i].type = type;
-        c[i].path = strdup(path);
-        if (!c[i].path)
+        p = strdup(path);
+        if (source)
+                s = strdup(source);
+
+        if (!p || (source && !s))
                 return -ENOMEM;
 
-        path_kill_slashes(c[i].path);
+        path_kill_slashes(p);
+        if (s)
+                path_kill_slashes(s);
 
-        if (source) {
-                c[i].source = strdup(source);
-                if (!c[i].source) {
-                        free(c[i].path);
-                        return -ENOMEM;
-                }
-
-                path_kill_slashes(c[i].path);
-        } else
-                c[i].source = NULL;
-
-        *n_changes = i+1;
+        c[*n_changes] = (UnitFileChange) { type, p, s };
+        p = s = NULL;
+        (*n_changes) ++;
         return 0;
 }
 
@@ -264,9 +257,6 @@ void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes) {
         unsigned i;
 
         assert(changes || n_changes == 0);
-
-        if (!changes)
-                return;
 
         for (i = 0; i < n_changes; i++) {
                 free(changes[i].path);
@@ -370,8 +360,14 @@ static int create_symlink(
         }
 
         r = readlink_malloc(new_path, &dest);
-        if (r < 0)
+        if (r < 0) {
+                /* translate EINVAL (non-symlink exists) to EEXIST */
+                if (r == -EINVAL)
+                        r = -EEXIST;
+
+                unit_file_changes_add(changes, n_changes, r, new_path, NULL);
                 return r;
+        }
 
         if (path_equal(dest, old_path))
                 return 0;
@@ -382,8 +378,10 @@ static int create_symlink(
         }
 
         r = symlink_atomic(old_path, new_path);
-        if (r < 0)
+        if (r < 0) {
+                unit_file_changes_add(changes, n_changes, r, new_path, NULL);
                 return r;
+        }
 
         unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
         unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
@@ -521,8 +519,8 @@ static int remove_marked_symlinks_fd(
 
                         unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
 
-                        /* Now, remember the full path (but with the root prefix removed) of the symlink we just
-                         * removed, and remove any symlinks to it, too */
+                        /* Now, remember the full path (but with the root prefix removed) of
+                         * the symlink we just removed, and remove any symlinks to it, too. */
 
                         rp = skip_root(lp, p);
                         q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: p);
@@ -1392,7 +1390,6 @@ static int install_info_symlink_wants(
                 const char *config_path,
                 char **list,
                 const char *suffix,
-                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -1440,7 +1437,7 @@ static int install_info_symlink_wants(
 
                 rp = skip_root(paths, i->path);
 
-                q = create_symlink(rp ?: i->path, path, force, changes, n_changes);
+                q = create_symlink(rp ?: i->path, path, true, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1499,11 +1496,11 @@ static int install_info_apply(
 
         r = install_info_symlink_alias(i, paths, config_path, force, changes, n_changes);
 
-        q = install_info_symlink_wants(i, paths, config_path, i->wanted_by, ".wants/", force, changes, n_changes);
+        q = install_info_symlink_wants(i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
         if (r == 0)
                 r = q;
 
-        q = install_info_symlink_wants(i, paths, config_path, i->required_by, ".requires/", force, changes, n_changes);
+        q = install_info_symlink_wants(i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
         if (r == 0)
                 r = q;
 

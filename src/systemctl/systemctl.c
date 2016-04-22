@@ -5390,6 +5390,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         int carries_install_info = -1;
+        bool ignore_carries_install_info = false;
         int r;
 
         if (!argv[1])
@@ -5420,7 +5421,6 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                         r = unit_file_link(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "preset")) {
                         r = unit_file_preset(arg_scope, arg_runtime, arg_root, names, arg_preset_mode, arg_force, &changes, &n_changes);
-                        carries_install_info = r;
                 } else if (streq(verb, "mask"))
                         r = unit_file_mask(arg_scope, arg_runtime, arg_root, names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
@@ -5437,7 +5437,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                int expect_carries_install_info = false;
+                bool expect_carries_install_info = false;
                 bool send_runtime = true, send_force = true, send_preset_mode = false;
                 const char *method;
                 sd_bus *bus;
@@ -5468,6 +5468,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                                 method = "PresetUnitFiles";
 
                         expect_carries_install_info = true;
+                        ignore_carries_install_info = true;
                 } else if (streq(verb, "mask"))
                         method = "MaskUnitFiles";
                 else if (streq(verb, "unmask")) {
@@ -5532,7 +5533,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                         r = 0;
         }
 
-        if (carries_install_info == 0)
+        if (carries_install_info == 0 && !ignore_carries_install_info)
                 log_warning("The unit files have no installation config (WantedBy, RequiredBy, Also, Alias\n"
                             "settings in the [Install] section, and DefaultInstance for template units).\n"
                             "This means they are not meant to be enabled using systemctl.\n"
