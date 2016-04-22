@@ -569,6 +569,11 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+        <term><varname>IPv6RouterSolicitationIntervalSec=</varname></term>
+        <listitem><para>Configures number of seconds to wait between
+        router solicitations. Defaults to 4 seconds. </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>

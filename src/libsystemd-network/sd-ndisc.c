@@ -78,6 +78,9 @@ struct sd_ndisc {
         int index;
         struct ether_addr mac_addr;
         uint32_t mtu;
+
+        usec_t router_solicitation_interval;
+
         LIST_HEAD(NDiscPrefix, prefixes);
         int fd;
         sd_event_source *recv;
@@ -164,6 +167,15 @@ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
 
         return 0;
 
+}
+
+int sd_ndisc_set_router_solicitation_interval(sd_ndisc *nd, uint64_t interval) {
+        assert(nd);
+        assert(interval > 0);
+
+        nd->router_solicitation_interval = interval;
+
+        return 0;
 }
 
 int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
@@ -256,6 +268,8 @@ int sd_ndisc_new(sd_ndisc **ret) {
 
         nd->index = -1;
         nd->fd = -1;
+
+        nd->router_solicitation_interval = NDISC_ROUTER_SOLICITATION_INTERVAL;
 
         LIST_HEAD_INIT(nd->prefixes);
 
@@ -623,7 +637,7 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
 
                 assert_se(sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
-                next_timeout = time_now + NDISC_ROUTER_SOLICITATION_INTERVAL;
+                next_timeout = time_now + nd->router_solicitation_interval;
 
                 r = sd_event_add_time(nd->event, &nd->timeout, clock_boottime_or_monotonic(),
                                       next_timeout, 0,
