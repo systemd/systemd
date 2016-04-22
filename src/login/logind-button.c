@@ -235,7 +235,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 int button_open(Button *b) {
-        char *p, name[256];
+        _cleanup_free_ char *p = NULL;
+        char name[256];
         int r;
 
         assert(b);
