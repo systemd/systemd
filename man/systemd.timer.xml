@@ -253,7 +253,8 @@
         during the time when the timer was inactive. This is useful to
         catch up on missed runs of the service when the machine was
         off. Note that this setting only has an effect on timers
-        configured with <varname>OnCalendar=</varname>.
+        configured with <varname>OnCalendar=</varname>. Defaults
+        to <varname>false</varname>.
         </para></listitem>
       </varlistentry>
 
