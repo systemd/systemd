@@ -18,16 +18,20 @@
 ***/
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #ifdef HAVE_ACL
 #include <sys/acl.h>
 #endif
 #include <sys/stat.h>
+#include <sys/vfs.h>
 #include <unistd.h>
 
 #include "acl-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "missing.h"
 #include "nspawn-patch-uid.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -276,11 +280,45 @@ static int patch_fd(int fd, const char *name, const struct stat *st, uid_t shift
         return r > 0 || changed;
 }
 
+static int is_procfs_sysfs_or_suchlike(int fd) {
+        struct statfs sfs;
+
+        assert(fd >= 0);
+
+        if (fstatfs(fd, &sfs) < 0)
+                return -errno;
+
+        return F_TYPE_EQUAL(sfs.f_type, BINFMTFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, CGROUP_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, CGROUP2_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, DEBUGFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, DEVPTS_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, EFIVARFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, HUGETLBFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, MQUEUE_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, PROC_SUPER_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, PSTOREFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, SELINUX_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, SMACK_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, SYSFS_MAGIC);
+}
+
 static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift) {
         bool changed = false;
         int r;
 
         assert(fd >= 0);
+
+        /* We generally want to permit crossing of mount boundaries when patching the UIDs/GIDs. However, we
+         * probably shouldn't do this for /proc and /sys if that is already mounted into place. Hence, let's
+         * stop the recursion when we hit a procfs or sysfs file system. */
+        r = is_procfs_sysfs_or_suchlike(fd);
+        if (r < 0)
+                goto finish;
+        if (r > 0) {
+                r = 0; /* don't recurse */
+                goto finish;
+        }
 
         r = patch_fd(fd, NULL, st, shift);
         if (r < 0)
@@ -294,8 +332,10 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                         int copy;
 
                         copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                        if (copy < 0)
-                                return -errno;
+                        if (copy < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
 
                         fd = copy;
                         donate_fd = true;
