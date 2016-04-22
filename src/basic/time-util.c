@@ -1080,22 +1080,31 @@ bool timezone_is_valid(const char *name) {
         return true;
 }
 
-clockid_t clock_boottime_or_monotonic(void) {
-        static clockid_t clock = -1;
-        int fd;
+bool clock_boottime_supported(void) {
+        static int supported = -1;
 
-        if (clock != -1)
-                return clock;
+        /* Note that this checks whether CLOCK_BOOTTIME is available in general as well as available for timerfds()! */
 
-        fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK|TFD_CLOEXEC);
-        if (fd < 0)
-                clock = CLOCK_MONOTONIC;
-        else {
-                safe_close(fd);
-                clock = CLOCK_BOOTTIME;
+        if (supported < 0) {
+                int fd;
+
+                fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+                if (fd < 0)
+                        supported = false;
+                else {
+                        safe_close(fd);
+                        supported = true;
+                }
         }
 
-        return clock;
+        return supported;
+}
+
+clockid_t clock_boottime_or_monotonic(void) {
+        if (clock_boottime_supported())
+                return CLOCK_BOOTTIME;
+        else
+                return CLOCK_MONOTONIC;
 }
 
 int get_timezone(char **tz) {

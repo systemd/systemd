@@ -586,9 +586,16 @@ int lookup_paths_init(
                 if (!add)
                         return -ENOMEM;
 
-                r = strv_extend_strv(&paths, add, true);
-                if (r < 0)
+                if (paths) {
+                        r = strv_extend_strv(&paths, add, true);
+                        if (r < 0)
                                 return r;
+                } else {
+                        /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
+                         * and don't have to copy anything */
+                        paths = add;
+                        add = NULL;
+                }
         }
 
         r = patch_root_prefix(&persistent_config, root);

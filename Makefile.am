@@ -962,6 +962,7 @@ noinst_LTLIBRARIES += \
 
 libshared_la_SOURCES = \
 	src/shared/output-mode.h \
+	src/shared/output-mode.c \
 	src/shared/gpt.h \
 	src/shared/udev-util.h \
 	src/shared/linux/auto_dev-ioctl.h \
@@ -1037,6 +1038,8 @@ libshared_la_SOURCES = \
 	src/shared/machine-pool.h \
 	src/shared/resolve-util.c \
 	src/shared/resolve-util.h \
+	src/shared/bus-unit-util.c \
+	src/shared/bus-unit-util.h \
 	src/shared/tests.h \
 	src/shared/tests.c
 

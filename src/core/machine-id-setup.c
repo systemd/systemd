@@ -101,14 +101,23 @@ static int read_machine_id(int fd, char id[34]) {
         return 0;
 }
 
-static int write_machine_id(int fd, char id[34]) {
+static int write_machine_id(int fd, const char id[34]) {
+        int r;
+
         assert(fd >= 0);
         assert(id);
 
         if (lseek(fd, 0, SEEK_SET) < 0)
                 return -errno;
 
-        return loop_write(fd, id, 33, false);
+        r = loop_write(fd, id, 33, false);
+        if (r < 0)
+                return r;
+
+        if (fsync(fd) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int generate_machine_id(char id[34], const char *root) {

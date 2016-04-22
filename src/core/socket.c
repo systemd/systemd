@@ -2781,6 +2781,14 @@ char *socket_fdname(Socket *s) {
         return UNIT(s)->id;
 }
 
+static int socket_control_pid(Unit *u) {
+        Socket *s = SOCKET(u);
+
+        assert(s);
+
+        return s->control_pid;
+}
+
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
         [SOCKET_EXEC_START_PRE] = "StartPre",
         [SOCKET_EXEC_START_CHOWN] = "StartChown",
@@ -2845,6 +2853,8 @@ const UnitVTable socket_vtable = {
         .trigger_notify = socket_trigger_notify,
 
         .reset_failed = socket_reset_failed,
+
+        .control_pid = socket_control_pid,
 
         .bus_vtable = bus_socket_vtable,
         .bus_set_property = bus_socket_set_property,

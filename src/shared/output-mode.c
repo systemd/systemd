@@ -1,9 +1,7 @@
-#pragma once
-
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2012 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,14 +17,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "logs-show.h"
 #include "output-mode.h"
+#include "string-table.h"
 
-int show_cgroup_by_path(const char *path, const char *prefix, unsigned columns, OutputFlags flags);
-int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned columns, OutputFlags flags);
+static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
+        [OUTPUT_SHORT] = "short",
+        [OUTPUT_SHORT_ISO] = "short-iso",
+        [OUTPUT_SHORT_PRECISE] = "short-precise",
+        [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
+        [OUTPUT_SHORT_UNIX] = "short-unix",
+        [OUTPUT_VERBOSE] = "verbose",
+        [OUTPUT_EXPORT] = "export",
+        [OUTPUT_JSON] = "json",
+        [OUTPUT_JSON_PRETTY] = "json-pretty",
+        [OUTPUT_JSON_SSE] = "json-sse",
+        [OUTPUT_CAT] = "cat"
+};
 
-int show_cgroup_and_extra_by_spec(const char *spec, const char *prefix, unsigned n_columns, const pid_t extra_pids[], unsigned n_extra_pids, OutputFlags flags);
-int show_cgroup_and_extra(const char *controller, const char *path, const char *prefix, unsigned n_columns, const pid_t extra_pids[], unsigned n_extra_pids, OutputFlags flags);
+DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);

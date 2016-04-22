@@ -1426,6 +1426,14 @@ static bool swap_supported(void) {
         return supported;
 }
 
+static int swap_control_pid(Unit *u) {
+        Swap *s = SWAP(u);
+
+        assert(s);
+
+        return s->control_pid;
+}
+
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
         [SWAP_EXEC_ACTIVATE] = "ExecActivate",
         [SWAP_EXEC_DEACTIVATE] = "ExecDeactivate",
@@ -1486,6 +1494,8 @@ const UnitVTable swap_vtable = {
         .sigchld_event = swap_sigchld_event,
 
         .reset_failed = swap_reset_failed,
+
+        .control_pid = swap_control_pid,
 
         .bus_vtable = bus_swap_vtable,
         .bus_set_property = bus_swap_set_property,

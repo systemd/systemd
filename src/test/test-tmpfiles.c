@@ -32,15 +32,17 @@
 #include "util.h"
 
 int main(int argc, char** argv) {
+        _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL, *line = NULL;
+        _cleanup_close_ int fd = -1, fd2 = -1, fd3 = -1;
         const char *p = argv[1] ?: "/tmp";
-        char *pattern = strjoina(p, "/systemd-test-XXXXXX");
-        _cleanup_close_ int fd, fd2;
-        _cleanup_free_ char *cmd, *cmd2, *ans, *ans2;
+        char *pattern;
 
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
 
-        fd = open_tmpfile(p, O_RDWR|O_CLOEXEC);
+        pattern = strjoina(p, "/systemd-test-XXXXXX");
+
+        fd = open_tmpfile_unlinkable(p, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
 
         assert_se(asprintf(&cmd, "ls -l /proc/"PID_FMT"/fd/%d", getpid(), fd) > 0);
@@ -58,6 +60,22 @@ int main(int argc, char** argv) {
         assert_se(readlink_malloc(cmd2 + 6, &ans2) >= 0);
         log_debug("link2: %s", ans2);
         assert_se(endswith(ans2, " (deleted)"));
+
+        pattern = strjoina(p, "/tmpfiles-test");
+        assert_se(tempfn_random(pattern, NULL, &d) >= 0);
+
+        fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
+        assert_se(fd >= 0);
+        assert_se(write(fd, "foobar\n", 7) == 7);
+
+        assert_se(touch(d) >= 0);
+        assert_se(link_tmpfile(fd, tmp, d) == -EEXIST);
+        assert_se(unlink(d) >= 0);
+        assert_se(link_tmpfile(fd, tmp, d) >= 0);
+
+        assert_se(read_one_line_file(d, &line) >= 0);
+        assert_se(streq(line, "foobar"));
+        assert_se(unlink(d) >= 0);
 
         return 0;
 }

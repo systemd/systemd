@@ -1072,6 +1072,10 @@ _public_ int sd_event_add_time(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
+        if (IN_SET(clock, CLOCK_BOOTTIME, CLOCK_BOOTTIME_ALARM) &&
+            !clock_boottime_supported())
+                return -EOPNOTSUPP;
+
         if (!callback)
                 callback = time_exit_callback;
 
@@ -2527,7 +2531,8 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         }
 
         dual_timestamp_get(&e->timestamp);
-        e->timestamp_boottime = now(clock_boottime_or_monotonic());
+        if (clock_boottime_supported())
+                e->timestamp_boottime = now(CLOCK_BOOTTIME);
 
         for (i = 0; i < m; i++) {
 
@@ -2760,6 +2765,9 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                              CLOCK_MONOTONIC,
                              CLOCK_BOOTTIME,
                              CLOCK_BOOTTIME_ALARM), -EOPNOTSUPP);
+
+        if (IN_SET(clock, CLOCK_BOOTTIME, CLOCK_BOOTTIME_ALARM) && !clock_boottime_supported())
+                return -EOPNOTSUPP;
 
         if (!dual_timestamp_is_set(&e->timestamp)) {
                 /* Implicitly fall back to now() if we never ran

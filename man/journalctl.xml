@@ -272,6 +272,16 @@
 
             <varlistentry>
               <term>
+                <option>short-unix</option>
+              </term>
+              <listitem>
+                <para>is very similar, but shows seconds passed since January 1st 1970 UTC instead of wallclock
+                timestamps ("UNIX time"). The time is shown with microsecond accuracy.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term>
                 <option>verbose</option>
               </term>
               <listitem>
@@ -347,6 +357,13 @@
 
         <listitem><para>Express time in Coordinated Universal Time
         (UTC).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-hostname</option></term>
+
+        <listitem><para>Don't show the hostname field of log messages originating from the local host. This switch only
+        has an effect on the <option>short</option> family of output modes (see above).</para></listitem>
       </varlistentry>
 
       <varlistentry>

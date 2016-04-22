@@ -3801,3 +3801,21 @@ bool unit_is_pristine(Unit *u) {
                  u->job ||
                  u->merged_into);
 }
+
+pid_t unit_control_pid(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->control_pid)
+                return UNIT_VTABLE(u)->control_pid(u);
+
+        return 0;
+}
+
+pid_t unit_main_pid(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->main_pid)
+                return UNIT_VTABLE(u)->main_pid(u);
+
+        return 0;
+}

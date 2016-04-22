@@ -344,16 +344,22 @@ static int output_short(
 
                 t = (time_t) (x / USEC_PER_SEC);
 
-                switch(mode) {
+                switch (mode) {
+
+                case OUTPUT_SHORT_UNIX:
+                        r = snprintf(buf, sizeof(buf), "%10llu.%06llu", (unsigned long long) t, (unsigned long long) (x % USEC_PER_SEC));
+                        break;
+
                 case OUTPUT_SHORT_ISO:
                         r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm));
                         break;
+
                 case OUTPUT_SHORT_PRECISE:
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                         if (r > 0)
-                                snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-                                         ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
+                                snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
                         break;
+
                 default:
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                 }
@@ -365,6 +371,12 @@ static int output_short(
 
                 fputs(buf, f);
                 n += strlen(buf);
+        }
+
+        if (hostname && (flags & OUTPUT_NO_HOSTNAME)) {
+                /* Suppress display of the hostname if this is requested. */
+                hostname = NULL;
+                hostname_len = 0;
         }
 
         if (hostname && shall_print(hostname, hostname_len, flags)) {
@@ -894,6 +906,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_SHORT_ISO] = output_short,
         [OUTPUT_SHORT_PRECISE] = output_short,
         [OUTPUT_SHORT_MONOTONIC] = output_short,
+        [OUTPUT_SHORT_UNIX] = output_short,
         [OUTPUT_VERBOSE] = output_verbose,
         [OUTPUT_EXPORT] = output_export,
         [OUTPUT_JSON] = output_json,
@@ -1040,8 +1053,8 @@ static int show_journal(FILE *f,
 }
 
 int add_matches_for_unit(sd_journal *j, const char *unit) {
+        const char *m1, *m2, *m3, *m4;
         int r;
-        char *m1, *m2, *m3, *m4;
 
         assert(j);
         assert(unit);
@@ -1073,7 +1086,9 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         );
 
         if (r == 0 && endswith(unit, ".slice")) {
-                const char *m5 = strjoina("_SYSTEMD_SLICE=", unit);
+                const char *m5;
+
+                m5 = strjoina("_SYSTEMD_SLICE=", unit);
 
                 /* Show all messages belonging to a slice */
                 (void)(
@@ -1123,7 +1138,9 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         );
 
         if (r == 0 && endswith(unit, ".slice")) {
-                char *m5 = strappend("_SYSTEMD_SLICE=", unit);
+                const char *m5;
+
+                m5 = strjoina("_SYSTEMD_SLICE=", unit);
 
                 /* Show all messages belonging to a slice */
                 (void)(
@@ -1288,18 +1305,3 @@ int show_journal_by_unit(
 
         return show_journal(f, j, mode, n_columns, not_before, how_many, flags, ellipsized);
 }
-
-static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
-        [OUTPUT_SHORT] = "short",
-        [OUTPUT_SHORT_ISO] = "short-iso",
-        [OUTPUT_SHORT_PRECISE] = "short-precise",
-        [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
-        [OUTPUT_VERBOSE] = "verbose",
-        [OUTPUT_EXPORT] = "export",
-        [OUTPUT_JSON] = "json",
-        [OUTPUT_JSON_PRETTY] = "json-pretty",
-        [OUTPUT_JSON_SSE] = "json-sse",
-        [OUTPUT_CAT] = "cat"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);

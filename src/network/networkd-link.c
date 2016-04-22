@@ -42,6 +42,9 @@
 static bool link_dhcp6_enabled(Link *link) {
         assert(link);
 
+        if (!socket_ipv6_is_supported())
+                return false;
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -89,6 +92,9 @@ static bool link_ipv4ll_enabled(Link *link) {
 
 static bool link_ipv6ll_enabled(Link *link) {
         assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return false;
 
         if (link->flags & IFF_LOOPBACK)
                 return false;
@@ -192,6 +198,9 @@ static bool link_proxy_arp_enabled(Link *link) {
 static bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
+        if (!socket_ipv6_is_supported())
+                return false;
+
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -214,6 +223,7 @@ static bool link_ipv6_accept_ra_enabled(Link *link) {
 }
 
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
+        assert(link);
 
         if (!socket_ipv6_is_supported())
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;

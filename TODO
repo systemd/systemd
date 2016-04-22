@@ -33,10 +33,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the
+  kernel doesn't support linkat() that replaces existing files, currently)
+
+* journalctl -f --no-tail fails for Lennart
+
+* check if DeviceAllow= should split first, resolve specifiers later
+
 * transient units: don't bother with actually setting unit properties, we
   reload the unit file anyway
-
-* https://github.com/systemd/systemd/pull/2886 is fucked
 
 * make sure resolved can be restarted without losing pushed-in dns config
 
