@@ -16,7 +16,7 @@ struct ConfigPerfItem;
 %includes
 %%
 Exec.Boot,                    config_parse_boot,          0, 0
-Exec.ProcessTwo,              config_parse_pid2,          0, 0,
+Exec.ProcessTwo,              config_parse_pid2,          0, 0
 Exec.Parameters,              config_parse_strv,          0, offsetof(Settings, parameters)
 Exec.Environment,             config_parse_strv,          0, offsetof(Settings, environment)
 Exec.User,                    config_parse_string,        0, offsetof(Settings, user)
@@ -26,11 +26,13 @@ Exec.KillSignal,              config_parse_signal,        0, offsetof(Settings, 
 Exec.Personality,             config_parse_personality,   0, offsetof(Settings, personality)
 Exec.MachineID,               config_parse_id128,         0, offsetof(Settings, machine_id)
 Exec.WorkingDirectory,        config_parse_path,          0, offsetof(Settings, working_directory)
+Exec.PrivateUsers,            config_parse_private_users, 0, 0
 Files.ReadOnly,               config_parse_tristate,      0, offsetof(Settings, read_only)
 Files.Volatile,               config_parse_volatile_mode, 0, offsetof(Settings, volatile_mode)
 Files.Bind,                   config_parse_bind,          0, 0
 Files.BindReadOnly,           config_parse_bind,          1, 0
 Files.TemporaryFileSystem,    config_parse_tmpfs,         0, 0
+Files.PrivateUsersChown,      config_parse_tristate,      0, offsetof(Settings, userns_chown)
 Network.Private,              config_parse_tristate,      0, offsetof(Settings, private_network)
 Network.Interface,            config_parse_strv,          0, offsetof(Settings, network_interfaces)
 Network.MACVLAN,              config_parse_strv,          0, offsetof(Settings, network_macvlan)

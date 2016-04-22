@@ -33,6 +33,14 @@ typedef enum StartMode {
         _START_MODE_INVALID = -1
 } StartMode;
 
+typedef enum UserNamespaceMode {
+        USER_NAMESPACE_NO,
+        USER_NAMESPACE_FIXED,
+        USER_NAMESPACE_PICK,
+        _USER_NAMESPACE_MODE_MAX,
+        _USER_NAMESPACE_MODE_INVALID = -1,
+} UserNamespaceMode;
+
 typedef enum SettingsMask {
         SETTING_START_MODE        = 1 << 0,
         SETTING_ENVIRONMENT       = 1 << 1,
@@ -47,7 +55,8 @@ typedef enum SettingsMask {
         SETTING_VOLATILE_MODE     = 1 << 10,
         SETTING_CUSTOM_MOUNTS     = 1 << 11,
         SETTING_WORKING_DIRECTORY = 1 << 12,
-        _SETTINGS_MASK_ALL        = (1 << 13) -1
+        SETTING_USERNS            = 1 << 13,
+        _SETTINGS_MASK_ALL        = (1 << 14) -1
 } SettingsMask;
 
 typedef struct Settings {
@@ -62,12 +71,15 @@ typedef struct Settings {
         unsigned long personality;
         sd_id128_t machine_id;
         char *working_directory;
+        UserNamespaceMode userns_mode;
+        uid_t uid_shift, uid_range;
 
         /* [Image] */
         int read_only;
         VolatileMode volatile_mode;
         CustomMount *custom_mounts;
         unsigned n_custom_mounts;
+        int userns_chown;
 
         /* [Network] */
         int private_network;
@@ -99,3 +111,4 @@ int config_parse_tmpfs(const char *unit, const char *filename, unsigned line, co
 int config_parse_veth_extra(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_boot(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_pid2(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_private_users(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
