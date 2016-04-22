@@ -97,7 +97,7 @@
     <constant>SD_EVENT_PRIORITY_IDLE</constant> (100) may be used to
     indicate event sources that shall be dispatched early, normally or
     late. It is recommended to specify priorities based on these
-    definitions, and relative to them -- however, the full 64bit
+    definitions, and relative to them — however, the full 64bit
     signed integer range is available for ordering event
     sources.</para>
 

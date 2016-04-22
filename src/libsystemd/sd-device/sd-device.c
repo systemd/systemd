@@ -1212,19 +1212,19 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                 if (major(devnum) > 0) {
                         assert(subsystem);
 
-                        /* use dev_t -- b259:131072, c254:0 */
+                        /* use dev_t — b259:131072, c254:0 */
                         r = asprintf(&id, "%c%u:%u",
                                      streq(subsystem, "block") ? 'b' : 'c',
                                      major(devnum), minor(devnum));
                         if (r < 0)
                                 return -ENOMEM;
                 } else if (ifindex > 0) {
-                        /* use netdev ifindex -- n3 */
+                        /* use netdev ifindex — n3 */
                         r = asprintf(&id, "n%u", ifindex);
                         if (r < 0)
                                 return -ENOMEM;
                 } else {
-                        /* use $subsys:$sysname -- pci:0000:00:1f.2
+                        /* use $subsys:$sysname — pci:0000:00:1f.2
                          * sysname() has '!' translated, get it from devpath
                          */
                         const char *sysname;

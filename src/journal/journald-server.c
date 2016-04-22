@@ -1660,7 +1660,7 @@ static int server_connect_notify(Server *s) {
           it. Specifically: given that PID 1 might block on
           dbus-daemon during IPC, and dbus-daemon is logging to us,
           and might hence block on us, we might end up in a deadlock
-          if we block on sending PID 1 notification messages -- by
+          if we block on sending PID 1 notification messages — by
           generating a full blocking circle. To avoid this, let's
           create a non-blocking socket, and connect it to the
           notification socket, and then wait for POLLOUT before we

@@ -27,21 +27,21 @@
  * http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
  *
  * Two character prefixes based on the type of interface:
- *   en -- Ethernet
- *   sl -- serial line IP (slip)
- *   wl -- wlan
- *   ww -- wwan
+ *   en — Ethernet
+ *   sl — serial line IP (slip)
+ *   wl — wlan
+ *   ww — wwan
  *
  * Type of names:
- *   b<number>                             -- BCMA bus core number
- *   c<bus_id>                             -- CCW bus group name, without leading zeros [s390]
- *   o<index>[d<dev_port>]                 -- on-board device index number
- *   s<slot>[f<function>][d<dev_port>]     -- hotplug slot index number
- *   x<MAC>                                -- MAC address
+ *   b<number>                             — BCMA bus core number
+ *   c<bus_id>                             — CCW bus group name, without leading zeros [s390]
+ *   o<index>[d<dev_port>]                 — on-board device index number
+ *   s<slot>[f<function>][d<dev_port>]     — hotplug slot index number
+ *   x<MAC>                                — MAC address
  *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_port>]
- *                                         -- PCI geographical location
+ *                                         — PCI geographical location
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
- *                                         -- USB port number chain
+ *                                         — USB port number chain
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
@@ -140,9 +140,9 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         const char *attr;
         int idx;
 
-        /* ACPI _DSM  -- device specific method for naming a PCI or PCI Express device */
+        /* ACPI _DSM  — device specific method for naming a PCI or PCI Express device */
         attr = udev_device_get_sysattr_value(names->pcidev, "acpi_index");
-        /* SMBIOS type 41 -- Onboard Devices Extended Information */
+        /* SMBIOS type 41 — Onboard Devices Extended Information */
         if (!attr)
                 attr = udev_device_get_sysattr_value(names->pcidev, "index");
         if (!attr)
@@ -230,7 +230,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         if (l == 0)
                 names->pci_path[0] = '\0';
 
-        /* ACPI _SUN  -- slot user number */
+        /* ACPI _SUN  — slot user number */
         pci = udev_device_new_from_subsystem_sysname(udev, "subsystem", "pci");
         if (!pci) {
                 err = -ENOENT;

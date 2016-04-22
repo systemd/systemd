@@ -1481,7 +1481,7 @@ static int setup_journal(const char *directory) {
         }
 
         if (arg_link_journal == LINK_HOST) {
-                /* don't create parents here -- if the host doesn't have
+                /* don't create parents here — if the host doesn't have
                  * permanent journal set up, don't force it here */
 
                 if (mkdir(p, 0755) < 0 && errno != EEXIST) {
