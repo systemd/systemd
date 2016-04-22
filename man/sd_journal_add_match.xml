@@ -88,11 +88,19 @@
     <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    Matches are of the form <literal>FIELD=value</literal>, where the
-    field part is a short uppercase string consisting only of 0–9, A–Z
-    and the underscore. It may not begin with two underscores or be
-    the empty string. The value part may be any value, including
-    binary. If a match is applied, only entries with this field set
+    Parameter <parameter>data</parameter> must be of the form
+    <literal><replaceable>FIELD</replaceable>=<replaceable>value</replaceable></literal>,
+    where the <replaceable>FIELD</replaceable> part is a short uppercase string consisting only
+    of 0–9, A–Z and the underscore; it may not begin with two underscores or be the empty
+    string. The <replaceable>value</replaceable> part may be anything, including binary. Parameter
+    <parameter>size</parameter> specifies the number of bytes in <parameter>data</parameter>
+    (i.e. the length of <replaceable>FIELD</replaceable>, plus one, plus the length of
+    <replaceable>value</replaceable>). Parameter <parameter>size</parameter> may also be
+    specified as <constant>0</constant>, in which case <parameter>data</parameter>
+    must be a <constant>NUL</constant>-terminated string, and the bytes before the terminating
+    zero are used as the match.</para>
+
+    <para>If a match is applied, only entries with this field set
     will be iterated. Multiple matches may be active at the same time:
     If they apply to different fields, only entries with both fields
     set like this will be iterated. If they apply to the same fields,
