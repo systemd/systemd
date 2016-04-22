@@ -1084,22 +1084,22 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>preset <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
-            <para>Reset one or more unit files, as specified on the
-            command line, to the defaults configured in the preset
-            policy files. This has the same effect as
-            <command>disable</command> or <command>enable</command>,
-            depending how the unit is listed in the preset files.</para>
+            <para>Reset the enable/disable status one or more unit files, as specified on
+            the command line, to the defaults configured in the preset policy files. This
+            has the same effect as <command>disable</command> or
+            <command>enable</command>, depending how the unit is listed in the preset
+            files.</para>
 
-            <para>Use <option>--preset-mode=</option> to control
-            whether units shall be enabled and disabled, or only
-            enabled, or only disabled.</para>
+            <para>Use <option>--preset-mode=</option> to control whether units shall be
+            enabled and disabled, or only enabled, or only disabled.</para>
 
-            <para>For more information on the preset policy format,
-            see
+            <para>If the unit carries no install information, it will be silently ignored
+            by this command.</para>
+
+            <para>For more information on the preset policy format, see
             <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            For more information on the concept of presets, please
-            consult the <ulink
-            url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
+            For more information on the concept of presets, please consult the
+            <ulink url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
             document.</para>
           </listitem>
         </varlistentry>
