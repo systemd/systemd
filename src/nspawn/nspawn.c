@@ -1376,7 +1376,7 @@ static int setup_hostname(void) {
 
 static int setup_journal(const char *directory) {
         sd_id128_t this_id;
-        _cleanup_free_ char *b = NULL, *d = NULL;
+        _cleanup_free_ char *d = NULL;
         const char *p, *q;
         bool try;
         char id[33];

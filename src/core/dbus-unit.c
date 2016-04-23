@@ -936,7 +936,6 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
 int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(set_freep) Set *pids = NULL;
-        _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
         pid_t pid;
         int r;
