@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2014, 2015 Piotr Drąg
+#  Copyright 2014, 2015, 2016 Piotr Drąg
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -40,6 +40,22 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Systemowy proces dziennika został wyłączony i zamknął wszystkie obecnie
 aktywne pliki dziennika.
 
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Miejsce na dysku używane przez dziennik
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) obecnie używa @CURRENT_USE_PRETTY@.
+Maksymalnie może używać @MAX_USE_PRETTY@.
+Zostawianie co najmniej @DISK_KEEP_FREE_PRETTY@ wolnego (z obecnie dostępnego @DISK_AVAILABLE_PRETTY@ miejsca na dysku).
+Wymuszone ograniczenie użycia wynosi więc @LIMIT_PRETTY@, z czego @AVAILABLE_PRETTY@ jest nadal dostępne.
+
+Ograniczenia kontrolujące ilość miejsca na dysku używanego przez dziennik
+można konfigurować za pomocą ustawień SystemMaxUse=, SystemKeepFree=,
+SystemMaxFileSize=, RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize=
+w pliku /etc/systemd/journald.conf. Strona journald.conf(5) zawiera więcej
+informacji.
+
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Ograniczono komunikaty z usługi
 Defined-By: systemd
@@ -72,7 +88,8 @@ Documentation: man:core(5)
 
 Proces @COREDUMP_PID@ (@COREDUMP_COMM@) uległ awarii i zrzucił plik core.
 
-Zwykle wskazuje to na błąd programistyczny w danym programie i powinno zostać zgłoszone jego producentowi jako błąd.
+Zwykle wskazuje to na błąd programistyczny w danym programie i powinno zostać
+zgłoszone jego producentowi jako błąd.
 
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: Utworzono nową sesję @SESSION_ID@ dla użytkownika @USER_ID@
@@ -259,3 +276,40 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Maszyna wirtualna @NAME@ (PID prowadzący @LEADER@) została wyłączona.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: Wyłączono tryb DNSSEC, ponieważ serwer go nie obsługuje
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+Usługa resolver (systemd-resolved.service) wykryła, że skonfigurowany serwer
+DNS nie obsługuje DNSSEC, w wyniku czego walidacja DNSSEC została wyłączona.
+
+To zdarzenie będzie miało miejsce, jeśli skonfigurowano DNSSEC=allow-downgrade
+w pliku resolved.conf, a skonfigurowany serwer DNS jest niezgodny z DNSSEC.
+Proszę zauważyć, że używanie tego trybu umożliwia ataki wyłączające DNSSEC,
+ponieważ atakujący będzie mógł wyłączyć walidację DNSSEC na komputerze przez
+umieszczenie odpowiednich odpowiedzi DNS w kanale komunikacji.
+
+To zdarzenie może wskazywać, że serwer DNS jest faktycznie niezgodny z DNSSEC,
+albo że atakującemu udało się upozorować atak tego typu.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: Walidacja DNSSEC się nie powiodła
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Zapytanie DNS lub ustawiony wpis zasobu nie przeszedł walidacji DNSSEC.
+Zwykle wskazuje to, że ktoś manipulował używanym kanałem komunikacji.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: Unieważniono kotwicę zaufania DNSSEC
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Kotwica zaufania DNSSEC została unieważniona. Należy skonfigurować nową, albo
+system operacyjny musi zostać zaktualizowany, aby dostarczyć zaktualizowaną
+kotwicę zaufania DNSSEC.
