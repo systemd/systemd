@@ -1614,13 +1614,7 @@ static int allocate_inotify(sd_journal *j) {
                         return -errno;
         }
 
-        if (!j->directories_by_wd) {
-                j->directories_by_wd = hashmap_new(NULL);
-                if (!j->directories_by_wd)
-                        return -ENOMEM;
-        }
-
-        return 0;
+        return hashmap_ensure_allocated(&j->directories_by_wd, NULL);
 }
 
 static sd_journal *journal_new(int flags, const char *path) {
