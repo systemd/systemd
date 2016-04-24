@@ -72,3 +72,5 @@ union inotify_event_buffer {
         struct inotify_event ev;
         uint8_t raw[INOTIFY_EVENT_MAX];
 };
+
+int inotify_add_watch_fd(int fd, int what, uint32_t mask);
