@@ -82,6 +82,8 @@ struct Directory {
 };
 
 struct sd_journal {
+        int toplevel_fd;
+
         char *path;
         char *prefix;
 
@@ -117,6 +119,7 @@ struct sd_journal {
 
         bool on_network:1;
         bool no_new_files:1;
+        bool no_inotify:1;
         bool unique_file_lost:1; /* File we were iterating over got
                                     removed, and there were no more
                                     files, so sd_j_enumerate_unique

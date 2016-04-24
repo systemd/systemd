@@ -489,3 +489,9 @@ global:
         sd_journal_enumerate_fields;
         sd_journal_restart_fields;
 } LIBSYSTEMD_227;
+
+LIBSYSTEMD_230 {
+global:
+        sd_journal_open_directory_fd;
+        sd_journal_open_files_fd;
+} LIBSYSTEMD_229;

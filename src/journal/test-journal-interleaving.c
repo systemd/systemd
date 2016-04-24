@@ -52,7 +52,7 @@ noreturn static void log_assert_errno(const char *text, int eno, const char *fil
 
 static JournalFile *test_open(const char *name) {
         JournalFile *f;
-        assert_ret(journal_file_open(name, O_RDWR|O_CREAT, 0644, true, false, NULL, NULL, NULL, NULL, &f));
+        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, false, NULL, NULL, NULL, NULL, &f));
         return f;
 }
 
@@ -216,7 +216,7 @@ static void test_sequence_numbers(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("one.journal", O_RDWR|O_CREAT, 0644,
+        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
                                     true, false, NULL, NULL, NULL, NULL, &one) == 0);
 
         append_number(one, 1, &seqnum);
@@ -233,7 +233,7 @@ static void test_sequence_numbers(void) {
 
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(journal_file_open("two.journal", O_RDWR|O_CREAT, 0644,
+        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0644,
                                     true, false, NULL, NULL, NULL, one, &two) == 0);
 
         assert_se(two->header->state == STATE_ONLINE);
@@ -264,7 +264,7 @@ static void test_sequence_numbers(void) {
         /* restart server */
         seqnum = 0;
 
-        assert_se(journal_file_open("two.journal", O_RDWR, 0,
+        assert_se(journal_file_open(-1, "two.journal", O_RDWR, 0,
                                     true, false, NULL, NULL, NULL, NULL, &two) == 0);
 
         assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));

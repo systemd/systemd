@@ -37,6 +37,7 @@
 #include "journal-file.h"
 #include "lookup3.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "sd-event.h"
 #include "set.h"
@@ -362,7 +363,8 @@ JournalFile* journal_file_close(JournalFile *f) {
                 (void) btrfs_defrag_fd(f->fd);
         }
 
-        safe_close(f->fd);
+        if (f->close_fd)
+                safe_close(f->fd);
         free(f->path);
 
         mmap_cache_unref(f->mmap);
@@ -2466,8 +2468,7 @@ int journal_file_next_entry(
 
         if (p > 0 &&
             (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
-                log_debug("%s: entry array corrupted at entry %"PRIu64,
-                          f->path, i);
+                log_debug("%s: entry array corrupted at entry %"PRIu64, f->path, i);
                 return -EBADMSG;
         }
 
@@ -2898,6 +2899,7 @@ static int journal_file_warn_btrfs(JournalFile *f) {
 }
 
 int journal_file_open(
+                int fd,
                 const char *fname,
                 int flags,
                 mode_t mode,
@@ -2914,22 +2916,24 @@ int journal_file_open(
         void *h;
         int r;
 
-        assert(fname);
         assert(ret);
+        assert(fd >= 0 || fname);
 
         if ((flags & O_ACCMODE) != O_RDONLY &&
             (flags & O_ACCMODE) != O_RDWR)
                 return -EINVAL;
 
-        if (!endswith(fname, ".journal") &&
-            !endswith(fname, ".journal~"))
-                return -EINVAL;
+        if (fname) {
+                if (!endswith(fname, ".journal") &&
+                    !endswith(fname, ".journal~"))
+                        return -EINVAL;
+        }
 
         f = new0(JournalFile, 1);
         if (!f)
                 return -ENOMEM;
 
-        f->fd = -1;
+        f->fd = fd;
         f->mode = mode;
 
         f->flags = flags;
@@ -2954,7 +2958,10 @@ int journal_file_open(
                 }
         }
 
-        f->path = strdup(fname);
+        if (fname)
+                f->path = strdup(fname);
+        else /* If we don't know the path, fill in something explanatory and vaguely useful */
+                asprintf(&f->path, "/proc/self/%i", fd);
         if (!f->path) {
                 r = -ENOMEM;
                 goto fail;
@@ -2966,10 +2973,15 @@ int journal_file_open(
                 goto fail;
         }
 
-        f->fd = open(f->path, f->flags|O_CLOEXEC, f->mode);
         if (f->fd < 0) {
-                r = -errno;
-                goto fail;
+                f->fd = open(f->path, f->flags|O_CLOEXEC, f->mode);
+                if (f->fd < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                /* fds we opened here by us should also be closed by us. */
+                f->close_fd = true;
         }
 
         r = journal_file_fstat(f);
@@ -3090,6 +3102,9 @@ int journal_file_open(
                         goto fail;
         }
 
+        /* The file is opened now successfully, thus we take possesion of any passed in fd. */
+        f->close_fd = true;
+
         *ret = f;
         return 0;
 
@@ -3114,6 +3129,11 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred
         old_file = *f;
 
         if (!old_file->writable)
+                return -EINVAL;
+
+        /* Is this a journal file that was passed to us as fd? If so, we synthesized a path name for it, and we refuse
+         * rotation, since we don't know the actual path, and couldn't rename the file hence.*/
+        if (path_startswith(old_file->path, "/proc/self/fd"))
                 return -EINVAL;
 
         if (!endswith(old_file->path, ".journal"))
@@ -3142,7 +3162,7 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred
          * we archive them */
         old_file->defrag_on_close = true;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, deferred_closes, old_file, &new_file);
+        r = journal_file_open(-1, old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, deferred_closes, old_file, &new_file);
 
         if (deferred_closes &&
             set_put(deferred_closes, old_file) >= 0)
@@ -3170,7 +3190,7 @@ int journal_file_open_reliably(
         size_t l;
         _cleanup_free_ char *p = NULL;
 
-        r = journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
+        r = journal_file_open(-1, fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* corrupted */
                     -ENODATA,           /* truncated */
@@ -3211,7 +3231,7 @@ int journal_file_open_reliably(
 
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
+        return journal_file_open(-1, fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {

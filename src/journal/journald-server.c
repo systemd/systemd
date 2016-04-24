@@ -253,7 +253,7 @@ static int open_journal(
         if (reliably)
                 r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
         else
-                r = journal_file_open(fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open(-1, fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
         if (r < 0)
                 return r;
 

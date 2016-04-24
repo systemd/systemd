@@ -101,6 +101,7 @@ static const char *arg_after_cursor = NULL;
 static bool arg_show_cursor = false;
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
+static bool arg_file_stdin = false;
 static int arg_priorities = 0xFF;
 static const char *arg_verify_key = NULL;
 #ifdef HAVE_GCRYPT
@@ -592,9 +593,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add paths: %m");
+                        if (streq(optarg, "-"))
+                                /* An undocumented feature: we can read journal files from STDIN. We don't document
+                                 * this though, since after all we only support this for mmap-able, seekable files, and
+                                 * not for example pipes which are probably the primary usecase for reading things from
+                                 * STDIN. To avoid confusion we hence don't document this feature. */
+                                arg_file_stdin = true;
+                        else {
+                                r = glob_extend(&arg_file, optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add paths: %m");
+                        }
                         break;
 
                 case ARG_ROOT:
@@ -2103,7 +2112,10 @@ int main(int argc, char *argv[]) {
 
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
-        else if (arg_file)
+        else if (arg_file_stdin) {
+                int ifd = STDIN_FILENO;
+                r = sd_journal_open_files_fd(&j, &ifd, 1, 0);
+        } else if (arg_file)
                 r = sd_journal_open_files(&j, (const char**) arg_file, 0);
         else if (arg_machine)
                 r = sd_journal_open_container(&j, arg_machine, 0);
@@ -2283,6 +2295,10 @@ int main(int argc, char *argv[]) {
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
                 r = sd_journal_get_fd(j);
+                if (r == -EMEDIUMTYPE) {
+                        log_error_errno(r, "The --follow switch is not supported in conjunction with reading from STDIN.");
+                        goto finish;
+                }
                 if (r < 0) {
                         log_error_errno(r, "Failed to get journal fd: %m");
                         goto finish;
