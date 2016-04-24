@@ -1847,7 +1847,7 @@ static int access_check(sd_journal *j) {
                         break;
 
                 default:
-                        log_warning_errno(err, "An error was encountered while opening journal file %s, ignoring file.", path);
+                        log_warning_errno(err, "An error was encountered while opening journal file or directory %s, ignoring file: %m", path);
                         break;
                 }
         }
