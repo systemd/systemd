@@ -1429,7 +1429,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                         inotify_rm_watch(j->inotify_fd, m->wd);
         }
 
-        FOREACH_DIRENT_ALL(de, d, return log_debug_errno(errno, "Failed to read directory %s: %m", m->path)) {
+        FOREACH_DIRENT_ALL(de, d, r = log_debug_errno(errno, "Failed to read directory %s: %m", m->path); goto fail) {
 
                 if (dirent_is_file_with_suffix(de, ".journal") ||
                     dirent_is_file_with_suffix(de, ".journal~"))
@@ -1516,7 +1516,7 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
         if (j->no_new_files)
                 return 0;
 
-        FOREACH_DIRENT_ALL(de, d, return log_debug_errno(errno, "Failed to read directory %s: %m", m->path)) {
+        FOREACH_DIRENT_ALL(de, d, r = log_debug_errno(errno, "Failed to read directory %s: %m", m->path); goto fail) {
                 sd_id128_t id;
 
                 if (dirent_is_file_with_suffix(de, ".journal") ||
