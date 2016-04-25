@@ -988,17 +988,18 @@ static void boot_id_free_all(BootId *l) {
         }
 }
 
-static int discover_next_boot(
-                sd_journal *j,
-                BootId **boot,
-                bool advance_older) {
+static int discover_next_boot(sd_journal *j,
+                sd_id128_t previous_boot_id,
+                bool advance_older,
+                BootId **ret) {
 
-        int r;
-        char match[9+32+1] = "_BOOT_ID=";
         _cleanup_free_ BootId *next_boot = NULL;
+        char match[9+32+1] = "_BOOT_ID=";
+        sd_id128_t boot_id;
+        int r;
 
         assert(j);
-        assert(boot);
+        assert(ret);
 
         /* We expect the journal to be on the last position of a boot
          * (in relation to the direction we are going), so that the next
@@ -1011,22 +1012,35 @@ static int discover_next_boot(
          * we can actually advance to a *different* boot. */
         sd_journal_flush_matches(j);
 
-        if (advance_older)
-                r = sd_journal_previous(j);
-        else
-                r = sd_journal_next(j);
-        if (r < 0)
-                return r;
-        else if (r == 0)
-                return 0; /* End of journal, yay. */
+        do {
+                if (advance_older)
+                        r = sd_journal_previous(j);
+                else
+                        r = sd_journal_next(j);
+                if (r < 0)
+                        return r;
+                else if (r == 0)
+                        return 0; /* End of journal, yay. */
+
+                r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                if (r < 0)
+                        return r;
+
+                /* We iterate through this in a loop, until the boot ID differs from the previous one. Note that
+                 * normally, this will only require a single iteration, as we seeked to the last entry of the previous
+                 * boot entry already. However, it might happen that the per-journal-field entry arrays are less
+                 * complete than the main entry array, and hence might reference an entry that's not actually the last
+                 * one of the boot ID as last one. Let's hence use the per-field array is initial seek position to
+                 * speed things up, but let's not trust that it is complete, and hence, manually advance as
+                 * necessary. */
+
+        } while (sd_id128_equal(boot_id, previous_boot_id));
 
         next_boot = new0(BootId, 1);
         if (!next_boot)
                 return -ENOMEM;
 
-        r = sd_journal_get_monotonic_usec(j, NULL, &next_boot->id);
-        if (r < 0)
-                return r;
+        next_boot->id = boot_id;
 
         r = sd_journal_get_realtime_usec(j, &next_boot->first);
         if (r < 0)
@@ -1058,7 +1072,7 @@ static int discover_next_boot(
         if (r < 0)
                 return r;
 
-        *boot = next_boot;
+        *ret = next_boot;
         next_boot = NULL;
 
         return 0;
@@ -1074,6 +1088,7 @@ static int get_boots(
         int r, count = 0;
         BootId *head = NULL, *tail = NULL;
         const bool advance_older = query_ref_boot && ref_boot_offset <= 0;
+        sd_id128_t previous_boot_id;
 
         assert(j);
 
@@ -1136,10 +1151,11 @@ static int get_boots(
                  * entry we have. */
         }
 
+        previous_boot_id = SD_ID128_NULL;
         for (;;) {
                 _cleanup_free_ BootId *current = NULL;
 
-                r = discover_next_boot(j, &current, advance_older);
+                r = discover_next_boot(j, previous_boot_id, advance_older, &current);
                 if (r < 0) {
                         boot_id_free_all(head);
                         return r;
@@ -1147,6 +1163,8 @@ static int get_boots(
 
                 if (!current)
                         break;
+
+                previous_boot_id = current->id;
 
                 if (query_ref_boot) {
                         if (!skip_once)
