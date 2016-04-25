@@ -996,7 +996,14 @@ static int discover_next_boot(
 
         int r;
         char match[9+32+1] = "_BOOT_ID=";
+        const void *data1, *data2;
+        size_t len;
         _cleanup_free_ BootId *next_boot = NULL;
+        _cleanup_free_ char *boot_id = NULL;
+
+        int (*step)(sd_journal*) = advance_older ? sd_journal_previous : sd_journal_next;
+        int (*step_back)(sd_journal*) = advance_older ? sd_journal_next : sd_journal_previous;
+        int (*seek_end)(sd_journal*) = advance_older ? sd_journal_seek_head : sd_journal_seek_tail;
 
         assert(j);
         assert(boot);
@@ -1008,18 +1015,35 @@ static int discover_next_boot(
          * to the last location of the new boot by using a _BOOT_ID match
          * coming from the other journal direction. */
 
+        /* Sometimes the next/previous will actually be from the same boot.
+         * We store the current boot id to later ensure that we have crossed
+         * the boundary into a new boot. */
+        r = sd_journal_get_data(j, "_BOOT_ID", &data1, &len);
+        if (r >= 0) {
+                boot_id = memdup(data1, len);
+                if (!boot_id)
+                        return -ENOMEM;
+        }
+
         /* Make sure we aren't restricted by any _BOOT_ID matches, so that
          * we can actually advance to a *different* boot. */
         sd_journal_flush_matches(j);
 
-        if (advance_older)
-                r = sd_journal_previous(j);
-        else
-                r = sd_journal_next(j);
-        if (r < 0)
-                return r;
-        else if (r == 0)
-                return 0; /* End of journal, yay. */
+        /* Step forward until we have crossed into a new boot */
+        for(;;) {
+                r = step(j);
+                if (r < 0)
+                        return r;
+                else if (r == 0)
+                        return 0; /* End of journal, yay. */
+
+                r = sd_journal_get_data(j, "_BOOT_ID", &data2, &len);
+                if (r < 0)
+                        return r;
+
+                if (boot_id == NULL || memcmp(boot_id, data2, MIN(len, 41u)) != 0)
+                        break;
+        }
 
         next_boot = new0(BootId, 1);
         if (!next_boot)
@@ -1041,17 +1065,11 @@ static int discover_next_boot(
         if (r < 0)
                 return r;
 
-        if (advance_older)
-                r = sd_journal_seek_head(j);
-        else
-                r = sd_journal_seek_tail(j);
+        r = seek_end(j);
         if (r < 0)
                 return r;
 
-        if (advance_older)
-                r = sd_journal_next(j);
-        else
-                r = sd_journal_previous(j);
+        r = step_back(j);
         if (r < 0)
                 return r;
         else if (r == 0)
