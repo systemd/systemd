@@ -416,6 +416,9 @@ install_pam() {
 
     [[ "$LOOKS_LIKE_DEBIAN" ]] &&
         cp /etc/pam.d/systemd-user $initdir/etc/pam.d/
+
+    # set empty root password for easy debugging
+    sed -i 's/^root:x:/root::/' $initdir/etc/passwd
 }
 
 install_keymaps() {
