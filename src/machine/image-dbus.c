@@ -137,6 +137,8 @@ int bus_image_method_clone(
                 return 1; /* Will call us back */
 
         r = image_clone(image, new_name, read_only);
+        if (r == -EOPNOTSUPP)
+                return sd_bus_reply_method_errnof(message, r, "Image cloning is currently only supported on btrfs file systems.");
         if (r < 0)
                 return r;
 
