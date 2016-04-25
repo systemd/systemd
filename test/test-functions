@@ -79,6 +79,7 @@ $KERNEL_APPEND \
 -m 512M \
 -nographic \
 -kernel $KERNEL_BIN \
+-drive format=raw,cache=unsafe,file=${TESTDIR}/rootdisk.img \
 "
 
     if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
@@ -93,7 +94,7 @@ $KERNEL_APPEND \
         QEMU_BIN="timeout --foreground $QEMU_TIMEOUT $QEMU_BIN"
     fi
     ( set -x
-      $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" $TESTDIR/rootdisk.img ) || return 1
+      $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" ) || return 1
 }
 
 run_nspawn() {
