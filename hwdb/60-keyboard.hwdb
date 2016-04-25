@@ -498,6 +498,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
 # HP Folio 1040g2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBookFolio1040G2:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d9=!f22                                   # touchpad on
 
 # HP ProBook 6555b
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard:pnHPProBook6555b:*
