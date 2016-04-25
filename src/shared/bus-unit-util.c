@@ -684,7 +684,7 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
 static const struct {
         const char *result, *explanation;
 } explanations [] = {
-        { "resources",   "a configured resource limit was exceeded" },
+        { "resources",   "of unavailable resources or another system error" },
         { "timeout",     "a timeout was exceeded" },
         { "exit-code",   "the control process exited with error code" },
         { "signal",      "a fatal signal was delivered to the control process" },
