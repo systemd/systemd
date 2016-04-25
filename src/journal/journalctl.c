@@ -1103,16 +1103,16 @@ static int get_boots(
                         return r;
 
                 if (advance_older)
-                        r = sd_journal_seek_head(j);
+                        r = sd_journal_seek_head(j); /* seek to oldest */
                 else
-                        r = sd_journal_seek_tail(j);
+                        r = sd_journal_seek_tail(j); /* seek to newest */
                 if (r < 0)
                         return r;
 
                 if (advance_older)
-                        r = sd_journal_next(j);
+                        r = sd_journal_next(j);     /* read the oldest entry */
                 else
-                        r = sd_journal_previous(j);
+                        r = sd_journal_previous(j); /* read the most recently added entry */
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -1121,15 +1121,24 @@ static int get_boots(
                         count = 1;
                         goto finish;
                 }
+
+                /* At this point the read pointer is positioned at the oldest/newest occurence of the reference boot
+                 * ID. After flushing the matches, one more invocation of _previous()/_next() will hence place us at
+                 * the following entry, which must then have an older/newer boot ID */
         } else {
+
                 if (advance_older)
-                        r = sd_journal_seek_tail(j);
+                        r = sd_journal_seek_tail(j); /* seek to newest */
                 else
-                        r = sd_journal_seek_head(j);
+                        r = sd_journal_seek_head(j); /* seek to oldest */
                 if (r < 0)
                         return r;
 
-                /* No sd_journal_next/previous here. */
+                /* No sd_journal_next()/_previous() here.
+                 *
+                 * At this point the read pointer is positioned after the newest/before the oldest entry in the whole
+                 * journal. The next invocation of _previous()/_next() will hence position us at the newest/oldest
+                 * entry we have. */
         }
 
         for (;;) {
