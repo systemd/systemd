@@ -218,19 +218,6 @@
   </refsect1>
 
   <refsect1>
-    <title>History</title>
-
-    <para><function>sd_uid_get_state()</function>,
-    <function>sd_uid_is_on_seat()</function>,
-    <function>sd_uid_get_sessions()</function>, and
-    <function>sd_uid_get_seats()</function> functions were added in
-    systemd-31.</para>
-
-    <para><function>sd_uid_get_display()</function> was added in
-    systemd-213.</para>
-  </refsect1>
-
-  <refsect1>
     <title>See Also</title>
 
     <para>

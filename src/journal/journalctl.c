@@ -101,6 +101,7 @@ static const char *arg_after_cursor = NULL;
 static bool arg_show_cursor = false;
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
+static bool arg_file_stdin = false;
 static int arg_priorities = 0xFF;
 static const char *arg_verify_key = NULL;
 #ifdef HAVE_GCRYPT
@@ -592,9 +593,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add paths: %m");
+                        if (streq(optarg, "-"))
+                                /* An undocumented feature: we can read journal files from STDIN. We don't document
+                                 * this though, since after all we only support this for mmap-able, seekable files, and
+                                 * not for example pipes which are probably the primary usecase for reading things from
+                                 * STDIN. To avoid confusion we hence don't document this feature. */
+                                arg_file_stdin = true;
+                        else {
+                                r = glob_extend(&arg_file, optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add paths: %m");
+                        }
                         break;
 
                 case ARG_ROOT:
@@ -862,6 +871,18 @@ static int parse_argv(int argc, char *argv[]) {
         if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && (arg_file || arg_directory || arg_merge)) {
                 log_error("Using --boot or --list-boots with --file, --directory or --merge is not supported.");
                 return -EINVAL;
+        }
+
+        if (!strv_isempty(arg_system_units) && (arg_journal_type == SD_JOURNAL_CURRENT_USER)) {
+
+                /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
+                 * journal, but the latter excludes the system journal, thus resulting in empty output). Let's be nice
+                 * to users, and automatically turn --unit= into --user-unit= if combined with --user. */
+                r = strv_extend_strv(&arg_user_units, arg_system_units, true);
+                if (r < 0)
+                        return -ENOMEM;
+
+                arg_system_units = strv_free(arg_system_units);
         }
 
         return 1;
@@ -1869,7 +1890,7 @@ static int access_check(sd_journal *j) {
                         break;
 
                 default:
-                        log_warning_errno(err, "An error was encountered while opening journal file %s, ignoring file.", path);
+                        log_warning_errno(err, "An error was encountered while opening journal file or directory %s, ignoring file: %m", path);
                         break;
                 }
         }
@@ -2125,11 +2146,61 @@ int main(int argc, char *argv[]) {
 
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
-        else if (arg_file)
+        else if (arg_file_stdin) {
+                int ifd = STDIN_FILENO;
+                r = sd_journal_open_files_fd(&j, &ifd, 1, 0);
+        } else if (arg_file)
                 r = sd_journal_open_files(&j, (const char**) arg_file, 0);
-        else if (arg_machine)
-                r = sd_journal_open_container(&j, arg_machine, 0);
-        else
+        else if (arg_machine) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+                int fd;
+
+                if (geteuid() != 0) {
+                        /* The file descriptor returned by OpenMachineRootDirectory() will be owned by users/groups of
+                         * the container, thus we need root privileges to override them. */
+                        log_error("Using the --machine= switch requires root privileges.");
+                        r = -EPERM;
+                        goto finish;
+                }
+
+                r = sd_bus_open_system(&bus);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open system bus: %m");
+                        goto finish;
+                }
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "OpenMachineRootDirectory",
+                                &error,
+                                &reply,
+                                "s", arg_machine);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open root directory: %s", bus_error_message(&error, r));
+                        goto finish;
+                }
+
+                r = sd_bus_message_read(reply, "h", &fd);
+                if (r < 0) {
+                        bus_log_parse_error(r);
+                        goto finish;
+                }
+
+                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0) {
+                        r = log_error_errno(errno, "Failed to duplicate file descriptor: %m");
+                        goto finish;
+                }
+
+                r = sd_journal_open_directory_fd(&j, fd, SD_JOURNAL_OS_ROOT);
+                if (r < 0)
+                        safe_close(fd);
+        } else
                 r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
                 log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
@@ -2305,6 +2376,10 @@ int main(int argc, char *argv[]) {
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
                 r = sd_journal_get_fd(j);
+                if (r == -EMEDIUMTYPE) {
+                        log_error_errno(r, "The --follow switch is not supported in conjunction with reading from STDIN.");
+                        goto finish;
+                }
                 if (r < 0) {
                         log_error_errno(r, "Failed to get journal fd: %m");
                         goto finish;

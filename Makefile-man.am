@@ -242,6 +242,7 @@ MANPAGES_ALIAS += \
 	man/SD_JOURNAL_INVALIDATE.3 \
 	man/SD_JOURNAL_LOCAL_ONLY.3 \
 	man/SD_JOURNAL_NOP.3 \
+	man/SD_JOURNAL_OS_ROOT.3 \
 	man/SD_JOURNAL_RUNTIME_ONLY.3 \
 	man/SD_JOURNAL_SUPPRESS_LOCATION.3 \
 	man/SD_JOURNAL_SYSTEM.3 \
@@ -388,9 +389,10 @@ MANPAGES_ALIAS += \
 	man/sd_journal_get_timeout.3 \
 	man/sd_journal_has_persistent_files.3 \
 	man/sd_journal_next_skip.3 \
-	man/sd_journal_open_container.3 \
 	man/sd_journal_open_directory.3 \
+	man/sd_journal_open_directory_fd.3 \
 	man/sd_journal_open_files.3 \
+	man/sd_journal_open_files_fd.3 \
 	man/sd_journal_perror.3 \
 	man/sd_journal_previous.3 \
 	man/sd_journal_previous_skip.3 \
@@ -571,6 +573,7 @@ man/SD_JOURNAL_FOREACH_UNIQUE.3: man/sd_journal_query_unique.3
 man/SD_JOURNAL_INVALIDATE.3: man/sd_journal_get_fd.3
 man/SD_JOURNAL_LOCAL_ONLY.3: man/sd_journal_open.3
 man/SD_JOURNAL_NOP.3: man/sd_journal_get_fd.3
+man/SD_JOURNAL_OS_ROOT.3: man/sd_journal_open.3
 man/SD_JOURNAL_RUNTIME_ONLY.3: man/sd_journal_open.3
 man/SD_JOURNAL_SUPPRESS_LOCATION.3: man/sd_journal_print.3
 man/SD_JOURNAL_SYSTEM.3: man/sd_journal_open.3
@@ -717,9 +720,10 @@ man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
 man/sd_journal_get_timeout.3: man/sd_journal_get_fd.3
 man/sd_journal_has_persistent_files.3: man/sd_journal_has_runtime_files.3
 man/sd_journal_next_skip.3: man/sd_journal_next.3
-man/sd_journal_open_container.3: man/sd_journal_open.3
 man/sd_journal_open_directory.3: man/sd_journal_open.3
+man/sd_journal_open_directory_fd.3: man/sd_journal_open.3
 man/sd_journal_open_files.3: man/sd_journal_open.3
+man/sd_journal_open_files_fd.3: man/sd_journal_open.3
 man/sd_journal_perror.3: man/sd_journal_print.3
 man/sd_journal_previous.3: man/sd_journal_next.3
 man/sd_journal_previous_skip.3: man/sd_journal_next.3
@@ -1032,6 +1036,9 @@ man/SD_JOURNAL_LOCAL_ONLY.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/SD_JOURNAL_NOP.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/SD_JOURNAL_OS_ROOT.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/SD_JOURNAL_RUNTIME_ONLY.html: man/sd_journal_open.html
@@ -1472,13 +1479,16 @@ man/sd_journal_has_persistent_files.html: man/sd_journal_has_runtime_files.html
 man/sd_journal_next_skip.html: man/sd_journal_next.html
 	$(html-alias)
 
-man/sd_journal_open_container.html: man/sd_journal_open.html
-	$(html-alias)
-
 man/sd_journal_open_directory.html: man/sd_journal_open.html
 	$(html-alias)
 
+man/sd_journal_open_directory_fd.html: man/sd_journal_open.html
+	$(html-alias)
+
 man/sd_journal_open_files.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/sd_journal_open_files_fd.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/sd_journal_perror.html: man/sd_journal_print.html

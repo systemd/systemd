@@ -38,6 +38,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_machine_method_open_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int machine_send_signal(Machine *m, bool new_machine);
 int machine_send_create_reply(Machine *m, sd_bus_error *error);

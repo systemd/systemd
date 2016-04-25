@@ -67,10 +67,11 @@ typedef struct sd_journal sd_journal;
 
 /* Open flags */
 enum {
-        SD_JOURNAL_LOCAL_ONLY = 1,
-        SD_JOURNAL_RUNTIME_ONLY = 2,
-        SD_JOURNAL_SYSTEM = 4,
-        SD_JOURNAL_CURRENT_USER = 8,
+        SD_JOURNAL_LOCAL_ONLY   = 1 << 0,
+        SD_JOURNAL_RUNTIME_ONLY = 1 << 1,
+        SD_JOURNAL_SYSTEM       = 1 << 2,
+        SD_JOURNAL_CURRENT_USER = 1 << 3,
+        SD_JOURNAL_OS_ROOT      = 1 << 4,
 
         SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM /* deprecated name */
 };
@@ -84,8 +85,10 @@ enum {
 
 int sd_journal_open(sd_journal **ret, int flags);
 int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
+int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags);
 int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
-int sd_journal_open_container(sd_journal **ret, const char *machine, int flags);
+int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags);
+int sd_journal_open_container(sd_journal **ret, const char *machine, int flags); /* deprecated */
 void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
