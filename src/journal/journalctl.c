@@ -2117,9 +2117,56 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_open_files_fd(&j, &ifd, 1, 0);
         } else if (arg_file)
                 r = sd_journal_open_files(&j, (const char**) arg_file, 0);
-        else if (arg_machine)
-                r = sd_journal_open_container(&j, arg_machine, 0);
-        else
+        else if (arg_machine) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+                int fd;
+
+                if (geteuid() != 0) {
+                        /* The file descriptor returned by OpenMachineRootDirectory() will be owned by users/groups of
+                         * the container, thus we need root privileges to override them. */
+                        log_error("Using the --machine= switch requires root privileges.");
+                        r = -EPERM;
+                        goto finish;
+                }
+
+                r = sd_bus_open_system(&bus);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open system bus: %m");
+                        goto finish;
+                }
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "OpenMachineRootDirectory",
+                                &error,
+                                &reply,
+                                "s", arg_machine);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open root directory: %s", bus_error_message(&error, r));
+                        goto finish;
+                }
+
+                r = sd_bus_message_read(reply, "h", &fd);
+                if (r < 0) {
+                        bus_log_parse_error(r);
+                        goto finish;
+                }
+
+                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0) {
+                        r = log_error_errno(errno, "Failed to duplicate file descriptor: %m");
+                        goto finish;
+                }
+
+                r = sd_journal_open_directory_fd(&j, fd, SD_JOURNAL_OS_ROOT);
+                if (r < 0)
+                        safe_close(fd);
+        } else
                 r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
                 log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
