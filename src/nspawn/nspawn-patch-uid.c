@@ -303,7 +303,7 @@ static int is_procfs_sysfs_or_suchlike(int fd) {
                F_TYPE_EQUAL(sfs.f_type, SYSFS_MAGIC);
 }
 
-static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift) {
+static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift, bool is_toplevel) {
         bool changed = false;
         int r;
 
@@ -321,6 +321,18 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
         }
 
         r = patch_fd(fd, NULL, st, shift);
+        if (r == -EROFS) {
+                _cleanup_free_ char *name = NULL;
+
+                if (!is_toplevel) {
+                        /* When we hit a ready-only subtree we simply skip it, but log about it. */
+                        (void) fd_get_path(fd, &name);
+                        log_debug("Skippping read-only file or directory %s.", strna(name));
+                        r = 0;
+                }
+
+                goto finish;
+        }
         if (r < 0)
                 goto finish;
 
@@ -369,7 +381,7 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
 
                                 }
 
-                                r = recurse_fd(subdir_fd, true, &fst, shift);
+                                r = recurse_fd(subdir_fd, true, &fst, shift, false);
                                 if (r < 0)
                                         goto finish;
                                 if (r > 0)
@@ -433,7 +445,7 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
         if (((uint32_t) (st.st_uid ^ shift) >> 16) == 0)
                 return 0;
 
-        return recurse_fd(fd, donate_fd, &st, shift);
+        return recurse_fd(fd, donate_fd, &st, shift, true);
 
 finish:
         if (donate_fd)
