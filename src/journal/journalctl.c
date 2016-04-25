@@ -991,8 +991,7 @@ static void boot_id_free_all(BootId *l) {
 static int discover_next_boot(
                 sd_journal *j,
                 BootId **boot,
-                bool advance_older,
-                bool read_realtime) {
+                bool advance_older) {
 
         int r;
         char match[9+32+1] = "_BOOT_ID=";
@@ -1029,11 +1028,9 @@ static int discover_next_boot(
         if (r < 0)
                 return r;
 
-        if (read_realtime) {
-                r = sd_journal_get_realtime_usec(j, &next_boot->first);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_journal_get_realtime_usec(j, &next_boot->first);
+        if (r < 0)
+                return r;
 
         /* Now seek to the last occurrence of this boot ID. */
         sd_id128_to_string(next_boot->id, match + 9);
@@ -1057,11 +1054,9 @@ static int discover_next_boot(
         else if (r == 0)
                 return -ENODATA; /* This shouldn't happen. We just came from this very boot ID. */
 
-        if (read_realtime) {
-                r = sd_journal_get_realtime_usec(j, &next_boot->last);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_journal_get_realtime_usec(j, &next_boot->last);
+        if (r < 0)
+                return r;
 
         *boot = next_boot;
         next_boot = NULL;
@@ -1144,7 +1139,7 @@ static int get_boots(
         for (;;) {
                 _cleanup_free_ BootId *current = NULL;
 
-                r = discover_next_boot(j, &current, advance_older, !query_ref_boot);
+                r = discover_next_boot(j, &current, advance_older);
                 if (r < 0) {
                         boot_id_free_all(head);
                         return r;
