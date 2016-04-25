@@ -669,6 +669,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>GatewayOnlink=</varname></term>
+          <listitem>
+            <para>Explicitly consider the gateway to be onlink, even if there
+            is no route to it. A boolean, defaults to
+            <literal>no</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Destination=</varname></term>
           <listitem>
             <para>The destination prefix of the route. Possibly

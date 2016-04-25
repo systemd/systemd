@@ -2207,7 +2207,7 @@ static int link_drop_foreign_config(Link *link) {
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
-                r = route_remove(route, link, link_address_remove_handler);
+                r = route_remove(route, link, link_route_remove_handler);
                 if (r < 0)
                         return r;
         }
