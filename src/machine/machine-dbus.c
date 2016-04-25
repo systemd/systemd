@@ -1274,6 +1274,97 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         return 1;
 }
 
+int bus_machine_method_open_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_close_ int fd = -1;
+        Machine *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-machines",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &m->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        switch (m->class) {
+
+        case MACHINE_HOST:
+                fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (fd < 0)
+                        return -errno;
+
+                break;
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_ int mntns_fd = -1, root_fd = -1;
+                _cleanup_close_pair_ int pair[2] = { -1, -1 };
+                siginfo_t si;
+                pid_t child;
+
+                r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
+                if (r < 0)
+                        return r;
+
+                if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                        return -errno;
+
+                child = fork();
+                if (child < 0)
+                        return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+
+                if (child == 0) {
+                        _cleanup_close_ int dfd = -1;
+
+                        pair[0] = safe_close(pair[0]);
+
+                        r = namespace_enter(-1, mntns_fd, -1, -1, root_fd);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                        if (dfd < 0)
+                                _exit(EXIT_FAILURE);
+
+                        r = send_one_fd(pair[1], dfd, 0);
+                        dfd = safe_close(dfd);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                r = wait_for_terminate(child, &si);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
+                if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
+
+                fd = receive_one_fd(pair[0], MSG_DONTWAIT);
+                if (fd < 0)
+                        return fd;
+
+                break;
+        }
+
+        default:
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening the root directory is only supported on container machines.");
+        }
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1297,6 +1388,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("BindMount", "ssbb", NULL, bus_machine_method_bind_mount, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyFrom", "ss", NULL, bus_machine_method_copy, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyTo", "ss", NULL, bus_machine_method_copy, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenRootDirectory", NULL, "h", bus_machine_method_open_root_directory, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
