@@ -155,18 +155,6 @@
   </refsect1>
 
   <refsect1>
-    <title>History</title>
-
-    <para>The watchdog functionality and the
-    <varname>$WATCHDOG_USEC</varname> variable were added in
-    systemd-41.</para>
-
-    <para><function>sd_watchdog_enabled()</function> function was
-    added in systemd-209. Since that version, the
-    <varname>$WATCHDOG_PID</varname> variable is also set.</para>
-  </refsect1>
-
-  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
