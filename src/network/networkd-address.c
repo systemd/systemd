@@ -67,15 +67,14 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         if (r < 0)
                 return r;
 
-        address->network = network;
-
-        LIST_APPEND(addresses, network->static_addresses, address);
-
         if (section) {
                 address->section = section;
                 hashmap_put(network->addresses_by_section,
                             UINT_TO_PTR(address->section), address);
         }
+
+        address->network = network;
+        LIST_APPEND(addresses, network->static_addresses, address);
 
         *ret = address;
         address = NULL;
