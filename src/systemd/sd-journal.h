@@ -67,10 +67,11 @@ typedef struct sd_journal sd_journal;
 
 /* Open flags */
 enum {
-        SD_JOURNAL_LOCAL_ONLY = 1,
-        SD_JOURNAL_RUNTIME_ONLY = 2,
-        SD_JOURNAL_SYSTEM = 4,
-        SD_JOURNAL_CURRENT_USER = 8,
+        SD_JOURNAL_LOCAL_ONLY   = 1 << 0,
+        SD_JOURNAL_RUNTIME_ONLY = 1 << 1,
+        SD_JOURNAL_SYSTEM       = 1 << 2,
+        SD_JOURNAL_CURRENT_USER = 1 << 3,
+        SD_JOURNAL_OS_ROOT      = 1 << 4,
 
         SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM /* deprecated name */
 };

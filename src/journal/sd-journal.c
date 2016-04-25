@@ -1809,13 +1809,16 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
 
         assert_return(ret, -EINVAL);
         assert_return(path, -EINVAL);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~SD_JOURNAL_OS_ROOT) == 0, -EINVAL);
 
         j = journal_new(flags, path);
         if (!j)
                 return -ENOMEM;
 
-        r = add_root_directory(j, path, false);
+        if (flags & SD_JOURNAL_OS_ROOT)
+                r = add_search_paths(j);
+        else
+                r = add_root_directory(j, path, false);
         if (r < 0)
                 goto fail;
 
@@ -1862,7 +1865,7 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
 
         assert_return(ret, -EINVAL);
         assert_return(fd >= 0, -EBADF);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~SD_JOURNAL_OS_ROOT) == 0, -EINVAL);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -1876,7 +1879,10 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
 
         j->toplevel_fd = fd;
 
-        r = add_root_directory(j, NULL, false);
+        if (flags & SD_JOURNAL_OS_ROOT)
+                r = add_search_paths(j);
+        else
+                r = add_root_directory(j, NULL, false);
         if (r < 0)
                 goto fail;
 
