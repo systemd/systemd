@@ -709,6 +709,10 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (!VALID64(offset))
                 return -EFAULT;
 
+        /* Object may not be located in the file header */
+        if (offset < le64toh(f->header->header_size))
+                return -EBADMSG;
+
         r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;
