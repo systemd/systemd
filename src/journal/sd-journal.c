@@ -1942,7 +1942,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
         return 0;
 
 fail:
-        /* If we fail, make sure we don't take possession of the files we managed to make use of successfuly, and they
+        /* If we fail, make sure we don't take possession of the files we managed to make use of successfully, and they
          * remain open */
         ORDERED_HASHMAP_FOREACH(f, j->files, iterator)
                 f->close_fd = false;

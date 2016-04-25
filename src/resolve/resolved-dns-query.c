@@ -810,7 +810,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 switch (t->state) {
 
                 case DNS_TRANSACTION_SUCCESS: {
-                        /* We found a successfuly reply, merge it into the answer */
+                        /* We found a successfully reply, merge it into the answer */
                         r = dns_answer_extend(&q->answer, t->answer);
                         if (r < 0)
                                 goto fail;
