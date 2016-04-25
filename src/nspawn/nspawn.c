@@ -160,6 +160,8 @@ static unsigned arg_n_custom_mounts = 0;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
 static bool arg_share_system = false;
+static bool arg_share_ipc = false;
+static bool arg_share_uts = false;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
@@ -334,6 +336,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OVERLAY,
                 ARG_OVERLAY_RO,
                 ARG_SHARE_SYSTEM,
+                ARG_SHARE_IPC,
+                ARG_SHARE_UTS,
                 ARG_REGISTER,
                 ARG_KEEP_UNIT,
                 ARG_NETWORK_INTERFACE,
@@ -378,6 +382,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "selinux-apifs-context", required_argument, NULL, 'L'                   },
                 { "quiet",                 no_argument,       NULL, 'q'                   },
                 { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      },
+                { "share-ipc",             no_argument,       NULL, ARG_SHARE_IPC         },
+                { "share-uts",             no_argument,       NULL, ARG_SHARE_UTS         },
                 { "register",              required_argument, NULL, ARG_REGISTER          },
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
@@ -735,6 +741,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SHARE_SYSTEM:
                         arg_share_system = true;
+                        break;
+
+                case ARG_SHARE_IPC:
+                        arg_share_ipc = true;
+                        break;
+
+                case ARG_SHARE_UTS:
+                        arg_share_uts = true;
                         break;
 
                 case ARG_REGISTER:
@@ -1365,7 +1379,7 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
 
 static int setup_hostname(void) {
 
-        if (arg_share_system)
+        if (arg_share_system || arg_share_uts)
                 return 0;
 
         if (sethostname_idempotent(arg_machine) < 0)
@@ -2695,6 +2709,7 @@ static int outer_child(
         pid_t pid;
         ssize_t l;
         int r;
+        unsigned long clone_flags;
 
         assert(barrier);
         assert(directory);
@@ -2835,11 +2850,19 @@ static int outer_child(
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
 
-        pid = raw_clone(SIGCHLD|CLONE_NEWNS|
-                        (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS) |
-                        (arg_private_network ? CLONE_NEWNET : 0) |
-                        (arg_userns ? CLONE_NEWUSER : 0),
-                        NULL);
+        clone_flags = SIGCHLD|CLONE_NEWNS;
+        if (!arg_share_system) {
+                clone_flags |= CLONE_NEWPID;
+                if (!arg_share_ipc)
+                        clone_flags |= CLONE_NEWIPC;
+                if (!arg_share_uts)
+                        clone_flags |= CLONE_NEWUTS;
+        }
+        if (arg_private_network)
+                clone_flags |= CLONE_NEWNET;
+        if (arg_userns)
+                clone_flags |= CLONE_NEWUSER;
+        pid = raw_clone(clone_flags, NULL);
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
