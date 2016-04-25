@@ -1448,7 +1448,7 @@ static int link_acquire_ipv6_conf(Link *link) {
         return 0;
 }
 
-static int link_acquire_conf(Link *link) {
+static int link_acquire_ipv4_conf(Link *link) {
         int r;
 
         assert(link);
@@ -1474,6 +1474,24 @@ static int link_acquire_conf(Link *link) {
                 r = sd_dhcp_client_start(link->dhcp_client);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
+        }
+
+        return 0;
+}
+
+static int link_acquire_conf(Link *link) {
+        int r;
+
+        assert(link);
+
+        r = link_acquire_ipv4_conf(link);
+        if (r < 0)
+                return r;
+
+        if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) == 0) {
+                r = link_acquire_ipv6_conf(link);
+                if (r < 0)
+                        return r;
         }
 
         if (link_lldp_tx_enabled(link)) {
@@ -2341,12 +2359,6 @@ static int link_configure(Link *link) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
-
-                if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) == 0) {
-                        r = link_acquire_ipv6_conf(link);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         return link_enter_join_netdev(link);
@@ -2729,6 +2741,10 @@ static int link_carrier_gained(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
+
+                r = link_enter_set_addresses(link);
+                if (r < 0)
+                        return r;
         }
 
         r = link_handle_bound_by_list(link);
