@@ -80,7 +80,7 @@ typedef enum NotifyState {
 
 typedef enum ServiceResult {
         SERVICE_SUCCESS,
-        SERVICE_FAILURE_RESOURCES,
+        SERVICE_FAILURE_RESOURCES, /* a bit of a misnomer, just our catch-all error for errnos we didn't expect */
         SERVICE_FAILURE_TIMEOUT,
         SERVICE_FAILURE_EXIT_CODE,
         SERVICE_FAILURE_SIGNAL,
