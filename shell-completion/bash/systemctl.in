@@ -96,7 +96,7 @@ _systemctl () {
         local i verb comps mode
 
         local -A OPTS=(
-               [STANDALONE]='--all -a --reverse --after --before --defaults --failed --force -f --full -l --global
+               [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
                              --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup
                              --show-types -i --ignore-inhibitors --plain'

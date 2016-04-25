@@ -53,7 +53,7 @@ Description=Testsuite service
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/sh -x -c 'systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok'
+ExecStart=/bin/sh -x -c 'systemctl --state=failed --no-legend --no-pager > /failed ; echo OK > /testok'
 Type=oneshot
 EOF
 
