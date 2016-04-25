@@ -873,6 +873,18 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (!strv_isempty(arg_system_units) && (arg_journal_type == SD_JOURNAL_CURRENT_USER)) {
+
+                /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
+                 * journal, but the latter excludes the system journal, thus resulting in empty output). Let's be nice
+                 * to users, and automatically turn --unit= into --user-unit= if combined with --user. */
+                r = strv_extend_strv(&arg_user_units, arg_system_units, true);
+                if (r < 0)
+                        return -ENOMEM;
+
+                arg_system_units = strv_free(arg_system_units);
+        }
+
         return 1;
 }
 
