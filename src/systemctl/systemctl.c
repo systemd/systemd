@@ -1355,7 +1355,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         } else
                 id_cols = max_id_len;
 
-        if (!arg_no_legend)
+        if (!arg_no_legend && c > 0)
                 printf("%-*s %-*s\n",
                        id_cols, "UNIT FILE",
                        state_cols, "STATE");
