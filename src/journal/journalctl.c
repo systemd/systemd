@@ -988,18 +988,18 @@ static void boot_id_free_all(BootId *l) {
         }
 }
 
-static int discover_next_boot(
-                sd_journal *j,
-                BootId **boot,
+static int discover_next_boot(sd_journal *j,
+                sd_id128_t previous_boot_id,
                 bool advance_older,
-                bool read_realtime) {
+                BootId **ret) {
 
-        int r;
-        char match[9+32+1] = "_BOOT_ID=";
         _cleanup_free_ BootId *next_boot = NULL;
+        char match[9+32+1] = "_BOOT_ID=";
+        sd_id128_t boot_id;
+        int r;
 
         assert(j);
-        assert(boot);
+        assert(ret);
 
         /* We expect the journal to be on the last position of a boot
          * (in relation to the direction we are going), so that the next
@@ -1012,28 +1012,39 @@ static int discover_next_boot(
          * we can actually advance to a *different* boot. */
         sd_journal_flush_matches(j);
 
-        if (advance_older)
-                r = sd_journal_previous(j);
-        else
-                r = sd_journal_next(j);
-        if (r < 0)
-                return r;
-        else if (r == 0)
-                return 0; /* End of journal, yay. */
+        do {
+                if (advance_older)
+                        r = sd_journal_previous(j);
+                else
+                        r = sd_journal_next(j);
+                if (r < 0)
+                        return r;
+                else if (r == 0)
+                        return 0; /* End of journal, yay. */
+
+                r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                if (r < 0)
+                        return r;
+
+                /* We iterate through this in a loop, until the boot ID differs from the previous one. Note that
+                 * normally, this will only require a single iteration, as we seeked to the last entry of the previous
+                 * boot entry already. However, it might happen that the per-journal-field entry arrays are less
+                 * complete than the main entry array, and hence might reference an entry that's not actually the last
+                 * one of the boot ID as last one. Let's hence use the per-field array is initial seek position to
+                 * speed things up, but let's not trust that it is complete, and hence, manually advance as
+                 * necessary. */
+
+        } while (sd_id128_equal(boot_id, previous_boot_id));
 
         next_boot = new0(BootId, 1);
         if (!next_boot)
                 return -ENOMEM;
 
-        r = sd_journal_get_monotonic_usec(j, NULL, &next_boot->id);
+        next_boot->id = boot_id;
+
+        r = sd_journal_get_realtime_usec(j, &next_boot->first);
         if (r < 0)
                 return r;
-
-        if (read_realtime) {
-                r = sd_journal_get_realtime_usec(j, &next_boot->first);
-                if (r < 0)
-                        return r;
-        }
 
         /* Now seek to the last occurrence of this boot ID. */
         sd_id128_to_string(next_boot->id, match + 9);
@@ -1057,13 +1068,11 @@ static int discover_next_boot(
         else if (r == 0)
                 return -ENODATA; /* This shouldn't happen. We just came from this very boot ID. */
 
-        if (read_realtime) {
-                r = sd_journal_get_realtime_usec(j, &next_boot->last);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_journal_get_realtime_usec(j, &next_boot->last);
+        if (r < 0)
+                return r;
 
-        *boot = next_boot;
+        *ret = next_boot;
         next_boot = NULL;
 
         return 0;
@@ -1072,47 +1081,48 @@ static int discover_next_boot(
 static int get_boots(
                 sd_journal *j,
                 BootId **boots,
-                BootId *query_ref_boot,
+                sd_id128_t *query_ref_boot,
                 int ref_boot_offset) {
 
         bool skip_once;
         int r, count = 0;
         BootId *head = NULL, *tail = NULL;
         const bool advance_older = query_ref_boot && ref_boot_offset <= 0;
+        sd_id128_t previous_boot_id;
 
         assert(j);
 
         /* Adjust for the asymmetry that offset 0 is
          * the last (and current) boot, while 1 is considered the
          * (chronological) first boot in the journal. */
-        skip_once = query_ref_boot && sd_id128_is_null(query_ref_boot->id) && ref_boot_offset < 0;
+        skip_once = query_ref_boot && sd_id128_is_null(*query_ref_boot) && ref_boot_offset < 0;
 
         /* Advance to the earliest/latest occurrence of our reference
          * boot ID (taking our lookup direction into account), so that
          * discover_next_boot() can do its job.
          * If no reference is given, the journal head/tail will do,
          * they're "virtual" boots after all. */
-        if (query_ref_boot && !sd_id128_is_null(query_ref_boot->id)) {
+        if (query_ref_boot && !sd_id128_is_null(*query_ref_boot)) {
                 char match[9+32+1] = "_BOOT_ID=";
 
                 sd_journal_flush_matches(j);
 
-                sd_id128_to_string(query_ref_boot->id, match + 9);
+                sd_id128_to_string(*query_ref_boot, match + 9);
                 r = sd_journal_add_match(j, match, sizeof(match) - 1);
                 if (r < 0)
                         return r;
 
                 if (advance_older)
-                        r = sd_journal_seek_head(j);
+                        r = sd_journal_seek_head(j); /* seek to oldest */
                 else
-                        r = sd_journal_seek_tail(j);
+                        r = sd_journal_seek_tail(j); /* seek to newest */
                 if (r < 0)
                         return r;
 
                 if (advance_older)
-                        r = sd_journal_next(j);
+                        r = sd_journal_next(j);     /* read the oldest entry */
                 else
-                        r = sd_journal_previous(j);
+                        r = sd_journal_previous(j); /* read the most recently added entry */
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -1121,21 +1131,31 @@ static int get_boots(
                         count = 1;
                         goto finish;
                 }
+
+                /* At this point the read pointer is positioned at the oldest/newest occurence of the reference boot
+                 * ID. After flushing the matches, one more invocation of _previous()/_next() will hence place us at
+                 * the following entry, which must then have an older/newer boot ID */
         } else {
+
                 if (advance_older)
-                        r = sd_journal_seek_tail(j);
+                        r = sd_journal_seek_tail(j); /* seek to newest */
                 else
-                        r = sd_journal_seek_head(j);
+                        r = sd_journal_seek_head(j); /* seek to oldest */
                 if (r < 0)
                         return r;
 
-                /* No sd_journal_next/previous here. */
+                /* No sd_journal_next()/_previous() here.
+                 *
+                 * At this point the read pointer is positioned after the newest/before the oldest entry in the whole
+                 * journal. The next invocation of _previous()/_next() will hence position us at the newest/oldest
+                 * entry we have. */
         }
 
+        previous_boot_id = SD_ID128_NULL;
         for (;;) {
                 _cleanup_free_ BootId *current = NULL;
 
-                r = discover_next_boot(j, &current, advance_older, !query_ref_boot);
+                r = discover_next_boot(j, previous_boot_id, advance_older, &current);
                 if (r < 0) {
                         boot_id_free_all(head);
                         return r;
@@ -1144,6 +1164,8 @@ static int get_boots(
                 if (!current)
                         break;
 
+                previous_boot_id = current->id;
+
                 if (query_ref_boot) {
                         if (!skip_once)
                                 ref_boot_offset += advance_older ? 1 : -1;
@@ -1151,7 +1173,7 @@ static int get_boots(
 
                         if (ref_boot_offset == 0) {
                                 count = 1;
-                                query_ref_boot->id = current->id;
+                                *query_ref_boot = current->id;
                                 break;
                         }
                 } else {
@@ -1207,8 +1229,8 @@ static int list_boots(sd_journal *j) {
 
 static int add_boot(sd_journal *j) {
         char match[9+32+1] = "_BOOT_ID=";
+        sd_id128_t ref_boot_id;
         int r;
-        BootId ref_boot_id = {};
 
         assert(j);
 
@@ -1218,7 +1240,7 @@ static int add_boot(sd_journal *j) {
         if (arg_boot_offset == 0 && sd_id128_equal(arg_boot_id, SD_ID128_NULL))
                 return add_match_this_boot(j, arg_machine);
 
-        ref_boot_id.id = arg_boot_id;
+        ref_boot_id = arg_boot_id;
         r = get_boots(j, NULL, &ref_boot_id, arg_boot_offset);
         assert(r <= 1);
         if (r <= 0) {
@@ -1234,7 +1256,7 @@ static int add_boot(sd_journal *j) {
                 return r == 0 ? -ENODATA : r;
         }
 
-        sd_id128_to_string(ref_boot_id.id, match + 9);
+        sd_id128_to_string(ref_boot_id, match + 9);
 
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0)
