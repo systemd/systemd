@@ -1767,6 +1767,9 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         char *p;
         int r;
 
+        /* This is pretty much deprecated, people should use machined's OpenMachineRootDirectory() call instead in
+         * combination with sd_journal_open_directory_fd(). */
+
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return((flags & ~(SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM)) == 0, -EINVAL);

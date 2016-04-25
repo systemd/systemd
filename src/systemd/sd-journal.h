@@ -88,7 +88,7 @@ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
 int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags);
 int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
 int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags);
-int sd_journal_open_container(sd_journal **ret, const char *machine, int flags);
+int sd_journal_open_container(sd_journal **ret, const char *machine, int flags); /* deprecated */
 void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
