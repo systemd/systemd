@@ -45,14 +45,16 @@
   <refnamediv>
     <refname>sd_journal_open</refname>
     <refname>sd_journal_open_directory</refname>
+    <refname>sd_journal_open_directory_fd</refname>
     <refname>sd_journal_open_files</refname>
-    <refname>sd_journal_open_container</refname>
+    <refname>sd_journal_open_files_fd</refname>
     <refname>sd_journal_close</refname>
     <refname>sd_journal</refname>
     <refname>SD_JOURNAL_LOCAL_ONLY</refname>
     <refname>SD_JOURNAL_RUNTIME_ONLY</refname>
     <refname>SD_JOURNAL_SYSTEM</refname>
     <refname>SD_JOURNAL_CURRENT_USER</refname>
+    <refname>SD_JOURNAL_OS_ROOT</refname>
     <refpurpose>Open the system journal for reading</refpurpose>
   </refnamediv>
 
@@ -74,6 +76,13 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_journal_open_directory_fd</function></funcdef>
+        <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>int <parameter>flags</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_journal_open_files</function></funcdef>
         <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
         <paramdef>const char **<parameter>paths</parameter></paramdef>
@@ -81,9 +90,10 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_journal_open_container</function></funcdef>
+        <funcdef>int <function>sd_journal_open_files_fd</function></funcdef>
         <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
-        <paramdef>const char *<parameter>machine</parameter></paramdef>
+        <paramdef>int <parameter>fds[]</parameter></paramdef>
+        <paramdef>unsigned <parameter>n_fds</parameter></paramdef>
         <paramdef>int <parameter>flags</parameter></paramdef>
       </funcprototype>
 
@@ -117,29 +127,28 @@
     <constant>SD_JOURNAL_CURRENT_USER</constant> are specified, all
     journal file types will be opened.</para>
 
-    <para><function>sd_journal_open_directory()</function> is similar
-    to <function>sd_journal_open()</function> but takes an absolute
-    directory path as argument. All journal files in this directory
-    will be opened and interleaved automatically. This call also takes
-    a flags argument, but it must be passed as 0 as no flags are
-    currently understood for this call.</para>
+    <para><function>sd_journal_open_directory()</function> is similar to <function>sd_journal_open()</function> but
+    takes an absolute directory path as argument. All journal files in this directory will be opened and interleaved
+    automatically. This call also takes a flags argument. The only flags parameter accepted by this call is
+    <constant>SD_JOURNAL_OS_ROOT</constant>. If specified, the journal files are searched below the usual
+    <filename>/var/log/journal</filename> and <filename>/run/log/journal</filename> relative to the specified path,
+    instead of directly beneath it.</para>
 
-    <para><function>sd_journal_open_files()</function> is similar to
-    <function>sd_journal_open()</function> but takes a
-    <constant>NULL</constant>-terminated list of file paths to open.
-    All files will be opened and interleaved automatically. This call
-    also takes a flags argument, but it must be passed as 0 as no
-    flags are currently understood for this call. Please note that in
-    the case of a live journal, this function is only useful for
-    debugging, because individual journal files can be rotated at any
-    moment, and the opening of specific files is inherently
-    racy.</para>
+    <para><function>sd_journal_open_directory_fd()</function> is similar to
+    <function>sd_journal_open_directory()</function>, but takes a file descriptor referencing a directory in the file
+    system instead of an absolute file system path.</para>
 
-    <para><function>sd_journal_open_container()</function> is similar
-    to <function>sd_journal_open()</function> but opens the journal
-    files of a running OS container. The specified machine name refers
-    to a container that is registered with
-    <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para><function>sd_journal_open_files()</function> is similar to <function>sd_journal_open()</function> but takes a
+    <constant>NULL</constant>-terminated list of file paths to open.  All files will be opened and interleaved
+    automatically. This call also takes a flags argument, but it must be passed as 0 as no flags are currently
+    understood for this call. Please note that in the case of a live journal, this function is only useful for
+    debugging, because individual journal files can be rotated at any moment, and the opening of specific files is
+    inherently racy.</para>
+
+    <para><function>sd_journal_open_files_fd()</function> is similar to <function>sd_journal_open_files()</function>
+    but takes an array of open file descriptors that must reference journal files, instead of an array of file system
+    paths. Pass the array of file descriptors as second argument, and the number of array entries in the third. The
+    flags parameter must be passed as 0.</para>
 
     <para><varname>sd_journal</varname> objects cannot be used in the
     child after a fork. Functions which take a journal object as an
