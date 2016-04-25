@@ -64,7 +64,6 @@ run_qemu() {
     find_qemu_bin || return 1
 
     KERNEL_APPEND="root=/dev/sda1 \
-systemd.log_level=debug \
 raid=noautodetect \
 loglevel=2 \
 init=$ROOTLIBDIR/systemd \
@@ -245,6 +244,9 @@ install_systemd() {
     # we strip binaries since debug symbols increase binaries size a lot
     # and it could fill the available space
     strip_binaries
+
+    # enable debug logging in PID1
+    echo LogLevel=debug >> $initdir/etc/systemd/system.conf
 }
 
 install_missing_libraries() {
