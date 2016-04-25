@@ -2806,11 +2806,11 @@ void journal_file_print_header(JournalFile *f) {
                "Data Hash Table Size: %"PRIu64"\n"
                "Field Hash Table Size: %"PRIu64"\n"
                "Rotate Suggested: %s\n"
-               "Head Sequential Number: %"PRIu64"\n"
-               "Tail Sequential Number: %"PRIu64"\n"
-               "Head Realtime Timestamp: %s\n"
-               "Tail Realtime Timestamp: %s\n"
-               "Tail Monotonic Timestamp: %s\n"
+               "Head Sequential Number: %"PRIu64" (%"PRIx64")\n"
+               "Tail Sequential Number: %"PRIu64" (%"PRIx64")\n"
+               "Head Realtime Timestamp: %s (%"PRIx64")\n"
+               "Tail Realtime Timestamp: %s (%"PRIx64")\n"
+               "Tail Monotonic Timestamp: %s (%"PRIx64")\n"
                "Objects: %"PRIu64"\n"
                "Entry Objects: %"PRIu64"\n",
                f->path,
@@ -2831,11 +2831,11 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
                le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
                yes_no(journal_file_rotate_suggested(f, 0)),
-               le64toh(f->header->head_entry_seqnum),
-               le64toh(f->header->tail_entry_seqnum),
-               format_timestamp_safe(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
-               format_timestamp_safe(y, sizeof(y), le64toh(f->header->tail_entry_realtime)),
-               format_timespan(z, sizeof(z), le64toh(f->header->tail_entry_monotonic), USEC_PER_MSEC),
+               le64toh(f->header->head_entry_seqnum), le64toh(f->header->head_entry_seqnum),
+               le64toh(f->header->tail_entry_seqnum), le64toh(f->header->tail_entry_seqnum),
+               format_timestamp_safe(x, sizeof(x), le64toh(f->header->head_entry_realtime)), le64toh(f->header->head_entry_realtime),
+               format_timestamp_safe(y, sizeof(y), le64toh(f->header->tail_entry_realtime)), le64toh(f->header->tail_entry_realtime),
+               format_timespan(z, sizeof(z), le64toh(f->header->tail_entry_monotonic), USEC_PER_MSEC), le64toh(f->header->tail_entry_monotonic),
                le64toh(f->header->n_objects),
                le64toh(f->header->n_entries));
 
