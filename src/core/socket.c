@@ -99,6 +99,8 @@ static void socket_init(Unit *u) {
         s->exec_context.std_error = u->manager->default_std_error;
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
+
+        RATELIMIT_INIT(s->trigger_limit, 5*USEC_PER_SEC, 2500);
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -1887,6 +1889,9 @@ static void socket_enter_running(Socket *s, int cfd) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
+        /* Note that this call takes possession of the connection fd passed. It either has to assign it somewhere or
+         * close it. */
+
         assert(s);
 
         /* We don't take connections anymore if we are supposed to
@@ -1896,7 +1901,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 log_unit_debug(UNIT(s), "Suppressing connection request since unit stop is scheduled.");
 
                 if (cfd >= 0)
-                        safe_close(cfd);
+                        cfd = safe_close(cfd);
                 else  {
                         /* Flush all sockets by closing and reopening them */
                         socket_close_fds(s);
@@ -1915,6 +1920,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                         }
                 }
 
+                return;
+        }
+
+        if (!ratelimit_test(&s->trigger_limit)) {
+                safe_close(cfd);
+                log_unit_warning(UNIT(s), "Trigger limit hit, refusing further activation.");
+                socket_enter_stop_pre(s, SOCKET_FAILURE_TRIGGER_LIMIT_HIT);
                 return;
         }
 
@@ -1949,7 +1961,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
-                        log_unit_warning(UNIT(s), "Too many incoming connections (%u)", s->n_connections);
+                        log_unit_warning(UNIT(s), "Too many incoming connections (%u), refusing connection attempt.", s->n_connections);
                         safe_close(cfd);
                         return;
                 }
@@ -1965,6 +1977,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                         /* ENOTCONN is legitimate if TCP RST was received.
                          * This connection is over, but the socket unit lives on. */
+                        log_unit_debug(UNIT(s), "Got ENOTCONN on incoming socket, assuming aborted connection attempt, ignoring.");
                         safe_close(cfd);
                         return;
                 }
@@ -1993,7 +2006,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if (r < 0)
                         goto fail;
 
-                cfd = -1;
+                cfd = -1; /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
@@ -2806,6 +2819,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
         [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
+        [SOCKET_FAILURE_TRIGGER_LIMIT_HIT] = "trigger-limit-hit",
         [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };
 

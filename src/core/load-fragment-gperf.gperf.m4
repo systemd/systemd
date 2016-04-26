@@ -297,6 +297,8 @@ Socket.RemoveOnStop,             config_parse_bool,                  0,         
 Socket.Symlinks,                 config_parse_unit_path_strv_printf, 0,                             offsetof(Socket, symlinks)
 Socket.FileDescriptorName,       config_parse_fdname,                0,                             0
 Socket.Service,                  config_parse_socket_service,        0,                             0
+Socket.TriggerLimitIntervalSec,  config_parse_sec,                   0,                             offsetof(Socket, trigger_limit.interval)
+Socket.TriggerLimitBurst,        config_parse_unsigned,              0,                             offsetof(Socket, trigger_limit.burst)
 m4_ifdef(`HAVE_SMACK',
 `Socket.SmackLabel,              config_parse_string,                0,                             offsetof(Socket, smack)
 Socket.SmackLabelIPIn,           config_parse_string,                0,                             offsetof(Socket, smack_ip_in)
