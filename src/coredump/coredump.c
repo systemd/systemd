@@ -904,11 +904,12 @@ static int process_kernel(int argc, char* argv[]) {
         /* The larger ones we allocate on the heap */
         _cleanup_free_ char
                 *core_owner_uid = NULL, *core_open_fds = NULL, *core_proc_status = NULL,
-                *core_proc_maps = NULL, *core_proc_limits = NULL, *core_proc_cgroup = NULL, *core_environ = NULL;
+                *core_proc_maps = NULL, *core_proc_limits = NULL, *core_proc_cgroup = NULL, *core_environ = NULL,
+                *core_proc_mountinfo = NULL;
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         const char *context[_CONTEXT_MAX];
-        struct iovec iovec[25];
+        struct iovec iovec[26];
         size_t n_iovec = 0;
         uid_t owner_uid;
         const char *p;
@@ -1071,6 +1072,15 @@ static int process_kernel(int argc, char* argv[]) {
 
                 if (core_proc_cgroup)
                         IOVEC_SET_STRING(iovec[n_iovec++], core_proc_cgroup);
+        }
+
+        p = procfs_file_alloca(pid, "mountinfo");
+        if (read_full_file(p, &t, NULL) >=0) {
+                core_proc_mountinfo = strappend("COREDUMP_PROC_MOUNTINFO=", t);
+                free(t);
+
+                if (core_proc_mountinfo)
+                        IOVEC_SET_STRING(iovec[n_iovec++], core_proc_mountinfo);
         }
 
         if (get_process_cwd(pid, &t) >= 0) {
