@@ -137,7 +137,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         r = config_parse(NULL, filename, file,
                          "Match\0"
                          "Link\0"
-                         "DUID\0"
                          "Network\0"
                          "Address\0"
                          "Route\0"
