@@ -322,6 +322,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.default_timeout_start_sec=</varname></term>
+
+        <listitem>
+          <para>Overwrites the default start job timeout <varname>DefaultTimeoutStartSec=</varname> at boot. For details,
+          see <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>modules-load=</varname></term>
         <term><varname>rd.modules-load=</varname></term>
 
