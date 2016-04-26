@@ -94,11 +94,10 @@
     required to access <filename>/tmp</filename> and
     <filename>/var/tmp</filename>.</para>
 
-    <para>Units whose output standard output or error output is
-    connected to any other sink but <option>null</option>,
-    <option>tty</option> and <option>socket</option> automatically
-    acquire dependencies of type <varname>After=</varname> on
-    <filename>journald.socket</filename>.</para>
+    <para>Units whose output standard output or error output is connected to <option>journal</option>,
+    <option>syslog</option> or <option>kmsg</option> (or their combinations with console output, see below)
+    automatically acquire dependencies of type <varname>After=</varname> on
+    <filename>systemd-journald.socket</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -469,6 +468,10 @@
         socket acquired via socket activation. The semantics are
         similar to the same option of
         <varname>StandardInput=</varname>.</para>
+
+        <para>If the standard output (or error output, see below) of a unit is connected with the journal, syslog or
+        the kernel log buffer the unit will implicitly gain a dependency of type <varname>After=</varname> on
+        <filename>systemd-journald.socket</filename> (also see the automatic dependencies section above).</para>
 
         <para>This setting defaults to the value set with
         <option>DefaultStandardOutput=</option> in
