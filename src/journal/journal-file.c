@@ -2469,12 +2469,18 @@ int journal_file_next_entry(
                               le64toh(f->header->entry_array_offset),
                               i,
                               ret, &ofs);
+        if (r == -EBADMSG && direction == DIRECTION_DOWN) {
+                /* Special case: when we iterate throught the journal file linearly, and hit an entry we can't read,
+                 * consider this the end of the journal file. */
+                log_debug_errno(r, "Encountered entry we can't read while iterating through journal file. Considering this the end of the file.");
+                return 0;
+        }
         if (r <= 0)
                 return r;
 
         if (p > 0 &&
             (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
-                log_debug("%s: entry array corrupted at entry %"PRIu64, f->path, i);
+                log_debug("%s: entry array corrupted at entry %" PRIu64, f->path, i);
                 return -EBADMSG;
         }
 
