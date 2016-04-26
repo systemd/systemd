@@ -220,6 +220,7 @@ Service.TimeoutStartSec,         config_parse_service_timeout,       0,         
 Service.TimeoutStopSec,          config_parse_service_timeout,       0,                             0
 Service.RuntimeMaxSec,           config_parse_sec,                   0,                             offsetof(Service, runtime_max_usec)
 Service.WatchdogSec,             config_parse_sec,                   0,                             offsetof(Service, watchdog_usec)
+m4_dnl The following three only exist for compatibility, they moved into Unit, see above
 Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
 Service.StartLimitBurst,         config_parse_unsigned,              0,                             offsetof(Unit, start_limit.burst)
 Service.StartLimitAction,        config_parse_failure_action,        0,                             offsetof(Unit, start_limit_action)

@@ -769,7 +769,8 @@
         manually at a later point, from which point on, the restart logic is again activated. Note that
         <command>systemctl reset-failed</command> will cause the restart rate counter for a service to be flushed,
         which is useful if the administrator wants to manually start a unit and the start limit interferes with
-        that.</para></listitem>
+        that. Note that this rate-limiting is enforced after any unit condition checks are executed, and hence unit
+        activations with failing conditions are not counted by this rate limiting.</para></listitem>
       </varlistentry>
 
       <varlistentry>

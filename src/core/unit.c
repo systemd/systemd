@@ -1497,11 +1497,6 @@ int unit_start(Unit *u) {
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
 
-        /* Make sure we don't enter a busy loop of some kind. */
-        r = unit_start_limit_test(u);
-        if (r < 0)
-                return r;
-
         /* Units that aren't loaded cannot be started */
         if (u->load_state != UNIT_LOADED)
                 return -EINVAL;
@@ -1542,6 +1537,11 @@ int unit_start(Unit *u) {
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
+
+        /* Make sure we don't enter a busy loop of some kind. */
+        r = unit_start_limit_test(u);
+        if (r < 0)
+                return r;
 
         /* We don't suppress calls to ->start() here when we are
          * already starting, to allow this request to be used as a
