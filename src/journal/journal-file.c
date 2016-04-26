@@ -1984,9 +1984,14 @@ static int generic_array_bisect(
                 i = right - 1;
                 lp = p = le64toh(array->entry_array.items[i]);
                 if (p <= 0)
-                        return -EBADMSG;
-
-                r = test_object(f, p, needle);
+                        r = -EBADMSG;
+                else
+                        r = test_object(f, p, needle);
+                if (r == -EBADMSG) {
+                        log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (1)");
+                        n = i;
+                        continue;
+                }
                 if (r < 0)
                         return r;
 
@@ -2062,9 +2067,14 @@ static int generic_array_bisect(
 
                                 p = le64toh(array->entry_array.items[i]);
                                 if (p <= 0)
-                                        return -EBADMSG;
-
-                                r = test_object(f, p, needle);
+                                        r = -EBADMSG;
+                                else
+                                        r = test_object(f, p, needle);
+                                if (r == -EBADMSG) {
+                                        log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (2)");
+                                        right = n = i;
+                                        continue;
+                                }
                                 if (r < 0)
                                         return r;
 
