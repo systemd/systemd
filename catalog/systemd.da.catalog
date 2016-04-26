@@ -52,7 +52,7 @@ Kun beskeder fra omtalte service er smidt væk. Beskeder fra andre
 services er ikke påvirket.
 
 Grænsen for hvornår beskeder bliver smidt væk kan konfigureres
-med RateLimitInterval= og RateLimitBurst= i
+med RateLimitIntervalSec= og RateLimitBurst= i
 /etc/systemd/journald.conf. Se journald.conf(5) for detaljer herom.
 
 -- e9bf28e6e834481bb6f48f548ad13606

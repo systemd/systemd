@@ -53,7 +53,7 @@ Majcie na ŭvazie, što byli adkinuty paviedamliennia toĺki hetaha servisu.
 Paviedamlienni inšych servisaŭ zastalisia.
 
 Miaža, paslia jakoj paviedamlienni buduć adkinuty, naladžvajecca z
-dapamohaj RateLimitInterval= i RateLimitBurst= u fajlie
+dapamohaj RateLimitIntervalSec= i RateLimitBurst= u fajlie
 /etc/systemd/journald.conf. Hliadzicie journald.conf(5) dlia detaliej.
 
 -- e9bf28e6e834481bb6f48f548ad13606

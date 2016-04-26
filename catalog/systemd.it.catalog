@@ -46,7 +46,7 @@ Solo i messaggi del servizio indicato sono stati
 eliminati, i messaggi degli altri servizi rimangono invariati.
 
 I limiti oltre i quali i messaggi si eliminano si configurano
-con RateLimitInterval= e RateLimitBurst= in
+con RateLimitIntervalSec= e RateLimitBurst= in
 /etc/systemd/journald.conf. Vedi journald.conf(5) per maggiori informazioni.
 
 -- e9bf28e6e834481bb6f48f548ad13606

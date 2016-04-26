@@ -53,7 +53,7 @@ Documentation: man:journald.conf(5)
 Паведамленні іншых сэрвісаў засталіся.
 
 Мяжа, пасля якой паведамленні будуць адкінуты, наладжваецца з
-дапамогай RateLimitInterval= і RateLimitBurst= у файле
+дапамогай RateLimitIntervalSec= і RateLimitBurst= у файле
 /etc/systemd/journald.conf. Глядзіце journald.conf(5) для дэталей.
 
 -- e9bf28e6e834481bb6f48f548ad13606

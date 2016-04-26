@@ -148,12 +148,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>RateLimitInterval=</varname></term>
+        <term><varname>RateLimitIntervalSec=</varname></term>
         <term><varname>RateLimitBurst=</varname></term>
 
         <listitem><para>Configures the rate limiting that is applied
         to all messages generated on the system. If, in the time
-        interval defined by <varname>RateLimitInterval=</varname>,
+        interval defined by <varname>RateLimitIntervalSec=</varname>,
         more messages than specified in
         <varname>RateLimitBurst=</varname> are logged by a service,
         all further messages within the interval are dropped until the
@@ -162,7 +162,7 @@
         per-service, so that two services which log do not interfere
         with each other's limits. Defaults to 1000 messages in 30s.
         The time specification for
-        <varname>RateLimitInterval=</varname> may be specified in the
+        <varname>RateLimitIntervalSec=</varname> may be specified in the
         following units: <literal>s</literal>, <literal>min</literal>,
         <literal>h</literal>, <literal>ms</literal>,
         <literal>us</literal>. To turn off any kind of rate limiting,

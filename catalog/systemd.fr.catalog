@@ -51,7 +51,7 @@ Notez que seuls des messages de ce service ont été évincés, les messages des
 autres services ne sont pas affectés.
 
 Les limites définissant ce comportement peuvent être configurées avec les
-paramètres RateLimitInterval= et RateLimitBurst= dans le fichier
+paramètres RateLimitIntervalSec= et RateLimitBurst= dans le fichier
 /etc/systemd/journald.conf. Voir journald.conf(5) pour plus de détails.
 
 -- e9bf28e6e834481bb6f48f548ad13606

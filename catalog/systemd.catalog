@@ -66,7 +66,7 @@ Note that only messages from the service in question have been
 dropped, other services' messages are unaffected.
 
 The limits controlling when messages are dropped may be configured
-with RateLimitInterval= and RateLimitBurst= in
+with RateLimitIntervalSec= and RateLimitBurst= in
 /etc/systemd/journald.conf. See journald.conf(5) for details.
 
 -- e9bf28e6e834481bb6f48f548ad13606

@@ -53,7 +53,7 @@ Documentation: man:journald.conf(5)
 其他服務的訊息則不受影響。
 
 可以在 /etc/systemd/journald.conf 中設定
-RateLimitInterval= 以及 RateLimitBurst=
+RateLimitIntervalSec= 以及 RateLimitBurst=
 來控制當訊息要開始被丟棄時的限制。參見 journald.conf(5) 以獲得更多資訊。
 
 -- e9bf28e6e834481bb6f48f548ad13606
