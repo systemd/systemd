@@ -413,6 +413,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 target = runlevel_to_target(key);
                 if (target)
                         return free_and_strdup(&arg_default_unit, target);
+
+        } else if (streq(key, "systemd.default_timeout_start_sec") && value) {
+
+                r = parse_sec(value, &arg_default_timeout_start_usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse default start timeout: %s, ignoring.", value);
+
+                if (arg_default_timeout_start_usec <= 0)
+                        arg_default_timeout_start_usec = USEC_INFINITY;
         }
 
         return 0;
