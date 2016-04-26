@@ -707,7 +707,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
-                return -EFAULT;
+                return -EBADMSG;
 
         /* Object may not be located in the file header */
         if (offset < le64toh(f->header->header_size))
