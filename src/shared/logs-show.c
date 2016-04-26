@@ -287,7 +287,10 @@ static int output_short(
                 if (r < 0)
                         return r;
         }
-
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get journal fields: %m");
 
