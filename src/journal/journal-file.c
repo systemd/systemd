@@ -707,11 +707,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
-                return -EBADMSG;
-
-        /* Object may not be located in the file header */
-        if (offset < le64toh(f->header->header_size))
-                return -EBADMSG;
+                return -EFAULT;
 
         r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
@@ -1984,14 +1980,9 @@ static int generic_array_bisect(
                 i = right - 1;
                 lp = p = le64toh(array->entry_array.items[i]);
                 if (p <= 0)
-                        r = -EBADMSG;
-                else
-                        r = test_object(f, p, needle);
-                if (r == -EBADMSG) {
-                        log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (1)");
-                        n = i;
-                        continue;
-                }
+                        return -EBADMSG;
+
+                r = test_object(f, p, needle);
                 if (r < 0)
                         return r;
 
@@ -2067,14 +2058,9 @@ static int generic_array_bisect(
 
                                 p = le64toh(array->entry_array.items[i]);
                                 if (p <= 0)
-                                        r = -EBADMSG;
-                                else
-                                        r = test_object(f, p, needle);
-                                if (r == -EBADMSG) {
-                                        log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (2)");
-                                        right = n = i;
-                                        continue;
-                                }
+                                        return -EBADMSG;
+
+                                r = test_object(f, p, needle);
                                 if (r < 0)
                                         return r;
 
@@ -2479,18 +2465,12 @@ int journal_file_next_entry(
                               le64toh(f->header->entry_array_offset),
                               i,
                               ret, &ofs);
-        if (r == -EBADMSG && direction == DIRECTION_DOWN) {
-                /* Special case: when we iterate throught the journal file linearly, and hit an entry we can't read,
-                 * consider this the end of the journal file. */
-                log_debug_errno(r, "Encountered entry we can't read while iterating through journal file. Considering this the end of the file.");
-                return 0;
-        }
         if (r <= 0)
                 return r;
 
         if (p > 0 &&
             (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
-                log_debug("%s: entry array corrupted at entry %" PRIu64, f->path, i);
+                log_debug("%s: entry array corrupted at entry %"PRIu64, f->path, i);
                 return -EBADMSG;
         }
 
