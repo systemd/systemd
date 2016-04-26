@@ -470,6 +470,9 @@
         similar to the same option of
         <varname>StandardInput=</varname>.</para>
 
+        <para>If standard output is connected with the journal, unit will implicitly
+        have dependency of type <varname>After=</varname> on <filename>systemd-journald.socket</filename>.</para>
+
         <para>This setting defaults to the value set with
         <option>DefaultStandardOutput=</option> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
