@@ -240,6 +240,7 @@
 /test-ns
 /test-nss
 /test-parse-util
+/test-patch-uid
 /test-path
 /test-path-lookup
 /test-path-util

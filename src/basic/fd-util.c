@@ -25,11 +25,13 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "util.h"
 
 int close_nointr(int fd) {
@@ -355,4 +357,12 @@ bool fdname_is_valid(const char *s) {
         }
 
         return p - s < 256;
+}
+
+int fd_get_path(int fd, char **ret) {
+        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+
+        return readlink_malloc(procfs_path, ret);
 }

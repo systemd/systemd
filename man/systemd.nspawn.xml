@@ -251,6 +251,14 @@
         <option>--uuid=</option> command line switch. This option is
         privileged (see above). </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrivateUsers=</varname></term>
+
+        <listitem><para>Configures support for usernamespacing. This is equivalent to the
+        <option>--private-users=</option> command line switch, and takes the same options. This option is privileged
+        (see above). </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -314,6 +322,16 @@
         for details about the specific options supported. This setting
         is privileged (see above).</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrivateUsersChown=</varname></term>
+
+        <listitem><para>Configures whether the ownership of the files and directories in the container tree shall be
+        adjusted to the UID/GID range used, if necessary and user namespacing is enabled. This is equivalent to the
+        <option>--private-users-chown</option> command line switch. This option is privileged (see
+        above). </para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

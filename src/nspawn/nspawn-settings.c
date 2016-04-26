@@ -25,7 +25,9 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
+#include "string-util.h"
 
 int settings_load(FILE *f, const char *path, Settings **ret) {
         _cleanup_(settings_freep) Settings *s = NULL;
@@ -40,9 +42,13 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
 
         s->start_mode = _START_MODE_INVALID;
         s->personality = PERSONALITY_INVALID;
+        s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
+        s->uid_shift = UID_INVALID;
+        s->uid_range = UID_INVALID;
 
         s->read_only = -1;
         s->volatile_mode = _VOLATILE_MODE_INVALID;
+        s->userns_chown = -1;
 
         s->private_network = -1;
         s->network_veth = -1;
@@ -58,6 +64,16 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
                          s);
         if (r < 0)
                 return r;
+
+        /* Make sure that if userns_mode is set, userns_chown is set to something appropriate, and vice versa. Either
+         * both fields shall be initialized or neither. */
+        if (s->userns_mode == USER_NAMESPACE_PICK)
+                s->userns_chown = true;
+        else if (s->userns_mode != _USER_NAMESPACE_MODE_INVALID && s->userns_chown < 0)
+                s->userns_chown = false;
+
+        if (s->userns_chown >= 0 && s->userns_mode == _USER_NAMESPACE_MODE_INVALID)
+                s->userns_mode = USER_NAMESPACE_NO;
 
         *ret = s;
         s = NULL;
@@ -390,5 +406,75 @@ int config_parse_pid2(
 
 conflict:
         log_syntax(unit, LOG_ERR, filename, line, r, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
+        return 0;
+}
+
+int config_parse_private_users(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = parse_boolean(rvalue);
+        if (r == 0) {
+                /* no: User namespacing off */
+                settings->userns_mode = USER_NAMESPACE_NO;
+                settings->uid_shift = UID_INVALID;
+                settings->uid_range = UINT32_C(0x10000);
+        } else if (r > 0) {
+                /* yes: User namespacing on, UID range is read from root dir */
+                settings->userns_mode = USER_NAMESPACE_FIXED;
+                settings->uid_shift = UID_INVALID;
+                settings->uid_range = UINT32_C(0x10000);
+        } else if (streq(rvalue, "pick")) {
+                /* pick: User namespacing on, UID range is picked randomly */
+                settings->userns_mode = USER_NAMESPACE_PICK;
+                settings->uid_shift = UID_INVALID;
+                settings->uid_range = UINT32_C(0x10000);
+        } else {
+                const char *range, *shift;
+                uid_t sh, rn;
+
+                /* anything else: User namespacing on, UID range is explicitly configured */
+
+                range = strchr(rvalue, ':');
+                if (range) {
+                        shift = strndupa(rvalue, range - rvalue);
+                        range++;
+
+                        r = safe_atou32(range, &rn);
+                        if (r < 0 || rn <= 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
+                                return 0;
+                        }
+                } else {
+                        shift = rvalue;
+                        rn = UINT32_C(0x10000);
+                }
+
+                r = parse_uid(shift, &sh);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        return 0;
+                }
+
+                settings->userns_mode = USER_NAMESPACE_FIXED;
+                settings->uid_shift = sh;
+                settings->uid_range = rn;
+        }
+
         return 0;
 }

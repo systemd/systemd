@@ -102,7 +102,7 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                 if (try_cfr) {
                         n = try_copy_file_range(fdf, NULL, fdt, NULL, m, 0u);
                         if (n < 0) {
-                                if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV))
+                                if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV, -EBADF))
                                         return n;
 
                                 try_cfr = false;

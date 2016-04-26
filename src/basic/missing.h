@@ -445,6 +445,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #define TMPFS_MAGIC 0x01021994
 #endif
 
+#ifndef MQUEUE_MAGIC
+#define MQUEUE_MAGIC 0x19800202
+#endif
+
 #ifndef MS_MOVE
 #define MS_MOVE 8192
 #endif

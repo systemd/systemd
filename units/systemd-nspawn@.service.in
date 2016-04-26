@@ -13,7 +13,7 @@ Before=machines.target
 After=network.target
 
 [Service]
-ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth --settings=override --machine=%i
+ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth -U --settings=override --machine=%i
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133

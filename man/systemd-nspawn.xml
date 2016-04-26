@@ -387,38 +387,79 @@
       <varlistentry>
         <term><option>--private-users=</option></term>
 
-        <listitem><para>Enables user namespacing. If enabled, the
-        container will run with its own private set of Unix user and
-        group ids (UIDs and GIDs). Takes none, one or two
-        colon-separated parameters: the first parameter specifies the
-        first host UID to assign to the container, the second
-        parameter specifies the number of host UIDs to assign to the
-        container. If the second parameter is omitted, 65536 UIDs are
-        assigned. If the first parameter is also omitted (and hence
-        no parameter passed at all), the first UID assigned to the
-        container is read from the owner of the root directory of the
-        container's directory tree. By default, no user namespacing is
-        applied.</para>
+        <listitem><para>Controls user namespacing. If enabled, the container will run with its own private set of UNIX
+        user and group ids (UIDs and GIDs). This involves mapping the private UIDs/GIDs used in the container (starting
+        with the container's root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other
+        purposes (usually in the range beyond the host's UID/GID 65536). The parameter may be specified as follows:</para>
 
-        <para>Note that user namespacing currently requires OS trees
-        that are prepared for the UID shift that is being applied:
-        UIDs and GIDs used for file ownership or in file ACL entries
-        must be shifted to the container UID base that is
-        used during container runtime.</para>
+        <orderedlist>
+          <listitem><para>The value <literal>no</literal> turns off user namespacing. This is the default.</para></listitem>
 
-        <para>It is recommended to assign at least 65536 UIDs to each
-        container, so that the usable UID range in the container
-        covers 16 bit. For best security, do not assign overlapping UID
-        ranges to multiple containers. It is hence a good idea to use
-        the upper 16 bit of the host 32-bit UIDs as container
-        identifier, while the lower 16 bit encode the container UID
-        used.</para>
+          <listitem><para>The value <literal>yes</literal> (or the omission of a parameter) turns on user
+          namespacing. The UID/GID range to use is determined automatically from the file ownership of the root
+          directory of the container's directory tree. To use this option, make sure to prepare the directory tree in
+          advance, and ensure that all files and directories in it are owned by UIDs/GIDs in the range you'd like to
+          use. Also, make sure that used file ACLs exclusively reference UIDs/GIDs in the appropriate range. If this
+          mode is used the number of UIDs/GIDs assigned to the container for use is 65536, and the UID/GID of the
+          root directory must be a multiple of 65536.</para></listitem>
 
-        <para>When user namespaces are used, the GID range assigned to
-        each container is always chosen identical to the UID
-        range.</para></listitem>
+          <listitem><para>The value "pick" turns on user namespacing. In this case the UID/GID range is automatically
+          chosen. As first step, the file owner of the root directory of the container's directory tree is read, and it
+          is checked that it is currently not used by the system otherwise (in particular, that no other container is
+          using it). If this check is successful, the UID/GID range determined this way is used, similar to the
+          behaviour if "yes" is specified. If the check is not successful (and thus the UID/GID range indicated in the
+          root directory's file owner is already used elsewhere) a new – currently unused – UID/GID range of 65536
+          UIDs/GIDs is randomly chosen between the host UID/GIDs of 524288 and 1878982656, always starting at a
+          multiple of 65536. This setting implies <option>--private-users-chown</option> (see below), which has the
+          effect that the files and directories in the container's directory tree will be owned by the appropriate
+          users of the range picked. Using this option makes user namespace behaviour fully automatic. Note that the
+          first invocation of a previously unused container image might result in picking a new UID/GID range for it,
+          and thus in the (possibly expensive) file ownership adjustment operation. However, subsequent invocations of
+          the container will be cheap (unless of course the picked UID/GID range is assigned to a different use by
+          then).</para></listitem>
+
+          <listitem><para>Finally if one or two colon-separated numeric parameters are specified, user namespacing is
+          turned on, too. The first parameter specifies the first host UID/GID to assign to the container, the second
+          parameter specifies the number of host UIDs/GIDs to assign to the container. If the second parameter is
+          omitted, 65536 UIDs/GIDs are assigned.</para></listitem>
+        </orderedlist>
+
+        <para>It is recommended to assign at least 65536 UIDs/GIDs to each container, so that the usable UID/GID range in the
+        container covers 16 bit. For best security, do not assign overlapping UID/GID ranges to multiple containers. It is
+        hence a good idea to use the upper 16 bit of the host 32-bit UIDs/GIDs as container identifier, while the lower 16
+        bit encode the container UID/GID used. This is in fact the behaviour enforced by the
+        <option>--private-users=pick</option> option.</para>
+
+        <para>When user namespaces are used, the GID range assigned to each container is always chosen identical to the
+        UID range.</para>
+
+        <para>In most cases, using <option>--private-users=pick</option> is the recommended option as it enhances
+        container security massively and operates fully automatically in most cases.</para>
+
+        <para>Note that the picked UID/GID range is not written to <filename>/etc/passwd</filename> or
+        <filename>/etc/group</filename>. In fact, the allocation of the range is not stored persistently anywhere,
+        except in the file ownership of the files and directories of the container.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-U</option></term>
+
+        <listitem><para>If the kernel supports the user namespaces feature, equivalent to
+        <option>--private-users=pick</option>, otherwise equivalent to
+        <option>--private-users=no</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-users-chown</option></term>
+
+        <listitem><para>If specified, all files and directories in the container's directory tree will adjusted so that
+        they are owned to the appropriate UIDs/GIDs selected for the container (see above). This operation is
+        potentially expensive, as it involves descending and iterating through the full directory tree of the
+        container. Besides actual file ownership, file ACLs are adjusted as well.</para>
+
+        <para>This option is implied if <option>--private-users=pick</option> is used. This option has no effect if
+        user namespacing is not used.</para></listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><option>--private-network</option></term>
