@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: ystemd master\n"
+"Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2016-27-04 11:57+0100\n"
 "PO-Revision-Date: 2016-04-27 12:11+0200\n"
