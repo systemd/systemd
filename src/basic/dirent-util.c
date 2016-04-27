@@ -55,9 +55,7 @@ bool dirent_is_file(const struct dirent *de) {
         if (hidden_file(de->d_name))
                 return false;
 
-        if (de->d_type != DT_REG &&
-            de->d_type != DT_LNK &&
-            de->d_type != DT_UNKNOWN)
+        if (!IN_SET(de->d_type, DT_REG, DT_LNK, DT_UNKNOWN))
                 return false;
 
         return true;
@@ -66,12 +64,10 @@ bool dirent_is_file(const struct dirent *de) {
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         assert(de);
 
-        if (de->d_type != DT_REG &&
-            de->d_type != DT_LNK &&
-            de->d_type != DT_UNKNOWN)
+        if (!IN_SET(de->d_type, DT_REG, DT_LNK, DT_UNKNOWN))
                 return false;
 
-        if (hidden_file_allow_backup(de->d_name))
+        if (de->d_name[0] == '.')
                 return false;
 
         return endswith(de->d_name, suffix);
