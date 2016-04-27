@@ -336,7 +336,7 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_BRIDGE_VLAN_INFO,
                 IFLA_BRPORT_PROXYARP,
                 IFLA_BRPORT_LEARNING_SYNC,
-                IFLA_BR_PRIORITY,
+                IFLA_BR_VLAN_DEFAULT_PVID,
                 NDA_IFINDEX,
                 IFA_FLAGS],
 [], [], [[
