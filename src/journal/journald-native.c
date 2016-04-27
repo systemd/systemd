@@ -206,7 +206,7 @@ void server_process_native_message(
                                            allow_object_pid(ucred)) {
                                         char buf[DECIMAL_STR_MAX(pid_t)];
                                         memcpy(buf, p + strlen("OBJECT_PID="), l - strlen("OBJECT_PID="));
-                                        char_array_0(buf);
+                                        buf[l-strlen("OBJECT_PID=")] = '\0';
 
                                         /* ignore error */
                                         parse_pid(buf, &object_pid);
