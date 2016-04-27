@@ -160,7 +160,7 @@ static int iterate_dir(
                 if (!de)
                         break;
 
-                if (hidden_file(de->d_name))
+                if (hidden_or_backup_file(de->d_name))
                         continue;
 
                 f = strjoin(path, "/", de->d_name, NULL);

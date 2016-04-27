@@ -151,7 +151,7 @@ int fdset_new_fill(FDSet **_s) {
         while ((de = readdir(d))) {
                 int fd = -1;
 
-                if (hidden_file(de->d_name))
+                if (hidden_or_backup_file(de->d_name))
                         continue;
 
                 r = safe_atoi(de->d_name, &fd);
