@@ -541,6 +541,7 @@ static int get_unit_list(
         size_t size = c;
         int r;
         UnitInfo u;
+        bool fallback = false;
 
         assert(bus);
         assert(unit_infos);
@@ -552,8 +553,7 @@ static int get_unit_list(
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "ListUnitsFiltered");
-
+                        "ListUnitsByPatterns");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -561,7 +561,34 @@ static int get_unit_list(
         if (r < 0)
                 return bus_log_create_error(r);
 
+        r = sd_bus_message_append_strv(m, patterns);
+        if (r < 0)
+                return bus_log_create_error(r);
+
         r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                /* Fallback to legacy ListUnitsFiltered method */
+                fallback = true;
+                log_debug_errno(r, "Failed to list units: %s Falling back to ListUnitsFiltered method.", bus_error_message(&error, r));
+                m = sd_bus_message_unref(m);
+                sd_bus_error_free(&error);
+
+                r = sd_bus_message_new_method_call(
+                                bus,
+                                &m,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ListUnitsFiltered");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, arg_states);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
@@ -572,7 +599,7 @@ static int get_unit_list(
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 u.machine = machine;
 
-                if (!output_show_unit(&u, patterns))
+                if (!output_show_unit(&u, fallback ? patterns : NULL))
                         continue;
 
                 if (!GREEDY_REALLOC(*unit_infos, size, c+1))
@@ -1282,7 +1309,7 @@ static int compare_unit_file_list(const void *a, const void *b) {
         return strcasecmp(basename(u->path), basename(v->path));
 }
 
-static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
+static bool output_show_unit_file(const UnitFileList *u, char **states, char **patterns) {
         assert(u);
 
         if (!strv_fnmatch_or_empty(patterns, basename(u->path), FNM_NOESCAPE))
@@ -1299,8 +1326,8 @@ static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
                         return false;
         }
 
-        if (!strv_isempty(arg_states) &&
-            !strv_find(arg_states, unit_file_state_to_string(u->state)))
+        if (!strv_isempty(states) &&
+            !strv_find(states, unit_file_state_to_string(u->state)))
                 return false;
 
         return true;
@@ -1373,6 +1400,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
         const char *state;
         char *path;
         int r;
+        bool fallback = false;
 
         pager_open(arg_no_pager, false);
 
@@ -1386,7 +1414,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 if (!h)
                         return log_oom();
 
-                r = unit_file_get_list(arg_scope, arg_root, h);
+                r = unit_file_get_list(arg_scope, arg_root, h, arg_states, strv_skip(argv, 1));
                 if (r < 0) {
                         unit_file_list_free(h);
                         return log_error_errno(r, "Failed to get unit file list: %m");
@@ -1401,7 +1429,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 }
 
                 HASHMAP_FOREACH(u, h, i) {
-                        if (!output_show_unit_file(u, strv_skip(argv, 1)))
+                        if (!output_show_unit_file(u, NULL, NULL))
                                 continue;
 
                         units[c++] = *u;
@@ -1411,6 +1439,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 assert(c <= n_units);
                 hashmap_free(h);
         } else {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
@@ -1418,15 +1447,44 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_call_method(
+                r = sd_bus_message_new_method_call(
                                 bus,
+                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "ListUnitFiles",
-                                &error,
-                                &reply,
-                                NULL);
+                                "ListUnitFilesByPatterns");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, arg_states);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, strv_skip(argv, 1));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+                if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                        /* Fallback to legacy ListUnitFiles method */
+                        fallback = true;
+                        log_debug_errno(r, "Failed to list unit files: %s Falling back to ListUnitsFiles method.", bus_error_message(&error, r));
+                        m = sd_bus_message_unref(m);
+                        sd_bus_error_free(&error);
+
+                        r = sd_bus_message_new_method_call(
+                                        bus,
+                                        &m,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "ListUnitFiles");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_call(bus, m, 0, &error, &reply);
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to list unit files: %s", bus_error_message(&error, r));
 
@@ -1444,7 +1502,9 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                                 unit_file_state_from_string(state)
                         };
 
-                        if (output_show_unit_file(&units[c], strv_skip(argv, 1)))
+                        if (output_show_unit_file(&units[c],
+                            fallback ? arg_states : NULL,
+                            fallback ? strv_skip(argv, 1) : NULL))
                                 c++;
 
                 }
