@@ -2403,6 +2403,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
         STRV_FOREACH(p, files) {
                 _cleanup_fclose_ FILE *f;
                 char line[LINE_MAX];
+                int n = 0;
 
                 f = fopen(*p, "re");
                 if (!f) {
@@ -2417,6 +2418,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                         char *l;
 
                         l = strstrip(line);
+                        n++;
 
                         if (isempty(l))
                                 continue;
@@ -2443,7 +2445,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                                 continue;
                         }
 
-                        log_debug("Couldn't parse line '%s'", l);
+                        log_syntax(NULL, LOG_WARNING, *p, n, 0, "Couldn't parse line '%s'. Ignoring.", line);
                 }
         }
 
