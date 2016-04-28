@@ -61,6 +61,11 @@ typedef enum SearchFlags {
         SEARCH_FOLLOW_CONFIG_SYMLINKS = 2,
 } SearchFlags;
 
+typedef enum PresetState {
+        PRESET_ENABLED = 1,
+        PRESET_DISABLED = 2,
+} PresetState;
+
 typedef struct {
         OrderedHashmap *will_process;
         OrderedHashmap *have_processed;
@@ -2367,17 +2372,18 @@ int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *
         return 1;
 }
 
-int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
+static int unit_file_list_presets(UnitFileScope scope, const char *root_dir, Hashmap **presets) {
         _cleanup_strv_free_ char **files = NULL;
         char **p;
         int r;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
-        assert(name);
+        assert(presets);
 
-        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
-                return -EINVAL;
+        *presets = hashmap_new(&string_hash_ops);
+        if (!*presets)
+                return -ENOMEM;
 
         if (scope == UNIT_FILE_SYSTEM)
                 r = conf_files_list(&files, ".preset", root_dir,
@@ -2395,7 +2401,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                                     "/usr/lib/systemd/user-preset",
                                     NULL);
         else
-                return 1; /* Default is "enable" */
+                return 0;
 
         if (r < 0)
                 return r;
@@ -2413,6 +2419,8 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                 }
 
                 FOREACH_LINE(line, f, return -errno) {
+                        PresetState *state = NULL;
+                        char *name = NULL;
                         const char *parameter;
                         char *l;
 
@@ -2423,33 +2431,66 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                         if (strchr(COMMENTS, *l))
                                 continue;
 
-                        parameter = first_word(l, "enable");
-                        if (parameter) {
-                                if (fnmatch(parameter, name, FNM_NOESCAPE) == 0) {
-                                        log_debug("Preset file says enable %s.", name);
-                                        return 1;
-                                }
+                        if ((parameter = first_word(l, "enable"))) {
+                                name = strdupa(parameter);
+                                state = new0(PresetState, 1);
+                                if (!state)
+                                        return -ENOMEM;
+
+                                *state = PRESET_ENABLED;
+                                log_debug("Preset file says enable %s.", name);
+                        } else if ((parameter = first_word(l, "disable"))) {
+                                name = strdupa(parameter);
+                                state = new0(PresetState, 1);
+                                if (!state)
+                                        return -ENOMEM;
+
+                                *state = PRESET_DISABLED;
+                                log_debug("Preset file says disable %s.", name);
+                        }
+
+                        if (state) {
+                                r = hashmap_put(*presets, name, state);
+                                if (r == 0 || r == -EEXIST)
+                                        log_debug("Ignoring latter entry for %s.", name);
+                                else if (r < 0)
+                                        return r;
 
                                 continue;
                         }
 
-                        parameter = first_word(l, "disable");
-                        if (parameter) {
-                                if (fnmatch(parameter, name, FNM_NOESCAPE) == 0) {
-                                        log_debug("Preset file says disable %s.", name);
-                                        return 0;
-                                }
-
-                                continue;
-                        }
-
-                        log_debug("Couldn't parse line '%s'", l);
+                        log_warning("Couldn't parse line '%s'. Ignoring.", l);
                 }
         }
 
-        /* Default is "enable" */
-        log_debug("Preset file doesn't say anything about %s, enabling.", name);
-        return 1;
+        return 0;
+}
+
+static int unit_file_query_preset_map(Hashmap *presets, const char *name) {
+        PresetState *s;
+
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        s = hashmap_get(presets, name) ?: hashmap_get(presets, "*");
+        if (!s || *s == PRESET_ENABLED)
+                return 1;
+        else
+                return 0;
+}
+
+int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
+        _cleanup_hashmap_free_free_ Hashmap *presets = NULL;
+        int r;
+
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        r = unit_file_list_presets(scope, root_dir, &presets);
+        if (r < 0)
+                return r;
+
+        return unit_file_query_preset_map(presets, name);
 }
 
 static int execute_preset(
@@ -2505,6 +2546,7 @@ static int preset_prepare_one(
                 LookupPaths *paths,
                 UnitFilePresetMode mode,
                 const char *name,
+                Hashmap *presets,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2515,7 +2557,7 @@ static int preset_prepare_one(
             install_info_find(minus, name))
                 return 0;
 
-        r = unit_file_query_preset(scope, paths->root_dir, name);
+        r = unit_file_query_preset_map(presets, name);
         if (r < 0)
                 return r;
 
@@ -2545,6 +2587,7 @@ int unit_file_preset(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_hashmap_free_free_ Hashmap *presets = NULL;
         const char *config_path;
         char **i;
         int r;
@@ -2559,11 +2602,15 @@ int unit_file_preset(
 
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
+        r = unit_file_list_presets(scope, root_dir, &presets);
+        if (r < 0)
+                return r;
+
         STRV_FOREACH(i, files) {
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i, presets, changes, n_changes);
                 if (r < 0)
                         return r;
         }
@@ -2582,6 +2629,7 @@ int unit_file_preset_all(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_hashmap_free_free_ Hashmap *presets = NULL;
         const char *config_path = NULL;
         char **i;
         int r;
@@ -2595,6 +2643,10 @@ int unit_file_preset_all(
                 return r;
 
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
+
+        r = unit_file_list_presets(scope, root_dir, &presets);
+        if (r < 0)
+                return r;
 
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
@@ -2619,7 +2671,7 @@ int unit_file_preset_all(
                                 continue;
 
                         /* we don't pass changes[] in, because we want to handle errors on our own */
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name, NULL, 0);
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name, presets, NULL, 0);
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);
