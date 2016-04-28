@@ -2010,8 +2010,12 @@ static void socket_enter_running(Socket *s, int cfd) {
                 s->n_connections++;
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
-                if (r < 0)
+                if (r < 0) {
+                        /* We failed to activate the new service, but it still exists. Let's make sure the service
+                         * closes and forgets the connection fd again, immediately. */
+                        service_close_socket_fd(service);
                         goto fail;
+                }
 
                 /* Notify clients about changed counters */
                 unit_add_to_dbus_queue(UNIT(s));
