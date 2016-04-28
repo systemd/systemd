@@ -362,7 +362,7 @@ static int refresh_one(
                 Group **ret) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        Group *ours;
+        Group *ours = NULL;
         int r;
 
         assert(controller);
