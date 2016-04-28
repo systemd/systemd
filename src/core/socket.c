@@ -794,47 +794,45 @@ static void socket_close_fds(Socket *s) {
         assert(s);
 
         LIST_FOREACH(port, p, s->ports) {
+                bool was_open;
+
+                was_open = p->fd >= 0;
 
                 p->event_source = sd_event_source_unref(p->event_source);
-
-                if (p->fd < 0)
-                        continue;
-
                 p->fd = safe_close(p->fd);
                 socket_cleanup_fd_list(p);
 
-                /* One little note: we should normally not delete any
-                 * sockets in the file system here! After all some
-                 * other process we spawned might still have a
-                 * reference of this fd and wants to continue to use
-                 * it. Therefore we delete sockets in the file system
-                 * before we create a new one, not after we stopped
-                 * using one! */
+                /* One little note: we should normally not delete any sockets in the file system here! After all some
+                 * other process we spawned might still have a reference of this fd and wants to continue to use
+                 * it. Therefore we normally delete sockets in the file system before we create a new one, not after we
+                 * stopped using one! That all said, if the user explicitly requested this, we'll delete them here
+                 * anyway, but only then. */
 
-                if (s->remove_on_stop) {
-                        switch (p->type) {
+                if (!was_open || !s->remove_on_stop)
+                        continue;
 
-                        case SOCKET_FIFO:
-                                unlink(p->path);
-                                break;
+                switch (p->type) {
 
-                        case SOCKET_MQUEUE:
-                                mq_unlink(p->path);
-                                break;
+                case SOCKET_FIFO:
+                        (void) unlink(p->path);
+                        break;
 
-                        case SOCKET_SOCKET:
-                                socket_address_unlink(&p->address);
-                                break;
+                case SOCKET_MQUEUE:
+                        (void) mq_unlink(p->path);
+                        break;
 
-                        default:
-                                break;
-                        }
+                case SOCKET_SOCKET:
+                        (void) socket_address_unlink(&p->address);
+                        break;
+
+                default:
+                        break;
                 }
         }
 
         if (s->remove_on_stop)
                 STRV_FOREACH(i, s->symlinks)
-                        unlink(*i);
+                        (void) unlink(*i);
 }
 
 static void socket_apply_socket_options(Socket *s, int fd) {
