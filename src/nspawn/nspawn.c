@@ -3339,7 +3339,7 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, loop_nr = -1;
-        char veth_name[IFNAMSIZ];
+        char veth_name[IFNAMSIZ] = "";
         bool secondary = false, remove_subvol = false;
         sigset_t mask_chld;
         pid_t pid = 0;
