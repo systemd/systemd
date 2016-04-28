@@ -2443,7 +2443,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                                 continue;
                         }
 
-                        log_debug("Couldn't parse line '%s'", l);
+                        log_warning("Couldn't parse line '%s'. Ignoring.", l);
                 }
         }
 
