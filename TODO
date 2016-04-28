@@ -40,8 +40,6 @@ Features:
 * rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the
   kernel doesn't support linkat() that replaces existing files, currently)
 
-* journalctl -f --no-tail fails for Lennart
-
 * check if DeviceAllow= should split first, resolve specifiers later
 
 * transient units: don't bother with actually setting unit properties, we
@@ -78,11 +76,9 @@ Features:
 * PID1: find a way how we can reload unit file configuration for
   specific units only, without reloading the whole of systemd
 
-* add an explicit parser for LimitNICE= and LimitRTPRIO= that verifies
+* add an explicit parser for LimitRTPRIO= that verifies
   the specified range and generates sane error messages for incorrect
-  specifications. Also, for LimitNICE= maybe introduce a syntax such
-  as "+5" or "-7" in order to make the limits more readable as they
-  are otherwise shifted by 20.
+  specifications.
 
 * do something about "/control" subcgroups in the unified cgroup hierarchy
 
@@ -249,7 +245,7 @@ Features:
   CAP_NET_ADMIN is set, more than the loopback device is defined, even
   when it is otherwise off
 
-* MessageQueueMessageSize= should use parse_iec_size().
+* MessageQueueMessageSize= (and suchlike) should use parse_iec_size().
 
 * "busctl status" works only as root on dbus1, since we cannot read
   /proc/$PID/exe
