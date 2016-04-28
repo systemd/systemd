@@ -1,3 +1,5 @@
+#!/usr/bin/python
+#
 # systemd-sysv-generator integration test
 #
 # (C) 2015 Canonical Ltd.
