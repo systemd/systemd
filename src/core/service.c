@@ -3139,9 +3139,8 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         assert(s);
         assert(fd >= 0);
 
-        /* This is called by the socket code when instantiating a new
-         * service for a stream socket and the socket needs to be
-         * configured. */
+        /* This is called by the socket code when instantiating a new service for a stream socket and the socket needs
+         * to be configured. We take ownership of the passed fd on success. */
 
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return -EINVAL;
@@ -3169,12 +3168,15 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
                         return r;
         }
 
+        r = unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false);
+        if (r < 0)
+                return r;
+
         s->socket_fd = fd;
         s->socket_fd_selinux_context_net = selinux_context_net;
 
         unit_ref_set(&s->accept_socket, UNIT(sock));
-
-        return unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false);
+        return 0;
 }
 
 static void service_reset_failed(Unit *u) {
