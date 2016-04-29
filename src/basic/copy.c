@@ -305,6 +305,8 @@ static int fd_copy_directory(
                 fdf = openat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         else
                 fdf = fcntl(df, F_DUPFD_CLOEXEC, 3);
+        if (fdf < 0)
+                return -errno;
 
         d = fdopendir(fdf);
         if (!d)
