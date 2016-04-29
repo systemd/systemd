@@ -423,6 +423,21 @@ int copy_directory_fd(int dirfd, const char *to, bool merge) {
         return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, merge);
 }
 
+int copy_directory(const char *from, const char *to, bool merge) {
+        struct stat st;
+
+        assert(from);
+        assert(to);
+
+        if (lstat(from, &st) < 0)
+                return -errno;
+
+        if (!S_ISDIR(st.st_mode))
+                return -ENOTDIR;
+
+        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, merge);
+}
+
 int copy_file_fd(const char *from, int fdt, bool try_reflink) {
         _cleanup_close_ int fdf = -1;
         int r;
