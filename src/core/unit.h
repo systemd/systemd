@@ -186,6 +186,7 @@ struct Unit {
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
         CGroupMask cgroup_realized_mask;
+        CGroupMask cgroup_enabled_mask;
         CGroupMask cgroup_subtree_mask;
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
