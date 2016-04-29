@@ -829,11 +829,11 @@
         <varlistentry>
           <term><varname>DUIDRawData=</varname></term>
           <listitem><para>Specifies the DHCP DUID bytes as a single newline-terminated, hexadecimal string, with each
-          byte separated by a ':'.  A DHCPv6 client sends the DHCP Unique Identifier (DUID) and the interface Identity
-          Association Identifier (IAID) to a DHCP server when acquiring a dynamic IPv6 address. Similar, DHCPv4 clients
-          send the IAID and DUID to the DHCP server when acquiring a dynamic IPv4 address if
-          <option>ClientIdentifier=duid</option>. IAID and DUID allows a DHCP server to uniquely identify the machine
-          and the interface requesting a DHCP IP address.</para>
+          byte separated by a <literal>:</literal>. A DHCPv6 client sends the DHCP Unique Identifier (DUID) and the
+          interface Identity Association Identifier (IAID) to a DHCP server when acquiring a dynamic IPv6
+          address. Similarly, DHCPv4 clients send the IAID and DUID to the DHCP server when acquiring a dynamic IPv4
+          address if <option>ClientIdentifier=duid</option>. IAID and DUID allows a DHCP server to uniquely identify
+          the machine and the interface requesting a DHCP IP address.</para>
 
           <para>The DUID value specified here takes precedence over the DUID that systemd-networkd generates
           using the machine-id from the <filename>/etc/machine-id</filename> file, as well as the
