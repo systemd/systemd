@@ -131,7 +131,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->ipv6_accept_ra = -1;
         network->ipv6_dad_transmits = -1;
         network->ipv6_hop_limit = -1;
-        network->duid_type = _DUID_TYPE_INVALID;
+        network->duid.type = _DUID_TYPE_INVALID;
         network->proxy_arp = -1;
 
         r = config_parse(NULL, filename, file,

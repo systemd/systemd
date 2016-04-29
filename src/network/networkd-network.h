@@ -68,6 +68,14 @@ typedef enum LLDPMode {
         _LLDP_MODE_INVALID = -1,
 } LLDPMode;
 
+typedef struct DUID {
+        /* Value of Type in [DHCP] section */
+        DUIDType type;
+
+        uint8_t raw_data_len;
+        uint8_t raw_data[MAX_DUID_LEN];
+} DUID;
+
 typedef struct Manager Manager;
 
 struct Network {
@@ -150,12 +158,7 @@ struct Network {
         struct ether_addr *mac;
         unsigned mtu;
         uint32_t iaid;
-        /* Value of Type in [DUID] section */
-        DUIDType duid_type;
-        /* DUID type code - RFC 3315 */
-        uint16_t dhcp_duid_type;
-        size_t dhcp_duid_len;
-        uint8_t dhcp_duid[MAX_DUID_LEN];
+        DUID duid;
 
         LLDPMode lldp_mode; /* LLDP reception */
         bool lldp_emit;     /* LLDP transmission */

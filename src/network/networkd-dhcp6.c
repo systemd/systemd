@@ -206,6 +206,7 @@ int dhcp6_request_address(Link *link) {
 int dhcp6_configure(Link *link) {
         sd_dhcp6_client *client = NULL;
         int r;
+        const DUID *duid;
 
         assert(link);
 
@@ -234,16 +235,11 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 goto error;
 
-        if (link->network->duid_type != _DUID_TYPE_INVALID)
-                r = sd_dhcp6_client_set_duid(client,
-                                             link->network->dhcp_duid_type,
-                                             link->network->dhcp_duid,
-                                             link->network->dhcp_duid_len);
-        else
-                r = sd_dhcp6_client_set_duid(client,
-                                             link->manager->dhcp_duid_type,
-                                             link->manager->dhcp_duid,
-                                             link->manager->dhcp_duid_len);
+        duid = link_duid(link);
+        r = sd_dhcp6_client_set_duid(client,
+                                     duid->type,
+                                     duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                     duid->raw_data_len);
         if (r < 0)
                 goto error;
 
