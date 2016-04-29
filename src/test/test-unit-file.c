@@ -53,7 +53,7 @@ static int test_unit_file_get_set(void) {
         h = hashmap_new(&string_hash_ops);
         assert_se(h);
 
-        r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);
+        r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);
 
         if (r == -EPERM || r == -EACCES) {
                 printf("Skipping test: unit_file_get_list: %s", strerror(-r));

@@ -889,7 +889,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states) {
+static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *k;
@@ -929,6 +929,10 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                     !strv_contains(states, unit_sub_state_to_string(u)))
                         continue;
 
+                if (!strv_isempty(patterns) &&
+                    !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
+                        continue;
+
                 unit_path = unit_dbus_path(u);
                 if (!unit_path)
                         return -ENOMEM;
@@ -963,7 +967,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_list_units(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return list_units_filtered(message, userdata, error, NULL);
+        return list_units_filtered(message, userdata, error, NULL, NULL);
 }
 
 static int method_list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -974,7 +978,23 @@ static int method_list_units_filtered(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        return list_units_filtered(message, userdata, error, states);
+        return list_units_filtered(message, userdata, error, states, NULL);
+}
+
+static int method_list_units_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **states = NULL;
+        _cleanup_strv_free_ char **patterns = NULL;
+        int r;
+
+        r = sd_bus_message_read_strv(message, &states);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_strv(message, &patterns);
+        if (r < 0)
+                return r;
+
+        return list_units_filtered(message, userdata, error, states, patterns);
 }
 
 static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1465,7 +1485,7 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         UnitFileList *item;
@@ -1490,7 +1510,7 @@ static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bu
         if (!h)
                 return -ENOMEM;
 
-        r = unit_file_get_list(m->unit_file_scope, NULL, h);
+        r = unit_file_get_list(m->unit_file_scope, NULL, h, states, patterns);
         if (r < 0)
                 goto fail;
 
@@ -1516,6 +1536,26 @@ static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bu
 fail:
         unit_file_list_free(h);
         return r;
+}
+
+static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return list_unit_files_by_patterns(message, userdata, error, NULL, NULL);
+}
+
+static int method_list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **states = NULL;
+        _cleanup_strv_free_ char **patterns = NULL;
+        int r;
+
+        r = sd_bus_message_read_strv(message, &states);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_strv(message, &patterns);
+        if (r < 0)
+                return r;
+
+        return list_unit_files_by_patterns(message, userdata, error, states, patterns);
 }
 
 static int method_get_unit_file_state(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2073,6 +2113,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ResetFailed", NULL, NULL, method_reset_failed, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListUnits", NULL, "a(ssssssouso)", method_list_units, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListUnitsFiltered", "as", "a(ssssssouso)", method_list_units_filtered, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListUnitsByPatterns", "asas", "a(ssssssouso)", method_list_units_by_patterns, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListJobs", NULL, "a(usssoo)", method_list_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Subscribe", NULL, NULL, method_subscribe, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unsubscribe", NULL, NULL, method_unsubscribe, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -2091,6 +2132,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("UnsetEnvironment", "as", NULL, method_unset_environment, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UnsetAndSetEnvironment", "asas", NULL, method_unset_and_set_environment, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListUnitFiles", NULL, "a(ss)", method_list_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListUnitFilesByPatterns", "asas", "a(ss)", method_list_unit_files_by_patterns, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitFileState", "s", "s", method_get_unit_file_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("EnableUnitFiles", "asbb", "ba(sss)", method_enable_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("DisableUnitFiles", "asb", "a(sss)", method_disable_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),

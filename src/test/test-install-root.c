@@ -606,7 +606,7 @@ static void test_preset_and_list(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(h = hashmap_new(&string_hash_ops));
-        assert_se(unit_file_get_list(UNIT_FILE_SYSTEM, root, h) >= 0);
+        assert_se(unit_file_get_list(UNIT_FILE_SYSTEM, root, h, NULL, NULL) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
