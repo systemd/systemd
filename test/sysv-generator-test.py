@@ -397,11 +397,12 @@ class SysvGeneratorTest(unittest.TestCase):
         # backup files (not enabled in rcN.d/)
         shutil.copy(script, script + '.bak')
         shutil.copy(script, script + '.old')
+        shutil.copy(script, script + '.tmp')
+        shutil.copy(script, script + '.new')
 
         err, results = self.run_generator()
         print(err)
-        self.assertEqual(sorted(results),
-                         ['foo.bak.service', 'foo.old.service', 'foo.service'])
+        self.assertEqual(sorted(results), ['foo.service', 'foo.tmp.service'])
 
         # ensure we don't try to create a symlink to itself
         self.assertNotIn('itself', err)
