@@ -76,7 +76,7 @@ Documentation: man:journald.conf(5)
 сообщения других служб не затронуты.
 
 Предел, после которого служба журнала начинает игнорировать сообщения,
-настраивается параметрами RateLimitInterval= и RateLimitBurst= в файле
+настраивается параметрами RateLimitIntervalSec= и RateLimitBurst= в файле
 /etc/systemd/journald.conf. Подробности смотрите на странице руководства
 journald.conf(5).
 

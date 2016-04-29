@@ -51,7 +51,7 @@ Ne feledje, hogy csak a kérdéses szolgáltatás üzenetei kerültek eldobásra
  más szolgáltatások üzeneteit ez nem befolyásolja. 
 
 Az üzenetek eldobását vezérlő korlátok az /etc/systemd/journald.conf
-RateLimitInterval= és RateLimitBurst= beállításaival adhatók meg.
+RateLimitIntervalSec= és RateLimitBurst= beállításaival adhatók meg.
 Részletekért lásd a journald.conf(5) man oldalt.
 
 -- e9bf28e6e834481bb6f48f548ad13606

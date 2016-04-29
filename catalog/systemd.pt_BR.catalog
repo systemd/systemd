@@ -53,7 +53,7 @@ Note que apenas mensagens de um serviço em questão foram descartadas; outras
 mensagens dos serviços não foram afetadas.
 
 Os controles de limites de quando as mensagens são descartadas pode ser
-configurado com RateLimitInterval= e RateLimitBurst= no
+configurado com RateLimitIntervalSec= e RateLimitBurst= no
 /etc/systemd/journald.conf. Veja journald.conf(5) para detalhes.
 
 -- e9bf28e6e834481bb6f48f548ad13606

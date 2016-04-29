@@ -99,6 +99,18 @@ int main(int argc, char *argv[]) {
         test_rlimit_parse_format(RLIMIT_NOFILE, "", 0, 0, -EINVAL, NULL);
         test_rlimit_parse_format(RLIMIT_NOFILE, "5:4", 0, 0, -EILSEQ, NULL);
         test_rlimit_parse_format(RLIMIT_NOFILE, "5:4:3", 0, 0, -EINVAL, NULL);
+        test_rlimit_parse_format(RLIMIT_NICE, "20", 20, 20, 0, "20");
+        test_rlimit_parse_format(RLIMIT_NICE, "40", 40, 40, 0, "40");
+        test_rlimit_parse_format(RLIMIT_NICE, "41", 41, 41, -ERANGE, "41");
+        test_rlimit_parse_format(RLIMIT_NICE, "0", 0, 0, 0, "0");
+        test_rlimit_parse_format(RLIMIT_NICE, "-7", 27, 27, 0, "27");
+        test_rlimit_parse_format(RLIMIT_NICE, "-20", 40, 40, 0, "40");
+        test_rlimit_parse_format(RLIMIT_NICE, "-21", 41, 41, -ERANGE, "41");
+        test_rlimit_parse_format(RLIMIT_NICE, "-0", 20, 20, 0, "20");
+        test_rlimit_parse_format(RLIMIT_NICE, "+7", 13, 13, 0, "13");
+        test_rlimit_parse_format(RLIMIT_NICE, "+19", 1, 1, 0, "1");
+        test_rlimit_parse_format(RLIMIT_NICE, "+20", 0, 0, -ERANGE, "0");
+        test_rlimit_parse_format(RLIMIT_NICE, "+0", 20, 20, 0, "20");
 
         return 0;
 }

@@ -180,20 +180,17 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         return 0;
 }
 
-static void service_close_socket_fd(Service *s) {
+void service_close_socket_fd(Service *s) {
         assert(s);
+
+        /* Undo the effect of service_set_socket_fd(). */
 
         s->socket_fd = asynchronous_close(s->socket_fd);
-}
 
-static void service_connection_unref(Service *s) {
-        assert(s);
-
-        if (!UNIT_ISSET(s->accept_socket))
-                return;
-
-        socket_connection_unref(SOCKET(UNIT_DEREF(s->accept_socket)));
-        unit_ref_unset(&s->accept_socket);
+        if (UNIT_ISSET(s->accept_socket)) {
+                socket_connection_unref(SOCKET(UNIT_DEREF(s->accept_socket)));
+                unit_ref_unset(&s->accept_socket);
+        }
 }
 
 static void service_stop_watchdog(Service *s) {
@@ -321,7 +318,6 @@ static void service_done(Unit *u) {
         s->bus_name_owner = mfree(s->bus_name_owner);
 
         service_close_socket_fd(s);
-        service_connection_unref(s);
 
         unit_ref_unset(&s->accept_socket);
 
@@ -910,10 +906,8 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
-            !(state == SERVICE_DEAD && UNIT(s)->job)) {
+            !(state == SERVICE_DEAD && UNIT(s)->job))
                 service_close_socket_fd(s);
-                service_connection_unref(s);
-        }
 
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
@@ -3139,9 +3133,8 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         assert(s);
         assert(fd >= 0);
 
-        /* This is called by the socket code when instantiating a new
-         * service for a stream socket and the socket needs to be
-         * configured. */
+        /* This is called by the socket code when instantiating a new service for a stream socket and the socket needs
+         * to be configured. We take ownership of the passed fd on success. */
 
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return -EINVAL;
@@ -3169,12 +3162,15 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
                         return r;
         }
 
+        r = unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false);
+        if (r < 0)
+                return r;
+
         s->socket_fd = fd;
         s->socket_fd_selinux_context_net = selinux_context_net;
 
         unit_ref_set(&s->accept_socket, UNIT(sock));
-
-        return unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false);
+        return 0;
 }
 
 static void service_reset_failed(Unit *u) {

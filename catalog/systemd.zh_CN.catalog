@@ -50,7 +50,7 @@ Documentation: man:journald.conf(5)
 请注意只有由有问题的服务传来的消息被丢弃，
 其它服务的消息不受影响。
 
-可以在 /etc/systemd/journald.conf 中设定 RateLimitInterval=
+可以在 /etc/systemd/journald.conf 中设定 RateLimitIntervalSec=
 以及 RateLimitBurst = 的值以控制丢弃信息的限制。
 请参见 journald.conf(5) 以了解详情。
 

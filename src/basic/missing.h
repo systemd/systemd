@@ -557,7 +557,7 @@ struct btrfs_ioctl_quota_ctl_args {
 #define IFLA_INET6_ADDR_GEN_MODE 8
 #define __IFLA_INET6_MAX 9
 
-#define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
+#define IFLA_INET6_MAX (__IFLA_INET6_MAX - 1)
 
 #define IN6_ADDR_GEN_MODE_EUI64 0
 #define IN6_ADDR_GEN_MODE_NONE 1
@@ -742,7 +742,7 @@ struct btrfs_ioctl_quota_ctl_args {
 #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 #endif
 
-#if !HAVE_DECL_IFLA_BR_PRIORITY
+#if !HAVE_DECL_IFLA_BR_VLAN_DEFAULT_PVID
 #define IFLA_BR_UNSPEC 0
 #define IFLA_BR_FORWARD_DELAY 1
 #define IFLA_BR_HELLO_TIME 2

@@ -52,7 +52,7 @@ Documentation: man:journald.conf(5)
 услуге нису захваћене овим.
 
 Ограничења која подешавају начин на који се поруке одбацују се могу подесити
-помоћу „RateLimitInterval=“ и „RateLimitBurst=“ параметара унутар датотеке
+помоћу „RateLimitIntervalSec=“ и „RateLimitBurst=“ параметара унутар датотеке
 /etc/systemd/journald.conf. Погледајте journald.conf(5) за појединости.
 
 -- e9bf28e6e834481bb6f48f548ad13606

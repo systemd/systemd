@@ -271,16 +271,16 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>DefaultStartLimitInterval=</varname></term>
+        <term><varname>DefaultStartLimitIntervalSec=</varname></term>
         <term><varname>DefaultStartLimitBurst=</varname></term>
 
         <listitem><para>Configure the default unit start rate
         limiting, as configured per-service by
-        <varname>StartLimitInterval=</varname> and
+        <varname>StartLimitIntervalSec=</varname> and
         <varname>StartLimitBurst=</varname>. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-service settings.
-        <varname>DefaultStartLimitInterval=</varname> defaults to
+        <varname>DefaultStartLimitIntervalSec=</varname> defaults to
         10s. <varname>DefaultStartLimitBurst=</varname> defaults to
         5.</para></listitem>
       </varlistentry>

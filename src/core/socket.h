@@ -52,6 +52,7 @@ typedef enum SocketResult {
         SOCKET_FAILURE_EXIT_CODE,
         SOCKET_FAILURE_SIGNAL,
         SOCKET_FAILURE_CORE_DUMP,
+        SOCKET_FAILURE_TRIGGER_LIMIT_HIT,
         SOCKET_FAILURE_SERVICE_START_LIMIT_HIT,
         _SOCKET_RESULT_MAX,
         _SOCKET_RESULT_INVALID = -1
@@ -156,6 +157,8 @@ struct Socket {
         bool reset_cpu_usage:1;
 
         char *fdname;
+
+        RateLimit trigger_limit;
 };
 
 /* Called from the service code when collecting fds */

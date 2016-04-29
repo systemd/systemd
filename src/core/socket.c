@@ -99,6 +99,8 @@ static void socket_init(Unit *u) {
         s->exec_context.std_error = u->manager->default_std_error;
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
+
+        RATELIMIT_INIT(s->trigger_limit, 5*USEC_PER_SEC, 2500);
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -227,7 +229,6 @@ int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
-        u->no_gc = true;
         unit_ref_set(&s->service, u);
 
         return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false);
@@ -792,47 +793,45 @@ static void socket_close_fds(Socket *s) {
         assert(s);
 
         LIST_FOREACH(port, p, s->ports) {
+                bool was_open;
+
+                was_open = p->fd >= 0;
 
                 p->event_source = sd_event_source_unref(p->event_source);
-
-                if (p->fd < 0)
-                        continue;
-
                 p->fd = safe_close(p->fd);
                 socket_cleanup_fd_list(p);
 
-                /* One little note: we should normally not delete any
-                 * sockets in the file system here! After all some
-                 * other process we spawned might still have a
-                 * reference of this fd and wants to continue to use
-                 * it. Therefore we delete sockets in the file system
-                 * before we create a new one, not after we stopped
-                 * using one! */
+                /* One little note: we should normally not delete any sockets in the file system here! After all some
+                 * other process we spawned might still have a reference of this fd and wants to continue to use
+                 * it. Therefore we normally delete sockets in the file system before we create a new one, not after we
+                 * stopped using one! That all said, if the user explicitly requested this, we'll delete them here
+                 * anyway, but only then. */
 
-                if (s->remove_on_stop) {
-                        switch (p->type) {
+                if (!was_open || !s->remove_on_stop)
+                        continue;
 
-                        case SOCKET_FIFO:
-                                unlink(p->path);
-                                break;
+                switch (p->type) {
 
-                        case SOCKET_MQUEUE:
-                                mq_unlink(p->path);
-                                break;
+                case SOCKET_FIFO:
+                        (void) unlink(p->path);
+                        break;
 
-                        case SOCKET_SOCKET:
-                                socket_address_unlink(&p->address);
-                                break;
+                case SOCKET_MQUEUE:
+                        (void) mq_unlink(p->path);
+                        break;
 
-                        default:
-                                break;
-                        }
+                case SOCKET_SOCKET:
+                        (void) socket_address_unlink(&p->address);
+                        break;
+
+                default:
+                        break;
                 }
         }
 
         if (s->remove_on_stop)
                 STRV_FOREACH(i, s->symlinks)
-                        unlink(*i);
+                        (void) unlink(*i);
 }
 
 static void socket_apply_socket_options(Socket *s, int fd) {
@@ -1887,6 +1886,9 @@ static void socket_enter_running(Socket *s, int cfd) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
+        /* Note that this call takes possession of the connection fd passed. It either has to assign it somewhere or
+         * close it. */
+
         assert(s);
 
         /* We don't take connections anymore if we are supposed to
@@ -1896,7 +1898,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 log_unit_debug(UNIT(s), "Suppressing connection request since unit stop is scheduled.");
 
                 if (cfd >= 0)
-                        safe_close(cfd);
+                        cfd = safe_close(cfd);
                 else  {
                         /* Flush all sockets by closing and reopening them */
                         socket_close_fds(s);
@@ -1915,6 +1917,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                         }
                 }
 
+                return;
+        }
+
+        if (!ratelimit_test(&s->trigger_limit)) {
+                safe_close(cfd);
+                log_unit_warning(UNIT(s), "Trigger limit hit, refusing further activation.");
+                socket_enter_stop_pre(s, SOCKET_FAILURE_TRIGGER_LIMIT_HIT);
                 return;
         }
 
@@ -1949,7 +1958,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
-                        log_unit_warning(UNIT(s), "Too many incoming connections (%u)", s->n_connections);
+                        log_unit_warning(UNIT(s), "Too many incoming connections (%u), refusing connection attempt.", s->n_connections);
                         safe_close(cfd);
                         return;
                 }
@@ -1965,6 +1974,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                         /* ENOTCONN is legitimate if TCP RST was received.
                          * This connection is over, but the socket unit lives on. */
+                        log_unit_debug(UNIT(s), "Got ENOTCONN on incoming socket, assuming aborted connection attempt, ignoring.");
                         safe_close(cfd);
                         return;
                 }
@@ -1983,22 +1993,24 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 service = SERVICE(UNIT_DEREF(s->service));
                 unit_ref_unset(&s->service);
+
                 s->n_accepted++;
-
-                UNIT(service)->no_gc = false;
-
                 unit_choose_id(UNIT(service), name);
 
                 r = service_set_socket_fd(service, cfd, s, s->selinux_context_from_net);
                 if (r < 0)
                         goto fail;
 
-                cfd = -1;
+                cfd = -1; /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
-                if (r < 0)
+                if (r < 0) {
+                        /* We failed to activate the new service, but it still exists. Let's make sure the service
+                         * closes and forgets the connection fd again, immediately. */
+                        service_close_socket_fd(service);
                         goto fail;
+                }
 
                 /* Notify clients about changed counters */
                 unit_add_to_dbus_queue(UNIT(s));
@@ -2806,6 +2818,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
         [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
+        [SOCKET_FAILURE_TRIGGER_LIMIT_HIT] = "trigger-limit-hit",
         [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };
 

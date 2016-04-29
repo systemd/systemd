@@ -69,7 +69,7 @@ Proszę zauważyć, że tylko komunikaty z danej usługi zostały pominięte. Ni
 to wpływu na komunikaty innych usług.
 
 Ograniczenia kontrolujące pomijanie komunikatów mogą być konfigurowane
-za pomocą opcji RateLimitInterval= i RateLimitBurst= w pliku
+za pomocą opcji RateLimitIntervalSec= i RateLimitBurst= w pliku
 /etc/systemd/journald.conf. Strona journald.conf(5) zawiera więcej informacji.
 
 -- e9bf28e6e834481bb6f48f548ad13606

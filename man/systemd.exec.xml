@@ -629,27 +629,23 @@
         <term><varname>LimitNICE=</varname></term>
         <term><varname>LimitRTPRIO=</varname></term>
         <term><varname>LimitRTTIME=</varname></term>
-        <listitem><para>These settings set both soft and hard limits
-        of various resources for executed processes. See
-        <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. The resource limit is possible to specify in two formats,
-        <option>value</option> to set soft and hard limits to the same value,
-        or <option>soft:hard</option> to set both limits individually (e.g. LimitAS=4G:16G).
-        Use the string <varname>infinity</varname> to
-        configure no limit on a specific resource. The multiplicative
-        suffixes K (=1024), M (=1024*1024) and so on for G, T, P and E
-        may be used for resource limits measured in bytes
-        (e.g. LimitAS=16G). For the limits referring to time values,
-        the usual time units ms, s, min, h and so on may be used (see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details). Note that if no time unit is specified for
-        <varname>LimitCPU=</varname> the default unit of seconds is
-        implied, while for <varname>LimitRTTIME=</varname> the default
-        unit of microseconds is implied. Also, note that the effective
-        granularity of the limits might influence their
-        enforcement. For example, time limits specified for
-        <varname>LimitCPU=</varname> will be rounded up implicitly to
-        multiples of 1s.</para>
+        <listitem><para>Set soft and hard limits on various resources for executed processes. See
+        <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details on
+        the resource limit concept. Resource limits may be specified in two formats: either as single value to set a
+        specific soft and hard limit to the same value, or as colon-separated pair <option>soft:hard</option> to set
+        both limits individually (e.g. <literal>LimitAS=4G:16G</literal>).  Use the string <varname>infinity</varname>
+        to configure no limit on a specific resource. The multiplicative suffixes K, M, G, T, P and E (to the base
+        1024) may be used for resource limits measured in bytes (e.g. LimitAS=16G). For the limits referring to time
+        values, the usual time units ms, s, min, h and so on may be used (see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details). Note that if no time unit is specified for <varname>LimitCPU=</varname> the default unit of seconds
+        is implied, while for <varname>LimitRTTIME=</varname> the default unit of microseconds is implied. Also, note
+        that the effective granularity of the limits might influence their enforcement. For example, time limits
+        specified for <varname>LimitCPU=</varname> will be rounded up implicitly to multiples of 1s. For
+        <varname>LimitNICE=</varname> the value may be specified in two syntaxes: if prefixed with <literal>+</literal>
+        or <literal>-</literal>, the value is understood as regular Linux nice value in the range -20..19. If not
+        prefixed like this the value is understood as raw resource limit parameter in the range 0..40 (with 0 being
+        equivalent to 1).</para>
 
         <para>Note that most process resource limits configured with
         these options are per-process, and processes may fork in order
