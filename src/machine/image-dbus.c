@@ -166,7 +166,7 @@ int bus_image_method_clone(
 
         r = operation_new(m, child, message, errno_pipe_fd[0]);
         if (r < 0) {
-                (void) sigkill_wait(&child);
+                (void) sigkill_wait(child);
                 return r;
         }
 

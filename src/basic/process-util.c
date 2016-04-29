@@ -528,14 +528,20 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_cod
         return -EPROTO;
 }
 
-void sigkill_wait(pid_t *pid) {
+void sigkill_wait(pid_t pid) {
+        assert(pid > 1);
+
+        if (kill(pid, SIGKILL) > 0)
+                (void) wait_for_terminate(pid, NULL);
+}
+
+void sigkill_waitp(pid_t *pid) {
         if (!pid)
                 return;
         if (*pid <= 1)
                 return;
 
-        if (kill(*pid, SIGKILL) > 0)
-                (void) wait_for_terminate(*pid, NULL);
+        sigkill_wait(*pid);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {

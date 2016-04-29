@@ -104,7 +104,7 @@ Operation *operation_free(Operation *o) {
         safe_close(o->errno_fd);
 
         if (o->pid > 1)
-                (void) sigkill_wait(&o->pid);
+                (void) sigkill_wait(o->pid);
 
         sd_bus_message_unref(o->message);
 
