@@ -229,7 +229,6 @@ int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
-        u->no_gc = true;
         unit_ref_set(&s->service, u);
 
         return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false);
@@ -1994,10 +1993,8 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 service = SERVICE(UNIT_DEREF(s->service));
                 unit_ref_unset(&s->service);
+
                 s->n_accepted++;
-
-                UNIT(service)->no_gc = false;
-
                 unit_choose_id(UNIT(service), name);
 
                 r = service_set_socket_fd(service, cfd, s, s->selinux_context_from_net);
