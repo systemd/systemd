@@ -56,6 +56,9 @@
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
+#define PRESET_ENABLED  1
+#define PRESET_DISABLED 2
+
 typedef enum SearchFlags {
         SEARCH_LOAD = 1,
         SEARCH_FOLLOW_CONFIG_SYMLINKS = 2,
@@ -2367,17 +2370,19 @@ int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *
         return 1;
 }
 
-int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
+static int unit_file_list_presets(UnitFileScope scope, const char *root_dir, OrderedHashmap **presets) {
         _cleanup_strv_free_ char **files = NULL;
+        OrderedHashmap *h;
         char **p;
         int r;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
-        assert(name);
+        assert(presets);
 
-        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
-                return -EINVAL;
+        h = ordered_hashmap_new(&string_hash_ops);
+        if (!h)
+                return -ENOMEM;
 
         if (scope == UNIT_FILE_SYSTEM)
                 r = conf_files_list(&files, ".preset", root_dir,
@@ -2395,7 +2400,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                                     "/usr/lib/systemd/user-preset",
                                     NULL);
         else
-                return 1; /* Default is "enable" */
+                return 0;
 
         if (r < 0)
                 return r;
@@ -2403,6 +2408,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
         STRV_FOREACH(p, files) {
                 _cleanup_fclose_ FILE *f;
                 char line[LINE_MAX];
+                int n = 0;
 
                 f = fopen(*p, "re");
                 if (!f) {
@@ -2413,10 +2419,13 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
                 }
 
                 FOREACH_LINE(line, f, return -errno) {
+                        int state = 0;
+                        char *name = NULL;
                         const char *parameter;
                         char *l;
 
                         l = strstrip(line);
+                        n++;
 
                         if (isempty(l))
                                 continue;
@@ -2425,31 +2434,70 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
 
                         parameter = first_word(l, "enable");
                         if (parameter) {
-                                if (fnmatch(parameter, name, FNM_NOESCAPE) == 0) {
-                                        log_debug("Preset file says enable %s.", name);
-                                        return 1;
-                                }
-
-                                continue;
+                                name = strdup(parameter);
+                                state = PRESET_ENABLED;
+                                log_debug("Preset file says enable %s.", name);
                         }
 
                         parameter = first_word(l, "disable");
                         if (parameter) {
-                                if (fnmatch(parameter, name, FNM_NOESCAPE) == 0) {
-                                        log_debug("Preset file says disable %s.", name);
-                                        return 0;
-                                }
+                                name = strdup(parameter);
+                                state = PRESET_DISABLED;
+                                log_debug("Preset file says disable %s.", name);
+                        }
+
+                        if (state) {
+                                r = ordered_hashmap_put(h, name, INT_TO_PTR(state));
+                                if (r == 0 || r == -EEXIST)
+                                        log_debug("Ignoring latter entry for %s.", name);
+                                else if (r < 0)
+                                        return r;
 
                                 continue;
                         }
 
-                        log_debug("Couldn't parse line '%s'", l);
+                        log_syntax(NULL, LOG_WARNING, *p, n, 0, "Couldn't parse line '%s'. Ignoring.", line);
                 }
         }
 
-        /* Default is "enable" */
-        log_debug("Preset file doesn't say anything about %s, enabling.", name);
-        return 1;
+        *presets = h;
+
+        return 0;
+}
+
+static int unit_file_query_preset_map(OrderedHashmap *presets, const char *name) {
+        Iterator i;
+        char *n;
+        void *s, *e;
+
+        if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        s = ordered_hashmap_get(presets, name);
+        if (!s) {
+                ORDERED_HASHMAP_FOREACH_KEY(e, n, presets, i) {
+                        if (fnmatch(n, name, FNM_NOESCAPE) == 0) {
+                                s = e;
+                                break;
+                        }
+                }
+        }
+
+        if (!s || PTR_TO_INT(s) == PRESET_ENABLED)
+                return 1;
+        else
+                return 0;
+}
+
+int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
+        _cleanup_ordered_hashmap_free_free_keys_ OrderedHashmap *presets = NULL;
+        int r;
+
+        r = unit_file_list_presets(scope, root_dir, &presets);
+        if (r < 0)
+                return r;
+
+        return unit_file_query_preset_map(presets, name);
 }
 
 static int execute_preset(
@@ -2505,6 +2553,7 @@ static int preset_prepare_one(
                 LookupPaths *paths,
                 UnitFilePresetMode mode,
                 const char *name,
+                OrderedHashmap *presets,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -2515,7 +2564,7 @@ static int preset_prepare_one(
             install_info_find(minus, name))
                 return 0;
 
-        r = unit_file_query_preset(scope, paths->root_dir, name);
+        r = unit_file_query_preset_map(presets, name);
         if (r < 0)
                 return r;
 
@@ -2545,6 +2594,7 @@ int unit_file_preset(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_ordered_hashmap_free_free_keys_ OrderedHashmap *presets = NULL;
         const char *config_path;
         char **i;
         int r;
@@ -2559,11 +2609,12 @@ int unit_file_preset(
 
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
-        STRV_FOREACH(i, files) {
-                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
-                        return -EINVAL;
+        r = unit_file_list_presets(scope, root_dir, &presets);
+        if (r < 0)
+                return r;
 
-                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i, changes, n_changes);
+        STRV_FOREACH(i, files) {
+                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i, presets, changes, n_changes);
                 if (r < 0)
                         return r;
         }
@@ -2582,6 +2633,7 @@ int unit_file_preset_all(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_ordered_hashmap_free_free_keys_ OrderedHashmap *presets = NULL;
         const char *config_path = NULL;
         char **i;
         int r;
@@ -2595,6 +2647,10 @@ int unit_file_preset_all(
                 return r;
 
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
+
+        r = unit_file_list_presets(scope, root_dir, &presets);
+        if (r < 0)
+                return r;
 
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
@@ -2619,7 +2675,7 @@ int unit_file_preset_all(
                                 continue;
 
                         /* we don't pass changes[] in, because we want to handle errors on our own */
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name, NULL, 0);
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name, presets, NULL, 0);
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);

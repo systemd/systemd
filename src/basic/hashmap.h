@@ -120,6 +120,14 @@ static inline OrderedHashmap *ordered_hashmap_free_free(OrderedHashmap *h) {
         return (void*)internal_hashmap_free_free(HASHMAP_BASE(h));
 }
 
+HashmapBase *internal_hashmap_free_free_keys(HashmapBase *h);
+static inline Hashmap *hashmap_free_free_keys(Hashmap *h) {
+        return (void*)internal_hashmap_free_free_keys(HASHMAP_BASE(h));
+}
+static inline OrderedHashmap *ordered_hashmap_free_free_keys(OrderedHashmap *h) {
+        return (void*)internal_hashmap_free_free_keys(HASHMAP_BASE(h));
+}
+
 Hashmap *hashmap_free_free_free(Hashmap *h);
 static inline OrderedHashmap *ordered_hashmap_free_free_free(OrderedHashmap *h) {
         return (void*)hashmap_free_free_free(PLAIN_HASHMAP(h));
@@ -280,6 +288,14 @@ static inline void ordered_hashmap_clear_free(OrderedHashmap *h) {
         internal_hashmap_clear_free(HASHMAP_BASE(h));
 }
 
+void internal_hashmap_clear_free_keys(HashmapBase *h);
+static inline void hashmap_clear_free_keys(Hashmap *h) {
+        internal_hashmap_clear_free_keys(HASHMAP_BASE(h));
+}
+static inline void ordered_hashmap_clear_free_keys(OrderedHashmap *h) {
+        internal_hashmap_clear_free_keys(HASHMAP_BASE(h));
+}
+
 void hashmap_clear_free_free(Hashmap *h);
 static inline void ordered_hashmap_clear_free_free(OrderedHashmap *h) {
         hashmap_clear_free_free(PLAIN_HASHMAP(h));
@@ -359,14 +375,18 @@ static inline char **ordered_hashmap_get_strv(OrderedHashmap *h) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free_keys);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free_keys);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free_free);
 
 #define _cleanup_hashmap_free_ _cleanup_(hashmap_freep)
 #define _cleanup_hashmap_free_free_ _cleanup_(hashmap_free_freep)
+#define _cleanup_hashmap_free_free_keys_ _cleanup_(hashmap_free_free_keysp)
 #define _cleanup_hashmap_free_free_free_ _cleanup_(hashmap_free_free_freep)
 #define _cleanup_ordered_hashmap_free_ _cleanup_(ordered_hashmap_freep)
 #define _cleanup_ordered_hashmap_free_free_ _cleanup_(ordered_hashmap_free_freep)
+#define _cleanup_ordered_hashmap_free_free_keys_ _cleanup_(ordered_hashmap_free_free_keysp)
 #define _cleanup_ordered_hashmap_free_free_free_ _cleanup_(ordered_hashmap_free_free_freep)

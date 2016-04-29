@@ -844,6 +844,19 @@ HashmapBase *internal_hashmap_free_free(HashmapBase *h) {
         return NULL;
 }
 
+HashmapBase *internal_hashmap_free_free_keys(HashmapBase *h) {
+
+        /* Free the hashmap and all data objects in it, but not the
+         * values */
+
+        if (h) {
+                internal_hashmap_clear_free_keys(h);
+                hashmap_free_no_clear(h);
+        }
+
+        return NULL;
+}
+
 Hashmap *hashmap_free_free_free(Hashmap *h) {
 
         /* Free the hashmap and all data and key objects in it */
@@ -883,6 +896,19 @@ void internal_hashmap_clear_free(HashmapBase *h) {
         for (idx = skip_free_buckets(h, 0); idx != IDX_NIL;
              idx = skip_free_buckets(h, idx + 1))
                 free(entry_value(h, bucket_at(h, idx)));
+
+        internal_hashmap_clear(h);
+}
+
+void internal_hashmap_clear_free_keys(HashmapBase *h) {
+        unsigned idx;
+
+        if (!h)
+                return;
+
+        for (idx = skip_free_buckets(h, 0); idx != IDX_NIL;
+             idx = skip_free_buckets(h, idx + 1))
+                free((void*)bucket_at(h, idx)->key);
 
         internal_hashmap_clear(h);
 }
