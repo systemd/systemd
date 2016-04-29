@@ -78,13 +78,12 @@
     which configure resource control settings for these processes of the
     unit.</para>
 
-    <para>Swap units must be named after the devices
-    or files they control. Example: the swap device
-    <filename noindex='true'>/dev/sda5</filename> must be configured in a
-    unit file <filename>dev-sda5.swap</filename>. For details about
-    the escaping logic used to convert a file system path to a unit
-    name, see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>Swap units must be named after the devices or files they control. Example: the swap device <filename
+    noindex='true'>/dev/sda5</filename> must be configured in a unit file <filename>dev-sda5.swap</filename>. For
+    details about the escaping logic used to convert a file system path to a unit name, see
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note that swap
+    units cannot be templated, nor is possible to add multiple names to a swap unit by creating additional symlinks to
+    it.</para>
   </refsect1>
 
   <refsect1>

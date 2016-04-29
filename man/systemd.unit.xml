@@ -1102,13 +1102,12 @@
       <varlistentry>
         <term><varname>Alias=</varname></term>
 
-        <listitem><para>A space-separated list of additional names
-        this unit shall be installed under. The names listed here must
-        have the same suffix (i.e. type) as the unit file name. This
-        option may be specified more than once, in which case all
-        listed names are used. At installation time,
-        <command>systemctl enable</command> will create symlinks from
-        these names to the unit filename.</para></listitem>
+        <listitem><para>A space-separated list of additional names this unit shall be installed under. The names listed
+        here must have the same suffix (i.e. type) as the unit file name. This option may be specified more than once,
+        in which case all listed names are used. At installation time, <command>systemctl enable</command> will create
+        symlinks from these names to the unit filename. Note that not all unit types support such alias names, and this
+        setting is not supported for them. Specifically, mount, slice, swap, and automount units do not support
+        aliasing.</para></listitem>
       </varlistentry>
 
       <varlistentry>
