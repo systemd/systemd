@@ -4942,7 +4942,9 @@ libmachine_core_la_SOURCES = \
 	src/machine/machine-dbus.c \
 	src/machine/machine-dbus.h \
 	src/machine/image-dbus.c \
-	src/machine/image-dbus.h
+	src/machine/image-dbus.h \
+	src/machine/operation.c \
+	src/machine/operation.h
 
 libmachine_core_la_LIBADD = \
 	libshared.la
