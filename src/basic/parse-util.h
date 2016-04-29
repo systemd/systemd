@@ -93,7 +93,7 @@ static inline int safe_atoli(const char *s, long int *ret_u) {
 #if SIZE_MAX == UINT_MAX
 static inline int safe_atozu(const char *s, size_t *ret_u) {
         assert_cc(sizeof(size_t) == sizeof(unsigned));
-        return safe_atou(s, ret_u);
+        return safe_atou(s, (unsigned *) ret_u);
 }
 #else
 static inline int safe_atozu(const char *s, size_t *ret_u) {
