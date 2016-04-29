@@ -183,17 +183,14 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 void service_close_socket_fd(Service *s) {
         assert(s);
 
+        /* Undo the effect of service_set_socket_fd(). */
+
         s->socket_fd = asynchronous_close(s->socket_fd);
-}
 
-static void service_connection_unref(Service *s) {
-        assert(s);
-
-        if (!UNIT_ISSET(s->accept_socket))
-                return;
-
-        socket_connection_unref(SOCKET(UNIT_DEREF(s->accept_socket)));
-        unit_ref_unset(&s->accept_socket);
+        if (UNIT_ISSET(s->accept_socket)) {
+                socket_connection_unref(SOCKET(UNIT_DEREF(s->accept_socket)));
+                unit_ref_unset(&s->accept_socket);
+        }
 }
 
 static void service_stop_watchdog(Service *s) {
@@ -321,7 +318,6 @@ static void service_done(Unit *u) {
         s->bus_name_owner = mfree(s->bus_name_owner);
 
         service_close_socket_fd(s);
-        service_connection_unref(s);
 
         unit_ref_unset(&s->accept_socket);
 
@@ -910,10 +906,8 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
-            !(state == SERVICE_DEAD && UNIT(s)->job)) {
+            !(state == SERVICE_DEAD && UNIT(s)->job))
                 service_close_socket_fd(s);
-                service_connection_unref(s);
-        }
 
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
