@@ -720,6 +720,9 @@ int unit_merge(Unit *u, Unit *other) {
         if (!u->instance != !other->instance)
                 return -EINVAL;
 
+        if (UNIT_VTABLE(u)->no_alias) /* Merging only applies to unit names that support aliases */
+                return -EEXIST;
+
         if (other->load_state != UNIT_STUB &&
             other->load_state != UNIT_NOT_FOUND)
                 return -EEXIST;
@@ -776,9 +779,9 @@ int unit_merge(Unit *u, Unit *other) {
 }
 
 int unit_merge_by_name(Unit *u, const char *name) {
+        _cleanup_free_ char *s = NULL;
         Unit *other;
         int r;
-        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name);
