@@ -364,7 +364,7 @@ static int fd_copy_directory(
                         q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name);
                 else if (S_ISFIFO(buf.st_mode))
                         q = fd_copy_fifo(dirfd(d), de->d_name, &buf, fdt, de->d_name);
-                else if (S_ISBLK(buf.st_mode) || S_ISCHR(buf.st_mode))
+                else if (S_ISBLK(buf.st_mode) || S_ISCHR(buf.st_mode) || S_ISSOCK(buf.st_mode))
                         q = fd_copy_node(dirfd(d), de->d_name, &buf, fdt, de->d_name);
                 else
                         q = -EOPNOTSUPP;
@@ -396,7 +396,7 @@ int copy_tree_at(int fdf, const char *from, int fdt, const char *to, bool merge)
                 return fd_copy_symlink(fdf, from, &st, fdt, to);
         else if (S_ISFIFO(st.st_mode))
                 return fd_copy_fifo(fdf, from, &st, fdt, to);
-        else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode))
+        else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode) || S_ISSOCK(st.st_mode))
                 return fd_copy_node(fdf, from, &st, fdt, to);
         else
                 return -EOPNOTSUPP;

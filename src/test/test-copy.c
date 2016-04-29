@@ -95,6 +95,8 @@ static void test_copy_tree(void) {
         char **links = STRV_MAKE("link", "file",
                                  "link2", "dir1/file");
         char **p, **link;
+        const char *unixsockp;
+        struct stat st;
 
         log_info("%s", __func__);
 
@@ -116,6 +118,9 @@ static void test_copy_tree(void) {
                 assert_se(symlink(f, l) == 0);
         }
 
+        unixsockp = strjoina(original_dir, "unixsock");
+        assert_se(mknod(unixsockp, S_IFSOCK|0644, 0) >= 0);
+
         assert_se(copy_tree(original_dir, copy_dir, true) == 0);
 
         STRV_FOREACH(p, files) {
@@ -136,6 +141,10 @@ static void test_copy_tree(void) {
                 assert_se(readlink_and_canonicalize(l, &target) == 0);
                 assert_se(path_equal(f, target));
         }
+
+        unixsockp = strjoina(copy_dir, "unixsock");
+        assert_se(stat(unixsockp, &st) >= 0);
+        assert_se(S_ISSOCK(st.st_mode));
 
         assert_se(copy_tree(original_dir, copy_dir, false) < 0);
         assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, false) < 0);
