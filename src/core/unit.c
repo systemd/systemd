@@ -3222,6 +3222,10 @@ void unit_ref_unset(UnitRef *ref) {
         if (!ref->unit)
                 return;
 
+        /* We are about to drop a reference to the unit, make sure the garbage collection has a look at it as it might
+         * be unreferenced now. */
+        unit_add_to_gc_queue(ref->unit);
+
         LIST_REMOVE(refs, ref->unit->refs, ref);
         ref->unit = NULL;
 }
