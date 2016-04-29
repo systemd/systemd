@@ -3427,10 +3427,10 @@ int config_parse_protect_system(
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
+        char *id = NULL;
         unsigned c = 0;
         int fd, r;
         FILE *f;
-        char *id = NULL;
 
         assert(filename);
         assert(*filename);
@@ -3452,7 +3452,6 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * the names of this unit, but only if it is a valid
                  * unit name. */
                 name = basename(*filename);
-
                 if (unit_name_is_valid(name, UNIT_NAME_ANY)) {
 
                         id = set_get(names, name);
@@ -3492,6 +3491,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
 
         *_f = f;
         *_final = id;
+
         return 0;
 }
 
@@ -3552,13 +3552,13 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
 }
 
 static int load_from_path(Unit *u, const char *path) {
-        int r;
         _cleanup_set_free_free_ Set *symlink_names = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *filename = NULL;
         char *id = NULL;
         Unit *merged;
         struct stat st;
+        int r;
 
         assert(u);
         assert(path);
@@ -3597,24 +3597,25 @@ static int load_from_path(Unit *u, const char *path) {
                                 r = -ENOENT;
                         else
                                 r = open_follow(&filename, &f, symlink_names, &id);
+                        if (r >= 0)
+                                break;
+                        filename = mfree(filename);
+                        if (r != -ENOENT)
+                                return r;
 
-                        if (r < 0) {
-                                filename = mfree(filename);
-                                if (r != -ENOENT)
-                                        return r;
-
-                                /* Empty the symlink names for the next run */
-                                set_clear_free(symlink_names);
-                                continue;
-                        }
-
-                        break;
+                        /* Empty the symlink names for the next run */
+                        set_clear_free(symlink_names);
                 }
         }
 
         if (!filename)
                 /* Hmm, no suitable file found? */
                 return 0;
+
+        if (UNIT_VTABLE(u)->no_alias && set_size(symlink_names) > 1) {
+                log_unit_warning(u, "Unit type of %s does not support alias names, refusing loading via symlink.", u->id);
+                return -ELOOP;
+        }
 
         merged = u;
         r = merge_by_names(&merged, symlink_names, id);
