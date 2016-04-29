@@ -1085,52 +1085,11 @@ finish:
         return r;
 }
 
-static int machine_operation_done(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        MachineOperation *o = userdata;
-        int r;
-
-        assert(o);
-        assert(si);
-
-        o->pid = 0;
-
-        if (si->si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-                goto fail;
-        }
-
-        if (si->si_status != EXIT_SUCCESS) {
-                if (read(o->errno_fd, &r, sizeof(r)) == sizeof(r))
-                        r = sd_bus_error_set_errnof(&error, r, "%m");
-                else
-                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child failed.");
-
-                goto fail;
-        }
-
-        r = sd_bus_reply_method_return(o->message, NULL);
-        if (r < 0)
-                log_error_errno(r, "Failed to reply to message: %m");
-
-        machine_operation_unref(o);
-        return 0;
-
-fail:
-        r = sd_bus_reply_method_error(o->message, &error);
-        if (r < 0)
-                log_error_errno(r, "Failed to reply to message: %m");
-
-        machine_operation_unref(o);
-        return 0;
-}
-
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *src, *dest, *host_path, *container_path, *host_basename, *host_dirname, *container_basename, *container_dirname;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_close_ int hostfd = -1;
         Machine *m = userdata;
-        MachineOperation *o;
         bool copy_from;
         pid_t child;
         char *t;
@@ -1139,7 +1098,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         assert(message);
         assert(m);
 
-        if (m->n_operations >= MACHINE_OPERATIONS_MAX)
+        if (m->manager->n_operations >= OPERATIONS_MAX)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing copies.");
 
         if (m->class != MACHINE_CONTAINER)
@@ -1249,27 +1208,14 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        /* Copying might take a while, hence install a watch the
-         * child, and return */
+        /* Copying might take a while, hence install a watch on the child, and return */
 
-        o = new0(MachineOperation, 1);
-        if (!o)
-                return log_oom();
-
-        o->pid = child;
-        o->message = sd_bus_message_ref(message);
-        o->errno_fd = errno_pipe_fd[0];
-        errno_pipe_fd[0] = -1;
-
-        r = sd_event_add_child(m->manager->event, &o->event_source, child, WEXITED, machine_operation_done, o);
+        r = operation_new(m->manager, m, child, message, errno_pipe_fd[0]);
         if (r < 0) {
-                machine_operation_unref(o);
-                return log_oom();
+                (void) sigkill_wait(child);
+                return r;
         }
-
-        LIST_PREPEND(operations, m->operations, o);
-        m->n_operations++;
-        o->machine = m;
+        errno_pipe_fd[0] = -1;
 
         return 1;
 }

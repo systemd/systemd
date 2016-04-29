@@ -66,15 +66,20 @@ fail:
         return 0;
 }
 
-int operation_new(Manager *m, pid_t child, sd_bus_message *message, int errno_fd) {
+int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd) {
         Operation *o;
         int r;
+
+        assert(manager);
+        assert(child > 1);
+        assert(message);
+        assert(errno_fd >= 0);
 
         o = new0(Operation, 1);
         if (!o)
                 return -ENOMEM;
 
-        r = sd_event_add_child(m->event, &o->event_source, child, WEXITED, operation_done, o);
+        r = sd_event_add_child(manager->event, &o->event_source, child, WEXITED, operation_done, o);
         if (r < 0) {
                 free(o);
                 return r;
@@ -84,9 +89,14 @@ int operation_new(Manager *m, pid_t child, sd_bus_message *message, int errno_fd
         o->message = sd_bus_message_ref(message);
         o->errno_fd = errno_fd;
 
-        LIST_PREPEND(operations, m->operations, o);
-        m->n_operations++;
-        o->manager = m;
+        LIST_PREPEND(operations, manager->operations, o);
+        manager->n_operations++;
+        o->manager = manager;
+
+        if (machine) {
+                LIST_PREPEND(operations_by_machine, machine->operations, o);
+                o->machine = machine;
+        }
 
         log_debug("Started new operation " PID_FMT ".", child);
 
@@ -112,6 +122,9 @@ Operation *operation_free(Operation *o) {
                 LIST_REMOVE(operations, o->manager->operations, o);
                 o->manager->n_operations--;
         }
+
+        if (o->machine)
+                LIST_REMOVE(operations_by_machine, o->machine->operations, o);
 
         free(o);
         return NULL;

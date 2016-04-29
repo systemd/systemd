@@ -89,7 +89,7 @@ void machine_free(Machine *m) {
         assert(m);
 
         while (m->operations)
-                machine_operation_unref(m->operations);
+                operation_free(m->operations);
 
         if (m->in_gc_queue)
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
@@ -594,28 +594,6 @@ int machine_open_terminal(Machine *m, const char *path, int mode) {
         default:
                 return -EOPNOTSUPP;
         }
-}
-
-MachineOperation *machine_operation_unref(MachineOperation *o) {
-        if (!o)
-                return NULL;
-
-        sd_event_source_unref(o->event_source);
-
-        safe_close(o->errno_fd);
-
-        if (o->pid > 1)
-                (void) kill(o->pid, SIGKILL);
-
-        sd_bus_message_unref(o->message);
-
-        if (o->machine) {
-                LIST_REMOVE(operations, o->machine->operations, o);
-                o->machine->n_operations--;
-        }
-
-        free(o);
-        return NULL;
 }
 
 void machine_release_unit(Machine *m) {
