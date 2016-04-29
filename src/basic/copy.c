@@ -327,22 +327,6 @@ static int fd_copy_directory(
 
         r = 0;
 
-        if (created) {
-                struct timespec ut[2] = {
-                        st->st_atim,
-                        st->st_mtim
-                };
-
-                if (fchown(fdt, st->st_uid, st->st_gid) < 0)
-                        r = -errno;
-
-                if (fchmod(fdt, st->st_mode & 07777) < 0)
-                        r = -errno;
-
-                (void) futimens(fdt, ut);
-                (void) copy_xattr(dirfd(d), fdt);
-        }
-
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 struct stat buf;
                 int q;
@@ -378,6 +362,22 @@ static int fd_copy_directory(
                         r = q;
         }
 
+        if (created) {
+                struct timespec ut[2] = {
+                        st->st_atim,
+                        st->st_mtim
+                };
+
+                if (fchown(fdt, st->st_uid, st->st_gid) < 0)
+                        r = -errno;
+
+                if (fchmod(fdt, st->st_mode & 07777) < 0)
+                        r = -errno;
+
+                (void) copy_xattr(dirfd(d), fdt);
+                (void) futimens(fdt, ut);
+        }
+
         return r;
 }
 
@@ -409,7 +409,6 @@ int copy_tree(const char *from, const char *to, bool merge) {
 }
 
 int copy_directory_fd(int dirfd, const char *to, bool merge) {
-
         struct stat st;
 
         assert(dirfd >= 0);
