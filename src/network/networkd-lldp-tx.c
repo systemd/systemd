@@ -21,14 +21,17 @@
 #include <inttypes.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
-#include "networkd-lldp-tx.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "unaligned.h"
+
+#include "networkd.h"
+#include "networkd-lldp-tx.h"
 
 #define LLDP_MULTICAST_ADDR { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
 

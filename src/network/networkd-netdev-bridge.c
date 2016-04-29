@@ -22,6 +22,7 @@
 
 #include "missing.h"
 #include "netlink-util.h"
+#include "networkd.h"
 #include "networkd-netdev-bridge.h"
 
 /* callback for brige netdev's parameter set */

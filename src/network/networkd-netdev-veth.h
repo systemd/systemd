@@ -30,4 +30,5 @@ struct Veth {
         struct ether_addr *mac_peer;
 };
 
+DEFINE_NETDEV_CAST(VETH, Veth);
 extern const NetDevVTable veth_vtable;

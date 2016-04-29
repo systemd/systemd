@@ -24,7 +24,7 @@
 #include "dhcp-lease-internal.h"
 #include "hostname-util.h"
 #include "network-internal.h"
-#include "networkd-link.h"
+#include "networkd.h"
 
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {

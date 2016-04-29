@@ -19,18 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-bus.h"
+#include "udev.h"
+
 #include "condition.h"
+#include "dhcp-identifier.h"
+#include "hashmap.h"
 #include "resolve-util.h"
 
-typedef struct Network Network;
-
-#include "dhcp-identifier.h"
 #include "networkd-address.h"
 #include "networkd-fdb.h"
 #include "networkd-netdev.h"
 #include "networkd-route.h"
 #include "networkd-util.h"
-#include "networkd.h"
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
@@ -66,6 +67,8 @@ typedef enum LLDPMode {
         _LLDP_MODE_MAX,
         _LLDP_MODE_INVALID = -1,
 } LLDPMode;
+
+typedef struct Manager Manager;
 
 struct Network {
         Manager *manager;

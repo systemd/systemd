@@ -23,7 +23,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "network-internal.h"
-#include "networkd-link.h"
+#include "networkd.h"
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 

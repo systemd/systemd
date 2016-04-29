@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct IPVlan IPVlan;
-
 #include "missing.h"
 #include "networkd-netdev.h"
 
@@ -31,12 +29,13 @@ typedef enum IPVlanMode {
         _NETDEV_IPVLAN_MODE_INVALID = -1
 } IPVlanMode;
 
-struct IPVlan {
+typedef struct IPVlan {
         NetDev meta;
 
         IPVlanMode mode;
-};
+} IPVlan;
 
+DEFINE_NETDEV_CAST(IPVLAN, IPVlan);
 extern const NetDevVTable ipvlan_vtable;
 
 const char *ipvlan_mode_to_string(IPVlanMode d) _const_;

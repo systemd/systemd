@@ -23,8 +23,10 @@
 
 #include "conf-parser.h"
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "parse-util.h"
 #include "missing.h"
+
 #include "networkd-link.h"
 #include "networkd-netdev-vxlan.h"
 

@@ -34,5 +34,7 @@ struct TunTap {
         bool vnet_hdr;
 };
 
+DEFINE_NETDEV_CAST(TUN, TunTap);
+DEFINE_NETDEV_CAST(TAP, TunTap);
 extern const NetDevVTable tun_vtable;
 extern const NetDevVTable tap_vtable;

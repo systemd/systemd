@@ -25,6 +25,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "missing.h"
 #include "networkd-netdev-bond.h"
 #include "string-table.h"

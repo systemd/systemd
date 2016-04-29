@@ -55,6 +55,7 @@ struct VxLan {
         struct ifla_vxlan_port_range port_range;
 };
 
+DEFINE_NETDEV_CAST(VXLAN, VxLan);
 extern const NetDevVTable vxlan_vtable;
 
 int config_parse_vxlan_group_address(const char *unit,

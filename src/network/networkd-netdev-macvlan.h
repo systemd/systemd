@@ -38,6 +38,8 @@ struct MacVlan {
         MacVlanMode mode;
 };
 
+DEFINE_NETDEV_CAST(MACVLAN, MacVlan);
+DEFINE_NETDEV_CAST(MACVTAP, MacVlan);
 extern const NetDevVTable macvlan_vtable;
 extern const NetDevVTable macvtap_vtable;
 
