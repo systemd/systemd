@@ -3213,6 +3213,9 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred
         if (r < 0 && errno != ENOENT)
                 return -errno;
 
+        /* Sync the rename to disk */
+        (void) fsync_directory_of_file(old_file->fd);
+
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED.
          * Previously we would set old_file->header->state to STATE_ARCHIVED directly here,
          * but journal_file_set_offline() short-circuits when state != STATE_ONLINE, which
