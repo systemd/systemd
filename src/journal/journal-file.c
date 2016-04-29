@@ -3293,7 +3293,7 @@ int journal_file_open_reliably(
         /* btrfs doesn't cope well with our write pattern and
          * fragments heavily. Let's defrag all files we rotate */
 
-        (void) chattr_path(p, false, FS_NOCOW_FL);
+        (void) chattr_path(p, 0, FS_NOCOW_FL);
         (void) btrfs_defrag(p);
 
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);

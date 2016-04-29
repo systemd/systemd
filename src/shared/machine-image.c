@@ -423,7 +423,7 @@ int image_remove(Image *i) {
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
-                (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
+                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 if (r < 0)
                         return r;
@@ -505,7 +505,7 @@ int image_rename(Image *i, const char *new_name) {
                 (void) read_attr_path(i->path, &file_attr);
 
                 if (file_attr & FS_IMMUTABLE_FL)
-                        (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
+                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
 
                 /* fall through */
 
@@ -538,7 +538,7 @@ int image_rename(Image *i, const char *new_name) {
 
         /* Restore the immutable bit, if it was set before */
         if (file_attr & FS_IMMUTABLE_FL)
-                (void) chattr_path(new_path, true, FS_IMMUTABLE_FL);
+                (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
 
         free(i->path);
         i->path = new_path;
@@ -670,7 +670,7 @@ int image_read_only(Image *i, bool b) {
                    a read-only subvolume, but at least something, and
                    we can read the value back.*/
 
-                r = chattr_path(i->path, b, FS_IMMUTABLE_FL);
+                r = chattr_path(i->path, b ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL);
                 if (r < 0)
                         return r;
 
