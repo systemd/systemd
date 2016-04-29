@@ -781,8 +781,8 @@ bool hidden_or_backup_file(const char *filename) {
          *    The generic suffixes "~" and ".bak" for backup files
          *    The generic prefix "." for hidden files
          *
-         * Thus, if a new package manager "foopkg" wants its own set of "foopkg-new", "foopkg-old", "foopkg-dist" or so
-         * registered, let's refuse that and ask them to use "foopkg-new.bak" or "foopkg-new~" instead.
+         * Thus, if a new package manager "foopkg" wants its own set of ".foopkg-new", ".foopkg-old", ".foopkg-dist"
+         * or so registered, let's refuse that and ask them to use ".foopkg.new", ".foopkg.old" or ".foopkg~" instead.
          */
 
         return STR_IN_SET(p + 1,
@@ -800,7 +800,9 @@ bool hidden_or_backup_file(const char *filename) {
                           "ucf-old",
                           "ucf-dist",
                           "swp",
-                          "bak");
+                          "bak",
+                          "old",
+                          "new");
 }
 
 bool is_device_path(const char *path) {
