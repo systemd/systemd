@@ -16,5 +16,5 @@ set shiftwidth=8
 set expandtab
 set makeprg=GCC_COLORS=\ make
 set tw=79
-au FileType xml set tw=119
+au BufRead,BufNewFile *.xml set tw=119 shiftwidth=2 smarttab
 au FileType c set tw=119

@@ -31,7 +31,7 @@ int manager_parse_config_file(Manager *m) {
 
         return config_parse_many(PKGSYSCONFDIR "/networkd.conf",
                                  CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
-                                 "DUID\0",
+                                 "DHCP\0",
                                  config_item_perf_lookup, networkd_gperf_lookup,
                                  false, m);
 }
@@ -57,7 +57,8 @@ int config_parse_duid_rawdata(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        int r, n1, n2, byte;
+
+        int r;
         char *cbyte;
         const char *pduid = rvalue;
         Manager *m = userdata;
@@ -72,71 +73,78 @@ int config_parse_duid_rawdata(
         assert(rvalue);
         assert(userdata);
 
-        duidtype = (ltype == DUID_CONFIG_SOURCE_GLOBAL) ? m->duid_type
-                                                        : n->duid_type;
+        duidtype = (ltype == DUID_CONFIG_SOURCE_GLOBAL) ? m->duid_type : n->duid_type;
 
         if (duidtype == _DUID_TYPE_INVALID)
                 duidtype = DUID_TYPE_RAW;
 
         switch (duidtype) {
+
         case DUID_TYPE_LLT:
                 /* RawData contains DUID-LLT link-layer address (offset 6) */
                 duid_start_offset = 6;
                 break;
+
         case DUID_TYPE_EN:
                 /* RawData contains DUID-EN identifier (offset 4) */
                 duid_start_offset = 4;
                 break;
+
         case DUID_TYPE_LL:
                 /* RawData contains DUID-LL link-layer address (offset 2) */
                 duid_start_offset = 2;
                 break;
+
         case DUID_TYPE_UUID:
                 /* RawData specifies UUID (offset 0) - fall thru */
+
         case DUID_TYPE_RAW:
                 /* First two bytes of RawData is DUID Type - fall thru */
+
         default:
                 break;
         }
 
         if (duidtype != DUID_TYPE_RAW)
-                dhcp_duid_type = (uint16_t)duidtype;
+                dhcp_duid_type = (uint16_t) duidtype;
 
         /* RawData contains DUID in format " NN:NN:NN... " */
         for (;;) {
+                int n1, n2;
+                uint32_t byte;
+
                 r = extract_first_word(&pduid, &cbyte, ":", 0);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to read DUID, ignoring assignment: %s.", rvalue);
-                        goto exit;
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to read DUID, ignoring assignment: %s.", rvalue);
+                        return 0;
                 }
                 if (r == 0)
                         break;
-                if ((duid_start_offset + dhcp_duid_len) >= MAX_DUID_LEN) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Max DUID length exceeded, ignoring assignment: %s.", rvalue);
-                        goto exit;
+                if (duid_start_offset + dhcp_duid_len >= MAX_DUID_LEN) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Max DUID length exceeded, ignoring assignment: %s.", rvalue);
+                        return 0;
                 }
 
                 len = strlen(cbyte);
-                if ((len == 0) || (len > 2)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
-                        goto exit;
+                if (len != 1 && len != 2) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
+                        return 0;
                 }
-                n2 = 0;
                 n1 = unhexchar(cbyte[0]);
                 if (len == 2)
                         n2 = unhexchar(cbyte[1]);
-                if ((n1 < 0) || (n2 < 0)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Invalid DUID byte: %s. Ignoring assignment: %s.", cbyte, rvalue);
-                        goto exit;
+                else
+                        n2 = 0;
+
+                if (n1 < 0 || n2 < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid DUID byte: %s. Ignoring assignment: %s.", cbyte, rvalue);
+                        return 0;
                 }
-                byte = (n1 << (4 * (len-1))) | n2;
+
+                byte = ((uint8_t) n1 << (4 * (len-1))) | (uint8_t) n2;
 
                 /* If DUID_TYPE_RAW, first two bytes hold DHCP DUID type code */
-                if ((duidtype == DUID_TYPE_RAW) && (count < 2)) {
+                if (duidtype == DUID_TYPE_RAW && count < 2) {
                         dhcp_duid_type |= (byte << (8 * (1 - count)));
                         count++;
                         continue;
@@ -159,6 +167,5 @@ int config_parse_duid_rawdata(
                 memcpy(&n->dhcp_duid[duid_start_offset], dhcp_duid, dhcp_duid_len);
         }
 
-exit:
         return 0;
 }

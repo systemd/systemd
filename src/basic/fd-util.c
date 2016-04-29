@@ -361,8 +361,14 @@ bool fdname_is_valid(const char *s) {
 
 int fd_get_path(int fd, char **ret) {
         char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        int r;
 
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
-        return readlink_malloc(procfs_path, ret);
+        r = readlink_malloc(procfs_path, ret);
+
+        if (r == -ENOENT) /* If the file doesn't exist the fd is invalid */
+                return -EBADF;
+
+        return r;
 }
