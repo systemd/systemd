@@ -607,9 +607,9 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
                 r = btrfs_subvol_snapshot(i->path, new_path, (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
 
-                /* Enable "subtree" quotas for the copy, if we didn't
-                 * copy any quota from the source. */
-                (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
+                /* Enable "subtree" quotas for the copy, if we didn't copy any quota from the source. */
+                if (r >= 0)
+                        (void) btrfs_subvol_auto_qgroup(new_path, 0, true);
 
                 break;
 
