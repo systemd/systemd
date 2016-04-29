@@ -2516,14 +2516,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         for (;;) {
-                const char *option_string;
+                const char * const option_string = "+hp:als:H:M:qn:o:";
 
-                if (reorder)
-                        option_string = "hp:als:H:M:qn:o:";
-                else
-                        option_string = "+hp:als:H:M:qn:o:";
-
-                c = getopt_long(argc, argv, option_string, options, NULL);
+                c = getopt_long(argc, argv, option_string + reorder, options, NULL);
                 if (c < 0) {
                         /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
                          * for switches after the main verb. However, for "shell" we really don't want that, since we

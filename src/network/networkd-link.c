@@ -576,8 +576,6 @@ static void link_set_state(Link *link, LinkState state) {
         link->state = state;
 
         link_send_changed(link, "AdministrativeState", NULL);
-
-        return;
 }
 
 static void link_enter_unmanaged(Link *link) {

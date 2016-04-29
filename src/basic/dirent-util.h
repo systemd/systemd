@@ -38,7 +38,7 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pu
                                 on_error;                               \
                         }                                               \
                         break;                                          \
-                } else if (hidden_file((de)->d_name))                   \
+                } else if (hidden_or_backup_file((de)->d_name))         \
                         continue;                                       \
                 else
 

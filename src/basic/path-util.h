@@ -122,7 +122,6 @@ bool path_is_safe(const char *p) _pure_;
 
 char *file_in_same_dir(const char *path, const char *filename);
 
-bool hidden_file_allow_backup(const char *filename);
-bool hidden_file(const char *filename) _pure_;
+bool hidden_or_backup_file(const char *filename) _pure_;
 
 bool is_device_path(const char *path);

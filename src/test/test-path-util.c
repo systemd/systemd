@@ -489,6 +489,27 @@ static void test_filename_is_valid(void) {
         assert_se(filename_is_valid("o.o"));
 }
 
+static void test_hidden_or_backup_file(void) {
+        assert_se(hidden_or_backup_file(".hidden"));
+        assert_se(hidden_or_backup_file("..hidden"));
+        assert_se(!hidden_or_backup_file("hidden."));
+
+        assert_se(hidden_or_backup_file("backup~"));
+        assert_se(hidden_or_backup_file(".backup~"));
+
+        assert_se(hidden_or_backup_file("lost+found"));
+        assert_se(hidden_or_backup_file("aquota.user"));
+        assert_se(hidden_or_backup_file("aquota.group"));
+
+        assert_se(hidden_or_backup_file("test.rpmnew"));
+        assert_se(hidden_or_backup_file("test.dpkg-old"));
+        assert_se(hidden_or_backup_file("test.dpkg-remove"));
+        assert_se(hidden_or_backup_file("test.swp"));
+
+        assert_se(!hidden_or_backup_file("test.rpmnew."));
+        assert_se(!hidden_or_backup_file("test.dpkg-old.foo"));
+}
+
 int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0]);
@@ -502,6 +523,7 @@ int main(int argc, char **argv) {
         test_path_is_mount_point();
         test_file_in_same_dir();
         test_filename_is_valid();
+        test_hidden_or_backup_file();
 
         return 0;
 }

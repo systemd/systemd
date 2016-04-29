@@ -231,7 +231,7 @@ int close_all_fds(const int except[], unsigned n_except) {
         while ((de = readdir(d))) {
                 int fd = -1;
 
-                if (hidden_file(de->d_name))
+                if (hidden_or_backup_file(de->d_name))
                         continue;
 
                 if (safe_atoi(de->d_name, &fd) < 0)

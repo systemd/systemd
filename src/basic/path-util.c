@@ -756,37 +756,37 @@ char *file_in_same_dir(const char *path, const char *filename) {
         return ret;
 }
 
-bool hidden_file_allow_backup(const char *filename) {
+bool hidden_or_backup_file(const char *filename) {
+        const char *p;
+
         assert(filename);
 
-        return
-                filename[0] == '.' ||
-                streq(filename, "lost+found") ||
-                streq(filename, "aquota.user") ||
-                streq(filename, "aquota.group") ||
-                endswith(filename, ".rpmnew") ||
-                endswith(filename, ".rpmsave") ||
-                endswith(filename, ".rpmorig") ||
-                endswith(filename, ".dpkg-old") ||
-                endswith(filename, ".dpkg-new") ||
-                endswith(filename, ".dpkg-tmp") ||
-                endswith(filename, ".dpkg-dist") ||
-                endswith(filename, ".dpkg-bak") ||
-                endswith(filename, ".dpkg-backup") ||
-                endswith(filename, ".dpkg-remove") ||
-                endswith(filename, ".ucf-new") ||
-                endswith(filename, ".ucf-old") ||
-                endswith(filename, ".ucf-dist") ||
-                endswith(filename, ".swp");
-}
-
-bool hidden_file(const char *filename) {
-        assert(filename);
-
-        if (endswith(filename, "~"))
+        if (filename[0] == '.' ||
+            streq(filename, "lost+found") ||
+            streq(filename, "aquota.user") ||
+            streq(filename, "aquota.group") ||
+            endswith(filename, "~"))
                 return true;
 
-        return hidden_file_allow_backup(filename);
+        p = strrchr(filename, '.');
+        if (!p)
+                return false;
+
+        return STR_IN_SET(p + 1,
+                          "rpmnew",
+                          "rpmsave",
+                          "rpmorig",
+                          "dpkg-old",
+                          "dpkg-new",
+                          "dpkg-tmp",
+                          "dpkg-dist",
+                          "dpkg-bak",
+                          "dpkg-backup",
+                          "dpkg-remove",
+                          "ucf-new",
+                          "ucf-old",
+                          "ucf-dist",
+                          "swp");
 }
 
 bool is_device_path(const char *path) {

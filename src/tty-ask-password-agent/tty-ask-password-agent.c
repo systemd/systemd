@@ -481,7 +481,7 @@ static int show_passwords(void) {
                 if (de->d_type != DT_REG)
                         continue;
 
-                if (hidden_file(de->d_name))
+                if (hidden_or_backup_file(de->d_name))
                         continue;
 
                 if (!startswith(de->d_name, "ask."))
