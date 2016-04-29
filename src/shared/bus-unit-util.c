@@ -210,7 +210,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
         } else if (STR_IN_SET(field, "BlockIOWeight", "StartupBlockIOWeight")) {
                 uint64_t u;
 
-                r = cg_cpu_shares_parse(eq, &u);
+                r = cg_blkio_shares_parse(eq, &u);
                 if (r < 0) {
                         log_error("Failed to parse %s value %s.", field, eq);
                         return -EINVAL;
