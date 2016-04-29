@@ -1464,7 +1464,7 @@ static int setup_journal(const char *directory) {
 
         if (sd_id128_equal(arg_uuid, this_id)) {
                 log_full(try ? LOG_WARNING : LOG_ERR,
-                         "Host and machine ids are equal (%s): refusing to link journals", id);
+                         "Host and machine ids are equal (%s): refusing to link journals", sd_id128_to_string(arg_uuid, id));
                 if (try)
                         return 0;
                 return -EEXIST;
