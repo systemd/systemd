@@ -6,18 +6,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Process Core Dump
+Description=Process Core Dump Slice
 Documentation=man:systemd-coredump(8)
 DefaultDependencies=no
-RequiresMountsFor=/var/lib/systemd/coredump
-After=systemd-remount-fs.service systemd-journald.socket
-Requires=systemd-journald.socket
-
-[Service]
-ExecStart=-@rootlibexecdir@/systemd-coredump
-Nice=9
-OOMScoreAdjust=500
-PrivateNetwork=yes
-ProtectSystem=full
-RuntimeMaxSec=5min
-Slice=coredump.slice

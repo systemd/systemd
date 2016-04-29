@@ -4451,7 +4451,8 @@ nodist_systemunit_DATA += \
 	units/systemd-coredump@.service
 
 dist_systemunit_DATA += \
-	units/systemd-coredump.socket
+	units/systemd-coredump.socket \
+	units/coredump.slice
 
 SOCKETS_TARGET_WANTS += \
 	systemd-coredump.socket
