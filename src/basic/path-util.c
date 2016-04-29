@@ -772,6 +772,19 @@ bool hidden_or_backup_file(const char *filename) {
         if (!p)
                 return false;
 
+        /* Please, let's not add more entries to the list below. If external projects think it's a good idea to come up
+         * with always new suffixes and that everybody else should just adjust to that, then it really should be on
+         * them. Hence, in future, let's not add any more entries. Instead, let's ask those packages to instead adopt
+         * one of the generic suffixes/prefixes for hidden files or backups, possibly augmented with an additional
+         * string. Specifically: there's now:
+         *
+         *    The generic suffixes "~" and ".bak" for backup files
+         *    The generic prefix "." for hidden files
+         *
+         * Thus, if a new package manager "foopkg" wants its own set of "foopkg-new", "foopkg-old", "foopkg-dist" or so
+         * registered, let's refuse that and ask them to use "foopkg-new.bak" or "foopkg-new~" instead.
+         */
+
         return STR_IN_SET(p + 1,
                           "rpmnew",
                           "rpmsave",
@@ -786,7 +799,8 @@ bool hidden_or_backup_file(const char *filename) {
                           "ucf-new",
                           "ucf-old",
                           "ucf-dist",
-                          "swp");
+                          "swp",
+                          "bak");
 }
 
 bool is_device_path(const char *path) {
