@@ -57,6 +57,7 @@ enum {
         ARCHITECTURE_M68K,
         ARCHITECTURE_TILEGX,
         ARCHITECTURE_CRIS,
+        ARCHITECTURE_NIOS2,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -1
 };
@@ -187,6 +188,9 @@ int uname_architecture(void);
 #elif defined(__cris__)
 #  define native_architecture() ARCHITECTURE_CRIS
 #  error "Missing LIB_ARCH_TUPLE for CRIS"
+#elif defined(__nios2__)
+#  define native_architecture() ARCHITECTURE_NIOS2
+#  define LIB_ARCH_TUPLE "nios2-linux-gnu"
 #else
 #  error "Please register your architecture here!"
 #endif
