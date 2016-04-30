@@ -812,6 +812,7 @@
             false.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
@@ -819,6 +820,7 @@
             or <literal>duid</literal> (the default, see below) to use a RFC4361-compliant Client ID.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><varname>VendorClassIdentifier=</varname></term>
           <listitem>
@@ -826,25 +828,25 @@
             type and configuration.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
-          <term><varname>DUIDRawData=</varname></term>
-          <listitem><para>Specifies the DHCP DUID bytes as a single newline-terminated, hexadecimal string, with each
-          byte separated by a <literal>:</literal>. A DHCPv6 client sends the DHCP Unique Identifier (DUID) and the
-          interface Identity Association Identifier (IAID) to a DHCP server when acquiring a dynamic IPv6
-          address. Similarly, DHCPv4 clients send the IAID and DUID to the DHCP server when acquiring a dynamic IPv4
-          address if <option>ClientIdentifier=duid</option>. IAID and DUID allows a DHCP server to uniquely identify
-          the machine and the interface requesting a DHCP IP address.</para>
-
-          <para>The DUID value specified here takes precedence over the DUID that systemd-networkd generates
-          using the machine-id from the <filename>/etc/machine-id</filename> file, as well as the
-          global DUID that may be specified in <citerefentry><refentrytitle>networkd.conf
-          </refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-          <para>The configured DHCP DUID should conform to the specification in
-          <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
-          <ulink url="http://tools.ietf.org/html/rfc6355">RFC 6355</ulink>.</para>
+          <term><varname>DUIDType=</varname></term>
+          <listitem>
+            <para>Override the global <varname>DUIDType</varname> setting for this network. See
+            <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for a description of possible values.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>DUIDRawData=</varname></term>
+          <listitem>
+            <para>Override the global <varname>DUIDRawData</varname> setting for this network. See
+            <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for a description of possible values.</para>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><varname>RequestBroadcast=</varname></term>
           <listitem>
@@ -856,6 +858,7 @@
             networks where broadcasts are filtered out.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <listitem>

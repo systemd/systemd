@@ -58,14 +58,14 @@
     <title>Description</title>
 
     <para>These configuration files control global network parameters.
-    For e.g. DHCP Unique Identifier (DUID).</para>
+    Currently the DHCP Unique Identifier (DUID).</para>
 
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
 
   <refsect1>
-    <title>[DUID] Section Options</title>
+    <title>[DHCP] Section Options</title>
 
     <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCP
     protocol. DHCPv6 client protocol sends the DHCP Unique Identifier and the interface
@@ -73,28 +73,71 @@
     address. DHCPv4 client protocol sends IAID and DUID to the DHCP server when acquiring
     a dynamic IPv4 address if <option>ClientIdentifier=duid</option>. IAID and DUID allows
     a DHCP server to uniquely identify the machine and the interface requesting a DHCP IP.
-    To configure IAID and ClientIdentifier, see <citerefentry><refentrytitle>systemd.network
-    </refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    To configure IAID and ClientIdentifier, see
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
 
-    <para>The DUID value specified here overrides the DUID that systemd-networkd
-    generates using the machine-id from the <filename>/etc/machine-id</filename> file.
-    To configure DUID per-network, see <citerefentry><refentrytitle>systemd.network
-    </refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-    <para>The configured DHCP DUID should conform to the specification in 
-    <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
-    <ulink url="http://tools.ietf.org/html/rfc6355">RFC 6355</ulink>. To configure IAID, see
-    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum>
-    </citerefentry>.</para>
-
-    <para>The following options are available in <literal>[DUID]</literal> section:</para>
+    <para>The following options are understood:</para>
 
     <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>DUIDType=</varname></term>
+        <listitem><para>Specifies how the DUID should be generated. See
+        <ulink url="https://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>
+        for a description of all the options.</para>
+
+        <para>The following values are understood:
+        <variablelist>
+          <varlistentry>
+            <term><option>vendor</option> </term>
+            <listitem><para>If <literal>DUIDType=vendor</literal>, then the DUID value will be generated using
+            <literal>43793</literal> as the vendor identifier (systemd) and hashed contents of
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This is the default if <varname>DUIDType=</varname> is not specified.
+            </para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>link-layer-time</option> </term>
+            <term><option>link-layer</option> </term>
+            <term><option>uuid</option> </term>
+            <listitem><para>Those values are parsed and can be used to set the DUID type
+            field, but DUID contents must be provided using <varname>DUIDRawData=</varname>.
+            </para></listitem>
+          </varlistentry>
+        </variablelist>
+        </para>
+
+        <para>In all cases, <varname>DUIDRawData=</varname> can be used to override the
+        actual DUID value that is used.</para></listitem>
+      </varlistentry>
 
       <varlistentry>
-        <term><varname>RawData=</varname></term>
-        <listitem><para>Specifies the DUID bytes as a single newline-terminated, hexadecimal
-        string, with each byte separated by a ':'.</para></listitem>
+        <term><varname>DUIDRawData=</varname></term>
+        <listitem><para>Specifies the DHCP DUID value as a single newline-terminated, hexadecimal string, with each
+        byte separated by <literal>:</literal>. The DUID that is sent is composed of the DUID type specified by
+        <varname>DUIDType=</varname> and the value configured here.</para>
+
+        <para>The DUID value specified here overrides the DUID that systemd-networkd generates using the machine-id
+        from the <filename>/etc/machine-id</filename> file. To configure DUID per-network, see
+        <citerefentry><refentrytitle>systemd.network </refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The configured DHCP DUID should conform to the specification in
+        <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
+        <ulink url="http://tools.ietf.org/html/rfc6355">RFC 6355</ulink>. To configure IAID, see
+        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum>
+        </citerefentry>.</para>
+
+        <example>
+          <title>A <option>DUIDType=vendor</option> with a custom value</title>
+
+          <programlisting>DUIDType=vendor
+DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
+
+          <para>This specifies a 14 byte DUID, with the type DUID-EN (<literal>00:02</literal>), enterprise number
+          43793 (<literal>00:00:ab:11</literal>), and identifier value <literal>f9:2a:c2:77:29:f9:5c:00</literal>.
+          </para>
+        </example>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
