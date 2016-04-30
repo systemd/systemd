@@ -1050,6 +1050,8 @@ static int unit_file_load(
                 {}
         };
 
+        const char *name;
+        UnitType type;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
         struct stat st;
@@ -1058,6 +1060,12 @@ static int unit_file_load(
         assert(c);
         assert(info);
         assert(path);
+
+        name = basename(path);
+        type = unit_name_to_type(name);
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE) &&
+            !unit_type_may_template(type))
+                return log_error_errno(EINVAL, "Unit type %s cannot be templated.", unit_type_to_string(type));
 
         if (!(flags & SEARCH_LOAD)) {
                 r = lstat(path, &st);
