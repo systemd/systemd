@@ -309,7 +309,6 @@ const UnitVTable slice_vtable = {
                 "Install\0",
         .private_section = "Slice",
 
-        .no_instances = true,
         .can_transient = true,
 
         .init = slice_init,

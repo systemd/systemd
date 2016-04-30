@@ -1028,8 +1028,6 @@ const UnitVTable busname_vtable = {
                 "Install\0",
         .private_section = "BusName",
 
-        .no_instances = true,
-
         .init = busname_init,
         .done = busname_done,
         .load = busname_load,

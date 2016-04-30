@@ -193,7 +193,7 @@ int unit_add_name(Unit *u, const char *text) {
         if (r < 0)
                 return r;
 
-        if (i && unit_vtable[t]->no_instances)
+        if (i && !unit_type_may_template(t))
                 return -EINVAL;
 
         /* Ensure that this unit is either instanced or not instanced,

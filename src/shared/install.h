@@ -139,6 +139,7 @@ static inline bool UNIT_FILE_INSTALL_INFO_HAS_ALSO(UnitFileInstallInfo *i) {
 }
 
 bool unit_type_may_alias(UnitType type) _const_;
+bool unit_type_may_template(UnitType type) _const_;
 
 int unit_file_enable(
                 UnitFileScope scope,

@@ -1050,8 +1050,6 @@ const UnitVTable automount_vtable = {
                 "Automount\0"
                 "Install\0",
 
-        .no_instances = true,
-
         .init = automount_init,
         .load = automount_load,
         .done = automount_done,
