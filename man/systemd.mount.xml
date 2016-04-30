@@ -82,14 +82,12 @@
     will refuse options that are not listed in
     <filename>/etc/fstab</filename> if it is not run as UID 0.</para>
 
-    <para>Mount units must be named after the mount point directories
-    they control. Example: the mount point
-    <filename noindex='true'>/home/lennart</filename> must be
-    configured in a unit file <filename>home-lennart.mount</filename>.
-    For details about the escaping logic used to convert a file system
-    path to a unit name, see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    Note that mount units cannot be templated.</para>
+    <para>Mount units must be named after the mount point directories they control. Example: the mount point <filename
+    noindex='true'>/home/lennart</filename> must be configured in a unit file <filename>home-lennart.mount</filename>.
+    For details about the escaping logic used to convert a file system path to a unit name, see
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.  Note that mount
+    units cannot be templated, nor is possible to add multiple names to a mount unit by creating additional symlinks to
+    it.</para>
 
     <para>Optionally, a mount unit may be accompanied by an automount
     unit, to allow on-demand or parallelized mounting. See

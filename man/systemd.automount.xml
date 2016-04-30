@@ -66,14 +66,13 @@
     [Install] sections. The automount specific configuration options
     are configured in the [Automount] section.</para>
 
-    <para>Automount units must be named after the automount
-    directories they control. Example: the automount point
-    <filename noindex='true'>/home/lennart</filename> must be
-    configured in a unit file
-    <filename>home-lennart.automount</filename>. For details about the
-    escaping logic used to convert a file system path to a unit name
-    see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>Automount units must be named after the automount directories they control. Example: the automount point
+    <filename noindex='true'>/home/lennart</filename> must be configured in a unit file
+    <filename>home-lennart.automount</filename>. For details about the escaping logic used to convert a file system
+    path to a unit name see
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note that
+    automount units cannot be templated, nor is it possible to add multiple names to an automount unit by creating
+    additional symlinks to its unit file.</para>
 
     <para>For each automount unit file a matching mount unit file (see
     <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>

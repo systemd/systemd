@@ -71,6 +71,9 @@
     the root slice <filename>-.slice</filename>.
     </para>
 
+    <para>Note that slice units cannot be templated, nor is possible to add multiple names to a slice unit by creating
+    additional symlinks to it.</para>
+
     <para>By default, service and scope units are placed in
     <filename>system.slice</filename>, virtual machines and containers
     registered with

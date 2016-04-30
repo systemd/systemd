@@ -1773,20 +1773,18 @@ int set_consume(Set *s, void *value) {
 
 int set_put_strdup(Set *s, const char *p) {
         char *c;
-        int r;
 
         assert(s);
         assert(p);
+
+        if (set_contains(s, (char*) p))
+                return 0;
 
         c = strdup(p);
         if (!c)
                 return -ENOMEM;
 
-        r = set_consume(s, c);
-        if (r == -EEXIST)
-                return 0;
-
-        return r;
+        return set_consume(s, c);
 }
 
 int set_put_strdupv(Set *s, char **l) {
