@@ -318,6 +318,11 @@ int sd_dhcp_client_set_client_id(
         return 0;
 }
 
+/**
+ * Sets IAID and DUID. If duid is non-null, the DUID is set to duid_type + duid
+ * without further modification. Otherwise, if duid_type is supported, DUID
+ * is set based on that type. Otherwise, an error is returned.
+ */
 int sd_dhcp_client_set_iaid_duid(
                 sd_dhcp_client *client,
                 uint32_t iaid,
@@ -327,9 +332,18 @@ int sd_dhcp_client_set_iaid_duid(
 
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
-        assert_return(client, -EINVAL);
-        zero(client->client_id);
+        size_t len;
 
+        assert_return(client, -EINVAL);
+        assert_return(duid_len == 0 || duid != NULL, -EINVAL);
+
+        if (duid != NULL) {
+                r = dhcp_validate_duid_len(duid_type, duid_len);
+                if (r < 0)
+                        return r;
+        }
+
+        zero(client->client_id);
         client->client_id.type = 255;
 
         /* If IAID is not configured, generate it. */
@@ -342,22 +356,18 @@ int sd_dhcp_client_set_iaid_duid(
         } else
                 client->client_id.ns.iaid = htobe32(iaid);
 
-        /* If DUID is not configured, generate DUID-EN. */
-        if (duid_len == 0) {
-                r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid,
-                                                &duid_len);
-                if (r < 0)
-                        return r;
-        } else {
-                r = dhcp_validate_duid_len(client->client_id.type, duid_len);
-                if (r < 0)
-                        return r;
+        if (duid != NULL) {
                 client->client_id.ns.duid.type = htobe16(duid_type);
                 memcpy(&client->client_id.ns.duid.raw.data, duid, duid_len);
-                duid_len += sizeof(client->client_id.ns.duid.type);
-        }
+                len = sizeof(client->client_id.ns.duid.type) + duid_len;
+        } else if (duid_type == DUID_TYPE_EN) {
+                r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &len);
+                if (r < 0)
+                        return r;
+        } else
+                return -EOPNOTSUPP;
 
-        client->client_id_len = sizeof(client->client_id.type) + duid_len +
+        client->client_id_len = sizeof(client->client_id.type) + len +
                                 sizeof(client->client_id.ns.iaid);
 
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {

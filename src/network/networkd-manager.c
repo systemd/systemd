@@ -1037,7 +1037,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        m->duid_type = _DUID_TYPE_INVALID;
+        m->duid_type = DUID_TYPE_EN;
 
         *ret = m;
         m = NULL;

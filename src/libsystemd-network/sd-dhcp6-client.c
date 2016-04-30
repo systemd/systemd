@@ -186,6 +186,11 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
         return dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
 }
 
+/**
+ * Sets DUID. If duid is non-null, the DUID is set to duid_type + duid
+ * without further modification. Otherwise, if duid_type is supported, DUID
+ * is set based on that type. Otherwise, an error is returned.
+ */
 int sd_dhcp6_client_set_duid(
                 sd_dhcp6_client *client,
                 uint16_t duid_type,
@@ -194,16 +199,25 @@ int sd_dhcp6_client_set_duid(
 
         int r;
         assert_return(client, -EINVAL);
+        assert_return(duid_len == 0 || duid != NULL, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
-        if (duid_len > 0) {
+        if (duid != NULL) {
                 r = dhcp_validate_duid_len(duid_type, duid_len);
                 if (r < 0)
                         return r;
+        }
+
+        if (duid != NULL) {
                 client->duid.type = htobe16(duid_type);
                 memcpy(&client->duid.raw.data, duid, duid_len);
-                client->duid_len = duid_len + sizeof(client->duid.type);
-        }
+                client->duid_len = sizeof(client->duid.type) + duid_len;
+        } else if (duid_type == DUID_TYPE_EN) {
+                r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
+                if (r < 0)
+                        return r;
+        } else
+                return -EOPNOTSUPP;
 
         return 0;
 }
