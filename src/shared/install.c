@@ -68,6 +68,16 @@ typedef struct {
 
 static int unit_file_lookup_state(UnitFileScope scope, const LookupPaths *paths, const char *name, UnitFileState *ret);
 
+bool unit_type_may_alias(UnitType type) {
+        return IN_SET(type,
+                      UNIT_SERVICE,
+                      UNIT_SOCKET,
+                      UNIT_TARGET,
+                      UNIT_DEVICE,
+                      UNIT_TIMER,
+                      UNIT_PATH);
+}
+
 static int in_search_path(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
         char **i;

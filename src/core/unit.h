@@ -416,9 +416,6 @@ struct UnitVTable {
         /* The strings to print in status messages */
         UnitStatusMessageFormats status_message_formats;
 
-        /* Can units of this type have multiple names? */
-        bool no_alias:1;
-
         /* Instances make no sense for this type */
         bool no_instances:1;
 

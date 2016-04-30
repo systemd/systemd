@@ -138,6 +138,8 @@ static inline bool UNIT_FILE_INSTALL_INFO_HAS_ALSO(UnitFileInstallInfo *i) {
         return !strv_isempty(i->also);
 }
 
+bool unit_type_may_alias(UnitType type) _const_;
+
 int unit_file_enable(
                 UnitFileScope scope,
                 bool runtime,
