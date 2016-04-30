@@ -1003,12 +1003,22 @@ static int config_parse_default_instance(
                 void *userdata) {
 
         UnitFileInstallInfo *i = data;
+        const char *name;
         char *printed;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        name = basename(filename);
+        if (unit_name_is_valid(name, UNIT_NAME_INSTANCE))
+                /* When enabling an instance, we might be using a template unit file,
+                 * but we should ignore DefaultInstance silently. */
+                return 0;
+        if (!unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "DefaultInstance only makes sense for template units, ignoring.");
 
         r = install_full_printf(i, rvalue, &printed);
         if (r < 0)
