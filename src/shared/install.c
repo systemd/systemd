@@ -908,6 +908,36 @@ fail:
         return r;
 }
 
+static int config_parse_alias(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *name;
+        UnitType type;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        name = basename(filename);
+        type = unit_name_to_type(name);
+        if (!unit_type_may_alias(type))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Aliases are not allowed for %s units, ignoring.",
+                                  unit_type_to_string(type));
+
+        return config_parse_strv(unit, filename, line, section, section_line,
+                                 lvalue, ltype, rvalue, data, userdata);
+}
+
 static int config_parse_also(
                 const char *unit,
                 const char *filename,
@@ -993,7 +1023,7 @@ static int unit_file_load(
                 SearchFlags flags) {
 
         const ConfigTableItem items[] = {
-                { "Install", "Alias",           config_parse_strv,             0, &info->aliases           },
+                { "Install", "Alias",           config_parse_alias,            0, &info->aliases           },
                 { "Install", "WantedBy",        config_parse_strv,             0, &info->wanted_by         },
                 { "Install", "RequiredBy",      config_parse_strv,             0, &info->required_by       },
                 { "Install", "DefaultInstance", config_parse_default_instance, 0, info                     },
