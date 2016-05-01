@@ -26,7 +26,6 @@
 #include "unaligned.h"
 
 typedef enum DUIDType {
-        DUID_TYPE_RAW       = 0,
         DUID_TYPE_LLT       = 1,
         DUID_TYPE_EN        = 2,
         DUID_TYPE_LL        = 3,

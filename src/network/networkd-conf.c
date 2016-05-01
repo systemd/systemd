@@ -37,7 +37,6 @@ int manager_parse_config_file(Manager *m) {
 }
 
 static const char* const duid_type_table[_DUID_TYPE_MAX] = {
-        [DUID_TYPE_RAW]  = "raw",
         [DUID_TYPE_LLT]  = "link-layer-time",
         [DUID_TYPE_EN]   = "vendor",
         [DUID_TYPE_LL]   = "link-layer",
