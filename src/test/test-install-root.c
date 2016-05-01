@@ -681,6 +681,53 @@ static void test_revert(const char *root) {
         changes = NULL; n_changes = 0;
 }
 
+static void test_preset_order(const char *root) {
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        const char *p;
+        UnitFileState state;
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-1.service", &state) == -ENOENT);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-2.service", &state) == -ENOENT);
+
+        p = strjoina(root, "/usr/lib/systemd/system/prefix-1.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        p = strjoina(root, "/usr/lib/systemd/system/prefix-2.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
+        assert_se(write_string_file(p,
+                                    "enable prefix-1.service\n"
+                                    "disable prefix-*.service\n"
+                                    "enable prefix-2.service\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_preset(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("prefix-1.service"), UNIT_FILE_PRESET_FULL, false, &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == UNIT_FILE_SYMLINK);
+        assert_se(streq(changes[0].source, "/usr/lib/systemd/system/prefix-1.service"));
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH"/multi-user.target.wants/prefix-1.service");
+        assert_se(streq(changes[0].path, p));
+        unit_file_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_preset(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("prefix-2.service"), UNIT_FILE_PRESET_FULL, false, &changes, &n_changes) >= 0);
+        assert_se(n_changes == 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+}
+
 int main(int argc, char *argv[]) {
         char root[] = "/tmp/rootXXXXXX";
         const char *p;
@@ -709,6 +756,7 @@ int main(int argc, char *argv[]) {
         test_template_enable(root);
         test_indirect(root);
         test_preset_and_list(root);
+        test_preset_order(root);
         test_revert(root);
 
         assert_se(rm_rf(root, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
