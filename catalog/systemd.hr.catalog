@@ -67,7 +67,7 @@ Zapamtite da samo poruke iz usluge u upitu su
 odbačene, ostale poruke usluga nisu zahvaćene.
 
 Ograničenja koja kontroliraju kada je poruka odbačena mogu se podesiti
-sa RateLimitInterval= i RateLimitBurst= u
+sa RateLimitIntervalSec= i RateLimitBurst= u
 /etc/systemd/journald.conf. Pogledajte journald.conf(5) za više pojedinosti.
 
 -- e9bf28e6e834481bb6f48f548ad13606
