@@ -408,7 +408,7 @@ static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, in
         init_autofs_dev_ioctl(&param);
         param.ioctlfd = ioctl_fd;
 
-        if (status) {
+        if (status != 0) {
                 param.fail.token = token;
                 param.fail.status = status;
         } else
@@ -435,7 +435,7 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
         if (ioctl_fd < 0)
                 return ioctl_fd;
 
-        if (status)
+        if (status != 0)
                 log_unit_debug_errno(UNIT(a), status, "Sending failure: %m");
         else
                 log_unit_debug(UNIT(a), "Sending success.");
@@ -469,7 +469,10 @@ int automount_update_mount(Automount *a, MountState old_state, MountState state)
 
         assert(a);
 
+        log_unit_debug(UNIT(a), "Got notified about mount unit state change %s → %s", mount_state_to_string(old_state), mount_state_to_string(state));
+
         switch (state) {
+
         case MOUNT_MOUNTED:
         case MOUNT_REMOUNTING:
                 automount_send_ready(a, a->tokens, 0);
