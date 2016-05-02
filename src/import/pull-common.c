@@ -330,7 +330,7 @@ int pull_verify(PullJob *main_job,
         _cleanup_close_ int sig_file = -1;
         const char *p, *line;
         char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
-        _cleanup_sigkill_wait_ pid_t pid = 0;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
         bool gpg_home_created = false;
         int r;
 

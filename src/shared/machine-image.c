@@ -423,7 +423,7 @@ int image_remove(Image *i) {
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
-                (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
+                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 if (r < 0)
                         return r;
@@ -505,7 +505,7 @@ int image_rename(Image *i, const char *new_name) {
                 (void) read_attr_path(i->path, &file_attr);
 
                 if (file_attr & FS_IMMUTABLE_FL)
-                        (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
+                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
 
                 /* fall through */
 
@@ -538,7 +538,7 @@ int image_rename(Image *i, const char *new_name) {
 
         /* Restore the immutable bit, if it was set before */
         if (file_attr & FS_IMMUTABLE_FL)
-                (void) chattr_path(new_path, true, FS_IMMUTABLE_FL);
+                (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
 
         free(i->path);
         i->path = new_path;
@@ -603,13 +603,21 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY:
+                /* If we can we'll always try to create a new btrfs subvolume here, even if the source is a plain
+                 * directory.*/
+
                 new_path = strjoina("/var/lib/machines/", new_name);
 
                 r = btrfs_subvol_snapshot(i->path, new_path, (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
+                if (r == -EOPNOTSUPP) {
+                        /* No btrfs snapshots supported, create a normal directory then. */
 
-                /* Enable "subtree" quotas for the copy, if we didn't
-                 * copy any quota from the source. */
-                (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
+                        r = copy_directory(i->path, new_path, false);
+                        if (r >= 0)
+                                (void) chattr_path(new_path, read_only ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL);
+                } else if (r >= 0)
+                        /* Enable "subtree" quotas for the copy, if we didn't copy any quota from the source. */
+                        (void) btrfs_subvol_auto_qgroup(new_path, 0, true);
 
                 break;
 
@@ -670,7 +678,7 @@ int image_read_only(Image *i, bool b) {
                    a read-only subvolume, but at least something, and
                    we can read the value back.*/
 
-                r = chattr_path(i->path, b, FS_IMMUTABLE_FL);
+                r = chattr_path(i->path, b ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL);
                 if (r < 0)
                         return r;
 

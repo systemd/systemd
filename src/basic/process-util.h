@@ -58,8 +58,8 @@ int get_process_ppid(pid_t pid, pid_t *ppid);
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
 
-void sigkill_wait(pid_t *pid);
-#define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
+void sigkill_wait(pid_t pid);
+void sigkill_waitp(pid_t *pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 

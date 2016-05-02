@@ -20,9 +20,11 @@
 #include "alloc-util.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "image-dbus.h"
 #include "io-util.h"
 #include "machine-image.h"
+#include "process-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -33,12 +35,17 @@ int bus_image_method_remove(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         Image *image = userdata;
         Manager *m = image->userdata;
+        pid_t child;
         int r;
 
         assert(message);
         assert(image);
+
+        if (m->n_operations >= OPERATIONS_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -54,11 +61,35 @@ int bus_image_method_remove(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = image_remove(image);
-        if (r < 0)
-                return r;
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        return sd_bus_reply_method_return(message, NULL);
+        child = fork();
+        if (child < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+        if (child == 0) {
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                r = image_remove(image);
+                if (r < 0) {
+                        (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = operation_new(m, NULL, child, message, errno_pipe_fd[0]);
+        if (r < 0) {
+                (void) sigkill_wait(child);
+                return r;
+        }
+
+        errno_pipe_fd[0] = -1;
+
+        return 1;
 }
 
 int bus_image_method_rename(
@@ -107,13 +138,19 @@ int bus_image_method_clone(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         Image *image = userdata;
         Manager *m = image->userdata;
         const char *new_name;
         int r, read_only;
+        pid_t child;
 
         assert(message);
         assert(image);
+        assert(m);
+
+        if (m->n_operations >= OPERATIONS_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
         r = sd_bus_message_read(message, "sb", &new_name, &read_only);
         if (r < 0)
@@ -136,13 +173,35 @@ int bus_image_method_clone(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = image_clone(image, new_name, read_only);
-        if (r == -EOPNOTSUPP)
-                return sd_bus_reply_method_errnof(message, r, "Image cloning is currently only supported on btrfs file systems.");
-        if (r < 0)
-                return r;
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        return sd_bus_reply_method_return(message, NULL);
+        child = fork();
+        if (child < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+        if (child == 0) {
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                r = image_clone(image, new_name, read_only);
+                if (r < 0) {
+                        (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = operation_new(m, NULL, child, message, errno_pipe_fd[0]);
+        if (r < 0) {
+                (void) sigkill_wait(child);
+                return r;
+        }
+
+        errno_pipe_fd[0] = -1;
+
+        return 1;
 }
 
 int bus_image_method_mark_read_only(

@@ -305,6 +305,8 @@ static int fd_copy_directory(
                 fdf = openat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         else
                 fdf = fcntl(df, F_DUPFD_CLOEXEC, 3);
+        if (fdf < 0)
+                return -errno;
 
         d = fdopendir(fdf);
         if (!d)
@@ -324,22 +326,6 @@ static int fd_copy_directory(
                 return -errno;
 
         r = 0;
-
-        if (created) {
-                struct timespec ut[2] = {
-                        st->st_atim,
-                        st->st_mtim
-                };
-
-                if (fchown(fdt, st->st_uid, st->st_gid) < 0)
-                        r = -errno;
-
-                if (fchmod(fdt, st->st_mode & 07777) < 0)
-                        r = -errno;
-
-                (void) futimens(fdt, ut);
-                (void) copy_xattr(dirfd(d), fdt);
-        }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 struct stat buf;
@@ -376,6 +362,22 @@ static int fd_copy_directory(
                         r = q;
         }
 
+        if (created) {
+                struct timespec ut[2] = {
+                        st->st_atim,
+                        st->st_mtim
+                };
+
+                if (fchown(fdt, st->st_uid, st->st_gid) < 0)
+                        r = -errno;
+
+                if (fchmod(fdt, st->st_mode & 07777) < 0)
+                        r = -errno;
+
+                (void) copy_xattr(dirfd(d), fdt);
+                (void) futimens(fdt, ut);
+        }
+
         return r;
 }
 
@@ -407,7 +409,6 @@ int copy_tree(const char *from, const char *to, bool merge) {
 }
 
 int copy_directory_fd(int dirfd, const char *to, bool merge) {
-
         struct stat st;
 
         assert(dirfd >= 0);
@@ -420,6 +421,21 @@ int copy_directory_fd(int dirfd, const char *to, bool merge) {
                 return -ENOTDIR;
 
         return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, merge);
+}
+
+int copy_directory(const char *from, const char *to, bool merge) {
+        struct stat st;
+
+        assert(from);
+        assert(to);
+
+        if (lstat(from, &st) < 0)
+                return -errno;
+
+        if (!S_ISDIR(st.st_mode))
+                return -ENOTDIR;
+
+        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, merge);
 }
 
 int copy_file_fd(const char *from, int fdt, bool try_reflink) {

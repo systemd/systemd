@@ -70,6 +70,11 @@ void manager_free(Manager *m) {
 
         assert(m);
 
+        while (m->operations)
+                operation_free(m->operations);
+
+        assert(m->n_operations == 0);
+
         while ((machine = hashmap_first(m->machines)))
                 machine_free(machine);
 
@@ -335,6 +340,9 @@ int manager_startup(Manager *m) {
 
 static bool check_idle(void *userdata) {
         Manager *m = userdata;
+
+        if (m->operations)
+                return false;
 
         manager_gc(m, true);
 

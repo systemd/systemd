@@ -1076,6 +1076,7 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
 
 static int copy_files(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *abs_host_path = NULL;
         char *dest, *host_path, *container_path;
         sd_bus *bus = userdata;
@@ -1099,18 +1100,27 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                 host_path = abs_host_path;
         }
 
-        r = sd_bus_call_method(
+        r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        copy_from ? "CopyFromMachine" : "CopyToMachine",
-                        &error,
-                        NULL,
+                        copy_from ? "CopyFromMachine" : "CopyToMachine");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
                         "sss",
                         argv[1],
                         copy_from ? container_path : host_path,
                         copy_from ? host_path : container_path);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* This is a slow operation, hence turn off any method call timeouts */
+        r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy: %s", bus_error_message(&error, r));
 
@@ -1393,7 +1403,6 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, i;
 
@@ -1402,19 +1411,27 @@ static int remove_image(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled();
 
         for (i = 1; i < argc; i++) {
-                r = sd_bus_call_method(
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = sd_bus_message_new_method_call(
                                 bus,
+                                &m,
                                 "org.freedesktop.machine1",
                                 "/org/freedesktop/machine1",
                                 "org.freedesktop.machine1.Manager",
-                                "RemoveImage",
-                                &error,
-                                NULL,
-                                "s", argv[i]);
-                if (r < 0) {
-                        log_error("Could not remove image: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                                "RemoveImage");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", argv[i]);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* This is a slow operation, hence turn off any method call timeouts */
+                r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Could not remove image: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1446,24 +1463,30 @@ static int rename_image(int argc, char *argv[], void *userdata) {
 
 static int clone_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus = userdata;
         int r;
 
         polkit_agent_open_if_enabled();
 
-        r = sd_bus_call_method(
+        r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "CloneImage",
-                        &error,
-                        NULL,
-                        "ssb", argv[1], argv[2], arg_read_only);
-        if (r < 0) {
-                log_error("Could not clone image: %s", bus_error_message(&error, -r));
-                return r;
-        }
+                        "CloneImage");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "ssb", argv[1], argv[2], arg_read_only);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* This is a slow operation, hence turn off any method call timeouts */
+        r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Could not clone image: %s", bus_error_message(&error, r));
 
         return 0;
 }
