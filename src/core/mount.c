@@ -984,6 +984,7 @@ fail:
 
 static int mount_start(Unit *u) {
         Mount *m = MOUNT(u);
+        int r;
 
         assert(m);
 
@@ -1001,6 +1002,12 @@ static int mount_start(Unit *u) {
                 return 0;
 
         assert(m->state == MOUNT_DEAD || m->state == MOUNT_FAILED);
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
@@ -1821,7 +1828,8 @@ static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
         [MOUNT_FAILURE_TIMEOUT] = "timeout",
         [MOUNT_FAILURE_EXIT_CODE] = "exit-code",
         [MOUNT_FAILURE_SIGNAL] = "signal",
-        [MOUNT_FAILURE_CORE_DUMP] = "core-dump"
+        [MOUNT_FAILURE_CORE_DUMP] = "core-dump",
+        [MOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);

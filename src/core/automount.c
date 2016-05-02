@@ -751,6 +751,7 @@ fail:
 static int automount_start(Unit *u) {
         Automount *a = AUTOMOUNT(u);
         Unit *trigger;
+        int r;
 
         assert(a);
         assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
@@ -764,6 +765,12 @@ static int automount_start(Unit *u) {
         if (!trigger || trigger->load_state != UNIT_LOADED) {
                 log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
                 return -ENOENT;
+        }
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                automount_enter_dead(a, AUTOMOUNT_FAILURE_START_LIMIT_HIT);
+                return r;
         }
 
         a->result = AUTOMOUNT_SUCCESS;
@@ -1037,7 +1044,8 @@ static bool automount_supported(void) {
 
 static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_SUCCESS] = "success",
-        [AUTOMOUNT_FAILURE_RESOURCES] = "resources"
+        [AUTOMOUNT_FAILURE_RESOURCES] = "resources",
+        [AUTOMOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);

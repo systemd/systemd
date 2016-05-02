@@ -26,6 +26,7 @@ typedef struct Automount Automount;
 typedef enum AutomountResult {
         AUTOMOUNT_SUCCESS,
         AUTOMOUNT_FAILURE_RESOURCES,
+        AUTOMOUNT_FAILURE_START_LIMIT_HIT,
         _AUTOMOUNT_RESULT_MAX,
         _AUTOMOUNT_RESULT_INVALID = -1
 } AutomountResult;

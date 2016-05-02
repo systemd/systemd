@@ -607,6 +607,7 @@ fail:
 
 static int busname_start(Unit *u) {
         BusName *n = BUSNAME(u);
+        int r;
 
         assert(n);
 
@@ -631,6 +632,12 @@ static int busname_start(Unit *u) {
         }
 
         assert(IN_SET(n->state, BUSNAME_DEAD, BUSNAME_FAILED));
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                busname_enter_dead(n, BUSNAME_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
 
         n->result = BUSNAME_SUCCESS;
         busname_enter_making(n);
@@ -1014,6 +1021,7 @@ static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
         [BUSNAME_FAILURE_EXIT_CODE] = "exit-code",
         [BUSNAME_FAILURE_SIGNAL] = "signal",
         [BUSNAME_FAILURE_CORE_DUMP] = "core-dump",
+        [BUSNAME_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
         [BUSNAME_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit",
 };
 

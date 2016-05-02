@@ -48,6 +48,7 @@ typedef struct TimerValue {
 typedef enum TimerResult {
         TIMER_SUCCESS,
         TIMER_FAILURE_RESOURCES,
+        TIMER_FAILURE_START_LIMIT_HIT,
         _TIMER_RESULT_MAX,
         _TIMER_RESULT_INVALID = -1
 } TimerResult;

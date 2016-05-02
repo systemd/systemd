@@ -2057,6 +2057,7 @@ fail:
 
 static int socket_start(Unit *u) {
         Socket *s = SOCKET(u);
+        int r;
 
         assert(s);
 
@@ -2100,6 +2101,12 @@ static int socket_start(Unit *u) {
         }
 
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                socket_enter_dead(s, SOCKET_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
 
         s->result = SOCKET_SUCCESS;
         s->reset_cpu_usage = true;
@@ -2818,6 +2825,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
         [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
+        [SOCKET_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
         [SOCKET_FAILURE_TRIGGER_LIMIT_HIT] = "trigger-limit-hit",
         [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };

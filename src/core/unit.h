@@ -617,6 +617,8 @@ static inline bool unit_supported(Unit *u) {
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_symlink(Unit *u, const char* where);
 
+int unit_start_limit_test(Unit *u);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \

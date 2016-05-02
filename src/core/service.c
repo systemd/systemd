@@ -1957,6 +1957,7 @@ fail:
 
 static int service_start(Unit *u) {
         Service *s = SERVICE(u);
+        int r;
 
         assert(s);
 
@@ -1982,6 +1983,13 @@ static int service_start(Unit *u) {
                 return -EAGAIN;
 
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED));
+
+        /* Make sure we don't enter a busy loop of some kind. */
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                service_enter_dead(s, SERVICE_FAILURE_START_LIMIT_HIT, false);
+                return r;
+        }
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
@@ -3266,6 +3274,7 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_FAILURE_SIGNAL] = "signal",
         [SERVICE_FAILURE_CORE_DUMP] = "core-dump",
         [SERVICE_FAILURE_WATCHDOG] = "watchdog",
+        [SERVICE_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);

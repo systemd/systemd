@@ -814,6 +814,7 @@ fail:
 
 static int swap_start(Unit *u) {
         Swap *s = SWAP(u), *other;
+        int r;
 
         assert(s);
 
@@ -841,6 +842,12 @@ static int swap_start(Unit *u) {
         LIST_FOREACH_OTHERS(same_devnode, other, s)
                 if (UNIT(other)->job && UNIT(other)->job->state == JOB_RUNNING)
                         return -EAGAIN;
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                swap_enter_dead(s, SWAP_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
 
         s->result = SWAP_SUCCESS;
         s->reset_cpu_usage = true;
@@ -1447,7 +1454,8 @@ static const char* const swap_result_table[_SWAP_RESULT_MAX] = {
         [SWAP_FAILURE_TIMEOUT] = "timeout",
         [SWAP_FAILURE_EXIT_CODE] = "exit-code",
         [SWAP_FAILURE_SIGNAL] = "signal",
-        [SWAP_FAILURE_CORE_DUMP] = "core-dump"
+        [SWAP_FAILURE_CORE_DUMP] = "core-dump",
+        [SWAP_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(swap_result, SwapResult);

@@ -560,6 +560,7 @@ static void path_mkdir(Path *p) {
 static int path_start(Unit *u) {
         Path *p = PATH(u);
         Unit *trigger;
+        int r;
 
         assert(p);
         assert(p->state == PATH_DEAD || p->state == PATH_FAILED);
@@ -568,6 +569,12 @@ static int path_start(Unit *u) {
         if (!trigger || trigger->load_state != UNIT_LOADED) {
                 log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
                 return -ENOENT;
+        }
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
+                return r;
         }
 
         path_mkdir(p);
@@ -739,6 +746,7 @@ DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_SUCCESS] = "success",
         [PATH_FAILURE_RESOURCES] = "resources",
+        [PATH_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);
