@@ -464,43 +464,57 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
 
 static int automount_start_expire(Automount *a);
 
-int automount_update_mount(Automount *a, MountState old_state, MountState state) {
+static void automount_trigger_notify(Unit *u, Unit *other) {
+        Automount *a = AUTOMOUNT(u);
         int r;
 
         assert(a);
+        assert(other);
 
-        log_unit_debug(UNIT(a), "Got notified about mount unit state change %s → %s", mount_state_to_string(old_state), mount_state_to_string(state));
+        /* Filter out invocations with bogus state */
+        if (other->load_state != UNIT_LOADED || other->type != UNIT_MOUNT)
+                return;
 
-        switch (state) {
+        /* Don't propagate state changes from the mount if we are already down */
+        if (!IN_SET(a->state, AUTOMOUNT_WAITING, AUTOMOUNT_RUNNING))
+                return;
 
-        case MOUNT_MOUNTED:
-        case MOUNT_REMOUNTING:
-                automount_send_ready(a, a->tokens, 0);
+        /* Propagate start limit hit state */
+        if (other->start_limit_hit) {
+                automount_enter_dead(a, AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT);
+                return;
+        }
+
+        /* Don't propagate anything if there's still a job queued */
+        if (other->job)
+                return;
+
+        /* The mount is successfully established */
+        if (IN_SET(MOUNT(other)->state, MOUNT_MOUNTED, MOUNT_REMOUNTING)) {
+                (void) automount_send_ready(a, a->tokens, 0);
+
                 r = automount_start_expire(a);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
-                break;
 
-        case MOUNT_DEAD:
-        case MOUNT_UNMOUNTING:
-        case MOUNT_MOUNTING_SIGTERM:
-        case MOUNT_MOUNTING_SIGKILL:
-        case MOUNT_REMOUNTING_SIGTERM:
-        case MOUNT_REMOUNTING_SIGKILL:
-        case MOUNT_UNMOUNTING_SIGTERM:
-        case MOUNT_UNMOUNTING_SIGKILL:
-        case MOUNT_FAILED:
-                if (old_state != state)
-                        automount_send_ready(a, a->tokens, -ENODEV);
-
-                (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
-                break;
-
-        default:
-                break;
+                automount_set_state(a, AUTOMOUNT_RUNNING);
         }
 
-        return 0;
+        /* The mount is in some unhappy state now, let's unfreeze any waiting clients */
+        if (IN_SET(MOUNT(other)->state,
+                   MOUNT_DEAD, MOUNT_UNMOUNTING,
+                   MOUNT_MOUNTING_SIGTERM, MOUNT_MOUNTING_SIGKILL,
+                   MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
+                   MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
+                   MOUNT_FAILED)) {
+
+                (void) automount_send_ready(a, a->tokens, -ENODEV);
+
+                if (a->expire_event_source)
+                        (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
+
+                automount_set_state(a, AUTOMOUNT_WAITING);
+        }
 }
 
 static void automount_enter_waiting(Automount *a) {
@@ -1032,6 +1046,7 @@ static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_SUCCESS] = "success",
         [AUTOMOUNT_FAILURE_RESOURCES] = "resources",
         [AUTOMOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
+        [AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT] = "mount-start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);
@@ -1065,6 +1080,8 @@ const UnitVTable automount_vtable = {
         .sub_state_to_string = automount_sub_state_to_string,
 
         .check_gc = automount_check_gc,
+
+        .trigger_notify = automount_trigger_notify,
 
         .reset_failed = automount_reset_failed,
 

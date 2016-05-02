@@ -27,6 +27,7 @@ typedef enum AutomountResult {
         AUTOMOUNT_SUCCESS,
         AUTOMOUNT_FAILURE_RESOURCES,
         AUTOMOUNT_FAILURE_START_LIMIT_HIT,
+        AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT,
         _AUTOMOUNT_RESULT_MAX,
         _AUTOMOUNT_RESULT_INVALID = -1
 } AutomountResult;
@@ -53,8 +54,6 @@ struct Automount {
 };
 
 extern const UnitVTable automount_vtable;
-
-int automount_update_mount(Automount *a, MountState old_state, MountState state);
 
 const char* automount_result_to_string(AutomountResult i) _const_;
 AutomountResult automount_result_from_string(const char *s) _pure_;
