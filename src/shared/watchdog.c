@@ -25,12 +25,14 @@
 #include <linux/watchdog.h>
 
 #include "fd-util.h"
+#include "sd-daemon.h"
 #include "log.h"
 #include "time-util.h"
 #include "watchdog.h"
 
 static int watchdog_fd = -1;
 static usec_t watchdog_timeout = USEC_INFINITY;
+static bool watchdog_user_mode = false;
 
 static int update_timeout(void) {
         int r;
@@ -95,10 +97,17 @@ static int open_watchdog(void) {
         return update_timeout();
 }
 
+void watchdog_enable_user_mode(void) {
+        watchdog_user_mode = true;
+}
+
 int watchdog_set_timeout(usec_t *usec) {
         int r;
 
         watchdog_timeout = *usec;
+
+        if(watchdog_user_mode)
+                return 0;
 
         /* If we didn't open the watchdog yet and didn't get any
          * explicit timeout value set, don't do anything */
@@ -118,6 +127,9 @@ int watchdog_set_timeout(usec_t *usec) {
 int watchdog_ping(void) {
         int r;
 
+        if(watchdog_user_mode)
+                return sd_notify(0, "WATCHDOG=1");
+
         if (watchdog_fd < 0) {
                 r = open_watchdog();
                 if (r < 0)
@@ -133,6 +145,9 @@ int watchdog_ping(void) {
 
 void watchdog_close(bool disarm) {
         int r;
+
+        if(watchdog_user_mode)
+                return;
 
         if (watchdog_fd < 0)
                 return;

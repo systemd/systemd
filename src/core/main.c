@@ -1677,8 +1677,27 @@ int main(int argc, char *argv[]) {
                 test_usr();
         }
 
-        if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
+        if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY) {
                 watchdog_set_timeout(&arg_runtime_watchdog);
+        } else if(!arg_system) {
+                // we are a user-slice triggering system-slice's service-watchdog.
+                char * new_time_str = getenv("WATCHDOG_USEC");
+                if(new_time_str) {
+                        int new_time;
+                        char * p;
+                        new_time = strtoul(new_time_str, &p, 10);
+                        if(0 == *p) {
+                                watchdog_enable_user_mode();
+                                arg_runtime_watchdog = new_time;
+                                log_debug(PACKAGE_STRING " setting systemd user slice watchdog time to %d us", arg_runtime_watchdog);
+                                watchdog_set_timeout(&arg_runtime_watchdog);
+                        } else {
+                                arg_runtime_watchdog = 0;
+                        }
+                } else {
+                        arg_runtime_watchdog = 0;
+                }
+        }
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
