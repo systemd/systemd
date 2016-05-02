@@ -477,39 +477,22 @@ int automount_update_mount(Automount *a, MountState old_state, MountState state)
                 if (r < 0)
                         log_unit_warning_errno(UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
                 break;
-         case MOUNT_DEAD:
-         case MOUNT_UNMOUNTING:
-         case MOUNT_MOUNTING_SIGTERM:
-         case MOUNT_MOUNTING_SIGKILL:
-         case MOUNT_REMOUNTING_SIGTERM:
-         case MOUNT_REMOUNTING_SIGKILL:
-         case MOUNT_UNMOUNTING_SIGTERM:
-         case MOUNT_UNMOUNTING_SIGKILL:
-         case MOUNT_FAILED:
+
+        case MOUNT_DEAD:
+        case MOUNT_UNMOUNTING:
+        case MOUNT_MOUNTING_SIGTERM:
+        case MOUNT_MOUNTING_SIGKILL:
+        case MOUNT_REMOUNTING_SIGTERM:
+        case MOUNT_REMOUNTING_SIGKILL:
+        case MOUNT_UNMOUNTING_SIGTERM:
+        case MOUNT_UNMOUNTING_SIGKILL:
+        case MOUNT_FAILED:
                 if (old_state != state)
                         automount_send_ready(a, a->tokens, -ENODEV);
+
                 (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
                 break;
-        default:
-                break;
-        }
 
-        switch (state) {
-        case MOUNT_DEAD:
-                automount_send_ready(a, a->expire_tokens, 0);
-                break;
-         case MOUNT_MOUNTING:
-         case MOUNT_MOUNTING_DONE:
-         case MOUNT_MOUNTING_SIGTERM:
-         case MOUNT_MOUNTING_SIGKILL:
-         case MOUNT_REMOUNTING_SIGTERM:
-         case MOUNT_REMOUNTING_SIGKILL:
-         case MOUNT_UNMOUNTING_SIGTERM:
-         case MOUNT_UNMOUNTING_SIGKILL:
-         case MOUNT_FAILED:
-                if (old_state != state)
-                        automount_send_ready(a, a->expire_tokens, -ENODEV);
-                break;
         default:
                 break;
         }
