@@ -379,6 +379,7 @@ static int add_mount(
                 }
 
                 fprintf(f,
+                        "\n"
                         "[Automount]\n"
                         "Where=%s\n",
                         where);
