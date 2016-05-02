@@ -1804,7 +1804,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
          * - For unsigned SOA/NS we get the matching DS
          * - For unsigned CNAME/DNAME/DS we get the parent SOA RR
          * - For other unsigned RRs we get the matching SOA RR
-         * - For SOA/NS/DS queries with no matching response RRs, and no NSEC/NSEC3, the parent's SOA RR
+         * - For SOA/NS queries with no matching response RR, and no NSEC/NSEC3, the DS RR
+         * - For DS queries with no matching response RRs, and no NSEC/NSEC3, the parent's SOA RR
          * - For other queries with no matching response RRs, and no NSEC/NSEC3, the SOA RR
          */
 
@@ -2038,32 +2039,42 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 return r;
         if (r > 0) {
                 const char *name;
+                uint16_t type = 0;
 
                 name = dns_resource_key_name(t->key);
 
-                /* If this was a SOA or NS request, then this
-                 * indicates that we are not at a zone apex, hence ask
-                 * the parent name instead. If this was a DS request,
-                 * then it's signed when the parent zone is signed,
-                 * hence ask the parent in that case, too. */
+                /* If this was a SOA or NS request, then check if there's a DS RR for the same domain. Note that this
+                 * could also be used as indication that we are not at a zone apex, but in real world setups there are
+                 * too many broken DNS servers (Hello, incapdns.net!) where non-terminal zones return NXDOMAIN even
+                 * though they have further children. If this was a DS request, then it's signed when the parent zone
+                 * is signed, hence ask the parent SOA in that case. If this was any other RR then ask for the SOA RR,
+                 * to see if that is signed. */
 
-                if (IN_SET(t->key->type, DNS_TYPE_SOA, DNS_TYPE_NS, DNS_TYPE_DS)) {
+                if (t->key->type == DNS_TYPE_DS) {
                         r = dns_name_parent(&name);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS/DS response).",
+                        if (r > 0) {
+                                type = DNS_TYPE_SOA;
+                                log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned empty DS response).",
                                           t->id, dns_resource_key_name(t->key));
-                        else
+                        } else
                                 name = NULL;
-                } else
+
+                } else if (IN_SET(t->key->type, DNS_TYPE_SOA, DNS_TYPE_NS)) {
+
+                        type = DNS_TYPE_DS;
+                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS response).",
+                                  t->id, dns_resource_key_name(t->key));
+
+                } else {
+                        type = DNS_TYPE_SOA;
                         log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).",
                                   t->id, dns_resource_key_name(t->key));
+                }
 
                 if (name) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
 
-                        soa = dns_resource_key_new(t->key->class, DNS_TYPE_SOA, name);
+                        soa = dns_resource_key_new(t->key->class, type, name);
                         if (!soa)
                                 return -ENOMEM;
 
@@ -2317,11 +2328,12 @@ static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKe
 }
 
 static int dns_transaction_requires_nsec(DnsTransaction *t) {
+        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsTransaction *dt;
         const char *name;
+        uint16_t type = 0;
         Iterator i;
         int r;
-        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
 
@@ -2355,22 +2367,25 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
 
         name = dns_resource_key_name(t->key);
 
-        if (IN_SET(t->key->type, DNS_TYPE_SOA, DNS_TYPE_NS, DNS_TYPE_DS)) {
+        if (t->key->type == DNS_TYPE_DS) {
 
-                /* We got a negative reply for this SOA/NS lookup? If
-                 * so, then we are not at a zone apex, and thus should
-                 * look at the result of the parent SOA lookup.
-                 *
-                 * We got a negative reply for this DS lookup? DS RRs
-                 * are signed when their parent zone is signed, hence
-                 * also check the parent SOA in this case. */
+                /* We got a negative reply for this DS lookup? DS RRs are signed when their parent zone is signed,
+                 * hence check the parent SOA in this case. */
 
                 r = dns_name_parent(&name);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return true;
-        }
+
+                type = DNS_TYPE_SOA;
+
+        } else if (IN_SET(t->key->type, DNS_TYPE_SOA, DNS_TYPE_NS))
+                /* We got a negative reply for this SOA/NS lookup? If so, check if there's a DS RR for this */
+                type = DNS_TYPE_DS;
+        else
+                /* For all other negative replies, check for the SOA lookup */
+                type = DNS_TYPE_SOA;
 
         /* For all other RRs we check the SOA on the same level to see
          * if it's signed. */
@@ -2379,7 +2394,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
 
                 if (dt->key->class != t->key->class)
                         continue;
-                if (dt->key->type != DNS_TYPE_SOA)
+                if (dt->key->type != type)
                         continue;
 
                 r = dns_name_equal(dns_resource_key_name(dt->key), name);
