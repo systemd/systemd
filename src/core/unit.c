@@ -2968,32 +2968,24 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime) {
 bool unit_need_daemon_reload(Unit *u) {
         _cleanup_strv_free_ char **t = NULL;
         char **path;
-        unsigned loaded_cnt, current_cnt;
 
         assert(u);
 
-        if (fragment_mtime_newer(u->fragment_path, u->fragment_mtime) ||
-            fragment_mtime_newer(u->source_path, u->source_mtime))
+        if (fragment_mtime_newer(u->fragment_path, u->fragment_mtime))
+                return true;
+
+        if (fragment_mtime_newer(u->source_path, u->source_mtime))
                 return true;
 
         (void) unit_find_dropin_paths(u, &t);
-        loaded_cnt = strv_length(t);
-        current_cnt = strv_length(u->dropin_paths);
+        if (!strv_equal(u->dropin_paths, t))
+                return true;
 
-        if (loaded_cnt == current_cnt) {
-                if (loaded_cnt == 0)
-                        return false;
+        STRV_FOREACH(path, u->dropin_paths)
+                if (fragment_mtime_newer(*path, u->dropin_mtime))
+                        return true;
 
-                if (strv_overlap(u->dropin_paths, t)) {
-                        STRV_FOREACH(path, u->dropin_paths)
-                                if (fragment_mtime_newer(*path, u->dropin_mtime))
-                                        return true;
-
-                        return false;
-                }
-        }
-
-        return true;
+        return false;
 }
 
 void unit_reset_failed(Unit *u) {
