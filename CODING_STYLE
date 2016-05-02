@@ -240,6 +240,11 @@
 
       unlink("/foo/bar/baz");
 
+  Don't cast function calls to (void) that return no error
+  conditions. Specifically, the various xyz_unref() calls that return a NULL
+  object shouldn't be cast to (void), since not using the return value does not
+  hide any errors.
+
 - Don't invoke exit(), ever. It is not replacement for proper error
   handling. Please escalate errors up your call chain, and use normal
   "return" to exit from the main function of a process. If you
