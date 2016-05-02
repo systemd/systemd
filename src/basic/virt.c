@@ -280,7 +280,7 @@ static int detect_vm_uml(void) {
                 return VIRTUALIZATION_UML;
         }
 
-        log_debug("No virtualization found in /proc/cpuinfo (%s)", cpuinfo_contents);
+        log_debug("No virtualization found in /proc/cpuinfo.");
         return VIRTUALIZATION_NONE;
 }
 
