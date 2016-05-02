@@ -193,7 +193,7 @@ int unit_add_name(Unit *u, const char *text) {
         if (r < 0)
                 return r;
 
-        if (i && unit_vtable[t]->no_instances)
+        if (i && !unit_type_may_template(t))
                 return -EINVAL;
 
         /* Ensure that this unit is either instanced or not instanced,
@@ -202,7 +202,7 @@ int unit_add_name(Unit *u, const char *text) {
         if (u->type != _UNIT_TYPE_INVALID && !u->instance != !i)
                 return -EINVAL;
 
-        if (unit_vtable[t]->no_alias && !set_isempty(u->names))
+        if (!unit_type_may_alias(t) && !set_isempty(u->names))
                 return -EEXIST;
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
@@ -720,7 +720,7 @@ int unit_merge(Unit *u, Unit *other) {
         if (!u->instance != !other->instance)
                 return -EINVAL;
 
-        if (UNIT_VTABLE(u)->no_alias) /* Merging only applies to unit names that support aliases */
+        if (!unit_type_may_alias(u->type)) /* Merging only applies to unit names that support aliases */
                 return -EEXIST;
 
         if (other->load_state != UNIT_STUB &&

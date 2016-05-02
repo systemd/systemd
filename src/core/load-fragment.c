@@ -3612,7 +3612,7 @@ static int load_from_path(Unit *u, const char *path) {
                 /* Hmm, no suitable file found? */
                 return 0;
 
-        if (UNIT_VTABLE(u)->no_alias && set_size(symlink_names) > 1) {
+        if (!unit_type_may_alias(u->type) && set_size(symlink_names) > 1) {
                 log_unit_warning(u, "Unit type of %s does not support alias names, refusing loading via symlink.", u->id);
                 return -ELOOP;
         }

@@ -68,6 +68,25 @@ typedef struct {
 
 static int unit_file_lookup_state(UnitFileScope scope, const LookupPaths *paths, const char *name, UnitFileState *ret);
 
+bool unit_type_may_alias(UnitType type) {
+        return IN_SET(type,
+                      UNIT_SERVICE,
+                      UNIT_SOCKET,
+                      UNIT_TARGET,
+                      UNIT_DEVICE,
+                      UNIT_TIMER,
+                      UNIT_PATH);
+}
+
+bool unit_type_may_template(UnitType type) {
+        return IN_SET(type,
+                      UNIT_SERVICE,
+                      UNIT_SOCKET,
+                      UNIT_TARGET,
+                      UNIT_TIMER,
+                      UNIT_PATH);
+}
+
 static int in_search_path(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
         char **i;
@@ -898,6 +917,36 @@ fail:
         return r;
 }
 
+static int config_parse_alias(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *name;
+        UnitType type;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        name = basename(filename);
+        type = unit_name_to_type(name);
+        if (!unit_type_may_alias(type))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Aliases are not allowed for %s units, ignoring.",
+                                  unit_type_to_string(type));
+
+        return config_parse_strv(unit, filename, line, section, section_line,
+                                 lvalue, ltype, rvalue, data, userdata);
+}
+
 static int config_parse_also(
                 const char *unit,
                 const char *filename,
@@ -954,12 +1003,22 @@ static int config_parse_default_instance(
                 void *userdata) {
 
         UnitFileInstallInfo *i = data;
+        const char *name;
         char *printed;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        name = basename(filename);
+        if (unit_name_is_valid(name, UNIT_NAME_INSTANCE))
+                /* When enabling an instance, we might be using a template unit file,
+                 * but we should ignore DefaultInstance silently. */
+                return 0;
+        if (!unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "DefaultInstance only makes sense for template units, ignoring.");
 
         r = install_full_printf(i, rvalue, &printed);
         if (r < 0)
@@ -983,7 +1042,7 @@ static int unit_file_load(
                 SearchFlags flags) {
 
         const ConfigTableItem items[] = {
-                { "Install", "Alias",           config_parse_strv,             0, &info->aliases           },
+                { "Install", "Alias",           config_parse_alias,            0, &info->aliases           },
                 { "Install", "WantedBy",        config_parse_strv,             0, &info->wanted_by         },
                 { "Install", "RequiredBy",      config_parse_strv,             0, &info->required_by       },
                 { "Install", "DefaultInstance", config_parse_default_instance, 0, info                     },
@@ -991,6 +1050,8 @@ static int unit_file_load(
                 {}
         };
 
+        const char *name;
+        UnitType type;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
         struct stat st;
@@ -999,6 +1060,12 @@ static int unit_file_load(
         assert(c);
         assert(info);
         assert(path);
+
+        name = basename(path);
+        type = unit_name_to_type(name);
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE) &&
+            !unit_type_may_template(type))
+                return log_error_errno(EINVAL, "Unit type %s cannot be templated.", unit_type_to_string(type));
 
         if (!(flags & SEARCH_LOAD)) {
                 r = lstat(path, &st);

@@ -1839,9 +1839,6 @@ const UnitVTable mount_vtable = {
                 "Install\0",
         .private_section = "Mount",
 
-        .no_alias = true,
-        .no_instances = true,
-
         .init = mount_init,
         .load = mount_load,
         .done = mount_done,

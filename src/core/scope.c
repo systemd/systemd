@@ -569,8 +569,6 @@ const UnitVTable scope_vtable = {
                 "Install\0",
         .private_section = "Scope",
 
-        .no_alias = true,
-        .no_instances = true,
         .can_transient = true,
 
         .init = scope_init,
