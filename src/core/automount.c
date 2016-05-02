@@ -75,6 +75,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct expire_data*, expire_data_free);
 
 static int open_dev_autofs(Manager *m);
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata);
+static int automount_start_expire(Automount *a);
+static void automount_stop_expire(Automount *a);
+static int automount_send_ready(Automount *a, Set *tokens, int status);
 
 static void automount_init(Unit *u) {
         Automount *a = AUTOMOUNT(u);
@@ -86,8 +89,6 @@ static void automount_init(Unit *u) {
         a->directory_mode = 0755;
         UNIT(a)->ignore_on_isolate = true;
 }
-
-static int automount_send_ready(Automount *a, Set *tokens, int status);
 
 static void unmount_autofs(Automount *a) {
         int r;
@@ -234,6 +235,9 @@ static void automount_set_state(Automount *a, AutomountState state) {
 
         old_state = a->state;
         a->state = state;
+
+        if (state != AUTOMOUNT_RUNNING)
+                automount_stop_expire(a);
 
         if (state != AUTOMOUNT_WAITING &&
             state != AUTOMOUNT_RUNNING)
@@ -462,8 +466,6 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
         return r;
 }
 
-static int automount_start_expire(Automount *a);
-
 static void automount_trigger_notify(Unit *u, Unit *other) {
         Automount *a = AUTOMOUNT(u);
         int r;
@@ -509,9 +511,6 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
                    MOUNT_FAILED)) {
 
                 (void) automount_send_ready(a, a->tokens, -ENODEV);
-
-                if (a->expire_event_source)
-                        (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
 
                 automount_set_state(a, AUTOMOUNT_WAITING);
         }
@@ -697,6 +696,15 @@ static int automount_start_expire(Automount *a) {
         (void) sd_event_source_set_description(a->expire_event_source, "automount-expire");
 
         return 0;
+}
+
+static void automount_stop_expire(Automount *a) {
+        assert(a);
+
+        if (!a->expire_event_source)
+                return;
+
+        (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
 }
 
 static void automount_enter_runnning(Automount *a) {
@@ -965,7 +973,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         case autofs_ptype_expire_direct:
                 log_unit_debug(UNIT(a), "Got direct umount request on %s", a->where);
 
-                (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
+                automount_stop_expire(a);
 
                 r = set_ensure_allocated(&a->expire_tokens, NULL);
                 if (r < 0) {
