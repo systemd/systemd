@@ -589,13 +589,11 @@
       <varlistentry>
         <term><command>clone</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
 
-        <listitem><para>Clones a container or VM image. The
-        arguments specify the name of the image to clone and the name
-        of the newly cloned image. Note that plain directory container
-        images are cloned into subvolume images with this command.
-        Note that cloning a container or VM image is optimized for
-        btrfs file systems, and might not be efficient on others, due
-        to file system limitations.</para>
+        <listitem><para>Clones a container or VM image. The arguments specify the name of the image to clone and the
+        name of the newly cloned image. Note that plain directory container images are cloned into btrfs subvolume
+        images with this command, if the underlying file system supports this.  Note that cloning a container or VM
+        image is optimized for btrfs file systems, and might not be efficient on others, due to file system
+        limitations.</para>
 
         <para>Note that this command leaves host name, machine ID and
         all other settings that could identify the instance
