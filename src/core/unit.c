@@ -2945,7 +2945,7 @@ int unit_coldplug(Unit *u) {
         return 0;
 }
 
-static bool fragment_mtime_changed(const char *path, usec_t mtime) {
+static bool fragment_mtime_newer(const char *path, usec_t mtime) {
         struct stat st;
 
         if (!path)
@@ -2957,7 +2957,7 @@ static bool fragment_mtime_changed(const char *path, usec_t mtime) {
 
         if (mtime > 0)
                 /* For non-empty files check the mtime */
-                return timespec_load(&st.st_mtim) != mtime;
+                return timespec_load(&st.st_mtim) > mtime;
         else if (!null_or_empty(&st))
                 /* For masked files check if they are still so */
                 return true;
@@ -2972,8 +2972,8 @@ bool unit_need_daemon_reload(Unit *u) {
 
         assert(u);
 
-        if (fragment_mtime_changed(u->fragment_path, u->fragment_mtime) ||
-            fragment_mtime_changed(u->source_path, u->source_mtime))
+        if (fragment_mtime_newer(u->fragment_path, u->fragment_mtime) ||
+            fragment_mtime_newer(u->source_path, u->source_mtime))
                 return true;
 
         (void) unit_find_dropin_paths(u, &t);
@@ -2986,7 +2986,7 @@ bool unit_need_daemon_reload(Unit *u) {
 
                 if (strv_overlap(u->dropin_paths, t)) {
                         STRV_FOREACH(path, u->dropin_paths)
-                                if (fragment_mtime_changed(*path, u->dropin_mtime))
+                                if (fragment_mtime_newer(*path, u->dropin_mtime))
                                         return true;
 
                         return false;
