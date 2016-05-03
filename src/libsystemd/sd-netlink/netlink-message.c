@@ -207,11 +207,11 @@ static int add_rtattr(sd_netlink_message *m, unsigned short type, const void *da
                  * and gives us too little data (so don't do that)
                  */
                 padding = mempcpy(RTA_DATA(rta), data, data_length);
-        else {
+
+        else
                 /* if no data was passed, make sure we still initialize the padding
                    note that we can have data_length > 0 (used by some containers) */
                 padding = RTA_DATA(rta);
-        }
 
         /* make sure also the padding at the end of the message is initialized */
         padding_length = (uint8_t*)m->hdr + message_length - (uint8_t*)padding;
@@ -343,7 +343,7 @@ int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, c
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = add_rtattr(m, type, &data, len);
+        r = add_rtattr(m, type, data, len);
         if (r < 0)
                 return r;
 
