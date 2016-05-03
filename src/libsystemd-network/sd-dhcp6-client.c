@@ -189,8 +189,9 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
 int sd_dhcp6_client_set_duid(
                 sd_dhcp6_client *client,
                 uint16_t duid_type,
-                uint8_t *duid,
+                const void *duid,
                 size_t duid_len) {
+
         int r;
         assert_return(client, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);

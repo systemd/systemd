@@ -322,7 +322,7 @@ int sd_dhcp_client_set_iaid_duid(
                 sd_dhcp_client *client,
                 uint32_t iaid,
                 uint16_t duid_type,
-                uint8_t *duid,
+                const void *duid,
                 size_t duid_len) {
 
         DHCP_CLIENT_DONT_DESTROY(client);
