@@ -538,3 +538,50 @@ int veth_extra_parse(char ***l, const char *p) {
         a = b = NULL;
         return 0;
 }
+
+static int remove_one_veth_link(sd_netlink *rtnl, const char *name) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        if (isempty(name))
+                return 0;
+
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_DELLINK, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate netlink message: %m");
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink interface name: %m");
+
+        r = sd_netlink_call(rtnl, m, 0, NULL);
+        if (r == -ENODEV) /* Already gone */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove veth interface %s: %m", name);
+
+        return 1;
+}
+
+int remove_veth_links(const char *primary, char **pairs) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        char **a, **b;
+        int r;
+
+        /* In some cases the kernel might pin the veth links between host and container even after the namespace
+         * died. Hence, let's better remove them explicitly too. */
+
+        if (isempty(primary) && strv_isempty(pairs))
+                return 0;
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        remove_one_veth_link(rtnl, primary);
+
+        STRV_FOREACH_PAIR(a, b, pairs)
+                remove_one_veth_link(rtnl, *a);
+
+        return 0;
+}

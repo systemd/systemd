@@ -402,7 +402,6 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret,
         int r;
 
         assert_return(rtnl_message_type_is_link(nlmsg_type), -EINVAL);
-        assert_return(nlmsg_type != RTM_DELLINK || index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
