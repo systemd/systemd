@@ -774,6 +774,54 @@ int config_parse_label(const char *unit,
         return 0;
 }
 
+int config_parse_lifetime(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+        Network *network = userdata;
+        _cleanup_address_free_ Address *n = NULL;
+        unsigned k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = address_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        if (STR_IN_SET(rvalue, "forever", "infinity")) {
+                n->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
+                n = NULL;
+
+                return 0;
+        }
+
+        r = safe_atou(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse PreferredLifetime, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (k != 0)
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid PreferredLifetime value, ignoring: %d", k);
+        else {
+                n->cinfo.ifa_prefered = k;
+                n = NULL;
+        }
+
+        return 0;
+}
+
 bool address_is_ready(const Address *a) {
         assert(a);
 

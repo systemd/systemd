@@ -65,6 +65,7 @@ Address.Address,                        config_parse_address,                   
 Address.Peer,                           config_parse_address,                           0,                             0
 Address.Broadcast,                      config_parse_broadcast,                         0,                             0
 Address.Label,                          config_parse_label,                             0,                             0
+Address.PreferredLifetime,              config_parse_lifetime,                          0,                             0
 Route.Gateway,                          config_parse_gateway,                           0,                             0
 Route.Destination,                      config_parse_destination,                       0,                             0
 Route.Source,                           config_parse_destination,                       0,                             0

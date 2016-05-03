@@ -652,6 +652,18 @@
             <para>An address label.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>PreferredLifetime=</varname></term>
+          <listitem>
+            <para>Allows the default "preferred lifetime" of the address to be overridden.
+            Only three settings are accepted: <literal>forever</literal> or <literal>infinity</literal>
+            which is the default and means that the address never expires, and <literal>0</literal> which means
+            that the address is considered immediately "expired" and will not be used,
+            unless explicitly requested. A setting of PreferredLifetime=0 is useful for
+            addresses which are added to be used only by a specific application,
+            which is then configured to use them explicitly.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
