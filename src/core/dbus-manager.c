@@ -642,6 +642,80 @@ static int method_set_unit_properties(sd_bus_message *message, void *userdata, s
         return bus_unit_method_set_properties(message, u, error);
 }
 
+static int reply_unit_info(sd_bus_message *reply, Unit *u) {
+        _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
+        Unit *following;
+
+        following = unit_following(u);
+
+        unit_path = unit_dbus_path(u);
+        if (!unit_path)
+                return -ENOMEM;
+
+        if (u->job) {
+                job_path = job_dbus_path(u->job);
+                if (!job_path)
+                        return -ENOMEM;
+        }
+
+        return sd_bus_message_append(
+                        reply, "(ssssssouso)",
+                        u->id,
+                        unit_description(u),
+                        unit_load_state_to_string(u->load_state),
+                        unit_active_state_to_string(unit_active_state(u)),
+                        unit_sub_state_to_string(u),
+                        following ? following->id : "",
+                        unit_path,
+                        u->job ? u->job->id : 0,
+                        u->job ? job_type_to_string(u->job->type) : "",
+                        job_path ? job_path : "/");
+}
+
+static int method_list_units_by_names(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        int r;
+        char **unit;
+        _cleanup_strv_free_ char **units = NULL;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read_strv(message, &units);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssssssouso)");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(unit, units) {
+                Unit *u;
+
+                if (!unit_name_is_valid(*unit, UNIT_NAME_ANY))
+                        continue;
+
+                r = manager_load_unit(m, *unit, NULL, error, &u);
+                if (r < 0)
+                        return r;
+
+                r = reply_unit_info(reply, u);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
@@ -915,13 +989,8 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                 return r;
 
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
-                _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
-                Unit *following;
-
                 if (k != u->id)
                         continue;
-
-                following = unit_following(u);
 
                 if (!strv_isempty(states) &&
                     !strv_contains(states, unit_load_state_to_string(u->load_state)) &&
@@ -933,28 +1002,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                     !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
                         continue;
 
-                unit_path = unit_dbus_path(u);
-                if (!unit_path)
-                        return -ENOMEM;
-
-                if (u->job) {
-                        job_path = job_dbus_path(u->job);
-                        if (!job_path)
-                                return -ENOMEM;
-                }
-
-                r = sd_bus_message_append(
-                                reply, "(ssssssouso)",
-                                u->id,
-                                unit_description(u),
-                                unit_load_state_to_string(u->load_state),
-                                unit_active_state_to_string(unit_active_state(u)),
-                                unit_sub_state_to_string(u),
-                                following ? following->id : "",
-                                unit_path,
-                                u->job ? u->job->id : 0,
-                                u->job ? job_type_to_string(u->job->type) : "",
-                                job_path ? job_path : "/");
+                r = reply_unit_info(reply, u);
                 if (r < 0)
                         return r;
         }
@@ -2114,6 +2162,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ListUnits", NULL, "a(ssssssouso)", method_list_units, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListUnitsFiltered", "as", "a(ssssssouso)", method_list_units_filtered, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListUnitsByPatterns", "asas", "a(ssssssouso)", method_list_units_by_patterns, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListUnitsByNames", "as", "a(ssssssouso)", method_list_units_by_names, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListJobs", NULL, "a(usssoo)", method_list_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Subscribe", NULL, NULL, method_subscribe, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unsubscribe", NULL, NULL, method_unsubscribe, SD_BUS_VTABLE_UNPRIVILEGED),
