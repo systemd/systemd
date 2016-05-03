@@ -706,6 +706,14 @@
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Table=<replaceable>num</replaceable></varname></term>
+          <listitem>
+          <para>The table identifier for the route (a number between 1 and 4294967295, or 0 to unset).
+          The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
+          </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

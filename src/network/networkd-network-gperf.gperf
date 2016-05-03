@@ -71,6 +71,7 @@ Route.Source,                           config_parse_destination,               
 Route.Metric,                           config_parse_route_priority,                    0,                             0
 Route.Scope,                            config_parse_route_scope,                       0,                             0
 Route.PreferredSource,                  config_parse_preferred_src,                     0,                             0
+Route.Table,                            config_parse_route_table,                       0,                             0
 DHCP.ClientIdentifier,                  config_parse_dhcp_client_identifier,            0,                             offsetof(Network, dhcp_client_identifier)
 DHCP.UseDNS,                            config_parse_bool,                              0,                             offsetof(Network, dhcp_use_dns)
 DHCP.UseNTP,                            config_parse_bool,                              0,                             offsetof(Network, dhcp_use_ntp)

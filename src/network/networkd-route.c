@@ -451,6 +451,10 @@ int route_configure(Route *route, Link *link,
                         r = sd_netlink_message_append_in6_addr(req, RTA_GATEWAY, &route->gw.in6);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
+
+                r = sd_rtnl_message_route_set_family(req, route->family);
+                if (r < 0)
+                        return log_error_errno(r, "Could not set route family: %m");
         }
 
         if (route->dst_prefixlen) {
@@ -494,7 +498,26 @@ int route_configure(Route *route, Link *link,
 
         r = sd_rtnl_message_route_set_flags(req, route->flags);
         if (r < 0)
-                return log_error_errno(r, "Colud not set flags: %m");
+                return log_error_errno(r, "Could not set flags: %m");
+
+        if (route->table != RT_TABLE_DEFAULT) {
+
+                if (route->table < 256) {
+                        r = sd_rtnl_message_route_set_table(req, route->table);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not set route table: %m");
+                } else {
+
+                        r = sd_rtnl_message_route_set_table(req, RT_TABLE_UNSPEC);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not set route table: %m");
+
+                        /* Table attribute to allow allow more than 256. */
+                        r = sd_netlink_message_append_data(req, RTA_TABLE, &route->table, sizeof(route->table));
+                        if (r < 0)
+                                return log_error_errno(r, "Could not append RTA_TABLE attribute: %m");
+                }
+        }
 
         r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->priority);
         if (r < 0)
@@ -772,6 +795,45 @@ int config_parse_route_scope(const char *unit,
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown route scope: %s", rvalue);
                 return 0;
         }
+
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_route_table(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
+        _cleanup_route_free_ Route *n = NULL;
+        Network *network = userdata;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        n->table = k;
 
         n = NULL;
 

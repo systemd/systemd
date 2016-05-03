@@ -37,7 +37,7 @@ struct Route {
         unsigned char protocol;  /* RTPROT_* */
         unsigned char tos;
         uint32_t priority; /* note that ip(8) calls this 'metric' */
-        unsigned char table;
+        uint32_t table;
         unsigned char pref;
         unsigned flags;
 
@@ -74,3 +74,4 @@ int config_parse_preferred_src(const char *unit, const char *filename, unsigned 
 int config_parse_destination(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_route_priority(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_route_scope(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_route_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
