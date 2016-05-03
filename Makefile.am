@@ -5835,6 +5835,8 @@ EXTRA_DIST += \
 	test/TEST-09-ISSUE-2691/test.sh \
 	test/TEST-10-ISSUE-2467/Makefile \
 	test/TEST-10-ISSUE-2467/test.sh \
+	test/TEST-11-ISSUE-3166/Makefile \
+	test/TEST-11-ISSUE-3166/test.sh \
 	test/test-functions
 
 EXTRA_DIST += \
