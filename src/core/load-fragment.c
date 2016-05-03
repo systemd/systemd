@@ -3630,10 +3630,12 @@ static int load_from_path(Unit *u, const char *path) {
         if (fstat(fileno(f), &st) < 0)
                 return -errno;
 
-        if (null_or_empty(&st))
+        if (null_or_empty(&st)) {
                 u->load_state = UNIT_MASKED;
-        else {
+                u->fragment_mtime = 0;
+        } else {
                 u->load_state = UNIT_LOADED;
+                u->fragment_mtime = timespec_load(&st.st_mtim);
 
                 /* Now, parse the file contents */
                 r = config_parse(u->id, filename, f,
@@ -3647,8 +3649,6 @@ static int load_from_path(Unit *u, const char *path) {
         free(u->fragment_path);
         u->fragment_path = filename;
         filename = NULL;
-
-        u->fragment_mtime = timespec_load(&st.st_mtim);
 
         if (u->source_path) {
                 if (stat(u->source_path, &st) >= 0)
