@@ -121,6 +121,20 @@ static bool mount_is_automount(const MountParameters *p) {
                                  "x-systemd.automount\0");
 }
 
+static bool mount_state_active(MountState state) {
+        return IN_SET(state,
+                      MOUNT_MOUNTING,
+                      MOUNT_MOUNTING_DONE,
+                      MOUNT_REMOUNTING,
+                      MOUNT_UNMOUNTING,
+                      MOUNT_MOUNTING_SIGTERM,
+                      MOUNT_MOUNTING_SIGKILL,
+                      MOUNT_UNMOUNTING_SIGTERM,
+                      MOUNT_UNMOUNTING_SIGKILL,
+                      MOUNT_REMOUNTING_SIGTERM,
+                      MOUNT_REMOUNTING_SIGKILL);
+}
+
 static bool needs_quota(const MountParameters *p) {
         assert(p);
 
@@ -591,16 +605,7 @@ static void mount_set_state(Mount *m, MountState state) {
         old_state = m->state;
         m->state = state;
 
-        if (state != MOUNT_MOUNTING &&
-            state != MOUNT_MOUNTING_DONE &&
-            state != MOUNT_REMOUNTING &&
-            state != MOUNT_UNMOUNTING &&
-            state != MOUNT_MOUNTING_SIGTERM &&
-            state != MOUNT_MOUNTING_SIGKILL &&
-            state != MOUNT_UNMOUNTING_SIGTERM &&
-            state != MOUNT_UNMOUNTING_SIGKILL &&
-            state != MOUNT_REMOUNTING_SIGTERM &&
-            state != MOUNT_REMOUNTING_SIGKILL) {
+        if (!mount_state_active(state)) {
                 m->timer_event_source = sd_event_source_unref(m->timer_event_source);
                 mount_unwatch_control_pid(m);
                 m->control_command = NULL;
@@ -632,17 +637,7 @@ static int mount_coldplug(Unit *u) {
 
         if (m->control_pid > 0 &&
             pid_is_unwaited(m->control_pid) &&
-            IN_SET(new_state,
-                   MOUNT_MOUNTING,
-                   MOUNT_MOUNTING_DONE,
-                   MOUNT_REMOUNTING,
-                   MOUNT_UNMOUNTING,
-                   MOUNT_MOUNTING_SIGTERM,
-                   MOUNT_MOUNTING_SIGKILL,
-                   MOUNT_UNMOUNTING_SIGTERM,
-                   MOUNT_UNMOUNTING_SIGKILL,
-                   MOUNT_REMOUNTING_SIGTERM,
-                   MOUNT_REMOUNTING_SIGKILL)) {
+            mount_state_active(new_state)) {
 
                 r = unit_watch_pid(UNIT(m), m->control_pid);
                 if (r < 0)
