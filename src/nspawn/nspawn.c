@@ -3981,7 +3981,6 @@ int main(int argc, char *argv[]) {
                 }
 
                 expose_port_flush(arg_expose_ports, &exposed);
-                (void) remove_veth_links(veth_name, arg_network_veth_extra);
         }
 
 finish:
@@ -4014,7 +4013,6 @@ finish:
         }
 
         expose_port_flush(arg_expose_ports, &exposed);
-        (void) remove_veth_links(veth_name, arg_network_veth_extra);
 
         free(arg_directory);
         free(arg_template);

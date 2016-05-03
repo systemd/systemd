@@ -34,5 +34,3 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces);
 int move_network_interfaces(pid_t pid, char **ifaces);
 
 int veth_extra_parse(char ***l, const char *p);
-
-int remove_veth_links(const char *primary, char **pairs);
