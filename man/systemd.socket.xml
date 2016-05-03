@@ -809,7 +809,7 @@
 
       <varlistentry>
         <term><varname>TriggerLimitIntervalSec=</varname></term>
-        <term><varname>TriggerLimitIntervalBurst=</varname></term>
+        <term><varname>TriggerLimitBurst=</varname></term>
 
         <listitem><para>Configures a limit on how often this socket unit my be activated within a specific time
         interval. The <varname>TriggerLimitIntervalSec=</varname> may be used to configure the length of the time
