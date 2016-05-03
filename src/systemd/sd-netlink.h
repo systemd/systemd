@@ -137,8 +137,10 @@ int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, unsigned char
 int sd_rtnl_message_route_set_src_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
 int sd_rtnl_message_route_set_scope(sd_netlink_message *m, unsigned char scope);
 int sd_rtnl_message_route_set_flags(sd_netlink_message *m, unsigned flags);
+int sd_rtnl_message_route_set_table(sd_netlink_message *m, unsigned char table);
 int sd_rtnl_message_route_get_flags(sd_netlink_message *m, unsigned *flags);
 int sd_rtnl_message_route_get_family(sd_netlink_message *m, int *family);
+int sd_rtnl_message_route_set_family(sd_netlink_message *m, int family);
 int sd_rtnl_message_route_get_protocol(sd_netlink_message *m, unsigned char *protocol);
 int sd_rtnl_message_route_get_scope(sd_netlink_message *m, unsigned char *scope);
 int sd_rtnl_message_route_get_tos(sd_netlink_message *m, unsigned char *tos);
