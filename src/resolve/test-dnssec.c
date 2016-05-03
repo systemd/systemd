@@ -230,6 +230,7 @@ static void test_dnssec_verify_rrset2(void) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *nsec = NULL, *rrsig = NULL, *dnskey = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
+        int r;
 
         nsec = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "nasa.gov");
         assert_se(nsec);
