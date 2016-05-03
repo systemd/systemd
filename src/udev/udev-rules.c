@@ -329,8 +329,8 @@ static void dump_token(struct udev_rules *rules, struct token *token) {
         enum token_type type = token->type;
         enum operation_type op = token->key.op;
         enum string_glob_type glob = token->key.glob;
-        const char *value = str(rules, token->key.value_off);
-        const char *attr = &rules->buf[token->key.attr_off];
+        const char *value = rules_str(rules, token->key.value_off);
+        const char *attr = &rules->strbuf->buf[token->key.attr_off];
 
         switch (type) {
         case TK_RULE:
@@ -340,9 +340,9 @@ static void dump_token(struct udev_rules *rules, struct token *token) {
                         unsigned int idx = (tk_ptr - tks_ptr) / sizeof(struct token);
 
                         log_debug("* RULE %s:%u, token: %u, count: %u, label: '%s'",
-                                  &rules->buf[token->rule.filename_off], token->rule.filename_line,
+                                  &rules->strbuf->buf[token->rule.filename_off], token->rule.filename_line,
                                   idx, token->rule.token_count,
-                                  &rules->buf[token->rule.label_off]);
+                                  &rules->strbuf->buf[token->rule.label_off]);
                         break;
                 }
         case TK_M_ACTION:
@@ -439,11 +439,11 @@ static void dump_token(struct udev_rules *rules, struct token *token) {
 static void dump_rules(struct udev_rules *rules) {
         unsigned int i;
 
-        log_debug("dumping %u (%zu bytes) tokens, %u (%zu bytes) strings",
+        log_debug("dumping %u (%zu bytes) tokens, %zu (%zu bytes) strings",
                   rules->token_cur,
                   rules->token_cur * sizeof(struct token),
-                  rules->buf_count,
-                  rules->buf_cur);
+                  rules->strbuf->nodes_count,
+                  rules->strbuf->len);
         for (i = 0; i < rules->token_cur; i++)
                 dump_token(rules, &rules->tokens[i]);
 }
