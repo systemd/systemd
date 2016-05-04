@@ -133,6 +133,7 @@ struct Manager {
 
         size_t runtime_dir_size;
         uint64_t user_tasks_max;
+        uint64_t sessions_max;
 };
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device);

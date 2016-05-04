@@ -265,6 +265,24 @@ static int property_get_docked(
         return sd_bus_message_append(reply, "b", manager_is_docked_or_external_displays(m));
 }
 
+static int property_get_current_sessions(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        return sd_bus_message_append(reply, "t", (uint64_t) hashmap_size(m->sessions));
+}
+
 static int method_get_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
@@ -724,6 +742,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
             m->seat0->positions[vtnr] &&
             m->seat0->positions[vtnr]->class != SESSION_GREETER)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already occupied by a session");
+
+        if (hashmap_size(m->sessions) >= m->sessions_max)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.", m->sessions_max);
 
         audit_session_from_pid(leader, &audit_id);
         if (audit_id > 0) {
@@ -2512,6 +2533,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, 0),
         SD_BUS_PROPERTY("Docked", "b", property_get_docked, 0, 0),
+        SD_BUS_PROPERTY("SessionsMax", "t", NULL, offsetof(Manager, sessions_max), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NCurrentSessions", "t", property_get_current_sessions, 0, 0),
 
         SD_BUS_METHOD("GetSession", "s", "o", method_get_session, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetSessionByPID", "u", "o", method_get_session_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
