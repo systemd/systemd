@@ -131,6 +131,10 @@ static int spawn_child(const char* child, char** argv) {
         if (r < 0)
                 log_warning_errno(errno, "Failed to close write end of pipe: %m");
 
+        r = fd_nonblock(fd[0], true);
+        if (r < 0)
+                log_warning_errno(errno, "Failed to set child pipe to non-blocking: %m");
+
         return fd[0];
 }
 
