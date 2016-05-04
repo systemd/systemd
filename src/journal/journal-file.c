@@ -3160,7 +3160,7 @@ int journal_file_open(
                         goto fail;
         }
 
-        /* The file is opened now successfully, thus we take possesion of any passed in fd. */
+        /* The file is opened now successfully, thus we take possession of any passed in fd. */
         f->close_fd = true;
 
         *ret = f;

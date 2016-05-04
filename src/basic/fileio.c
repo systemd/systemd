@@ -1337,7 +1337,7 @@ int link_tmpfile(int fd, const char *path, const char *target) {
          * created with O_TMPFILE is assumed, and linkat() is used. Otherwise it is assumed O_TMPFILE is not supported
          * on the directory, and renameat2() is used instead.
          *
-         * Note that in both cases we will not replace existing files. This is because linkat() dos not support this
+         * Note that in both cases we will not replace existing files. This is because linkat() does not support this
          * operation currently (renameat2() does), and there is no nice way to emulate this. */
 
         if (path) {

@@ -487,7 +487,7 @@ int image_rename(Image *i, const char *new_name) {
 
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
-         * time we take possesion of it */
+         * time we take possession of it */
         r = image_name_lock(new_name, LOCK_EX|LOCK_NB, &name_lock);
         if (r < 0)
                 return r;
@@ -588,7 +588,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
-         * time we take possesion of it */
+         * time we take possession of it */
         r = image_name_lock(new_name, LOCK_EX|LOCK_NB, &name_lock);
         if (r < 0)
                 return r;
