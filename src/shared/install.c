@@ -346,6 +346,11 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         if (!quiet)
                                 log_info("Unit %s is masked, ignoring.", changes[i].path);
                         break;
+                case UNIT_FILE_IS_DANGLING:
+                        if (!quiet)
+                                log_info("Unit %s is an alias to a unit that is not present, ignoring.",
+                                         changes[i].path);
+                        break;
                 case -EEXIST:
                         if (changes[i].source)
                                 log_error_errno(changes[i].type,
@@ -1395,6 +1400,9 @@ static int install_info_traverse(
 
                         /* Try again, with the new target we found. */
                         r = unit_file_search(c, i, paths, flags);
+                        if (r == -ENOENT)
+                                /* Translate error code to highlight this specific case */
+                                return -ENOLINK;
                 }
 
                 if (r < 0)
@@ -1694,7 +1702,9 @@ static int install_context_mark_for_removal(
                         return r;
 
                 r = install_info_traverse(scope, c, paths, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        return 0;
+                else if (r < 0)
                         return r;
 
                 if (i->type != UNIT_FILE_TYPE_REGULAR) {
@@ -2797,6 +2807,9 @@ int unit_file_preset_all(
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);
+                        else if (r == -ENOLINK)
+                                r = unit_file_changes_add(changes, n_changes,
+                                                          UNIT_FILE_IS_DANGLING, de->d_name, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2920,6 +2933,7 @@ static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX]
         [UNIT_FILE_SYMLINK] = "symlink",
         [UNIT_FILE_UNLINK] = "unlink",
         [UNIT_FILE_IS_MASKED] = "masked",
+        [UNIT_FILE_IS_DANGLING] = "dangling",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);
