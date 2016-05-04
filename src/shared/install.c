@@ -116,6 +116,14 @@ bool unit_type_may_template(UnitType type) {
                       UNIT_PATH);
 }
 
+static const char *unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
+        [UNIT_FILE_TYPE_REGULAR] = "regular",
+        [UNIT_FILE_TYPE_SYMLINK] = "symlink",
+        [UNIT_FILE_TYPE_MASKED] = "masked",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(unit_file_type, UnitFileType);
+
 static int in_search_path(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
         char **i;
@@ -1223,6 +1231,7 @@ static int unit_file_search(
                 const LookupPaths *paths,
                 SearchFlags flags) {
 
+        _cleanup_free_ char *template = NULL;
         char **p;
         int r;
 
@@ -1260,8 +1269,6 @@ static int unit_file_search(
                  * enablement was requested.  We will check if it is
                  * possible to load template unit file. */
 
-                _cleanup_free_ char *template = NULL;
-
                 r = unit_name_template(info->name, &template);
                 if (r < 0)
                         return r;
@@ -1283,6 +1290,7 @@ static int unit_file_search(
                 }
         }
 
+        log_debug("Cannot find unit %s%s%s.", info->name, template ? " or " : "", strempty(template));
         return -ENOENT;
 }
 
@@ -1314,6 +1322,11 @@ static int install_info_follow(
         return unit_file_load_or_readlink(c, i, i->path, root_dir, flags);
 }
 
+/**
+ * Search for the unit file. If the unit name is a symlink,
+ * follow the symlink to the target, maybe more than once.
+ * Propagate the instance name if present.
+ */
 static int install_info_traverse(
                 UnitFileScope scope,
                 InstallContext *c,
@@ -1684,8 +1697,12 @@ static int install_context_mark_for_removal(
                 if (r < 0)
                         return r;
 
-                if (i->type != UNIT_FILE_TYPE_REGULAR)
+                if (i->type != UNIT_FILE_TYPE_REGULAR) {
+                        log_debug("Unit %s has type %s, ignoring.",
+                                  i->name,
+                                  unit_file_type_to_string(i->type) ?: "invalid");
                         continue;
+                }
 
                 r = mark_symlink_for_removal(remove_symlinks_to, i->name);
                 if (r < 0)
