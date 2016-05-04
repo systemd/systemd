@@ -584,23 +584,6 @@ static int mount_load(Unit *u) {
         return mount_verify(m);
 }
 
-static int mount_notify_automount(Mount *m, MountState old_state, MountState state) {
-        Unit *p;
-        int r;
-        Iterator i;
-
-        assert(m);
-
-        SET_FOREACH(p, UNIT(m)->dependencies[UNIT_TRIGGERED_BY], i)
-                if (p->type == UNIT_AUTOMOUNT) {
-                         r = automount_update_mount(AUTOMOUNT(p), old_state, state);
-                         if (r < 0)
-                                 return r;
-                }
-
-        return 0;
-}
-
 static void mount_set_state(Mount *m, MountState state) {
         MountState old_state;
         assert(m);
@@ -623,8 +606,6 @@ static void mount_set_state(Mount *m, MountState state) {
                 m->control_command = NULL;
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
-
-        mount_notify_automount(m, old_state, state);
 
         if (state != old_state)
                 log_unit_debug(UNIT(m), "Changed %s -> %s", mount_state_to_string(old_state), mount_state_to_string(state));
@@ -984,6 +965,7 @@ fail:
 
 static int mount_start(Unit *u) {
         Mount *m = MOUNT(u);
+        int r;
 
         assert(m);
 
@@ -1001,6 +983,12 @@ static int mount_start(Unit *u) {
                 return 0;
 
         assert(m->state == MOUNT_DEAD || m->state == MOUNT_FAILED);
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
@@ -1821,7 +1809,8 @@ static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
         [MOUNT_FAILURE_TIMEOUT] = "timeout",
         [MOUNT_FAILURE_EXIT_CODE] = "exit-code",
         [MOUNT_FAILURE_SIGNAL] = "signal",
-        [MOUNT_FAILURE_CORE_DUMP] = "core-dump"
+        [MOUNT_FAILURE_CORE_DUMP] = "core-dump",
+        [MOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);

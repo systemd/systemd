@@ -86,6 +86,7 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_SIGNAL,
         SERVICE_FAILURE_CORE_DUMP,
         SERVICE_FAILURE_WATCHDOG,
+        SERVICE_FAILURE_START_LIMIT_HIT,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;

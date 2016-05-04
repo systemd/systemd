@@ -1462,7 +1462,7 @@ void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
         unit_status_print_starting_stopping(u, t);
 }
 
-static int unit_start_limit_test(Unit *u) {
+int unit_start_limit_test(Unit *u) {
         assert(u);
 
         if (ratelimit_test(&u->start_limit)) {
@@ -1488,7 +1488,6 @@ static int unit_start_limit_test(Unit *u) {
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
-        int r;
 
         assert(u);
 
@@ -1540,11 +1539,6 @@ int unit_start(Unit *u) {
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
-
-        /* Make sure we don't enter a busy loop of some kind. */
-        r = unit_start_limit_test(u);
-        if (r < 0)
-                return r;
 
         /* We don't suppress calls to ->start() here when we are
          * already starting, to allow this request to be used as a
@@ -2951,7 +2945,7 @@ int unit_coldplug(Unit *u) {
         return 0;
 }
 
-static bool fragment_mtime_changed(const char *path, usec_t mtime) {
+static bool fragment_mtime_newer(const char *path, usec_t mtime) {
         struct stat st;
 
         if (!path)
@@ -2963,7 +2957,7 @@ static bool fragment_mtime_changed(const char *path, usec_t mtime) {
 
         if (mtime > 0)
                 /* For non-empty files check the mtime */
-                return timespec_load(&st.st_mtim) != mtime;
+                return timespec_load(&st.st_mtim) > mtime;
         else if (!null_or_empty(&st))
                 /* For masked files check if they are still so */
                 return true;
@@ -2974,32 +2968,24 @@ static bool fragment_mtime_changed(const char *path, usec_t mtime) {
 bool unit_need_daemon_reload(Unit *u) {
         _cleanup_strv_free_ char **t = NULL;
         char **path;
-        unsigned loaded_cnt, current_cnt;
 
         assert(u);
 
-        if (fragment_mtime_changed(u->fragment_path, u->fragment_mtime) ||
-            fragment_mtime_changed(u->source_path, u->source_mtime))
+        if (fragment_mtime_newer(u->fragment_path, u->fragment_mtime))
+                return true;
+
+        if (fragment_mtime_newer(u->source_path, u->source_mtime))
                 return true;
 
         (void) unit_find_dropin_paths(u, &t);
-        loaded_cnt = strv_length(t);
-        current_cnt = strv_length(u->dropin_paths);
+        if (!strv_equal(u->dropin_paths, t))
+                return true;
 
-        if (loaded_cnt == current_cnt) {
-                if (loaded_cnt == 0)
-                        return false;
+        STRV_FOREACH(path, u->dropin_paths)
+                if (fragment_mtime_newer(*path, u->dropin_mtime))
+                        return true;
 
-                if (strv_overlap(u->dropin_paths, t)) {
-                        STRV_FOREACH(path, u->dropin_paths)
-                                if (fragment_mtime_changed(*path, u->dropin_mtime))
-                                        return true;
-
-                        return false;
-                }
-        }
-
-        return true;
+        return false;
 }
 
 void unit_reset_failed(Unit *u) {

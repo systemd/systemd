@@ -2057,6 +2057,7 @@ fail:
 
 static int socket_start(Unit *u) {
         Socket *s = SOCKET(u);
+        int r;
 
         assert(s);
 
@@ -2100,6 +2101,12 @@ static int socket_start(Unit *u) {
         }
 
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                socket_enter_dead(s, SOCKET_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
 
         s->result = SOCKET_SUCCESS;
         s->reset_cpu_usage = true;
@@ -2735,17 +2742,26 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         assert(u);
         assert(other);
 
-        /* Don't propagate state changes from the service if we are
-           already down or accepting connections */
-        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING) || s->accept)
+        /* Filter out invocations with bogus state */
+        if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
                 return;
 
+        /* Don't propagate state changes from the service if we are already down */
+        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING))
+                return;
+
+        /* We don't care for the service state if we are in Accept=yes mode */
+        if (s->accept)
+                return;
+
+        /* Propagate start limit hit state */
         if (other->start_limit_hit) {
                 socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_START_LIMIT_HIT);
                 return;
         }
 
-        if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
+        /* Don't propagate anything if there's still a job queued */
+        if (other->job)
                 return;
 
         if (IN_SET(SERVICE(other)->state,
@@ -2818,6 +2834,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
         [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
+        [SOCKET_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
         [SOCKET_FAILURE_TRIGGER_LIMIT_HIT] = "trigger-limit-hit",
         [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };

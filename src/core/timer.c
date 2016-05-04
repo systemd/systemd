@@ -599,6 +599,7 @@ static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
         TimerValue *v;
         Unit *trigger;
+        int r;
 
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
@@ -607,6 +608,12 @@ static int timer_start(Unit *u) {
         if (!trigger || trigger->load_state != UNIT_LOADED) {
                 log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
                 return -ENOENT;
+        }
+
+        r = unit_start_limit_test(u);
+        if (r < 0) {
+                timer_enter_dead(t, TIMER_FAILURE_START_LIMIT_HIT);
+                return r;
         }
 
         t->last_trigger = DUAL_TIMESTAMP_NULL;
@@ -808,7 +815,8 @@ DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
 static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
         [TIMER_SUCCESS] = "success",
-        [TIMER_FAILURE_RESOURCES] = "resources"
+        [TIMER_FAILURE_RESOURCES] = "resources",
+        [TIMER_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);

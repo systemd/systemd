@@ -39,6 +39,7 @@ typedef enum MountResult {
         MOUNT_FAILURE_EXIT_CODE,
         MOUNT_FAILURE_SIGNAL,
         MOUNT_FAILURE_CORE_DUMP,
+        MOUNT_FAILURE_START_LIMIT_HIT,
         _MOUNT_RESULT_MAX,
         _MOUNT_RESULT_INVALID = -1
 } MountResult;
