@@ -24,7 +24,7 @@
 
 #include "sd-ndisc.h"
 
-#include "networkd-link.h"
+#include "networkd.h"
 
 static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;

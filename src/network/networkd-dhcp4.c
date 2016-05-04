@@ -24,7 +24,7 @@
 #include "dhcp-lease-internal.h"
 #include "hostname-util.h"
 #include "network-internal.h"
-#include "networkd-link.h"
+#include "networkd.h"
 
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {
@@ -628,28 +628,24 @@ int dhcp4_configure(Link *link) {
         }
 
         switch (link->network->dhcp_client_identifier) {
-        case DHCP_CLIENT_ID_DUID:
+        case DHCP_CLIENT_ID_DUID: {
                 /* If configured, apply user specified DUID and/or IAID */
-                if (link->network->duid_type != _DUID_TYPE_INVALID)
-                        r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
-                                                         link->network->iaid,
-                                                         link->network->dhcp_duid_type,
-                                                         link->network->dhcp_duid,
-                                                         link->network->dhcp_duid_len);
-                else
-                        r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
-                                                         link->network->iaid,
-                                                         link->manager->dhcp_duid_type,
-                                                         link->manager->dhcp_duid,
-                                                         link->manager->dhcp_duid_len);
+                const DUID *duid = link_duid(link);
+
+                r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
+                                                 link->network->iaid,
+                                                 duid->type,
+                                                 duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                                 duid->raw_data_len);
                 if (r < 0)
                         return r;
                 break;
+        }
         case DHCP_CLIENT_ID_MAC:
                 r = sd_dhcp_client_set_client_id(link->dhcp_client,
                                                  ARPHRD_ETHER,
                                                  (const uint8_t *) &link->mac,
-                                                 sizeof (link->mac));
+                                                 sizeof(link->mac));
                 if (r < 0)
                         return r;
                 break;

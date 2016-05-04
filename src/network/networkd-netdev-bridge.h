@@ -19,11 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct Bridge Bridge;
-
 #include "networkd-netdev.h"
 
-struct Bridge {
+typedef struct Bridge {
         NetDev meta;
 
         int mcast_querier;
@@ -31,6 +29,7 @@ struct Bridge {
         usec_t forward_delay;
         usec_t hello_time;
         usec_t max_age;
-};
+} Bridge;
 
+DEFINE_NETDEV_CAST(BRIDGE, Bridge);
 extern const NetDevVTable bridge_vtable;

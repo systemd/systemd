@@ -5515,6 +5515,12 @@ networkctl_LDADD = \
 dist_bashcompletion_data += \
 	shell-completion/bash/networkctl
 
+test_networkd_conf_SOURCES = \
+	src/network/test-networkd-conf.c
+
+test_networkd_conf_LDADD = \
+	libnetworkd-core.la
+
 test_network_SOURCES = \
 	src/network/test-network.c
 
@@ -5540,6 +5546,7 @@ test_network_tables_LDADD += \
 endif
 
 tests += \
+	test-networkd-conf \
 	test-network \
 	test-network-tables
 

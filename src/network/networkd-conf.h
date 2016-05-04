@@ -21,14 +21,29 @@
 
 #include "networkd.h"
 
-typedef enum DuidConfigSource {
-        DUID_CONFIG_SOURCE_GLOBAL = 0,
-        DUID_CONFIG_SOURCE_NETWORK,
-} DuidConfigSource;
-
 int manager_parse_config_file(Manager *m);
 
 const struct ConfigPerfItem* networkd_gperf_lookup(const char *key, unsigned length);
 
-int config_parse_duid_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_duid_rawdata(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_duid_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata);
+int config_parse_duid_rawdata(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata);

@@ -19,18 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-bus.h"
+#include "udev.h"
+
 #include "condition.h"
+#include "dhcp-identifier.h"
+#include "hashmap.h"
 #include "resolve-util.h"
 
-typedef struct Network Network;
-
-#include "dhcp-identifier.h"
 #include "networkd-address.h"
 #include "networkd-fdb.h"
 #include "networkd-netdev.h"
 #include "networkd-route.h"
 #include "networkd-util.h"
-#include "networkd.h"
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
@@ -66,6 +67,16 @@ typedef enum LLDPMode {
         _LLDP_MODE_MAX,
         _LLDP_MODE_INVALID = -1,
 } LLDPMode;
+
+typedef struct DUID {
+        /* Value of Type in [DHCP] section */
+        DUIDType type;
+
+        uint8_t raw_data_len;
+        uint8_t raw_data[MAX_DUID_LEN];
+} DUID;
+
+typedef struct Manager Manager;
 
 struct Network {
         Manager *manager;
@@ -147,12 +158,7 @@ struct Network {
         struct ether_addr *mac;
         unsigned mtu;
         uint32_t iaid;
-        /* Value of Type in [DUID] section */
-        DUIDType duid_type;
-        /* DUID type code - RFC 3315 */
-        uint16_t dhcp_duid_type;
-        size_t dhcp_duid_len;
-        uint8_t dhcp_duid[MAX_DUID_LEN];
+        DUID duid;
 
         LLDPMode lldp_mode; /* LLDP reception */
         bool lldp_emit;     /* LLDP transmission */

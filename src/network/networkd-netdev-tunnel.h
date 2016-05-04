@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct Tunnel Tunnel;
+#include "in-addr-util.h"
 
 #include "networkd-netdev.h"
 
@@ -37,7 +37,7 @@ typedef enum IPv6FlowLabel {
         _NETDEV_IPV6_FLOWLABEL_INVALID = -1,
 } IPv6FlowLabel;
 
-struct Tunnel {
+typedef struct Tunnel {
         NetDev meta;
 
         uint8_t encap_limit;
@@ -56,8 +56,17 @@ struct Tunnel {
 
         bool pmtudisc;
         bool copy_dscp;
-};
+} Tunnel;
 
+DEFINE_NETDEV_CAST(IPIP, Tunnel);
+DEFINE_NETDEV_CAST(GRE, Tunnel);
+DEFINE_NETDEV_CAST(GRETAP, Tunnel);
+DEFINE_NETDEV_CAST(IP6GRE, Tunnel);
+DEFINE_NETDEV_CAST(IP6GRETAP, Tunnel);
+DEFINE_NETDEV_CAST(SIT, Tunnel);
+DEFINE_NETDEV_CAST(VTI, Tunnel);
+DEFINE_NETDEV_CAST(VTI6, Tunnel);
+DEFINE_NETDEV_CAST(IP6TNL, Tunnel);
 extern const NetDevVTable ipip_vtable;
 extern const NetDevVTable sit_vtable;
 extern const NetDevVTable vti_vtable;

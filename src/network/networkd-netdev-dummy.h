@@ -19,12 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct Dummy Dummy;
-
 #include "networkd-netdev.h"
 
-struct Dummy {
+typedef struct Dummy {
         NetDev meta;
-};
+} Dummy;
 
+DEFINE_NETDEV_CAST(DUMMY, Dummy);
 extern const NetDevVTable dummy_vtable;

@@ -19,15 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-netlink.h"
+
 #include "list.h"
-
-typedef struct NetDev NetDev;
-typedef struct NetDevVTable NetDevVTable;
-
-#include "networkd-link.h"
-#include "networkd.h"
+#include "time-util.h"
 
 typedef struct netdev_join_callback netdev_join_callback;
+typedef struct Link Link;
 
 struct netdev_join_callback {
         sd_netlink_message_handler_t callback;
@@ -78,7 +76,10 @@ typedef enum NetDevCreateType {
         _NETDEV_CREATE_INVALID = -1,
 } NetDevCreateType;
 
-struct NetDev {
+typedef struct Manager Manager;
+typedef struct Condition Condition;
+
+typedef struct NetDev {
         Manager *manager;
 
         int n_ref;
@@ -99,20 +100,9 @@ struct NetDev {
         int ifindex;
 
         LIST_HEAD(netdev_join_callback, callbacks);
-};
+} NetDev;
 
-#include "networkd-netdev-bond.h"
-#include "networkd-netdev-bridge.h"
-#include "networkd-netdev-dummy.h"
-#include "networkd-netdev-ipvlan.h"
-#include "networkd-netdev-macvlan.h"
-#include "networkd-netdev-tunnel.h"
-#include "networkd-netdev-tuntap.h"
-#include "networkd-netdev-veth.h"
-#include "networkd-netdev-vlan.h"
-#include "networkd-netdev-vxlan.h"
-
-struct NetDevVTable {
+typedef struct NetDevVTable {
         /* How much memory does an object of this unit type need */
         size_t object_size;
 
@@ -144,14 +134,14 @@ struct NetDevVTable {
 
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);
-};
+} NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 
 #define NETDEV_VTABLE(n) netdev_vtable[(n)->kind]
 
 /* For casting a netdev into the various netdev kinds */
-#define DEFINE_CAST(UPPERCASE, MixedCase)                                   \
+#define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                            \
         static inline MixedCase* UPPERCASE(NetDev *n) {                     \
                 if (_unlikely_(!n || n->kind != NETDEV_KIND_##UPPERCASE))   \
                         return NULL;                                        \
@@ -161,27 +151,6 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 
 /* For casting the various netdev kinds into a netdev */
 #define NETDEV(n) (&(n)->meta)
-
-DEFINE_CAST(BRIDGE, Bridge);
-DEFINE_CAST(BOND, Bond);
-DEFINE_CAST(VLAN, VLan);
-DEFINE_CAST(MACVLAN, MacVlan);
-DEFINE_CAST(MACVTAP, MacVlan);
-DEFINE_CAST(IPVLAN, IPVlan);
-DEFINE_CAST(VXLAN, VxLan);
-DEFINE_CAST(IPIP, Tunnel);
-DEFINE_CAST(GRE, Tunnel);
-DEFINE_CAST(GRETAP, Tunnel);
-DEFINE_CAST(IP6GRE, Tunnel);
-DEFINE_CAST(IP6GRETAP, Tunnel);
-DEFINE_CAST(SIT, Tunnel);
-DEFINE_CAST(VTI, Tunnel);
-DEFINE_CAST(VTI6, Tunnel);
-DEFINE_CAST(IP6TNL, Tunnel);
-DEFINE_CAST(VETH, Veth);
-DEFINE_CAST(DUMMY, Dummy);
-DEFINE_CAST(TUN, TunTap);
-DEFINE_CAST(TAP, TunTap);
 
 int netdev_load(Manager *manager);
 void netdev_drop(NetDev *netdev);

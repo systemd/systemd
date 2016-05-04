@@ -22,7 +22,9 @@
 typedef struct AddressPool AddressPool;
 
 #include "in-addr-util.h"
-#include "networkd.h"
+#include "list.h"
+
+typedef struct Manager Manager;
 
 struct AddressPool {
         Manager *manager;

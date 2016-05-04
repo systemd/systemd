@@ -31,4 +31,5 @@ struct VLan {
         uint64_t id;
 };
 
+DEFINE_NETDEV_CAST(VLAN, VLan);
 extern const NetDevVTable vlan_vtable;

@@ -22,7 +22,6 @@
 typedef struct Route Route;
 
 #include "networkd-network.h"
-#include "networkd.h"
 
 struct Route {
         Network *network;

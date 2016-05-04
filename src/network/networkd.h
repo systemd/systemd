@@ -24,18 +24,29 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
-
-#include "hashmap.h"
-#include "list.h"
 #include "udev.h"
 
-typedef struct Manager Manager;
-
 #include "dhcp-identifier.h"
+#include "hashmap.h"
+#include "list.h"
+
 #include "networkd-address-pool.h"
 #include "networkd-link.h"
+#include "networkd-netdev-bond.h"
+#include "networkd-netdev-bridge.h"
+#include "networkd-netdev-dummy.h"
+#include "networkd-netdev-ipvlan.h"
+#include "networkd-netdev-macvlan.h"
+#include "networkd-netdev-tunnel.h"
+#include "networkd-netdev-tuntap.h"
+#include "networkd-netdev-veth.h"
+#include "networkd-netdev-vlan.h"
+#include "networkd-netdev-vlan.h"
+#include "networkd-netdev-vxlan.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+
+extern const char* const network_dirs[];
 
 struct Manager {
         sd_netlink *rtnl;
@@ -63,17 +74,15 @@ struct Manager {
 
         usec_t network_dirs_ts_usec;
 
-        /* Value of Type in [DUID] section */
-        DUIDType duid_type;
-        /* DUID type code - RFC 3315 */
-        uint16_t dhcp_duid_type;
-        size_t dhcp_duid_len;
-        uint8_t dhcp_duid[MAX_DUID_LEN];
+        DUID duid;
 };
 
-extern const char* const network_dirs[];
-
-/* Manager */
+static inline const DUID* link_duid(const Link *link) {
+        if (link->network->duid.type != _DUID_TYPE_INVALID)
+                return &link->network->duid;
+        else
+                return &link->manager->duid;
+}
 
 extern const sd_bus_vtable manager_vtable[];
 

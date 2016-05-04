@@ -19,10 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct FdbEntry FdbEntry;
+#include "list.h"
+#include "macro.h"
 
-#include "networkd-network.h"
-#include "networkd.h"
+typedef struct Network Network;
+typedef struct FdbEntry FdbEntry;
+typedef struct Link Link;
 
 struct FdbEntry {
         Network *network;
