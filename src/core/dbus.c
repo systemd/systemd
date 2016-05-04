@@ -71,27 +71,41 @@ int bus_send_queued_message(Manager *m) {
         return 0;
 }
 
+int bus_forward_agent_released(Manager *m, const char *path) {
+        int r;
+
+        assert(m);
+        assert(path);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return 0;
+
+        if (!m->system_bus)
+                return 0;
+
+        /* If we are running a system instance we forward the agent message on the system bus, so that the user
+         * instances get notified about this, too */
+
+        r = sd_bus_emit_signal(m->system_bus,
+                               "/org/freedesktop/systemd1/agent",
+                               "org.freedesktop.systemd1.Agent",
+                               "Released",
+                               "s", path);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to propagate agent release message: %m");
+
+        return 1;
+}
+
 static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *cgroup, *me;
         Manager *m = userdata;
+        const char *cgroup;
         uid_t sender_uid;
-        sd_bus *bus;
         int r;
 
         assert(message);
         assert(m);
-
-        /* ignore recursive events sent by us on the system/user bus */
-        bus = sd_bus_message_get_bus(message);
-        if (!sd_bus_is_server(bus)) {
-                r = sd_bus_get_unique_name(bus, &me);
-                if (r < 0)
-                        return r;
-
-                if (streq_ptr(sd_bus_message_get_sender(message), me))
-                        return 0;
-        }
 
         /* only accept org.freedesktop.systemd1.Agent from UID=0 */
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
@@ -110,16 +124,6 @@ static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus
         }
 
         manager_notify_cgroup_empty(m, cgroup);
-
-        /* if running as system-instance, forward under our name */
-        if (MANAGER_IS_SYSTEM(m) && m->system_bus) {
-                r = sd_bus_message_rewind(message, 1);
-                if (r >= 0)
-                        r = sd_bus_send(m->system_bus, message, NULL);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to forward Released message: %m");
-        }
-
         return 0;
 }
 
@@ -690,25 +694,6 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        if (MANAGER_IS_SYSTEM(m)) {
-                /* When we run as system instance we get the Released
-                 * signal via a direct connection */
-
-                r = sd_bus_add_match(
-                                bus,
-                                NULL,
-                                "type='signal',"
-                                "interface='org.freedesktop.systemd1.Agent',"
-                                "member='Released',"
-                                "path='/org/freedesktop/systemd1/agent'",
-                                signal_agent_released, m);
-
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to register Released match on new connection bus: %m");
-                        return 0;
-                }
-        }
-
         r = bus_setup_disconnected_match(m, bus);
         if (r < 0)
                 return 0;
@@ -906,8 +891,8 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
-        /* On kdbus or if we are a user instance we get the Released message via the system bus */
-        if (MANAGER_IS_USER(m) || m->kdbus_fd >= 0) {
+        /* if we are a user instance we get the Released message via the system bus */
+        if (MANAGER_IS_USER(m)) {
                 r = sd_bus_add_match(
                                 bus,
                                 NULL,
