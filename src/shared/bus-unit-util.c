@@ -331,7 +331,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 log_error("Failed to parse %s value %s.", field, weight);
                                 return -EINVAL;
                         }
-                        r = sd_bus_message_append(m, "v", "a(st)", path, u);
+                        r = sd_bus_message_append(m, "v", "a(st)", 1, path, u);
                 }
 
         } else if (streq(field, "Nice")) {
