@@ -91,6 +91,7 @@ struct Link {
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
+        char *lease6_file;
         uint16_t original_mtu;
         unsigned dhcp4_messages;
         bool dhcp4_configured;
@@ -110,6 +111,7 @@ struct Link {
 
         sd_ndisc *ndisc_router_discovery;
         sd_dhcp6_client *dhcp6_client;
+        sd_dhcp6_lease *dhcp6_lease;
         bool rtnl_extended_attrs;
 
         /* This is about LLDP reception */

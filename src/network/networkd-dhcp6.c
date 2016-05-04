@@ -111,6 +111,8 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
                         return r;
         }
 
+        link->dhcp6_lease = sd_dhcp6_lease_ref(lease);
+
         return 0;
 }
 
@@ -132,7 +134,9 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 if (sd_dhcp6_client_get_lease(client, NULL) >= 0)
                         log_link_warning(link, "DHCPv6 lease lost");
 
+                link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
                 link->dhcp6_configured = false;
+                link_dirty(link);
                 break;
 
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
@@ -151,6 +155,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 }
 
                 link->dhcp6_configured = true;
+                link_dirty(link);
                 break;
 
         default:

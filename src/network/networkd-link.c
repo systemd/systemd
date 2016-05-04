@@ -24,6 +24,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "dhcp-lease-internal.h"
+#include "dhcp6-lease-internal.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "netlink-util.h"
@@ -444,6 +445,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
+        r = asprintf(&link->lease6_file, "/run/systemd/netif/leases6/%d", link->ifindex);
+        if (r < 0)
+                return -ENOMEM;
+
         if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
@@ -491,10 +496,12 @@ static void link_free(Link *link) {
         sd_dhcp_server_unref(link->dhcp_server);
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
+        sd_dhcp6_lease_unref(link->dhcp6_lease);
 
         link_lldp_tx_stop(link);
 
         free(link->lease_file);
+        free(link->lease6_file);
 
         sd_lldp_unref(link->lldp);
         free(link->lldp_file);
@@ -2997,6 +3004,7 @@ int link_save(Link *link) {
         assert(link);
         assert(link->state_file);
         assert(link->lease_file);
+        assert(link->lease6_file);
         assert(link->manager);
 
         if (link->state == LINK_STATE_LINGER) {
@@ -3214,6 +3222,31 @@ int link_save(Link *link) {
                         link->lease_file);
         } else
                 unlink(link->lease_file);
+
+        if (link->dhcp6_lease) {
+                struct in6_addr addr6;
+                uint32_t lp, lv;
+                assert(link->network);
+
+                fputs("DHCP6_ADDRESS=", f);
+
+                sd_dhcp6_lease_reset_address_iter(link->dhcp6_lease);
+                while (sd_dhcp6_lease_get_address(link->dhcp6_lease,
+                                                  &addr6, &lp, &lv) >= 0) {
+                        serialize_in6_addrs(f, &addr6, 1);
+                        fputc(' ', f);
+                }
+                fputc('\n', f);
+
+                r = dhcp6_lease_save(link->dhcp6_lease, link->lease6_file);
+                if (r < 0)
+                        goto fail;
+
+                fprintf(f,
+                        "DHCP6_LEASE=%s\n",
+                        link->lease6_file);
+        } else
+                unlink(link->lease6_file);
 
         if (link->ipv4ll) {
                 struct in_addr address;

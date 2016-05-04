@@ -267,6 +267,52 @@ _public_ int sd_network_link_get_carrier_bound_by(int ifindex, int **ret) {
         return network_link_get_ifindexes(ifindex, "CARRIER_BOUND_BY", ret);
 }
 
+static int network_get_file_str(const char *key, const char *fpath,
+                                int ifindex, char **ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(fpath, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (asprintf(&p, "%s/%d", fpath, ifindex) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, key, &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        *ret = s;
+        s = NULL;
+        return 0;
+}
+
+_public_ int sd_network_link_get_clientid(int ifindex, char **clientid) {
+        return network_get_file_str("CLIENTID",
+                                    "/run/systemd/netif/leases",
+                                    ifindex,
+                                    clientid);
+}
+
+_public_ int sd_network_link_get_iaid(int ifindex, char **iaid) {
+        return network_get_file_str("IAID",
+                                    "/run/systemd/netif/leases6",
+                                    ifindex,
+                                    iaid);
+}
+
+_public_ int sd_network_link_get_duid(int ifindex, char **duid) {
+        return network_get_file_str("DUID",
+                                    "/run/systemd/netif/leases6",
+                                    ifindex,
+                                    duid);
+}
+
 static inline int MONITOR_TO_FD(sd_network_monitor *m) {
         return (int) (unsigned long) m - 1;
 }

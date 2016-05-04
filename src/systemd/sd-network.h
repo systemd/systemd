@@ -145,6 +145,15 @@ int sd_network_link_get_carrier_bound_to(int ifindex, int **ifindexes);
 /* Get the CARRIERS that are bound to current link. */
 int sd_network_link_get_carrier_bound_by(int ifindex, int **ifindexes);
 
+/* Get the CLIENTID if the link has a IPv4 DHCP address. */
+int sd_network_link_get_clientid(int ifindex, char **clientid);
+
+/* Get the IAID if the link has a IPv6 DHCP address. */
+int sd_network_link_get_iaid(int ifindex, char **iaid);
+
+/* Get the DUID if the link has a IPv6 DHCP address. */
+int sd_network_link_get_duid(int ifindex, char **duid);
+
 /* Get the timezone that was learnt on a specific link. */
 int sd_network_link_get_timezone(int ifindex, char **timezone);
 
