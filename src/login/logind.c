@@ -64,6 +64,7 @@ static void manager_reset_config(Manager *m) {
         m->runtime_dir_size = PAGE_ALIGN((size_t) (physical_memory() / 10)); /* 10% */
         m->user_tasks_max = UINT64_C(12288);
         m->sessions_max = UINT64_C(8192);
+        m->inhibitors_max = UINT64_C(8192);
 
         m->kill_user_processes = KILL_USER_PROCESSES;
 
