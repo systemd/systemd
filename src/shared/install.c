@@ -1247,18 +1247,15 @@ static int unit_file_search(
                         return -ENOMEM;
 
                 r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return r;
-                } else {
+                if (r >= 0) {
                         info->path = path;
                         path = NULL;
                         return r;
-                }
+                } else if (r != -ENOENT)
+                        return r;
         }
 
         if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
-
                 /* Unit file doesn't exist, however instance
                  * enablement was requested.  We will check if it is
                  * possible to load template unit file. */
@@ -1277,14 +1274,12 @@ static int unit_file_search(
                                 return -ENOMEM;
 
                         r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
-                        if (r < 0) {
-                                if (r != -ENOENT)
-                                        return r;
-                        } else {
+                        if (r >= 0) {
                                 info->path = path;
                                 path = NULL;
                                 return r;
-                        }
+                        } else if (r != -ENOENT)
+                                return r;
                 }
         }
 
@@ -1355,12 +1350,9 @@ static int install_info_traverse(
                 }
 
                 r = install_info_follow(c, i, paths->root_dir, flags);
-                if (r < 0) {
+                if (r == -EXDEV) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *bn;
-
-                        if (r != -EXDEV)
-                                return r;
 
                         /* Target has a different name, create a new
                          * install info object for that, and continue
@@ -1388,12 +1380,12 @@ static int install_info_traverse(
                         if (r < 0)
                                 return r;
 
+                        /* Try again, with the new target we found. */
                         r = unit_file_search(c, i, paths, flags);
-                        if (r < 0)
-                                return r;
                 }
 
-                /* Try again, with the new target we found. */
+                if (r < 0)
+                        return r;
         }
 
         if (ret)
