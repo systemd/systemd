@@ -69,6 +69,7 @@ static int arg_compress = true;
 static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
+static int arg_follow = false;
 
 static JournalWriteSplitMode arg_split_mode = JOURNAL_WRITE_SPLIT_HOST;
 static char* arg_output = NULL;
@@ -919,6 +920,9 @@ static int remoteserver_init(RemoteServer *s,
                 else
                         url = strdupa(arg_url);
 
+                if (arg_follow)
+                        url = strjoina(url, "?follow=1");
+
                 log_info("Spawning curl %s...", url);
                 fd = spawn_curl(url);
                 if (fd < 0)
@@ -1254,6 +1258,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERT,
                 ARG_TRUST,
                 ARG_GNUTLS_LOG,
+                ARG_FOLLOW,
         };
 
         static const struct option options[] = {
@@ -1272,6 +1277,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cert",         required_argument, NULL, ARG_CERT         },
                 { "trust",        required_argument, NULL, ARG_TRUST        },
                 { "gnutls-log",   required_argument, NULL, ARG_GNUTLS_LOG   },
+                { "follow",       optional_argument, NULL, ARG_FOLLOW       },
                 {}
         };
 
@@ -1458,6 +1464,20 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 #endif
                 }
+
+                case ARG_FOLLOW:
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        log_error("Failed to parse --follow= parameter.");
+                                        return -EINVAL;
+                                }
+
+                                arg_follow = !!r;
+                        } else
+                                arg_follow = true;
+
+                        break;
 
                 case '?':
                         return -EINVAL;

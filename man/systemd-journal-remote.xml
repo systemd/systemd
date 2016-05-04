@@ -278,6 +278,14 @@
         <programlisting>--getter='wget --header="Accept: application/vnd.fdo.journal" -O- https://some.host:19531/'</programlisting>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><option>--follow</option> [<replaceable>BOOL</replaceable>]</term>
+
+        <listitem><para>If this is set to <literal>yes</literal> then wait for
+        new events when done instead of immediately exiting. This only works
+        with "active" sources using --url. The default behavior is
+        <literal>no</literal>.</para></listitem>
+      </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
