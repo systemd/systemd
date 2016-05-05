@@ -343,6 +343,21 @@ static void test_sockaddr_equal(void) {
         assert_se(!sockaddr_equal(&b, &c));
 }
 
+static void test_sockaddr_un_len(void) {
+        static const struct sockaddr_un fs = {
+                .sun_family = AF_UNIX,
+                .sun_path = "/foo/bar/waldo",
+        };
+
+        static const struct sockaddr_un abstract = {
+                .sun_family = AF_UNIX,
+                .sun_path = "\0foobar",
+        };
+
+        assert_se(SOCKADDR_UN_LEN(fs) == offsetof(struct sockaddr_un, sun_path) + strlen(fs.sun_path));
+        assert_se(SOCKADDR_UN_LEN(abstract) == offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -362,6 +377,8 @@ int main(int argc, char *argv[]) {
         test_nameinfo_pretty();
 
         test_sockaddr_equal();
+
+        test_sockaddr_un_len();
 
         return 0;
 }

@@ -448,24 +448,24 @@ void server_process_native_file(
 }
 
 int server_open_native_socket(Server*s) {
+
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/journal/socket",
+        };
         static const int one = 1;
         int r;
 
         assert(s);
 
         if (s->native_fd < 0) {
-                union sockaddr_union sa = {
-                        .un.sun_family = AF_UNIX,
-                        .un.sun_path = "/run/systemd/journal/socket",
-                };
-
                 s->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->native_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
-                unlink(sa.un.sun_path);
+                (void) unlink(sa.un.sun_path);
 
-                r = bind(s->native_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
+                r = bind(s->native_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 

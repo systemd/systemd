@@ -847,7 +847,7 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create coredump socket: %m");
 
-        if (connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path)) < 0)
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return log_error_errno(errno, "Failed to connect to coredump service: %m");
 
         for (i = 0; i < n_iovec; i++) {

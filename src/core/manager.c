@@ -705,7 +705,7 @@ static int manager_setup_notify(Manager *m) {
                 (void) unlink(m->notify_socket);
 
                 strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
-                r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+                r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
@@ -782,7 +782,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
 
                 /* Only allow root to connect to this socket */
                 RUN_WITH_UMASK(0077)
-                        r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+                        r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
@@ -2245,11 +2245,10 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 }
 
 void manager_send_unit_plymouth(Manager *m, Unit *u) {
-        union sockaddr_union sa = PLYMOUTH_SOCKET;
-
-        int n = 0;
+        static const union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_free_ char *message = NULL;
         _cleanup_close_ int fd = -1;
+        int n = 0;
 
         /* Don't generate plymouth events if the service was already
          * started and we're just deserializing */
@@ -2275,7 +2274,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
                 return;
         }
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
 
                 if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
                         log_error_errno(errno, "connect() failed: %m");

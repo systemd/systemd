@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 
         l = strlen(argv[1]);
 
-        n = sendto(fd, argv[1], l, 0, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        n = sendto(fd, argv[1], l, 0, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         if (n < 0) {
                 log_debug_errno(errno, "Failed to send cgroups agent message: %m");
                 return EXIT_FAILURE;

@@ -1696,7 +1696,7 @@ static int server_connect_notify(Server *s) {
         if (sa.un.sun_path[0] == '@')
                 sa.un.sun_path[0] = 0;
 
-        r = connect(s->notify_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(e));
+        r = connect(s->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         if (r < 0)
                 return log_error_errno(errno, "Failed to connect to notify socket: %m");
 

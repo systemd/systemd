@@ -52,8 +52,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 .msg_iov = (struct iovec *) iovec,
                 .msg_iovlen = n_iovec,
                 .msg_name = (struct sockaddr*) &sa.sa,
-                .msg_namelen = offsetof(union sockaddr_union, un.sun_path)
-                               + strlen("/run/systemd/journal/syslog"),
+                .msg_namelen = SOCKADDR_UN_LEN(sa.un),
         };
         struct cmsghdr *cmsg;
         union {
@@ -383,24 +382,24 @@ void server_process_syslog_message(
 }
 
 int server_open_syslog_socket(Server *s) {
+
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/journal/dev-log",
+        };
         static const int one = 1;
         int r;
 
         assert(s);
 
         if (s->syslog_fd < 0) {
-                static const union sockaddr_union sa = {
-                        .un.sun_family = AF_UNIX,
-                        .un.sun_path = "/run/systemd/journal/dev-log",
-                };
-
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->syslog_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
-                unlink(sa.un.sun_path);
+                (void) unlink(sa.un.sun_path);
 
-                r = bind(s->syslog_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
+                r = bind(s->syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
@@ -437,6 +436,7 @@ int server_open_syslog_socket(Server *s) {
 
 void server_maybe_warn_forward_syslog_missed(Server *s) {
         usec_t n;
+
         assert(s);
 
         if (s->n_forward_syslog_missed <= 0)

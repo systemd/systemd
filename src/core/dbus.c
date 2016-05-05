@@ -975,7 +975,7 @@ static int bus_init_private(Manager *m) {
                         return 0;
 
                 strcpy(sa.un.sun_path, "/run/systemd/private");
-                salen = offsetof(union sockaddr_union, un.sun_path) + strlen("/run/systemd/private");
+                salen = SOCKADDR_UN_LEN(sa.un);
         } else {
                 size_t left = sizeof(sa.un.sun_path);
                 char *p = sa.un.sun_path;
