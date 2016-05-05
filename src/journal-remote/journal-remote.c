@@ -144,6 +144,7 @@ static int spawn_curl(const char* url) {
                                 "-HAccept: application/vnd.fdo.journal",
                                 "--silent",
                                 "--show-error",
+                                "--no-buffer",
                                 url);
         int r;
 
