@@ -640,8 +640,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (!isempty(s->user) || !isempty(s->group))
                 fprintf(f,
-                        "%sOwnerUser: %s\n"
-                        "%sOwnerGroup: %s\n",
+                        "%sSocketUser: %s\n"
+                        "%sSocketGroup: %s\n",
                         prefix, strna(s->user),
                         prefix, strna(s->group));
 
@@ -1291,11 +1291,13 @@ static int socket_open_fds(Socket *s) {
 
                         /* Apply the socket protocol */
                         switch(p->address.type) {
+
                         case SOCK_STREAM:
                         case SOCK_SEQPACKET:
                                 if (p->socket->socket_protocol == IPPROTO_SCTP)
                                         p->address.protocol = p->socket->socket_protocol;
                                 break;
+
                         case SOCK_DGRAM:
                                 if (p->socket->socket_protocol == IPPROTO_UDPLITE)
                                         p->address.protocol = p->socket->socket_protocol;
@@ -1359,8 +1361,7 @@ static int socket_open_fds(Socket *s) {
                         }
                         break;
 
-                case SOCKET_USB_FUNCTION:
-                {
+                case SOCKET_USB_FUNCTION: {
                         _cleanup_free_ char *ep = NULL;
 
                         ep = path_make_absolute("ep0", p->path);
