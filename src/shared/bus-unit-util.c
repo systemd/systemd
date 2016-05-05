@@ -154,7 +154,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "sv", sn, "t", l.rlim_cur);
 
         } else if (STR_IN_SET(field,
-                       "CPUAccounting", "MemoryAccounting", "BlockIOAccounting", "TasksAccounting",
+                       "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting", "TasksAccounting",
                        "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
                        "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
                        "PrivateTmp", "PrivateDevices", "PrivateNetwork", "NoNewPrivileges",
@@ -200,6 +200,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 uint64_t u;
 
                 r = cg_cpu_shares_parse(eq, &u);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", u);
+
+        } else if (STR_IN_SET(field, "IOWeight", "StartupIOWeight")) {
+                uint64_t u;
+
+                r = cg_weight_parse(eq, &u);
                 if (r < 0) {
                         log_error("Failed to parse %s value %s.", field, eq);
                         return -EINVAL;
@@ -273,7 +284,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         r = sd_bus_message_append(m, "v", "a(ss)", 1, path, rwm);
                 }
 
-        } else if (STR_IN_SET(field, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
+        } else if (STR_IN_SET(field, "IOReadBandwidthMax", "IOWriteBandwidthMax",
+                              "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "v", "a(st)", 0);
@@ -295,16 +307,20 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 return -EINVAL;
                         }
 
-                        r = parse_size(bandwidth, 1000, &bytes);
-                        if (r < 0) {
-                                log_error("Failed to parse byte value %s.", bandwidth);
-                                return -EINVAL;
+                        if (streq(bandwidth, "max")) {
+                                bytes = CGROUP_LIMIT_MAX;
+                        } else {
+                                r = parse_size(bandwidth, 1000, &bytes);
+                                if (r < 0) {
+                                        log_error("Failed to parse byte value %s.", bandwidth);
+                                        return -EINVAL;
+                                }
                         }
 
                         r = sd_bus_message_append(m, "v", "a(st)", 1, path, bytes);
                 }
 
-        } else if (streq(field, "BlockIODeviceWeight")) {
+        } else if (STR_IN_SET(field, "IODeviceWeight", "BlockIODeviceWeight")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "v", "a(st)", 0);

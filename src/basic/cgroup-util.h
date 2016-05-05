@@ -34,6 +34,7 @@
 typedef enum CGroupController {
         CGROUP_CONTROLLER_CPU,
         CGROUP_CONTROLLER_CPUACCT,
+        CGROUP_CONTROLLER_IO,
         CGROUP_CONTROLLER_BLKIO,
         CGROUP_CONTROLLER_MEMORY,
         CGROUP_CONTROLLER_DEVICES,
@@ -48,12 +49,28 @@ typedef enum CGroupController {
 typedef enum CGroupMask {
         CGROUP_MASK_CPU = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_CPU),
         CGROUP_MASK_CPUACCT = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_CPUACCT),
+        CGROUP_MASK_IO = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_IO),
         CGROUP_MASK_BLKIO = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BLKIO),
         CGROUP_MASK_MEMORY = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_MEMORY),
         CGROUP_MASK_DEVICES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_DEVICES),
         CGROUP_MASK_PIDS = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_PIDS),
         _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1
 } CGroupMask;
+
+/* Special values for all weight knobs on unified hierarchy */
+#define CGROUP_WEIGHT_INVALID ((uint64_t) -1)
+#define CGROUP_WEIGHT_MIN UINT64_C(1)
+#define CGROUP_WEIGHT_MAX UINT64_C(10000)
+#define CGROUP_WEIGHT_DEFAULT UINT64_C(100)
+
+#define CGROUP_LIMIT_MIN UINT64_C(0)
+#define CGROUP_LIMIT_MAX ((uint64_t) -1)
+
+static inline bool CGROUP_WEIGHT_IS_OK(uint64_t x) {
+        return
+            x == CGROUP_WEIGHT_INVALID ||
+            (x >= CGROUP_WEIGHT_MIN && x <= CGROUP_WEIGHT_MAX);
+}
 
 /* Special values for the cpu.shares attribute */
 #define CGROUP_CPU_SHARES_INVALID ((uint64_t) -1)
@@ -190,5 +207,6 @@ bool cg_is_legacy_wanted(void);
 const char* cgroup_controller_to_string(CGroupController c) _const_;
 CGroupController cgroup_controller_from_string(const char *s) _pure_;
 
+int cg_weight_parse(const char *s, uint64_t *ret);
 int cg_cpu_shares_parse(const char *s, uint64_t *ret);
 int cg_blkio_weight_parse(const char *s, uint64_t *ret);

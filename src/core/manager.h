@@ -252,6 +252,7 @@ struct Manager {
 
         bool default_cpu_accounting;
         bool default_memory_accounting;
+        bool default_io_accounting;
         bool default_blockio_accounting;
         bool default_tasks_accounting;
 

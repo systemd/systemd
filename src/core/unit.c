@@ -132,6 +132,7 @@ static void unit_init(Unit *u) {
                  * been initialized */
 
                 cc->cpu_accounting = u->manager->default_cpu_accounting;
+                cc->io_accounting = u->manager->default_io_accounting;
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
@@ -1213,6 +1214,7 @@ static int unit_add_startup_units(Unit *u) {
                 return 0;
 
         if (c->startup_cpu_shares == CGROUP_CPU_SHARES_INVALID &&
+            c->startup_io_weight == CGROUP_WEIGHT_INVALID &&
             c->startup_blockio_weight == CGROUP_BLKIO_WEIGHT_INVALID)
                 return 0;
 
