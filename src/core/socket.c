@@ -100,7 +100,8 @@ static void socket_init(Unit *u) {
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
-        RATELIMIT_INIT(s->trigger_limit, 5*USEC_PER_SEC, 2500);
+        s->trigger_limit.interval = USEC_INFINITY;
+        s->trigger_limit.burst = (unsigned) -1;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -327,6 +328,25 @@ static int socket_add_extras(Socket *s) {
         int r;
 
         assert(s);
+
+        /* Pick defaults for the trigger limit, if nothing was explicitly configured. We pick a relatively high limit
+         * in Accept=yes mode, and a lower limit for Accept=no. Reason: in Accept=yes mode we are invoking accept()
+         * ourselves before the trigger limit can hit, thus incoming connections are taken off the socket queue quickly
+         * and reliably. This is different for Accept=no, where the spawned service has to take the incoming traffic
+         * off the queues, which it might not necessarily do. Moreover, while Accept=no services are supposed to
+         * process whatever is queued in one go, and thus should normally never have to be started frequently. This is
+         * different for Accept=yes where each connection is processed by a new service instance, and thus frequent
+         * service starts are typical. */
+
+        if (s->trigger_limit.interval == USEC_INFINITY)
+                s->trigger_limit.interval = 2 * USEC_PER_SEC;
+
+        if (s->trigger_limit.burst == (unsigned) -1) {
+                if (s->accept)
+                        s->trigger_limit.burst = 200;
+                else
+                        s->trigger_limit.burst = 20;
+        }
 
         if (have_non_accept_socket(s)) {
 

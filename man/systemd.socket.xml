@@ -814,13 +814,14 @@
         <listitem><para>Configures a limit on how often this socket unit my be activated within a specific time
         interval. The <varname>TriggerLimitIntervalSec=</varname> may be used to configure the length of the time
         interval in the usual time units <literal>us</literal>, <literal>ms</literal>, <literal>s</literal>,
-        <literal>min</literal>, <literal>h</literal>, … and defaults to 5s (See
+        <literal>min</literal>, <literal>h</literal>, … and defaults to 2s (See
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details on
-        the various time units available). The <varname>TriggerLimitBurst=</varname> setting takes an integer value and
-        specifies the numer of permitted activations per time interval, and defaults to 2500 (thus by default
-        permitting 2500 activations per 5s). Set either to 0 to disable any form of trigger rate limiting. If the limit
-        is hit, the socket unit is placed into a failure mode, and will not be connectible anymore until
-        restarted. Note that this limit is enforced before the service activation is enqueued.</para></listitem>
+        the various time units understood). The <varname>TriggerLimitBurst=</varname> setting takes a positive integer
+        value and specifies the number of permitted activations per time interval, and defaults to 200 for
+        <varname>Accept=yes</varname> sockets (thus by default permitting 200 activations per 2s), and 20 otherwise (20
+        activations per 2s). Set either to 0 to disable any form of trigger rate limiting. If the limit is hit, the
+        socket unit is placed into a failure mode, and will not be connectible anymore until restarted. Note that this
+        limit is enforced before the service activation is enqueued.</para></listitem>
       </varlistentry>
 
     </variablelist>
