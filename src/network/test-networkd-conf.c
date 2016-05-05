@@ -47,10 +47,12 @@ static void test_config_parse_duid_type(void) {
 static void test_config_parse_duid_rawdata_one(const char *rvalue, int ret, const DUID* expected) {
         DUID actual = {};
         int r;
+        _cleanup_free_ char *d = NULL;
 
         r = config_parse_duid_rawdata("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
+        d = hexmem(actual.raw_data, actual.raw_data_len);
         log_info_errno(r, "\"%s\" → \"%s\" (%m)",
-                       rvalue, strnull(hexmem(actual.raw_data, actual.raw_data_len)));
+                       rvalue, strnull(d));
         assert_se(r == ret);
         if (expected) {
                 assert_se(actual.raw_data_len == expected->raw_data_len);
