@@ -2,7 +2,7 @@
 
 ACTION=="remove", GOTO="cdrom_end"
 SUBSYSTEM!="block", GOTO="cdrom_end"
-KERNEL!="sr[0-9]*|xvd*", GOTO="cdrom_end"
+KERNEL!="sr[0-9]*|xvd*|vdisk[a-z]*", GOTO="cdrom_end"
 ENV{DEVTYPE}!="disk", GOTO="cdrom_end"
 
 # unconditionally tag device as CDROM
@@ -20,6 +20,7 @@ IMPORT{program}="cdrom_id --lock-media $devnode"
 # stale mounts after ejecting
 ENV{DISK_MEDIA_CHANGE}=="?*", ENV{ID_CDROM_MEDIA}!="?*", ENV{SYSTEMD_READY}="0"
 
+KERNEL=="vdisk[a-z]*", ENV{ID_CDROM}=="1", SYMLINK+="cdrom", OPTIONS+="link_priority=-100"
 KERNEL=="sr0", SYMLINK+="cdrom", OPTIONS+="link_priority=-100"
 
 LABEL="cdrom_end"
