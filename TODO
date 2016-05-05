@@ -33,6 +33,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
+
 * journalctl: make sure -f ends when the container indicated by -M terminates
 
 * rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the
