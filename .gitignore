@@ -235,7 +235,7 @@
 /test-ndisc-rs
 /test-netlink
 /test-netlink-manual
-/test-netword-conf
+/test-networkd-conf
 /test-network
 /test-network-tables
 /test-ns
