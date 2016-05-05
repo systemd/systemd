@@ -315,12 +315,12 @@ static void syslog_skip_date(char **buf) {
 }
 
 void server_process_syslog_message(
-        Server *s,
-        const char *buf,
-        const struct ucred *ucred,
-        const struct timeval *tv,
-        const char *label,
-        size_t label_len) {
+                Server *s,
+                const char *buf,
+                const struct ucred *ucred,
+                const struct timeval *tv,
+                const char *label,
+                size_t label_len) {
 
         char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
              syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
@@ -364,14 +364,12 @@ void server_process_syslog_message(
 
         if (identifier) {
                 syslog_identifier = strjoina("SYSLOG_IDENTIFIER=", identifier);
-                if (syslog_identifier)
-                        IOVEC_SET_STRING(iovec[n++], syslog_identifier);
+                IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
         if (pid) {
                 syslog_pid = strjoina("SYSLOG_PID=", pid);
-                if (syslog_pid)
-                        IOVEC_SET_STRING(iovec[n++], syslog_pid);
+                IOVEC_SET_STRING(iovec[n++], syslog_pid);
         }
 
         message = strjoina("MESSAGE=", buf);
