@@ -131,7 +131,7 @@ static bool link_lldp_rx_enabled(Link *link) {
         return link->network->lldp_mode != LLDP_MODE_NO;
 }
 
-static bool link_lldp_tx_enabled(Link *link) {
+static bool link_lldp_emit_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -143,7 +143,7 @@ static bool link_lldp_tx_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return link->network->lldp_emit;
+        return link->network->lldp_emit != LLDP_EMIT_NO;
 }
 
 static bool link_ipv4_forward_enabled(Link *link) {
@@ -491,7 +491,7 @@ static void link_free(Link *link) {
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
-        link_lldp_tx_stop(link);
+        link_lldp_emit_stop(link);
 
         free(link->lease_file);
 
@@ -618,7 +618,7 @@ static int link_stop_clients(Link *link) {
                         r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
         }
 
-        link_lldp_tx_stop(link);
+        link_lldp_emit_stop(link);
         return r;
 }
 
@@ -1411,12 +1411,12 @@ static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n
 
         (void) link_lldp_save(link);
 
-        if (link_lldp_tx_enabled(link) && event == SD_LLDP_EVENT_ADDED) {
+        if (link_lldp_emit_enabled(link) && event == SD_LLDP_EVENT_ADDED) {
                 /* If we received information about a new neighbor, restart the LLDP "fast" logic */
 
                 log_link_debug(link, "Received LLDP datagram from previously unknown neighbor, restarting 'fast' LLDP transmission.");
 
-                r = link_lldp_tx_start(link);
+                r = link_lldp_emit_start(link);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to restart LLDP transmission: %m");
         }
@@ -1501,8 +1501,8 @@ static int link_acquire_conf(Link *link) {
                         return r;
         }
 
-        if (link_lldp_tx_enabled(link)) {
-                r = link_lldp_tx_start(link);
+        if (link_lldp_emit_enabled(link)) {
+                r = link_lldp_emit_start(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
         }
