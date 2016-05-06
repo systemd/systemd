@@ -17,7 +17,7 @@ Name=host0
 DHCP=yes
 LinkLocalAddressing=yes
 LLDP=yes
-EmitLLDP=yes
+EmitLLDP=customer-bridge
 
 [DHCP]
 UseTimezone=yes

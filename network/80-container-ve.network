@@ -20,4 +20,4 @@ LinkLocalAddressing=yes
 DHCPServer=yes
 IPMasquerade=yes
 LLDP=yes
-EmitLLDP=yes
+EmitLLDP=customer-bridge
