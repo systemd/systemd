@@ -512,7 +512,7 @@ int route_configure(Route *route, Link *link,
                         if (r < 0)
                                 return log_error_errno(r, "Could not set route table: %m");
 
-                        /* Table attribute to allow allow more than 256. */
+                        /* Table attribute to allow more than 256. */
                         r = sd_netlink_message_append_data(req, RTA_TABLE, &route->table, sizeof(route->table));
                         if (r < 0)
                                 return log_error_errno(r, "Could not append RTA_TABLE attribute: %m");

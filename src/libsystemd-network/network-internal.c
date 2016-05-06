@@ -225,8 +225,6 @@ int config_parse_ifnames(const char *unit,
                         void *userdata) {
 
         char ***sv = data;
-        const char *word, *state;
-        size_t l;
         int r;
 
         assert(filename);
@@ -234,22 +232,25 @@ int config_parse_ifnames(const char *unit,
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(word, l, rvalue, state) {
-                char *n;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
 
-                n = strndup(word, l);
-                if (!n)
-                        return log_oom();
+                r = extract_first_word(&rvalue, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
-                if (!ascii_is_valid(n) || strlen(n) >= IFNAMSIZ) {
+                if (!ascii_is_valid(word) || strlen(word) >= IFNAMSIZ) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
-                        free(n);
                         return 0;
                 }
 
-                r = strv_consume(sv, n);
+                r = strv_push(sv, word);
                 if (r < 0)
                         return log_oom();
+
+                word = NULL;
         }
 
         return 0;
@@ -380,16 +381,20 @@ void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
 int deserialize_in_addrs(struct in_addr **ret, const char *string) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         int size = 0;
-        const char *word, *state;
-        size_t len;
 
         assert(ret);
         assert(string);
 
-        FOREACH_WORD(word, len, string, state) {
-                _cleanup_free_ char *addr_str = NULL;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 struct in_addr *new_addresses;
                 int r;
+
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 new_addresses = realloc(addresses, (size + 1) * sizeof(struct in_addr));
                 if (!new_addresses)
@@ -397,11 +402,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 else
                         addresses = new_addresses;
 
-                addr_str = strndup(word, len);
-                if (!addr_str)
-                        return -ENOMEM;
-
-                r = inet_pton(AF_INET, addr_str, &(addresses[size]));
+                r = inet_pton(AF_INET, word, &(addresses[size]));
                 if (r <= 0)
                         continue;
 
@@ -431,16 +432,20 @@ void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses,
 int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
         int size = 0;
-        const char *word, *state;
-        size_t len;
 
         assert(ret);
         assert(string);
 
-        FOREACH_WORD(word, len, string, state) {
-                _cleanup_free_ char *addr_str = NULL;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 struct in6_addr *new_addresses;
                 int r;
+
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 new_addresses = realloc(addresses, (size + 1) * sizeof(struct in6_addr));
                 if (!new_addresses)
@@ -448,11 +453,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
                 else
                         addresses = new_addresses;
 
-                addr_str = strndup(word, len);
-                if (!addr_str)
-                        return -ENOMEM;
-
-                r = inet_pton(AF_INET6, addr_str, &(addresses[size]));
+                r = inet_pton(AF_INET6, word, &(addresses[size]));
                 if (r <= 0)
                         continue;
 
@@ -493,29 +494,29 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
 int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string) {
         _cleanup_free_ struct sd_dhcp_route *routes = NULL;
         size_t size = 0, allocated = 0;
-        const char *word, *state;
-        size_t len;
 
         assert(ret);
         assert(ret_size);
         assert(ret_allocated);
         assert(string);
 
-        FOREACH_WORD(word, len, string, state) {
-                /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
-                _cleanup_free_ char* entry = NULL;
+         /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 char *tok, *tok_end;
                 unsigned n;
                 int r;
 
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
                 if (!GREEDY_REALLOC(routes, allocated, size + 1))
                         return -ENOMEM;
 
-                entry = strndup(word, len);
-                if (!entry)
-                        return -ENOMEM;
-
-                tok = entry;
+                tok = word;
 
                 /* get the subnet */
                 tok_end = strchr(tok, '/');
