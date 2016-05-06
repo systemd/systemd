@@ -467,6 +467,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_BRIDGE:
+
+                        if (!ifname_valid(optarg)) {
+                                log_error("Bridge interface name not valid: %s", optarg);
+                                return -EINVAL;
+                        }
+
                         r = free_and_strdup(&arg_network_bridge, optarg);
                         if (r < 0)
                                 return log_oom();
@@ -489,6 +495,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_INTERFACE:
+
+                        if (!ifname_valid(optarg)) {
+                                log_error("Network interface name not valid: %s", optarg);
+                                return -EINVAL;
+                        }
+
                         if (strv_extend(&arg_network_interfaces, optarg) < 0)
                                 return log_oom();
 
@@ -497,6 +509,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_MACVLAN:
+
+                        if (!ifname_valid(optarg)) {
+                                log_error("MACVLAN network interface name not valid: %s", optarg);
+                                return -EINVAL;
+                        }
+
                         if (strv_extend(&arg_network_macvlan, optarg) < 0)
                                 return log_oom();
 
@@ -505,6 +523,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_IPVLAN:
+
+                        if (!ifname_valid(optarg)) {
+                                log_error("IPVLAN network interface name not valid: %s", optarg);
+                                return -EINVAL;
+                        }
+
                         if (strv_extend(&arg_network_ipvlan, optarg) < 0)
                                 return log_oom();
 

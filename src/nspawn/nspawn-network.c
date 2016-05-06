@@ -29,6 +29,8 @@
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "siphash24.h"
+#include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "util.h"
@@ -515,13 +517,13 @@ int veth_extra_parse(char ***l, const char *p) {
         r = extract_first_word(&p, &a, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
                 return r;
-        if (r == 0 || isempty(a))
+        if (r == 0 || !ifname_valid(a))
                 return -EINVAL;
 
         r = extract_first_word(&p, &b, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
                 return r;
-        if (r == 0 || isempty(b)) {
+        if (r == 0 || !ifname_valid(b)) {
                 free(b);
                 b = strdup(a);
                 if (!b)
