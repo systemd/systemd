@@ -250,20 +250,19 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--compress</option></term>
-        <term><option>--no-compress</option></term>
+        <term><option>--compress</option> [<replaceable>BOOL</replaceable>]</term>
 
-        <listitem><para>Compress or not, respectively, the data in the
-        journal using XZ.</para></listitem>
+        <listitem><para>If this is set to <literal>yes</literal> then compress
+        the data in the journal using XZ. The default is <literal>yes</literal>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--seal</option></term>
-        <term><option>--no-seal</option></term>
+        <term><option>--seal</option> [<replaceable>BOOL</replaceable>]</term>
 
-        <listitem><para>Periodically sign or not, respectively, the
-        data in the journal using Forward Secure Sealing.
-        </para></listitem>
+        <listitem><para>If this is set to <literal>yes</literal> then
+        periodically sign the data in the journal using Forward Secure Sealing.
+        The default is <literal>no</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
