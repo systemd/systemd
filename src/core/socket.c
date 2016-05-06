@@ -1463,6 +1463,34 @@ fail:
         return r;
 }
 
+enum {
+        SOCKET_OPEN_NONE,
+        SOCKET_OPEN_SOME,
+        SOCKET_OPEN_ALL,
+};
+
+static int socket_check_open(Socket *s) {
+        bool have_open = false, have_closed = false;
+        SocketPort *p;
+
+        assert(s);
+
+        LIST_FOREACH(port, p, s->ports) {
+                if (p->fd < 0)
+                        have_closed = true;
+                else
+                        have_open = true;
+
+                if (have_open && have_closed)
+                        return SOCKET_OPEN_SOME;
+        }
+
+        if (have_open)
+                return SOCKET_OPEN_ALL;
+
+        return SOCKET_OPEN_NONE;
+}
+
 static void socket_set_state(Socket *s, SocketState state) {
         SocketState old_state;
         assert(s);
@@ -1542,14 +1570,24 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST,
                    SOCKET_LISTENING,
-                   SOCKET_RUNNING,
-                   SOCKET_STOP_PRE,
-                   SOCKET_STOP_PRE_SIGTERM,
-                   SOCKET_STOP_PRE_SIGKILL)) {
+                   SOCKET_RUNNING)) {
 
-                r = socket_open_fds(s);
-                if (r < 0)
-                        return r;
+                /* Originally, we used to simply reopen all sockets here that we didn't have file descriptors
+                 * for. However, this is problematic, as we won't traverse throught the SOCKET_START_CHOWN state for
+                 * them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we have all fds open,
+                 * and if there's a mismatch, warn loudly. */
+
+                r = socket_check_open(s);
+                if (r == SOCKET_OPEN_NONE)
+                        log_unit_warning(UNIT(s),
+                                         "Socket unit configuration has changed while unit has been running, "
+                                         "no open socket file descriptor left. "
+                                         "The socket unit is not functional until restarted.");
+                else if (r == SOCKET_OPEN_SOME)
+                        log_unit_warning(UNIT(s),
+                                         "Socket unit configuration has changed while unit has been running, "
+                                         "and some socket file descriptors have not been opened yet. "
+                                         "The socket unit is not fully functional until restarted.");
         }
 
         if (s->deserialized_state == SOCKET_LISTENING) {
