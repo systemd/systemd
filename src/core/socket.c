@@ -690,6 +690,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
         }
 
+        fprintf(f,
+                "%sTriggerLimitIntervalSec: %s\n"
+                "%sTriggerLimitBurst: %u\n",
+                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->trigger_limit.interval, USEC_PER_SEC),
+                prefix, s->trigger_limit.burst);
+
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
 
