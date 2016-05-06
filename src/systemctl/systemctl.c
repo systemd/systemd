@@ -1711,21 +1711,22 @@ static int list_dependencies_one(
                         const char *on;
 
                         (void) get_state_one_unit(bus, *c, &active_state);
+
                         switch (active_state) {
-                           case UNIT_ACTIVE:
-                           case UNIT_RELOADING:
-                           case UNIT_ACTIVATING:
-                              on = ansi_highlight_green();
-                              break;
+                        case UNIT_ACTIVE:
+                        case UNIT_RELOADING:
+                        case UNIT_ACTIVATING:
+                                on = ansi_highlight_green();
+                                break;
 
-                           case UNIT_INACTIVE:
-                           case UNIT_DEACTIVATING:
-                              on = ansi_normal();
-                              break;
+                        case UNIT_INACTIVE:
+                        case UNIT_DEACTIVATING:
+                                on = ansi_normal();
+                                break;
 
-                           default:
-                              on = ansi_highlight_red();
-                              break;
+                        default:
+                                on = ansi_highlight_red();
+                                break;
                         }
 
                         printf("%s%s%s ", on, draw_special_char(DRAW_BLACK_CIRCLE), ansi_normal());
