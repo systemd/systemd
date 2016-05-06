@@ -176,6 +176,7 @@ static char **arg_network_ipvlan = NULL;
 static bool arg_network_veth = false;
 static char **arg_network_veth_extra = NULL;
 static char *arg_network_bridge = NULL;
+static char *arg_network_zone = NULL;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
 static VolatileMode arg_volatile_mode = VOLATILE_NO;
@@ -234,6 +235,8 @@ static void help(void) {
                "                            Add a virtual Ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
                "                            the host\n"
+               "     --network-zone=NAME    Add a virtual Ethernet connection to the container,\n"
+               "                            and add it to an automatically managed bridge interface\n"
                "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
                "                            Expose a container IP port on the host\n"
                "  -Z --selinux-context=SECLABEL\n"
@@ -357,6 +360,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_MACVLAN,
                 ARG_NETWORK_IPVLAN,
                 ARG_NETWORK_BRIDGE,
+                ARG_NETWORK_ZONE,
                 ARG_NETWORK_VETH_EXTRA,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
@@ -404,6 +408,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-veth",          no_argument,       NULL, 'n'                   },
                 { "network-veth-extra",    required_argument, NULL, ARG_NETWORK_VETH_EXTRA},
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
+                { "network-zone",          required_argument, NULL, ARG_NETWORK_ZONE      },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
                 { "volatile",              optional_argument, NULL, ARG_VOLATILE          },
@@ -465,6 +470,28 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_settings_mask |= SETTING_USER;
                         break;
+
+                case ARG_NETWORK_ZONE: {
+                        char *j;
+
+                        j = strappend("vz-", optarg);
+                        if (!j)
+                                return log_oom();
+
+                        if (!ifname_valid(j)) {
+                                log_error("Network zone name not valid: %s", j);
+                                free(j);
+                                return -EINVAL;
+                        }
+
+                        free(arg_network_zone);
+                        arg_network_zone = j;
+
+                        arg_network_veth = true;
+                        arg_private_network = true;
+                        arg_settings_mask |= SETTING_NETWORK;
+                        break;
+                }
 
                 case ARG_NETWORK_BRIDGE:
 
@@ -1024,6 +1051,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_userns_chown && arg_read_only) {
                 log_error("--read-only and --private-users-chown may not be combined.");
+                return -EINVAL;
+        }
+
+        if (arg_network_bridge && arg_network_zone) {
+                log_error("--network-bridge= and --network-zone= may not be combined.");
                 return -EINVAL;
         }
 
@@ -3295,6 +3327,7 @@ static int load_settings(void) {
             (settings->private_network >= 0 ||
              settings->network_veth >= 0 ||
              settings->network_bridge ||
+             settings->network_zone ||
              settings->network_interfaces ||
              settings->network_macvlan ||
              settings->network_ipvlan ||
@@ -3325,6 +3358,10 @@ static int load_settings(void) {
                         free(arg_network_bridge);
                         arg_network_bridge = settings->network_bridge;
                         settings->network_bridge = NULL;
+
+                        free(arg_network_zone);
+                        arg_network_zone = settings->network_zone;
+                        settings->network_zone = NULL;
                 }
         }
 
@@ -3824,14 +3861,23 @@ int main(int argc, char *argv[]) {
                                 goto finish;
 
                         if (arg_network_veth) {
-                                r = setup_veth(arg_machine, pid, veth_name, !!arg_network_bridge);
+                                r = setup_veth(arg_machine, pid, veth_name,
+                                               arg_network_bridge || arg_network_zone);
                                 if (r < 0)
                                         goto finish;
                                 else if (r > 0)
                                         ifi = r;
 
                                 if (arg_network_bridge) {
-                                        r = setup_bridge(veth_name, arg_network_bridge);
+                                        /* Add the interface to a bridge */
+                                        r = setup_bridge(veth_name, arg_network_bridge, false);
+                                        if (r < 0)
+                                                goto finish;
+                                        if (r > 0)
+                                                ifi = r;
+                                } else if (arg_network_zone) {
+                                        /* Add the interface to a bridge, possibly creating it */
+                                        r = setup_bridge(veth_name, arg_network_zone, true);
                                         if (r < 0)
                                                 goto finish;
                                         if (r > 0)
@@ -4039,6 +4085,7 @@ finish:
 
         expose_port_flush(arg_expose_ports, &exposed);
         (void) remove_veth_links(veth_name, arg_network_veth_extra);
+        (void) remove_bridge(arg_network_zone);
 
         free(arg_directory);
         free(arg_template);

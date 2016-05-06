@@ -26,6 +26,7 @@
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "lockfile-util.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "siphash24.h"
@@ -40,6 +41,30 @@
 #define VETH_EXTRA_HOST_HASH_KEY SD_ID128_MAKE(48,c7,f6,b7,ea,9d,4c,9e,b7,28,d4,de,91,d5,bf,66)
 #define VETH_EXTRA_CONTAINER_HASH_KEY SD_ID128_MAKE(af,50,17,61,ce,f9,4d,35,84,0d,2b,20,54,be,ce,59)
 #define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
+
+static int remove_one_link(sd_netlink *rtnl, const char *name) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        if (isempty(name))
+                return 0;
+
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_DELLINK, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate netlink message: %m");
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink interface name: %m");
+
+        r = sd_netlink_call(rtnl, m, 0, NULL);
+        if (r == -ENODEV) /* Already gone */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove interface %s: %m", name);
+
+        return 1;
+}
 
 static int generate_mac(
                 const char *machine_name,
@@ -240,43 +265,147 @@ int setup_veth_extra(
         return 0;
 }
 
-int setup_bridge(const char *veth_name, const char *bridge_name) {
+static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *bridge_name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r, bridge_ifi;
 
+        assert(rtnl);
         assert(veth_name);
         assert(bridge_name);
 
         bridge_ifi = (int) if_nametoindex(bridge_name);
         if (bridge_ifi <= 0)
-                return log_error_errno(errno, "Failed to resolve interface %s: %m", bridge_name);
+                return -errno;
+
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, veth_name);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u32(m, IFLA_MASTER, bridge_ifi);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(rtnl, m, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return bridge_ifi;
+}
+
+static int create_bridge(sd_netlink *rtnl, const char *bridge_name) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, bridge_name);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "bridge");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(rtnl, m, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
+        _cleanup_release_lock_file_ LockFile bridge_lock = LOCK_FILE_INIT;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int r, bridge_ifi;
+        unsigned n = 0;
+
+        assert(veth_name);
+        assert(bridge_name);
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate netlink message: %m");
+        if (create) {
+                /* We take a system-wide lock here, so that we can safely check whether there's still a member in the
+                 * bridge before removing it, without risking interferance from other nspawn instances. */
 
-        r = sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set IFF_UP flag: %m");
+                r = make_lock_file("/run/systemd/nspawn-network-zone", LOCK_EX, &bridge_lock);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to take network zone lock: %m");
+        }
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, veth_name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink interface name field: %m");
+        for (;;) {
+                bridge_ifi = join_bridge(rtnl, veth_name, bridge_name);
+                if (bridge_ifi >= 0)
+                        return bridge_ifi;
+                if (bridge_ifi != -ENODEV || !create || n > 10)
+                        return log_error_errno(bridge_ifi, "Failed to add interface %s to bridge %s: %m", veth_name, bridge_name);
 
-        r = sd_netlink_message_append_u32(m, IFLA_MASTER, bridge_ifi);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink master field: %m");
+                /* Count attempts, so that we don't enter an endless loop here. */
+                n++;
 
-        r = sd_netlink_call(rtnl, m, 0, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add veth interface to bridge: %m");
+                /* The bridge doesn't exist yet. Let's create it */
+                r = create_bridge(rtnl, bridge_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create bridge interface %s: %m", bridge_name);
 
-        return bridge_ifi;
+                /* Try again, now that the bridge exists */
+        }
+}
+
+int remove_bridge(const char *bridge_name) {
+        _cleanup_release_lock_file_ LockFile bridge_lock = LOCK_FILE_INIT;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        const char *path;
+        int r;
+
+        /* Removes the specified bridge, but only if it is currently empty */
+
+        if (isempty(bridge_name))
+                return 0;
+
+        r = make_lock_file("/run/systemd/nspawn-network-zone", LOCK_EX, &bridge_lock);
+        if (r < 0)
+                return log_error_errno(r, "Failed to take network zone lock: %m");
+
+        path = strjoina("/sys/class/net/", bridge_name, "/brif");
+
+        r = dir_is_empty(path);
+        if (r == -ENOENT) /* Already gone? */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Can't detect if bridge %s is empty: %m", bridge_name);
+        if (r == 0) /* Still populated, leave it around */
+                return 0;
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        return remove_one_link(rtnl, bridge_name);
 }
 
 static int parse_interface(struct udev *udev, const char *name) {
@@ -541,30 +670,6 @@ int veth_extra_parse(char ***l, const char *p) {
         return 0;
 }
 
-static int remove_one_veth_link(sd_netlink *rtnl, const char *name) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        int r;
-
-        if (isempty(name))
-                return 0;
-
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_DELLINK, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate netlink message: %m");
-
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add netlink interface name: %m");
-
-        r = sd_netlink_call(rtnl, m, 0, NULL);
-        if (r == -ENODEV) /* Already gone */
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove veth interface %s: %m", name);
-
-        return 1;
-}
-
 int remove_veth_links(const char *primary, char **pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **a, **b;
@@ -580,10 +685,10 @@ int remove_veth_links(const char *primary, char **pairs) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        remove_one_veth_link(rtnl, primary);
+        remove_one_link(rtnl, primary);
 
         STRV_FOREACH_PAIR(a, b, pairs)
-                remove_one_veth_link(rtnl, *a);
+                remove_one_link(rtnl, *a);
 
         return 0;
 }
