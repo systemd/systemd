@@ -1241,6 +1241,45 @@ fail:
         return r;
 }
 
+static int socket_determine_selinux_label(Socket *s, char **ret) {
+        ExecCommand *c;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (s->selinux_context_from_net) {
+                /* If this is requested, get label from the network label */
+
+                r = mac_selinux_get_our_label(ret);
+                if (r == -EOPNOTSUPP)
+                        goto no_label;
+
+        } else {
+                /* Otherwise, get it from the executable we are about to start */
+                r = socket_instantiate_service(s);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_ISSET(s->service))
+                        goto no_label;
+
+                c = SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START];
+                if (!c)
+                        goto no_label;
+
+                r = mac_selinux_get_create_label_from_exe(c->path, ret);
+                if (r == -EPERM || r == -EOPNOTSUPP)
+                        goto no_label;
+        }
+
+        return r;
+
+no_label:
+        *ret = NULL;
+        return 0;
+}
+
 static int socket_open_fds(Socket *s) {
         _cleanup_(mac_selinux_freep) char *label = NULL;
         bool know_label = false;
@@ -1259,48 +1298,28 @@ static int socket_open_fds(Socket *s) {
                 case SOCKET_SOCKET:
 
                         if (!know_label) {
-                                /* Figure out label, if we don't it know
-                                 * yet. We do it once, for the first
-                                 * socket where we need this and
-                                 * remember it for the rest. */
+                                /* Figure out label, if we don't it know yet. We do it once, for the first socket where
+                                 * we need this and remember it for the rest. */
 
-                                if (s->selinux_context_from_net) {
-                                        /* Get it from the network label */
-
-                                        r = mac_selinux_get_our_label(&label);
-                                        if (r < 0 && r != -EOPNOTSUPP)
-                                                goto rollback;
-
-                                } else {
-                                        /* Get it from the executable we are about to start */
-
-                                        r = socket_instantiate_service(s);
-                                        if (r < 0)
-                                                goto rollback;
-
-                                        if (UNIT_ISSET(s->service) &&
-                                            SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
-                                                r = mac_selinux_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
-                                                if (r < 0 && r != -EPERM && r != -EOPNOTSUPP)
-                                                        goto rollback;
-                                        }
-                                }
+                                r = socket_determine_selinux_label(s, &label);
+                                if (r < 0)
+                                        goto rollback;
 
                                 know_label = true;
                         }
 
                         /* Apply the socket protocol */
-                        switch(p->address.type) {
+                        switch (p->address.type) {
 
                         case SOCK_STREAM:
                         case SOCK_SEQPACKET:
-                                if (p->socket->socket_protocol == IPPROTO_SCTP)
-                                        p->address.protocol = p->socket->socket_protocol;
+                                if (s->socket_protocol == IPPROTO_SCTP)
+                                        p->address.protocol = s->socket_protocol;
                                 break;
 
                         case SOCK_DGRAM:
-                                if (p->socket->socket_protocol == IPPROTO_UDPLITE)
-                                        p->address.protocol = p->socket->socket_protocol;
+                                if (s->socket_protocol == IPPROTO_UDPLITE)
+                                        p->address.protocol = s->socket_protocol;
                                 break;
                         }
 
