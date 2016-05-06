@@ -1247,7 +1247,7 @@ int unit_load(Unit *u) {
                 fclose(u->transient_file);
                 u->transient_file = NULL;
 
-                u->dropin_mtime = now(CLOCK_REALTIME);
+                u->fragment_mtime = now(CLOCK_REALTIME);
         }
 
         if (UNIT_VTABLE(u)->load) {
