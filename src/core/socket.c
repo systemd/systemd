@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <linux/sctp.h>
 
-#include "sd-event.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -38,6 +37,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "label.h"
 #include "log.h"
 #include "missing.h"
@@ -1960,6 +1960,21 @@ fail:
         socket_enter_dead(s, SOCKET_FAILURE_RESOURCES);
 }
 
+static void flush_ports(Socket *s) {
+        SocketPort *p;
+
+        /* Flush all incoming traffic, regardless if actual bytes or new connections, so that this socket isn't busy
+         * anymore */
+
+        LIST_FOREACH(port, p, s->ports) {
+                if (p->fd < 0)
+                        continue;
+
+                (void) flush_accept(p->fd);
+                (void) flush_fd(p->fd);
+        }
+}
+
 static void socket_enter_running(Socket *s, int cfd) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1969,31 +1984,15 @@ static void socket_enter_running(Socket *s, int cfd) {
 
         assert(s);
 
-        /* We don't take connections anymore if we are supposed to
-         * shut down anyway */
+        /* We don't take connections anymore if we are supposed to shut down anyway */
         if (unit_stop_pending(UNIT(s))) {
 
                 log_unit_debug(UNIT(s), "Suppressing connection request since unit stop is scheduled.");
 
                 if (cfd >= 0)
                         cfd = safe_close(cfd);
-                else  {
-                        /* Flush all sockets by closing and reopening them */
-                        socket_close_fds(s);
-
-                        r = socket_open_fds(s);
-                        if (r < 0) {
-                                log_unit_warning_errno(UNIT(s), r, "Failed to listen on sockets: %m");
-                                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
-                                return;
-                        }
-
-                        r = socket_watch_fds(s);
-                        if (r < 0) {
-                                log_unit_warning_errno(UNIT(s), r, "Failed to watch sockets: %m");
-                                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
-                        }
-                }
+                else
+                        flush_ports(s);
 
                 return;
         }

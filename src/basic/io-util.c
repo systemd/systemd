@@ -33,6 +33,11 @@ int flush_fd(int fd) {
                 .events = POLLIN,
         };
 
+        /* Read from the specified file descriptor, until POLLIN is not set anymore, throwing away everything
+         * read. Note that some file descriptors (notable IP sockets) will trigger POLLIN even when no data can be read
+         * (due to IP packet checksum mismatches), hence this function is only safe to be non-blocking if the fd used
+         * was set to non-blocking too. */
+
         for (;;) {
                 char buf[LINE_MAX];
                 ssize_t l;
