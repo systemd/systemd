@@ -207,12 +207,6 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>IAID=</varname></term>
-        <listitem>
-          <para>Identity Association Identifier for the interface, a 32-bit unsigned integer.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
       <listitem>
         <para>Note that an interface without any static IPv6 addresses configured, and neither
         DHCPv6 nor IPv6LL enabled, shall be considered to have no IPv6 support. IPv6 will be
@@ -864,6 +858,13 @@
             <para>Override the global <varname>DUIDRawData</varname> setting for this network. See
             <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             for a description of possible values.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>IAID=</varname></term>
+          <listitem>
+            <para>The DHCP Identity Association Identifier (IAID) for the interface, a 32-bit unsigned integer.</para>
           </listitem>
         </varlistentry>
 
