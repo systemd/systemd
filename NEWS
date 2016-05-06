@@ -17,25 +17,29 @@ CHANGES WITH 230 in spe:
           might be systems we do not cover yet. Hence: please help us testing
           the DNSSEC code, leave this on where you can, report back, but then
           again don't consider turning this on in your stable, LTS or
-          production release just yet.
+          production release just yet. (Note that you have to enable
+          nss-resolve in /etc/nsswitch.conf, to actually use systemd-resolved
+          and its DNSSEC mode for host name resolution from local
+          applications.)
 
         * systemd-resolve conveniently resolves DANE records with the --tlsa
-          option and OPENPGPKEY records with the --openpgp option.
+          option and OPENPGPKEY records with the --openpgp option. It also
+          supports dumping raw DNS record data via the new --raw= switch now.
 
         * systemd-logind will now by default terminate user processes that are
           part of the user session scope unit (session-XX.scope) when the user
-          logs out. This behaviour is controlled by the
-          KillUserProcesses=yes|no setting in logind.conf, and previous default
-          of "no" is now changed to "yes". This means that user sessions will
-          be properly cleaned up after, but additional steps are necessary to
-          allow intentionally long-running processes to survive logout.
+          logs out. This behaviour is controlled by the KillUserProcesses=
+          setting in logind.conf, and the previous default of "no" is now
+          changed to "yes". This means that user sessions will be properly
+          cleaned up after, but additional steps are necessary to allow
+          intentionally long-running processes to survive logout.
 
           While the user is logged in at least once, user@.service is running,
           and any service that should survive the end of any individual login
           session can be started at a user service or scope using systemd-run.
-          systemd-run(1) man page has been extended with an example which
-          shows how to run screen in a scope unit underneath user@.service.
-          The same command works for tmux.
+          systemd-run(1) man page has been extended with an example which shows
+          how to run screen in a scope unit underneath user@.service.  The same
+          command works for tmux.
 
           After the user logs out of all sessions, user@.service will be
           terminated too, by default, unless the user has "lingering" enabled.
@@ -45,36 +49,38 @@ CHANGES WITH 230 in spe:
           set lingering for themselves without authentication.
 
           Previous defaults can be restored at compile time by the
-          --without-kill-user-processes option.
+          --without-kill-user-processes option to "configure".
 
         * The unified cgroup hierarchy added in Linux 4.5 is now supported.
-          Use systemd.unified_cgroup_hierarchy=1 on the kernel command line
-          to enable.
+          Use systemd.unified_cgroup_hierarchy=1 on the kernel command line to
+          enable.
+
           WARNING: it is not possible to use previous systemd versions with
           systemd.unified_cgroup_hierarchy=1 and the new kernel. Therefore it
           is necessary to also update systemd in the initramfs if using the
-          unified hierarchy. Updated selinux policy is also required.
+          unified hierarchy. An updated SELinux policy is also required.
 
-        * LLDP support has been extended, and both passive (receive-only)
-          and active (sender) modes are supported. Passive mode
-          ("routers-only") is enabled by default in systemd-networkd.
-          Active LLDP mode is enabled by default for containers on the
-          internal network.
-          "networkctl lldp" can be used to list information gathered.
+        * LLDP support has been extended, and both passive (receive-only) and
+          active (sender) modes are supported. Passive mode ("routers-only") is
+          enabled by default in systemd-networkd.  Active LLDP mode is enabled
+          by default for containers on the internal network.  The "networkctl
+          lldp" command may be used to list information gathered. "networkctl
+          status" will also show basic LLDP information on connected peers now.
 
-        * Headers for LLDP support (sd-lldp.h) are now public.
+        * The IAID and DUID unique identifier sent in DHCP requests may now be
+          configured for the system and each .network file managed by
+          systemd-networkd.
 
-        * The Unique Identifier sent in DHCP requests can be configured.
-
-        * Testing tool /usr/lib/systemd/systemd-activate is renamed to
+        * The testing tool /usr/lib/systemd/systemd-activate is renamed to
           systemd-socket-activate and installed into /usr/bin. It is now fully
           supported.
 
-        * systemd-journald now uses separate threads to flush changes to
-          disk when closing journal files.
+        * systemd-journald now uses separate threads to flush changes to disk
+          when closing journal files, thus reducing impact of slow disk I/O on
+          logging performance.
 
-        * systemd-ask-password skips printing of the password to stdout
-          with --no-output which can be useful in scripts.
+        * systemd-ask-password now optionally skips printing of the password to
+          stdout with --no-output which can be useful in scripts.
 
         * Framebuffer devices (/dev/fb*) and 3D printers and scanners
           (devices tagged with ID_MAKER_TOOL) are now tagged with
@@ -83,18 +89,98 @@ CHANGES WITH 230 in spe:
         * systemd-bootchart has been split out to a separate repository:
           https://github.com/systemd/systemd-bootchart
 
-        * Compatibility libraries libsystemd-daemon.so, libsystemd-journal.so,
-          libsystemd-id128.so, and libsystemd-login.so which have been
-          deprecated since systemd-209 have been removed along along with the
-          corresponding pkg-config files. All symbols provided by the those
-          libraries are provided by libsystemd.so.
+        * The compatibility libraries libsystemd-daemon.so,
+          libsystemd-journal.so, libsystemd-id128.so, and libsystemd-login.so
+          which have been deprecated since systemd-209 have been removed along
+          with the corresponding pkg-config files. All symbols provided by the
+          those libraries are provided by libsystemd.so.
 
-        * Capabilities= setting has been removed (it is ignored for backwards
-          compatibility). AmbientCapabilities= and CapabilityBoundingSet=
-          should be used instead.
+        * The Capabilities= unit file setting has been removed (it is ignored
+          for backwards compatibility). AmbientCapabilities= and
+          CapabilityBoundingSet= should be used instead.
 
-        * systemd-bus-proxyd has been removed, as kdbus will not be merged
-          in current form.
+        * "systemctl show" gained a new --value switch, which allows print a
+          only the contents of a specific unit property, without also printing
+          the property's name.
+
+        * A new command "systemctl revert" has been added that may be used to
+          revert to the vendor version of a unit file, in case local changes
+          have been made by adding drop-ins or overriding the unit file.
+
+        * "machinectl clean" gained a new verb to automatically remove all or
+          just hidden container images.
+
+        * systemd-bus-proxyd has been removed, as kdbus is unlikely to still be
+          merged into the kernerl in its current form.
+
+        * systemd-networkd gained support for configuring proxy ARP support for
+          each interface, via the ProxyArp= setting in .network files. It also
+          gained support for configuring the multicast querier feature of
+          bridge devices, via the new MulticastQuerier= setting in .netdev
+          files. A new setting PreferredLifetime= has been added for addresses
+          configured in .network file to configure the lifetime intended for an
+          address.
+
+        * systemd-tmpfiles gained support for a new line type "e" for emptying
+          directories, if they exist, without creating them if they don't.
+
+        * journalctl learned a new output mode "-o short-unix" that outputs log
+          lines prefixed by their UNIX time (i.e. seconds since Jan 1st, 1970
+          UTC). It also gained support for a new --no-hostname setting to
+          suppress the hostname column in the family of "short" output modes.
+
+        * systemd-nspawn gained support for automatically patching the UID/GIDs
+          of the owners and the ACLs of all files and directories in a
+          container tree to match the UID/GID user namespacing range selected
+          for the container invocation. This mode is enabled via the new
+          --private-user-chown switch. It also gained support for automatically
+          choosing a free, previously unused UID/GID range when starting a
+          container, via the new --private-users=pick setting (which implies
+          --private-user-chown). Together, these options for the first time
+          make user namespacing for nspawn containers fully automatic and thus
+          deployable. The systemd-nspaw@.service template unit file has been
+          changed to use this functionality by default.
+
+        * The default start timeout may now be configured on the kernel command
+          line via systemd.default_timeout_start_sec=. It was configurable
+          previously via the DefaultTimeoutStartSec= option in
+          /etc/systemd/system.conf already.
+
+        * Socket units gaineda new TriggerLimitIntervalSec= and
+          TriggerLimitBurst= setting to configure a limit on the activation
+          rate of the socket unit.
+
+        * The LimitNICE= setting now optionally takes normal UNIX nice values
+          in addition to the raw integer limit value. If the specified
+          parameter is prefixed with "+" or "-" and is in the range -20..19 the
+          value is understood as UNIX nice value. If not prefixed like this it
+          is understood as raw RLIMIT_NICE limit.
+
+        Contributions from: Alban Crequy, Alexander Kuleshov, Alex Crawford,
+        Andrew Eikum, Beniamino Galvani, Benjamin Robin, Benjamin ROBIN, Biao
+        Lu, Bjørnar Ness, Calvin Owens, Christian Hesse, Colin Guthrie, Daniel
+        J Walsh, Daniel Mack, Dan Nicholson, daurnimator, David Herrmann, David
+        R. Hedges, Elias Probst, Emmanuel Gil Peyrot, EMOziko, Evgeny
+        Vereshchagin, Federico, Felipe Sateler, Filipe Brandenburger, Franck
+        Bui, frankheckenbach, Georgia Brikis, Harald Hoyer, Hendrik Brueckner,
+        Hristo Venev, Iago López Galeiras, Ian Kelling, Ismo Puustinen, Jakub
+        Wilk, Jaroslav Škarvada, Jeff Huang, Joel Holdsworth, kayrus, Klearchos
+        Chaloulos, Lennart Poettering, Lubomir Rintel, Lukas Nykryn, Lukáš
+        Nykrýn, Mantas Mikulėnas, Marcel Holtmann, Martin Pitt, Michael Biebl,
+        michaelolbrich, Michał Bartoszkiewicz, Michal Koutný, Michal Sekletar,
+        Mike Frysinger, Mike Gilbert, Mingcong Bai, Ming Lin, mulkieran,
+        muzena, Nalin Dahyabhai, Naohiro Aota, Nathan McSween, Nicolas
+        Braud-Santoni, Patrik Flykt, Peter Hutterer, Petr Lautrbach, Petros
+        Angelatos, Piotr Drąg, Rabin Vincent, Robert Węcławski, Ronny
+        Chevalier, Samuel Tardieu, Stefan Schallenberg, Steven Siloti, Susant
+        Sahani, Sylvain Plantefève, Taylor Smock, tblume, Tejun Heo, Thomas
+        Blume, Thomas Haller, Thomas Hindoe Paaboel Andersen, Thomas
+        H. P. Andersen, Tobias Klauser, Tom Gundersen, Torstein Husebø, Umut
+        Tezduyar Lindskog, Vinay Kulkarni, Vito Caputo, Vittorio G (VittGam),
+        Vladimir Panteleev, Wieland Hoffmann, Wouter Verhelst, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek
+
+        — Berlin, 2016-05-XX
 
 CHANGES WITH 229:
 
