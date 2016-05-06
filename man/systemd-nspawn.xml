@@ -569,6 +569,35 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--network-zone=</option></term>
+
+        <listitem><para>Creates a virtual Ethernet link (<literal>veth</literal>) to the container and adds it to an
+        automatically managed Ethernet bridge interface. The bridge interface is named after the passed argument,
+        prefixed with <literal>vz-</literal>. The bridge interface is automatically created when the first container
+        configured for its name is started, and is automatically removed when the last container configured for its
+        name exits. Hence, each bridge interface configured this way exists only as long as there's at least one
+        container referencing it running. This option is very similar to <option>--network-bridge=</option>, besides
+        this automatic creation/removal of the bridge device.</para>
+
+        <para>This setting makes it easy to place multiple related containers on a common, virtual Ethernet-based
+        broadcast domain, here called a "zone". Each container may only be part of one zone, but each zone may contain
+        any number of containers. Each zone is referenced by its name. Names may be chosen freely (as long as they form
+        valid network interface names when prefixed with <literal>vz-</literal>), and it is sufficient to pass the same
+        name to the <option>--network-zones=</option> switch of the various concurrently running containers to join
+        them in one zone.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        includes by default a network file <filename>/usr/lib/systemd/network/80-container-vz.network</filename>
+        matching the bridge interfaces created this way, which contains settings to enable automatic address
+        provisioning on the created virtual network via DHCP, as well as automatic IP routing onto the host's external
+        network interfaces. Using <option>--network-zone=</option> is hence in most cases fully automatic and
+        sufficient to connect multiple local containers in a joined broadcast domain to the host, with further
+        connectivity to the external network.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--port=</option></term>
 
@@ -583,7 +612,7 @@
         port number and its colon may be omitted, in which case the
         same port as the host port is implied. This option is only
         supported if private networking is used, such as with
-        <option>--network-veth</option> or
+        <option>--network-veth</option>, <option>--network-zone=</option>
         <option>--network-bridge=</option>.</para></listitem>
       </varlistentry>
 
