@@ -27,6 +27,7 @@
 #include "networkd.h"
 #include "parse-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "utf8.h"
 #include "util.h"
@@ -726,7 +727,8 @@ int config_parse_address(const char *unit,
         return 0;
 }
 
-int config_parse_label(const char *unit,
+int config_parse_label(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -736,9 +738,9 @@ int config_parse_label(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Network *network = userdata;
+
         _cleanup_address_free_ Address *n = NULL;
-        char *label;
+        Network *network = userdata;
         int r;
 
         assert(filename);
@@ -751,23 +753,14 @@ int config_parse_label(const char *unit,
         if (r < 0)
                 return r;
 
-        label = strdup(rvalue);
-        if (!label)
-                return log_oom();
-
-        if (!ascii_is_valid(label) || strlen(label) >= IFNAMSIZ) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
-                free(label);
+        if (!ifname_valid(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is not valid or too long, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        free(n->label);
-        if (*label)
-                n->label = label;
-        else {
-                free(label);
-                n->label = NULL;
-        }
+        r = free_and_strdup(&n->label, rvalue);
+        if (r < 0)
+                return log_oom();
 
         n = NULL;
 

@@ -37,6 +37,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -871,5 +872,42 @@ int config_parse_personality(
         }
 
         *personality = p;
+        return 0;
+}
+
+int config_parse_ifname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!ifname_valid(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        r = free_and_strdup(s, rvalue);
+        if (r < 0)
+                return log_oom();
+
         return 0;
 }

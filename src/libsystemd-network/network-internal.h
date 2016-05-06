@@ -50,10 +50,6 @@ int config_parse_hwaddr(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
 
-int config_parse_ifname(const char *unit, const char *filename, unsigned line,
-                        const char *section, unsigned section_line, const char *lvalue,
-                        int ltype, const char *rvalue, void *data, void *userdata);
-
 int config_parse_ifnames(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,
                          int ltype, const char *rvalue, void *data, void *userdata);

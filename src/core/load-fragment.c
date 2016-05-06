@@ -732,16 +732,17 @@ int config_parse_exec(
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 
-int config_parse_socket_bindtodevice(const char* unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_socket_bindtodevice(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Socket *s = data;
         char *n;
@@ -752,6 +753,11 @@ int config_parse_socket_bindtodevice(const char* unit,
         assert(data);
 
         if (rvalue[0] && !streq(rvalue, "*")) {
+                if (!ifname_valid(rvalue)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is invalid, ignoring: %s", rvalue);
+                        return 0;
+                }
+
                 n = strdup(rvalue);
                 if (!n)
                         return log_oom();
