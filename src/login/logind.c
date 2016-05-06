@@ -62,7 +62,9 @@ static void manager_reset_config(Manager *m) {
         m->idle_action = HANDLE_IGNORE;
 
         m->runtime_dir_size = PAGE_ALIGN((size_t) (physical_memory() / 10)); /* 10% */
-        m->user_tasks_max = UINT64_C(12288);
+        m->user_tasks_max = 12288;
+        m->sessions_max = 8192;
+        m->inhibitors_max = 8192;
 
         m->kill_user_processes = KILL_USER_PROCESSES;
 
@@ -686,7 +688,7 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register name: %m");
 
-        r = sd_bus_attach_event(m->bus, m->event, 0);
+        r = sd_bus_attach_event(m->bus, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 

@@ -35,6 +35,10 @@ Features:
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
+* maybe: pid1: replace cgroups agent transport by AF_UNIX/SOCK_DGRAM, so that
+  we aren't hit by socket backlog exhaustion on the dbus AF_UNIX/SOCK_STREAM
+  socket
+
 * journalctl: make sure -f ends when the container indicated by -M terminates
 
 * rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the

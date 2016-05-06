@@ -897,7 +897,9 @@ int session_create_fifo(Session *s) {
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_priority(s->fifo_event_source, SD_EVENT_PRIORITY_IDLE);
+                /* Let's make sure we noticed dead sessions before we process new bus requests (which might create new
+                 * sessions). */
+                r = sd_event_source_set_priority(s->fifo_event_source, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0)
                         return r;
         }

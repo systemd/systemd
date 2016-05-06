@@ -297,6 +297,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>InhibitorsMax=</varname></term>
+
+        <listitem><para>Controls the maximum number of concurrent inhibitors to permit. Defaults to 8192
+        (8K).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SessionsMax=</varname></term>
+
+        <listitem><para>Controls the maximum number of concurrent user sessions to manage. Defaults to 8192
+        (8K). Depending on how the <filename>pam_systemd.so</filename> module is included in the PAM stack
+        configuration, further login sessions will either be refused, or permitted but not tracked by
+        <filename>systemd-logind</filename>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UserTasksMax=</varname></term>
 
         <listitem><para>Sets the maximum number of OS tasks each user
