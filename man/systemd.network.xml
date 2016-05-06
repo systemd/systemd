@@ -244,6 +244,9 @@
             <para>Furthermore, note that by default the domain name
             specified through DHCP is not used for name resolution.
             See option <option>UseDomains=</option> below.</para>
+
+            <para>See the <literal>[DHCP]</literal> section below for further configuration options for the DHCP client
+            support.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
