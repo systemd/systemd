@@ -524,15 +524,23 @@
         <term><option>-n</option></term>
         <term><option>--network-veth</option></term>
 
-        <listitem><para>Create a virtual Ethernet link
-        (<literal>veth</literal>) between host and container. The host
-        side of the Ethernet link will be available as a network
-        interface named after the container's name (as specified with
-        <option>--machine=</option>), prefixed with
-        <literal>ve-</literal>. The container side of the Ethernet
-        link will be named <literal>host0</literal>. Note that
-        <option>--network-veth</option> implies
-        <option>--private-network</option>.</para></listitem>
+        <listitem><para>Create a virtual Ethernet link (<literal>veth</literal>) between host and container. The host
+        side of the Ethernet link will be available as a network interface named after the container's name (as
+        specified with <option>--machine=</option>), prefixed with <literal>ve-</literal>. The container side of the
+        Ethernet link will be named <literal>host0</literal>. The <option>--network-veth</option> option implies
+        <option>--private-network</option>.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        includes by default a network file <filename>/usr/lib/systemd/network/80-container-ve.network</filename>
+        matching the host-side interfaces created this way, which contains settings to enable automatic address
+        provisioning on the created virtual link via DHCP, as well as automatic IP routing onto the host's external
+        network interfaces. It also contains <filename>/usr/lib/systemd/network/80-container-host0.network</filename>
+        matching the container-side interface created this way, containing settings to enable client side address
+        assignment via DHCP. In case <filename>systemd-networkd</filename> is running on both the host and inside the
+        container, automatic IP communication from the container to the host is thus available, with further
+        connectivity to the external network.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -553,12 +561,10 @@
       <varlistentry>
         <term><option>--network-bridge=</option></term>
 
-        <listitem><para>Adds the host side of the Ethernet link
-        created with <option>--network-veth</option> to the specified
-        bridge. Note that <option>--network-bridge=</option> implies
-        <option>--network-veth</option>. If this option is used, the
-        host side of the Ethernet link will use the
-        <literal>vb-</literal> prefix instead of
+        <listitem><para>Adds the host side of the Ethernet link created with <option>--network-veth</option> to the
+        specified Ethernet bridge interface. Expects a valid network interface name of a bridge device as
+        argument. Note that <option>--network-bridge=</option> implies <option>--network-veth</option>. If this option
+        is used, the host side of the Ethernet link will use the <literal>vb-</literal> prefix instead of
         <literal>ve-</literal>.</para></listitem>
       </varlistentry>
 
