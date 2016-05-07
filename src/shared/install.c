@@ -389,8 +389,6 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 log_error_errno(r, "Failed to %s: %m.", verb);
 }
 
-
-
 static int create_symlink(
                 const char *old_path,
                 const char *new_path,
@@ -406,7 +404,11 @@ static int create_symlink(
 
         /* Actually create a symlink, and remember that we did. Is
          * smart enough to check if there's already a valid symlink in
-         * place. */
+         * place.
+         *
+         * Returns 1 if a symlink was created or already exists and points to
+         * the right place, or negative on error.
+         */
 
         mkdir_parents_label(new_path, 0755);
 
@@ -431,7 +433,7 @@ static int create_symlink(
         }
 
         if (path_equal(dest, old_path))
-                return 0;
+                return 1;
 
         if (!force) {
                 unit_file_changes_add(changes, n_changes, -EEXIST, new_path, dest);
