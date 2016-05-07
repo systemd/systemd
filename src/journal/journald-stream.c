@@ -700,23 +700,22 @@ fail:
 }
 
 int server_open_stdout_socket(Server *s) {
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/journal/stdout",
+        };
         int r;
 
         assert(s);
 
         if (s->stdout_fd < 0) {
-                union sockaddr_union sa = {
-                        .un.sun_family = AF_UNIX,
-                        .un.sun_path = "/run/systemd/journal/stdout",
-                };
-
                 s->stdout_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->stdout_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
-                unlink(sa.un.sun_path);
+                (void) unlink(sa.un.sun_path);
 
-                r = bind(s->stdout_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
+                r = bind(s->stdout_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 

@@ -165,7 +165,7 @@ static int log_open_syslog(void) {
                 goto fail;
         }
 
-        if (connect(syslog_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+        if (connect(syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
                 safe_close(syslog_fd);
 
                 /* Some legacy syslog systems still use stream
@@ -177,7 +177,7 @@ static int log_open_syslog(void) {
                         goto fail;
                 }
 
-                if (connect(syslog_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+                if (connect(syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
                         r = -errno;
                         goto fail;
                 }
@@ -215,7 +215,7 @@ static int log_open_journal(void) {
                 goto fail;
         }
 
-        if (connect(journal_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+        if (connect(journal_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
                 r = -errno;
                 goto fail;
         }

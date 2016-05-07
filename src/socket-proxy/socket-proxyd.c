@@ -400,28 +400,19 @@ static int resolve_remote(Connection *c) {
 
         union sockaddr_union sa = {};
         const char *node, *service;
-        socklen_t salen;
         int r;
 
         if (path_is_absolute(arg_remote_host)) {
                 sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, arg_remote_host, sizeof(sa.un.sun_path)-1);
-                sa.un.sun_path[sizeof(sa.un.sun_path)-1] = 0;
-
-                salen = offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path);
-
-                return connection_start(c, &sa.sa, salen);
+                strncpy(sa.un.sun_path, arg_remote_host, sizeof(sa.un.sun_path));
+                return connection_start(c, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         }
 
         if (arg_remote_host[0] == '@') {
                 sa.un.sun_family = AF_UNIX;
                 sa.un.sun_path[0] = 0;
-                strncpy(sa.un.sun_path+1, arg_remote_host+1, sizeof(sa.un.sun_path)-2);
-                sa.un.sun_path[sizeof(sa.un.sun_path)-1] = 0;
-
-                salen = offsetof(union sockaddr_union, un.sun_path) + 1 + strlen(sa.un.sun_path + 1);
-
-                return connection_start(c, &sa.sa, salen);
+                strncpy(sa.un.sun_path+1, arg_remote_host+1, sizeof(sa.un.sun_path)-1);
+                return connection_start(c, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         }
 
         service = strrchr(arg_remote_host, ':');

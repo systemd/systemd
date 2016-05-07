@@ -1312,7 +1312,9 @@ int manager_setup_cgroup(Manager *m) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to watch control group inotify object: %m");
 
-                        r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_IDLE - 5);
+                        /* Process cgroup empty notifications early, but after service notifications and SIGCHLD. Also
+                         * see handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
+                        r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-5);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set priority of inotify event source: %m");
 
@@ -1457,6 +1459,8 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 
         assert(m);
         assert(cgroup);
+
+        log_debug("Got cgroup empty notification for: %s", cgroup);
 
         u = manager_get_unit_by_cgroup(m, cgroup);
         if (!u)

@@ -677,7 +677,7 @@ static int manager_new(Manager **ret) {
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
         (void) unlink(sa.un.sun_path);
 
-        if (bind(m->notify_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path)) < 0)
+        if (bind(m->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return -errno;
 
         if (setsockopt(m->notify_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)

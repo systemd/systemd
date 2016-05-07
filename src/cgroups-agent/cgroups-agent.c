@@ -18,15 +18,22 @@
 ***/
 
 #include <stdlib.h>
+#include <sys/socket.h>
 
-#include "sd-bus.h"
-
-#include "bus-util.h"
+#include "fd-util.h"
 #include "log.h"
+#include "socket-util.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
+
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/cgroups-agent",
+        };
+
+        _cleanup_close_ int fd = -1;
+        ssize_t n;
+        size_t l;
 
         if (argc != 2) {
                 log_error("Incorrect number of arguments.");
@@ -37,27 +44,22 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        /* We send this event to the private D-Bus socket and then the
-         * system instance will forward this to the system bus. We do
-         * this to avoid an activation loop when we start dbus when we
-         * are called when the dbus service is shut down. */
-
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0) {
-                /* If we couldn't connect we assume this was triggered
-                 * while systemd got restarted/transitioned from
-                 * initrd to the system, so let's ignore this */
-                log_debug_errno(r, "Failed to get D-Bus connection: %m");
+        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0) {
+                log_debug_errno(errno, "Failed to allocate socket: %m");
                 return EXIT_FAILURE;
         }
 
-        r = sd_bus_emit_signal(bus,
-                               "/org/freedesktop/systemd1/agent",
-                               "org.freedesktop.systemd1.Agent",
-                               "Released",
-                               "s", argv[1]);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to send signal message on private connection: %m");
+        l = strlen(argv[1]);
+
+        n = sendto(fd, argv[1], l, 0, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        if (n < 0) {
+                log_debug_errno(errno, "Failed to send cgroups agent message: %m");
+                return EXIT_FAILURE;
+        }
+
+        if ((size_t) n != l) {
+                log_debug("Datagram size mismatch");
                 return EXIT_FAILURE;
         }
 

@@ -458,9 +458,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         if (sockaddr.un.sun_path[0] == '@')
                 sockaddr.un.sun_path[0] = 0;
 
-        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(e);
-        if (msghdr.msg_namelen > sizeof(struct sockaddr_un))
-                msghdr.msg_namelen = sizeof(struct sockaddr_un);
+        msghdr.msg_namelen = SOCKADDR_UN_LEN(sockaddr.un);
 
         have_pid = pid != 0 && pid != getpid();
 

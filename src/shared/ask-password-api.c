@@ -431,7 +431,7 @@ static int create_socket(char **name) {
         snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%" PRIx64, random_u64());
 
         RUN_WITH_UMASK(0177) {
-                if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
+                if (bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                         return -errno;
         }
 

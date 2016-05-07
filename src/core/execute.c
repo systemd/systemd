@@ -271,7 +271,7 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
                 }
         }
 
-        r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         if (r < 0)
                 r = -errno;
 

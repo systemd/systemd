@@ -65,8 +65,8 @@ static int ask_password_plymouth(
                 const char *flag_file,
                 char ***ret) {
 
+        static const union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_close_ int fd = -1, notify = -1;
-        union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_free_ char *packet = NULL;
         ssize_t k;
         int r, n;
@@ -94,7 +94,7 @@ static int ask_password_plymouth(
         if (fd < 0)
                 return -errno;
 
-        r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
+        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         if (r < 0)
                 return -errno;
 
@@ -269,8 +269,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
 
         strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-        r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa,
-                   offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
+        r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         if (r < 0)
                 r = log_debug_errno(errno, "sendto(): %m");
 

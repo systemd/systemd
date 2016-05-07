@@ -150,7 +150,7 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         if (fd < 0)
                 return -errno;
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return -errno;
 
         r = getpeercred(fd, &ucred);

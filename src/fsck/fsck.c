@@ -262,7 +262,7 @@ static int fsck_progress_socket(void) {
         if (fd < 0)
                 return log_warning_errno(errno, "socket(): %m");
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
                 r = log_full_errno(errno == ECONNREFUSED || errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                                    errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
                 safe_close(fd);

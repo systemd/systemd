@@ -26,14 +26,12 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "util.h"
 
 static int send_on_socket(int fd, const char *socket_name, const void *packet, size_t size) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa = {
+        union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };
 
@@ -43,7 +41,7 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 
         strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(socket_name)) < 0)
+        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return log_error_errno(errno, "Failed to send: %m");
 
         return 0;
