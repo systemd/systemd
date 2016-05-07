@@ -1355,7 +1355,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         } else
                 id_cols = max_id_len;
 
-        if (!arg_no_legend)
+        if (!arg_no_legend && c > 0)
                 printf("%-*s %-*s\n",
                        id_cols, "UNIT FILE",
                        state_cols, "STATE");
@@ -1422,8 +1422,8 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
 
                 n_units = hashmap_size(h);
 
-                units = new(UnitFileList, n_units);
-                if (!units && n_units > 0) {
+                units = new(UnitFileList, n_units ?: 1); /* avoid malloc(0) */
+                if (!units) {
                         unit_file_list_free(h);
                         return log_oom();
                 }
@@ -1519,10 +1519,9 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
         qsort_safe(units, c, sizeof(UnitFileList), compare_unit_file_list);
         output_unit_file_list(units, c);
 
-        if (install_client_side()) {
+        if (install_client_side())
                 for (unit = units; unit < units + c; unit++)
                         free(unit->path);
-        }
 
         return 0;
 }

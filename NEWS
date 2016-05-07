@@ -38,7 +38,7 @@ CHANGES WITH 230 in spe:
           and any service that should survive the end of any individual login
           session can be started at a user service or scope using systemd-run.
           systemd-run(1) man page has been extended with an example which shows
-          how to run screen in a scope unit underneath user@.service.  The same
+          how to run screen in a scope unit underneath user@.service. The same
           command works for tmux.
 
           After the user logs out of all sessions, user@.service will be
@@ -62,8 +62,8 @@ CHANGES WITH 230 in spe:
 
         * LLDP support has been extended, and both passive (receive-only) and
           active (sender) modes are supported. Passive mode ("routers-only") is
-          enabled by default in systemd-networkd.  Active LLDP mode is enabled
-          by default for containers on the internal network.  The "networkctl
+          enabled by default in systemd-networkd. Active LLDP mode is enabled
+          by default for containers on the internal network. The "networkctl
           lldp" command may be used to list information gathered. "networkctl
           status" will also show basic LLDP information on connected peers now.
 
@@ -101,7 +101,8 @@ CHANGES WITH 230 in spe:
 
         * "systemctl show" gained a new --value switch, which allows print a
           only the contents of a specific unit property, without also printing
-          the property's name.
+          the property's name. Similar support was added to "show*" verbs
+          of loginctl and machinectl that output "key=value" lists.
 
         * A new command "systemctl revert" has been added that may be used to
           revert to the vendor version of a unit file, in case local changes
@@ -142,9 +143,9 @@ CHANGES WITH 230 in spe:
           changed to use this functionality by default.
 
         * The default start timeout may now be configured on the kernel command
-          line via systemd.default_timeout_start_sec=. It was configurable
-          previously via the DefaultTimeoutStartSec= option in
-          /etc/systemd/system.conf already.
+          line via systemd.default_timeout_start_sec=. It was already
+          configurable via the DefaultTimeoutStartSec= option in
+          /etc/systemd/system.conf.
 
         * Socket units gained a new TriggerLimitIntervalSec= and
           TriggerLimitBurst= setting to configure a limit on the activation
