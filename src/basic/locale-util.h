@@ -55,19 +55,19 @@ void init_gettext(void);
 
 bool is_locale_utf8(void);
 
-typedef enum DrawSpecialChar {
-        DRAW_TREE_VERTICAL,
-        DRAW_TREE_BRANCH,
-        DRAW_TREE_RIGHT,
-        DRAW_TREE_SPACE,
-        DRAW_TRIANGULAR_BULLET,
-        DRAW_BLACK_CIRCLE,
-        DRAW_ARROW,
-        DRAW_DASH,
-        _DRAW_SPECIAL_CHAR_MAX
-} DrawSpecialChar;
+typedef enum {
+        TREE_VERTICAL,
+        TREE_BRANCH,
+        TREE_RIGHT,
+        TREE_SPACE,
+        TRIANGULAR_BULLET,
+        BLACK_CIRCLE,
+        ARROW,
+        MDASH,
+        _SPECIAL_GLYPH_MAX
+} SpecialGlyph;
 
-const char *draw_special_char(DrawSpecialChar ch);
+const char *special_glyph(SpecialGlyph code);
 
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;

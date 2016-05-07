@@ -750,7 +750,7 @@ static int link_status_one(
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
-        printf("%s%s%s %i: %s\n", on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
+        printf("%s%s%s %i: %s\n", on_color_operational, special_glyph(BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
 
         printf("       Link File: %s\n"
                "    Network File: %s\n"
@@ -818,7 +818,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
         printf("%s%s%s        State: %s%s%s\n",
-               on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
+               on_color_operational, special_glyph(BLACK_CIRCLE), off_color_operational,
                on_color_operational, strna(operational_state), off_color_operational);
 
         (void) dump_addresses(rtnl, "       Address: ", 0);
