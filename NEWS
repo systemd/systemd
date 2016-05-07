@@ -28,7 +28,7 @@ CHANGES WITH 230 in spe:
 
         * systemd-logind will now by default terminate user processes that are
           part of the user session scope unit (session-XX.scope) when the user
-          logs out. This behaviour is controlled by the KillUserProcesses=
+          logs out. This behavior is controlled by the KillUserProcesses=
           setting in logind.conf, and the previous default of "no" is now
           changed to "yes". This means that user sessions will be properly
           cleaned up after, but additional steps are necessary to allow
@@ -92,7 +92,7 @@ CHANGES WITH 230 in spe:
         * The compatibility libraries libsystemd-daemon.so,
           libsystemd-journal.so, libsystemd-id128.so, and libsystemd-login.so
           which have been deprecated since systemd-209 have been removed along
-          with the corresponding pkg-config files. All symbols provided by the
+          with the corresponding pkg-config files. All symbols provided by
           those libraries are provided by libsystemd.so.
 
         * The Capabilities= unit file setting has been removed (it is ignored
