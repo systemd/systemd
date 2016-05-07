@@ -40,6 +40,7 @@
 #include "hashmap.h"
 #include "install-printf.h"
 #include "install.h"
+#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
@@ -336,7 +337,10 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 switch(changes[i].type) {
                 case UNIT_FILE_SYMLINK:
                         if (!quiet)
-                                log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
+                                log_info("Created symlink %s %s %s.",
+                                         changes[i].path,
+                                         draw_special_char(DRAW_ARROW),
+                                         changes[i].source);
                         break;
                 case UNIT_FILE_UNLINK:
                         if (!quiet)
