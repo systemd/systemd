@@ -111,7 +111,7 @@ CHANGES WITH 230 in spe:
           just hidden container images.
 
         * systemd-bus-proxyd has been removed, as kdbus is unlikely to still be
-          merged into the kernerl in its current form.
+          merged into the kernel in its current form.
 
         * systemd-networkd gained support for configuring proxy ARP support for
           each interface, via the ProxyArp= setting in .network files. It also
@@ -146,7 +146,7 @@ CHANGES WITH 230 in spe:
           previously via the DefaultTimeoutStartSec= option in
           /etc/systemd/system.conf already.
 
-        * Socket units gaineda new TriggerLimitIntervalSec= and
+        * Socket units gained a new TriggerLimitIntervalSec= and
           TriggerLimitBurst= setting to configure a limit on the activation
           rate of the socket unit.
 
