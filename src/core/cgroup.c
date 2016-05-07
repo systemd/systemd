@@ -857,6 +857,7 @@ static int unit_create_cgroup(
         /* Keep track that this is now realized */
         u->cgroup_realized = true;
         u->cgroup_realized_mask = target_mask;
+        u->cgroup_enabled_mask = enable_mask;
 
         if (u->type != UNIT_SLICE && !c->delegate) {
 
@@ -886,10 +887,10 @@ int unit_attach_pids_to_cgroup(Unit *u) {
         return 0;
 }
 
-static bool unit_has_mask_realized(Unit *u, CGroupMask target_mask) {
+static bool unit_has_mask_realized(Unit *u, CGroupMask target_mask, CGroupMask enable_mask) {
         assert(u);
 
-        return u->cgroup_realized && u->cgroup_realized_mask == target_mask;
+        return u->cgroup_realized && u->cgroup_realized_mask == target_mask && u->cgroup_enabled_mask == enable_mask;
 }
 
 /* Check if necessary controllers and attributes for a unit are in place.
@@ -910,7 +911,9 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         }
 
         target_mask = unit_get_target_mask(u);
-        if (unit_has_mask_realized(u, target_mask))
+        enable_mask = unit_get_enable_mask(u);
+
+        if (unit_has_mask_realized(u, target_mask, enable_mask))
                 return 0;
 
         /* First, realize parents */
@@ -921,7 +924,6 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         }
 
         /* And then do the real work */
-        enable_mask = unit_get_enable_mask(u);
         r = unit_create_cgroup(u, target_mask, enable_mask);
         if (r < 0)
                 return r;
@@ -990,7 +992,7 @@ static void unit_queue_siblings(Unit *u) {
                         /* If the unit doesn't need any new controllers
                          * and has current ones realized, it doesn't need
                          * any changes. */
-                        if (unit_has_mask_realized(m, unit_get_target_mask(m)))
+                        if (unit_has_mask_realized(m, unit_get_target_mask(m), unit_get_enable_mask(m)))
                                 continue;
 
                         unit_add_to_cgroup_queue(m);
@@ -1069,6 +1071,7 @@ void unit_prune_cgroup(Unit *u) {
 
         u->cgroup_realized = false;
         u->cgroup_realized_mask = 0;
+        u->cgroup_enabled_mask = 0;
 }
 
 int unit_search_main_pid(Unit *u, pid_t *ret) {
