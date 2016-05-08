@@ -23,6 +23,7 @@
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
+#include <poll.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -969,4 +970,43 @@ fallback:
                 return -errno;
 
         return (ssize_t) k;
+}
+
+int flush_accept(int fd) {
+
+        struct pollfd pollfd = {
+                .fd = fd,
+                .events = POLLIN,
+        };
+        int r;
+
+
+        /* Similar to flush_fd() but flushes all incoming connection by accepting them and immediately closing them. */
+
+        for (;;) {
+                int cfd;
+
+                r = poll(&pollfd, 1, 0);
+                if (r < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        return -errno;
+
+                } else if (r == 0)
+                        return 0;
+
+                cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+                if (cfd < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        if (errno == EAGAIN)
+                                return 0;
+
+                        return -errno;
+                }
+
+                close(cfd);
+        }
 }

@@ -135,6 +135,8 @@ int receive_one_fd(int transport_fd, int flags);
 
 ssize_t next_datagram_size_fd(int fd);
 
+int flush_accept(int fd);
+
 #define CMSG_FOREACH(cmsg, mh)                                          \
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 

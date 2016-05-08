@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <linux/sctp.h>
 
-#include "sd-event.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -38,6 +37,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "formats-util.h"
+#include "io-util.h"
 #include "label.h"
 #include "log.h"
 #include "missing.h"
@@ -1247,6 +1247,45 @@ fail:
         return r;
 }
 
+static int socket_determine_selinux_label(Socket *s, char **ret) {
+        ExecCommand *c;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (s->selinux_context_from_net) {
+                /* If this is requested, get label from the network label */
+
+                r = mac_selinux_get_our_label(ret);
+                if (r == -EOPNOTSUPP)
+                        goto no_label;
+
+        } else {
+                /* Otherwise, get it from the executable we are about to start */
+                r = socket_instantiate_service(s);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_ISSET(s->service))
+                        goto no_label;
+
+                c = SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START];
+                if (!c)
+                        goto no_label;
+
+                r = mac_selinux_get_create_label_from_exe(c->path, ret);
+                if (r == -EPERM || r == -EOPNOTSUPP)
+                        goto no_label;
+        }
+
+        return r;
+
+no_label:
+        *ret = NULL;
+        return 0;
+}
+
 static int socket_open_fds(Socket *s) {
         _cleanup_(mac_selinux_freep) char *label = NULL;
         bool know_label = false;
@@ -1265,48 +1304,28 @@ static int socket_open_fds(Socket *s) {
                 case SOCKET_SOCKET:
 
                         if (!know_label) {
-                                /* Figure out label, if we don't it know
-                                 * yet. We do it once, for the first
-                                 * socket where we need this and
-                                 * remember it for the rest. */
+                                /* Figure out label, if we don't it know yet. We do it once, for the first socket where
+                                 * we need this and remember it for the rest. */
 
-                                if (s->selinux_context_from_net) {
-                                        /* Get it from the network label */
-
-                                        r = mac_selinux_get_our_label(&label);
-                                        if (r < 0 && r != -EOPNOTSUPP)
-                                                goto rollback;
-
-                                } else {
-                                        /* Get it from the executable we are about to start */
-
-                                        r = socket_instantiate_service(s);
-                                        if (r < 0)
-                                                goto rollback;
-
-                                        if (UNIT_ISSET(s->service) &&
-                                            SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
-                                                r = mac_selinux_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
-                                                if (r < 0 && r != -EPERM && r != -EOPNOTSUPP)
-                                                        goto rollback;
-                                        }
-                                }
+                                r = socket_determine_selinux_label(s, &label);
+                                if (r < 0)
+                                        goto rollback;
 
                                 know_label = true;
                         }
 
                         /* Apply the socket protocol */
-                        switch(p->address.type) {
+                        switch (p->address.type) {
 
                         case SOCK_STREAM:
                         case SOCK_SEQPACKET:
-                                if (p->socket->socket_protocol == IPPROTO_SCTP)
-                                        p->address.protocol = p->socket->socket_protocol;
+                                if (s->socket_protocol == IPPROTO_SCTP)
+                                        p->address.protocol = s->socket_protocol;
                                 break;
 
                         case SOCK_DGRAM:
-                                if (p->socket->socket_protocol == IPPROTO_UDPLITE)
-                                        p->address.protocol = p->socket->socket_protocol;
+                                if (s->socket_protocol == IPPROTO_UDPLITE)
+                                        p->address.protocol = s->socket_protocol;
                                 break;
                         }
 
@@ -1450,6 +1469,34 @@ fail:
         return r;
 }
 
+enum {
+        SOCKET_OPEN_NONE,
+        SOCKET_OPEN_SOME,
+        SOCKET_OPEN_ALL,
+};
+
+static int socket_check_open(Socket *s) {
+        bool have_open = false, have_closed = false;
+        SocketPort *p;
+
+        assert(s);
+
+        LIST_FOREACH(port, p, s->ports) {
+                if (p->fd < 0)
+                        have_closed = true;
+                else
+                        have_open = true;
+
+                if (have_open && have_closed)
+                        return SOCKET_OPEN_SOME;
+        }
+
+        if (have_open)
+                return SOCKET_OPEN_ALL;
+
+        return SOCKET_OPEN_NONE;
+}
+
 static void socket_set_state(Socket *s, SocketState state) {
         SocketState old_state;
         assert(s);
@@ -1529,14 +1576,24 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST,
                    SOCKET_LISTENING,
-                   SOCKET_RUNNING,
-                   SOCKET_STOP_PRE,
-                   SOCKET_STOP_PRE_SIGTERM,
-                   SOCKET_STOP_PRE_SIGKILL)) {
+                   SOCKET_RUNNING)) {
 
-                r = socket_open_fds(s);
-                if (r < 0)
-                        return r;
+                /* Originally, we used to simply reopen all sockets here that we didn't have file descriptors
+                 * for. However, this is problematic, as we won't traverse throught the SOCKET_START_CHOWN state for
+                 * them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we have all fds open,
+                 * and if there's a mismatch, warn loudly. */
+
+                r = socket_check_open(s);
+                if (r == SOCKET_OPEN_NONE)
+                        log_unit_warning(UNIT(s),
+                                         "Socket unit configuration has changed while unit has been running, "
+                                         "no open socket file descriptor left. "
+                                         "The socket unit is not functional until restarted.");
+                else if (r == SOCKET_OPEN_SOME)
+                        log_unit_warning(UNIT(s),
+                                         "Socket unit configuration has changed while unit has been running, "
+                                         "and some socket file descriptors have not been opened yet. "
+                                         "The socket unit is not fully functional until restarted.");
         }
 
         if (s->deserialized_state == SOCKET_LISTENING) {
@@ -1909,6 +1966,21 @@ fail:
         socket_enter_dead(s, SOCKET_FAILURE_RESOURCES);
 }
 
+static void flush_ports(Socket *s) {
+        SocketPort *p;
+
+        /* Flush all incoming traffic, regardless if actual bytes or new connections, so that this socket isn't busy
+         * anymore */
+
+        LIST_FOREACH(port, p, s->ports) {
+                if (p->fd < 0)
+                        continue;
+
+                (void) flush_accept(p->fd);
+                (void) flush_fd(p->fd);
+        }
+}
+
 static void socket_enter_running(Socket *s, int cfd) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1918,31 +1990,15 @@ static void socket_enter_running(Socket *s, int cfd) {
 
         assert(s);
 
-        /* We don't take connections anymore if we are supposed to
-         * shut down anyway */
+        /* We don't take connections anymore if we are supposed to shut down anyway */
         if (unit_stop_pending(UNIT(s))) {
 
                 log_unit_debug(UNIT(s), "Suppressing connection request since unit stop is scheduled.");
 
                 if (cfd >= 0)
                         cfd = safe_close(cfd);
-                else  {
-                        /* Flush all sockets by closing and reopening them */
-                        socket_close_fds(s);
-
-                        r = socket_open_fds(s);
-                        if (r < 0) {
-                                log_unit_warning_errno(UNIT(s), r, "Failed to listen on sockets: %m");
-                                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
-                                return;
-                        }
-
-                        r = socket_watch_fds(s);
-                        if (r < 0) {
-                                log_unit_warning_errno(UNIT(s), r, "Failed to watch sockets: %m");
-                                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
-                        }
-                }
+                else
+                        flush_ports(s);
 
                 return;
         }
