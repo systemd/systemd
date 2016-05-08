@@ -67,6 +67,20 @@ WantedBy=local-fs.target
 Alias=root.mount
 EOF
 
+    cat >$initdir/etc/systemd/system/systemd-remount-fs.service <<EOF
+[Unit]
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=systemd-fsck-root.service
+Before=local-fs-pre.target local-fs.target shutdown.target
+Wants=local-fs-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/systemctl reload /
+EOF
+
         setup_testsuite
     ) || return 1
 
