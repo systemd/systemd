@@ -1046,13 +1046,30 @@ int manager_new(Manager **ret) {
 }
 
 void manager_free(Manager *m) {
+        AddressPool *pool;
         Network *network;
         NetDev *netdev;
+        Iterator i;
         Link *link;
-        AddressPool *pool;
 
         if (!m)
                 return;
+
+        /* Drop addresses and routes when networkd shuts down .*/
+        HASHMAP_FOREACH(link, m->links, i) {
+                if (!(link->flags & IFF_LOOPBACK)) {
+                        if (link->network && link->network->flush_config) {
+
+                                (void) network_drop_static_config(link, link->network);
+
+                                /* Don't drop DHCP critical */
+                                if (!link->network->dhcp_critical)
+                                        (void) link_drop_foreign_config(link);
+
+                                (void) link_drop_config(link);
+                        }
+                }
+        }
 
         free(m->state_file);
 

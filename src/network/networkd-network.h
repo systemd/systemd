@@ -148,6 +148,8 @@ struct Network {
         AddressFamilyBoolean ip_forward;
         bool ip_masquerade;
 
+        bool flush_config;
+
         int ipv6_accept_ra;
         int ipv6_dad_transmits;
         int ipv6_hop_limit;
@@ -192,6 +194,8 @@ int network_load(Manager *manager);
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, struct udev_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);
 int network_apply(Manager *manager, Network *network, Link *link);
+
+int network_drop_static_config(Link *link, Network *network);
 
 bool network_has_static_ipv6_addresses(Network *network);
 

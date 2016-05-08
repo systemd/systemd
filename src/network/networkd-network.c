@@ -209,6 +209,35 @@ int network_load(Manager *manager) {
         return 0;
 }
 
+int network_drop_static_config(Link *link, Network *network) {
+        Address *address;
+        Route *route;
+        int r;
+
+        assert(link);
+        assert(network);
+
+        LIST_FOREACH(addresses, address, link->network->static_addresses) {
+                if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
+                        continue;
+
+                r = address_remove(address, link, link_address_remove_handler);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(routes, route, link->network->static_routes) {
+                if (route->protocol == RTPROT_KERNEL)
+                        continue;
+
+                r = route_remove(route, link, link_address_remove_handler);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 void network_free(Network *network) {
         NetDev *netdev;
         Route *route;

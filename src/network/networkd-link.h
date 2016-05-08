@@ -133,6 +133,9 @@ int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
 void link_drop(Link *link);
 
+int link_drop_foreign_config(Link *link);
+int link_drop_config(Link *link);
+
 int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 

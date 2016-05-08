@@ -570,6 +570,13 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>FlushConfig=</varname></term>
+          <listitem><para>A boolean. When true it drops all DHCP, static addresses and routes when
+          networkd shuts down. Note that it does not drop the DHCP configuration when
+          <varname>CriticalConnection</varname> is true. Defaults to false.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to.</para>
