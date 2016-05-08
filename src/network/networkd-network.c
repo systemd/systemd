@@ -166,7 +166,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                 return r;
 
         LIST_FOREACH(routes, route, network->static_routes) {
-                if (!route->family) {
+                if (!IN_SET(route->family, AF_INET, AF_INET6, AF_UNSPEC)) {
                         log_warning("Route section without Gateway field configured in %s. "
                                     "Ignoring", filename);
                         return 0;

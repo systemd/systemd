@@ -727,6 +727,13 @@
           </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>OnDevice=</varname></term>
+          <listitem>
+            <para>A boolean. Specifies whether the route shall be bound to this
+            device or be bound to no specific device. Defaults to <literal>yes</literal>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

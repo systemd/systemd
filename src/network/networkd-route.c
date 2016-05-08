@@ -40,6 +40,7 @@ int route_new(Route **ret) {
         route->protocol = RTPROT_UNSPEC;
         route->table = RT_TABLE_DEFAULT;
         route->lifetime = USEC_INFINITY;
+        route->on_dev = true;
 
         *ret = route;
         route = NULL;
@@ -460,6 +461,10 @@ int route_configure(Route *route, Link *link,
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
+
+        if (route->family == AF_UNSPEC)
+                route->family = AF_INET;
+
         assert(route->family == AF_INET || route->family == AF_INET6);
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
@@ -858,6 +863,44 @@ int config_parse_route_table(const char *unit,
         }
 
         n->table = k;
+
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_route_device(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
+        _cleanup_route_free_ Route *n = NULL;
+        Network *network = userdata;
+        bool k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = config_parse_bool(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "OnDevice= expects a boolean. Cannot parse \"%s\", ignoring", rvalue);
+                return 0;
+        }
+
+        n->on_dev = k;
 
         n = NULL;
 

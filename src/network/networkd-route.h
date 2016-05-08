@@ -40,6 +40,8 @@ struct Route {
         unsigned char pref;
         unsigned flags;
 
+        bool on_dev;
+
         union in_addr_union gw;
         union in_addr_union dst;
         union in_addr_union src;
@@ -73,3 +75,4 @@ int config_parse_destination(const char *unit, const char *filename, unsigned li
 int config_parse_route_priority(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_route_scope(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_route_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_route_device(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
