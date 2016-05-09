@@ -3407,7 +3407,7 @@ int main(int argc, char *argv[]) {
         int ret = EXIT_SUCCESS;
         union in_addr_union exposed = {};
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
-        bool interactive;
+        bool interactive, veth_created = false;
 
         log_parse_environment();
         log_open();
@@ -3889,6 +3889,12 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
+                        /* We created the primary and extra veth links now; let's remember this, so that we know to
+                           remove them later on. Note that we don't bother with removing veth links that were created
+                           here when their setup failed half-way, because in that case the kernel should be able to
+                           remove them on its own, since they cannot be referenced by anything yet. */
+                        veth_created = true;
+
                         r = setup_macvlan(arg_machine, pid, arg_network_macvlan);
                         if (r < 0)
                                 goto finish;
@@ -4051,7 +4057,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 expose_port_flush(arg_expose_ports, &exposed);
+
                 (void) remove_veth_links(veth_name, arg_network_veth_extra);
+                veth_created = false;
         }
 
 finish:
@@ -4084,7 +4092,9 @@ finish:
         }
 
         expose_port_flush(arg_expose_ports, &exposed);
-        (void) remove_veth_links(veth_name, arg_network_veth_extra);
+
+        if (veth_created)
+                (void) remove_veth_links(veth_name, arg_network_veth_extra);
         (void) remove_bridge(arg_network_zone);
 
         free(arg_directory);
