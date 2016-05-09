@@ -156,7 +156,7 @@ _systemctl_restartable_units(){
                                { while read -r a b; do echo -E - " $a"; done; } )) )
 }
 
-_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --failed)"}%% *} ) }
+_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed)"}%% *} ) }
 _systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files) ) }
 
 local fun
@@ -364,7 +364,6 @@ _arguments -s \
     '--reverse[Show reverse dependencies]' \
     '--after[Show units ordered after]' \
     '--before[Show units ordered before]' \
-    '--failed[Show only failed units]' \
     {-l,--full}"[Don't ellipsize unit names on output]" \
     '--show-types[When showing sockets, show socket type]' \
     {-i,--ignore-inhibitors}'[When executing a job, ignore jobs dependencies]' \
