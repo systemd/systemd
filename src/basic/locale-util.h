@@ -67,7 +67,7 @@ typedef enum {
         _SPECIAL_GLYPH_MAX
 } SpecialGlyph;
 
-const char *special_glyph(SpecialGlyph code);
+const char *special_glyph(SpecialGlyph code) _const_;
 
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;

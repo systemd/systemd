@@ -273,7 +273,7 @@ out:
 
 const char *special_glyph(SpecialGlyph code) {
 
-        static const char *draw_table[2][_SPECIAL_GLYPH_MAX] = {
+        static const char* const draw_table[2][_SPECIAL_GLYPH_MAX] = {
                 /* ASCII fallback */
                 [false] = {
                         [TREE_VERTICAL]      = "| ",
