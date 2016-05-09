@@ -26,7 +26,8 @@
 int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge);
 int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs);
 
-int setup_bridge(const char *veth_name, const char *bridge_name);
+int setup_bridge(const char *veth_name, const char *bridge_name, bool create);
+int remove_bridge(const char *bridge_name);
 
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces);
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces);

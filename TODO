@@ -125,7 +125,8 @@ Features:
 
 * implement a per-service firewall based on net_cls
 
-* Port various tools to make use of verbs.[ch], where applicable
+* Port various tools to make use of verbs.[ch], where applicable: busctl,
+  bootctl, coredumpctl, hostnamectl, localectl, systemd-analyze, timedatectl
 
 * hostnamectl: show root image uuid
 
@@ -286,8 +287,6 @@ Features:
 * libsystemd-journal, libsystemd-login, libudev: add calls to easily attach these objects to sd-event event loops
 
 * be more careful what we export on the bus as (usec_t) 0 and (usec_t) -1
-
-* unify dispatch table in systemctl_main() and friends
 
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 

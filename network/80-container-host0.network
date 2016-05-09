@@ -5,6 +5,10 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
+# This network file matches the container-side of the virtual Ethernet link
+# created by systemd-nspawn's --network-veth switch. See systemd-nspawn(1) for
+# details.
+
 [Match]
 Virtualization=container
 Name=host0
@@ -13,7 +17,7 @@ Name=host0
 DHCP=yes
 LinkLocalAddressing=yes
 LLDP=yes
-EmitLLDP=yes
+EmitLLDP=customer-bridge
 
 [DHCP]
 UseTimezone=yes

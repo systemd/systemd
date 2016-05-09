@@ -27,6 +27,29 @@
 #include "string-util.h"
 #include "util.h"
 
+static void test_ifname_valid(void) {
+        assert(ifname_valid("foo"));
+        assert(ifname_valid("eth0"));
+
+        assert(!ifname_valid("0"));
+        assert(!ifname_valid("99"));
+        assert(ifname_valid("a99"));
+        assert(ifname_valid("99a"));
+
+        assert(!ifname_valid(NULL));
+        assert(!ifname_valid(""));
+        assert(!ifname_valid(" "));
+        assert(!ifname_valid(" foo"));
+        assert(!ifname_valid("bar\n"));
+        assert(!ifname_valid("."));
+        assert(!ifname_valid(".."));
+        assert(ifname_valid("foo.bar"));
+        assert(!ifname_valid("x:y"));
+
+        assert(ifname_valid("xxxxxxxxxxxxxxx"));
+        assert(!ifname_valid("xxxxxxxxxxxxxxxx"));
+}
+
 static void test_socket_address_parse(void) {
         SocketAddress a;
 
@@ -361,6 +384,8 @@ static void test_sockaddr_un_len(void) {
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
+
+        test_ifname_valid();
 
         test_socket_address_parse();
         test_socket_address_parse_netlink();

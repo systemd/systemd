@@ -420,6 +420,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Zone=</varname></term>
+
+        <listitem><para>Takes a network zone name. This setting implies <varname>VirtualEthernet=yes</varname> and
+        <varname>Private=yes</varname> and has the effect that the host side of the created virtual Ethernet link is
+        connected to an automatically managed bridge interface named after the passed argument, prefixed with
+        <literal>vz-</literal>. This option corresponds to the <option>--network-zone=</option> command line
+        switch. This option is privileged (see above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Port=</varname></term>
 
         <listitem><para>Exposes a TCP or UDP port of the container on

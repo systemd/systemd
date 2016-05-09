@@ -29,6 +29,7 @@
 
 #include "networkd-address.h"
 #include "networkd-fdb.h"
+#include "networkd-lldp-tx.h"
 #include "networkd-netdev.h"
 #include "networkd-route.h"
 #include "networkd-util.h"
@@ -161,7 +162,7 @@ struct Network {
         DUID duid;
 
         LLDPMode lldp_mode; /* LLDP reception */
-        bool lldp_emit;     /* LLDP transmission */
+        LLDPEmit lldp_emit; /* LLDP transmission */
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);

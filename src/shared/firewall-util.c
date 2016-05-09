@@ -44,6 +44,7 @@
 #include "firewall-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
+#include "socket-util.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct xtc_handle*, iptc_free);
 
@@ -59,10 +60,9 @@ static int entry_fill_basics(
 
         assert(entry);
 
-        if (out_interface && strlen(out_interface) >= IFNAMSIZ)
+        if (out_interface && !ifname_valid(out_interface))
                 return -EINVAL;
-
-        if (in_interface && strlen(in_interface) >= IFNAMSIZ)
+        if (in_interface && !ifname_valid(in_interface))
                 return -EINVAL;
 
         entry->ip.proto = protocol;

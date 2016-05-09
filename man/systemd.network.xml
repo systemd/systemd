@@ -363,18 +363,26 @@
         <varlistentry>
           <term><varname>EmitLLDP=</varname></term>
           <listitem>
-            <para>Controls support for Ethernet LLDP packet emission. Accepts a boolean parameter and defaults to
-            false. If enabled a short LLDP packet with information about the local system is sent out in regular
-            intervals on the link. The LLDP packet will contain information about the local host name, the local
-            machine ID (as stored in
-            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) and the
+            <para>Controls support for Ethernet LLDP packet emission. Accepts a boolean parameter or the special values
+            <literal>nearest-bridge</literal>, <literal>non-tpmr-bridge</literal> and
+            <literal>customer-bridge</literal>.  Defaults to false, which turns off LLDP packet emission. If not false,
+            a short LLDP packet with information about the local system is sent out in regular intervals on the
+            link. The LLDP packet will contain information about the local host name, the local machine ID (as stored
+            in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) and the
             local interface name, as well as the pretty hostname of the system (as set in
             <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>). LLDP
-            emission is only available on Ethernet links. Note that this setting passed data suitable for
-            identification of host to the network and should thus not be used on untrusted networks, where such
-            identification data should not be made available. Use this option to enable other systems to identify on
-            which interface they are connected to this system. See <varname>LLDP=</varname> above for an option to
-            enable LLDP reception.</para>
+            emission is only available on Ethernet links. Note that this setting passes data suitable for
+            identification of host to the network and should thus not be enabled on untrusted networks, where such
+            identification data should not be made available. Use this option to permit other systems to identify on
+            which interfaces they are connected to this system. The three special values control propagation of the
+            LLDP packets. The <literal>nearest-bridge</literal> setting permits propagation only to the nearest
+            connected bridge, <literal>non-tpmr-bridge</literal> permits propagation across Two-Port MAC Relays, but
+            not any other bridges, and <literal>customer-bridge</literal> permits propagation until a customer bridge
+            is reached. For details about these concepts, see <ulink
+            url="http://standards.ieee.org/getieee802/download/802.1AB-2009.pdf">IEEE 802.1AB-2009</ulink>. Note that
+            configuring this setting to true is equivalent to <literal>nearest-bridge</literal>, the recommended and
+            most restricted level of propagation. See <varname>LLDP=</varname> above for an option to enable LLDP
+            reception.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

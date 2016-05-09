@@ -24,10 +24,11 @@
 #include "nspawn-settings.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"
-#include "string-util.h"
 
 int settings_load(FILE *f, const char *path, Settings **ret) {
         _cleanup_(settings_freep) Settings *s = NULL;
@@ -96,6 +97,7 @@ Settings* settings_free(Settings *s) {
         strv_free(s->network_ipvlan);
         strv_free(s->network_veth_extra);
         free(s->network_bridge);
+        free(s->network_zone);
         expose_port_free_all(s->expose_ports);
 
         custom_mount_free_all(s->custom_mounts, s->n_custom_mounts);
@@ -111,6 +113,7 @@ bool settings_private_network(Settings *s) {
                 s->private_network > 0 ||
                 s->network_veth > 0 ||
                 s->network_bridge ||
+                s->network_zone ||
                 s->network_interfaces ||
                 s->network_macvlan ||
                 s->network_ipvlan ||
@@ -122,7 +125,8 @@ bool settings_network_veth(Settings *s) {
 
         return
                 s->network_veth > 0 ||
-                s->network_bridge;
+                s->network_bridge ||
+                s->network_zone;
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
@@ -315,6 +319,38 @@ int config_parse_veth_extra(
                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid extra virtual Ethernet link specification %s: %m", rvalue);
                 return 0;
         }
+
+        return 0;
+}
+
+int config_parse_network_zone(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        _cleanup_free_ char *j = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        j = strappend("vz-", rvalue);
+        if (!ifname_valid(j)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name %s, ignoring: %m", rvalue);
+                return 0;
+        }
+
+        free(settings->network_zone);
+        settings->network_zone = j;
+        j = NULL;
 
         return 0;
 }

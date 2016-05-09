@@ -32,6 +32,7 @@
 #include "network-internal.h"
 #include "parse-util.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -175,54 +176,17 @@ int config_parse_net_condition(const char *unit,
         return 0;
 }
 
-int config_parse_ifname(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        unsigned section_line,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
-
-        char **s = data;
-        _cleanup_free_ char *n = NULL;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        n = strdup(rvalue);
-        if (!n)
-                return log_oom();
-
-        if (!ascii_is_valid(n) || strlen(n) >= IFNAMSIZ) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        free(*s);
-        if (*n) {
-                *s = n;
-                n = NULL;
-        } else
-                *s = NULL;
-
-        return 0;
-}
-
-int config_parse_ifnames(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        unsigned section_line,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
+int config_parse_ifnames(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         char ***sv = data;
         int r;
@@ -236,13 +200,15 @@ int config_parse_ifnames(const char *unit,
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse interface name list: %s", rvalue);
+                        return 0;
+                }
                 if (r == 0)
                         break;
 
-                if (!ascii_is_valid(word) || strlen(word) >= IFNAMSIZ) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                if (!ifname_valid(word)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
                         return 0;
                 }
 

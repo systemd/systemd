@@ -524,15 +524,23 @@
         <term><option>-n</option></term>
         <term><option>--network-veth</option></term>
 
-        <listitem><para>Create a virtual Ethernet link
-        (<literal>veth</literal>) between host and container. The host
-        side of the Ethernet link will be available as a network
-        interface named after the container's name (as specified with
-        <option>--machine=</option>), prefixed with
-        <literal>ve-</literal>. The container side of the Ethernet
-        link will be named <literal>host0</literal>. Note that
-        <option>--network-veth</option> implies
-        <option>--private-network</option>.</para></listitem>
+        <listitem><para>Create a virtual Ethernet link (<literal>veth</literal>) between host and container. The host
+        side of the Ethernet link will be available as a network interface named after the container's name (as
+        specified with <option>--machine=</option>), prefixed with <literal>ve-</literal>. The container side of the
+        Ethernet link will be named <literal>host0</literal>. The <option>--network-veth</option> option implies
+        <option>--private-network</option>.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        includes by default a network file <filename>/usr/lib/systemd/network/80-container-ve.network</filename>
+        matching the host-side interfaces created this way, which contains settings to enable automatic address
+        provisioning on the created virtual link via DHCP, as well as automatic IP routing onto the host's external
+        network interfaces. It also contains <filename>/usr/lib/systemd/network/80-container-host0.network</filename>
+        matching the container-side interface created this way, containing settings to enable client side address
+        assignment via DHCP. In case <filename>systemd-networkd</filename> is running on both the host and inside the
+        container, automatic IP communication from the container to the host is thus available, with further
+        connectivity to the external network.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -553,13 +561,40 @@
       <varlistentry>
         <term><option>--network-bridge=</option></term>
 
-        <listitem><para>Adds the host side of the Ethernet link
-        created with <option>--network-veth</option> to the specified
-        bridge. Note that <option>--network-bridge=</option> implies
-        <option>--network-veth</option>. If this option is used, the
-        host side of the Ethernet link will use the
-        <literal>vb-</literal> prefix instead of
+        <listitem><para>Adds the host side of the Ethernet link created with <option>--network-veth</option> to the
+        specified Ethernet bridge interface. Expects a valid network interface name of a bridge device as
+        argument. Note that <option>--network-bridge=</option> implies <option>--network-veth</option>. If this option
+        is used, the host side of the Ethernet link will use the <literal>vb-</literal> prefix instead of
         <literal>ve-</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-zone=</option></term>
+
+        <listitem><para>Creates a virtual Ethernet link (<literal>veth</literal>) to the container and adds it to an
+        automatically managed Ethernet bridge interface. The bridge interface is named after the passed argument,
+        prefixed with <literal>vz-</literal>. The bridge interface is automatically created when the first container
+        configured for its name is started, and is automatically removed when the last container configured for its
+        name exits. Hence, each bridge interface configured this way exists only as long as there's at least one
+        container referencing it running. This option is very similar to <option>--network-bridge=</option>, besides
+        this automatic creation/removal of the bridge device.</para>
+
+        <para>This setting makes it easy to place multiple related containers on a common, virtual Ethernet-based
+        broadcast domain, here called a "zone". Each container may only be part of one zone, but each zone may contain
+        any number of containers. Each zone is referenced by its name. Names may be chosen freely (as long as they form
+        valid network interface names when prefixed with <literal>vz-</literal>), and it is sufficient to pass the same
+        name to the <option>--network-zones=</option> switch of the various concurrently running containers to join
+        them in one zone.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        includes by default a network file <filename>/usr/lib/systemd/network/80-container-vz.network</filename>
+        matching the bridge interfaces created this way, which contains settings to enable automatic address
+        provisioning on the created virtual network via DHCP, as well as automatic IP routing onto the host's external
+        network interfaces. Using <option>--network-zone=</option> is hence in most cases fully automatic and
+        sufficient to connect multiple local containers in a joined broadcast domain to the host, with further
+        connectivity to the external network.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -577,7 +612,7 @@
         port number and its colon may be omitted, in which case the
         same port as the host port is implied. This option is only
         supported if private networking is used, such as with
-        <option>--network-veth</option> or
+        <option>--network-veth</option>, <option>--network-zone=</option>
         <option>--network-bridge=</option>.</para></listitem>
       </varlistentry>
 
