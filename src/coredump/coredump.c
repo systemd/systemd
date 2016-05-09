@@ -739,15 +739,16 @@ static int process_socket(int fd) {
                         .msg_iovlen = 1,
                 };
                 ssize_t n;
-                int l;
+                ssize_t l;
 
                 if (!GREEDY_REALLOC(iovec, n_iovec_allocated, n_iovec + 3)) {
                         r = log_oom();
                         goto finish;
                 }
 
-                if (ioctl(fd, FIONREAD, &l) < 0) {
-                        r = log_error_errno(errno, "FIONREAD failed: %m");
+                l = next_datagram_size_fd(fd);
+                if (l < 0) {
+                        r = log_error_errno(l, "Failed to determine datagram size to read: %m");
                         goto finish;
                 }
 
