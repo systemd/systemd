@@ -200,8 +200,10 @@ int config_parse_ifnames(
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse interface name list: %s", rvalue);
+                        return 0;
+                }
                 if (r == 0)
                         break;
 
