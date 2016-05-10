@@ -160,7 +160,7 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
                 _cleanup_free_ char *p = NULL;
                 unsigned u;
 
-                r = ask_string(&p, "%s %s (empty to skip): ", draw_special_char(DRAW_TRIANGULAR_BULLET), text);
+                r = ask_string(&p, "%s %s (empty to skip): ", special_glyph(TRIANGULAR_BULLET), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
@@ -371,7 +371,7 @@ static int prompt_hostname(void) {
         for (;;) {
                 _cleanup_free_ char *h = NULL;
 
-                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", draw_special_char(DRAW_TRIANGULAR_BULLET));
+                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(TRIANGULAR_BULLET));
                 if (r < 0)
                         return log_error_errno(r, "Failed to query hostname: %m");
 
@@ -456,8 +456,8 @@ static int prompt_root_password(void) {
         print_welcome();
         putchar('\n');
 
-        msg1 = strjoina(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip): ");
-        msg2 = strjoina(draw_special_char(DRAW_TRIANGULAR_BULLET), " Please enter new root password again: ");
+        msg1 = strjoina(special_glyph(TRIANGULAR_BULLET), " Please enter a new root password (empty to skip): ");
+        msg2 = strjoina(special_glyph(TRIANGULAR_BULLET), " Please enter new root password again: ");
 
         for (;;) {
                 _cleanup_string_free_erase_ char *a = NULL, *b = NULL;

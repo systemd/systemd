@@ -1072,7 +1072,7 @@ static int dump_processes(
                         }
 
                         more = i+1 < n || cg->children;
-                        special = draw_special_char(more ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT);
+                        special = special_glyph(more ? TREE_BRANCH : TREE_RIGHT);
 
                         fprintf(stdout, "%s%s%*"PID_PRI" %s\n",
                                 prefix,
@@ -1108,14 +1108,14 @@ static int dump_processes(
                         name++;
 
                         more = i+1 < n;
-                        special = draw_special_char(more ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT);
+                        special = special_glyph(more ? TREE_BRANCH : TREE_RIGHT);
 
                         fputs(prefix, stdout);
                         fputs(special, stdout);
                         fputs(name, stdout);
                         fputc('\n', stdout);
 
-                        special = draw_special_char(more ? DRAW_TREE_VERTICAL : DRAW_TREE_SPACE);
+                        special = special_glyph(more ? TREE_VERTICAL : TREE_SPACE);
 
                         pp = strappend(prefix, special);
                         if (!pp)
@@ -1199,7 +1199,7 @@ static int dump_extra_processes(
 
                 fprintf(stdout, "%s%s %*" PID_PRI " %s\n",
                         prefix,
-                        draw_special_char(DRAW_TRIANGULAR_BULLET),
+                        special_glyph(TRIANGULAR_BULLET),
                         width, pids[k],
                         name);
         }

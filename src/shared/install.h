@@ -73,6 +73,7 @@ enum UnitFileChangeType {
         UNIT_FILE_SYMLINK,
         UNIT_FILE_UNLINK,
         UNIT_FILE_IS_MASKED,
+        UNIT_FILE_IS_DANGLING,
         _UNIT_FILE_CHANGE_TYPE_MAX,
         _UNIT_FILE_CHANGE_INVALID = INT_MIN
 };

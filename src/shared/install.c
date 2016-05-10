@@ -40,6 +40,7 @@
 #include "hashmap.h"
 #include "install-printf.h"
 #include "install.h"
+#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
@@ -115,6 +116,14 @@ bool unit_type_may_template(UnitType type) {
                       UNIT_TIMER,
                       UNIT_PATH);
 }
+
+static const char *unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
+        [UNIT_FILE_TYPE_REGULAR] = "regular",
+        [UNIT_FILE_TYPE_SYMLINK] = "symlink",
+        [UNIT_FILE_TYPE_MASKED] = "masked",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(unit_file_type, UnitFileType);
 
 static int in_search_path(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
@@ -328,7 +337,10 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 switch(changes[i].type) {
                 case UNIT_FILE_SYMLINK:
                         if (!quiet)
-                                log_info("Created symlink %s, pointing to %s.", changes[i].path, changes[i].source);
+                                log_info("Created symlink %s %s %s.",
+                                         changes[i].path,
+                                         special_glyph(ARROW),
+                                         changes[i].source);
                         break;
                 case UNIT_FILE_UNLINK:
                         if (!quiet)
@@ -337,6 +349,11 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 case UNIT_FILE_IS_MASKED:
                         if (!quiet)
                                 log_info("Unit %s is masked, ignoring.", changes[i].path);
+                        break;
+                case UNIT_FILE_IS_DANGLING:
+                        if (!quiet)
+                                log_info("Unit %s is an alias to a unit that is not present, ignoring.",
+                                         changes[i].path);
                         break;
                 case -EEXIST:
                         if (changes[i].source)
@@ -376,8 +393,6 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 log_error_errno(r, "Failed to %s: %m.", verb);
 }
 
-
-
 static int create_symlink(
                 const char *old_path,
                 const char *new_path,
@@ -393,7 +408,11 @@ static int create_symlink(
 
         /* Actually create a symlink, and remember that we did. Is
          * smart enough to check if there's already a valid symlink in
-         * place. */
+         * place.
+         *
+         * Returns 1 if a symlink was created or already exists and points to
+         * the right place, or negative on error.
+         */
 
         mkdir_parents_label(new_path, 0755);
 
@@ -418,7 +437,7 @@ static int create_symlink(
         }
 
         if (path_equal(dest, old_path))
-                return 0;
+                return 1;
 
         if (!force) {
                 unit_file_changes_add(changes, n_changes, -EEXIST, new_path, dest);
@@ -1223,6 +1242,7 @@ static int unit_file_search(
                 const LookupPaths *paths,
                 SearchFlags flags) {
 
+        _cleanup_free_ char *template = NULL;
         char **p;
         int r;
 
@@ -1247,23 +1267,18 @@ static int unit_file_search(
                         return -ENOMEM;
 
                 r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return r;
-                } else {
+                if (r >= 0) {
                         info->path = path;
                         path = NULL;
                         return r;
-                }
+                } else if (r != -ENOENT)
+                        return r;
         }
 
         if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
-
                 /* Unit file doesn't exist, however instance
                  * enablement was requested.  We will check if it is
                  * possible to load template unit file. */
-
-                _cleanup_free_ char *template = NULL;
 
                 r = unit_name_template(info->name, &template);
                 if (r < 0)
@@ -1277,17 +1292,16 @@ static int unit_file_search(
                                 return -ENOMEM;
 
                         r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
-                        if (r < 0) {
-                                if (r != -ENOENT)
-                                        return r;
-                        } else {
+                        if (r >= 0) {
                                 info->path = path;
                                 path = NULL;
                                 return r;
-                        }
+                        } else if (r != -ENOENT)
+                                return r;
                 }
         }
 
+        log_debug("Cannot find unit %s%s%s.", info->name, template ? " or " : "", strempty(template));
         return -ENOENT;
 }
 
@@ -1319,6 +1333,11 @@ static int install_info_follow(
         return unit_file_load_or_readlink(c, i, i->path, root_dir, flags);
 }
 
+/**
+ * Search for the unit file. If the unit name is a symlink,
+ * follow the symlink to the target, maybe more than once.
+ * Propagate the instance name if present.
+ */
 static int install_info_traverse(
                 UnitFileScope scope,
                 InstallContext *c,
@@ -1355,12 +1374,9 @@ static int install_info_traverse(
                 }
 
                 r = install_info_follow(c, i, paths->root_dir, flags);
-                if (r < 0) {
+                if (r == -EXDEV) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *bn;
-
-                        if (r != -EXDEV)
-                                return r;
 
                         /* Target has a different name, create a new
                          * install info object for that, and continue
@@ -1388,12 +1404,15 @@ static int install_info_traverse(
                         if (r < 0)
                                 return r;
 
+                        /* Try again, with the new target we found. */
                         r = unit_file_search(c, i, paths, flags);
-                        if (r < 0)
-                                return r;
+                        if (r == -ENOENT)
+                                /* Translate error code to highlight this specific case */
+                                return -ENOLINK;
                 }
 
-                /* Try again, with the new target we found. */
+                if (r < 0)
+                        return r;
         }
 
         if (ret)
@@ -1689,11 +1708,17 @@ static int install_context_mark_for_removal(
                         return r;
 
                 r = install_info_traverse(scope, c, paths, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        return 0;
+                else if (r < 0)
                         return r;
 
-                if (i->type != UNIT_FILE_TYPE_REGULAR)
+                if (i->type != UNIT_FILE_TYPE_REGULAR) {
+                        log_debug("Unit %s has type %s, ignoring.",
+                                  i->name,
+                                  unit_file_type_to_string(i->type) ?: "invalid");
                         continue;
+                }
 
                 r = mark_symlink_for_removal(remove_symlinks_to, i->name);
                 if (r < 0)
@@ -2788,6 +2813,9 @@ int unit_file_preset_all(
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);
+                        else if (r == -ENOLINK)
+                                r = unit_file_changes_add(changes, n_changes,
+                                                          UNIT_FILE_IS_DANGLING, de->d_name, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2911,6 +2939,7 @@ static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX]
         [UNIT_FILE_SYMLINK] = "symlink",
         [UNIT_FILE_UNLINK] = "unlink",
         [UNIT_FILE_IS_MASKED] = "masked",
+        [UNIT_FILE_IS_DANGLING] = "dangling",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);
