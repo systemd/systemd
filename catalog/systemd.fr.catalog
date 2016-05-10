@@ -38,6 +38,25 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Le processus du journal système a été arrêté et tous ses fichiers actifs
 ont été fermés.
 
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Espace disque utilisé par le journal
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) utilise actuellement @CURRENT_USE_PRETTY@.
+Le maximum autorisé est défini à @MAX_USE_PRETTY@.
+Au moins @DISK_KEEP_FREE_PRETTY@ doivent être laissés libres
+(sur @DISK_AVAILABLE_PRETTY@ d'espace disque actuellement libre).
+La limite appliquée est donc @LIMIT_PRETTY@, dont @AVAILABLE_PRETTY@
+sont toujours disponibles.
+
+Les limites définissant la quantité d'espace disque que peut utiliser le
+journal peuvent être configurées avec les paramètres SystemMaxUse=,
+SystemKeepFree=, SystemMaxFileSize=, RuntimeMaxUse=, RuntimeKeepFree=,
+RuntimeMaxFileSize= dans le fichier /etc/systemd/journald.conf.
+Voir journald.conf(5) pour plus de détails.
+
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Des messages d'un service ont été supprimés
 Defined-By: systemd
@@ -98,7 +117,8 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
-Un nouveau poste (seat) @SEAT_ID@ a été configuré et est maintenant disponible.
+Un nouveau poste (seat) @SEAT_ID@ a été configuré et est maintenant
+disponible.
 
 -- e7852bfe46784ed0accde04bc864c2d5
 Subject: Le poste (seat) @SEAT_ID@ a été retiré
@@ -228,8 +248,8 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Un ou plusieurs messages n'ont pas pu être transmis au service syslog
 s'exécutant conjointement avec journald. Cela indique généralement que
-l'implémentation de syslog utilisée n'a pas été capable de suivre la cadence
-du flux de messages.
+l'implémentation de syslog utilisée n'a pas été capable de suivre
+la cadence du flux de messages.
 
 -- 1dee0369c7fc4736b7099b38ecb46ee7
 Subject: Le point de montage n'est pas vide
@@ -237,8 +257,8 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Le répertoire @WHERE@ est spécifié comme point de montage (second champ du
-fichier /etc/fstab, ou champ Where= dans une unité (unit) systemd) et n'est pas
-vide.
+fichier /etc/fstab, ou champ Where= dans une unité (unit) systemd) et n'est
+pas vide.
 Cela ne perturbe pas le montage du système de fichiers, mais les fichiers
 préalablement présents dans ce répertoire sont devenus inaccessibles.
 Pour atteindre ces fichiers, veuillez monter manuellement le système de
@@ -258,3 +278,43 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 La machine virtuelle @NAME@ avec le PID maître @LEADER@ a été arrêtée.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: Le mode DNSSEC a été désactivé, car il n'est pas supporté par le serveur
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+Le service de résolution (systemd-resolved.service) a détecté que le serveur
+DNS configuré ne supporte pas DNSSEC, et la validation DNSSEC a donc été
+désactivée.
+
+Cet évènement se produit si DNSSEC=allow-downgrade est configuré dans
+resolved.conf et que le serveur DNS configuré n'est pas compatible avec
+DNSSEC.
+Veuillez noter que ce mode permet des attaques de rétrogradation DNSSEC,
+car un attaquant peut être capable de désactiver la validation DNSSEC sur
+le système en injectant des réponses DNS dans le canal de communication.
+
+Cet évènement indique que le serveur DNS est effectivement incompatible avec
+DNSSEC, ou qu'un attaquant a peut-être conduit une telle attaque avec succès.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: La validation DNSSEC a échoué
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Une requête ou une ressource DNS n'a pas passé la validation DNSSEC.
+Ceci est généralement une indication que le canal de communication a été
+altéré.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: Une ancre de confiance DNSSEC a été révoquée
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Une ancre de confiance DNSSEC a été révoquée. Une nouvelle ancre de
+confiance doit être configurée, ou le système d'exploitation a besoin
+d'être mis à jour, pour fournir une version à jour de l'ancre de confiance.
