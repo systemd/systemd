@@ -852,6 +852,23 @@ void session_set_idle_hint(Session *s, bool b) {
         manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 }
 
+int session_get_locked_hint(Session *s) {
+        assert(s);
+
+        return s->locked_hint;
+}
+
+void session_set_locked_hint(Session *s, bool b) {
+        assert(s);
+
+        if (s->locked_hint == b)
+                return;
+
+        s->locked_hint = b;
+
+        session_send_changed(s, "LockedHint", NULL);
+}
+
 static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         Session *s = userdata;
 
