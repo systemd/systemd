@@ -467,6 +467,7 @@ dist_systemunit_DATA = \
 	units/local-fs-pre.target \
 	units/initrd.target \
 	units/initrd-fs.target \
+	units/initrd-root-device.target \
 	units/initrd-root-fs.target \
 	units/remote-fs.target \
 	units/remote-fs-pre.target \

@@ -956,6 +956,12 @@ static int add_root_mount(void) {
          * wait for a root device to show up. A udev rule will create
          * the link for us under the right name. */
 
+        if (in_initrd()) {
+                r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
+                if (r < 0)
+                        return 0;
+        }
+
         return add_mount(
                         "root",
                         "/dev/gpt-auto-root",

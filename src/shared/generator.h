@@ -34,3 +34,7 @@ int generator_write_timeouts(
         const char *where,
         const char *opts,
         char **filtered);
+
+int generator_write_initrd_root_device_deps(
+        const char *dir,
+        const char *what);
