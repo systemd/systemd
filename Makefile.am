@@ -4350,6 +4350,7 @@ dist_pkgsysconf_DATA += \
 	src/journal/journald.conf
 
 dist_catalog_DATA = \
+	catalog/systemd.bg.catalog \
 	catalog/systemd.be.catalog \
 	catalog/systemd.be@latin.catalog \
 	catalog/systemd.fr.catalog \

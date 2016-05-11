@@ -1,0 +1,324 @@
+#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#  Copyright 2016 Alexander Shopov <ash@kambanaria.org>
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# Message catalog for systemd's own messages
+
+# The catalog format is documented on
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# For an explanation why we do all this, see https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: Журналният процес е пуснат
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Журналният процес на системата е стартирал, отворил е журналните файлове
+за запис и може да приема заявки.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: Журналният процес е спрян
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Журналният процес на системата е спрян, затворени са всички отворени
+журнални файлове.
+
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Пространството върху диска заето от журналните файлове
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) в момента заема @CURRENT_USE_PRETTY@.
+Максималният зададен размер е @MAX_USE_PRETTY@.
+Свободни се оставят поне @DISK_KEEP_FREE_PRETTY@ (от текущо наличните @DISK_AVAILABLE_PRETTY@).
+Максималният наложен размер е @LIMIT_PRETTY@, от който @AVAILABLE_PRETTY@ са свободни.
+
+Настройките за максималния размер на журнала върху диска се
+управляват чрез директивите „SystemMaxUse=“, „SystemKeepFree=“,
+„SystemMaxFileSize=“, „RuntimeMaxUse=“, „RuntimeKeepFree=“ и
+„RuntimeMaxFileSize=“ във файла „/etc/systemd/journald.conf“.
+За повече информация прегледайте „journald.conf(5)“ от ръководството.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Съобщенията от някоя услуга не са допуснати
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:journald.conf(5)
+
+Някоя услуга генерира прекалено много съобщения за кратък период.
+Част само от нейните съобщения са отхвърляни.
+
+Съобщенията от другите услуги не са засегнати.
+
+Настройките за максималния брой съобщения, които ще се обработят, се
+управляват чрез директивите „RateLimitInterval=“ и „RateLimitBurst=“ във
+файла „/etc/systemd/journald.conf“. За повече информация прегледайте
+„journald.conf(5)“ от ръководството.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Пропуснати журнални съобщения
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Някои от съобщенията на ядрото може и да са пропуснати, защото системата не
+смогваше да ги обработи достатъчно бързо.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Процес № @COREDUMP_PID@ (@COREDUMP_COMM@) запази освободената памет
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+
+Процес № @COREDUMP_PID@ (@COREDUMP_COMM@) заби, представянето му в паметта
+бе запазено.
+
+Най-често това се дължи на грешка в забилата програма и следва да я
+докладвате на създателите на програмата.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: Създадена е нова сесия № @SESSION_ID@ за потребителя „@USER_ID@“
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+За потребителя „@USER_ID@“ е създадена нова сесия № @SESSION_ID@.
+
+Водещият процес на сесията е: @LEADER@
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: Сесия № @SESSION_ID@ приключи
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Сесия № @SESSION_ID@ приключи работа.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: Налично е ново работно място № @SEAT_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Новото работно място № @SEAT_ID@ е настроено и готово за работа.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: Работното място № @SEAT_ID@ е премахнато
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+
+Работното място № @SEAT_ID@ вече не е налично.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Смяна на системното време
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Часовникът на системата е сверен да сочи @REALTIME@ микросекунди след
+1 януари 1970.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Смяна на часовия пояс да е „@TIMEZONE@“
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Часовият пояс на системата е сменен на „@TIMEZONE@“.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: Стартирането на системата завърши
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Успешно са стартирали всички услуги, които са посочени за задействане при
+стартиране на системата. Това не означава, че системата бездейства, защото
+някои от услугите може да извършват специфични действия при стартиране.
+
+Стартирането на ядрото отне @KERNEL_USEC@ микросекунди.
+
+Стартирането на RAM диска за първоначално зареждане отне @INITRD_USEC@
+микросекунди.
+
+Стартирането на потребителските програми отне @USERSPACE_USEC@ микросекунди.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: Системата е приспана на ниво „@SLEEP@“
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Системата премина в състояние на приспиване „@SLEEP@“.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: Системата се събуди след приспиване на ниво„@SLEEP@“
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Системата се събуди от състояние на приспиване „@SLEEP@“.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: Започна процедура на спиране на системата
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Започна процедурата на Systemd за спиране на системата. Всички процеси и
+услуги се спират, всички файлови системи се демонтират.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: Модул „@UNIT@“ се стартира
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Модулът „@UNIT@“ се стартира в момента
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: Модул „@UNIT@“ вече е стартиран
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Стартирането на модул „@UNIT@“ завърши.
+
+Резултатът е: @RESULT@
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: Модул „@UNIT@“ се спира
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Модулът „@UNIT@“ се спира в момента.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: Модул „@UNIT@“ вече е спрян
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Спирането на модул „@UNIT@“ завърши.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: Модулът „@UNIT@“ не успя да стартира
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Модулът „@UNIT@“ не успя да стартира.
+
+Резултатът е: @RESULT@
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: Модулът „@UNIT@“ започна презареждане на настройките си
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Модулът „@UNIT@“ започна презареждане на настройките си.
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: Модулът „@UNIT@“ завърши презареждането на настройките си
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Модулът „@UNIT@“ завърши презареждането на настройките си.
+
+Резултатът e: @RESULT@
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: Програмата „@EXECUTABLE@“ не успя да се стартира
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Програмата „@EXECUTABLE@“ не успя да се стартира.
+
+Върнатият номер на грешка е: @ERRNO@
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: Поне едно съобщение не бе препратено към syslog
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Поне едно съобщение не бе препратено към журналната услуга syslog, която
+работи успоредно с journald.
+
+Най-често това указва, че тази реализация на syslog не може да поеме текущия
+обем съобщения.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: Точката за монтиране не е празна
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Директорията „@WHERE@“ не е празна.
+
+Тя е указана като точка за монтиране — или като второ поле във файла
+„/etc/fstab“, или чрез директивата „Where=“ в някой от файловете за
+модул на Systemd.
+
+Това не пречи на самото монтиране, но вече съществуващите там файлове и
+директории няма да се виждат повече, освен ако ръчно не монтирате тази
+непразна директория някъде другаде.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: Стартирана е виртуална машина или контейнер
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Виртуалната машина „@NAME@“ с идентификатор на водещия процес @LEADER@
+е стартирана и готова за работа.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: Спряна е виртуална машина или контейнер
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+Виртуалната машина „@NAME@“ с идентификатор на водещия процес @LEADER@
+е спряна.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: Режимът DNSSEC е изключен, защото сървърът не го поддържа
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+Локалната услуга за имена (systemd-resolved.service) установи, че
+настроения сървър за DNS не поддържа DNSSEC, затова този режим е изключен.
+
+Това се случва, когато директивата „DNSSEC=allow-downgrade“ е включена във
+файла „resolved.conf“ и зададеният сървър за DNS не е съвместим с DNSSEC.
+
+Внимавайте, защото това може да позволи атака, при която трета страна ви
+връща отговори, които да предизвикат понижаването на сигурността от DNSSEC
+до DNS.
+
+Такова събитие означава, че или сървърът за DNS не е съвместим с DNSSEC,
+или някой успешно ви е атакувал за понижаване на сигурността на имената.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: Неуспешна проверка на DNSSEC
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Заявка или запис в DNS не издържа проверка с DNSSEC.
+
+Това обикновено показва вмешателство на трета страна в канала ви за връзка.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: Анулирана доверена котва в DNSSEC
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Анулирана е доверена котва за DNSSEC и трябва да настроите нова.
+
+Понякога новата идва с обновяване на системата.
