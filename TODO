@@ -33,6 +33,22 @@ Janitorial Clean-ups:
 
 Features:
 
+* make sure bash completion uses journalctl --fields to get fields list
+
+* use phyical_memory() to allow MemoryLimit= configuration based on available system memory
+
+* ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
+
+* ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc
+
+* ProtectMount= (drop mount/umount/pivot_root from seccomp, disallow fuse via DeviceAllow, imply Mountflags=slave)
+
+* ProtectDevices= should also take iopl/ioperm/pciaccess away
+
+* ProtectKeyRing= to take keyring calls away
+
+* RestrictNamespaces= or so in services (taking away the ability to create namespaces, with setns, unshare, clone)
+
 * IAID field must move from [Link] to [DHCP] section in .network files
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
