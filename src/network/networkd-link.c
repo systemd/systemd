@@ -686,6 +686,9 @@ void link_check_ready(Link *link) {
 
         assert(link);
 
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return;
+
         if (!link->network)
                 return;
 
