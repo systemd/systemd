@@ -350,7 +350,7 @@ int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
 
         if (create) {
                 /* We take a system-wide lock here, so that we can safely check whether there's still a member in the
-                 * bridge before removing it, without risking interferance from other nspawn instances. */
+                 * bridge before removing it, without risking interference from other nspawn instances. */
 
                 r = make_lock_file("/run/systemd/nspawn-network-zone", LOCK_EX, &bridge_lock);
                 if (r < 0)

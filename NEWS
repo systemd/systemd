@@ -851,7 +851,7 @@ CHANGES WITH 227:
           files controlled by the number of files that shall remain,
           in addition to the already existing control by size and by
           date. This is useful as journal interleaving performance
-          degrades with too many seperate journal files, and allows
+          degrades with too many separate journal files, and allows
           putting an effective limit on them. The new setting defaults
           to 100, but this may be changed by setting SystemMaxFiles=
           and RuntimeMaxFiles= in journald.conf. Also, the
