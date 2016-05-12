@@ -169,8 +169,17 @@ int generator_write_timeouts(
 
         r = fstab_filter_options(opts, "comment=systemd.device-timeout\0" "x-systemd.device-timeout\0",
                                  NULL, &timeout, filtered);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+        if (r == 0) {
+                bool nofail = fstab_test_yes_no_option(opts, "nofail\0" "fail\0");
+
+                if (!nofail)
+                        return 0;
+                timeout = strdup("1us");
+                if (!timeout)
+                        return log_oom();
+        }
 
         r = parse_sec(timeout, &u);
         if (r < 0) {

@@ -296,8 +296,11 @@ static int add_mount(
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                 source);
 
-        if (!noauto && !nofail && !automount)
-                fprintf(f, "Before=%s\n", post);
+        /* This ordering dependency is only used to make sure the
+         * mount unit will be stopped *after* the 'post' target
+         * becomes inactive during shutdown. We want that in all
+         * cases. */
+        fprintf(f, "Before=%s\n", post);
 
         if (!automount && opts) {
                  r = write_requires_after(f, opts);
