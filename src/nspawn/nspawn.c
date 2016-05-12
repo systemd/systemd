@@ -1713,7 +1713,6 @@ static int setup_seccomp(void) {
                 }
         }
 
-
         /*
            Audit is broken in containers, much of the userspace audit
            hookup will fail if running inside a container. We don't
