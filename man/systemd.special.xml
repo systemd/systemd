@@ -83,6 +83,7 @@
     <filename>remote-fs.target</filename>,
     <filename>remote-fs-pre.target</filename>,
     <filename>rescue.target</filename>,
+    <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
     <filename>rpcbind.target</filename>,
     <filename>runlevel2.target</filename>,
@@ -462,6 +463,18 @@
           <para>Use the <literal>systemd.unit=rescue.target</literal> kernel command line option to boot into this
           mode. A short alias for this kernel command line option is <literal>1</literal>, for compatibility with
           SysV.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>initrd-root-device.target</filename></term>
+        <listitem>
+          <para>A special initrd target unit that is reached when the root filesystem device is available, but before
+          it has been mounted.
+          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          and
+          <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          automatically setup the appropiate dependencies to make this happen.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>

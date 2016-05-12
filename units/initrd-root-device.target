@@ -6,12 +6,10 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Initrd Default Target
+Description=Initrd Root Device
 Documentation=man:systemd.special(7)
+ConditionPathExists=/etc/initrd-release
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
-ConditionPathExists=/etc/initrd-release
-Requires=basic.target
-Wants=initrd-root-fs.target initrd-root-device.target initrd-fs.target initrd-parse-etc.service
-After=initrd-root-fs.target initrd-root-device.target initrd-fs.target basic.target rescue.service rescue.target
-AllowIsolate=yes
+DefaultDependencies=no
+Conflicts=shutdown.target

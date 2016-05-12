@@ -179,6 +179,8 @@
     identical to the system manager bootup (see above) until it
     reaches <filename>basic.target</filename>. From there, systemd
     approaches the special target <filename>initrd.target</filename>.
+    When the root device becomes available,
+    <filename>initd-root-device.target</filename> is reached.
     If the root device can be mounted at
     <filename>/sysroot</filename>, the
     <filename>sysroot.mount</filename> unit becomes active and
@@ -204,7 +206,10 @@
                                                |                                 emergency.service
                         ______________________/|                                         |
                        /                       |                                         v
-                       |                  sysroot.mount                          <emphasis>emergency.target</emphasis>
+                       |            initrd-root-device.target                    <emphasis>emergency.target</emphasis>
+                       |                       |
+                       |                       v
+                       |                  sysroot.mount
                        |                       |
                        |                       v
                        |             initrd-root-fs.target
