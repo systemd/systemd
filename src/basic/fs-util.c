@@ -266,6 +266,39 @@ int readlink_and_make_absolute_root(const char *root, const char *path, char **r
         return 0;
 }
 
+int readdev_and_canonicalize(const ClassType class, const char *node, char **device) {
+        static const char *classes[] = { "/sys/class/tty/", "/sys/class/block/" };
+        static const char *linkdir[] = { "/dev/char/", "/dev/block/" };
+        _cleanup_free_ char *dev = NULL, *path = NULL;
+        int ret;
+
+        assert(device);
+        assert(IN_SET(class, CHAR_CLASS, BLOCK_CLASS));
+
+        path = strjoin(classes[class], node, "/dev", NULL);
+        if (!path)
+                return -ENOMEM;
+
+        ret = read_one_line_file(path, &dev);
+        if (ret < 0)
+                return ret;
+
+        free(path);
+        path = strjoin(linkdir[class], dev, NULL);
+        if (!path)
+                return -ENOMEM;
+
+        free(dev);
+        ret = readlink_and_canonicalize(path, &dev);
+        if (ret < 0)
+                return ret;
+
+        *device = dev;
+        dev = NULL;
+
+        return 0;
+}
+
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         assert(path);
 

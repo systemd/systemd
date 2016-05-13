@@ -50,6 +50,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "util.h"
@@ -706,6 +707,74 @@ char *resolve_dev_console(char **active) {
         }
 
         return tty;
+}
+
+int get_kernel_consoles(char ***consoles) {
+        _cleanup_strv_free_ char **con = NULL, **lines = NULL;
+        _cleanup_free_ char *contents = NULL;
+        char **active;
+        int count = 0;
+        int ret;
+
+        assert(consoles);
+
+        ret = read_full_file("/proc/consoles", &contents, NULL);
+        if (ret < 0)
+                return ret;
+
+        lines = strv_split_newlines(contents);
+        if (!lines)
+                return -ENOMEM;
+        contents = mfree(contents);
+
+        STRV_FOREACH(active, lines) {
+                _cleanup_free_ char *tty = NULL;
+                char *device, *path;
+
+                device = strrchr(*active, ')');
+                if (!device)
+                        continue;
+
+                device += strspn(device, ") \t");
+                if (!device)
+                        continue;
+
+                tty = strjoin("/dev/char/", device, NULL);
+                if (!tty)
+                        return -ENOMEM;
+
+                ret = readlink_and_canonicalize(tty, &path);
+                if (ret < 0) {
+                        if (ret == -ENOENT)
+                                continue;
+                        return ret;
+                }
+                tty = mfree(tty);
+
+                ret = strv_consume(&con, path);
+                if (ret < 0)
+                        return ret;
+
+                count++;
+        }
+        strv_free(lines);
+        lines = NULL;
+
+        if (count == 0) {
+
+                log_debug("No devices found for system console");
+
+                ret = strv_extend(&con, "/dev/console");
+                if (ret < 0)
+                        return ret;
+
+                count++;
+        }
+
+        *consoles = con;
+        con = NULL;
+
+        return count;
 }
 
 bool tty_is_vc_resolve(const char *tty) {
