@@ -195,8 +195,14 @@ static void font_copy_to_all_vcs(int fd) {
         unsigned char map8[E_TABSZ];
         unsigned short map16[E_TABSZ];
         struct unimapdesc unimapd;
-        struct unipair unipairs[USHRT_MAX];
+        _cleanup_free_ struct unipair* unipairs = NULL;
         int i, r;
+
+        unipairs = new(struct unipair, USHRT_MAX);
+        if (unipairs == NULL) {
+                log_error("Not enough memory to copy fonts");
+                return;
+        }
 
         /* get active, and 16 bit mask of used VT numbers */
         r = ioctl(fd, VT_GETSTATE, &vcs);
