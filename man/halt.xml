@@ -133,6 +133,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--no-sync</option></term>
+
+        <listitem><para>Don't sync hard disks/storage media before
+        halt, power-off, reboot.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--no-wall</option></term>
 
         <listitem><para>Do not send wall message before halt,

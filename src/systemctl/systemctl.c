@@ -102,6 +102,7 @@ static bool arg_no_block = false;
 static bool arg_no_legend = false;
 static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
+static bool arg_no_sync = false;
 static bool arg_no_wall = false;
 static bool arg_no_reload = false;
 static bool arg_value = false;
@@ -6925,6 +6926,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 { "force",     no_argument,       NULL, 'f'         },
                 { "wtmp-only", no_argument,       NULL, 'w'         },
                 { "no-wtmp",   no_argument,       NULL, 'd'         },
+                { "no-sync",   no_argument,       NULL, 'n'         },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
                 {}
         };
@@ -6970,13 +6972,16 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         arg_no_wtmp = true;
                         break;
 
+                case 'n':
+                        arg_no_sync = true;
+                        break;
+
                 case ARG_NO_WALL:
                         arg_no_wall = true;
                         break;
 
                 case 'i':
                 case 'h':
-                case 'n':
                         /* Compatibility nops */
                         break;
 
@@ -7495,7 +7500,8 @@ static int halt_now(enum action a) {
         /* The kernel will automaticall flush ATA disks and suchlike
          * on reboot(), but the file systems need to be synce'd
          * explicitly in advance. */
-        (void) sync();
+        if (!arg_no_sync)
+                (void) sync();
 
         /* Make sure C-A-D is handled by the kernel from this point
          * on... */
