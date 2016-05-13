@@ -1446,6 +1446,23 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "SELinuxContext")) {
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        r = free_and_strdup(&c->selinux_context, s);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, strempty(s));
+                }
+
+                return 1;
+
         }
 
         ri = rlimit_from_string(name);
