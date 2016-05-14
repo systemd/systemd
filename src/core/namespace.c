@@ -237,6 +237,8 @@ static int mount_dev(BindMount *m) {
          */
         (void) mkdir_p_label(m->path, 0755);
 
+        /* Unmount everything in old /dev */
+        umount_recursive(m->path, 0);
         if (mount(dev, m->path, NULL, MS_MOVE, NULL) < 0) {
                 r = -errno;
                 goto fail;
