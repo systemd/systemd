@@ -324,12 +324,6 @@ int route_update(Route *route,
         return 0;
 }
 
-void route_drop(Route *route) {
-        assert(route);
-
-        route_free(route);
-}
-
 int route_remove(Route *route, Link *link,
                sd_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
