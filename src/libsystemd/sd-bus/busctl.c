@@ -1079,9 +1079,20 @@ static int message_pcap(sd_bus_message *m, FILE *f) {
 }
 
 static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FILE *f)) {
-        bool added_something = false;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char **i;
+        uint32_t flags = 0;
         int r;
+
+        /* upgrade connection; it's not used for anything else after this call */
+        r = sd_bus_message_new_method_call(bus, &message, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.Monitoring", "BecomeMonitor");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(message, 'a', "s");
+        if (r < 0)
+                return bus_log_create_error(r);
 
         STRV_FOREACH(i, argv+1) {
                 _cleanup_free_ char *m = NULL;
@@ -1095,34 +1106,38 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                 if (!m)
                         return log_oom();
 
-                r = sd_bus_add_match(bus, NULL, m, NULL, NULL);
+                r = sd_bus_message_append_basic(message, 's', m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add match: %m");
+                        return bus_log_create_error(r);
 
                 free(m);
                 m = strjoin("destination='", *i, "'", NULL);
                 if (!m)
                         return log_oom();
 
-                r = sd_bus_add_match(bus, NULL, m, NULL, NULL);
+                r = sd_bus_message_append_basic(message, 's', m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add match: %m");
-
-                added_something = true;
+                        return bus_log_create_error(r);
         }
 
         STRV_FOREACH(i, arg_matches) {
-                r = sd_bus_add_match(bus, NULL, *i, NULL, NULL);
+                r = sd_bus_message_append_basic(message, 's', *i);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add match: %m");
-
-                added_something = true;
+                        return bus_log_create_error(r);
         }
 
-        if (!added_something) {
-                r = sd_bus_add_match(bus, NULL, "", NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add match: %m");
+        r = sd_bus_message_close_container(message);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(message, 'u', &flags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, message, arg_timeout, &error, NULL);
+        if (r < 0) {
+                log_error("%s", bus_error_message(&error, r));
+                return r;
         }
 
         log_info("Monitoring bus message stream.");
