@@ -369,7 +369,7 @@ int route_remove(Route *route, Link *link,
                 else if (route->family == AF_INET6)
                         r = sd_netlink_message_append_in6_addr(req, RTA_SRC, &route->src.in6);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append RTA_DST attribute: %m");
+                        return log_error_errno(r, "Could not append RTA_SRC attribute: %m");
 
                 r = sd_rtnl_message_route_set_src_prefixlen(req, route->src_prefixlen);
                 if (r < 0)
