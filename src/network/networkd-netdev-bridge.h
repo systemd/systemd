@@ -25,6 +25,7 @@ typedef struct Bridge {
         NetDev meta;
 
         int mcast_querier;
+        int mcast_snooping;
 
         usec_t forward_delay;
         usec_t hello_time;

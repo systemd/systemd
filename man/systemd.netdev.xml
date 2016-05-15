@@ -321,6 +321,15 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>MulticastSnooping=</varname></term>
+          <listitem>
+            <para>A boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
+            If enabled, IGMP snooping monitors the Internet Group Management Protocol (IGMP) traffic
+            between hosts and multicast routers. When unset, the kernel's default setting applies.
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
   </refsect1>
