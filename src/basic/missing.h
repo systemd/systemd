@@ -389,6 +389,10 @@ struct btrfs_ioctl_quota_ctl_args {
                                struct btrfs_ioctl_qgroup_limit_args)
 #endif
 
+#ifndef BTRFS_IOC_QUOTA_RESCAN_WAIT
+#define BTRFS_IOC_QUOTA_RESCAN_WAIT _IO(BTRFS_IOCTL_MAGIC, 46)
+#endif
+
 #ifndef BTRFS_FIRST_FREE_OBJECTID
 #define BTRFS_FIRST_FREE_OBJECTID 256
 #endif
