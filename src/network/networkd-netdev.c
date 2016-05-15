@@ -657,9 +657,13 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         if (!netdev->mac) {
-                r = netdev_get_mac(netdev->ifname, &netdev->mac);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
+                /* do not generate mac for VLAN netdev, allow kernel to assign mac (parent mac) */
+                if (netdev->kind != NETDEV_KIND_VLAN) {
+                        r = netdev_get_mac(netdev->ifname, &netdev->mac);
+                        if (r < 0)
+                               return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
+                } else
+                        log_netdev_debug(netdev, "Skipping generating MAC address for vlan netdev");
         }
 
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
