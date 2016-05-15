@@ -103,8 +103,8 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
         sd_dhcp6_lease_reset_address_iter(lease);
 
         while (sd_dhcp6_lease_get_address(lease, &ip6_addr,
-                                                &lifetime_preferred,
-                                                &lifetime_valid) >= 0) {
+                                                 &lifetime_preferred,
+                                                 &lifetime_valid) >= 0) {
 
                 r = dhcp6_address_change(link, &ip6_addr, lifetime_preferred, lifetime_valid);
                 if (r < 0)

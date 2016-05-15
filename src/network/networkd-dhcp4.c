@@ -96,7 +96,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route_gw->protocol = RTPROT_DHCP;
                 route_gw->priority = link->network->dhcp_route_metric;
 
-                r = route_configure(route_gw, link, &dhcp4_route_handler);
+                r = route_configure(route_gw, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set host route: %m");
 
@@ -107,7 +107,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route->prefsrc.in = address;
                 route->priority = link->network->dhcp_route_metric;
 
-                r = route_configure(route, link, &dhcp4_route_handler);
+                r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set routes: %m");
                         link_enter_failed(link);
@@ -137,7 +137,7 @@ static int link_set_dhcp_routes(Link *link) {
                 assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
                 route->priority = link->network->dhcp_route_metric;
 
-                r = route_configure(route, link, &dhcp4_route_handler);
+                r = route_configure(route, link, dhcp4_route_handler);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set host route: %m");
 
@@ -177,7 +177,7 @@ static int dhcp_lease_lost(Link *link) {
                                         assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &route->dst_prefixlen) >= 0);
 
                                         route_remove(route, link,
-                                                   &link_route_remove_handler);
+                                                     link_route_remove_handler);
                                 }
                         }
                 }
@@ -198,7 +198,7 @@ static int dhcp_lease_lost(Link *link) {
                                 route_gw->scope = RT_SCOPE_LINK;
 
                                 route_remove(route_gw, link,
-                                           &link_route_remove_handler);
+                                             link_route_remove_handler);
                         }
 
                         r = route_new(&route);
@@ -207,7 +207,7 @@ static int dhcp_lease_lost(Link *link) {
                                 route->gw.in = gateway;
 
                                 route_remove(route, link,
-                                           &link_route_remove_handler);
+                                             link_route_remove_handler);
                         }
                 }
 
@@ -221,7 +221,7 @@ static int dhcp_lease_lost(Link *link) {
                         address->in_addr.in = addr;
                         address->prefixlen = prefixlen;
 
-                        address_remove(address, link, &link_address_remove_handler);
+                        address_remove(address, link, link_address_remove_handler);
                 }
         }
 
@@ -309,7 +309,7 @@ static int dhcp4_update_address(Link *link,
 
         /* allow reusing an existing address and simply update its lifetime
          * in case it already exists */
-        r = address_configure(addr, link, &dhcp4_address_handler, true);
+        r = address_configure(addr, link, dhcp4_address_handler, true);
         if (r < 0)
                 return r;
 

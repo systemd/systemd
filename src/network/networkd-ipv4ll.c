@@ -51,7 +51,7 @@ static int ipv4ll_address_lost(Link *link) {
         address->prefixlen = 16;
         address->scope = RT_SCOPE_LINK;
 
-        address_remove(address, link, &link_address_remove_handler);
+        address_remove(address, link, link_address_remove_handler);
 
         r = route_new(&route);
         if (r < 0) {
@@ -63,7 +63,7 @@ static int ipv4ll_address_lost(Link *link) {
         route->scope = RT_SCOPE_LINK;
         route->priority = IPV4LL_ROUTE_METRIC;
 
-        route_remove(route, link, &link_route_remove_handler);
+        route_remove(route, link, link_route_remove_handler);
 
         link_check_ready(link);
 

@@ -760,7 +760,7 @@ static int link_enter_set_routes(Link *link) {
         link_set_state(link, LINK_STATE_SETTING_ROUTES);
 
         LIST_FOREACH(routes, rt, link->network->static_routes) {
-                r = route_configure(rt, link, &route_handler);
+                r = route_configure(rt, link, route_handler);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set routes: %m");
                         link_enter_failed(link);
@@ -929,7 +929,7 @@ static int link_enter_set_addresses(Link *link) {
         link_set_state(link, LINK_STATE_SETTING_ADDRESSES);
 
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
-                r = address_configure(ad, link, &address_handler, false);
+                r = address_configure(ad, link, address_handler, false);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set addresses: %m");
                         link_enter_failed(link);

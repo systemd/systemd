@@ -1196,7 +1196,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 goto error;
 
         r = sd_event_source_set_description(client->receive_message,
-                                        "dhcp6-receive-message");
+                                            "dhcp6-receive-message");
         if (r < 0)
                 goto error;
 
@@ -1204,8 +1204,8 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 state = DHCP6_STATE_INFORMATION_REQUEST;
 
         log_dhcp6_client(client, "Started in %s mode",
-                        client->information_request? "Information request":
-                        "Managed");
+                         client->information_request? "Information request":
+                         "Managed");
 
         return client_start(client, state);
 
