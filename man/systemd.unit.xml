@@ -603,7 +603,7 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details). If a unit that has this setting set is started,
         its processes will see the same <filename>/tmp</filename>,
-        <filename>/tmp/var</filename> and network namespace as one
+        <filename>/var/tmp</filename> and network namespace as one
         listed unit that is started. If multiple listed units are
         already started, it is not defined which namespace is joined.
         Note that this setting only has an effect if
