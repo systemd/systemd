@@ -656,7 +656,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (!netdev->mac) {
+        if (!netdev->mac && netdev->kind != NETDEV_KIND_VLAN) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
