@@ -288,7 +288,7 @@
         starting a timer unit that only elapses once: if
         <varname>RemainAfterElapse=</varname> is on, it will not be
         started again, and is guaranteed to elapse only once. However,
-        if <varname>RemainAfterLeapse=</varname> is off, it might be
+        if <varname>RemainAfterElapse=</varname> is off, it might be
         started again if it is already elapsed, and thus be triggered
         multiple times. Defaults to
         <varname>yes</varname>.</para></listitem>
