@@ -172,6 +172,14 @@ CHANGES WITH 230 in spe:
           value is understood as UNIX nice value. If not prefixed like this it
           is understood as raw RLIMIT_NICE limit.
 
+        * Note that the effect of the PrivateDevices= unit file setting changed
+          slightly with this release: the per-device /dev file system will be
+          mounted read-only from this version on, and will have "noexec"
+          set. This (minor) change of behaviour might cause some (exceptional)
+          legacy software to break, when PrivateDevices=yes is set for its
+          service. Please leave PrivateDevices= off if you run into problems
+          with this.
+
         Contributions from: Alban Crequy, Alexander Kuleshov, Alex Crawford,
         Andrew Eikum, Beniamino Galvani, Benjamin Robin, Benjamin ROBIN, Biao
         Lu, Bjørnar Ness, Calvin Owens, Christian Hesse, Colin Guthrie, Daniel
