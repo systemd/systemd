@@ -1494,7 +1494,7 @@ void manager_clear_jobs(Manager *m) {
 
         while ((j = hashmap_first(m->jobs)))
                 /* No need to recurse. We're cancelling all jobs. */
-                job_finish_and_invalidate(j, JOB_CANCELED, false);
+                job_finish_and_invalidate(j, JOB_CANCELED, false, false);
 }
 
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata) {

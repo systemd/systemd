@@ -597,7 +597,7 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                         /* Not invalidating recursively. Avoids triggering
                          * OnFailure= actions of dependent jobs. Also avoids
                          * invalidating our iterator. */
-                        job_finish_and_invalidate(j, JOB_CANCELED, false);
+                        job_finish_and_invalidate(j, JOB_CANCELED, false, false);
                 }
         }
 

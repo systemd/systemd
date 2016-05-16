@@ -191,7 +191,7 @@ Job* job_install(Job *j) {
 
         if (uj) {
                 if (job_type_is_conflicting(uj->type, j->type))
-                        job_finish_and_invalidate(uj, JOB_CANCELED, false);
+                        job_finish_and_invalidate(uj, JOB_CANCELED, false, false);
                 else {
                         /* not conflicting, i.e. mergeable */
 
@@ -614,19 +614,19 @@ int job_run_and_invalidate(Job *j) {
 
         if (j) {
                 if (r == -EALREADY)
-                        r = job_finish_and_invalidate(j, JOB_DONE, true);
+                        r = job_finish_and_invalidate(j, JOB_DONE, true, true);
                 else if (r == -EBADR)
-                        r = job_finish_and_invalidate(j, JOB_SKIPPED, true);
+                        r = job_finish_and_invalidate(j, JOB_SKIPPED, true, false);
                 else if (r == -ENOEXEC)
-                        r = job_finish_and_invalidate(j, JOB_INVALID, true);
+                        r = job_finish_and_invalidate(j, JOB_INVALID, true, false);
                 else if (r == -EPROTO)
-                        r = job_finish_and_invalidate(j, JOB_ASSERT, true);
+                        r = job_finish_and_invalidate(j, JOB_ASSERT, true, false);
                 else if (r == -EOPNOTSUPP)
-                        r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, true);
+                        r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, true, false);
                 else if (r == -EAGAIN)
                         job_set_state(j, JOB_WAITING);
                 else if (r < 0)
-                        r = job_finish_and_invalidate(j, JOB_FAILED, true);
+                        r = job_finish_and_invalidate(j, JOB_FAILED, true, false);
         }
 
         return r;
@@ -827,11 +827,11 @@ static void job_fail_dependencies(Unit *u, UnitDependency d) {
                 if (!IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE))
                         continue;
 
-                job_finish_and_invalidate(j, JOB_DEPENDENCY, true);
+                job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
         }
 }
 
-int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
+int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool already) {
         Unit *u;
         Unit *other;
         JobType t;
@@ -848,7 +848,9 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
 
         log_unit_debug(u, "Job %s/%s finished, result=%s", u->id, job_type_to_string(t), job_result_to_string(result));
 
-        job_emit_status_message(u, t, result);
+        /* If this job did nothing to respective unit we don't log the status message */
+        if (!already)
+                job_emit_status_message(u, t, result);
 
         job_add_to_dbus_queue(j);
 
@@ -923,7 +925,7 @@ static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *user
         log_unit_warning(j->unit, "Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));
 
         u = j->unit;
-        job_finish_and_invalidate(j, JOB_TIMEOUT, true);
+        job_finish_and_invalidate(j, JOB_TIMEOUT, true, false);
 
         failure_action(u->manager, u->job_timeout_action, u->job_timeout_reboot_arg);
 

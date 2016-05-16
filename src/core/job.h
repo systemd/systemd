@@ -219,7 +219,7 @@ void job_add_to_dbus_queue(Job *j);
 int job_start_timer(Job *j);
 
 int job_run_and_invalidate(Job *j);
-int job_finish_and_invalidate(Job *j, JobResult result, bool recursive);
+int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool already);
 
 char *job_dbus_path(Job *j);
 
