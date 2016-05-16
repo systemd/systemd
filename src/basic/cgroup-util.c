@@ -2060,10 +2060,10 @@ int cg_mask_supported(CGroupMask *ret) {
                         mask |= CGROUP_CONTROLLER_TO_MASK(v);
                 }
 
-                /* Currently, we only support the memory and pids
+                /* Currently, we only support the memory, io and pids
                  * controller in the unified hierarchy, mask
                  * everything else off. */
-                mask &= CGROUP_MASK_MEMORY | CGROUP_MASK_PIDS;
+                mask &= CGROUP_MASK_MEMORY | CGROUP_MASK_IO | CGROUP_MASK_PIDS;
 
         } else {
                 CGroupController c;
@@ -2249,6 +2249,26 @@ bool cg_is_legacy_wanted(void) {
         return !cg_is_unified_wanted();
 }
 
+int cg_weight_parse(const char *s, uint64_t *ret) {
+        uint64_t u;
+        int r;
+
+        if (isempty(s)) {
+                *ret = CGROUP_WEIGHT_INVALID;
+                return 0;
+        }
+
+        r = safe_atou64(s, &u);
+        if (r < 0)
+                return r;
+
+        if (u < CGROUP_WEIGHT_MIN || u > CGROUP_WEIGHT_MAX)
+                return -ERANGE;
+
+        *ret = u;
+        return 0;
+}
+
 int cg_cpu_shares_parse(const char *s, uint64_t *ret) {
         uint64_t u;
         int r;
@@ -2292,6 +2312,7 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
 static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_CPU] = "cpu",
         [CGROUP_CONTROLLER_CPUACCT] = "cpuacct",
+        [CGROUP_CONTROLLER_IO] = "io",
         [CGROUP_CONTROLLER_BLKIO] = "blkio",
         [CGROUP_CONTROLLER_MEMORY] = "memory",
         [CGROUP_CONTROLLER_DEVICES] = "devices",

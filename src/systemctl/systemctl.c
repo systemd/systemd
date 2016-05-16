@@ -4428,7 +4428,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "BlockIODeviceWeight")) {
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (streq(name, "IODeviceWeight") || streq(name, "BlockIODeviceWeight"))) {
                         const char *path;
                         uint64_t weight;
 
@@ -4447,7 +4447,8 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth"))) {
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (streq(name, "IOReadBandwidthMax") || streq(name, "IOWriteBandwidthMax") ||
+                                                                       streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth"))) {
                         const char *path;
                         uint64_t bandwidth;
 

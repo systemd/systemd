@@ -32,6 +32,7 @@
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "stdio-util.h"
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
@@ -47,6 +48,9 @@ void cgroup_context_init(CGroupContext *c) {
 
         c->memory_limit = (uint64_t) -1;
 
+        c->io_weight = CGROUP_WEIGHT_INVALID;
+        c->startup_io_weight = CGROUP_WEIGHT_INVALID;
+
         c->blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
         c->startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
 
@@ -60,6 +64,24 @@ void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
         LIST_REMOVE(device_allow, c->device_allow, a);
         free(a->path);
         free(a);
+}
+
+void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w) {
+        assert(c);
+        assert(w);
+
+        LIST_REMOVE(device_weights, c->io_device_weights, w);
+        free(w->path);
+        free(w);
+}
+
+void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *l) {
+        assert(c);
+        assert(l);
+
+        LIST_REMOVE(device_limits, c->io_device_limits, l);
+        free(l->path);
+        free(l);
 }
 
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w) {
@@ -83,6 +105,12 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
+        while (c->io_device_weights)
+                cgroup_context_free_io_device_weight(c, c->io_device_weights);
+
+        while (c->io_device_limits)
+                cgroup_context_free_io_device_limit(c, c->io_device_limits);
+
         while (c->blockio_device_weights)
                 cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
 
@@ -94,6 +122,8 @@ void cgroup_context_done(CGroupContext *c) {
 }
 
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
+        CGroupIODeviceLimit *il;
+        CGroupIODeviceWeight *iw;
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
@@ -106,12 +136,15 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sCPUAccounting=%s\n"
+                "%sIOAccounting=%s\n"
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
                 "%sTasksAccounting=%s\n"
                 "%sCPUShares=%" PRIu64 "\n"
                 "%sStartupCPUShares=%" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec=%s\n"
+                "%sIOWeight=%" PRIu64 "\n"
+                "%sStartupIOWeight=%" PRIu64 "\n"
                 "%sBlockIOWeight=%" PRIu64 "\n"
                 "%sStartupBlockIOWeight=%" PRIu64 "\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
@@ -119,12 +152,15 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sDevicePolicy=%s\n"
                 "%sDelegate=%s\n",
                 prefix, yes_no(c->cpu_accounting),
+                prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
                 prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
+                prefix, c->io_weight,
+                prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
                 prefix, c->memory_limit,
@@ -138,6 +174,31 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                         prefix,
                         a->path,
                         a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+
+        LIST_FOREACH(device_weights, iw, c->io_device_weights)
+                fprintf(f,
+                        "%sIODeviceWeight=%s %" PRIu64,
+                        prefix,
+                        iw->path,
+                        iw->weight);
+
+        LIST_FOREACH(device_limits, il, c->io_device_limits) {
+                char buf[FORMAT_BYTES_MAX];
+
+                if (il->rbps_max != CGROUP_LIMIT_MAX)
+                        fprintf(f,
+                                "%sIOReadBandwidthMax=%s %s\n",
+                                prefix,
+                                il->path,
+                                format_bytes(buf, sizeof(buf), il->rbps_max));
+
+                if (il->wbps_max != CGROUP_LIMIT_MAX)
+                        fprintf(f,
+                                "%sIOWriteBandwidthMax=%s %s\n",
+                                prefix,
+                                il->path,
+                                format_bytes(buf, sizeof(buf), il->wbps_max));
+        }
 
         LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                 fprintf(f,
@@ -158,7 +219,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         }
 }
 
-static int lookup_blkio_device(const char *p, dev_t *dev) {
+static int lookup_block_device(const char *p, dev_t *dev) {
         struct stat st;
         int r;
 
@@ -343,6 +404,77 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                                        "Failed to set cpu.cfs_quota_us on %s: %m", path);
         }
 
+        if (mask & CGROUP_MASK_IO) {
+                CGroupIODeviceWeight *w;
+                CGroupIODeviceLimit *l, *next;
+
+                if (!is_root) {
+                        char buf[MAX(8+DECIMAL_STR_MAX(uint64_t)+1,
+                                     DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1)];
+                        uint64_t weight = CGROUP_WEIGHT_DEFAULT;
+
+                        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+                            c->startup_io_weight != CGROUP_WEIGHT_INVALID)
+                                weight = c->startup_io_weight;
+                        else if (c->io_weight != CGROUP_WEIGHT_INVALID)
+                                weight = c->io_weight;
+
+                        xsprintf(buf, "default %" PRIu64 "\n", weight);
+                        r = cg_set_attribute("io", path, "io.weight", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set io.weight on %s: %m", path);
+
+                        /* FIXME: no way to reset this list */
+                        LIST_FOREACH(device_weights, w, c->io_device_weights) {
+                                dev_t dev;
+
+                                r = lookup_block_device(w->path, &dev);
+                                if (r < 0)
+                                        continue;
+
+                                xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), w->weight);
+                                r = cg_set_attribute("io", path, "io.weight", buf);
+                                if (r < 0)
+                                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                                       "Failed to set io.weight on %s: %m", path);
+                        }
+                }
+
+                LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
+                        char rbps_buf[DECIMAL_STR_MAX(uint64_t)] = "max";
+                        char wbps_buf[DECIMAL_STR_MAX(uint64_t)] = "max";
+                        char buf[DECIMAL_STR_MAX(dev_t)*2+2+(5+DECIMAL_STR_MAX(uint64_t)+1)*2];
+                        dev_t dev;
+                        unsigned n = 0;
+
+                        r = lookup_block_device(l->path, &dev);
+                        if (r < 0)
+                                continue;
+
+                        if (l->rbps_max != CGROUP_LIMIT_MAX) {
+                                xsprintf(rbps_buf, "%" PRIu64, l->rbps_max);
+                                n++;
+                        }
+
+                        if (l->wbps_max != CGROUP_LIMIT_MAX) {
+                                xsprintf(wbps_buf, "%" PRIu64, l->wbps_max);
+                                n++;
+                        }
+
+                        xsprintf(buf, "%u:%u rbps=%s wbps=%s\n", major(dev), minor(dev), rbps_buf, wbps_buf);
+                        r = cg_set_attribute("io", path, "io.max", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set io.max on %s: %m", path);
+
+                        /* If @l contained no config, we just cleared the kernel
+                           counterpart too. No reason to keep @l around. */
+                        if (!n)
+                                cgroup_context_free_io_device_limit(c, l);
+                }
+        }
+
         if (mask & CGROUP_MASK_BLKIO) {
                 char buf[MAX(DECIMAL_STR_MAX(uint64_t)+1,
                              DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1)];
@@ -362,7 +494,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
                                 dev_t dev;
 
-                                r = lookup_blkio_device(w->path, &dev);
+                                r = lookup_block_device(w->path, &dev);
                                 if (r < 0)
                                         continue;
 
@@ -379,7 +511,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         const char *a;
                         dev_t dev;
 
-                        r = lookup_blkio_device(b->path, &dev);
+                        r = lookup_block_device(b->path, &dev);
                         if (r < 0)
                                 continue;
 
@@ -505,6 +637,13 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
             c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPUACCT | CGROUP_MASK_CPU;
+
+        if (c->io_accounting ||
+            c->io_weight != CGROUP_WEIGHT_INVALID ||
+            c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
+            c->io_device_weights ||
+            c->io_device_limits)
+                mask |= CGROUP_MASK_IO;
 
         if (c->blockio_accounting ||
             c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ||
@@ -1615,7 +1754,7 @@ void manager_invalidate_startup_units(Manager *m) {
         assert(m);
 
         SET_FOREACH(u, m->startup_units, i)
-                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_BLKIO);
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO);
 }
 
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {

@@ -2910,6 +2910,196 @@ int config_parse_device_allow(
         return 0;
 }
 
+int config_parse_io_weight(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *weight = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = cg_weight_parse(rvalue, weight);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "IO weight '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_io_device_weight(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *path = NULL;
+        CGroupIODeviceWeight *w;
+        CGroupContext *c = data;
+        const char *weight;
+        uint64_t u;
+        size_t n;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                while (c->io_device_weights)
+                        cgroup_context_free_io_device_weight(c, c->io_device_weights);
+
+                return 0;
+        }
+
+        n = strcspn(rvalue, WHITESPACE);
+        weight = rvalue + n;
+        weight += strspn(weight, WHITESPACE);
+
+        if (isempty(weight)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Expected block device and device weight. Ignoring.");
+                return 0;
+        }
+
+        path = strndup(rvalue, n);
+        if (!path)
+                return log_oom();
+
+        if (!path_startswith(path, "/dev")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
+                return 0;
+        }
+
+        r = cg_weight_parse(weight, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "IO weight '%s' invalid. Ignoring.", weight);
+                return 0;
+        }
+
+        assert(u != CGROUP_WEIGHT_INVALID);
+
+        w = new0(CGroupIODeviceWeight, 1);
+        if (!w)
+                return log_oom();
+
+        w->path = path;
+        path = NULL;
+
+        w->weight = u;
+
+        LIST_PREPEND(device_weights, c->io_device_weights, w);
+        return 0;
+}
+
+int config_parse_io_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *path = NULL;
+        CGroupIODeviceLimit *l = NULL, *t;
+        CGroupContext *c = data;
+        const char *limit;
+        uint64_t num;
+        bool read;
+        size_t n;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        read = streq("IOReadBandwidthMax", lvalue);
+
+        if (isempty(rvalue)) {
+                LIST_FOREACH(device_limits, l, c->io_device_limits)
+                        if (read)
+                                l->rbps_max = CGROUP_LIMIT_MAX;
+                        else
+                                l->wbps_max = CGROUP_LIMIT_MAX;
+                return 0;
+        }
+
+        n = strcspn(rvalue, WHITESPACE);
+        limit = rvalue + n;
+        limit += strspn(limit, WHITESPACE);
+
+        if (!*limit) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Expected space separated pair of device node and bandwidth. Ignoring.");
+                return 0;
+        }
+
+        path = strndup(rvalue, n);
+        if (!path)
+                return log_oom();
+
+        if (!path_startswith(path, "/dev")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
+                return 0;
+        }
+
+        if (streq("max", limit)) {
+                num = CGROUP_LIMIT_MAX;
+        } else {
+                r = parse_size(limit, 1000, &num);
+                if (r < 0 || num <= 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "IO Limit '%s' invalid. Ignoring.", rvalue);
+                        return 0;
+                }
+        }
+
+        LIST_FOREACH(device_limits, t, c->io_device_limits) {
+                if (path_equal(path, t->path)) {
+                        l = t;
+                        break;
+                }
+        }
+
+        if (!l) {
+                l = new0(CGroupIODeviceLimit, 1);
+                if (!l)
+                        return log_oom();
+
+                l->path = path;
+                path = NULL;
+                l->rbps_max = CGROUP_LIMIT_MAX;
+                l->wbps_max = CGROUP_LIMIT_MAX;
+
+                LIST_PREPEND(device_limits, c->io_device_limits, l);
+        }
+
+        if (read)
+                l->rbps_max = num;
+        else
+                l->wbps_max = num;
+
+        return 0;
+}
+
 int config_parse_blockio_weight(
                 const char *unit,
                 const char *filename,
@@ -3830,6 +4020,9 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_memory_limit,          "LIMIT" },
                 { config_parse_device_allow,          "DEVICE" },
                 { config_parse_device_policy,         "POLICY" },
+                { config_parse_io_limit,              "LIMIT" },
+                { config_parse_io_weight,             "WEIGHT" },
+                { config_parse_io_device_weight,      "DEVICEWEIGHT" },
                 { config_parse_blockio_bandwidth,     "BANDWIDTH" },
                 { config_parse_blockio_weight,        "WEIGHT" },
                 { config_parse_blockio_device_weight, "DEVICEWEIGHT" },

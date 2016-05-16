@@ -28,6 +28,76 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
 
+static int property_get_io_device_weight(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+        CGroupIODeviceWeight *w;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'a', "(st)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(device_weights, w, c->io_device_weights) {
+                r = sd_bus_message_append(reply, "(st)", w->path, w->weight);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_io_device_limits(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+        CGroupIODeviceLimit *l;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'a', "(st)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(device_limits, l, c->io_device_limits) {
+                uint64_t v;
+
+                if (streq(property, "IOReadBandwidthMax"))
+                        v = l->rbps_max;
+                else
+                        v = l->wbps_max;
+
+                if (v == CGROUP_LIMIT_MAX)
+                        continue;
+
+                r = sd_bus_message_append(reply, "(st)", l->path, v);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_blockio_device_weight(
                 sd_bus *bus,
                 const char *path,
@@ -141,6 +211,12 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("CPUShares", "t", NULL, offsetof(CGroupContext, cpu_shares), 0),
         SD_BUS_PROPERTY("StartupCPUShares", "t", NULL, offsetof(CGroupContext, startup_cpu_shares), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
+        SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
+        SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
+        SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
+        SD_BUS_PROPERTY("IODeviceWeight", "a(st)", property_get_io_device_weight, 0, 0),
+        SD_BUS_PROPERTY("IOReadBandwidthMax", "a(st)", property_get_io_device_limits, 0, 0),
+        SD_BUS_PROPERTY("IOWriteBandwidthMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, blockio_accounting), 0),
         SD_BUS_PROPERTY("BlockIOWeight", "t", NULL, offsetof(CGroupContext, blockio_weight), 0),
         SD_BUS_PROPERTY("StartupBlockIOWeight", "t", NULL, offsetof(CGroupContext, startup_blockio_weight), 0),
@@ -277,6 +353,238 @@ int bus_cgroup_set_property(
                         c->cpu_quota_per_sec_usec = u64;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
                         unit_write_drop_in_private_format(u, mode, "CPUQuota", "CPUQuota=%0.f%%", (double) (c->cpu_quota_per_sec_usec / 10000));
+                }
+
+                return 1;
+
+        } else if (streq(name, "IOAccounting")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        c->io_accounting = b;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
+                        unit_write_drop_in_private(u, mode, name, b ? "IOAccounting=yes" : "IOAccounting=no");
+                }
+
+                return 1;
+
+        } else if (streq(name, "IOWeight")) {
+                uint64_t weight;
+
+                r = sd_bus_message_read(message, "t", &weight);
+                if (r < 0)
+                        return r;
+
+                if (!CGROUP_WEIGHT_IS_OK(weight))
+                        return sd_bus_error_set_errnof(error, EINVAL, "IOWeight value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->io_weight = weight;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
+
+                        if (weight == CGROUP_WEIGHT_INVALID)
+                                unit_write_drop_in_private(u, mode, name, "IOWeight=");
+                        else
+                                unit_write_drop_in_private_format(u, mode, name, "IOWeight=%" PRIu64, weight);
+                }
+
+                return 1;
+
+        } else if (streq(name, "StartupIOWeight")) {
+                uint64_t weight;
+
+                r = sd_bus_message_read(message, "t", &weight);
+                if (r < 0)
+                        return r;
+
+                if (CGROUP_WEIGHT_IS_OK(weight))
+                        return sd_bus_error_set_errnof(error, EINVAL, "StartupIOWeight value out of range");
+
+                if (mode != UNIT_CHECK) {
+                        c->startup_io_weight = weight;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
+
+                        if (weight == CGROUP_WEIGHT_INVALID)
+                                unit_write_drop_in_private(u, mode, name, "StartupIOWeight=");
+                        else
+                                unit_write_drop_in_private_format(u, mode, name, "StartupIOWeight=%" PRIu64, weight);
+                }
+
+                return 1;
+
+        } else if (streq(name, "IOReadBandwidthMax") || streq(name, "IOWriteBandwidthMax")) {
+                const char *path;
+                bool read = true;
+                unsigned n = 0;
+                uint64_t u64;
+
+                if (streq(name, "IOWriteBandwidthMax"))
+                        read = false;
+
+                r = sd_bus_message_enter_container(message, 'a', "(st)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
+
+                        if (mode != UNIT_CHECK) {
+                                CGroupIODeviceLimit *a = NULL, *b;
+
+                                LIST_FOREACH(device_limits, b, c->io_device_limits) {
+                                        if (path_equal(path, b->path)) {
+                                                a = b;
+                                                break;
+                                        }
+                                }
+
+                                if (!a) {
+                                        a = new0(CGroupIODeviceLimit, 1);
+                                        if (!a)
+                                                return -ENOMEM;
+
+                                        a->path = strdup(path);
+                                        if (!a->path) {
+                                                free(a);
+                                                return -ENOMEM;
+                                        }
+
+                                        a->rbps_max = CGROUP_LIMIT_MAX;
+                                        a->wbps_max = CGROUP_LIMIT_MAX;
+
+                                        LIST_PREPEND(device_limits, c->io_device_limits, a);
+                                }
+
+                                if (read)
+                                        a->rbps_max = u64;
+                                else
+                                        a->wbps_max = u64;
+                        }
+
+                        n++;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        CGroupIODeviceLimit *a;
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        size_t size = 0;
+
+                        if (n == 0) {
+                                LIST_FOREACH(device_limits, a, c->io_device_limits)
+                                        if (read)
+                                                a->rbps_max = CGROUP_LIMIT_MAX;
+                                        else
+                                                a->wbps_max = CGROUP_LIMIT_MAX;
+                        }
+
+                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
+
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        if (read) {
+                                fputs("IOReadBandwidthMax=\n", f);
+                                LIST_FOREACH(device_limits, a, c->io_device_limits)
+                                        if (a->rbps_max != CGROUP_LIMIT_MAX)
+                                                fprintf(f, "IOReadBandwidthMax=%s %" PRIu64 "\n", a->path, a->rbps_max);
+                        } else {
+                                fputs("IOWriteBandwidthMax=\n", f);
+                                LIST_FOREACH(device_limits, a, c->io_device_limits)
+                                        if (a->wbps_max != CGROUP_LIMIT_MAX)
+                                                fprintf(f, "IOWriteBandwidthMax=%s %" PRIu64 "\n", a->path, a->wbps_max);
+                        }
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+                        unit_write_drop_in_private(u, mode, name, buf);
+                }
+
+                return 1;
+
+        } else if (streq(name, "IODeviceWeight")) {
+                const char *path;
+                uint64_t weight;
+                unsigned n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "(st)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
+
+                        if (!CGROUP_WEIGHT_IS_OK(weight) || weight == CGROUP_WEIGHT_INVALID)
+                                return sd_bus_error_set_errnof(error, EINVAL, "IODeviceWeight out of range");
+
+                        if (mode != UNIT_CHECK) {
+                                CGroupIODeviceWeight *a = NULL, *b;
+
+                                LIST_FOREACH(device_weights, b, c->io_device_weights) {
+                                        if (path_equal(b->path, path)) {
+                                                a = b;
+                                                break;
+                                        }
+                                }
+
+                                if (!a) {
+                                        a = new0(CGroupIODeviceWeight, 1);
+                                        if (!a)
+                                                return -ENOMEM;
+
+                                        a->path = strdup(path);
+                                        if (!a->path) {
+                                                free(a);
+                                                return -ENOMEM;
+                                        }
+                                        LIST_PREPEND(device_weights,c->io_device_weights, a);
+                                }
+
+                                a->weight = weight;
+                        }
+
+                        n++;
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupIODeviceWeight *a;
+                        size_t size = 0;
+
+                        if (n == 0) {
+                                while (c->io_device_weights)
+                                        cgroup_context_free_io_device_weight(c, c->io_device_weights);
+                        }
+
+                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
+
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs("IODeviceWeight=\n", f);
+                        LIST_FOREACH(device_weights, a, c->io_device_weights)
+                                fprintf(f, "IODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+                        unit_write_drop_in_private(u, mode, name, buf);
                 }
 
                 return 1;
