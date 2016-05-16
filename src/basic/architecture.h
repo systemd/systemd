@@ -116,7 +116,7 @@ int uname_architecture(void);
 #elif defined(__s390__)
 #  define native_architecture() ARCHITECTURE_S390
 #  define LIB_ARCH_TUPLE "s390-linux-gnu"
-#elif defined(__sparc64__)
+#elif defined(__sparc__) && defined (__arch64__)
 #  define native_architecture() ARCHITECTURE_SPARC64
 #  define LIB_ARCH_TUPLE "sparc64-linux-gnu"
 #elif defined(__sparc__)
