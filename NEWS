@@ -53,7 +53,9 @@ CHANGES WITH 230 in spe:
 
         * The unified cgroup hierarchy added in Linux 4.5 is now supported.
           Use systemd.unified_cgroup_hierarchy=1 on the kernel command line to
-          enable.
+          enable. Also, support for the "io" cgroup controller in the unified
+          hierarchy has been added, so that the "memory", "pids" and "io" are
+          now the controllers that are supported on the unified hierarchy.
 
           WARNING: it is not possible to use previous systemd versions with
           systemd.unified_cgroup_hierarchy=1 and the new kernel. Therefore it
@@ -141,6 +143,19 @@ CHANGES WITH 230 in spe:
           make user namespacing for nspawn containers fully automatic and thus
           deployable. The systemd-nspaw@.service template unit file has been
           changed to use this functionality by default.
+
+        * systemd-nspawn gained a new --network-zone= switch, that allows
+          creating ad-hoc virtual Ethernet links between multiple containers,
+          that only exist as long as at least one container referencing them is
+          running. This allows easy connecting of multiple containers with a
+          common link that implements an Ethernet broadcast domain. Each of
+          these network "zones" may be named relatively freely by the user, and
+          may be referenced by any number of containers, but each container may
+          only reference one of these "zones". On the lower level, this is
+          implemented by an automatically managed bridge network interface for
+          each zone, that is created when the first container referencing its
+          zone is created and removed when the last one referencing its zone
+          terminates.
 
         * The default start timeout may now be configured on the kernel command
           line via systemd.default_timeout_start_sec=. It was already
