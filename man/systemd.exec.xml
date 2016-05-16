@@ -933,7 +933,9 @@
         (propagation in the opposite direction continues to work).
         This means that this setting may not be used for services
         which shall be able to install mount points in the main mount
-        namespace.</para></listitem>
+        namespace. The /dev namespace will be mounted read-only and 'noexec'.
+        The latter may break old programs which try to set up executable
+        memory by mmap()ing /dev/zero instead of using MAP_ANON.</para></listitem>
       </varlistentry>
 
       <varlistentry>
