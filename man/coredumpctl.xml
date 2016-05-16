@@ -45,7 +45,7 @@
 
   <refnamediv>
     <refname>coredumpctl</refname>
-    <refpurpose>Retrieve coredumps from the journal</refpurpose>
+    <refpurpose>Retrieve and process saved core dumps and metadata</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -60,9 +60,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>coredumpctl</command> may be used to
-    retrieve coredumps from
-    <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para><command>coredumpctl</command> is a tool that can be used to retrieve and process core
+    dumps and metadata which were saved by
+    <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -71,18 +72,23 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
       <varlistentry>
         <term><option>--no-legend</option></term>
 
-        <listitem><para>Do not print column headers.
-        </para></listitem>
+        <listitem><para>Do not print column headers.</para></listitem>
       </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
 
       <varlistentry>
         <term><option>-1</option></term>
 
-        <listitem><para>Show information of a single coredump only,
-        instead of listing all known coredumps. </para></listitem>
+        <listitem><para>Show information of a single core dump only, instead of listing
+        all known core dumps.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -90,7 +96,7 @@
         <term><option>--field=</option><replaceable>FIELD</replaceable></term>
 
         <listitem><para>Print all possible data values the specified
-        field takes in matching coredump entries of the
+        field takes in matching core dump entries of the
         journal.</para></listitem>
       </varlistentry>
 
@@ -110,11 +116,11 @@
         </para></listitem>
       </varlistentry>
 
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
 
     <para>The following commands are understood:</para>
 
@@ -122,23 +128,31 @@
       <varlistentry>
         <term><command>list</command></term>
 
-        <listitem><para>List coredumps captured in the journal
+        <listitem><para>List core dumps captured in the journal
         matching specified characteristics. If no command is
-        specified, this is the implied default.</para></listitem>
+        specified, this is the implied default.</para>
+
+        <para>It's worth noting that different restrictions apply to
+        data saved in the journal and core dump files saved in
+        <filename>/var/lib/systemd/coredump</filename>, see overview in
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Thus it may very well happen that a particular core dump is still listed
+        in the journal while its corresponding core dump file has already been
+        removed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>info</command></term>
 
-        <listitem><para>Show detailed information about coredumps
+        <listitem><para>Show detailed information about core dumps
         captured in the journal.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>dump</command></term>
 
-        <listitem><para>Extract the last coredump matching specified
-        characteristics. The coredump will be written on standard
+        <listitem><para>Extract the last core dump matching specified
+        characteristics. The core dump will be written on standard
         output, unless an output file is specified with
         <option>--output=</option>. </para></listitem>
       </varlistentry>
@@ -146,7 +160,7 @@
       <varlistentry>
         <term><command>gdb</command></term>
 
-        <listitem><para>Invoke the GNU debugger on the last coredump
+        <listitem><para>Invoke the GNU debugger on the last core dump
         matching specified characteristics. </para></listitem>
       </varlistentry>
 
@@ -197,7 +211,7 @@
   <refsect1>
     <title>Exit status</title>
     <para>On success, 0 is returned; otherwise, a non-zero failure
-    code is returned. Not finding any matching coredumps is treated as
+    code is returned. Not finding any matching core dumps is treated as
     failure.
     </para>
   </refsect1>
@@ -206,13 +220,13 @@
     <title>Examples</title>
 
     <example>
-      <title>List all the coredumps of a program named foo</title>
+      <title>List all the core dumps of a program named foo</title>
 
       <programlisting># coredumpctl list foo</programlisting>
     </example>
 
     <example>
-      <title>Invoke gdb on the last coredump</title>
+      <title>Invoke gdb on the last core dump</title>
 
       <programlisting># coredumpctl gdb</programlisting>
     </example>
@@ -225,7 +239,7 @@
     </example>
 
     <example>
-      <title>Extract the last coredump of /usr/bin/bar to a file named
+      <title>Extract the last core dump of /usr/bin/bar to a file named
       <filename noindex="true">bar.coredump</filename></title>
 
       <programlisting># coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>

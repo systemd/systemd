@@ -47,7 +47,7 @@
     <refname>systemd-coredump</refname>
     <refname>systemd-coredump.socket</refname>
     <refname>systemd-coredump@.service</refname>
-    <refpurpose>Log and store core dumps</refpurpose>
+    <refpurpose>Acquire, save and process core dumps</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -58,59 +58,76 @@
 
   <refsect1>
     <title>Description</title>
+    <para><command>systemd-coredump</command> is a system service that can acquire core dumps
+    from the kernel and handle them in various ways.</para>
 
-    <para><command>systemd-coredump</command> can be used as a helper
-    binary by the kernel when a user space program receives a fatal
-    signal and dumps core. For it to be used in this capacity, it must
-    be specified by the
-    <varname>kernel.core_pattern</varname> <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    setting. The syntax of this setting is explained in
-    <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    Systemd installs <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> which configures
-    <varname>kernel.core_pattern</varname> to invoke <command>systemd-coredump</command>.
-    This file may be masked or overridden to use a different setting following normal
-    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    rules.</para>
-
-    <para>The behavior of a specific program upon reception of a
-    signal is governed by a few factors which are described in detail
-    in <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    In particular, the coredump will only be processed when the
-    related resource limits are high enough. For programs started by
-    <command>systemd</command>, those may be set using
-    <varname>LimitCore=</varname> (see
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-    </para>
-
-    <para>The behaviour of <command>systemd-coredump</command> is configured through
-    <filename>/etc/systemd/coredump.conf</filename> and other configuration files. See
-    <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. By default, <command>systemd-coredump</command> will log the coredump including a
-    backtrace if possible, and store the core (contents of process' memory contents) in an external
-    file on disk in <filename>/var/lib/systemd/coredump</filename>.</para>
-
-    <para>When the kernel invokes <command>systemd-coredump</command> to handle a coredump,
-    it will connect to the socket created by the <filename>systemd-coredump.socket</filename>
-    unit, which in turn will spawn a <filename>systemd-coredump@.service</filename> instance
-    to process the coredump. Hence <filename>systemd-coredump.socket</filename>
-    and <filename>systemd-coredump@.service</filename> are helper units which do the actual
-    processing of coredumps and are subject to normal service management.</para>
-
-    <para>The log entry and a backtrace are stored in the journal, and can be viewed with
-    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    may be used to list and extract coredumps or load them in
+    <para>Core dumps can be written to the journal or saved as a file. Once saved they can be retrieved
+    for further processing, for example in
     <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     </para>
 
-    <para>The coredump helper is invoked anew each time. Therefore, any configuration
-    changes will take effect on the invocation of <command>systemd-coredump</command>.
+    <para>By default, <command>systemd-coredump</command> will log the core dump including a backtrace
+    if possible to the journal and store the core dump itself in an external file in
+    <filename>/var/lib/systemd/coredump</filename>.</para>
+
+    <para>When the kernel invokes <command>systemd-coredump</command> to handle a core dump,
+    it will connect to the socket created by the <filename>systemd-coredump.socket</filename>
+    unit, which in turn will spawn a <filename>systemd-coredump@.service</filename> instance
+    to process the core dump. Hence <filename>systemd-coredump.socket</filename>
+    and <filename>systemd-coredump@.service</filename> are helper units which do the actual
+    processing of core dumps and are subject to normal service management.</para>
+
+    <para>The behavior of a specific program upon reception of a signal is governed by a few
+    factors which are described in detail in
+    <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    In particular, the core dump will only be processed when the related resource limits are sufficient.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration</title>
+    <para>For programs started by <command>systemd</command> process resource limits can be set by directive
+    <varname>LimitCore=</varname>, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>In order to be used <command>systemd-coredump</command> must be configured in
+    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    parameter <varname>kernel.core_pattern</varname>. The syntax of this parameter is explained in
+    <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Systemd installs the file <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> which configures
+    <varname>kernel.core_pattern</varname> accordingly. This file may be masked or overridden to use a different
+    setting following normal
+    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    rules.
     If the sysctl configuration is modified, it must be updated in the kernel before
     it takes effect, see
-    <citerefentry><refentrytitle>systemd-sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     and
-    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd-sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
+
+    <para>The behaviour of <command>systemd-coredump</command> itself is configured through the configuration file
+    <filename>/etc/systemd/coredump.conf</filename> and corresponding snippets
+    <filename>/etc/systemd/coredump.conf.d/*.conf</filename>, see
+    <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. A new
+    instance of <command>systemd-coredump</command> is invoked upon receiving every core dump. Therefore, changes
+    in these files will take effect the next time a core dump is received.</para>
+
+    <para>Resources used by core dump files are restricted in two ways. Parameters like maximum size of acquired
+    core dumps and files can be set in files <filename>/etc/systemd/coredump.conf</filename> and snippets mentioned
+    above. In addition the storage time of core dump files is restricted by <command>systemd-tmpfiles</command>,
+    corresponding settings are by default in <filename>/usr/lib/tmpfiles.d/systemd.conf</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Usage</title>
+    <para>Data stored in the journal can be viewed with
+    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    as usual.
+    <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    can be used to retrieve saved core dumps independent of their location, to display information and to process
+    them e.g. by passing to the GNU debugger (gdb).</para>
   </refsect1>
 
   <refsect1>
@@ -119,6 +136,7 @@
       <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
