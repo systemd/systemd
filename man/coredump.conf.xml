@@ -45,7 +45,7 @@
   <refnamediv>
     <refname>coredump.conf</refname>
     <refname>coredump.conf.d</refname>
-    <refpurpose>Coredump storage configuration files</refpurpose>
+    <refpurpose>Core dump storage configuration files</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -86,7 +86,7 @@
         <listitem><para>Controls where to store cores. One of
         <literal>none</literal>, <literal>external</literal>,
         <literal>journal</literal>, and <literal>both</literal>. When
-        <literal>none</literal>, the coredumps will be logged but not
+        <literal>none</literal>, the core dumps will be logged but not
         stored permanently. When <literal>external</literal> (the
         default), cores will be stored in <filename>/var/lib/systemd/coredump</filename>.
         When <literal>journal</literal>, cores will be stored in
@@ -114,7 +114,7 @@
         <term><varname>ProcessSizeMax=</varname></term>
 
         <listitem><para>The maximum size in bytes of a core
-        which will be processed. Coredumps exceeding this size
+        which will be processed. Core dumps exceeding this size
         will be logged, but the backtrace will not be generated
         and the core will not be stored.</para></listitem>
       </varlistentry>
@@ -132,14 +132,14 @@
         <term><varname>KeepFree=</varname></term>
 
         <listitem><para>Enforce limits on the disk space taken up by
-        externally stored coredumps. <option>MaxUse=</option> makes
-        sure that old coredumps are removed as soon as the total disk
-        space taken up by coredumps grows beyond this limit (defaults
+        externally stored core dumps. <option>MaxUse=</option> makes
+        sure that old core dumps are removed as soon as the total disk
+        space taken up by core dumps grows beyond this limit (defaults
         to 10% of the total disk size). <option>KeepFree=</option>
         controls how much disk space to keep free at least (defaults
         to 15% of the total disk size). Note that the disk space used
-        by coredumps might temporarily exceed these limits while
-        coredumps are processed. Note that old coredumps are also
+        by core dumps might temporarily exceed these limits while
+        core dumps are processed. Note that old core dumps are also
         removed based on time via
         <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Set
         either value to 0 to turn off size-based
