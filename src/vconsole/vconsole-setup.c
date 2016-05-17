@@ -199,8 +199,8 @@ static void font_copy_to_all_vcs(int fd) {
         int i, r;
 
         unipairs = new(struct unipair, USHRT_MAX);
-        if (unipairs == NULL) {
-                log_error("Not enough memory to copy fonts");
+        if (!unipairs) {
+                log_oom();
                 return;
         }
 
