@@ -436,7 +436,7 @@ bluetooth:v008E*
  ID_VENDOR_FROM_DATABASE=Quintic Corp.
 
 bluetooth:v008F*
- ID_VENDOR_FROM_DATABASE=Stollman E+V GmbH
+ ID_VENDOR_FROM_DATABASE=Telit Wireless Solutions GmbH (Formerly Stollman E+V GmbH)
 
 bluetooth:v0090*
  ID_VENDOR_FROM_DATABASE=Funai Electric Co., Ltd.
@@ -2468,3 +2468,183 @@ bluetooth:v0333*
 
 bluetooth:v0334*
  ID_VENDOR_FROM_DATABASE=Corentium AS
+
+bluetooth:v0335*
+ ID_VENDOR_FROM_DATABASE=Enlighted Inc
+
+bluetooth:v0336*
+ ID_VENDOR_FROM_DATABASE=GISTIC
+
+bluetooth:v0337*
+ ID_VENDOR_FROM_DATABASE=AJP2 Holdings, LLC
+
+bluetooth:v0338*
+ ID_VENDOR_FROM_DATABASE=COBI GmbH
+
+bluetooth:v0339*
+ ID_VENDOR_FROM_DATABASE=Blue Sky Scientific, LLC
+
+bluetooth:v033A*
+ ID_VENDOR_FROM_DATABASE=Appception, Inc.
+
+bluetooth:v033B*
+ ID_VENDOR_FROM_DATABASE=Courtney Thorne Limited
+
+bluetooth:v033C*
+ ID_VENDOR_FROM_DATABASE=Virtuosys
+
+bluetooth:v033D*
+ ID_VENDOR_FROM_DATABASE=TPV Technology Limited
+
+bluetooth:v033E*
+ ID_VENDOR_FROM_DATABASE=Monitra SA
+
+bluetooth:v033F*
+ ID_VENDOR_FROM_DATABASE=Automation Components, Inc.
+
+bluetooth:v0340*
+ ID_VENDOR_FROM_DATABASE=Letsense s.r.l.
+
+bluetooth:v0341*
+ ID_VENDOR_FROM_DATABASE=Etesian Technologies LLC
+
+bluetooth:v0342*
+ ID_VENDOR_FROM_DATABASE=GERTEC BRASIL LTDA.
+
+bluetooth:v0343*
+ ID_VENDOR_FROM_DATABASE=Drekker Development Pty. Ltd.
+
+bluetooth:v0344*
+ ID_VENDOR_FROM_DATABASE=Whirl Inc
+
+bluetooth:v0345*
+ ID_VENDOR_FROM_DATABASE=Locus Positioning
+
+bluetooth:v0346*
+ ID_VENDOR_FROM_DATABASE=Acuity Brands Lighting, Inc
+
+bluetooth:v0347*
+ ID_VENDOR_FROM_DATABASE=Prevent Biometrics
+
+bluetooth:v0348*
+ ID_VENDOR_FROM_DATABASE=Arioneo
+
+bluetooth:v0349*
+ ID_VENDOR_FROM_DATABASE=VersaMe
+
+bluetooth:v034A*
+ ID_VENDOR_FROM_DATABASE=Vaddio
+
+bluetooth:v034B*
+ ID_VENDOR_FROM_DATABASE=Libratone A/S
+
+bluetooth:v034C*
+ ID_VENDOR_FROM_DATABASE=HM Electronics, Inc.
+
+bluetooth:v034D*
+ ID_VENDOR_FROM_DATABASE=TASER International, Inc.
+
+bluetooth:v034E*
+ ID_VENDOR_FROM_DATABASE=Safe Trust Inc.
+
+bluetooth:v034F*
+ ID_VENDOR_FROM_DATABASE=Heartland Payment Systems
+
+bluetooth:v0350*
+ ID_VENDOR_FROM_DATABASE=Bitstrata Systems Inc.
+
+bluetooth:v0351*
+ ID_VENDOR_FROM_DATABASE=Pieps GmbH
+
+bluetooth:v0352*
+ ID_VENDOR_FROM_DATABASE=iRiding(Xiamen)Technology Co.,Ltd.
+
+bluetooth:v0353*
+ ID_VENDOR_FROM_DATABASE=Alpha Audiotronics, Inc.
+
+bluetooth:v0354*
+ ID_VENDOR_FROM_DATABASE=TOPPAN FORMS CO.,LTD.
+
+bluetooth:v0355*
+ ID_VENDOR_FROM_DATABASE=Sigma Designs, Inc.
+
+bluetooth:v0356*
+ ID_VENDOR_FROM_DATABASE=Spectrum Brands, Inc.
+
+bluetooth:v0357*
+ ID_VENDOR_FROM_DATABASE=Polymap Wireless
+
+bluetooth:v0358*
+ ID_VENDOR_FROM_DATABASE=MagniWare Ltd.
+
+bluetooth:v0359*
+ ID_VENDOR_FROM_DATABASE=Novotec Medical GmbH
+
+bluetooth:v035A*
+ ID_VENDOR_FROM_DATABASE=Medicom Innovation Partner a/s
+
+bluetooth:v035B*
+ ID_VENDOR_FROM_DATABASE=Matrix Inc.
+
+bluetooth:v035C*
+ ID_VENDOR_FROM_DATABASE=Eaton Corporation
+
+bluetooth:v035D*
+ ID_VENDOR_FROM_DATABASE=KYS
+
+bluetooth:v035E*
+ ID_VENDOR_FROM_DATABASE=Naya Health, Inc.
+
+bluetooth:v035F*
+ ID_VENDOR_FROM_DATABASE=Acromag
+
+bluetooth:v0360*
+ ID_VENDOR_FROM_DATABASE=Insulet Corporation
+
+bluetooth:v0361*
+ ID_VENDOR_FROM_DATABASE=Wellinks Inc.
+
+bluetooth:v0362*
+ ID_VENDOR_FROM_DATABASE=ON Semiconductor
+
+bluetooth:v0363*
+ ID_VENDOR_FROM_DATABASE=FREELAP SA
+
+bluetooth:v0364*
+ ID_VENDOR_FROM_DATABASE=Favero Electronics Srl
+
+bluetooth:v0365*
+ ID_VENDOR_FROM_DATABASE=BioMech Sensor LLC
+
+bluetooth:v0366*
+ ID_VENDOR_FROM_DATABASE=BOLTT Sports technologies Private limited
+
+bluetooth:v0367*
+ ID_VENDOR_FROM_DATABASE=Saphe International
+
+bluetooth:v0368*
+ ID_VENDOR_FROM_DATABASE=Metormote AB
+
+bluetooth:v0369*
+ ID_VENDOR_FROM_DATABASE=littleBits
+
+bluetooth:v036A*
+ ID_VENDOR_FROM_DATABASE=SetPoint Medical
+
+bluetooth:v036B*
+ ID_VENDOR_FROM_DATABASE=BRControls Products BV
+
+bluetooth:v036C*
+ ID_VENDOR_FROM_DATABASE=Zipcar
+
+bluetooth:v036D*
+ ID_VENDOR_FROM_DATABASE=AirBolt Pty Ltd
+
+bluetooth:v036E*
+ ID_VENDOR_FROM_DATABASE=KeepTruckin Inc
+
+bluetooth:v036F*
+ ID_VENDOR_FROM_DATABASE=Motiv, Inc.
+
+bluetooth:v0370*
+ ID_VENDOR_FROM_DATABASE=Wazombi Labs OÜ
