@@ -468,10 +468,12 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
         if (r < 0)
                 return r;
 
-        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               SD_DHCP_OPTION_ROUTER, 4, &server->address);
-        if (r < 0)
-                return r;
+        if (server->emit_router) {
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                       SD_DHCP_OPTION_ROUTER, 4, &server->address);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp_server_send_packet(server, req, packet, DHCP_OFFER, offset);
         if (r < 0)
@@ -505,10 +507,12 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
         if (r < 0)
                 return r;
 
-        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               SD_DHCP_OPTION_ROUTER, 4, &server->address);
-        if (r < 0)
-                return r;
+        if (server->emit_router) {
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                       SD_DHCP_OPTION_ROUTER, 4, &server->address);
+                if (r < 0)
+                        return r;
+        }
 
         if (server->n_dns > 0) {
                 r = dhcp_option_append(
@@ -1155,6 +1159,17 @@ int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], u
                 server->ntp = c;
                 server->n_ntp = n;
         }
+
+        return 1;
+}
+
+int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {
+        assert_return(server, -EINVAL);
+
+        if (enabled == server->emit_router)
+                return 0;
+
+        server->emit_router = enabled;
 
         return 1;
 }

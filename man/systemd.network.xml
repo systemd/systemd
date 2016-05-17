@@ -982,6 +982,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>EmitRouter=</varname></term>
+
+        <listitem><para>Similar to the <varname>EmitDNS=</varname>
+        setting described above, this setting configures whether the
+        DHCP lease should contain the router option. The same syntax,
+        propagation semantics and defaults apply as for
+        <varname>EmitDNS=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>EmitTimezone=</varname></term>
         <term><varname>Timezone=</varname></term>
 

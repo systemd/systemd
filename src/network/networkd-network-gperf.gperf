@@ -95,6 +95,7 @@ DHCPServer.EmitDNS,                     config_parse_bool,                      
 DHCPServer.DNS,                         config_parse_dhcp_server_dns,                   0,                             0
 DHCPServer.EmitNTP,                     config_parse_bool,                              0,                             offsetof(Network, dhcp_server_emit_ntp)
 DHCPServer.NTP,                         config_parse_dhcp_server_ntp,                   0,                             0
+DHCPServer.EmitRouter,                  config_parse_bool,                              0,                             offsetof(Network, dhcp_server_emit_router)
 DHCPServer.EmitTimezone,                config_parse_bool,                              0,                             offsetof(Network, dhcp_server_emit_timezone)
 DHCPServer.Timezone,                    config_parse_timezone,                          0,                             offsetof(Network, dhcp_server_timezone)
 DHCPServer.PoolOffset,                  config_parse_uint32,                            0,                             offsetof(Network, dhcp_server_pool_offset)
