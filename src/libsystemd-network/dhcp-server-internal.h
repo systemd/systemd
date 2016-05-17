@@ -63,6 +63,8 @@ struct sd_dhcp_server {
         struct in_addr *ntp, *dns;
         unsigned n_ntp, n_dns;
 
+        bool emit_router;
+
         Hashmap *leases_by_client_id;
         DHCPLease **bound_leases;
         DHCPLease invalid_lease;

@@ -113,6 +113,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->dhcp_server_emit_dns = true;
         network->dhcp_server_emit_ntp = true;
+        network->dhcp_server_emit_router = true;
         network->dhcp_server_emit_timezone = true;
 
         network->use_bpdu = true;

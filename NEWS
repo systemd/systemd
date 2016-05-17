@@ -180,22 +180,26 @@ CHANGES WITH 230 in spe:
           service. Please leave PrivateDevices= off if you run into problems
           with this.
 
+        * The systemd-networkd DHCP server gained the option EmitRouter=, which
+          defaults to yes, to configure if the DHCP Option 3 (Router) should be
+          emitted.
+
         Contributions from: Alban Crequy, Alexander Kuleshov, Alex Crawford,
         Andrew Eikum, Beniamino Galvani, Benjamin Robin, Benjamin ROBIN, Biao
-        Lu, Bjørnar Ness, Calvin Owens, Christian Hesse, Colin Guthrie, Daniel
-        J Walsh, Daniel Mack, Dan Nicholson, daurnimator, David Herrmann, David
-        R. Hedges, Elias Probst, Emmanuel Gil Peyrot, EMOziko, Evgeny
-        Vereshchagin, Federico, Felipe Sateler, Filipe Brandenburger, Franck
-        Bui, frankheckenbach, Georgia Brikis, Harald Hoyer, Hendrik Brueckner,
-        Hristo Venev, Iago López Galeiras, Ian Kelling, Ismo Puustinen, Jakub
-        Wilk, Jaroslav Škarvada, Jeff Huang, Joel Holdsworth, kayrus, Klearchos
-        Chaloulos, Lennart Poettering, Lubomir Rintel, Lukas Nykryn, Lukáš
-        Nykrýn, Mantas Mikulėnas, Marcel Holtmann, Martin Pitt, Michael Biebl,
-        michaelolbrich, Michał Bartoszkiewicz, Michal Koutný, Michal Sekletar,
-        Mike Frysinger, Mike Gilbert, Mingcong Bai, Ming Lin, mulkieran,
-        muzena, Nalin Dahyabhai, Naohiro Aota, Nathan McSween, Nicolas
-        Braud-Santoni, Patrik Flykt, Peter Hutterer, Petr Lautrbach, Petros
-        Angelatos, Piotr Drąg, Rabin Vincent, Robert Węcławski, Ronny
+        Lu, Bjørnar Ness, Calvin Owens, Christian Hesse, Clemens Gruber, Colin
+        Guthrie, Daniel J Walsh, Daniel Mack, Dan Nicholson, daurnimator, David
+        Herrmann, David R. Hedges, Elias Probst, Emmanuel Gil Peyrot, EMOziko,
+        Evgeny Vereshchagin, Federico, Felipe Sateler, Filipe Brandenburger,
+        Franck Bui, frankheckenbach, Georgia Brikis, Harald Hoyer, Hendrik
+        Brueckner, Hristo Venev, Iago López Galeiras, Ian Kelling, Ismo
+        Puustinen, Jakub Wilk, Jaroslav Škarvada, Jeff Huang, Joel Holdsworth,
+        kayrus, Klearchos Chaloulos, Lennart Poettering, Lubomir Rintel, Lukas
+        Nykryn, Lukáš Nykrýn, Mantas Mikulėnas, Marcel Holtmann, Martin Pitt,
+        Michael Biebl, michaelolbrich, Michał Bartoszkiewicz, Michal Koutný,
+        Michal Sekletar, Mike Frysinger, Mike Gilbert, Mingcong Bai, Ming Lin,
+        mulkieran, muzena, Nalin Dahyabhai, Naohiro Aota, Nathan McSween,
+        Nicolas Braud-Santoni, Patrik Flykt, Peter Hutterer, Petr Lautrbach,
+        Petros Angelatos, Piotr Drąg, Rabin Vincent, Robert Węcławski, Ronny
         Chevalier, Samuel Tardieu, Stefan Schallenberg, Steven Siloti, Susant
         Sahani, Sylvain Plantefève, Taylor Smock, tblume, Tejun Heo, Thomas
         Blume, Thomas Haller, Thomas Hindoe Paaboel Andersen, Thomas

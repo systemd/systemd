@@ -127,6 +127,7 @@ struct Network {
         bool dhcp_server_emit_ntp;
         struct in_addr *dhcp_server_ntp;
         unsigned n_dhcp_server_ntp;
+        bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;

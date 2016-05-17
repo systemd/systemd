@@ -1020,6 +1020,12 @@ static int link_enter_set_addresses(Link *link) {
                                 log_link_warning_errno(link, r, "Failed to set NTP server for DHCP server, ignoring: %m");
                 }
 
+                r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to set router emission for DHCP server: %m");
+                        return r;
+                }
+
                 if (link->network->dhcp_server_emit_timezone) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *tz = NULL;
