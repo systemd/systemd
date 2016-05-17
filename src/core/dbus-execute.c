@@ -839,16 +839,8 @@ int bus_exec_context_set_transient_property(
 
                         if (isempty(uu))
                                 c->user = mfree(c->user);
-                        else {
-                                char *t;
-
-                                t = strdup(uu);
-                                if (!t)
-                                        return -ENOMEM;
-
-                                free(c->user);
-                                c->user = t;
-                        }
+                        else if (free_and_strdup(&c->user, uu) < 0)
+                                return -ENOMEM;
 
                         unit_write_drop_in_private_format(u, mode, name, "User=%s\n", uu);
                 }
@@ -866,16 +858,8 @@ int bus_exec_context_set_transient_property(
 
                         if (isempty(gg))
                                 c->group = mfree(c->group);
-                        else {
-                                char *t;
-
-                                t = strdup(gg);
-                                if (!t)
-                                        return -ENOMEM;
-
-                                free(c->group);
-                                c->group = t;
-                        }
+                        else if (free_and_strdup(&c->group, gg) < 0)
+                                return -ENOMEM;
 
                         unit_write_drop_in_private_format(u, mode, name, "Group=%s\n", gg);
                 }
@@ -890,18 +874,10 @@ int bus_exec_context_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
 
-                        if (isempty(id)) {
+                        if (isempty(id))
                                 c->syslog_identifier = mfree(c->syslog_identifier);
-                        } else {
-                                char *t;
-
-                                t = strdup(id);
-                                if (!t)
-                                        return -ENOMEM;
-
-                                free(c->syslog_identifier);
-                                c->syslog_identifier = t;
-                        }
+                        else if (free_and_strdup(&c->syslog_identifier, id) < 0)
+                                return -ENOMEM;
 
                         unit_write_drop_in_private_format(u, mode, name, "SyslogIdentifier=%s\n", id);
                 }
