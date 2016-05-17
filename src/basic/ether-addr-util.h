@@ -35,3 +35,5 @@ bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b);
 static inline bool ether_addr_is_null(const struct ether_addr *addr) {
         return ether_addr_equal(addr, &ETHER_ADDR_NULL);
 }
+
+int ether_addr_from_string(const char *s, struct ether_addr *ret, size_t *offset);
