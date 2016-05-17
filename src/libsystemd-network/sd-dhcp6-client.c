@@ -922,9 +922,8 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                log_dhcp6_client(client, "Could not receive message from UDP socket: %m");
+                return log_dhcp6_client_errno(client, errno, "Could not receive message from UDP socket: %m");
 
-                return -errno;
         } else if ((size_t)len < sizeof(DHCP6Message))
                 return 0;
 
@@ -947,8 +946,7 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 break;
 
         default:
-                log_dhcp6_client(client, "unknown message type %d",
-                                 message->type);
+                log_dhcp6_client(client, "Unknown message type %d", message->type);
                 return 0;
         }
 
@@ -1007,10 +1005,9 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 return 0;
         }
 
-        if (r >= 0) {
+        if (r >= 0)
                 log_dhcp6_client(client, "Recv %s",
                                  dhcp6_message_type_to_string(message->type));
-        }
 
         return 0;
 }
@@ -1063,7 +1060,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 if (client->lease->ia.lifetime_t1 == 0xffffffff ||
                     client->lease->ia.lifetime_t2 == 0xffffffff) {
 
-                        log_dhcp6_client(client, "infinite T1 0x%08x or T2 0x%08x",
+                        log_dhcp6_client(client, "Infinite T1 0x%08x or T2 0x%08x",
                                          be32toh(client->lease->ia.lifetime_t1),
                                          be32toh(client->lease->ia.lifetime_t2));
 
@@ -1179,8 +1176,13 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 return r;
 
         r = dhcp6_network_bind_udp_socket(client->index, &client->local_address);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                _cleanup_free_ char *p = NULL;
+
+                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &client->local_address, &p);
+                return log_dhcp6_client_errno(client, r,
+                                              "Failed to bind to UDP socket at address %s: %m", strna(p));
+        }
 
         client->fd = r;
 
@@ -1196,7 +1198,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 goto error;
 
         r = sd_event_source_set_description(client->receive_message,
-                                        "dhcp6-receive-message");
+                                            "dhcp6-receive-message");
         if (r < 0)
                 goto error;
 
@@ -1204,8 +1206,8 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 state = DHCP6_STATE_INFORMATION_REQUEST;
 
         log_dhcp6_client(client, "Started in %s mode",
-                        client->information_request? "Information request":
-                        "Managed");
+                         client->information_request? "Information request":
+                         "Managed");
 
         return client_start(client, state);
 

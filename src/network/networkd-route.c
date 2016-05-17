@@ -324,12 +324,6 @@ int route_update(Route *route,
         return 0;
 }
 
-void route_drop(Route *route) {
-        assert(route);
-
-        route_free(route);
-}
-
 int route_remove(Route *route, Link *link,
                sd_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
@@ -375,7 +369,7 @@ int route_remove(Route *route, Link *link,
                 else if (route->family == AF_INET6)
                         r = sd_netlink_message_append_in6_addr(req, RTA_SRC, &route->src.in6);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append RTA_DST attribute: %m");
+                        return log_error_errno(r, "Could not append RTA_SRC attribute: %m");
 
                 r = sd_rtnl_message_route_set_src_prefixlen(req, route->src_prefixlen);
                 if (r < 0)

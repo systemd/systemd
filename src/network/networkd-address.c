@@ -404,8 +404,11 @@ int address_get(Link *link, int family, const union in_addr_union *in_addr, unsi
         return 0;
 }
 
-int address_remove(Address *address, Link *link,
-                 sd_netlink_message_handler_t callback) {
+int address_remove(
+                Address *address,
+                Link *link,
+                sd_netlink_message_handler_t callback) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
