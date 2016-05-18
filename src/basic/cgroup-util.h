@@ -76,6 +76,8 @@ static inline bool CGROUP_WEIGHT_IS_OK(uint64_t x) {
 typedef enum CGroupIOLimitType {
         CGROUP_IO_RBPS_MAX,
         CGROUP_IO_WBPS_MAX,
+        CGROUP_IO_RIOPS_MAX,
+        CGROUP_IO_WIOPS_MAX,
 
         _CGROUP_IO_LIMIT_TYPE_MAX,
         _CGROUP_IO_LIMIT_TYPE_INVALID = -1

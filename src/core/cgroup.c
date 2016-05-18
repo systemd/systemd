@@ -439,7 +439,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
 
                 LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
                         char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
-                        char buf[DECIMAL_STR_MAX(dev_t)*2+2+(5+DECIMAL_STR_MAX(uint64_t)+1)*2];
+                        char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
                         CGroupIOLimitType type;
                         dev_t dev;
                         unsigned n = 0;
@@ -458,8 +458,9 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                                 }
                         }
 
-                        xsprintf(buf, "%u:%u rbps=%s wbps=%s\n", major(dev), minor(dev),
-                                 limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX]);
+                        xsprintf(buf, "%u:%u rbps=%s wbps=%s riops=%s wiops=%s\n", major(dev), minor(dev),
+                                 limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
+                                 limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
                         r = cg_set_attribute("io", path, "io.max", buf);
                         if (r < 0)
                                 log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
