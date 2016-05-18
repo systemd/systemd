@@ -836,11 +836,9 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-
-                        if (isempty(uu))
-                                c->user = mfree(c->user);
-                        else if (free_and_strdup(&c->user, uu) < 0)
-                                return -ENOMEM;
+                        r = free_and_strdup(&c->user, uu);
+                        if (r < 0)
+                                return r;
 
                         unit_write_drop_in_private_format(u, mode, name, "User=%s\n", uu);
                 }
@@ -855,11 +853,9 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-
-                        if (isempty(gg))
-                                c->group = mfree(c->group);
-                        else if (free_and_strdup(&c->group, gg) < 0)
-                                return -ENOMEM;
+                        r = free_and_strdup(&c->group, gg);
+                        if (r < 0)
+                                return r;
 
                         unit_write_drop_in_private_format(u, mode, name, "Group=%s\n", gg);
                 }
@@ -873,11 +869,9 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-
-                        if (isempty(id))
-                                c->syslog_identifier = mfree(c->syslog_identifier);
-                        else if (free_and_strdup(&c->syslog_identifier, id) < 0)
-                                return -ENOMEM;
+                        r = free_and_strdup(&c->syslog_identifier, id);
+                        if (r < 0)
+                                return r;
 
                         unit_write_drop_in_private_format(u, mode, name, "SyslogIdentifier=%s\n", id);
                 }
@@ -1094,10 +1088,9 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        if (isempty(id))
-                                c->utmp_id = mfree(c->utmp_id);
-                        else if (free_and_strdup(&c->utmp_id, id) < 0)
-                                return -ENOMEM;
+                        r = free_and_strdup(&c->utmp_id, id);
+                        if (r < 0)
+                                return r;
 
                         unit_write_drop_in_private_format(u, mode, name, "UtmpIdentifier=%s\n", strempty(id));
                 }
@@ -1132,10 +1125,9 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        if (isempty(n))
-                                c->pam_name = mfree(c->pam_name);
-                        else if (free_and_strdup(&c->pam_name, n) < 0)
-                                return -ENOMEM;
+                        r = free_and_strdup(&c->pam_name, n);
+                        if (r < 0)
+                                return r;
 
                         unit_write_drop_in_private_format(u, mode, name, "PAMName=%s\n", strempty(n));
                 }
