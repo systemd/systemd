@@ -77,8 +77,8 @@ struct CGroupBlockIODeviceWeight {
 struct CGroupBlockIODeviceBandwidth {
         LIST_FIELDS(CGroupBlockIODeviceBandwidth, device_bandwidths);
         char *path;
-        uint64_t bandwidth;
-        bool read;
+        uint64_t rbps;
+        uint64_t wbps;
 };
 
 struct CGroupContext {

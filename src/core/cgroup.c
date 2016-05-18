@@ -206,12 +206,18 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
                 char buf[FORMAT_BYTES_MAX];
 
-                fprintf(f,
-                        "%s%s=%s %s\n",
-                        prefix,
-                        b->read ? "BlockIOReadBandwidth" : "BlockIOWriteBandwidth",
-                        b->path,
-                        format_bytes(buf, sizeof(buf), b->bandwidth));
+                if (b->rbps != CGROUP_LIMIT_MAX)
+                        fprintf(f,
+                                "%sBlockIOReadBandwidth=%s %s\n",
+                                prefix,
+                                b->path,
+                                format_bytes(buf, sizeof(buf), b->rbps));
+                if (b->wbps != CGROUP_LIMIT_MAX)
+                        fprintf(f,
+                                "%sBlockIOWriteBandwidth=%s %s\n",
+                                prefix,
+                                b->path,
+                                format_bytes(buf, sizeof(buf), b->wbps));
         }
 }
 
@@ -477,7 +483,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                 char buf[MAX(DECIMAL_STR_MAX(uint64_t)+1,
                              DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1)];
                 CGroupBlockIODeviceWeight *w;
-                CGroupBlockIODeviceBandwidth *b;
+                CGroupBlockIODeviceBandwidth *b, *next;
 
                 if (!is_root) {
                         sprintf(buf, "%" PRIu64 "\n",
@@ -504,22 +510,34 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         }
                 }
 
-                /* FIXME: no way to reset this list */
-                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                        const char *a;
+                LIST_FOREACH_SAFE(device_bandwidths, b, next, c->blockio_device_bandwidths) {
                         dev_t dev;
+                        unsigned n = 0;
 
                         r = lookup_block_device(b->path, &dev);
                         if (r < 0)
                                 continue;
 
-                        a = b->read ? "blkio.throttle.read_bps_device" : "blkio.throttle.write_bps_device";
-
-                        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), b->bandwidth);
-                        r = cg_set_attribute("blkio", path, a, buf);
+                        if (b->rbps != CGROUP_LIMIT_MAX)
+                                n++;
+                        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), b->rbps);
+                        r = cg_set_attribute("blkio", path, "blkio.throttle.read_bps_device", buf);
                         if (r < 0)
                                 log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set %s on %s: %m", a, path);
+                                               "Failed to set blkio.throttle.read_bps_device on %s: %m", path);
+
+                        if (b->wbps != CGROUP_LIMIT_MAX)
+                                n++;
+                        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), b->wbps);
+                        r = cg_set_attribute("blkio", path, "blkio.throttle.write_bps_device", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set blkio.throttle.write_bps_device on %s: %m", path);
+
+                        /* If @b contained no config, we just cleared the kernel
+                         * counterpart too. No reason to keep @l around. */
+                        if (!n)
+                                cgroup_context_free_blockio_device_bandwidth(c, b);
                 }
         }
 

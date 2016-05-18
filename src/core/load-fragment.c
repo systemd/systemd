@@ -3208,7 +3208,7 @@ int config_parse_blockio_bandwidth(
                 void *userdata) {
 
         _cleanup_free_ char *path = NULL;
-        CGroupBlockIODeviceBandwidth *b;
+        CGroupBlockIODeviceBandwidth *b = NULL, *t;
         CGroupContext *c = data;
         const char *bandwidth;
         uint64_t bytes;
@@ -3223,12 +3223,10 @@ int config_parse_blockio_bandwidth(
         read = streq("BlockIOReadBandwidth", lvalue);
 
         if (isempty(rvalue)) {
-                CGroupBlockIODeviceBandwidth *next;
-
-                LIST_FOREACH_SAFE (device_bandwidths, b, next, c->blockio_device_bandwidths)
-                        if (b->read == read)
-                                cgroup_context_free_blockio_device_bandwidth(c, b);
-
+                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
+                        b->rbps = CGROUP_LIMIT_MAX;
+                        b->wbps = CGROUP_LIMIT_MAX;
+                }
                 return 0;
         }
 
@@ -3256,16 +3254,30 @@ int config_parse_blockio_bandwidth(
                 return 0;
         }
 
-        b = new0(CGroupBlockIODeviceBandwidth, 1);
-        if (!b)
-                return log_oom();
+        LIST_FOREACH(device_bandwidths, t, c->blockio_device_bandwidths) {
+                if (path_equal(path, t->path)) {
+                        b = t;
+                        break;
+                }
+        }
 
-        b->path = path;
-        path = NULL;
-        b->bandwidth = bytes;
-        b->read = read;
+        if (!t) {
+                b = new0(CGroupBlockIODeviceBandwidth, 1);
+                if (!b)
+                        return log_oom();
 
-        LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, b);
+                b->path = path;
+                path = NULL;
+                b->rbps = CGROUP_LIMIT_MAX;
+                b->wbps = CGROUP_LIMIT_MAX;
+
+                LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, b);
+        }
+
+        if (read)
+                b->rbps = bytes;
+        else
+                b->wbps = bytes;
 
         return 0;
 }
