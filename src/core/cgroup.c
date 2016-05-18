@@ -358,6 +358,124 @@ fail:
         return -errno;
 }
 
+static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state)
+{
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+            c->startup_io_weight != CGROUP_WEIGHT_INVALID)
+                return c->startup_io_weight;
+        else if (c->io_weight != CGROUP_WEIGHT_INVALID)
+                return c->io_weight;
+        else
+                return CGROUP_WEIGHT_DEFAULT;
+}
+
+static uint64_t cgroup_context_blkio_weight(CGroupContext *c, ManagerState state)
+{
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+            c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
+                return c->startup_blockio_weight;
+        else if (c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
+                return c->blockio_weight;
+        else
+                return CGROUP_BLKIO_WEIGHT_DEFAULT;
+}
+
+static void cgroup_apply_io_device_weight(const char *path, const char *dev_path, uint64_t io_weight)
+{
+        char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
+        dev_t dev;
+        int r;
+
+        r = lookup_block_device(dev_path, &dev);
+        if (r < 0)
+                return;
+
+        xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), io_weight);
+        r = cg_set_attribute("io", path, "io.weight", buf);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to set io.weight on %s: %m", path);
+}
+
+static void cgroup_apply_blkio_device_weight(const char *path, const char *dev_path, uint64_t blkio_weight)
+{
+        char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
+        dev_t dev;
+        int r;
+
+        r = lookup_block_device(dev_path, &dev);
+        if (r < 0)
+                return;
+
+        xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), blkio_weight);
+        r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to set blkio.weight_device on %s: %m", path);
+}
+
+static unsigned cgroup_apply_io_device_limit(const char *path, const char *dev_path, uint64_t *limits)
+{
+        char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
+        char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
+        CGroupIOLimitType type;
+        dev_t dev;
+        unsigned n = 0;
+        int r;
+
+        r = lookup_block_device(dev_path, &dev);
+        if (r < 0)
+                return 0;
+
+        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++) {
+                if (limits[type] != cgroup_io_limit_defaults[type]) {
+                        xsprintf(limit_bufs[type], "%" PRIu64, limits[type]);
+                        n++;
+                } else {
+                        xsprintf(limit_bufs[type], "%s", limits[type] == CGROUP_LIMIT_MAX ? "max" : "0");
+                }
+        }
+
+        xsprintf(buf, "%u:%u rbps=%s wbps=%s riops=%s wiops=%s\n", major(dev), minor(dev),
+                 limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
+                 limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
+        r = cg_set_attribute("io", path, "io.max", buf);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to set io.max on %s: %m", path);
+        return n;
+}
+
+static unsigned cgroup_apply_blkio_device_limit(const char *path, const char *dev_path, uint64_t rbps, uint64_t wbps)
+{
+        char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
+        dev_t dev;
+        unsigned n = 0;
+        int r;
+
+        r = lookup_block_device(dev_path, &dev);
+        if (r < 0)
+                return 0;
+
+        if (rbps != CGROUP_LIMIT_MAX)
+                n++;
+        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), rbps);
+        r = cg_set_attribute("blkio", path, "blkio.throttle.read_bps_device", buf);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to set blkio.throttle.read_bps_device on %s: %m", path);
+
+        if (wbps != CGROUP_LIMIT_MAX)
+                n++;
+        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), wbps);
+        r = cg_set_attribute("blkio", path, "blkio.throttle.write_bps_device", buf);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to set blkio.throttle.write_bps_device on %s: %m", path);
+
+        return n;
+}
+
 void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, ManagerState state) {
         bool is_root;
         int r;
@@ -407,19 +525,14 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
         }
 
         if (mask & CGROUP_MASK_IO) {
-                CGroupIODeviceWeight *w;
                 CGroupIODeviceLimit *l, *next;
 
                 if (!is_root) {
-                        char buf[MAX(8+DECIMAL_STR_MAX(uint64_t)+1,
-                                     DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1)];
-                        uint64_t weight = CGROUP_WEIGHT_DEFAULT;
+                        char buf[8+DECIMAL_STR_MAX(uint64_t)+1];
+                        uint64_t weight;
+                        CGroupIODeviceWeight *w;
 
-                        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
-                            c->startup_io_weight != CGROUP_WEIGHT_INVALID)
-                                weight = c->startup_io_weight;
-                        else if (c->io_weight != CGROUP_WEIGHT_INVALID)
-                                weight = c->io_weight;
+                        weight = cgroup_context_io_weight(c, state);
 
                         xsprintf(buf, "default %" PRIu64 "\n", weight);
                         r = cg_set_attribute("io", path, "io.weight", buf);
@@ -428,115 +541,41 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                                                "Failed to set io.weight on %s: %m", path);
 
                         /* FIXME: no way to reset this list */
-                        LIST_FOREACH(device_weights, w, c->io_device_weights) {
-                                dev_t dev;
-
-                                r = lookup_block_device(w->path, &dev);
-                                if (r < 0)
-                                        continue;
-
-                                xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), w->weight);
-                                r = cg_set_attribute("io", path, "io.weight", buf);
-                                if (r < 0)
-                                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                                       "Failed to set io.weight on %s: %m", path);
-                        }
+                        LIST_FOREACH(device_weights, w, c->io_device_weights)
+                                cgroup_apply_io_device_weight(path, w->path, w->weight);
                 }
 
+                /* Apply limits and free ones without config. */
                 LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
-                        char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
-                        char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
-                        CGroupIOLimitType type;
-                        dev_t dev;
-                        unsigned n = 0;
-
-                        r = lookup_block_device(l->path, &dev);
-                        if (r < 0)
-                                continue;
-
-                        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++) {
-                                if (l->limits[type] != cgroup_io_limit_defaults[type]) {
-                                        xsprintf(limit_bufs[type], "%" PRIu64, l->limits[type]);
-                                        n++;
-                                } else {
-                                        xsprintf(limit_bufs[type], "%s",
-                                                 l->limits[type] == CGROUP_LIMIT_MAX ? "max" : "0");
-                                }
-                        }
-
-                        xsprintf(buf, "%u:%u rbps=%s wbps=%s riops=%s wiops=%s\n", major(dev), minor(dev),
-                                 limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
-                                 limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
-                        r = cg_set_attribute("io", path, "io.max", buf);
-                        if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set io.max on %s: %m", path);
-
-                        /* If @l contained no config, we just cleared the kernel
-                           counterpart too. No reason to keep @l around. */
-                        if (!n)
+                        if (!cgroup_apply_io_device_limit(path, l->path, l->limits))
                                 cgroup_context_free_io_device_limit(c, l);
                 }
         }
 
         if (mask & CGROUP_MASK_BLKIO) {
-                char buf[MAX(DECIMAL_STR_MAX(uint64_t)+1,
-                             DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1)];
-                CGroupBlockIODeviceWeight *w;
                 CGroupBlockIODeviceBandwidth *b, *next;
 
                 if (!is_root) {
-                        sprintf(buf, "%" PRIu64 "\n",
-                                IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ? c->startup_blockio_weight :
-                                c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ? c->blockio_weight : CGROUP_BLKIO_WEIGHT_DEFAULT);
+                        char buf[DECIMAL_STR_MAX(uint64_t)+1];
+                        uint64_t weight;
+                        CGroupBlockIODeviceWeight *w;
+
+                        weight = cgroup_context_blkio_weight(c, state);
+
+                        xsprintf(buf, "%" PRIu64 "\n", weight);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
                                 log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                                "Failed to set blkio.weight on %s: %m", path);
 
                         /* FIXME: no way to reset this list */
-                        LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
-                                dev_t dev;
-
-                                r = lookup_block_device(w->path, &dev);
-                                if (r < 0)
-                                        continue;
-
-                                sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), w->weight);
-                                r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
-                                if (r < 0)
-                                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                                       "Failed to set blkio.weight_device on %s: %m", path);
-                        }
+                        LIST_FOREACH(device_weights, w, c->blockio_device_weights)
+                                cgroup_apply_blkio_device_weight(path, w->path, w->weight);
                 }
 
+                /* Apply limits and free ones without config. */
                 LIST_FOREACH_SAFE(device_bandwidths, b, next, c->blockio_device_bandwidths) {
-                        dev_t dev;
-                        unsigned n = 0;
-
-                        r = lookup_block_device(b->path, &dev);
-                        if (r < 0)
-                                continue;
-
-                        if (b->rbps != CGROUP_LIMIT_MAX)
-                                n++;
-                        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), b->rbps);
-                        r = cg_set_attribute("blkio", path, "blkio.throttle.read_bps_device", buf);
-                        if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set blkio.throttle.read_bps_device on %s: %m", path);
-
-                        if (b->wbps != CGROUP_LIMIT_MAX)
-                                n++;
-                        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), b->wbps);
-                        r = cg_set_attribute("blkio", path, "blkio.throttle.write_bps_device", buf);
-                        if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set blkio.throttle.write_bps_device on %s: %m", path);
-
-                        /* If @b contained no config, we just cleared the kernel
-                         * counterpart too. No reason to keep @l around. */
-                        if (!n)
+                        if (!cgroup_apply_blkio_device_limit(path, b->path, b->rbps, b->wbps))
                                 cgroup_context_free_blockio_device_bandwidth(c, b);
                 }
         }
