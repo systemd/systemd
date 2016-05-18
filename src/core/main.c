@@ -148,10 +148,16 @@ noreturn static void crash(int sig) {
         struct sigaction sa;
         pid_t pid;
 
-        if (getpid() != 1)
+        if (getpid() != 1) {
                 /* Pass this on immediately, if this is not PID 1 */
                 (void) raise(sig);
-        else if (!arg_dump_core)
+                _exit(EXIT_FAILURE);
+        }
+
+        if (detect_container() <= 0)
+                (void) write_string_file("/proc/sys/kernel/core_pattern", "core", 0);
+
+        if (!arg_dump_core)
                 log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 sa = (struct sigaction) {
