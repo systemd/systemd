@@ -184,20 +184,16 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_limits, il, c->io_device_limits) {
                 char buf[FORMAT_BYTES_MAX];
+                CGroupIOLimitType type;
 
-                if (il->rbps_max != CGROUP_LIMIT_MAX)
-                        fprintf(f,
-                                "%sIOReadBandwidthMax=%s %s\n",
-                                prefix,
-                                il->path,
-                                format_bytes(buf, sizeof(buf), il->rbps_max));
-
-                if (il->wbps_max != CGROUP_LIMIT_MAX)
-                        fprintf(f,
-                                "%sIOWriteBandwidthMax=%s %s\n",
-                                prefix,
-                                il->path,
-                                format_bytes(buf, sizeof(buf), il->wbps_max));
+                for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                        if (il->limits[type] != cgroup_io_limit_defaults[type])
+                                fprintf(f,
+                                        "%s%s=%s %s\n",
+                                        prefix,
+                                        cgroup_io_limit_type_to_string(type),
+                                        il->path,
+                                        format_bytes(buf, sizeof(buf), il->limits[type]));
         }
 
         LIST_FOREACH(device_weights, w, c->blockio_device_weights)
@@ -442,9 +438,9 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                 }
 
                 LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
-                        char rbps_buf[DECIMAL_STR_MAX(uint64_t)] = "max";
-                        char wbps_buf[DECIMAL_STR_MAX(uint64_t)] = "max";
+                        char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
                         char buf[DECIMAL_STR_MAX(dev_t)*2+2+(5+DECIMAL_STR_MAX(uint64_t)+1)*2];
+                        CGroupIOLimitType type;
                         dev_t dev;
                         unsigned n = 0;
 
@@ -452,17 +448,18 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         if (r < 0)
                                 continue;
 
-                        if (l->rbps_max != CGROUP_LIMIT_MAX) {
-                                xsprintf(rbps_buf, "%" PRIu64, l->rbps_max);
-                                n++;
+                        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++) {
+                                if (l->limits[type] != cgroup_io_limit_defaults[type]) {
+                                        xsprintf(limit_bufs[type], "%" PRIu64, l->limits[type]);
+                                        n++;
+                                } else {
+                                        xsprintf(limit_bufs[type], "%s",
+                                                 l->limits[type] == CGROUP_LIMIT_MAX ? "max" : "0");
+                                }
                         }
 
-                        if (l->wbps_max != CGROUP_LIMIT_MAX) {
-                                xsprintf(wbps_buf, "%" PRIu64, l->wbps_max);
-                                n++;
-                        }
-
-                        xsprintf(buf, "%u:%u rbps=%s wbps=%s\n", major(dev), minor(dev), rbps_buf, wbps_buf);
+                        xsprintf(buf, "%u:%u rbps=%s wbps=%s\n", major(dev), minor(dev),
+                                 limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX]);
                         r = cg_set_attribute("io", path, "io.max", buf);
                         if (r < 0)
                                 log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,

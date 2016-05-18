@@ -284,8 +284,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         r = sd_bus_message_append(m, "v", "a(ss)", 1, path, rwm);
                 }
 
-        } else if (STR_IN_SET(field, "IOReadBandwidthMax", "IOWriteBandwidthMax",
-                              "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
+        } else if (cgroup_io_limit_type_from_string(field) >= 0 || STR_IN_SET(field, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "v", "a(st)", 0);

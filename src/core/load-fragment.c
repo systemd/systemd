@@ -3023,9 +3023,9 @@ int config_parse_io_limit(
         _cleanup_free_ char *path = NULL;
         CGroupIODeviceLimit *l = NULL, *t;
         CGroupContext *c = data;
+        CGroupIOLimitType type;
         const char *limit;
         uint64_t num;
-        bool read;
         size_t n;
         int r;
 
@@ -3033,14 +3033,12 @@ int config_parse_io_limit(
         assert(lvalue);
         assert(rvalue);
 
-        read = streq("IOReadBandwidthMax", lvalue);
+        type = cgroup_io_limit_type_from_string(lvalue);
+        assert(type >= 0);
 
         if (isempty(rvalue)) {
                 LIST_FOREACH(device_limits, l, c->io_device_limits)
-                        if (read)
-                                l->rbps_max = CGROUP_LIMIT_MAX;
-                        else
-                                l->wbps_max = CGROUP_LIMIT_MAX;
+                        l->limits[type] = cgroup_io_limit_defaults[type];
                 return 0;
         }
 
@@ -3080,22 +3078,21 @@ int config_parse_io_limit(
         }
 
         if (!l) {
+                CGroupIOLimitType ttype;
+
                 l = new0(CGroupIODeviceLimit, 1);
                 if (!l)
                         return log_oom();
 
                 l->path = path;
                 path = NULL;
-                l->rbps_max = CGROUP_LIMIT_MAX;
-                l->wbps_max = CGROUP_LIMIT_MAX;
+                for (ttype = 0; ttype < _CGROUP_IO_LIMIT_TYPE_MAX; ttype++)
+                        l->limits[ttype] = cgroup_io_limit_defaults[ttype];
 
                 LIST_PREPEND(device_limits, c->io_device_limits, l);
         }
 
-        if (read)
-                l->rbps_max = num;
-        else
-                l->wbps_max = num;
+        l->limits[type] = num;
 
         return 0;
 }

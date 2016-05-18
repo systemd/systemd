@@ -4447,7 +4447,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (streq(name, "IOReadBandwidthMax") || streq(name, "IOWriteBandwidthMax") ||
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (cgroup_io_limit_type_from_string(name) >= 0 ||
                                                                        streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth"))) {
                         const char *path;
                         uint64_t bandwidth;
