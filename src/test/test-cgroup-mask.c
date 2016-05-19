@@ -109,7 +109,7 @@ static int test_cgroup_mask(void) {
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_(rm_rf_and_freep) char *runtime_dir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int rc = 0;
 
         assert_se(runtime_dir = setup_fake_runtime_dir());

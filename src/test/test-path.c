@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
                 NULL,
         };
 
-        _cleanup_(rm_rf_and_freep) char *runtime_dir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         const test_function_t *test = NULL;
         Manager *m = NULL;
 

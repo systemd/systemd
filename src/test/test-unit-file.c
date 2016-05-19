@@ -842,7 +842,7 @@ static void test_config_parse_pass_environ(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(rm_rf_and_freep) char *runtime_dir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r;
 
         log_parse_environment();
