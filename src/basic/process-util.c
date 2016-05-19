@@ -667,6 +667,8 @@ bool is_main_thread(void) {
 
 noreturn void freeze(void) {
 
+        log_close();
+
         /* Make sure nobody waits for us on a socket anymore */
         close_all_fds(NULL, 0);
 
