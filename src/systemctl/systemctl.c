@@ -5462,7 +5462,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         int carries_install_info = -1;
-        bool ignore_carries_install_info = false;
+        bool ignore_carries_install_info = arg_quiet;
         int r;
 
         if (!argv[1])
