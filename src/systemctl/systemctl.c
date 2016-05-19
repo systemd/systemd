@@ -5478,8 +5478,11 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 return r;
 
         /* If the operation was fully executed by the SysV compat, let's finish early */
-        if (strv_isempty(names))
-                return 0;
+        if (strv_isempty(names)) {
+                if (arg_no_reload || install_client_side())
+                        return 0;
+                return daemon_reload(argc, argv, userdata);
+        }
 
         if (install_client_side()) {
                 if (streq(verb, "enable")) {
