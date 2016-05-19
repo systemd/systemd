@@ -261,6 +261,20 @@ static int link_enable_ipv6(Link *link) {
         return 0;
 }
 
+static bool link_is_bridge_port(Link *link) {
+
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (link->network)
+                if (link->network->bridge)
+                        return true;
+
+        return link->bridge_port;
+}
+
 void link_update_operstate(Link *link) {
         LinkOperationalState operstate;
         assert(link);
@@ -1451,7 +1465,7 @@ static int link_acquire_ipv6_conf(Link *link) {
                         return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
         }
 
-        if (link_ipv6_accept_ra_enabled(link)) {
+        if (link_ipv6_accept_ra_enabled(link) && !link_is_bridge_port(link)) {
                 assert(link->ndisc_router_discovery);
 
                 log_link_debug(link, "Discovering IPv6 routers");
@@ -1607,10 +1621,13 @@ static int link_up(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
 
-                ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
-                r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
+                if (!link_is_bridge_port(link)) {
+
+                        ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
+                        r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
+                }
 
                 if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
                         r = sd_netlink_message_append_in6_addr(req, IFLA_INET6_TOKEN, &link->network->ipv6_token.in6);
@@ -2809,10 +2826,10 @@ int link_carrier_reset(Link *link) {
 }
 
 int link_update(Link *link, sd_netlink_message *m) {
+        bool had_carrier, carrier_gained, carrier_lost;
+        uint32_t mtu, master;
         struct ether_addr mac;
         const char *ifname;
-        uint32_t mtu;
-        bool had_carrier, carrier_gained, carrier_lost;
         int r;
 
         assert(link);
@@ -2828,6 +2845,23 @@ int link_update(Link *link, sd_netlink_message *m) {
                 if (r < 0)
                         return r;
         }
+
+        /* find whether link is enslaved */
+        r = sd_netlink_message_read_u32(m, IFLA_MASTER, &master);
+        if (r >= 0) {
+
+                r = sd_netlink_message_enter_container(m, IFLA_PROTINFO);
+                if (r >= 0) {
+                        uint8_t state;
+
+                        r = sd_netlink_message_read_u8(m, IFLA_BRPORT_STATE, &state);
+                        if (r >= 0)
+                                link->bridge_port = true;
+
+                        (void) sd_netlink_message_exit_container(m);
+                }
+        } else
+                link->bridge_port = false;
 
         r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {

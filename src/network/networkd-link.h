@@ -74,6 +74,7 @@ typedef struct Link {
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
         struct udev_device *udev_device;
+        bool bridge_port;
 
         unsigned flags;
         uint8_t kernel_operstate;
