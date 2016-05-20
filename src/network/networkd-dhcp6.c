@@ -194,12 +194,6 @@ int dhcp6_request_address(Link *link) {
         if (r < 0)
                 return r;
 
-        if (running) {
-                r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0)
-                        return r;
-        }
-
         return 0;
 }
 
