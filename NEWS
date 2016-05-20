@@ -53,7 +53,7 @@ CHANGES WITH 230 in spe:
 
         * systemd-logind gained new configuration settings SessionsMax= and
           InhibitorsMax=, both with a default of 8192. It will not register new
-          user sessions or inibitors above this limit.
+          user sessions or inhibitors above this limit.
 
         * systemd-logind will now reload configuration on SIGHUP.
 
@@ -186,7 +186,7 @@ CHANGES WITH 230 in spe:
         * Note that the effect of the PrivateDevices= unit file setting changed
           slightly with this release: the per-device /dev file system will be
           mounted read-only from this version on, and will have "noexec"
-          set. This (minor) change of behaviour might cause some (exceptional)
+          set. This (minor) change of behavior might cause some (exceptional)
           legacy software to break, when PrivateDevices=yes is set for its
           service. Please leave PrivateDevices= off if you run into problems
           with this.
