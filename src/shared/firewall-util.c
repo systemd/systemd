@@ -29,12 +29,10 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <net/if.h>
-#include <linux/if.h>
 #ifndef IFNAMSIZ
-#undef _NET_IF_H
-/* Let's make sure to include this one, too, if IFNAMSIZ isn't defined yet, as it is for kernels <= 4.2 */
-#include <net/if.h>
+#define IFNAMSIZ 16
 #endif
+#include <linux/if.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter/nf_nat.h>
 #include <linux/netfilter/xt_addrtype.h>
