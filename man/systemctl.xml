@@ -481,19 +481,16 @@
           <para>When used with <command>enable</command>, overwrite
           any existing conflicting symlinks.</para>
 
-          <para>When used with <command>halt</command>,
-          <command>poweroff</command>, <command>reboot</command> or
-          <command>kexec</command>, execute the selected operation
-          without shutting down all units. However, all processes will
-          be killed forcibly and all file systems are unmounted or
-          remounted read-only. This is hence a drastic but relatively
-          safe option to request an immediate reboot. If
-          <option>--force</option> is specified twice for these
-          operations, they will be executed immediately without
-          terminating any processes or unmounting any file
-          systems. Warning: specifying <option>--force</option> twice
-          with any of these operations might result in data
-          loss.</para>
+          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command> or
+          <command>kexec</command>, execute the selected operation without shutting down all units. However, all
+          processes will be killed forcibly and all file systems are unmounted or remounted read-only. This is hence a
+          drastic but relatively safe option to request an immediate reboot. If <option>--force</option> is specified
+          twice for these operations (with the exception of <command>kexec</command>), they will be executed
+          immediately, without terminating any processes or unmounting any file systems. Warning: specifying
+          <option>--force</option> twice with any of these operations might result in data loss. Note that when
+          <option>--force</option> is specified twice the selected operation is executed by
+          <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
+          succeed even when the system manager hangs or crashed.</para>
         </listitem>
       </varlistentry>
 
@@ -1602,48 +1599,45 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>halt</command></term>
 
           <listitem>
-            <para>Shut down and halt the system. This is mostly equivalent to
-            <command>start halt.target --job-mode=replace-irreversibly</command>, but also
-            prints a wall message to all users.  If combined with
-            <option>--force</option>, shutdown of all running services is
-            skipped, however all processes are killed and all file
-            systems are unmounted or mounted read-only, immediately
-            followed by the system halt.  If <option>--force</option> is
-            specified twice, the operation is immediately executed
-            without terminating any processes or unmounting any file
-            systems. This may result in data loss.</para>
+            <para>Shut down and halt the system. This is mostly equivalent to <command>start halt.target
+            --job-mode=replace-irreversibly</command>, but also prints a wall message to all users.  If combined with
+            <option>--force</option>, shutdown of all running services is skipped, however all processes are killed and
+            all file systems are unmounted or mounted read-only, immediately followed by the system halt.  If
+            <option>--force</option> is specified twice, the operation is immediately executed without terminating any
+            processes or unmounting any file systems. This may result in data loss. Note that when
+            <option>--force</option> is specified twice the halt operation is executed by
+            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
+            succeed even when the system manager hangs or crashed.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>poweroff</command></term>
 
           <listitem>
-            <para>Shut down and power-off the system. This is mostly
-            equivalent to <command>start poweroff.target --job-mode=replace-irreversibly</command>,
-            but also prints a wall message to all users. If combined with
-            <option>--force</option>, shutdown of all running services is
-            skipped, however all processes are killed and all file
-            systems are unmounted or mounted read-only, immediately
-            followed by the powering off. If <option>--force</option> is
-            specified twice, the operation is immediately executed
-            without terminating any processes or unmounting any file
-            systems. This may result in data loss.</para>
+            <para>Shut down and power-off the system. This is mostly equivalent to <command>start poweroff.target
+            --job-mode=replace-irreversibly</command>, but also prints a wall message to all users. If combined with
+            <option>--force</option>, shutdown of all running services is skipped, however all processes are killed and
+            all file systems are unmounted or mounted read-only, immediately followed by the powering off. If
+            <option>--force</option> is specified twice, the operation is immediately executed without terminating any
+            processes or unmounting any file systems. This may result in data loss. Note that when
+            <option>--force</option> is specified twice the power-off operation is executed by
+            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
+            succeed even when the system manager hangs or crashed.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><command>reboot <optional><replaceable>arg</replaceable></optional></command></term>
 
           <listitem>
-            <para>Shut down and reboot the system. This is mostly
-            equivalent to <command>start reboot.target --job-mode=replace-irreversibly</command>,
-            but also prints a wall message to all users. If combined with
-            <option>--force</option>, shutdown of all running services is
-            skipped, however all processes are killed and all file
-            systems are unmounted or mounted read-only, immediately
-            followed by the reboot. If <option>--force</option> is
-            specified twice, the operation is immediately executed
-            without terminating any processes or unmounting any file
-            systems. This may result in data loss.</para>
+            <para>Shut down and reboot the system. This is mostly equivalent to <command>start reboot.target
+            --job-mode=replace-irreversibly</command>, but also prints a wall message to all users. If combined with
+            <option>--force</option>, shutdown of all running services is skipped, however all processes are killed and
+            all file systems are unmounted or mounted read-only, immediately followed by the reboot. If
+            <option>--force</option> is specified twice, the operation is immediately executed without terminating any
+            processes or unmounting any file systems. This may result in data loss. Note that when
+            <option>--force</option> is specified twice the reboot operation is executed by
+            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
+            succeed even when the system manager hangs or crashed.</para>
 
             <para>If the optional argument
             <replaceable>arg</replaceable> is given, it will be passed
