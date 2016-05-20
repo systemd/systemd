@@ -32,10 +32,10 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);
 int rm_rf(const char *path, RemoveFlags flags);
 
 /* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
-static inline void rm_rf_and_free(char *p) {
+static inline void rm_rf_physical_and_free(char *p) {
         if (!p)
                 return;
-        (void) rm_rf(p, REMOVE_ROOT);
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         free(p);
 }
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_and_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_physical_and_free);
