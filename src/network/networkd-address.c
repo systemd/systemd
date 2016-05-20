@@ -98,6 +98,9 @@ void address_free(Address *address) {
         if (address->link) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
+
+                if (in_addr_equal(AF_INET6, &address->in_addr, (const union in_addr_union *) &address->link->ipv6ll_address))
+                        memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
         }
 
         free(address);
