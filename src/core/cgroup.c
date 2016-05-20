@@ -358,8 +358,7 @@ fail:
         return -errno;
 }
 
-static bool cgroup_context_has_io_config(CGroupContext *c)
-{
+static bool cgroup_context_has_io_config(CGroupContext *c) {
         return c->io_accounting ||
                 c->io_weight != CGROUP_WEIGHT_INVALID ||
                 c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
@@ -367,8 +366,7 @@ static bool cgroup_context_has_io_config(CGroupContext *c)
                 c->io_device_limits;
 }
 
-static bool cgroup_context_has_blockio_config(CGroupContext *c)
-{
+static bool cgroup_context_has_blockio_config(CGroupContext *c) {
         return c->blockio_accounting ||
                 c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ||
                 c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ||
@@ -376,8 +374,7 @@ static bool cgroup_context_has_blockio_config(CGroupContext *c)
                 c->blockio_device_bandwidths;
 }
 
-static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state)
-{
+static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
             c->startup_io_weight != CGROUP_WEIGHT_INVALID)
                 return c->startup_io_weight;
@@ -387,8 +384,7 @@ static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state)
                 return CGROUP_WEIGHT_DEFAULT;
 }
 
-static uint64_t cgroup_context_blkio_weight(CGroupContext *c, ManagerState state)
-{
+static uint64_t cgroup_context_blkio_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
             c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
                 return c->startup_blockio_weight;
@@ -398,20 +394,17 @@ static uint64_t cgroup_context_blkio_weight(CGroupContext *c, ManagerState state
                 return CGROUP_BLKIO_WEIGHT_DEFAULT;
 }
 
-static uint64_t cgroup_weight_blkio_to_io(uint64_t blkio_weight)
-{
+static uint64_t cgroup_weight_blkio_to_io(uint64_t blkio_weight) {
         return CLAMP(blkio_weight * CGROUP_WEIGHT_DEFAULT / CGROUP_BLKIO_WEIGHT_DEFAULT,
                      CGROUP_WEIGHT_MIN, CGROUP_WEIGHT_MAX);
 }
 
-static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight)
-{
+static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight) {
         return CLAMP(io_weight * CGROUP_BLKIO_WEIGHT_DEFAULT / CGROUP_WEIGHT_DEFAULT,
                      CGROUP_BLKIO_WEIGHT_MIN, CGROUP_BLKIO_WEIGHT_MAX);
 }
 
-static void cgroup_apply_io_device_weight(const char *path, const char *dev_path, uint64_t io_weight)
-{
+static void cgroup_apply_io_device_weight(const char *path, const char *dev_path, uint64_t io_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
         int r;
@@ -427,8 +420,7 @@ static void cgroup_apply_io_device_weight(const char *path, const char *dev_path
                                "Failed to set io.weight on %s: %m", path);
 }
 
-static void cgroup_apply_blkio_device_weight(const char *path, const char *dev_path, uint64_t blkio_weight)
-{
+static void cgroup_apply_blkio_device_weight(const char *path, const char *dev_path, uint64_t blkio_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
         int r;
@@ -444,8 +436,7 @@ static void cgroup_apply_blkio_device_weight(const char *path, const char *dev_p
                                "Failed to set blkio.weight_device on %s: %m", path);
 }
 
-static unsigned cgroup_apply_io_device_limit(const char *path, const char *dev_path, uint64_t *limits)
-{
+static unsigned cgroup_apply_io_device_limit(const char *path, const char *dev_path, uint64_t *limits) {
         char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
         CGroupIOLimitType type;
@@ -476,8 +467,7 @@ static unsigned cgroup_apply_io_device_limit(const char *path, const char *dev_p
         return n;
 }
 
-static unsigned cgroup_apply_blkio_device_limit(const char *path, const char *dev_path, uint64_t rbps, uint64_t wbps)
-{
+static unsigned cgroup_apply_blkio_device_limit(const char *path, const char *dev_path, uint64_t rbps, uint64_t wbps) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
         unsigned n = 0;
