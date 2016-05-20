@@ -126,6 +126,8 @@ $1.StartupIOWeight,              config_parse_io_weight,             0,         
 $1.IODeviceWeight,               config_parse_io_device_weight,      0,                             offsetof($1, cgroup_context)
 $1.IOReadBandwidthMax,           config_parse_io_limit,              0,                             offsetof($1, cgroup_context)
 $1.IOWriteBandwidthMax,          config_parse_io_limit,              0,                             offsetof($1, cgroup_context)
+$1.IOReadIOPSMax,                config_parse_io_limit,              0,                             offsetof($1, cgroup_context)
+$1.IOWriteIOPSMax,               config_parse_io_limit,              0,                             offsetof($1, cgroup_context)
 $1.BlockIOAccounting,            config_parse_bool,                  0,                             offsetof($1, cgroup_context.blockio_accounting)
 $1.BlockIOWeight,                config_parse_blockio_weight,        0,                             offsetof($1, cgroup_context.blockio_weight)
 $1.StartupBlockIOWeight,         config_parse_blockio_weight,        0,                             offsetof($1, cgroup_context.startup_blockio_weight)

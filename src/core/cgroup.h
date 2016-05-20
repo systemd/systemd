@@ -23,6 +23,7 @@
 
 #include "list.h"
 #include "time-util.h"
+#include "cgroup-util.h"
 
 typedef struct CGroupContext CGroupContext;
 typedef struct CGroupDeviceAllow CGroupDeviceAllow;
@@ -64,8 +65,7 @@ struct CGroupIODeviceWeight {
 struct CGroupIODeviceLimit {
         LIST_FIELDS(CGroupIODeviceLimit, device_limits);
         char *path;
-        uint64_t rbps_max;
-        uint64_t wbps_max;
+        uint64_t limits[_CGROUP_IO_LIMIT_TYPE_MAX];
 };
 
 struct CGroupBlockIODeviceWeight {
@@ -77,8 +77,8 @@ struct CGroupBlockIODeviceWeight {
 struct CGroupBlockIODeviceBandwidth {
         LIST_FIELDS(CGroupBlockIODeviceBandwidth, device_bandwidths);
         char *path;
-        uint64_t bandwidth;
-        bool read;
+        uint64_t rbps;
+        uint64_t wbps;
 };
 
 struct CGroupContext {

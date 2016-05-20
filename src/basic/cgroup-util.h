@@ -72,6 +72,22 @@ static inline bool CGROUP_WEIGHT_IS_OK(uint64_t x) {
             (x >= CGROUP_WEIGHT_MIN && x <= CGROUP_WEIGHT_MAX);
 }
 
+/* IO limits on unified hierarchy */
+typedef enum CGroupIOLimitType {
+        CGROUP_IO_RBPS_MAX,
+        CGROUP_IO_WBPS_MAX,
+        CGROUP_IO_RIOPS_MAX,
+        CGROUP_IO_WIOPS_MAX,
+
+        _CGROUP_IO_LIMIT_TYPE_MAX,
+        _CGROUP_IO_LIMIT_TYPE_INVALID = -1
+} CGroupIOLimitType;
+
+extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
+
+const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
+CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
+
 /* Special values for the cpu.shares attribute */
 #define CGROUP_CPU_SHARES_INVALID ((uint64_t) -1)
 #define CGROUP_CPU_SHARES_MIN UINT64_C(2)

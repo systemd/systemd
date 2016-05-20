@@ -2269,6 +2269,22 @@ int cg_weight_parse(const char *s, uint64_t *ret) {
         return 0;
 }
 
+const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX] = {
+        [CGROUP_IO_RBPS_MAX]    = CGROUP_LIMIT_MAX,
+        [CGROUP_IO_WBPS_MAX]    = CGROUP_LIMIT_MAX,
+        [CGROUP_IO_RIOPS_MAX]   = CGROUP_LIMIT_MAX,
+        [CGROUP_IO_WIOPS_MAX]   = CGROUP_LIMIT_MAX,
+};
+
+static const char* const cgroup_io_limit_type_table[_CGROUP_IO_LIMIT_TYPE_MAX] = {
+        [CGROUP_IO_RBPS_MAX]    = "IOReadBandwidthMax",
+        [CGROUP_IO_WBPS_MAX]    = "IOWriteBandwidthMax",
+        [CGROUP_IO_RIOPS_MAX]   = "IOReadIOPSMax",
+        [CGROUP_IO_WIOPS_MAX]   = "IOWriteIOPSMax",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cgroup_io_limit_type, CGroupIOLimitType);
+
 int cg_cpu_shares_parse(const char *s, uint64_t *ret) {
         uint64_t u;
         int r;

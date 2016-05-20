@@ -2,4 +2,4 @@
 Description=Parent Slice
 
 [Slice]
-BlockIOWeight=200
+IOWeight=200

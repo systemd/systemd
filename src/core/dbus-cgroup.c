@@ -80,17 +80,13 @@ static int property_get_io_device_limits(
                 return r;
 
         LIST_FOREACH(device_limits, l, c->io_device_limits) {
-                uint64_t v;
+                CGroupIOLimitType type;
 
-                if (streq(property, "IOReadBandwidthMax"))
-                        v = l->rbps_max;
-                else
-                        v = l->wbps_max;
-
-                if (v == CGROUP_LIMIT_MAX)
+                type = cgroup_io_limit_type_from_string(property);
+                if (type < 0 || l->limits[type] == cgroup_io_limit_defaults[type])
                         continue;
 
-                r = sd_bus_message_append(reply, "(st)", l->path, v);
+                r = sd_bus_message_append(reply, "(st)", l->path, l->limits[type]);
                 if (r < 0)
                         return r;
         }
@@ -150,11 +146,17 @@ static int property_get_blockio_device_bandwidths(
                 return r;
 
         LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
+                uint64_t v;
 
-                if (streq(property, "BlockIOReadBandwidth") != b->read)
+                if (streq(property, "BlockIOReadBandwidth"))
+                        v = b->rbps;
+                else
+                        v = b->wbps;
+
+                if (v == CGROUP_LIMIT_MAX)
                         continue;
 
-                r = sd_bus_message_append(reply, "(st)", b->path, b->bandwidth);
+                r = sd_bus_message_append(reply, "(st)", b->path, v);
                 if (r < 0)
                         return r;
         }
@@ -217,6 +219,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IODeviceWeight", "a(st)", property_get_io_device_weight, 0, 0),
         SD_BUS_PROPERTY("IOReadBandwidthMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("IOWriteBandwidthMax", "a(st)", property_get_io_device_limits, 0, 0),
+        SD_BUS_PROPERTY("IOReadIOPSMax", "a(st)", property_get_io_device_limits, 0, 0),
+        SD_BUS_PROPERTY("IOWriteIOPSMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, blockio_accounting), 0),
         SD_BUS_PROPERTY("BlockIOWeight", "t", NULL, offsetof(CGroupContext, blockio_weight), 0),
         SD_BUS_PROPERTY("StartupBlockIOWeight", "t", NULL, offsetof(CGroupContext, startup_blockio_weight), 0),
@@ -273,6 +277,7 @@ int bus_cgroup_set_property(
                 UnitSetPropertiesMode mode,
                 sd_bus_error *error) {
 
+        CGroupIOLimitType iol_type;
         int r;
 
         assert(u);
@@ -416,14 +421,10 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (streq(name, "IOReadBandwidthMax") || streq(name, "IOWriteBandwidthMax")) {
+        } else if ((iol_type = cgroup_io_limit_type_from_string(name)) >= 0) {
                 const char *path;
-                bool read = true;
                 unsigned n = 0;
                 uint64_t u64;
-
-                if (streq(name, "IOWriteBandwidthMax"))
-                        read = false;
 
                 r = sd_bus_message_enter_container(message, 'a', "(st)");
                 if (r < 0)
@@ -442,6 +443,8 @@ int bus_cgroup_set_property(
                                 }
 
                                 if (!a) {
+                                        CGroupIOLimitType type;
+
                                         a = new0(CGroupIODeviceLimit, 1);
                                         if (!a)
                                                 return -ENOMEM;
@@ -452,16 +455,13 @@ int bus_cgroup_set_property(
                                                 return -ENOMEM;
                                         }
 
-                                        a->rbps_max = CGROUP_LIMIT_MAX;
-                                        a->wbps_max = CGROUP_LIMIT_MAX;
+                                        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                                                a->limits[type] = cgroup_io_limit_defaults[type];
 
                                         LIST_PREPEND(device_limits, c->io_device_limits, a);
                                 }
 
-                                if (read)
-                                        a->rbps_max = u64;
-                                else
-                                        a->wbps_max = u64;
+                                a->limits[iol_type] = u64;
                         }
 
                         n++;
@@ -481,10 +481,7 @@ int bus_cgroup_set_property(
 
                         if (n == 0) {
                                 LIST_FOREACH(device_limits, a, c->io_device_limits)
-                                        if (read)
-                                                a->rbps_max = CGROUP_LIMIT_MAX;
-                                        else
-                                                a->wbps_max = CGROUP_LIMIT_MAX;
+                                        a->limits[iol_type] = cgroup_io_limit_defaults[iol_type];
                         }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
@@ -493,17 +490,10 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        if (read) {
-                                fputs("IOReadBandwidthMax=\n", f);
-                                LIST_FOREACH(device_limits, a, c->io_device_limits)
-                                        if (a->rbps_max != CGROUP_LIMIT_MAX)
-                                                fprintf(f, "IOReadBandwidthMax=%s %" PRIu64 "\n", a->path, a->rbps_max);
-                        } else {
-                                fputs("IOWriteBandwidthMax=\n", f);
-                                LIST_FOREACH(device_limits, a, c->io_device_limits)
-                                        if (a->wbps_max != CGROUP_LIMIT_MAX)
-                                                fprintf(f, "IOWriteBandwidthMax=%s %" PRIu64 "\n", a->path, a->wbps_max);
-                        }
+                        fprintf(f, "%s=\n", name);
+                        LIST_FOREACH(device_limits, a, c->io_device_limits)
+                                        if (a->limits[iol_type] != cgroup_io_limit_defaults[iol_type])
+                                                fprintf(f, "%s=%s %" PRIu64 "\n", name, a->path, a->limits[iol_type]);
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -667,7 +657,7 @@ int bus_cgroup_set_property(
                                 CGroupBlockIODeviceBandwidth *a = NULL, *b;
 
                                 LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                                        if (path_equal(path, b->path) && read == b->read) {
+                                        if (path_equal(path, b->path)) {
                                                 a = b;
                                                 break;
                                         }
@@ -678,7 +668,8 @@ int bus_cgroup_set_property(
                                         if (!a)
                                                 return -ENOMEM;
 
-                                        a->read = read;
+                                        a->rbps = CGROUP_LIMIT_MAX;
+                                        a->wbps = CGROUP_LIMIT_MAX;
                                         a->path = strdup(path);
                                         if (!a->path) {
                                                 free(a);
@@ -688,7 +679,10 @@ int bus_cgroup_set_property(
                                         LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, a);
                                 }
 
-                                a->bandwidth = u64;
+                                if (read)
+                                        a->rbps = u64;
+                                else
+                                        a->wbps = u64;
                         }
 
                         n++;
@@ -701,15 +695,18 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        CGroupBlockIODeviceBandwidth *a, *next;
+                        CGroupBlockIODeviceBandwidth *a;
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
                         size_t size = 0;
 
                         if (n == 0) {
-                                LIST_FOREACH_SAFE(device_bandwidths, a, next, c->blockio_device_bandwidths)
-                                        if (a->read == read)
-                                                cgroup_context_free_blockio_device_bandwidth(c, a);
+                                LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths) {
+                                        if (read)
+                                                a->rbps = CGROUP_LIMIT_MAX;
+                                        else
+                                                a->wbps = CGROUP_LIMIT_MAX;
+                                }
                         }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
@@ -721,13 +718,13 @@ int bus_cgroup_set_property(
                         if (read) {
                                 fputs("BlockIOReadBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
-                                        if (a->read)
-                                                fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->bandwidth);
+                                        if (a->rbps != CGROUP_LIMIT_MAX)
+                                                fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->rbps);
                         } else {
                                 fputs("BlockIOWriteBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
-                                        if (!a->read)
-                                                fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->bandwidth);
+                                        if (a->wbps != CGROUP_LIMIT_MAX)
+                                                fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->wbps);
                         }
 
                         r = fflush_and_check(f);

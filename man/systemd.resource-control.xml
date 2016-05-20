@@ -99,6 +99,31 @@
   </refsect1>
 
   <refsect1>
+    <title>Unified and Legacy Control Group Hierarchies</title>
+
+    <para>Unified control group hierarchy is the new version of kernel control group interface. Depending on the
+    resource type, there are differences in resource control capabilities.  Also, because of interface changes, some
+    resource types have a separate set of options on the unified hierarchy.</para>
+
+    <para>
+      <variablelist>
+        <varlistentry>
+          <term><option>IO</option></term>
+          <listitem>
+            <para><varname>IO</varname> prefixed settings are superset of and replace <varname>BlockIO</varname>
+            prefixed ones. On unified hierarchy, IO resource control also applies to buffered writes.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
+
+    <para>To ease the transition, there is best-effort translation between the two versions of settings. If all
+    settings of a unit for a given resource type are for the other hierarchy type, the settings are translated and
+    applied. If there are any valid settings for the hierarchy in use, all translations are disabled for the resource
+    type. Mixing the two types of settings on a unit can lead to confusing results.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>Units of the types listed above can have settings
@@ -333,6 +358,30 @@
 
           <para>This setting is supported only if the unified control group hierarchy is used. Use
           <varname>BlockIOAccounting=</varname> on systems using the legacy control group hierarchy.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOReadIOPSMax=<replaceable>device</replaceable> <replaceable>IOPS</replaceable></varname></term>
+        <term><varname>IOWriteIOPSMax=<replaceable>device</replaceable> <replaceable>IOPS</replaceable></varname></term>
+
+        <listitem>
+          <para>Set the per-device overall block I/O IOs-Per-Second maximum limit for the executed processes, if the
+          unified control group hierarchy is used on the system. This limit is not work-conserving and the executed
+          processes are not allowed to use more even if the device has idle capacity.  Takes a space-separated pair of
+          a file path and an IOPS value to specify the device specific IOPS. The file path may be a path to a block
+          device node, or as any other file in which case the backing block device of the file system of the file is
+          used. If the IOPS is suffixed with K, M, G, or T, the specified IOPS is parsed as KiloIOPS, MegaIOPS,
+          GigaIOPS, or TeraIOPS, respectively, to the base of 1000. (Example:
+          "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 1K"). This controls the <literal>io.max</literal> control
+          group attributes. Use this option multiple times to set IOPS limits for multiple devices. For details about
+          this control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
+          </para>
+
+          <para>Implies <literal>IOAccounting=true</literal>.</para>
+
+          <para>This setting is supported only if the unified control group hierarchy is used.</para>
         </listitem>
       </varlistentry>
 
