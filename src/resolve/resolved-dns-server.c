@@ -157,6 +157,7 @@ void dns_server_unlink(DnsServer *s) {
                 assert(s->link);
                 assert(s->link->n_dns_servers > 0);
                 LIST_REMOVE(servers, s->link->dns_servers, s);
+                s->link->n_dns_servers--;
                 break;
 
         case DNS_SERVER_SYSTEM:
