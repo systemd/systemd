@@ -37,6 +37,7 @@
 #define UPPERCASE_LETTERS "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define LETTERS           LOWERCASE_LETTERS UPPERCASE_LETTERS
 #define ALPHANUMERICAL    LETTERS DIGITS
+#define HEXDIGITS         DIGITS "abcdefABCDEF"
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
 #define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)

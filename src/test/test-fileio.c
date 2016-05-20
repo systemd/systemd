@@ -289,7 +289,7 @@ static void test_capeff(void) {
 
                 assert_se(r == 0);
                 assert_se(*capeff);
-                p = capeff[strspn(capeff, DIGITS "abcdefABCDEF")];
+                p = capeff[strspn(capeff, HEXDIGITS)];
                 assert_se(!p || isspace(p));
         }
 }

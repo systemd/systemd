@@ -27,6 +27,7 @@
 #include "condition.h"
 #include "conf-parser.h"
 #include "dhcp-lease-internal.h"
+#include "ether-addr-util.c"
 #include "hexdecoct.h"
 #include "log.h"
 #include "network-internal.h"
@@ -272,6 +273,8 @@ int config_parse_hwaddr(const char *unit,
                         void *userdata) {
         struct ether_addr **hwaddr = data;
         struct ether_addr *n;
+        const char *start;
+        size_t offset;
         int r;
 
         assert(filename);
@@ -283,14 +286,10 @@ int config_parse_hwaddr(const char *unit,
         if (!n)
                 return log_oom();
 
-        r = sscanf(rvalue, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                   &n->ether_addr_octet[0],
-                   &n->ether_addr_octet[1],
-                   &n->ether_addr_octet[2],
-                   &n->ether_addr_octet[3],
-                   &n->ether_addr_octet[4],
-                   &n->ether_addr_octet[5]);
-        if (r != 6) {
+        start = rvalue + strspn(rvalue, WHITESPACE);
+        r = ether_addr_from_string(start, n, &offset);
+
+        if (r || (start[offset + strspn(start + offset, WHITESPACE)] != '\0')) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 free(n);
                 return 0;
