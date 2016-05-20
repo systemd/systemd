@@ -1454,9 +1454,10 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (mode != UNIT_CHECK) {
-                        r = free_and_strdup(&c->selinux_context, s);
-                        if (r < 0)
-                                return r;
+                        if (isempty(s))
+                                c->selinux_context = mfree(c->selinux_context);
+                        else if (free_and_strdup(&c->selinux_context, s) < 0)
+                                return -ENOMEM;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, strempty(s));
                 }
