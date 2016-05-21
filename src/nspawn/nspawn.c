@@ -2446,10 +2446,9 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         switch (status.si_code) {
 
         case CLD_EXITED:
-                if (status.si_status == 0) {
+                if (status.si_status == 0)
                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s exited successfully.", arg_machine);
-
-                } else
+                else
                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s failed with error code %i.", arg_machine, status.si_status);
 
                 *container = CONTAINER_TERMINATED;
@@ -2457,13 +2456,11 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
 
         case CLD_KILLED:
                 if (status.si_status == SIGINT) {
-
                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s has been shut down.", arg_machine);
                         *container = CONTAINER_TERMINATED;
                         return 0;
 
                 } else if (status.si_status == SIGHUP) {
-
                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s is being rebooted.", arg_machine);
                         *container = CONTAINER_REBOOTED;
                         return 0;
@@ -2479,8 +2476,6 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
                 log_error("Container %s failed due to unknown reason.", arg_machine);
                 return -EIO;
         }
-
-        return r;
 }
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
