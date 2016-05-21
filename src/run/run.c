@@ -760,6 +760,7 @@ static int start_transient_service(
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
+                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pty_reply = NULL;
                         const char *s;
 
                         r = sd_bus_default_system(&system_bus);
@@ -772,18 +773,16 @@ static int start_transient_service(
                                                "org.freedesktop.machine1.Manager",
                                                "OpenMachinePTY",
                                                &error,
-                                               &reply,
+                                               &pty_reply,
                                                "s", arg_host);
                         if (r < 0) {
                                 log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
                                 return r;
                         }
 
-                        r = sd_bus_message_read(reply, "hs", &master, &s);
+                        r = sd_bus_message_read(pty_reply, "hs", &master, &s);
                         if (r < 0)
                                 return bus_log_parse_error(r);
-
-                        reply = sd_bus_message_unref(reply);
 
                         master = fcntl(master, F_DUPFD_CLOEXEC, 3);
                         if (master < 0)
