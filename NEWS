@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 230 in spe:
+CHANGES WITH 230:
 
         * DNSSEC is now turned on by default in systemd-resolved (in
           "allow-downgrade" mode), but may be turned off during compile time by
@@ -229,11 +229,12 @@ CHANGES WITH 230 in spe:
         Schallenberg aka nafets227, Steven Siloti, Susant Sahani, Sylvain
         Plantefève, Taylor Smock, Tejun Heo, Thomas Blume, Thomas Haller,
         Thomas H. P. Andersen, Tobias Klauser, Tom Gundersen, topimiettinen,
-        Torstein Husebø, Umut Tezduyar Lindskog, Victor Toso, Vinay Kulkarni,
-        Vito Caputo, Vittorio G (VittGam), Vladimir Panteleev, Wieland
-        Hoffmann, Wouter Verhelst, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+        Torstein Husebø, Umut Tezduyar Lindskog, Uwe Kleine-König, Victor Toso,
+        Vinay Kulkarni, Vito Caputo, Vittorio G (VittGam), Vladimir Panteleev,
+        Wieland Hoffmann, Wouter Verhelst, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek
 
-        — Berlin, 2016-05-XX
+        — Fairfax, 2016-05-21
 
 CHANGES WITH 229:
 
