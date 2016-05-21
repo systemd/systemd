@@ -1636,14 +1636,11 @@ static int client_receive_message_udp(
         if (buflen < 0)
                 return buflen;
 
-        if (buflen == 0)
-                buflen = 1;
-
         message = malloc0(buflen);
         if (!message)
                 return -ENOMEM;
 
-        len = read(fd, message, buflen);
+        len = recv(fd, message, buflen, 0);
         if (len < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
