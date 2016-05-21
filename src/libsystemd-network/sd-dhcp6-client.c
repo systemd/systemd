@@ -917,7 +917,7 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
         if (!message)
                 return -ENOMEM;
 
-        len = read(fd, message, buflen);
+        len = recv(fd, message, buflen, 0);
         if (len < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
