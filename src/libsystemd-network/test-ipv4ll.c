@@ -38,7 +38,8 @@ static int test_fd[2];
 
 static int basic_request_handler_bind = 0;
 static int basic_request_handler_stop = 0;
-static void* basic_request_handler_userdata = (void*)0xCABCAB;
+static void* basic_request_handler_userdata = (void*) 0xCABCAB;
+
 static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
         assert_se(userdata == basic_request_handler_userdata);
 
@@ -181,16 +182,16 @@ static void test_basic_request(sd_event *e) {
 
         /* PROBE */
         sd_event_run(e, (uint64_t) -1);
-        assert_se(read(test_fd[1], &arp, sizeof(struct ether_arp)) == sizeof(struct ether_arp));
+        assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
 
         if (extended) {
                 /* PROBE */
                 sd_event_run(e, (uint64_t) -1);
-                assert_se(read(test_fd[1], &arp, sizeof(struct ether_arp)) == sizeof(struct ether_arp));
+                assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
 
                 /* PROBE */
                 sd_event_run(e, (uint64_t) -1);
-                assert_se(read(test_fd[1], &arp, sizeof(struct ether_arp)) == sizeof(struct ether_arp));
+                assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
 
                 sd_event_run(e, (uint64_t) -1);
                 assert_se(basic_request_handler_bind == 1);
