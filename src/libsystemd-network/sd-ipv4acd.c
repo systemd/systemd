@@ -28,6 +28,7 @@
 
 #include "alloc-util.h"
 #include "arp-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "list.h"
@@ -472,14 +473,6 @@ int sd_ipv4acd_is_running(sd_ipv4acd *ll) {
         return ll->state != IPV4ACD_STATE_INIT;
 }
 
-static bool ether_addr_is_nul(const struct ether_addr *addr) {
-        const struct ether_addr nul_addr = {};
-
-        assert(addr);
-
-        return memcmp(addr, &nul_addr, sizeof(struct ether_addr)) == 0;
-}
-
 int sd_ipv4acd_start(sd_ipv4acd *ll) {
         int r;
 
@@ -487,7 +480,7 @@ int sd_ipv4acd_start(sd_ipv4acd *ll) {
         assert_return(ll->event, -EINVAL);
         assert_return(ll->index > 0, -EINVAL);
         assert_return(ll->address != 0, -EINVAL);
-        assert_return(!ether_addr_is_nul(&ll->mac_addr), -EINVAL);
+        assert_return(!ether_addr_is_null(&ll->mac_addr), -EINVAL);
         assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
 
         ll->defend_window = 0;
