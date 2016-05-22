@@ -480,8 +480,6 @@ static bool ether_addr_is_nul(const struct ether_addr *addr) {
         return memcmp(addr, &nul_addr, sizeof(struct ether_addr)) == 0;
 }
 
-#define HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
-
 int sd_ipv4acd_start(sd_ipv4acd *ll) {
         int r;
 
