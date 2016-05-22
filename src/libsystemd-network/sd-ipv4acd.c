@@ -156,8 +156,10 @@ static void ipv4acd_set_state(sd_ipv4acd *ll, IPv4ACDState st, bool reset_counte
 static void ipv4acd_client_notify(sd_ipv4acd *ll, int event) {
         assert(ll);
 
-        if (ll->cb)
-                ll->cb(ll, event, ll->userdata);
+        if (!ll->cb)
+                return;
+
+        ll->cb(ll, event, ll->userdata);
 }
 
 static void ipv4acd_stop(sd_ipv4acd *ll) {
@@ -347,22 +349,36 @@ static void ipv4acd_on_conflict(sd_ipv4acd *ll) {
         ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_CONFLICT);
 }
 
-static int ipv4acd_on_packet(sd_event_source *s, int fd,
-                            uint32_t revents, void *userdata) {
+static int ipv4acd_on_packet(
+                sd_event_source *s,
+                int fd,
+                uint32_t revents,
+                void *userdata) {
+
         sd_ipv4acd *ll = userdata;
         struct ether_arp packet;
+        ssize_t n;
         int r;
 
+        assert(s);
         assert(ll);
         assert(fd >= 0);
 
-        r = read(fd, &packet, sizeof(struct ether_arp));
-        if (r < (int) sizeof(struct ether_arp))
+        n = recv(fd, &packet, sizeof(struct ether_arp), 0);
+        if (n < 0) {
+                r = log_ipv4acd_debug_errno(ll, errno, "Failed to read ARP packet: %m");
                 goto out;
+        }
+        if ((size_t) n != sizeof(struct ether_arp)) {
+                log_ipv4acd_debug(ll, "Ignoring too short ARP packet.");
+                return 0;
+        }
 
         switch (ll->state) {
+
         case IPV4ACD_STATE_ANNOUNCING:
         case IPV4ACD_STATE_RUNNING:
+
                 if (ipv4acd_arp_conflict(ll, &packet)) {
                         usec_t ts;
 
@@ -381,15 +397,15 @@ static int ipv4acd_on_packet(sd_event_source *s, int fd,
                         } else
                                 ipv4acd_on_conflict(ll);
                 }
-
                 break;
+
         case IPV4ACD_STATE_WAITING_PROBE:
         case IPV4ACD_STATE_PROBING:
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
                 /* BPF ensures this packet indicates a conflict */
                 ipv4acd_on_conflict(ll);
-
                 break;
+
         default:
                 assert_not_reached("Invalid state.");
         }
