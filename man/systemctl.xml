@@ -150,11 +150,11 @@
         <term><option>--all</option></term>
 
         <listitem>
-          <para>When listing units, show all loaded units, regardless
-          of their state, including inactive units. When showing
-          unit/job/manager properties, show all properties regardless
-          whether they are set or not.</para>
-          <para>To list all units installed on the system, use the
+          <para>When listing units with <command>list-units</command>, also show inactive units and
+          units which are following other units. When showing unit/job/manager properties, show all
+          properties regardless whether they are set or not.</para>
+
+          <para>To list all units installed in the file system, use the
           <command>list-unit-files</command> command instead.</para>
         </listitem>
       </varlistentry>
@@ -638,10 +638,13 @@
           <term><command>list-units <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
-            <para>List known units (subject to limitations specified
-            with <option>-t</option>). If one or more
-            <replaceable>PATTERN</replaceable>s are specified, only
-            units matching one of them are shown.</para>
+            <para>List units that <command>systemd</command> has loaded. This includes units that
+            are either referenced directly or through a dependency, or units that were active in the
+            past and have failed. By default only units which are active, have pending jobs, or have
+            failed are shown; this can be changed with option <option>--all</option>. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are
+            shown. The units that are shown are additionally filtered by <option>--type=</option>
+            and <option>--state=</option> if those options are specified.</para>
 
             <para>This is the default command.</para>
           </listitem>
@@ -970,11 +973,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>list-unit-files <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List installed unit files and their enablement state
-            (as reported by <command>is-enabled</command>). If one or
-            more <replaceable>PATTERN</replaceable>s are specified,
-            only units whose filename (just the last component of the
-            path) matches one of them are shown.</para>
+            <para>List unit files installed in the file system and their enablement state
+            (as reported by <command>is-enabled</command>). If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only units whose filename
+            (just the last component of the path) matches one of them are shown.</para>
           </listitem>
         </varlistentry>
 
