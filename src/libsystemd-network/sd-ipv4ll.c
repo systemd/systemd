@@ -34,6 +34,7 @@
 #include "random-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
+#include "string-util.h"
 #include "util.h"
 
 #define IPV4LL_NETWORK UINT32_C(0xA9FE0000)
@@ -62,6 +63,9 @@ struct sd_ipv4ll {
         sd_ipv4ll_callback_t callback;
         void* userdata;
 };
+
+#define log_ipv4ll_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4LL: " fmt, ##__VA_ARGS__)
+#define log_ipv4ll(ll, fmt, ...) log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
@@ -231,6 +235,7 @@ int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
 #define PICK_HASH_KEY SD_ID128_MAKE(15,ac,82,a6,d6,3f,49,78,98,77,5d,0c,69,02,94,0b)
 
 static int ipv4ll_pick_address(sd_ipv4ll *ll) {
+        _cleanup_free_ char *address = NULL;
         be32_t addr;
 
         assert(ll);
@@ -247,6 +252,9 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
         } while (addr == ll->address ||
                 (be32toh(addr) & 0x0000FF00) == 0x0000 ||
                 (be32toh(addr) & 0x0000FF00) == 0xFF00);
+
+        (void) in_addr_to_string(AF_INET, &(union in_addr_union) { .in.s_addr = addr }, &address);
+        log_ipv4ll(ll, "Picked new IP address %s.", strna(address));
 
         return sd_ipv4ll_set_address(ll, &(struct in_addr) { addr });
 }
