@@ -57,6 +57,7 @@
 
 typedef enum IPv4ACDState {
         IPV4ACD_STATE_INIT,
+        IPV4ACD_STATE_STARTED,
         IPV4ACD_STATE_WAITING_PROBE,
         IPV4ACD_STATE_PROBING,
         IPV4ACD_STATE_WAITING_ANNOUNCE,
@@ -240,7 +241,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
         switch (ll->state) {
 
-        case IPV4ACD_STATE_INIT:
+        case IPV4ACD_STATE_STARTED:
                 ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_PROBE, true);
 
                 if (ll->n_conflict >= MAX_CONFLICTS) {
@@ -521,6 +522,7 @@ int sd_ipv4acd_start(sd_ipv4acd *ll) {
         if (r < 0)
                 goto fail;
 
+        ipv4acd_set_state(ll, IPV4ACD_STATE_STARTED, true);
         return 0;
 
 fail:
