@@ -1624,7 +1624,7 @@ static int client_receive_message_udp(
 
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPMessage *message = NULL;
-        const struct ether_addr zero_mac = { { 0, 0, 0, 0, 0, 0 } };
+        const struct ether_addr zero_mac = {};
         const struct ether_addr *expected_chaddr = NULL;
         uint8_t expected_hlen = 0;
         ssize_t len, buflen;
