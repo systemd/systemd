@@ -144,9 +144,7 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
                 /* If no random data is set, generate some from the MAC */
                 seed = siphash24(&addr->ether_addr_octet, ETH_ALEN, HASH_KEY.bytes);
 
-                assert_cc(sizeof(unsigned) <= 8);
-
-                r = sd_ipv4ll_set_address_seed(ll, (unsigned) htole64(seed));
+                r = sd_ipv4ll_set_address_seed(ll, htole64(seed));
                 if (r < 0)
                         return r;
         }
@@ -187,7 +185,7 @@ int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address) {
         return 0;
 }
 
-int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, unsigned seed) {
+int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, uint64_t seed) {
         _cleanup_free_ struct random_data *random_data = NULL;
         _cleanup_free_ char *random_data_state = NULL;
         int r;
@@ -202,7 +200,7 @@ int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, unsigned seed) {
         if (!random_data_state)
                 return -ENOMEM;
 
-        r = initstate_r(seed, random_data_state, 128, random_data);
+        r = initstate_r((unsigned) seed, random_data_state, 128, random_data);
         if (r < 0)
                 return r;
 

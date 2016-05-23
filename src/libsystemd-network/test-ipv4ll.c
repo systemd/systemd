@@ -101,7 +101,7 @@ int arp_network_bind_raw_socket(int index, be32_t address, const struct ether_ad
 
 static void test_public_api_setters(sd_event *e) {
         struct in_addr address = {};
-        unsigned seed = 0;
+        uint64_t seed = 0;
         sd_ipv4ll *ll;
         struct ether_addr mac_addr = {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
