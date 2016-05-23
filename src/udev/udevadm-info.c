@@ -156,7 +156,7 @@ static int stat_device(const char *name, bool export, const char *prefix) {
         struct stat statbuf;
 
         if (stat(name, &statbuf) != 0)
-                return -1;
+                return -errno;
 
         if (export) {
                 if (prefix == NULL)
@@ -176,7 +176,7 @@ static int export_devices(struct udev *udev) {
 
         udev_enumerate = udev_enumerate_new(udev);
         if (udev_enumerate == NULL)
-                return -1;
+                return -ENOMEM;
 
         udev_enumerate_scan_devices(udev_enumerate);
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
@@ -363,7 +363,8 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                         action = ACTION_ATTRIBUTE_WALK;
                         break;
                 case 'e':
-                        export_devices(udev);
+                        if (export_devices(udev) < 0)
+                                return 1;
                         return 0;
                 case 'c':
                         cleanup_db(udev);
