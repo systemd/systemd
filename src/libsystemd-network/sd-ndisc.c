@@ -517,9 +517,13 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 
                 log_ndisc(nd, "Could not receive message from ICMPv6 socket: %m");
                 return -errno;
-        } else if ((size_t)len < sizeof(struct nd_router_advert)) {
+        }
+        if ((size_t) len < sizeof(struct nd_router_advert)) {
+                log_ndisc(nd, "Too small to be a router advertisement: ignoring");
                 return 0;
-        } else if (msg.msg_namelen == 0)
+        }
+
+        if (msg.msg_namelen == 0)
                 gw = NULL; /* only happens when running the test-suite over a socketpair */
         else if (msg.msg_namelen != sizeof(sa.in6)) {
                 log_ndisc(nd, "Received invalid source address size from ICMPv6 socket: %zu bytes", (size_t)msg.msg_namelen);

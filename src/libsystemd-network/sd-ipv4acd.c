@@ -366,6 +366,9 @@ static int ipv4acd_on_packet(
 
         n = recv(fd, &packet, sizeof(struct ether_arp), 0);
         if (n < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
                 r = log_ipv4acd_debug_errno(ll, errno, "Failed to read ARP packet: %m");
                 goto out;
         }

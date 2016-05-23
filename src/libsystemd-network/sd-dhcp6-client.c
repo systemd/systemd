@@ -898,7 +898,12 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
         return r;
 }
 
-static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int client_receive_message(
+                sd_event_source *s,
+                int fd, uint32_t
+                revents,
+                void *userdata) {
+
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
         _cleanup_free_ DHCP6Message *message = NULL;
@@ -924,8 +929,11 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
 
                 return log_dhcp6_client_errno(client, errno, "Could not receive message from UDP socket: %m");
 
-        } else if ((size_t)len < sizeof(DHCP6Message))
+        }
+        if ((size_t) len < sizeof(DHCP6Message)) {
+                log_dhcp6_client(client, "Too small to be DHCP6 message: ignoring");
                 return 0;
+        }
 
         switch(message->type) {
         case DHCP6_SOLICIT:
