@@ -38,16 +38,16 @@
 #include "util.h"
 
 /* Constants from the RFC */
-#define PROBE_WAIT 1
-#define PROBE_NUM 3
-#define PROBE_MIN 1
-#define PROBE_MAX 2
-#define ANNOUNCE_WAIT 2
-#define ANNOUNCE_NUM 2
-#define ANNOUNCE_INTERVAL 2
-#define MAX_CONFLICTS 10
-#define RATE_LIMIT_INTERVAL 60
-#define DEFEND_INTERVAL 10
+#define PROBE_WAIT_USEC (1U * USEC_PER_SEC)
+#define PROBE_NUM 3U
+#define PROBE_MIN_USEC (1U * USEC_PER_SEC)
+#define PROBE_MAX_USEC (2U * USEC_PER_SEC)
+#define ANNOUNCE_WAIT_USEC (2U * USEC_PER_SEC)
+#define ANNOUNCE_NUM 2U
+#define ANNOUNCE_INTERVAL_USEC (2U * USEC_PER_SEC)
+#define MAX_CONFLICTS 10U
+#define RATE_LIMIT_INTERVAL_USEC (60U * USEC_PER_SEC)
+#define DEFEND_INTERVAL_USEC (10U * USEC_PER_SEC)
 
 #define IPV4ACD_NETWORK 0xA9FE0000UL
 #define IPV4ACD_NETMASK 0xFFFF0000UL
@@ -186,25 +186,21 @@ int sd_ipv4acd_stop(sd_ipv4acd *ll) {
 
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata);
 
-static int ipv4acd_set_next_wakeup(sd_ipv4acd *ll, int sec, int random_sec) {
+static int ipv4acd_set_next_wakeup(sd_ipv4acd *ll, usec_t usec, usec_t random_usec) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
-        usec_t next_timeout;
-        usec_t time_now;
+        usec_t next_timeout, time_now;
         int r;
 
-        assert(sec >= 0);
-        assert(random_sec >= 0);
         assert(ll);
 
-        next_timeout = sec * USEC_PER_SEC;
+        next_timeout = usec;
 
-        if (random_sec)
-                next_timeout += random_u32() % (random_sec * USEC_PER_SEC);
+        if (random_usec > 0)
+                next_timeout += (usec_t) random_u64() % random_usec;
 
         assert_se(sd_event_now(ll->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
-        r = sd_event_add_time(ll->event, &timer, clock_boottime_or_monotonic(),
-                              time_now + next_timeout, 0, ipv4acd_on_timeout, ll);
+        r = sd_event_add_time(ll->event, &timer, clock_boottime_or_monotonic(), time_now + next_timeout, 0, ipv4acd_on_timeout, ll);
         if (r < 0)
                 return r;
 
@@ -245,15 +241,16 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_PROBE, true);
 
                 if (ll->n_conflict >= MAX_CONFLICTS) {
-                        log_ipv4acd(ll, "Max conflicts reached, delaying by %us", RATE_LIMIT_INTERVAL);
+                        char ts[FORMAT_TIMESPAN_MAX];
+                        log_ipv4acd(ll, "Max conflicts reached, delaying by %s", format_timespan(ts, sizeof(ts), RATE_LIMIT_INTERVAL_USEC, 0));
 
-                        r = ipv4acd_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
+                        r = ipv4acd_set_next_wakeup(ll, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT_USEC);
                         if (r < 0)
                                 goto out;
 
                         ll->n_conflict = 0;
                 } else {
-                        r = ipv4acd_set_next_wakeup(ll, 0, PROBE_WAIT);
+                        r = ipv4acd_set_next_wakeup(ll, 0, PROBE_WAIT_USEC);
                         if (r < 0)
                                 goto out;
                 }
@@ -278,13 +275,13 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 if (ll->n_iteration < PROBE_NUM - 2) {
                         ipv4acd_set_state(ll, IPV4ACD_STATE_PROBING, false);
 
-                        r = ipv4acd_set_next_wakeup(ll, PROBE_MIN, (PROBE_MAX-PROBE_MIN));
+                        r = ipv4acd_set_next_wakeup(ll, PROBE_MIN_USEC, (PROBE_MAX_USEC-PROBE_MIN_USEC));
                         if (r < 0)
                                 goto out;
                 } else {
                         ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_ANNOUNCE, true);
 
-                        r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_WAIT, 0);
+                        r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_WAIT_USEC, 0);
                         if (r < 0)
                                 goto out;
                 }
@@ -310,7 +307,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                 ipv4acd_set_state(ll, IPV4ACD_STATE_ANNOUNCING, false);
 
-                r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_INTERVAL, 0);
+                r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_INTERVAL_USEC, 0);
                 if (r < 0)
                         goto out;
 
@@ -387,7 +384,7 @@ static int ipv4acd_on_packet(
 
                         /* Defend address */
                         if (ts > ll->defend_window) {
-                                ll->defend_window = ts + DEFEND_INTERVAL * USEC_PER_SEC;
+                                ll->defend_window = ts + DEFEND_INTERVAL_USEC;
                                 r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                                 if (r < 0) {
                                         log_ipv4acd_errno(ll, r, "Failed to send ARP announcement: %m");
