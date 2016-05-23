@@ -33,7 +33,6 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"
-#include "refcnt.h"
 #include "siphash24.h"
 #include "util.h"
 
@@ -78,7 +77,7 @@ typedef enum IPv4ACDState {
 } IPv4ACDState;
 
 struct sd_ipv4acd {
-        RefCount n_ref;
+        unsigned n_ref;
 
         IPv4ACDState state;
         int ifindex;
@@ -98,14 +97,23 @@ struct sd_ipv4acd {
 };
 
 sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *ll) {
-        if (ll)
-                assert_se(REFCNT_INC(ll->n_ref) >= 2);
+        if (!ll)
+                return NULL;
+
+        assert_se(ll->n_ref >= 1);
+        ll->n_ref++;
 
         return ll;
 }
 
 sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll) {
-        if (!ll || REFCNT_DEC(ll->n_ref) > 0)
+        if (!ll)
+                return NULL;
+
+        assert_se(ll->n_ref >= 1);
+        ll->n_ref--;
+
+        if (ll->n_ref > 0)
                 return NULL;
 
         ll->receive_message = sd_event_source_unref(ll->receive_message);
@@ -129,7 +137,7 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
         if (!ll)
                 return -ENOMEM;
 
-        ll->n_ref = REFCNT_INIT;
+        ll->n_ref = 1;
         ll->state = IPV4ACD_STATE_INIT;
         ll->ifindex = -1;
         ll->fd = -1;

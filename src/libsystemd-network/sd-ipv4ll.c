@@ -31,7 +31,6 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"
-#include "refcnt.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "util.h"
