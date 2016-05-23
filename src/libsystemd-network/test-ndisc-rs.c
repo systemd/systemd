@@ -130,7 +130,7 @@ static void test_rs(void) {
 
         assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
 
-        assert_se(sd_ndisc_set_index(nd, 42) >= 0);
+        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_rs_done, NULL, NULL, NULL, e) >= 0);
 

@@ -99,7 +99,7 @@ int sd_dhcp_client_set_request_address(
 int sd_dhcp_client_set_request_broadcast(
                 sd_dhcp_client *client,
                 int broadcast);
-int sd_dhcp_client_set_index(
+int sd_dhcp_client_set_ifindex(
                 sd_dhcp_client *client,
                 int interface_index);
 int sd_dhcp_client_set_mac(

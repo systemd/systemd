@@ -45,7 +45,7 @@ struct sd_dhcp6_client {
         enum DHCP6State state;
         sd_event *event;
         int event_priority;
-        int index;
+        int ifindex;
         struct in6_addr local_address;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
@@ -123,14 +123,13 @@ int sd_dhcp6_client_set_callback(
         return 0;
 }
 
-int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index) {
-        assert_return(client, -EINVAL);
-        assert_return(interface_index >= -1, -EINVAL);
+int sd_dhcp6_client_set_ifindex(sd_dhcp6_client *client, int ifindex) {
 
+        assert_return(client, -EINVAL);
+        assert_return(ifindex >= -1, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
-        client->index = interface_index;
-
+        client->ifindex = ifindex;
         return 0;
 }
 
@@ -671,7 +670,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (client->ia_na.id)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->index, client->mac_addr, client->mac_addr_len, &client->ia_na.id);
+        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, &client->ia_na.id);
         if (r < 0)
                 return r;
 
@@ -1027,7 +1026,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
-        assert_return(client->index > 0, -EINVAL);
+        assert_return(client->ifindex > 0, -EINVAL);
         assert_return(client->state != state, -EINVAL);
 
         client->timeout_resend_expire =
@@ -1160,12 +1159,12 @@ int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
 }
 
 int sd_dhcp6_client_start(sd_dhcp6_client *client) {
-        int r = 0;
         enum DHCP6State state = DHCP6_STATE_SOLICITATION;
+        int r = 0;
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
-        assert_return(client->index > 0, -EINVAL);
+        assert_return(client->ifindex > 0, -EINVAL);
         assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) &client->local_address) > 0, -EINVAL);
 
         if (!IN_SET(client->state, DHCP6_STATE_STOPPED))
@@ -1183,7 +1182,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        r = dhcp6_network_bind_udp_socket(client->index, &client->local_address);
+        r = dhcp6_network_bind_udp_socket(client->ifindex, &client->local_address);
         if (r < 0) {
                 _cleanup_free_ char *p = NULL;
 
@@ -1301,15 +1300,11 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 return -ENOMEM;
 
         client->n_ref = 1;
-
         client->ia_na.type = SD_DHCP6_OPTION_IA_NA;
-
-        client->index = -1;
-
+        client->ifindex = -1;
         client->fd = -1;
 
         client->req_opts_len = ELEMENTSOF(default_req_opts);
-
         client->req_opts = new0(be16_t, client->req_opts_len);
         if (!client->req_opts)
                 return -ENOMEM;

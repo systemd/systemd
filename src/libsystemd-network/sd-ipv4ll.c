@@ -125,10 +125,11 @@ int sd_ipv4ll_stop(sd_ipv4ll *ll) {
         return 0;
 }
 
-int sd_ipv4ll_set_index(sd_ipv4ll *ll, int interface_index) {
+int sd_ipv4ll_set_ifindex(sd_ipv4ll *ll, int ifindex) {
         assert_return(ll, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
 
-        return sd_ipv4acd_set_index(ll->acd, interface_index);
+        return sd_ipv4acd_set_ifindex(ll->acd, ifindex);
 }
 
 #define HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)

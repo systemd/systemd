@@ -56,7 +56,7 @@ static int client_run(int ifindex, const struct in_addr *pa, const struct ether_
         assert_se(sd_ipv4acd_new(&acd) >= 0);
         assert_se(sd_ipv4acd_attach_event(acd, e, 0) >= 0);
 
-        assert_se(sd_ipv4acd_set_index(acd, ifindex) >= 0);
+        assert_se(sd_ipv4acd_set_ifindex(acd, ifindex) >= 0);
         assert_se(sd_ipv4acd_set_mac(acd, ha) >= 0);
         assert_se(sd_ipv4acd_set_address(acd, pa) >= 0);
         assert_se(sd_ipv4acd_set_callback(acd, acd_handler, NULL) >= 0);

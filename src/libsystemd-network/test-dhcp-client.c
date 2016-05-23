@@ -66,13 +66,13 @@ static void test_request_basic(sd_event *e) {
 
         assert_se(sd_dhcp_client_set_request_option(NULL, 0) == -EINVAL);
         assert_se(sd_dhcp_client_set_request_address(NULL, NULL) == -EINVAL);
-        assert_se(sd_dhcp_client_set_index(NULL, 0) == -EINVAL);
+        assert_se(sd_dhcp_client_set_ifindex(NULL, 0) == -EINVAL);
 
-        assert_se(sd_dhcp_client_set_index(client, 15) == 0);
-        assert_se(sd_dhcp_client_set_index(client, -42) == -EINVAL);
-        assert_se(sd_dhcp_client_set_index(client, -1) == -EINVAL);
-        assert_se(sd_dhcp_client_set_index(client, 0) == -EINVAL);
-        assert_se(sd_dhcp_client_set_index(client, 1) == 0);
+        assert_se(sd_dhcp_client_set_ifindex(client, 15) == 0);
+        assert_se(sd_dhcp_client_set_ifindex(client, -42) == -EINVAL);
+        assert_se(sd_dhcp_client_set_ifindex(client, -1) == -EINVAL);
+        assert_se(sd_dhcp_client_set_ifindex(client, 0) == -EINVAL);
+        assert_se(sd_dhcp_client_set_ifindex(client, 1) == 0);
 
         assert_se(sd_dhcp_client_set_request_option(client,
                                         SD_DHCP_OPTION_SUBNET_MASK) == -EEXIST);
@@ -243,7 +243,7 @@ static void test_discover_message(sd_event *e) {
         r = sd_dhcp_client_attach_event(client, e, 0);
         assert_se(r >= 0);
 
-        assert_se(sd_dhcp_client_set_index(client, 42) >= 0);
+        assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_request_option(client, 248) >= 0);
@@ -458,7 +458,7 @@ static void test_addr_acq(sd_event *e) {
         r = sd_dhcp_client_attach_event(client, e, 0);
         assert_se(r >= 0);
 
-        assert_se(sd_dhcp_client_set_index(client, 42) >= 0);
+        assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e) >= 0);

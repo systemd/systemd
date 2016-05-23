@@ -136,11 +136,11 @@ static void test_public_api_setters(sd_event *e) {
         assert_se(sd_ipv4ll_set_mac(ll, NULL) == -EINVAL);
         assert_se(sd_ipv4ll_set_mac(ll, &mac_addr) == 0);
 
-        assert_se(sd_ipv4ll_set_index(NULL, -1) == -EINVAL);
-        assert_se(sd_ipv4ll_set_index(ll, -1) == -EINVAL);
-        assert_se(sd_ipv4ll_set_index(ll, -99) == -EINVAL);
-        assert_se(sd_ipv4ll_set_index(ll, 1) == 0);
-        assert_se(sd_ipv4ll_set_index(ll, 99) == 0);
+        assert_se(sd_ipv4ll_set_ifindex(NULL, -1) == -EINVAL);
+        assert_se(sd_ipv4ll_set_ifindex(ll, -1) == -EINVAL);
+        assert_se(sd_ipv4ll_set_ifindex(ll, -99) == -EINVAL);
+        assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
+        assert_se(sd_ipv4ll_set_ifindex(ll, 99) == 0);
 
         assert_se(sd_ipv4ll_ref(ll) == ll);
         assert_se(sd_ipv4ll_unref(ll) == NULL);
@@ -172,7 +172,7 @@ static void test_basic_request(sd_event *e) {
                                          basic_request_handler_userdata) == 0);
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
 
-        assert_se(sd_ipv4ll_set_index(ll, 1) == 0);
+        assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
         assert_se(sd_ipv4ll_start(ll) == 0);
 
         sd_event_run(e, (uint64_t) -1);

@@ -75,7 +75,7 @@ struct sd_ndisc {
         enum NDiscState state;
         sd_event *event;
         int event_priority;
-        int index;
+        int ifindex;
         struct ether_addr mac_addr;
         uint32_t mtu;
         LIST_HEAD(NDiscPrefix, prefixes);
@@ -145,12 +145,11 @@ int sd_ndisc_set_callback(sd_ndisc *nd,
         return 0;
 }
 
-int sd_ndisc_set_index(sd_ndisc *nd, int interface_index) {
-        assert(nd);
-        assert(interface_index >= -1);
+int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
+        assert_return(nd, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
 
-        nd->index = interface_index;
-
+        nd->ifindex = ifindex;
         return 0;
 }
 
@@ -254,7 +253,7 @@ int sd_ndisc_new(sd_ndisc **ret) {
 
         nd->n_ref = 1;
 
-        nd->index = -1;
+        nd->ifindex = -1;
         nd->fd = -1;
 
         LIST_HEAD_INIT(nd->prefixes);
@@ -675,10 +674,10 @@ int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
         if (nd->state != NDISC_STATE_IDLE)
                 return -EBUSY;
 
-        if (nd->index < 1)
+        if (nd->ifindex < 1)
                 return -EINVAL;
 
-        r = icmp6_bind_router_solicitation(nd->index);
+        r = icmp6_bind_router_solicitation(nd->ifindex);
         if (r < 0)
                 return r;
 

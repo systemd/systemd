@@ -81,7 +81,7 @@ struct sd_ipv4acd {
         RefCount n_ref;
 
         IPv4ACDState state;
-        int index;
+        int ifindex;
         int fd;
         int iteration;
         int conflict;
@@ -131,7 +131,7 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
 
         ll->n_ref = REFCNT_INIT;
         ll->state = IPV4ACD_STATE_INIT;
-        ll->index = -1;
+        ll->ifindex = -1;
         ll->fd = -1;
 
         *ret = ll;
@@ -264,7 +264,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
         case IPV4ACD_STATE_WAITING_PROBE:
         case IPV4ACD_STATE_PROBING:
                 /* Send a probe */
-                r = arp_send_probe(ll->fd, ll->index, ll->address, &ll->mac_addr);
+                r = arp_send_probe(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                 if (r < 0) {
                         log_ipv4acd_error_errno(ll, r, "Failed to send ARP probe: %m");
                         goto out;
@@ -301,7 +301,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 }
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
                 /* Send announcement packet */
-                r = arp_send_announcement(ll->fd, ll->index, ll->address, &ll->mac_addr);
+                r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                 if (r < 0) {
                         log_ipv4acd_error_errno(ll, r, "Failed to send ARP announcement: %m");
                         goto out;
@@ -390,7 +390,7 @@ static int ipv4acd_on_packet(
                         /* Defend address */
                         if (ts > ll->defend_window) {
                                 ll->defend_window = ts + DEFEND_INTERVAL * USEC_PER_SEC;
-                                r = arp_send_announcement(ll->fd, ll->index, ll->address, &ll->mac_addr);
+                                r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                                 if (r < 0) {
                                         log_ipv4acd_error_errno(ll, r, "Failed to send ARP announcement: %m");
                                         goto out;
@@ -420,12 +420,12 @@ out:
         return 1;
 }
 
-int sd_ipv4acd_set_index(sd_ipv4acd *ll, int interface_index) {
+int sd_ipv4acd_set_ifindex(sd_ipv4acd *ll, int ifindex) {
         assert_return(ll, -EINVAL);
-        assert_return(interface_index > 0, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
         assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        ll->index = interface_index;
+        ll->ifindex = ifindex;
 
         return 0;
 }
@@ -497,14 +497,14 @@ int sd_ipv4acd_start(sd_ipv4acd *ll) {
 
         assert_return(ll, -EINVAL);
         assert_return(ll->event, -EINVAL);
-        assert_return(ll->index > 0, -EINVAL);
+        assert_return(ll->ifindex > 0, -EINVAL);
         assert_return(ll->address != 0, -EINVAL);
         assert_return(!ether_addr_is_null(&ll->mac_addr), -EINVAL);
         assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
 
         ll->defend_window = 0;
 
-        r = arp_network_bind_raw_socket(ll->index, ll->address, &ll->mac_addr);
+        r = arp_network_bind_raw_socket(ll->ifindex, ll->address, &ll->mac_addr);
         if (r < 0)
                 goto out;
 

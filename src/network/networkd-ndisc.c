@@ -243,7 +243,7 @@ int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_index(link->ndisc_router_discovery, link->ifindex);
+        r = sd_ndisc_set_ifindex(link->ndisc_router_discovery, link->ifindex);
         if (r < 0)
                 return r;
 
