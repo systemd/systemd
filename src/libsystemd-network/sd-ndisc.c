@@ -651,12 +651,13 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
 
 int sd_ndisc_stop(sd_ndisc *nd) {
         assert_return(nd, -EINVAL);
-        assert_return(nd->event, -EINVAL);
 
-        log_ndisc(client, "Stop NDisc");
+        if (nd->state == NDISC_STATE_IDLE)
+                return 0;
+
+        log_ndisc(client, "Stopping IPv6 Router Solicitation client");
 
         ndisc_reset(nd);
-
         nd->state = NDISC_STATE_IDLE;
 
         if (nd->callback)
