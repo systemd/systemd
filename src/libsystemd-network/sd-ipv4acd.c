@@ -51,19 +51,8 @@
 #define IPV4ACD_NETWORK 0xA9FE0000L
 #define IPV4ACD_NETMASK 0xFFFF0000L
 
-#define log_ipv4acd_full(ll, level, error, fmt, ...) log_internal(level, error, __FILE__, __LINE__, __func__, "ACD: " fmt, ##__VA_ARGS__)
-
-#define log_ipv4acd_debug(ll, ...)   log_ipv4acd_full(ll, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_ipv4acd_info(ll, ...)    log_ipv4acd_full(ll, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_ipv4acd_notice(ll, ...)  log_ipv4acd_full(ll, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_ipv4acd_warning(ll, ...) log_ipv4acd_full(ll, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_ipv4acd_error(ll, ...)   log_ipv4acd_full(ll, LOG_ERR, 0, ##__VA_ARGS__)
-
-#define log_ipv4acd_debug_errno(ll, error, ...)   log_ipv4acd_full(ll, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_ipv4acd_info_errno(ll, error, ...)    log_ipv4acd_full(ll, LOG_INFO, error, ##__VA_ARGS__)
-#define log_ipv4acd_notice_errno(ll, error, ...)  log_ipv4acd_full(ll, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_ipv4acd_warning_errno(ll, error, ...) log_ipv4acd_full(ll, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_ipv4acd_error_errno(ll, error, ...)   log_ipv4acd_full(ll, LOG_ERR, error, ##__VA_ARGS__)
+#define log_ipv4acd_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "ACD: " fmt, ##__VA_ARGS__)
+#define log_ipv4acd(ll, fmt, ...) log_ipv4acd_errno(ll, 0, fmt, ##__VA_ARGS__)
 
 typedef enum IPv4ACDState {
         IPV4ACD_STATE_INIT,
@@ -178,7 +167,7 @@ static void ipv4acd_stop(sd_ipv4acd *ll) {
 
         ll->timer = sd_event_source_unref(ll->timer);
 
-        log_ipv4acd_debug(ll, "STOPPED");
+        log_ipv4acd(ll, "STOPPED");
 
         ipv4acd_set_state (ll, IPV4ACD_STATE_INIT, true);
 }
@@ -256,7 +245,8 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_PROBE, true);
 
                 if (ll->conflict >= MAX_CONFLICTS) {
-                        log_ipv4acd_notice(ll, "Max conflicts reached, delaying by %us", RATE_LIMIT_INTERVAL);
+                        log_ipv4acd(ll, "Max conflicts reached, delaying by %us", RATE_LIMIT_INTERVAL);
+
                         r = ipv4acd_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
                         if (r < 0)
                                 goto out;
@@ -274,7 +264,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 /* Send a probe */
                 r = arp_send_probe(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                 if (r < 0) {
-                        log_ipv4acd_error_errno(ll, r, "Failed to send ARP probe: %m");
+                        log_ipv4acd_errno(ll, r, "Failed to send ARP probe: %m");
                         goto out;
                 } else {
                         _cleanup_free_ char *address = NULL;
@@ -282,7 +272,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                         r = in_addr_to_string(AF_INET, &addr, &address);
                         if (r >= 0)
-                                log_ipv4acd_debug(ll, "Probing %s", address);
+                                log_ipv4acd(ll, "Probing %s", address);
                 }
 
                 if (ll->iteration < PROBE_NUM - 2) {
@@ -311,10 +301,10 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 /* Send announcement packet */
                 r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                 if (r < 0) {
-                        log_ipv4acd_error_errno(ll, r, "Failed to send ARP announcement: %m");
+                        log_ipv4acd_errno(ll, r, "Failed to send ARP announcement: %m");
                         goto out;
                 } else
-                        log_ipv4acd_debug(ll, "ANNOUNCE");
+                        log_ipv4acd(ll, "ANNOUNCE");
 
                 ipv4acd_set_state(ll, IPV4ACD_STATE_ANNOUNCING, false);
 
@@ -350,7 +340,7 @@ static void ipv4acd_on_conflict(sd_ipv4acd *ll) {
 
         r = in_addr_to_string(AF_INET, &addr, &address);
         if (r >= 0)
-                log_ipv4acd_debug(ll, "Conflict on %s (%u)", address, ll->conflict);
+                log_ipv4acd(ll, "Conflict on %s (%u)", address, ll->conflict);
 
         ipv4acd_stop(ll);
 
@@ -377,11 +367,11 @@ static int ipv4acd_on_packet(
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                r = log_ipv4acd_debug_errno(ll, errno, "Failed to read ARP packet: %m");
+                r = log_ipv4acd_errno(ll, errno, "Failed to read ARP packet: %m");
                 goto out;
         }
         if ((size_t) n != sizeof(struct ether_arp)) {
-                log_ipv4acd_debug(ll, "Ignoring too short ARP packet.");
+                log_ipv4acd(ll, "Ignoring too short ARP packet.");
                 return 0;
         }
 
@@ -400,10 +390,10 @@ static int ipv4acd_on_packet(
                                 ll->defend_window = ts + DEFEND_INTERVAL * USEC_PER_SEC;
                                 r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                                 if (r < 0) {
-                                        log_ipv4acd_error_errno(ll, r, "Failed to send ARP announcement: %m");
+                                        log_ipv4acd_errno(ll, r, "Failed to send ARP announcement: %m");
                                         goto out;
                                 } else
-                                        log_ipv4acd_debug(ll, "DEFEND");
+                                        log_ipv4acd(ll, "DEFEND");
 
                         } else
                                 ipv4acd_on_conflict(ll);
