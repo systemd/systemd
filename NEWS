@@ -207,6 +207,11 @@ CHANGES WITH 230:
           for backwards compatibility). AmbientCapabilities= and
           CapabilityBoundingSet= should be used instead.
 
+        * A new special target has been added, initrd-root-device.target,
+          which creates a synchronization point for dependencies of the root
+          device in early userspace. Initramfs builders must ensure that this
+          target is now included in early userspace.
+
         Contributions from: Alban Crequy, Alexander Kuleshov, Alexander Shopov,
         Alex Crawford, Andre Klärner, Andrew Eikum, Beniamino Galvani, Benjamin
         Robin, Biao Lu, Bjørnar Ness, Calvin Owens, Christian Hesse, Clemens
