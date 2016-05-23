@@ -246,13 +246,13 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                         r = ipv4acd_set_next_wakeup(ll, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT_USEC);
                         if (r < 0)
-                                goto out;
+                                goto fail;
 
                         ll->n_conflict = 0;
                 } else {
                         r = ipv4acd_set_next_wakeup(ll, 0, PROBE_WAIT_USEC);
                         if (r < 0)
-                                goto out;
+                                goto fail;
                 }
 
                 break;
@@ -263,7 +263,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 r = arp_send_probe(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                 if (r < 0) {
                         log_ipv4acd_errno(ll, r, "Failed to send ARP probe: %m");
-                        goto out;
+                        goto fail;
                 } else {
                         _cleanup_free_ char *address = NULL;
                         union in_addr_union addr = { .in.s_addr = ll->address };
@@ -277,13 +277,13 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                         r = ipv4acd_set_next_wakeup(ll, PROBE_MIN_USEC, (PROBE_MAX_USEC-PROBE_MIN_USEC));
                         if (r < 0)
-                                goto out;
+                                goto fail;
                 } else {
                         ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_ANNOUNCE, true);
 
                         r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_WAIT_USEC, 0);
                         if (r < 0)
-                                goto out;
+                                goto fail;
                 }
 
                 break;
@@ -301,7 +301,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                 if (r < 0) {
                         log_ipv4acd_errno(ll, r, "Failed to send ARP announcement: %m");
-                        goto out;
+                        goto fail;
                 } else
                         log_ipv4acd(ll, "ANNOUNCE");
 
@@ -309,7 +309,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                 r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_INTERVAL_USEC, 0);
                 if (r < 0)
-                        goto out;
+                        goto fail;
 
                 if (ll->n_iteration == 0) {
                         ll->n_conflict = 0;
@@ -322,11 +322,11 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 assert_not_reached("Invalid state.");
         }
 
-out:
-        if (r < 0)
-                sd_ipv4acd_stop(ll);
+        return 0;
 
-        return 1;
+fail:
+        sd_ipv4acd_stop(ll);
+        return 0;
 }
 
 static void ipv4acd_on_conflict(sd_ipv4acd *ll) {
@@ -364,8 +364,8 @@ static int ipv4acd_on_packet(
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                r = log_ipv4acd_errno(ll, errno, "Failed to read ARP packet: %m");
-                goto out;
+                log_ipv4acd_errno(ll, errno, "Failed to read ARP packet: %m");
+                goto fail;
         }
         if ((size_t) n != sizeof(struct ether_arp)) {
                 log_ipv4acd(ll, "Ignoring too short ARP packet.");
@@ -388,7 +388,7 @@ static int ipv4acd_on_packet(
                                 r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
                                 if (r < 0) {
                                         log_ipv4acd_errno(ll, r, "Failed to send ARP announcement: %m");
-                                        goto out;
+                                        goto fail;
                                 } else
                                         log_ipv4acd(ll, "DEFEND");
 
@@ -408,11 +408,11 @@ static int ipv4acd_on_packet(
                 assert_not_reached("Invalid state.");
         }
 
-out:
-        if (r < 0)
-                sd_ipv4acd_stop(ll);
+        return 0;
 
-        return 1;
+fail:
+        sd_ipv4acd_stop(ll);
+        return 0;
 }
 
 int sd_ipv4acd_set_ifindex(sd_ipv4acd *ll, int ifindex) {
