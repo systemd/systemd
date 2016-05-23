@@ -34,6 +34,7 @@
 #include "list.h"
 #include "random-util.h"
 #include "siphash24.h"
+#include "string-util.h"
 #include "util.h"
 
 /* Constants from the RFC */
@@ -90,6 +91,29 @@ struct sd_ipv4acd {
         void* userdata;
 };
 
+static void ipv4acd_set_state(sd_ipv4acd *ll, IPv4ACDState st, bool reset_counter) {
+        assert(ll);
+        assert(st < _IPV4ACD_STATE_MAX);
+
+        if (st == ll->state && !reset_counter)
+                ll->n_iteration++;
+        else {
+                ll->state = st;
+                ll->n_iteration = 0;
+        }
+}
+
+static void ipv4acd_reset(sd_ipv4acd *ll) {
+        assert(ll);
+
+        ll->timer_event_source = sd_event_source_unref(ll->timer_event_source);
+        ll->receive_message_event_source = sd_event_source_unref(ll->receive_message_event_source);
+
+        ll->fd = safe_close(ll->fd);
+
+        ipv4acd_set_state(ll, IPV4ACD_STATE_INIT, true);
+}
+
 sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *ll) {
         if (!ll)
                 return NULL;
@@ -110,11 +134,7 @@ sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll) {
         if (ll->n_ref > 0)
                 return NULL;
 
-        ll->timer_event_source = sd_event_source_unref(ll->timer_event_source);
-        ll->receive_message_event_source = sd_event_source_unref(ll->receive_message_event_source);
-
-        ll->fd = safe_close(ll->fd);
-
+        ipv4acd_reset(ll);
         sd_ipv4acd_detach_event(ll);
 
         free(ll);
@@ -142,18 +162,6 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
         return 0;
 }
 
-static void ipv4acd_set_state(sd_ipv4acd *ll, IPv4ACDState st, bool reset_counter) {
-        assert(ll);
-        assert(st < _IPV4ACD_STATE_MAX);
-
-        if (st == ll->state && !reset_counter)
-                ll->n_iteration++;
-        else {
-                ll->state = st;
-                ll->n_iteration = 0;
-        }
-}
-
 static void ipv4acd_client_notify(sd_ipv4acd *ll, int event) {
         assert(ll);
 
@@ -163,23 +171,13 @@ static void ipv4acd_client_notify(sd_ipv4acd *ll, int event) {
         ll->callback(ll, event, ll->userdata);
 }
 
-static void ipv4acd_stop(sd_ipv4acd *ll) {
-        assert(ll);
-
-        ll->timer_event_source = sd_event_source_unref(ll->timer_event_source);
-
-        ll->receive_message_event_source = sd_event_source_unref(ll->receive_message_event_source);
-        ll->fd = safe_close(ll->fd);
-
-        log_ipv4acd(ll, "STOPPED");
-
-        ipv4acd_set_state(ll, IPV4ACD_STATE_INIT, true);
-}
-
 int sd_ipv4acd_stop(sd_ipv4acd *ll) {
         assert_return(ll, -EINVAL);
 
-        ipv4acd_stop(ll);
+        ipv4acd_reset(ll);
+
+        log_ipv4acd(ll, "STOPPED");
+
         ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_STOP);
 
         return 0;
@@ -272,9 +270,8 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                         _cleanup_free_ char *address = NULL;
                         union in_addr_union addr = { .in.s_addr = ll->address };
 
-                        r = in_addr_to_string(AF_INET, &addr, &address);
-                        if (r >= 0)
-                                log_ipv4acd(ll, "Probing %s", address);
+                        (void) in_addr_to_string(AF_INET, &addr, &address);
+                        log_ipv4acd(ll, "Probing %s", strna(address));
                 }
 
                 if (ll->n_iteration < PROBE_NUM - 2) {
@@ -337,18 +334,15 @@ out:
 static void ipv4acd_on_conflict(sd_ipv4acd *ll) {
         _cleanup_free_ char *address = NULL;
         union in_addr_union addr = { .in.s_addr = ll->address };
-        int r;
 
         assert(ll);
 
         ll->n_conflict++;
 
-        r = in_addr_to_string(AF_INET, &addr, &address);
-        if (r >= 0)
-                log_ipv4acd(ll, "Conflict on %s (%u)", address, ll->n_conflict);
+        (void) in_addr_to_string(AF_INET, &addr, &address);
+        log_ipv4acd(ll, "Conflict on %s (%u)", strna(address), ll->n_conflict);
 
-        ipv4acd_stop(ll);
-
+        ipv4acd_reset(ll);
         ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_CONFLICT);
 }
 
@@ -505,33 +499,31 @@ int sd_ipv4acd_start(sd_ipv4acd *ll) {
         assert_return(!ether_addr_is_null(&ll->mac_addr), -EINVAL);
         assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        ll->defend_window = 0;
-
         r = arp_network_bind_raw_socket(ll->ifindex, ll->address, &ll->mac_addr);
         if (r < 0)
-                goto out;
+                return r;
 
-        ll->fd = safe_close(ll->fd);
+        safe_close(ll->fd);
         ll->fd = r;
+        ll->defend_window = 0;
 
         r = sd_event_add_io(ll->event, &ll->receive_message_event_source, ll->fd, EPOLLIN, ipv4acd_on_packet, ll);
         if (r < 0)
-                goto out;
+                goto fail;
 
         r = sd_event_source_set_priority(ll->receive_message_event_source, ll->event_priority);
         if (r < 0)
-                goto out;
+                goto fail;
 
         (void) sd_event_source_set_description(ll->receive_message_event_source, "ipv4acd-receive-message");
 
         r = ipv4acd_set_next_wakeup(ll, 0, 0);
         if (r < 0)
-                goto out;
-out:
-        if (r < 0) {
-                ipv4acd_stop(ll);
-                return r;
-        }
+                goto fail;
 
         return 0;
+
+fail:
+        ipv4acd_reset(ll);
+        return r;
 }
