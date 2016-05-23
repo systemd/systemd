@@ -151,10 +151,10 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
         size_t i;
 
         assert_return(client, -EINVAL);
-        assert_return (IN_SET(client->state, DHCP_STATE_INIT,
-                              DHCP_STATE_STOPPED), -EBUSY);
+        assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
 
         switch(option) {
+
         case SD_DHCP_OPTION_PAD:
         case SD_DHCP_OPTION_OVERLOAD:
         case SD_DHCP_OPTION_MESSAGE_TYPE:
@@ -182,9 +182,9 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
 int sd_dhcp_client_set_request_address(
                 sd_dhcp_client *client,
                 const struct in_addr *last_addr) {
+
         assert_return(client, -EINVAL);
-        assert_return (IN_SET(client->state, DHCP_STATE_INIT,
-                              DHCP_STATE_STOPPED), -EBUSY);
+        assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
 
         if (last_addr)
                 client->last_addr = last_addr->s_addr;
@@ -230,8 +230,7 @@ int sd_dhcp_client_set_mac(
                 return 0;
 
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
-                log_dhcp_client(client, "Changing MAC address on running DHCP "
-                                "client, restarting");
+                log_dhcp_client(client, "Changing MAC address on running DHCP client, restarting");
                 need_restart = true;
                 client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         }
@@ -283,14 +282,17 @@ int sd_dhcp_client_set_client_id(
         assert_return(data_len > 0 && data_len <= MAX_CLIENT_ID_LEN, -EINVAL);
 
         switch (type) {
+
         case ARPHRD_ETHER:
                 if (data_len != ETH_ALEN)
                         return -EINVAL;
                 break;
+
         case ARPHRD_INFINIBAND:
                 if (data_len != INFINIBAND_ALEN)
                         return -EINVAL;
                 break;
+
         default:
                 break;
         }
@@ -434,14 +436,14 @@ int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
 
 int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         assert_return(client, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (client->state != DHCP_STATE_BOUND &&
             client->state != DHCP_STATE_RENEWING &&
             client->state != DHCP_STATE_REBINDING)
                 return -EADDRNOTAVAIL;
 
-        *ret = client->lease;
+        if (ret)
+                *ret = client->lease;
 
         return 0;
 }
@@ -454,8 +456,7 @@ static void client_notify(sd_dhcp_client *client, int event) {
 static int client_initialize(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
 
-        client->receive_message =
-                sd_event_source_unref(client->receive_message);
+        client->receive_message = sd_event_source_unref(client->receive_message);
 
         client->fd = asynchronous_close(client->fd);
 
@@ -750,8 +751,9 @@ static int client_send_request(sd_dhcp_client *client) {
         size_t optoffset, optlen;
         int r;
 
-        r = client_message_init(client, &request, DHCP_REQUEST,
-                                &optlen, &optoffset);
+        assert(client);
+
+        r = client_message_init(client, &request, DHCP_REQUEST, &optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -848,18 +850,23 @@ static int client_send_request(sd_dhcp_client *client) {
                 return r;
 
         switch (client->state) {
+
         case DHCP_STATE_REQUESTING:
                 log_dhcp_client(client, "REQUEST (requesting)");
                 break;
+
         case DHCP_STATE_INIT_REBOOT:
                 log_dhcp_client(client, "REQUEST (init-reboot)");
                 break;
+
         case DHCP_STATE_RENEWING:
                 log_dhcp_client(client, "REQUEST (renewing)");
                 break;
+
         case DHCP_STATE_REBINDING:
                 log_dhcp_client(client, "REQUEST (rebinding)");
                 break;
+
         default:
                 log_dhcp_client(client, "REQUEST (invalid)");
                 break;
@@ -891,6 +898,7 @@ static int client_timeout_resend(
                 goto error;
 
         switch (client->state) {
+
         case DHCP_STATE_RENEWING:
 
                 time_left = (client->lease->t2 - client->lease->t1) / 2;
@@ -1103,8 +1111,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
         assert_return(client->ifindex > 0, -EINVAL);
         assert_return(client->fd < 0, -EBUSY);
         assert_return(client->xid == 0, -EINVAL);
-        assert_return(client->state == DHCP_STATE_INIT ||
-                      client->state == DHCP_STATE_INIT_REBOOT, -EBUSY);
+        assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_INIT_REBOOT), -EBUSY);
 
         client->xid = random_u32();
 
@@ -1149,6 +1156,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
+
+        assert(client);
 
         client->receive_message = sd_event_source_unref(client->receive_message);
         client->fd = asynchronous_close(client->fd);
@@ -1821,8 +1830,7 @@ int sd_dhcp_client_detach_event(sd_dhcp_client *client) {
 }
 
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
-        if (!client)
-                return NULL;
+        assert_return(client, NULL);
 
         return client->event;
 }
@@ -1884,7 +1892,6 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         client->mtu = DHCP_DEFAULT_MIN_SIZE;
 
         client->req_opts_size = ELEMENTSOF(default_req_opts);
-
         client->req_opts = memdup(default_req_opts, client->req_opts_size);
         if (!client->req_opts)
                 return -ENOMEM;

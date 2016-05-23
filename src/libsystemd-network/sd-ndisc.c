@@ -128,13 +128,15 @@ static int ndisc_prefix_new(sd_ndisc *nd, NDiscPrefix **ret) {
         return 0;
 }
 
-int sd_ndisc_set_callback(sd_ndisc *nd,
-                          sd_ndisc_router_callback_t router_callback,
-                          sd_ndisc_prefix_onlink_callback_t prefix_onlink_callback,
-                          sd_ndisc_prefix_autonomous_callback_t prefix_autonomous_callback,
-                          sd_ndisc_callback_t callback,
-                          void *userdata) {
-        assert(nd);
+int sd_ndisc_set_callback(
+                sd_ndisc *nd,
+                sd_ndisc_router_callback_t router_callback,
+                sd_ndisc_prefix_onlink_callback_t prefix_onlink_callback,
+                sd_ndisc_prefix_autonomous_callback_t prefix_autonomous_callback,
+                sd_ndisc_callback_t callback,
+                void *userdata) {
+
+        assert_return(nd, -EINVAL);
 
         nd->router_callback = router_callback;
         nd->prefix_onlink_callback = prefix_onlink_callback;
@@ -154,7 +156,7 @@ int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
 }
 
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
-        assert(nd);
+        assert_return(nd, -EINVAL);
 
         if (mac_addr)
                 memcpy(&nd->mac_addr, mac_addr, sizeof(nd->mac_addr));
@@ -193,7 +195,7 @@ int sd_ndisc_detach_event(sd_ndisc *nd) {
 }
 
 sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
-        assert(nd);
+        assert_return(nd, NULL);
 
         return nd->event;
 }
@@ -245,14 +247,13 @@ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
 int sd_ndisc_new(sd_ndisc **ret) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
-        assert(ret);
+        assert_return(ret, -EINVAL);
 
         nd = new0(sd_ndisc, 1);
         if (!nd)
                 return -ENOMEM;
 
         nd->n_ref = 1;
-
         nd->ifindex = -1;
         nd->fd = -1;
 
@@ -272,7 +273,6 @@ int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu) {
                 return -ENOMSG;
 
         *mtu = nd->mtu;
-
         return 0;
 }
 
@@ -281,8 +281,8 @@ static int prefix_match(const struct in6_addr *prefix, uint8_t prefixlen,
                         uint8_t addr_prefixlen) {
         uint8_t bytes, mask, len;
 
-        assert_return(prefix, -EINVAL);
-        assert_return(addr, -EINVAL);
+        assert(prefix);
+        assert(addr);
 
         len = MIN(prefixlen, addr_prefixlen);
 
@@ -414,8 +414,8 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, ssize_t len
         void *opt;
         struct nd_opt_hdr *opt_hdr;
 
-        assert_return(nd, -EINVAL);
-        assert_return(ra, -EINVAL);
+        assert(nd);
+        assert(ra);
 
         len -= sizeof(*ra);
         if (len < NDISC_OPT_LEN_UNITS) {
@@ -668,14 +668,10 @@ int sd_ndisc_stop(sd_ndisc *nd) {
 int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
         int r;
 
-        assert(nd);
-        assert(nd->event);
-
-        if (nd->state != NDISC_STATE_IDLE)
-                return -EBUSY;
-
-        if (nd->ifindex < 1)
-                return -EINVAL;
+        assert_return(nd, -EINVAL);
+        assert_return(nd->event, -EINVAL);
+        assert_return(nd->ifindex > 0, -EINVAL);
+        assert_return(nd->state == NDISC_STATE_IDLE, -EBUSY);
 
         r = icmp6_bind_router_solicitation(nd->ifindex);
         if (r < 0)
