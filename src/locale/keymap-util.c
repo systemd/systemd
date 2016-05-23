@@ -425,10 +425,9 @@ static int read_next_mapping(const char* filename,
 }
 
 int vconsole_convert_to_x11(Context *c) {
-        bool modified = false;
+        int modified = -1;
 
         if (isempty(c->vc_keymap)) {
-
                 modified =
                         !isempty(c->x11_layout) ||
                         !isempty(c->x11_model) ||
@@ -475,17 +474,19 @@ int vconsole_convert_to_x11(Context *c) {
                 }
         }
 
-        if (modified)
+        if (modified > 0)
                 log_info("Changing X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
                          strempty(c->x11_layout),
                          strempty(c->x11_model),
                          strempty(c->x11_variant),
                          strempty(c->x11_options));
-
+        else if (modified < 0)
+                log_notice("X11 keyboard layout was not modified: no conversion found for \"%s\".",
+                           c->vc_keymap);
         else
-                log_debug("X11 keyboard layout was not modified.");
+                log_debug("X11 keyboard layout did not need to be modified.");
 
-        return modified;
+        return modified > 0;
 }
 
 int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **new_keymap) {
