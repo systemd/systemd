@@ -561,7 +561,6 @@ int device_read_uevent_file(sd_device *device) {
 
                         state = VALUE;
 
-                        break;
                 case VALUE:
                         if (strchr(NEWLINE, uevent[i])) {
                                 uevent[i] = '\0';
