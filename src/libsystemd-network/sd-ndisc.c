@@ -209,7 +209,7 @@ sd_ndisc *sd_ndisc_ref(sd_ndisc *nd) {
         return nd;
 }
 
-static int ndisc_init(sd_ndisc *nd) {
+static int ndisc_reset(sd_ndisc *nd) {
         assert(nd);
 
         nd->recv = sd_event_source_unref(nd->recv);
@@ -231,7 +231,7 @@ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
         if (nd->n_ref > 0)
                 return NULL;
 
-        ndisc_init(nd);
+        ndisc_reset(nd);
         sd_ndisc_detach_event(nd);
 
         LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes)
@@ -655,7 +655,7 @@ int sd_ndisc_stop(sd_ndisc *nd) {
 
         log_ndisc(client, "Stop NDisc");
 
-        ndisc_init(nd);
+        ndisc_reset(nd);
 
         nd->state = NDISC_STATE_IDLE;
 
@@ -683,34 +683,30 @@ int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
 
         nd->fd = r;
 
-        r = sd_event_add_io(nd->event, &nd->recv, nd->fd, EPOLLIN,
-                            ndisc_router_advertisment_recv, nd);
+        r = sd_event_add_io(nd->event, &nd->recv, nd->fd, EPOLLIN, ndisc_router_advertisment_recv, nd);
         if (r < 0)
-                goto error;
+                goto fail;
 
         r = sd_event_source_set_priority(nd->recv, nd->event_priority);
         if (r < 0)
-                goto error;
+                goto fail;
 
-        r = sd_event_source_set_description(nd->recv, "ndisc-receive-message");
-        if (r < 0)
-                goto error;
+        (void) sd_event_source_set_description(nd->recv, "ndisc-receive-message");
 
-        r = sd_event_add_time(nd->event, &nd->timeout, clock_boottime_or_monotonic(),
-                              0, 0, ndisc_router_solicitation_timeout, nd);
+        r = sd_event_add_time(nd->event, &nd->timeout, clock_boottime_or_monotonic(), 0, 0, ndisc_router_solicitation_timeout, nd);
         if (r < 0)
-                goto error;
+                goto fail;
 
         r = sd_event_source_set_priority(nd->timeout, nd->event_priority);
         if (r < 0)
-                goto error;
+                goto fail;
 
-        r = sd_event_source_set_description(nd->timeout, "ndisc-timeout");
-error:
-        if (r < 0)
-                ndisc_init(nd);
-        else
-                log_ndisc(client, "Start Router Solicitation");
+        (void) sd_event_source_set_description(nd->timeout, "ndisc-timeout");
 
+        log_ndisc(client, "Started IPv6 Router Solicitation client");
+        return 0;
+
+fail:
+        ndisc_reset(nd);
         return r;
 }
