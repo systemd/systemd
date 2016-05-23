@@ -1610,9 +1610,9 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const 
 }
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+
         _cleanup_fdset_free_ FDSet *fds = NULL;
         Manager *m = userdata;
-
         char buf[NOTIFY_BUFFER_MAX+1];
         struct iovec iovec = {
                 .iov_base = buf,
