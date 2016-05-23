@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <net/if.h>
 #include <linux/if_packet.h>
 
 #include "fd-util.h"
@@ -47,6 +48,7 @@ int icmp6_bind_router_solicitation(int index) {
                 .ipv6mr_interface = index,
         };
         _cleanup_close_ int s = -1;
+        char ifname[IF_NAMESIZE] = "";
         int r, zero = 0, one = 1, hops = 255;
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
@@ -80,6 +82,13 @@ int icmp6_bind_router_solicitation(int index) {
                 return -errno;
 
         r = setsockopt(s, SOL_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
+        if (r < 0)
+                return -errno;
+
+        if (if_indextoname(index, ifname) == 0)
+                return -errno;
+
+        r = setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname));
         if (r < 0)
                 return -errno;
 
