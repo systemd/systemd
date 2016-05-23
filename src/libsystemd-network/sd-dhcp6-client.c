@@ -64,7 +64,7 @@ struct sd_dhcp6_client {
         uint8_t retransmit_count;
         sd_event_source *timeout_resend;
         sd_event_source *timeout_resend_expire;
-        sd_dhcp6_client_callback_t cb;
+        sd_dhcp6_client_callback_t callback;
         void *userdata;
         struct duid duid;
         size_t duid_len;
@@ -115,9 +115,10 @@ int sd_dhcp6_client_set_callback(
                 sd_dhcp6_client *client,
                 sd_dhcp6_client_callback_t cb,
                 void *userdata) {
+
         assert_return(client, -EINVAL);
 
-        client->cb = cb;
+        client->callback = cb;
         client->userdata = userdata;
 
         return 0;
@@ -292,8 +293,10 @@ int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
 }
 
 static void client_notify(sd_dhcp6_client *client, int event) {
-        if (client->cb)
-                client->cb(client, event, client->userdata);
+        assert(client);
+
+        if (client->callback)
+                client->callback(client, event, client->userdata);
 }
 
 static void client_set_lease(sd_dhcp6_client *client, sd_dhcp6_lease *lease) {
