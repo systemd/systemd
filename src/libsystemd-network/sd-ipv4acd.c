@@ -75,8 +75,8 @@ struct sd_ipv4acd {
         unsigned n_iteration;
         unsigned n_conflict;
 
-        sd_event_source *receive_message;
-        sd_event_source *timer;
+        sd_event_source *receive_message_event_source;
+        sd_event_source *timer_event_source;
 
         usec_t defend_window;
         be32_t address;
@@ -110,10 +110,10 @@ sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll) {
         if (ll->n_ref > 0)
                 return NULL;
 
-        ll->receive_message = sd_event_source_unref(ll->receive_message);
-        ll->fd = safe_close(ll->fd);
+        ll->timer_event_source = sd_event_source_unref(ll->timer_event_source);
+        ll->receive_message_event_source = sd_event_source_unref(ll->receive_message_event_source);
 
-        ll->timer = sd_event_source_unref(ll->timer);
+        ll->fd = safe_close(ll->fd);
 
         sd_ipv4acd_detach_event(ll);
 
@@ -143,7 +143,6 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
 }
 
 static void ipv4acd_set_state(sd_ipv4acd *ll, IPv4ACDState st, bool reset_counter) {
-
         assert(ll);
         assert(st < _IPV4ACD_STATE_MAX);
 
@@ -167,21 +166,20 @@ static void ipv4acd_client_notify(sd_ipv4acd *ll, int event) {
 static void ipv4acd_stop(sd_ipv4acd *ll) {
         assert(ll);
 
-        ll->receive_message = sd_event_source_unref(ll->receive_message);
-        ll->fd = safe_close(ll->fd);
+        ll->timer_event_source = sd_event_source_unref(ll->timer_event_source);
 
-        ll->timer = sd_event_source_unref(ll->timer);
+        ll->receive_message_event_source = sd_event_source_unref(ll->receive_message_event_source);
+        ll->fd = safe_close(ll->fd);
 
         log_ipv4acd(ll, "STOPPED");
 
-        ipv4acd_set_state (ll, IPV4ACD_STATE_INIT, true);
+        ipv4acd_set_state(ll, IPV4ACD_STATE_INIT, true);
 }
 
 int sd_ipv4acd_stop(sd_ipv4acd *ll) {
         assert_return(ll, -EINVAL);
 
         ipv4acd_stop(ll);
-
         ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_STOP);
 
         return 0;
@@ -215,12 +213,10 @@ static int ipv4acd_set_next_wakeup(sd_ipv4acd *ll, int sec, int random_sec) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_description(timer, "ipv4acd-timer");
-        if (r < 0)
-                return r;
+        (void) sd_event_source_set_description(timer, "ipv4acd-timer");
 
-        ll->timer = sd_event_source_unref(ll->timer);
-        ll->timer = timer;
+        sd_event_source_unref(ll->timer_event_source);
+        ll->timer_event_source = timer;
         timer = NULL;
 
         return 0;
@@ -245,8 +241,8 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
         assert(ll);
 
         switch (ll->state) {
-        case IPV4ACD_STATE_INIT:
 
+        case IPV4ACD_STATE_INIT:
                 ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_PROBE, true);
 
                 if (ll->n_conflict >= MAX_CONFLICTS) {
@@ -264,6 +260,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 }
 
                 break;
+
         case IPV4ACD_STATE_WAITING_PROBE:
         case IPV4ACD_STATE_PROBING:
                 /* Send a probe */
@@ -299,9 +296,11 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
         case IPV4ACD_STATE_ANNOUNCING:
                 if (ll->n_iteration >= ANNOUNCE_NUM - 1) {
                         ipv4acd_set_state(ll, IPV4ACD_STATE_RUNNING, false);
-
                         break;
                 }
+
+                /* fall through */
+
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
                 /* Send announcement packet */
                 r = arp_send_announcement(ll->fd, ll->ifindex, ll->address, &ll->mac_addr);
@@ -323,6 +322,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 }
 
                 break;
+
         default:
                 assert_not_reached("Invalid state.");
         }
@@ -514,18 +514,15 @@ int sd_ipv4acd_start(sd_ipv4acd *ll) {
         ll->fd = safe_close(ll->fd);
         ll->fd = r;
 
-        r = sd_event_add_io(ll->event, &ll->receive_message, ll->fd,
-                            EPOLLIN, ipv4acd_on_packet, ll);
+        r = sd_event_add_io(ll->event, &ll->receive_message_event_source, ll->fd, EPOLLIN, ipv4acd_on_packet, ll);
         if (r < 0)
                 goto out;
 
-        r = sd_event_source_set_priority(ll->receive_message, ll->event_priority);
+        r = sd_event_source_set_priority(ll->receive_message_event_source, ll->event_priority);
         if (r < 0)
                 goto out;
 
-        r = sd_event_source_set_description(ll->receive_message, "ipv4acd-receive-message");
-        if (r < 0)
-                goto out;
+        (void) sd_event_source_set_description(ll->receive_message_event_source, "ipv4acd-receive-message");
 
         r = ipv4acd_set_next_wakeup(ll, 0, 0);
         if (r < 0)
