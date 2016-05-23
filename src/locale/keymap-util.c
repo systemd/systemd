@@ -35,9 +35,11 @@
 #include "strv.h"
 
 static bool startswith_comma(const char *s, const char *prefix) {
-        const char *t;
+        s = startswith(s, prefix);
+        if (!s)
+                return false;
 
-        return s && (t = startswith(s, prefix)) && (*t == ',');
+        return *s == ',';
 }
 
 static const char* strnulldash(const char *s) {
@@ -529,6 +531,8 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
         unsigned best_matching = 0;
         int r;
 
+        assert(!isempty(c->x11_layout));
+
         f = fopen(SYSTEMD_KBD_MODEL_MAP, "re");
         if (!f)
                 return -errno;
@@ -544,7 +548,7 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                         break;
 
                 /* Determine how well matching this entry is */
-                if (streq_ptr(c->x11_layout, a[1]))
+                if (streq(c->x11_layout, a[1]))
                         /* If we got an exact match, this is best */
                         matching = 10;
                 else {
@@ -611,7 +615,7 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                 }
         }
 
-        return 0;
+        return (bool) *new_keymap;
 }
 
 int find_language_fallback(const char *lang, char **language) {
@@ -648,7 +652,6 @@ int x11_convert_to_vconsole(Context *c) {
         bool modified = false;
 
         if (isempty(c->x11_layout)) {
-
                 modified =
                         !isempty(c->vc_keymap) ||
                         !isempty(c->vc_keymap_toggle);
@@ -666,6 +669,12 @@ int x11_convert_to_vconsole(Context *c) {
                         if (r < 0)
                                 return r;
                 }
+                if (r == 0)
+                        /* We search for layout-variant match first, but then we also look
+                         * for anything which matches just the layout. So it's accurate to say
+                         * that we couldn't find anything which matches the layout. */
+                        log_notice("No conversion to virtual console map found for \"%s\".",
+                                   c->x11_layout);
 
                 if (!streq_ptr(c->vc_keymap, new_keymap)) {
                         free(c->vc_keymap);

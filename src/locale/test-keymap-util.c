@@ -84,11 +84,11 @@ static void test_find_legacy_keymap(void) {
         assert_se(ans == NULL);
 
         c.x11_layout = (char*) "pl";
-        assert_se(find_legacy_keymap(&c, &ans) == 0); /* should this be 1? */
+        assert_se(find_legacy_keymap(&c, &ans) == 1);
         assert_se(streq(ans, "pl2"));
 
         c.x11_layout = (char*) "pl,ru";
-        assert_se(find_legacy_keymap(&c, &ans2) == 0); /* should this be 1? */
+        assert_se(find_legacy_keymap(&c, &ans2) == 1);
         assert_se(streq(ans, "pl2"));
 }
 
