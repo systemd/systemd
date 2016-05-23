@@ -433,7 +433,7 @@ int sd_ipv4acd_set_mac(sd_ipv4acd *ll, const struct ether_addr *addr) {
         assert_return(addr, -EINVAL);
         assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        memcpy(&ll->mac_addr, addr, ETH_ALEN);
+        ll->mac_addr = *addr;
 
         return 0;
 }
