@@ -48,8 +48,8 @@
 #define RATE_LIMIT_INTERVAL 60
 #define DEFEND_INTERVAL 10
 
-#define IPV4ACD_NETWORK 0xA9FE0000L
-#define IPV4ACD_NETMASK 0xFFFF0000L
+#define IPV4ACD_NETWORK 0xA9FE0000UL
+#define IPV4ACD_NETMASK 0xFFFF0000UL
 
 #define log_ipv4acd_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "ACD: " fmt, ##__VA_ARGS__)
 #define log_ipv4acd(ll, fmt, ...) log_ipv4acd_errno(ll, 0, fmt, ##__VA_ARGS__)

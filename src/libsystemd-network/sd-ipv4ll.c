@@ -35,8 +35,8 @@
 #include "sparse-endian.h"
 #include "util.h"
 
-#define IPV4LL_NETWORK 0xA9FE0000L
-#define IPV4LL_NETMASK 0xFFFF0000L
+#define IPV4LL_NETWORK 0xA9FE0000UL
+#define IPV4LL_NETMASK 0xFFFF0000UL
 
 #define IPV4LL_DONT_DESTROY(ll) \
         _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
@@ -161,15 +161,9 @@ int sd_ipv4ll_detach_event(sd_ipv4ll *ll) {
 }
 
 int sd_ipv4ll_attach_event(sd_ipv4ll *ll, sd_event *event, int64_t priority) {
-        int r;
-
         assert_return(ll, -EINVAL);
 
-        r = sd_ipv4acd_attach_event(ll->acd, event, priority);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return sd_ipv4acd_attach_event(ll->acd, event, priority);
 }
 
 int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdata) {
@@ -275,7 +269,7 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
                 r = random_r(ll->random_data, &random);
                 if (r < 0)
                         return r;
-                addr = htonl((random & 0x0000FFFF) | IPV4LL_NETWORK);
+                addr = htobe32((random & 0x0000FFFF) | IPV4LL_NETWORK);
         } while (addr == ll->address ||
                 (ntohl(addr) & 0x0000FF00) == 0x0000 ||
                 (ntohl(addr) & 0x0000FF00) == 0xFF00);
@@ -324,17 +318,17 @@ void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         assert(ll);
 
         switch (event) {
+
         case SD_IPV4ACD_EVENT_STOP:
                 ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_STOP);
-
                 ll->claimed_address = 0;
-
                 break;
+
         case SD_IPV4ACD_EVENT_BIND:
                 ll->claimed_address = ll->address;
                 ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_BIND);
-
                 break;
+
         case SD_IPV4ACD_EVENT_CONFLICT:
                 /* if an address was already bound we must call up to the
                    user to handle this, otherwise we just try again */
