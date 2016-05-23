@@ -848,21 +848,22 @@
         <listitem><para>Sets up a new file system namespace for
         executed processes. These options may be used to limit access
         a process might have to the main file system hierarchy. Each
-        setting takes a space-separated list of absolute directory
-        paths. Directories listed in
+        setting takes a space-separated list of absolute paths.
+        Entries listed in
         <varname>ReadWriteDirectories=</varname> are accessible from
         within the namespace with the same access rights as from
-        outside. Directories listed in
+        outside. Entries listed in
         <varname>ReadOnlyDirectories=</varname> are accessible for
         reading only, writing will be refused even if the usual file
-        access controls would permit this. Directories listed in
+        access controls would permit this. Entries listed in
         <varname>InaccessibleDirectories=</varname> will be made
         inaccessible for processes inside the namespace, and may not
         countain any other mountpoints, including those specified by
         <varname>ReadWriteDirectories=</varname> or
         <varname>ReadOnlyDirectories=</varname>.
         Note that restricting access with these options does not extend
-        to submounts of a directory that are created later on. These
+        to submounts of a directory that are created later on.
+        Non-directory paths can be specified as well. These
         options may be specified more than once, in which case all
         directories listed will have limited access from within the
         namespace. If the empty string is assigned to this option, the

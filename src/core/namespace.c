@@ -278,6 +278,7 @@ static int apply_mount(
 
         const char *what;
         int r;
+        struct stat inaccessible_target;
 
         assert(m);
 
@@ -287,10 +288,15 @@ static int apply_mount(
 
                 /* First, get rid of everything that is below if there
                  * is anything... Then, overmount it with an
-                 * inaccessible directory. */
+                 * inaccessible path. */
                 umount_recursive(m->path, 0);
 
-                what = "/run/systemd/inaccessible";
+                r = lstat(m->path, &inaccessible_target);
+                if (r == 0 && (inaccessible_target.st_mode & S_IFMT) != S_IFDIR) {
+                        what = "/run/systemd/inaccessible_file";
+                } else {
+                        what = "/run/systemd/inaccessible";
+                }
                 break;
 
         case READONLY:
@@ -317,10 +323,14 @@ static int apply_mount(
         assert(what);
 
         r = mount(what, m->path, NULL, MS_BIND|MS_REC, NULL);
-        if (r >= 0)
+        if (r >= 0) {
                 log_debug("Successfully mounted %s to %s", what, m->path);
-        else if (m->ignore && errno == ENOENT)
-                return 0;
+        } else {
+                if (m->ignore && errno == ENOENT)
+                        return 0;
+                else
+                        log_error("Failed mounting %s to %s: %s", what, m->path, strerror(errno));
+        }
 
         return r;
 }

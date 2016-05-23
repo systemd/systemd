@@ -28,6 +28,7 @@
 #include "cgroup-util.h"
 #include "dev-setup.h"
 #include "efivars.h"
+#include "fs-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
@@ -408,6 +409,8 @@ int mount_setup(bool loaded_policy) {
         mkdir_label("/run/systemd", 0755);
         mkdir_label("/run/systemd/system", 0755);
         mkdir_label("/run/systemd/inaccessible", 0000);
+        touch_file("/run/systemd/inaccessible_file", false, USEC_INFINITY, 0, 0, 0000);
+        label_fix("/run/systemd/inaccessible_file", false, false);
 
         return 0;
 }
