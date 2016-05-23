@@ -623,7 +623,7 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                if (CGROUP_BLKIO_WEIGHT_IS_OK(weight))
+                if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight))
                         return sd_bus_error_set_errnof(error, EINVAL, "StartupBlockIOWeight value out of range");
 
                 if (mode != UNIT_CHECK) {
