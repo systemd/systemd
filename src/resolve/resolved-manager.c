@@ -643,15 +643,14 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         mh.msg_controllen = sizeof(control);
 
         l = recvmsg(fd, &mh, 0);
+        if (l == 0)
+                return 0;
         if (l < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
                 return -errno;
         }
-
-        if (l <= 0)
-                return -EIO;
 
         assert(!(mh.msg_flags & MSG_CTRUNC));
         assert(!(mh.msg_flags & MSG_TRUNC));
