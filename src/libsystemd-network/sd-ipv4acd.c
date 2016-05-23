@@ -71,14 +71,19 @@ struct sd_ipv4acd {
         IPv4ACDState state;
         int ifindex;
         int fd;
-        int iteration;
-        int conflict;
+
+        unsigned n_iteration;
+        unsigned n_conflict;
+
         sd_event_source *receive_message;
         sd_event_source *timer;
+
         usec_t defend_window;
         be32_t address;
+
         /* External */
         struct ether_addr mac_addr;
+
         sd_event *event;
         int event_priority;
         sd_ipv4acd_callback_t callback;
@@ -143,10 +148,10 @@ static void ipv4acd_set_state(sd_ipv4acd *ll, IPv4ACDState st, bool reset_counte
         assert(st < _IPV4ACD_STATE_MAX);
 
         if (st == ll->state && !reset_counter)
-                ll->iteration++;
+                ll->n_iteration++;
         else {
                 ll->state = st;
-                ll->iteration = 0;
+                ll->n_iteration = 0;
         }
 }
 
@@ -244,14 +249,14 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                 ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_PROBE, true);
 
-                if (ll->conflict >= MAX_CONFLICTS) {
+                if (ll->n_conflict >= MAX_CONFLICTS) {
                         log_ipv4acd(ll, "Max conflicts reached, delaying by %us", RATE_LIMIT_INTERVAL);
 
                         r = ipv4acd_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
                         if (r < 0)
                                 goto out;
 
-                        ll->conflict = 0;
+                        ll->n_conflict = 0;
                 } else {
                         r = ipv4acd_set_next_wakeup(ll, 0, PROBE_WAIT);
                         if (r < 0)
@@ -275,7 +280,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                                 log_ipv4acd(ll, "Probing %s", address);
                 }
 
-                if (ll->iteration < PROBE_NUM - 2) {
+                if (ll->n_iteration < PROBE_NUM - 2) {
                         ipv4acd_set_state(ll, IPV4ACD_STATE_PROBING, false);
 
                         r = ipv4acd_set_next_wakeup(ll, PROBE_MIN, (PROBE_MAX-PROBE_MIN));
@@ -292,7 +297,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 break;
 
         case IPV4ACD_STATE_ANNOUNCING:
-                if (ll->iteration >= ANNOUNCE_NUM - 1) {
+                if (ll->n_iteration >= ANNOUNCE_NUM - 1) {
                         ipv4acd_set_state(ll, IPV4ACD_STATE_RUNNING, false);
 
                         break;
@@ -312,8 +317,8 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 if (r < 0)
                         goto out;
 
-                if (ll->iteration == 0) {
-                        ll->conflict = 0;
+                if (ll->n_iteration == 0) {
+                        ll->n_conflict = 0;
                         ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_BIND);
                 }
 
@@ -336,11 +341,11 @@ static void ipv4acd_on_conflict(sd_ipv4acd *ll) {
 
         assert(ll);
 
-        ll->conflict++;
+        ll->n_conflict++;
 
         r = in_addr_to_string(AF_INET, &addr, &address);
         if (r >= 0)
-                log_ipv4acd(ll, "Conflict on %s (%u)", address, ll->conflict);
+                log_ipv4acd(ll, "Conflict on %s (%u)", address, ll->n_conflict);
 
         ipv4acd_stop(ll);
 
