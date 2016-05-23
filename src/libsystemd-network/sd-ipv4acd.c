@@ -49,12 +49,6 @@
 #define RATE_LIMIT_INTERVAL_USEC (60U * USEC_PER_SEC)
 #define DEFEND_INTERVAL_USEC (10U * USEC_PER_SEC)
 
-#define IPV4ACD_NETWORK 0xA9FE0000UL
-#define IPV4ACD_NETMASK 0xFFFF0000UL
-
-#define log_ipv4acd_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "ACD: " fmt, ##__VA_ARGS__)
-#define log_ipv4acd(ll, fmt, ...) log_ipv4acd_errno(ll, 0, fmt, ##__VA_ARGS__)
-
 typedef enum IPv4ACDState {
         IPV4ACD_STATE_INIT,
         IPV4ACD_STATE_STARTED,
@@ -91,6 +85,9 @@ struct sd_ipv4acd {
         sd_ipv4acd_callback_t callback;
         void* userdata;
 };
+
+#define log_ipv4acd_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4ACD: " fmt, ##__VA_ARGS__)
+#define log_ipv4acd(ll, fmt, ...) log_ipv4acd_errno(ll, 0, fmt, ##__VA_ARGS__)
 
 static void ipv4acd_set_state(sd_ipv4acd *ll, IPv4ACDState st, bool reset_counter) {
         assert(ll);
