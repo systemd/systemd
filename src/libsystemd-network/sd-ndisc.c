@@ -34,8 +34,8 @@
 #include "socket-util.h"
 #include "string-util.h"
 
-#define NDISC_ROUTER_SOLICITATION_INTERVAL      4 * USEC_PER_SEC
-#define NDISC_MAX_ROUTER_SOLICITATIONS          3
+#define NDISC_ROUTER_SOLICITATION_INTERVAL (4U * USEC_PER_SEC)
+#define NDISC_MAX_ROUTER_SOLICITATIONS     3U
 
 enum NDiscState {
         NDISC_STATE_IDLE,
@@ -45,9 +45,9 @@ enum NDiscState {
         _NDISC_STATE_INVALID = -1,
 };
 
-#define IP6_MIN_MTU (unsigned)1280
+#define IP6_MIN_MTU 1280U
 #define ICMP6_RECV_SIZE (IP6_MIN_MTU - sizeof(struct ip6_hdr))
-#define NDISC_OPT_LEN_UNITS 8
+#define NDISC_OPT_LEN_UNITS 8U
 
 #define ND_RA_FLAG_PREF                0x18
 #define ND_RA_FLAG_PREF_LOW            0x03
@@ -82,7 +82,7 @@ struct sd_ndisc {
         int fd;
         sd_event_source *recv;
         sd_event_source *timeout;
-        int nd_sent;
+        unsigned nd_sent;
         sd_ndisc_router_callback_t router_callback;
         sd_ndisc_prefix_autonomous_callback_t prefix_autonomous_callback;
         sd_ndisc_prefix_onlink_callback_t prefix_onlink_callback;
