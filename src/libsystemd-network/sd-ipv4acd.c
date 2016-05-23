@@ -507,6 +507,7 @@ int sd_ipv4acd_start(sd_ipv4acd *ll) {
         safe_close(ll->fd);
         ll->fd = r;
         ll->defend_window = 0;
+        ll->n_conflict = 0;
 
         r = sd_event_add_io(ll->event, &ll->receive_message_event_source, ll->fd, EPOLLIN, ipv4acd_on_packet, ll);
         if (r < 0)
