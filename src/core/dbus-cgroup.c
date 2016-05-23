@@ -228,6 +228,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIOReadBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
+        SD_BUS_PROPERTY("MemoryLow", "t", NULL, offsetof(CGroupContext, memory_low), 0),
+        SD_BUS_PROPERTY("MemoryHigh", "t", NULL, offsetof(CGroupContext, memory_high), 0),
+        SD_BUS_PROPERTY("MemoryMax", "t", NULL, offsetof(CGroupContext, memory_max), 0),
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
@@ -822,6 +825,31 @@ int bus_cgroup_set_property(
                         c->memory_accounting = b;
                         unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
                         unit_write_drop_in_private(u, mode, name, b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "MemoryLow", "MemoryHigh", "MemoryMax")) {
+                uint64_t v;
+
+                r = sd_bus_message_read(message, "t", &v);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        if (streq(name, "MemoryLow"))
+                                c->memory_low = v;
+                        else if (streq(name, "MemoryHigh"))
+                                c->memory_high = v;
+                        else
+                                c->memory_max = v;
+
+                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
+
+                        if (v == CGROUP_LIMIT_MAX)
+                                unit_write_drop_in_private_format(u, mode, name, "%s=max\n", name);
+                        else
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64 "\n", name, v);
                 }
 
                 return 1;

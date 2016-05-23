@@ -46,7 +46,10 @@ void cgroup_context_init(CGroupContext *c) {
         c->startup_cpu_shares = CGROUP_CPU_SHARES_INVALID;
         c->cpu_quota_per_sec_usec = USEC_INFINITY;
 
-        c->memory_limit = (uint64_t) -1;
+        c->memory_high = CGROUP_LIMIT_MAX;
+        c->memory_max = CGROUP_LIMIT_MAX;
+
+        c->memory_limit = CGROUP_LIMIT_MAX;
 
         c->io_weight = CGROUP_WEIGHT_INVALID;
         c->startup_io_weight = CGROUP_WEIGHT_INVALID;
@@ -147,6 +150,9 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sStartupIOWeight=%" PRIu64 "\n"
                 "%sBlockIOWeight=%" PRIu64 "\n"
                 "%sStartupBlockIOWeight=%" PRIu64 "\n"
+                "%sMemoryLow=%" PRIu64 "\n"
+                "%sMemoryHigh=%" PRIu64 "\n"
+                "%sMemoryMax=%" PRIu64 "\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
                 "%sTasksMax=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n"
@@ -163,6 +169,9 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
+                prefix, c->memory_low,
+                prefix, c->memory_high,
+                prefix, c->memory_max,
                 prefix, c->memory_limit,
                 prefix, c->tasks_max,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
@@ -506,6 +515,23 @@ static unsigned cgroup_apply_blkio_device_limit(const char *path, const char *de
         return n;
 }
 
+static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
+        return c->memory_low > 0 || c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX;
+}
+
+static void cgroup_apply_unified_memory_limit(const char *path, const char *file, uint64_t v) {
+        char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max";
+        int r;
+
+        if (v != CGROUP_LIMIT_MAX)
+                xsprintf(buf, "%" PRIu64 "\n", v);
+
+        r = cg_set_attribute("memory", path, file, buf);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to set %s on %s: %m", file, path);
+}
+
 void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, ManagerState state) {
         bool is_root;
         int r;
@@ -672,26 +698,30 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
         }
 
         if ((mask & CGROUP_MASK_MEMORY) && !is_root) {
-                if (c->memory_limit != (uint64_t) -1) {
+                if (cg_unified() > 0) {
+                        uint64_t max = c->memory_max;
+
+                        if (cgroup_context_has_unified_memory_config(c))
+                                max = c->memory_max;
+                        else
+                                max = c->memory_limit;
+
+                        cgroup_apply_unified_memory_limit(path, "memory.low", c->memory_low);
+                        cgroup_apply_unified_memory_limit(path, "memory.high", c->memory_high);
+                        cgroup_apply_unified_memory_limit(path, "memory.max", max);
+                } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
-                        sprintf(buf, "%" PRIu64 "\n", c->memory_limit);
-
-                        if (cg_unified() <= 0)
-                                r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
+                        if (c->memory_limit != CGROUP_LIMIT_MAX)
+                                xsprintf(buf, "%" PRIu64 "\n", c->memory_limit);
                         else
-                                r = cg_set_attribute("memory", path, "memory.max", buf);
+                                xsprintf(buf, "%" PRIu64 "\n", c->memory_max);
 
-                } else {
-                        if (cg_unified() <= 0)
-                                r = cg_set_attribute("memory", path, "memory.limit_in_bytes", "-1");
-                        else
-                                r = cg_set_attribute("memory", path, "memory.max", "max");
+                        r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set memory.limit_in_bytes on %s: %m", path);
                 }
-
-                if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set memory.limit_in_bytes/memory.max on %s: %m", path);
         }
 
         if ((mask & CGROUP_MASK_DEVICES) && !is_root) {
@@ -788,7 +818,8 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
                 mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
 
         if (c->memory_accounting ||
-            c->memory_limit != (uint64_t) -1)
+            c->memory_limit != CGROUP_LIMIT_MAX ||
+            cgroup_context_has_unified_memory_config(c))
                 mask |= CGROUP_MASK_MEMORY;
 
         if (c->device_allow ||

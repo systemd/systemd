@@ -2793,21 +2793,26 @@ int config_parse_memory_limit(
                 void *userdata) {
 
         CGroupContext *c = data;
-        uint64_t bytes;
+        uint64_t bytes = CGROUP_LIMIT_MAX;
         int r;
 
-        if (isempty(rvalue) || streq(rvalue, "infinity")) {
-                c->memory_limit = (uint64_t) -1;
-                return 0;
+        if (!isempty(rvalue) && !streq(rvalue, "infinity") && !streq(rvalue, "max")) {
+                r = parse_size(rvalue, 1024, &bytes);
+                if (r < 0 || bytes < 1) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Memory limit '%s' invalid. Ignoring.", rvalue);
+                        return 0;
+                }
         }
 
-        r = parse_size(rvalue, 1024, &bytes);
-        if (r < 0 || bytes < 1) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Memory limit '%s' invalid. Ignoring.", rvalue);
-                return 0;
-        }
+        if (streq(lvalue, "MemoryLow"))
+                c->memory_low = bytes;
+        else if (streq(lvalue, "MemoryHigh"))
+                c->memory_high = bytes;
+        else if (streq(lvalue, "MemoryMax"))
+                c->memory_max = bytes;
+        else
+                c->memory_limit = bytes;
 
-        c->memory_limit = bytes;
         return 0;
 }
 

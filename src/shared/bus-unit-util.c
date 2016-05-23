@@ -166,11 +166,11 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "b", r);
 
-        } else if (streq(field, "MemoryLimit")) {
+        } else if (STR_IN_SET(field, "MemoryLow", "MemoryHigh", "MemoryMax", "MemoryLimit")) {
                 uint64_t bytes;
 
-                if (isempty(eq) || streq(eq, "infinity"))
-                        bytes = (uint64_t) -1;
+                if (isempty(eq) || streq(eq, "max") || streq(eq, "infinity"))
+                        bytes = CGROUP_LIMIT_MAX;
                 else {
                         r = parse_size(eq, 1024, &bytes);
                         if (r < 0) {
