@@ -655,7 +655,7 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         if (nd->state == NDISC_STATE_IDLE)
                 return 0;
 
-        log_ndisc(client, "Stopping IPv6 Router Solicitation client");
+        log_ndisc(nd, "Stopping IPv6 Router Solicitation client");
 
         ndisc_reset(nd);
         nd->state = NDISC_STATE_IDLE;
@@ -700,7 +700,7 @@ int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
 
         (void) sd_event_source_set_description(nd->timeout, "ndisc-timeout");
 
-        log_ndisc(client, "Started IPv6 Router Solicitation client");
+        log_ndisc(ns, "Started IPv6 Router Solicitation client");
         return 0;
 
 fail:
