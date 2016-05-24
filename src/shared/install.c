@@ -1492,7 +1492,7 @@ static int install_info_symlink_alias(
                 rp = skip_root(paths, i->path);
 
                 q = create_symlink(rp ?: i->path, alias_path, force, changes, n_changes);
-                if (r == 0)
+                if (q < 0)
                         r = q;
         }
 
