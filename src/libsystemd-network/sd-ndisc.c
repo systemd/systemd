@@ -40,7 +40,7 @@
 enum NDiscState {
         NDISC_STATE_IDLE,
         NDISC_STATE_SOLICITATION_SENT,
-        NDISC_STATE_ADVERTISMENT_LISTEN,
+        NDISC_STATE_ADVERTISEMENT_LISTEN,
         _NDISC_STATE_MAX,
         _NDISC_STATE_INVALID = -1,
 };
@@ -355,7 +355,7 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
                 if (r != -EADDRNOTAVAIL)
                         return r;
 
-                /* if router advertisment prefix valid timeout is zero, the timeout
+                /* if router advertisement prefix valid timeout is zero, the timeout
                    callback will be called immediately to clean up the prefix */
 
                 r = ndisc_prefix_new(nd, &prefix);
@@ -470,7 +470,7 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, ssize_t len
         return 0;
 }
 
-static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int ndisc_router_advertisement_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ struct nd_router_advert *ra = NULL;
         sd_ndisc *nd = userdata;
         union {
@@ -565,7 +565,7 @@ static int ndisc_router_advertisment_recv(sd_event_source *s, int fd, uint32_t r
 
         nd->timeout = sd_event_source_unref(nd->timeout);
 
-        nd->state = NDISC_STATE_ADVERTISMENT_LISTEN;
+        nd->state = NDISC_STATE_ADVERTISEMENT_LISTEN;
 
         stateful = ra->nd_ra_flags_reserved & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER);
         pref = (ra->nd_ra_flags_reserved & ND_RA_FLAG_PREF) >> 3;
@@ -612,7 +612,7 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
         if (nd->nd_sent >= NDISC_MAX_ROUTER_SOLICITATIONS) {
                 if (nd->callback)
                         nd->callback(nd, SD_NDISC_EVENT_TIMEOUT, nd->userdata);
-                nd->state = NDISC_STATE_ADVERTISMENT_LISTEN;
+                nd->state = NDISC_STATE_ADVERTISEMENT_LISTEN;
         } else {
                 r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
                 if (r < 0)
@@ -680,7 +680,7 @@ int sd_ndisc_router_discovery_start(sd_ndisc *nd) {
 
         nd->fd = r;
 
-        r = sd_event_add_io(nd->event, &nd->recv, nd->fd, EPOLLIN, ndisc_router_advertisment_recv, nd);
+        r = sd_event_add_io(nd->event, &nd->recv, nd->fd, EPOLLIN, ndisc_router_advertisement_recv, nd);
         if (r < 0)
                 goto fail;
 
