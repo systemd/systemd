@@ -608,9 +608,10 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                 nd->state = NDISC_STATE_ADVERTISEMENT_LISTEN;
         } else {
                 r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
-                if (r < 0)
+                if (r < 0) {
                         log_ndisc_errno(nd, r, "Error sending Router Solicitation: %m");
-                else {
+                        goto fail;
+                } else {
                         nd->state = NDISC_STATE_SOLICITATION_SENT;
                         log_ndisc(nd, "Sent Router Solicitation");
                 }
@@ -625,18 +626,23 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
                                       next_timeout, 0,
                                       ndisc_router_solicitation_timeout, nd);
                 if (r < 0) {
-                        /* we cannot continue if we are unable to rearm the timer */
-                        sd_ndisc_stop(nd);
-                        return 0;
+                        log_ndisc_errno(nd, r, "Failed to allocate timer event: %m");
+                        goto fail;
                 }
 
                 r = sd_event_source_set_priority(nd->timeout_event_source, nd->event_priority);
-                if (r < 0)
-                        return 0;
+                if (r < 0) {
+                        log_ndisc_errno(nd, r, "Cannot set timer priority: %m");
+                        goto fail;
+                }
 
                 (void) sd_event_source_set_description(nd->timeout_event_source, "ndisc-timeout");
         }
 
+        return 0;
+
+fail:
+        sd_ndisc_stop(nd);
         return 0;
 }
 
