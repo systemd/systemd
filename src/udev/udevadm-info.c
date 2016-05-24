@@ -156,7 +156,7 @@ static int stat_device(const char *name, bool export, const char *prefix) {
         struct stat statbuf;
 
         if (stat(name, &statbuf) != 0)
-                return -1;
+                return -errno;
 
         if (export) {
                 if (prefix == NULL)
@@ -171,23 +171,22 @@ static int stat_device(const char *name, bool export, const char *prefix) {
 }
 
 static int export_devices(struct udev *udev) {
-        struct udev_enumerate *udev_enumerate;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *udev_enumerate;
         struct udev_list_entry *list_entry;
 
         udev_enumerate = udev_enumerate_new(udev);
         if (udev_enumerate == NULL)
-                return -1;
+                return -ENOMEM;
+
         udev_enumerate_scan_devices(udev_enumerate);
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
-                struct udev_device *device;
+                _cleanup_udev_device_unref_ struct udev_device *device;
 
                 device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
-                if (device != NULL) {
+                if (device != NULL)
                         print_record(device);
-                        udev_device_unref(device);
-                }
         }
-        udev_enumerate_unref(udev_enumerate);
+
         return 0;
 }
 
@@ -220,39 +219,29 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
 }
 
 static void cleanup_db(struct udev *udev) {
-        DIR *dir;
+        _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
 
-        unlink("/run/udev/queue.bin");
+        (void) unlink("/run/udev/queue.bin");
 
-        dir = opendir("/run/udev/data");
-        if (dir != NULL) {
-                cleanup_dir(dir, S_ISVTX, 1);
-                closedir(dir);
-        }
+        dir1 = opendir("/run/udev/data");
+        if (dir1 != NULL)
+                cleanup_dir(dir1, S_ISVTX, 1);
 
-        dir = opendir("/run/udev/links");
-        if (dir != NULL) {
-                cleanup_dir(dir, 0, 2);
-                closedir(dir);
-        }
+        dir2 = opendir("/run/udev/links");
+        if (dir2 != NULL)
+                cleanup_dir(dir2, 0, 2);
 
-        dir = opendir("/run/udev/tags");
-        if (dir != NULL) {
-                cleanup_dir(dir, 0, 2);
-                closedir(dir);
-        }
+        dir3 = opendir("/run/udev/tags");
+        if (dir3 != NULL)
+                cleanup_dir(dir3, 0, 2);
 
-        dir = opendir("/run/udev/static_node-tags");
-        if (dir != NULL) {
-                cleanup_dir(dir, 0, 2);
-                closedir(dir);
-        }
+        dir4 = opendir("/run/udev/static_node-tags");
+        if (dir4 != NULL)
+                cleanup_dir(dir4, 0, 2);
 
-        dir = opendir("/run/udev/watch");
-        if (dir != NULL) {
-                cleanup_dir(dir, 0, 1);
-                closedir(dir);
-        }
+        dir5 = opendir("/run/udev/watch");
+        if (dir5 != NULL)
+                cleanup_dir(dir5, 0, 1);
 }
 
 static void help(void) {
@@ -374,7 +363,8 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                         action = ACTION_ATTRIBUTE_WALK;
                         break;
                 case 'e':
-                        export_devices(udev);
+                        if (export_devices(udev) < 0)
+                                return 1;
                         return 0;
                 case 'c':
                         cleanup_db(udev);

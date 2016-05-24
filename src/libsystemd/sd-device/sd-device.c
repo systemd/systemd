@@ -533,7 +533,7 @@ int device_read_uevent_file(sd_device *device) {
                 return r;
         }
 
-        for (i = 0; i < uevent_len; i++) {
+        for (i = 0; i < uevent_len; i++)
                 switch (state) {
                 case PRE_KEY:
                         if (!strchr(NEWLINE, uevent[i])) {
@@ -558,9 +558,9 @@ int device_read_uevent_file(sd_device *device) {
                         break;
                 case PRE_VALUE:
                         value = &uevent[i];
-
                         state = VALUE;
 
+                        /* fall through to handle empty property */
                 case VALUE:
                         if (strchr(NEWLINE, uevent[i])) {
                                 uevent[i] = '\0';
@@ -576,7 +576,6 @@ int device_read_uevent_file(sd_device *device) {
                 default:
                         assert_not_reached("invalid state when parsing uevent file");
                 }
-        }
 
         if (major) {
                 r = device_set_devnum(device, major, minor);
