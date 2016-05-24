@@ -462,8 +462,7 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, size_t len)
                 }
 
                 len -= opt_hdr->nd_opt_len * NDISC_OPT_LEN_UNITS;
-                opt = (void *)((char *)opt +
-                        opt_hdr->nd_opt_len * NDISC_OPT_LEN_UNITS);
+                opt = (void*) ((uint8_t*) opt + opt_hdr->nd_opt_len * NDISC_OPT_LEN_UNITS);
                 opt_hdr = opt;
         }
 
@@ -595,7 +594,7 @@ static int ndisc_router_advertisement_recv(sd_event_source *s, int fd, uint32_t 
 
 static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_ndisc *nd = userdata;
-        uint64_t time_now, next_timeout;
+        usec_t time_now, next_timeout;
         int r;
 
         assert(s);
