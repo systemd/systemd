@@ -50,6 +50,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "util.h"
@@ -706,6 +707,64 @@ char *resolve_dev_console(char **active) {
         }
 
         return tty;
+}
+
+int get_kernel_consoles(char ***consoles) {
+        _cleanup_strv_free_ char **con = NULL;
+        _cleanup_free_ char *line = NULL;
+        const char *active;
+        int r;
+
+        assert(consoles);
+
+        r = read_one_line_file("/sys/class/tty/console/active", &line);
+        if (r < 0)
+                return r;
+
+        active = line;
+        for (;;) {
+                _cleanup_free_ char *tty = NULL;
+                char *path;
+
+                r = extract_first_word(&active, &tty, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (streq(tty, "tty0")) {
+                        tty = mfree(tty);
+                        r = read_one_line_file("/sys/class/tty/tty0/active", &tty);
+                        if (r < 0)
+                                return r;
+                }
+
+                path = strappend("/dev/", tty);
+                if (!path)
+                        return -ENOMEM;
+
+                if (access(path, F_OK) < 0) {
+                        log_debug_errno(errno, "Console device %s is not accessible, skipping: %m", path);
+                        free(path);
+                        continue;
+                }
+
+                r = strv_consume(&con, path);
+                if (r < 0)
+                        return r;
+        }
+
+        if (strv_isempty(con)) {
+                log_debug("No devices found for system console");
+
+                r = strv_extend(&con, "/dev/console");
+                if (r < 0)
+                        return r;
+        }
+
+        *consoles = con;
+        con = NULL;
+        return 0;
 }
 
 bool tty_is_vc_resolve(const char *tty) {
