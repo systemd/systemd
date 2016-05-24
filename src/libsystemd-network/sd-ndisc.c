@@ -90,7 +90,8 @@ struct sd_ndisc {
         void *userdata;
 };
 
-#define log_ndisc(p, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "NDisc CLIENT: " fmt, ##__VA_ARGS__)
+#define log_ndisc_errno(p, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "NDisc CLIENT: " fmt, ##__VA_ARGS__)
+#define log_ndisc(p, fmt, ...) log_ndisc_errno(p, 0, fmt, ##__VA_ARGS__)
 
 static NDiscPrefix *ndisc_prefix_unref(NDiscPrefix *prefix) {
 
@@ -514,8 +515,7 @@ static int ndisc_router_advertisement_recv(sd_event_source *s, int fd, uint32_t 
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                log_ndisc(nd, "Could not receive message from ICMPv6 socket: %m");
-                return -errno;
+                return log_ndisc_errno(nd, errno, "Could not receive message from ICMPv6 socket: %m");
         }
         if ((size_t) len < sizeof(struct nd_router_advert)) {
                 log_ndisc(nd, "Too small to be a router advertisement: ignoring");
@@ -588,7 +588,7 @@ static int ndisc_router_advertisement_recv(sd_event_source *s, int fd, uint32_t 
 
         r = ndisc_ra_parse(nd, ra, len);
         if (r < 0) {
-                log_ndisc(nd, "Could not parse Router Advertisement: %s", strerror(-r));
+                log_ndisc_errno(nd, r, "Could not parse Router Advertisement: %m");
                 return 0;
         }
 
@@ -616,7 +616,7 @@ static int ndisc_router_solicitation_timeout(sd_event_source *s, uint64_t usec, 
         } else {
                 r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
                 if (r < 0)
-                        log_ndisc(nd, "Error sending Router Solicitation");
+                        log_ndisc_errno(nd, r, "Error sending Router Solicitation: %m");
                 else {
                         nd->state = NDISC_STATE_SOLICITATION_SENT;
                         log_ndisc(nd, "Sent Router Solicitation");
