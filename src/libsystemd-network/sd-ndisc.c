@@ -570,14 +570,8 @@ static int ndisc_router_advertisement_recv(sd_event_source *s, int fd, uint32_t 
         stateful = ra->nd_ra_flags_reserved & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER);
         pref = (ra->nd_ra_flags_reserved & ND_RA_FLAG_PREF) >> 3;
 
-        switch (pref) {
-        case ND_RA_FLAG_PREF_LOW:
-        case ND_RA_FLAG_PREF_HIGH:
-                break;
-        default:
+        if (!IN_SET(pref, ND_RA_FLAG_PREF_LOW, ND_RA_FLAG_PREF_HIGH))
                 pref = ND_RA_FLAG_PREF_MEDIUM;
-                break;
-        }
 
         lifetime = be16toh(ra->nd_ra_router_lifetime);
 
