@@ -336,7 +336,7 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
         assert(prefix_opt);
 
         if (len < prefix_opt->nd_opt_pi_len)
-                return -ENOMSG;
+                return -EBADMSG;
 
         if (!(prefix_opt->nd_opt_pi_flags_reserved & (ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO)))
                 return 0;
@@ -411,20 +411,19 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
         return 0;
 }
 
-static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, ssize_t len) {
+static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, size_t len) {
         void *opt;
         struct nd_opt_hdr *opt_hdr;
 
         assert(nd);
         assert(ra);
 
-        len -= sizeof(*ra);
-        if (len < NDISC_OPT_LEN_UNITS) {
+        if (len < sizeof(struct nd_router_advert) + NDISC_OPT_LEN_UNITS) {
                 log_ndisc(nd, "Router Advertisement below minimum length");
-
-                return -ENOMSG;
+                return -EBADMSG;
         }
 
+        len -= sizeof(struct nd_router_advert);
         opt = ra + 1;
         opt_hdr = opt;
 
@@ -434,7 +433,7 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, ssize_t len
                 struct nd_opt_prefix_info *opt_prefix;
 
                 if (opt_hdr->nd_opt_len == 0)
-                        return -ENOMSG;
+                        return -EBADMSG;
 
                 switch (opt_hdr->nd_opt_type) {
                 case ND_OPT_MTU:
@@ -580,7 +579,7 @@ static int ndisc_router_advertisement_recv(sd_event_source *s, int fd, uint32_t 
                   pref == ND_RA_FLAG_PREF_HIGH ? "high" : pref == ND_RA_FLAG_PREF_LOW ? "low" : "medium",
                   lifetime);
 
-        r = ndisc_ra_parse(nd, ra, len);
+        r = ndisc_ra_parse(nd, ra, (size_t) len);
         if (r < 0) {
                 log_ndisc_errno(nd, r, "Could not parse Router Advertisement: %m");
                 return 0;
