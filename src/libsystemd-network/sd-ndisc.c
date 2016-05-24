@@ -73,16 +73,22 @@ struct sd_ndisc {
         unsigned n_ref;
 
         enum NDiscState state;
+        int ifindex;
+        int fd;
+
         sd_event *event;
         int event_priority;
-        int ifindex;
+
         struct ether_addr mac_addr;
         uint32_t mtu;
+
         LIST_HEAD(NDiscPrefix, prefixes);
-        int fd;
+
         sd_event_source *recv_event_source;
         sd_event_source *timeout_event_source;
+
         unsigned nd_sent;
+
         sd_ndisc_router_callback_t router_callback;
         sd_ndisc_prefix_autonomous_callback_t prefix_autonomous_callback;
         sd_ndisc_prefix_onlink_callback_t prefix_onlink_callback;
@@ -412,8 +418,8 @@ static int ndisc_prefix_update(sd_ndisc *nd, ssize_t len,
 }
 
 static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, size_t len) {
-        void *opt;
         struct nd_opt_hdr *opt_hdr;
+        void *opt;
 
         assert(nd);
         assert(ra);
@@ -429,13 +435,14 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, size_t len)
 
         while (len != 0 && len >= opt_hdr->nd_opt_len * NDISC_OPT_LEN_UNITS) {
                 struct nd_opt_mtu *opt_mtu;
-                uint32_t mtu;
                 struct nd_opt_prefix_info *opt_prefix;
+                uint32_t mtu;
 
                 if (opt_hdr->nd_opt_len == 0)
                         return -EBADMSG;
 
                 switch (opt_hdr->nd_opt_type) {
+
                 case ND_OPT_MTU:
                         opt_mtu = opt;
 
@@ -443,18 +450,14 @@ static int ndisc_ra_parse(sd_ndisc *nd, struct nd_router_advert *ra, size_t len)
 
                         if (mtu != nd->mtu) {
                                 nd->mtu = MAX(mtu, IP6_MIN_MTU);
-
-                                log_ndisc(nd, "Router Advertisement link MTU %d using %d",
-                                          mtu, nd->mtu);
+                                log_ndisc(nd, "Router Advertisement link MTU %d using %d", mtu, nd->mtu);
                         }
 
                         break;
 
                 case ND_OPT_PREFIX_INFORMATION:
                         opt_prefix = opt;
-
                         ndisc_prefix_update(nd, len, opt_prefix);
-
                         break;
                 }
 
@@ -563,7 +566,6 @@ static int ndisc_router_advertisement_recv(sd_event_source *s, int fd, uint32_t 
                 return 0;
 
         nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
-
         nd->state = NDISC_STATE_ADVERTISEMENT_LISTEN;
 
         stateful = ra->nd_ra_flags_reserved & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER);
