@@ -26,6 +26,7 @@ typedef struct Bridge {
 
         int mcast_querier;
         int mcast_snooping;
+        int vlan_filtering;
 
         usec_t forward_delay;
         usec_t hello_time;
