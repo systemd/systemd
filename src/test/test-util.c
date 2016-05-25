@@ -26,6 +26,7 @@
 #include "def.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "raw-clone.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "util.h"
@@ -244,7 +245,7 @@ static void test_raw_clone(void) {
         log_info("before clone: getpid()→"PID_FMT, parent);
         assert_se(raw_getpid() == parent);
 
-        pid = raw_clone(0, NULL);
+        pid = raw_clone(0);
         assert_se(pid >= 0);
 
         pid2 = raw_getpid();

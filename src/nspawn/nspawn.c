@@ -87,6 +87,7 @@
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "random-util.h"
+#include "raw-clone.h"
 #include "rm-rf.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -3036,8 +3037,7 @@ static int outer_child(
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS) |
                         (arg_private_network ? CLONE_NEWNET : 0) |
-                        (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0),
-                        NULL);
+                        (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0));
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
@@ -3706,7 +3706,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                pid = raw_clone(SIGCHLD|CLONE_NEWNS, NULL);
+                pid = raw_clone(SIGCHLD|CLONE_NEWNS);
                 if (pid < 0) {
                         if (errno == EINVAL)
                                 r = log_error_errno(errno, "clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");

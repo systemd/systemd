@@ -178,18 +178,6 @@ static inline int setns(int fd, int nstype) {
 
 /* ======================================================================= */
 
-static inline int raw_clone(unsigned long flags, void *child_stack) {
-#if defined(__s390__) || defined(__CRIS__)
-        /* On s390 and cris the order of the first and second arguments
-         * of the raw clone() system call is reversed. */
-        return (int) syscall(__NR_clone, child_stack, flags);
-#else
-        return (int) syscall(__NR_clone, flags, child_stack);
-#endif
-}
-
-/* ======================================================================= */
-
 static inline pid_t raw_getpid(void) {
 #if defined(__alpha__)
         return (pid_t) syscall(__NR_getxpid);

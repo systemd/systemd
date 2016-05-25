@@ -70,6 +70,7 @@
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "raw-clone.h"
 #include "rlimit-util.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
@@ -162,7 +163,7 @@ noreturn static void crash(int sig) {
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
                 (void) sigaction(SIGCHLD, &sa, NULL);
 
-                pid = raw_clone(SIGCHLD, NULL);
+                pid = raw_clone(SIGCHLD);
                 if (pid < 0)
                         log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
                 else if (pid == 0) {
@@ -221,7 +222,7 @@ noreturn static void crash(int sig) {
                 log_notice("Executing crash shell in 10s...");
                 (void) sleep(10);
 
-                pid = raw_clone(SIGCHLD, NULL);
+                pid = raw_clone(SIGCHLD);
                 if (pid < 0)
                         log_emergency_errno(errno, "Failed to fork off crash shell: %m");
                 else if (pid == 0) {
