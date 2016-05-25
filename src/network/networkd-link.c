@@ -247,6 +247,9 @@ static int link_enable_ipv6(Link *link) {
 
         disabled = !link_ipv6_enabled(link);
 
+        if (link->network->bridge)
+                disabled = true
+
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/disable_ipv6");
 
         r = write_string_file(p, one_zero(disabled), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
@@ -1586,7 +1589,7 @@ static int link_up(Link *link) {
         }
 
         /* If IPv6 not configured (no static IPv6 address and IPv6LL autoconfiguration is disabled)
-           for this interface then disable IPv6 else enable it. */
+           for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
         if (link->network->mtu) {
