@@ -1607,7 +1607,20 @@ static int link_up(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
 
-                ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
+                if (!link_ipv6ll_enabled(link))
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
+                else {
+                        const char *p = NULL;
+                        _cleanup_free_ char *stable_secret = NULL;
+
+                        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/stable_secret");
+                        r = read_one_line_file(p, &stable_secret);
+
+                        if (r < 0)
+                                ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
+                        else
+                                ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+                }
                 r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");

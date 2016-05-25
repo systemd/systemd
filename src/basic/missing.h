@@ -565,6 +565,7 @@ struct btrfs_ioctl_quota_ctl_args {
 
 #define IN6_ADDR_GEN_MODE_EUI64 0
 #define IN6_ADDR_GEN_MODE_NONE 1
+#define IN6_ADDR_GEN_MODE_STABLE_PRIVACY 2
 #endif
 
 #if !HAVE_DECL_IFLA_MACVLAN_FLAGS
