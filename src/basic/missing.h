@@ -453,6 +453,18 @@ struct btrfs_ioctl_quota_ctl_args {
 #define MQUEUE_MAGIC 0x19800202
 #endif
 
+#ifndef SECURITYFS_MAGIC
+#define SECURITYFS_MAGIC 0x73636673
+#endif
+
+#ifndef TRACEFS_MAGIC
+#define TRACEFS_MAGIC 0x74726163
+#endif
+
+#ifndef BPF_FS_MAGIC
+#define BPF_FS_MAGIC 0xcafe4a11
+#endif
+
 #ifndef MS_MOVE
 #define MS_MOVE 8192
 #endif

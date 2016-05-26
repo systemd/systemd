@@ -300,6 +300,9 @@ static int is_procfs_sysfs_or_suchlike(int fd) {
                F_TYPE_EQUAL(sfs.f_type, PSTOREFS_MAGIC) ||
                F_TYPE_EQUAL(sfs.f_type, SELINUX_MAGIC) ||
                F_TYPE_EQUAL(sfs.f_type, SMACK_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, SECURITYFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, BPF_FS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, TRACEFS_MAGIC) ||
                F_TYPE_EQUAL(sfs.f_type, SYSFS_MAGIC);
 }
 
