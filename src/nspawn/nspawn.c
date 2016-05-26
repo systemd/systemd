@@ -131,7 +131,7 @@ static StartMode arg_start_mode = START_PID1;
 static bool arg_ephemeral = false;
 static LinkJournal arg_link_journal = LINK_AUTO;
 static bool arg_link_journal_try = false;
-static uint64_t arg_retain =
+static uint64_t arg_caps_retain =
         (1ULL << CAP_CHOWN) |
         (1ULL << CAP_DAC_OVERRIDE) |
         (1ULL << CAP_DAC_READ_SEARCH) |
@@ -1070,7 +1070,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (mask_all_settings)
                 arg_settings_mask = _SETTINGS_MASK_ALL;
 
-        arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
+        arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
         r = detect_unified_cgroup_hierarchy();
         if (r < 0)
@@ -1627,7 +1627,7 @@ static int setup_journal(const char *directory) {
 }
 
 static int drop_capabilities(void) {
-        return capability_bounding_set_drop(arg_retain, false);
+        return capability_bounding_set_drop(arg_caps_retain, false);
 }
 
 static int reset_audit_loginuid(void) {
@@ -2890,7 +2890,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_seccomp(arg_retain);
+        r = setup_seccomp(arg_caps_retain);
         if (r < 0)
                 return r;
 
@@ -3174,9 +3174,9 @@ static int load_settings(void) {
                         if (settings->capability != 0)
                                 log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
                 } else
-                        arg_retain |= plus;
+                        arg_caps_retain |= plus;
 
-                arg_retain &= ~settings->drop_capability;
+                arg_caps_retain &= ~settings->drop_capability;
         }
 
         if ((arg_settings_mask & SETTING_KILL_SIGNAL) == 0 &&
