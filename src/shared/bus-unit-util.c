@@ -865,6 +865,11 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
         const char *type, *path, *source;
         int r;
 
+        /* changes is dereferenced when calling unit_file_dump_changes() later,
+         * so we have to make sure this is not NULL. */
+        assert(changes);
+        assert(n_changes);
+
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sss)");
         if (r < 0)
                 return bus_log_parse_error(r);

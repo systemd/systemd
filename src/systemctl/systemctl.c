@@ -2058,6 +2058,8 @@ static int get_default(int argc, char *argv[], void *userdata) {
 
 static int set_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *unit = NULL;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
         int r;
 
         assert(argc >= 2);
@@ -2068,13 +2070,8 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         if (install_client_side()) {
-                UnitFileChange *changes = NULL;
-                unsigned n_changes = 0;
-
                 r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
                 unit_file_dump_changes(r, "set default", changes, n_changes, arg_quiet);
-                unit_file_changes_free(changes, n_changes);
-                return r;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -2098,9 +2095,9 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to set default target: %s", bus_error_message(&error, r));
 
-                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 /* Try to reload if enabled */
                 if (!arg_no_reload)
@@ -2108,6 +2105,9 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 else
                         r = 0;
         }
+
+finish:
+        unit_file_changes_free(changes, n_changes);
 
         return r;
 }
@@ -5650,6 +5650,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ char *target = NULL;
         const char *verb = argv[0];
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
         UnitDependency dep;
         int r = 0;
 
@@ -5672,13 +5674,8 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 assert_not_reached("Unknown verb");
 
         if (install_client_side()) {
-                UnitFileChange *changes = NULL;
-                unsigned n_changes = 0;
-
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
                 unit_file_dump_changes(r, "add dependency on", changes, n_changes, arg_quiet);
-                unit_file_changes_free(changes, n_changes);
-                return r;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -5712,27 +5709,32 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add dependency: %s", bus_error_message(&error, r));
 
-                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
-                if (arg_no_reload)
-                        return 0;
-                return daemon_reload(argc, argv, userdata);
+                if (arg_no_reload) {
+                        r = 0;
+                        goto finish;
+                }
+
+                r = daemon_reload(argc, argv, userdata);
         }
+
+finish:
+        unit_file_changes_free(changes, n_changes);
+
+        return r;
 }
 
 static int preset_all(int argc, char *argv[], void *userdata) {
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
         int r;
 
         if (install_client_side()) {
-                UnitFileChange *changes = NULL;
-                unsigned n_changes = 0;
-
                 r = unit_file_preset_all(arg_scope, arg_runtime, arg_root, arg_preset_mode, arg_force, &changes, &n_changes);
                 unit_file_dump_changes(r, "preset", changes, n_changes, arg_quiet);
-                unit_file_changes_free(changes, n_changes);
-                return r;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -5759,14 +5761,22 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to preset all units: %s", bus_error_message(&error, r));
 
-                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
-                if (arg_no_reload)
-                        return 0;
-                return daemon_reload(argc, argv, userdata);
+                if (arg_no_reload) {
+                        r = 0;
+                        goto finish;
+                }
+
+                r = daemon_reload(argc, argv, userdata);
         }
+
+finish:
+        unit_file_changes_free(changes, n_changes);
+
+        return r;
 }
 
 static int unit_is_enabled(int argc, char *argv[], void *userdata) {
