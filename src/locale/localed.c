@@ -46,45 +46,8 @@
 #include "user-util.h"
 #include "util.h"
 
-enum {
-        /* We don't list LC_ALL here on purpose. People should be
-         * using LANG instead. */
-        LOCALE_LANG,
-        LOCALE_LANGUAGE,
-        LOCALE_LC_CTYPE,
-        LOCALE_LC_NUMERIC,
-        LOCALE_LC_TIME,
-        LOCALE_LC_COLLATE,
-        LOCALE_LC_MONETARY,
-        LOCALE_LC_MESSAGES,
-        LOCALE_LC_PAPER,
-        LOCALE_LC_NAME,
-        LOCALE_LC_ADDRESS,
-        LOCALE_LC_TELEPHONE,
-        LOCALE_LC_MEASUREMENT,
-        LOCALE_LC_IDENTIFICATION,
-        _LOCALE_MAX
-};
-
-static const char * const names[_LOCALE_MAX] = {
-        [LOCALE_LANG] = "LANG",
-        [LOCALE_LANGUAGE] = "LANGUAGE",
-        [LOCALE_LC_CTYPE] = "LC_CTYPE",
-        [LOCALE_LC_NUMERIC] = "LC_NUMERIC",
-        [LOCALE_LC_TIME] = "LC_TIME",
-        [LOCALE_LC_COLLATE] = "LC_COLLATE",
-        [LOCALE_LC_MONETARY] = "LC_MONETARY",
-        [LOCALE_LC_MESSAGES] = "LC_MESSAGES",
-        [LOCALE_LC_PAPER] = "LC_PAPER",
-        [LOCALE_LC_NAME] = "LC_NAME",
-        [LOCALE_LC_ADDRESS] = "LC_ADDRESS",
-        [LOCALE_LC_TELEPHONE] = "LC_TELEPHONE",
-        [LOCALE_LC_MEASUREMENT] = "LC_MEASUREMENT",
-        [LOCALE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
-};
-
 typedef struct Context {
-        char *locale[_LOCALE_MAX];
+        char *locale[_VARIABLE_LC_MAX];
 
         char *x11_layout;
         char *x11_model;
@@ -118,7 +81,7 @@ static void context_free_vconsole(Context *c) {
 static void context_free_locale(Context *c) {
         int p;
 
-        for (p = 0; p < _LOCALE_MAX; p++)
+        for (p = 0; p < _VARIABLE_LC_MAX; p++)
                 c->locale[p] = mfree(c->locale[p]);
 }
 
@@ -133,8 +96,8 @@ static void context_free(Context *c) {
 static void locale_simplify(Context *c) {
         int p;
 
-        for (p = LOCALE_LANG+1; p < _LOCALE_MAX; p++)
-                if (isempty(c->locale[p]) || streq_ptr(c->locale[LOCALE_LANG], c->locale[p]))
+        for (p = VARIABLE_LANG+1; p < _VARIABLE_LC_MAX; p++)
+                if (isempty(c->locale[p]) || streq_ptr(c->locale[VARIABLE_LANG], c->locale[p]))
                         c->locale[p] = mfree(c->locale[p]);
 }
 
@@ -144,30 +107,33 @@ static int locale_read_data(Context *c) {
         context_free_locale(c);
 
         r = parse_env_file("/etc/locale.conf", NEWLINE,
-                           "LANG",              &c->locale[LOCALE_LANG],
-                           "LANGUAGE",          &c->locale[LOCALE_LANGUAGE],
-                           "LC_CTYPE",          &c->locale[LOCALE_LC_CTYPE],
-                           "LC_NUMERIC",        &c->locale[LOCALE_LC_NUMERIC],
-                           "LC_TIME",           &c->locale[LOCALE_LC_TIME],
-                           "LC_COLLATE",        &c->locale[LOCALE_LC_COLLATE],
-                           "LC_MONETARY",       &c->locale[LOCALE_LC_MONETARY],
-                           "LC_MESSAGES",       &c->locale[LOCALE_LC_MESSAGES],
-                           "LC_PAPER",          &c->locale[LOCALE_LC_PAPER],
-                           "LC_NAME",           &c->locale[LOCALE_LC_NAME],
-                           "LC_ADDRESS",        &c->locale[LOCALE_LC_ADDRESS],
-                           "LC_TELEPHONE",      &c->locale[LOCALE_LC_TELEPHONE],
-                           "LC_MEASUREMENT",    &c->locale[LOCALE_LC_MEASUREMENT],
-                           "LC_IDENTIFICATION", &c->locale[LOCALE_LC_IDENTIFICATION],
+                           "LANG",              &c->locale[VARIABLE_LANG],
+                           "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
+                           "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
+                           "LC_NUMERIC",        &c->locale[VARIABLE_LC_NUMERIC],
+                           "LC_TIME",           &c->locale[VARIABLE_LC_TIME],
+                           "LC_COLLATE",        &c->locale[VARIABLE_LC_COLLATE],
+                           "LC_MONETARY",       &c->locale[VARIABLE_LC_MONETARY],
+                           "LC_MESSAGES",       &c->locale[VARIABLE_LC_MESSAGES],
+                           "LC_PAPER",          &c->locale[VARIABLE_LC_PAPER],
+                           "LC_NAME",           &c->locale[VARIABLE_LC_NAME],
+                           "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
+                           "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
+                           "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
+                           "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION],
                            NULL);
 
         if (r == -ENOENT) {
                 int p;
 
                 /* Fill in what we got passed from systemd. */
-                for (p = 0; p < _LOCALE_MAX; p++) {
-                        assert(names[p]);
+                for (p = 0; p < _VARIABLE_LC_MAX; p++) {
+                        const char *name;
 
-                        r = free_and_strdup(&c->locale[p], empty_to_null(getenv(names[p])));
+                        name = locale_variable_to_string(p);
+                        assert(name);
+
+                        r = free_and_strdup(&c->locale[p], empty_to_null(getenv(name)));
                         if (r < 0)
                                 return r;
                 }
@@ -279,18 +245,20 @@ static int locale_write_data(Context *c, char ***settings) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (p = 0; p < _LOCALE_MAX; p++) {
+        for (p = 0; p < _VARIABLE_LC_MAX; p++) {
                 _cleanup_free_ char *t = NULL;
                 char **u;
+                const char *name;
 
-                assert(names[p]);
+                name = locale_variable_to_string(p);
+                assert(name);
 
                 if (isempty(c->locale[p])) {
-                        l = strv_env_unset(l, names[p]);
+                        l = strv_env_unset(l, name);
                         continue;
                 }
 
-                if (asprintf(&t, "%s=%s", names[p], c->locale[p]) < 0)
+                if (asprintf(&t, "%s=%s", name, c->locale[p]) < 0)
                         return -ENOMEM;
 
                 u = strv_env_set(l, t);
@@ -327,30 +295,33 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
 
         assert(bus);
 
-        l_unset = new0(char*, _LOCALE_MAX);
+        l_unset = new0(char*, _VARIABLE_LC_MAX);
         if (!l_unset)
                 return -ENOMEM;
 
-        l_set = new0(char*, _LOCALE_MAX);
+        l_set = new0(char*, _VARIABLE_LC_MAX);
         if (!l_set)
                 return -ENOMEM;
 
-        for (p = 0, c_set = 0, c_unset = 0; p < _LOCALE_MAX; p++) {
-                assert(names[p]);
+        for (p = 0, c_set = 0, c_unset = 0; p < _VARIABLE_LC_MAX; p++) {
+                const char *name;
+
+                name = locale_variable_to_string(p);
+                assert(name);
 
                 if (isempty(c->locale[p]))
-                        l_unset[c_set++] = (char*) names[p];
+                        l_unset[c_set++] = (char*) name;
                 else {
                         char *s;
 
-                        if (asprintf(&s, "%s=%s", names[p], c->locale[p]) < 0)
+                        if (asprintf(&s, "%s=%s", name, c->locale[p]) < 0)
                                 return -ENOMEM;
 
                         l_set[c_unset++] = s;
                 }
         }
 
-        assert(c_set + c_unset == _LOCALE_MAX);
+        assert(c_set + c_unset == _VARIABLE_LC_MAX);
         r = sd_bus_message_new_method_call(bus, &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
@@ -858,17 +829,21 @@ static int property_get_locale(
         _cleanup_strv_free_ char **l = NULL;
         int p, q;
 
-        l = new0(char*, _LOCALE_MAX+1);
+        l = new0(char*, _VARIABLE_LC_MAX+1);
         if (!l)
                 return -ENOMEM;
 
-        for (p = 0, q = 0; p < _LOCALE_MAX; p++) {
+        for (p = 0, q = 0; p < _VARIABLE_LC_MAX; p++) {
                 char *t;
+                const char *name;
+
+                name = locale_variable_to_string(p);
+                assert(name);
 
                 if (isempty(c->locale[p]))
                         continue;
 
-                if (asprintf(&t, "%s=%s", names[p], c->locale[p]) < 0)
+                if (asprintf(&t, "%s=%s", name, c->locale[p]) < 0)
                         return -ENOMEM;
 
                 l[q++] = t;
@@ -884,7 +859,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         const char *lang = NULL;
         int interactive;
         bool modified = false;
-        bool have[_LOCALE_MAX] = {};
+        bool have[_VARIABLE_LC_MAX] = {};
         int p;
         int r;
 
@@ -903,17 +878,21 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         STRV_FOREACH(i, l) {
                 bool valid = false;
 
-                for (p = 0; p < _LOCALE_MAX; p++) {
+                for (p = 0; p < _VARIABLE_LC_MAX; p++) {
                         size_t k;
+                        const char *name;
 
-                        k = strlen(names[p]);
-                        if (startswith(*i, names[p]) &&
+                        name = locale_variable_to_string(p);
+                        assert(name);
+
+                        k = strlen(name);
+                        if (startswith(*i, name) &&
                             (*i)[k] == '=' &&
                             locale_is_valid((*i) + k + 1)) {
                                 valid = true;
                                 have[p] = true;
 
-                                if (p == LOCALE_LANG)
+                                if (p == VARIABLE_LANG)
                                         lang = (*i) + k + 1;
 
                                 if (!streq_ptr(*i + k + 1, c->locale[p]))
@@ -929,7 +908,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         /* If LANG was specified, but not LANGUAGE, check if we should
          * set it based on the language fallback table. */
-        if (have[LOCALE_LANG] && !have[LOCALE_LANGUAGE]) {
+        if (have[VARIABLE_LANG] && !have[VARIABLE_LANGUAGE]) {
                 _cleanup_free_ char *language = NULL;
 
                 assert(lang);
@@ -937,12 +916,12 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                 (void) find_language_fallback(lang, &language);
                 if (language) {
                         log_debug("Converted LANG=%s to LANGUAGE=%s", lang, language);
-                        if (!streq_ptr(language, c->locale[LOCALE_LANGUAGE])) {
+                        if (!streq_ptr(language, c->locale[VARIABLE_LANGUAGE])) {
                                 r = strv_extendf(&l, "LANGUAGE=%s", language);
                                 if (r < 0)
                                         return r;
 
-                                have[LOCALE_LANGUAGE] = true;
+                                have[VARIABLE_LANGUAGE] = true;
                                 modified = true;
                         }
                 }
@@ -950,7 +929,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         /* Check whether a variable is unset */
         if (!modified)
-                for (p = 0; p < _LOCALE_MAX; p++)
+                for (p = 0; p < _VARIABLE_LC_MAX; p++)
                         if (!isempty(c->locale[p]) && !have[p]) {
                                 modified = true;
                                 break;
@@ -974,11 +953,15 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
                 STRV_FOREACH(i, l)
-                        for (p = 0; p < _LOCALE_MAX; p++) {
+                        for (p = 0; p < _VARIABLE_LC_MAX; p++) {
                                 size_t k;
+                                const char *name;
 
-                                k = strlen(names[p]);
-                                if (startswith(*i, names[p]) && (*i)[k] == '=') {
+                                name = locale_variable_to_string(p);
+                                assert(name);
+
+                                k = strlen(name);
+                                if (startswith(*i, name) && (*i)[k] == '=') {
                                         r = free_and_strdup(&c->locale[p], *i + k + 1);
                                         if (r < 0)
                                                 return r;
@@ -986,7 +969,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                                 }
                         }
 
-                for (p = 0; p < _LOCALE_MAX; p++) {
+                for (p = 0; p < _VARIABLE_LC_MAX; p++) {
                         if (have[p])
                                 continue;
 
