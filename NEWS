@@ -152,7 +152,7 @@ CHANGES WITH 230:
           container, via the new --private-users=pick setting (which implies
           --private-user-chown). Together, these options for the first time
           make user namespacing for nspawn containers fully automatic and thus
-          deployable. The systemd-nspaw@.service template unit file has been
+          deployable. The systemd-nspawn@.service template unit file has been
           changed to use this functionality by default.
 
         * systemd-nspawn gained a new --network-zone= switch, that allows
