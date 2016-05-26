@@ -200,20 +200,12 @@ int sd_ipv4ll_is_running(sd_ipv4ll *ll) {
 }
 
 static bool ipv4ll_address_is_valid(const struct in_addr *address) {
-        uint32_t addr;
-
         assert(address);
 
         if (!in_addr_is_link_local(AF_INET, (const union in_addr_union *) address))
                 return false;
 
-        addr = be32toh(address->s_addr);
-
-        if ((addr & 0x0000FF00) == 0x0000 ||
-            (addr & 0x0000FF00) == 0xFF00)
-                return false;
-
-        return true;
+        return !IN_SET(be32toh(address->s_addr) & 0x0000FF00U, 0x0000U, 0xFF00U);
 }
 
 int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
@@ -250,8 +242,7 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
 
                 addr = htobe32((h & UINT32_C(0x0000FFFF)) | IPV4LL_NETWORK);
         } while (addr == ll->address ||
-                (be32toh(addr) & 0x0000FF00) == 0x0000 ||
-                (be32toh(addr) & 0x0000FF00) == 0xFF00);
+                 IN_SET(be32toh(addr) & 0x0000FF00U, 0x0000U, 0xFF00U));
 
         (void) in_addr_to_string(AF_INET, &(union in_addr_union) { .in.s_addr = addr }, &address);
         log_ipv4ll(ll, "Picked new IP address %s.", strna(address));
