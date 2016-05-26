@@ -1602,6 +1602,8 @@ static int start_machine(int argc, char *argv[], void *userdata) {
 static int enable_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
         int carries_install_info = 0;
         const char *method = NULL;
         sd_bus *bus = userdata;
@@ -1662,9 +1664,9 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, NULL, NULL);
+        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
         if (r < 0)
-                return r;
+                goto finish;
 
         r = sd_bus_call_method(
                         bus,
@@ -1677,10 +1679,15 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                         NULL);
         if (r < 0) {
                 log_error("Failed to reload daemon: %s", bus_error_message(&error, -r));
-                return r;
+                goto finish;
         }
 
-        return 0;
+        r = 0;
+
+finish:
+        unit_file_changes_free(changes, n_changes);
+
+        return r;
 }
 
 static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
