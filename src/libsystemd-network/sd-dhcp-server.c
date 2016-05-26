@@ -29,6 +29,7 @@
 #include "in-addr-util.h"
 #include "siphash24.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
@@ -604,17 +605,17 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
         switch(code) {
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
                 if (len == 4)
-                        req->lifetime = be32toh(*(be32_t*)option);
+                        req->lifetime = unaligned_read_be32(option);
 
                 break;
         case SD_DHCP_OPTION_REQUESTED_IP_ADDRESS:
                 if (len == 4)
-                        req->requested_ip = *(be32_t*)option;
+                        memcpy(&req->requested_ip, option, sizeof(be32_t));
 
                 break;
         case SD_DHCP_OPTION_SERVER_IDENTIFIER:
                 if (len == 4)
-                        req->server_id = *(be32_t*)option;
+                        memcpy(&req->server_id, option, sizeof(be32_t));
 
                 break;
         case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
@@ -633,8 +634,7 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                 break;
         case SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE:
                 if (len == 2)
-                        req->max_optlen = be16toh(*(be16_t*)option) -
-                                          - sizeof(DHCPPacket);
+                        req->max_optlen = unaligned_read_be16(option) - sizeof(DHCPPacket);
 
                 break;
         }
