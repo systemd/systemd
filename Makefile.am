@@ -213,6 +213,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/shared \
 	-I $(top_builddir)/src/shared \
 	-I $(top_srcdir)/src/network \
+	-I $(top_srcdir)/src/locale \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_builddir)/src/journal \
@@ -4741,7 +4742,9 @@ BUSNAMES_TARGET_WANTS += \
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
 systemd_localed_SOURCES = \
-	src/locale/localed.c
+	src/locale/localed.c \
+	src/locale/keymap-util.c \
+	src/locale/keymap-util.h
 
 systemd_localed_LDADD = \
 	libshared.la \
