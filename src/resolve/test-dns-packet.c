@@ -54,9 +54,10 @@ static void test_packet_from_file(const char* filename, bool canonical) {
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL, *p2 = NULL;
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL, *rr2 = NULL;
                 const char *s, *s2;
-                uint64_t hash1, hash2;
+                uint64_t hash1, hash2, tmp;
 
-                packet_size = le64toh( *(uint64_t*)(data + offset) );
+                memcpy (&tmp, data + offset, sizeof (uint64_t));
+                packet_size = le64toh(tmp);
                 assert_se(packet_size > 0);
                 assert_se(offset + 8 + packet_size <= data_size);
 
