@@ -107,7 +107,8 @@
       <varlistentry>
         <term><varname>WorkingDirectory=</varname></term>
 
-        <listitem><para>Takes an absolute directory path, or the
+        <listitem><para>Takes a directory path relative to the service's root
+        directory specified by <varname>RootDirectory=</varname>, or the
         special value <literal>~</literal>. Sets the working directory
         for executed processes. If set to <literal>~</literal>, the
         home directory of the user specified in
@@ -116,7 +117,10 @@
         and the respective user's home directory if run as user. If
         the setting is prefixed with the <literal>-</literal>
         character, a missing working directory is not considered
-        fatal. Note that setting this parameter might result in
+        fatal. If <varname>RootDirectory=</varname> is not set, then
+        <varname>WorkingDirectory=</varname> is relative to the root of
+        the system running the service manager.
+        Note that setting this parameter might result in
         additional dependencies to be added to the unit (see
         above).</para></listitem>
       </varlistentry>
@@ -124,7 +128,8 @@
       <varlistentry>
         <term><varname>RootDirectory=</varname></term>
 
-        <listitem><para>Takes an absolute directory path. Sets the
+        <listitem><para>Takes a directory path relative to the host's root directory
+        (i.e. the root of the system running the service manager). Sets the
         root directory for executed processes, with the <citerefentry
         project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call. If this is used, it must be ensured that the
@@ -848,8 +853,9 @@
         <listitem><para>Sets up a new file system namespace for
         executed processes. These options may be used to limit access
         a process might have to the main file system hierarchy. Each
-        setting takes a space-separated list of absolute directory
-        paths. Directories listed in
+        setting takes a space-separated list of directory paths relative to
+        the host's root directory (i.e. the system running the service manager).
+        Directories listed in
         <varname>ReadWriteDirectories=</varname> are accessible from
         within the namespace with the same access rights as from
         outside. Directories listed in
