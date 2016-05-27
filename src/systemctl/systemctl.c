@@ -1439,6 +1439,8 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
 
                 assert(c <= n_units);
                 hashmap_free(h);
+
+                r = 0;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2025,6 +2027,7 @@ static int get_default(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to get default target: %m");
                 path = _path;
 
+                r = 0;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
@@ -2072,6 +2075,9 @@ static int set_default(int argc, char *argv[], void *userdata) {
         if (install_client_side()) {
                 r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
                 unit_file_dump_changes(r, "set default", changes, n_changes, arg_quiet);
+
+                if (r > 0)
+                        r = 0;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -5676,6 +5682,9 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
         if (install_client_side()) {
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
                 unit_file_dump_changes(r, "add dependency on", changes, n_changes, arg_quiet);
+
+                if (r > 0)
+                        r = 0;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -5735,6 +5744,9 @@ static int preset_all(int argc, char *argv[], void *userdata) {
         if (install_client_side()) {
                 r = unit_file_preset_all(arg_scope, arg_runtime, arg_root, arg_preset_mode, arg_force, &changes, &n_changes);
                 unit_file_dump_changes(r, "preset", changes, n_changes, arg_quiet);
+
+                if (r > 0)
+                        r = 0;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -5817,6 +5829,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                                 puts(unit_file_state_to_string(state));
                 }
 
+                r = 0;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
