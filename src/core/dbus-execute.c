@@ -987,7 +987,7 @@ int bus_exec_context_set_transient_property(
                         }
 
                         c->working_directory_missing_ok = missing_ok;
-                        unit_write_drop_in_private_format(u, mode, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", s);
+                        unit_write_drop_in_private_format(u, mode, name, "WorkingDirectory=%s%s\n", missing_ok ? "-" : "", s);
                 }
 
                 return 1;
