@@ -280,7 +280,13 @@ static int patch_fd(int fd, const char *name, const struct stat *st, uid_t shift
         return r > 0 || changed;
 }
 
-static int is_procfs_sysfs_or_suchlike(int fd) {
+/*
+ * Check if the filesystem is fully compatible with user namespaces or
+ * UID/GID patching. Some filesystems in this list can be fully mounted inside
+ * user namespaces, however their inodes may relate to host resources or only
+ * valid in the global user namespace, therefore no patching should be applied.
+ */
+static int is_fs_fully_userns_compatible(int fd) {
         struct statfs sfs;
 
         assert(fd >= 0);
@@ -300,6 +306,9 @@ static int is_procfs_sysfs_or_suchlike(int fd) {
                F_TYPE_EQUAL(sfs.f_type, PSTOREFS_MAGIC) ||
                F_TYPE_EQUAL(sfs.f_type, SELINUX_MAGIC) ||
                F_TYPE_EQUAL(sfs.f_type, SMACK_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, SECURITYFS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, BPF_FS_MAGIC) ||
+               F_TYPE_EQUAL(sfs.f_type, TRACEFS_MAGIC) ||
                F_TYPE_EQUAL(sfs.f_type, SYSFS_MAGIC);
 }
 
@@ -311,8 +320,8 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
 
         /* We generally want to permit crossing of mount boundaries when patching the UIDs/GIDs. However, we
          * probably shouldn't do this for /proc and /sys if that is already mounted into place. Hence, let's
-         * stop the recursion when we hit a procfs or sysfs file system. */
-        r = is_procfs_sysfs_or_suchlike(fd);
+         * stop the recursion when we hit procfs, sysfs or some other special file systems. */
+        r = is_fs_fully_userns_compatible(fd);
         if (r < 0)
                 goto finish;
         if (r > 0) {

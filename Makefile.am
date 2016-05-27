@@ -3016,6 +3016,8 @@ systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn-expose-ports.h \
 	src/nspawn/nspawn-cgroup.c \
 	src/nspawn/nspawn-cgroup.h \
+	src/nspawn/nspawn-seccomp.c \
+	src/nspawn/nspawn-seccomp.h \
 	src/nspawn/nspawn-register.c \
 	src/nspawn/nspawn-register.h \
 	src/nspawn/nspawn-setuid.c \

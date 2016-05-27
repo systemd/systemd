@@ -26,9 +26,6 @@
 #include <linux/loop.h>
 #include <pwd.h>
 #include <sched.h>
-#ifdef HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
@@ -82,15 +79,13 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "nspawn-seccomp.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "rm-rf.h"
-#ifdef HAVE_SECCOMP
-#include "seccomp-util.h"
-#endif
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -136,7 +131,7 @@ static StartMode arg_start_mode = START_PID1;
 static bool arg_ephemeral = false;
 static LinkJournal arg_link_journal = LINK_AUTO;
 static bool arg_link_journal_try = false;
-static uint64_t arg_retain =
+static uint64_t arg_caps_retain =
         (1ULL << CAP_CHOWN) |
         (1ULL << CAP_DAC_OVERRIDE) |
         (1ULL << CAP_DAC_READ_SEARCH) |
@@ -1075,7 +1070,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (mask_all_settings)
                 arg_settings_mask = _SETTINGS_MASK_ALL;
 
-        arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
+        arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
         r = detect_unified_cgroup_hierarchy();
         if (r < 0)
@@ -1632,7 +1627,7 @@ static int setup_journal(const char *directory) {
 }
 
 static int drop_capabilities(void) {
-        return capability_bounding_set_drop(arg_retain, false);
+        return capability_bounding_set_drop(arg_caps_retain, false);
 }
 
 static int reset_audit_loginuid(void) {
@@ -1667,99 +1662,6 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
-static int setup_seccomp(void) {
-
-#ifdef HAVE_SECCOMP
-        static const struct {
-                uint64_t capability;
-                int syscall_num;
-        } blacklist[] = {
-                { CAP_SYS_RAWIO,  SCMP_SYS(iopl)              },
-                { CAP_SYS_RAWIO,  SCMP_SYS(ioperm)            },
-                { CAP_SYS_BOOT,   SCMP_SYS(kexec_load)        },
-                { CAP_SYS_ADMIN,  SCMP_SYS(swapon)            },
-                { CAP_SYS_ADMIN,  SCMP_SYS(swapoff)           },
-                { CAP_SYS_ADMIN,  SCMP_SYS(open_by_handle_at) },
-                { CAP_SYS_MODULE, SCMP_SYS(init_module)       },
-                { CAP_SYS_MODULE, SCMP_SYS(finit_module)      },
-                { CAP_SYS_MODULE, SCMP_SYS(delete_module)     },
-                { CAP_SYSLOG,     SCMP_SYS(syslog)            },
-        };
-
-        scmp_filter_ctx seccomp;
-        unsigned i;
-        int r;
-
-        seccomp = seccomp_init(SCMP_ACT_ALLOW);
-        if (!seccomp)
-                return log_oom();
-
-        r = seccomp_add_secondary_archs(seccomp);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add secondary archs to seccomp filter: %m");
-                goto finish;
-        }
-
-        for (i = 0; i < ELEMENTSOF(blacklist); i++) {
-                if (arg_retain & (1ULL << blacklist[i].capability))
-                        continue;
-
-                r = seccomp_rule_add(seccomp, SCMP_ACT_ERRNO(EPERM), blacklist[i].syscall_num, 0);
-                if (r == -EFAULT)
-                        continue; /* unknown syscall */
-                if (r < 0) {
-                        log_error_errno(r, "Failed to block syscall: %m");
-                        goto finish;
-                }
-        }
-
-        /*
-           Audit is broken in containers, much of the userspace audit
-           hookup will fail if running inside a container. We don't
-           care and just turn off creation of audit sockets.
-
-           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
-           with EAFNOSUPPORT which audit userspace uses as indication
-           that audit is disabled in the kernel.
-         */
-
-        r = seccomp_rule_add(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EAFNOSUPPORT),
-                        SCMP_SYS(socket),
-                        2,
-                        SCMP_A0(SCMP_CMP_EQ, AF_NETLINK),
-                        SCMP_A2(SCMP_CMP_EQ, NETLINK_AUDIT));
-        if (r < 0) {
-                log_error_errno(r, "Failed to add audit seccomp rule: %m");
-                goto finish;
-        }
-
-        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to unset NO_NEW_PRIVS: %m");
-                goto finish;
-        }
-
-        r = seccomp_load(seccomp);
-        if (r == -EINVAL) {
-                log_debug_errno(r, "Kernel is probably not configured with CONFIG_SECCOMP. Disabling seccomp audit filter: %m");
-                r = 0;
-                goto finish;
-        }
-        if (r < 0) {
-                log_error_errno(r, "Failed to install seccomp audit filter: %m");
-                goto finish;
-        }
-
-finish:
-        seccomp_release(seccomp);
-        return r;
-#else
-        return 0;
-#endif
-
-}
 
 static int setup_propagate(const char *root) {
         const char *p, *q;
@@ -2988,7 +2890,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_seccomp();
+        r = setup_seccomp(arg_caps_retain);
         if (r < 0)
                 return r;
 
@@ -3272,9 +3174,9 @@ static int load_settings(void) {
                         if (settings->capability != 0)
                                 log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
                 } else
-                        arg_retain |= plus;
+                        arg_caps_retain |= plus;
 
-                arg_retain &= ~settings->drop_capability;
+                arg_caps_retain &= ~settings->drop_capability;
         }
 
         if ((arg_settings_mask & SETTING_KILL_SIGNAL) == 0 &&
