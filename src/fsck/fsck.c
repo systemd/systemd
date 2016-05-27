@@ -308,8 +308,34 @@ int main(int argc, char *argv[]) {
                 device = argv[1];
 
                 if (stat(device, &st) < 0) {
-                        r = log_error_errno(errno, "Failed to stat %s: %m", device);
-                        goto finish;
+                        /* Mount by label needs to escape slashes in the label:
+                         * see issue #3300 - this is a lame patch but works */
+                        char *match = NULL;
+                        const char *LABEL_PATH = "/dev/disk/by-label/";
+
+                        match = strstr(device, LABEL_PATH);
+                        if (match == device) {
+                                char *hacked_device = new(char, 1000);
+                                *hacked_device = '\0';
+                                strncat(hacked_device, LABEL_PATH, strlen(LABEL_PATH));
+
+                                for(match += strlen(LABEL_PATH) ; *match != '\0' ; match++) {
+                                        if(*match == '/') {
+                                                strncat(hacked_device, "\\x2f", 4);
+                                        } else {
+                                                strncat(hacked_device, match, 1);
+                                        }
+                                }
+                                device = hacked_device;
+                                log_info("Hacked device '%s' for mount by label", device);
+                                if (stat(device, &st) < 0) {
+                                        r = log_error_errno(errno, "Failed to stat hacked device %s: %m", device);
+                                        goto finish;
+                                }
+                        } else {
+                                r = log_error_errno(errno, "Failed to stat %s: %m", device);
+                                goto finish;
+                        }
                 }
 
                 if (!S_ISBLK(st.st_mode)) {
