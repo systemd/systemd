@@ -7466,7 +7466,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root       },
                 { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies },
                 { "set-default",           2,        2,        0,             set_default       },
-                { "get-default",           VERB_ANY, 1,        0,             get_default,      },
+                { "get-default",           VERB_ANY, 1,        0,             get_default       },
                 { "set-property",          3,        VERB_ANY, VERB_NOCHROOT, set_property      },
                 { "is-system-running",     VERB_ANY, 1,        0,             is_system_running },
                 { "add-wants",             3,        VERB_ANY, 0,             add_dependency    },
