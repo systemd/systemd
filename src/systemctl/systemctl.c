@@ -5514,7 +5514,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 unit_file_dump_changes(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
-                        return r;
+                        goto finish;
                 r = 0;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
@@ -5606,7 +5606,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 /* Try to reload if enabled */
                 if (!arg_no_reload)
