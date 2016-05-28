@@ -197,6 +197,7 @@ struct ExecContext {
         bool ioprio_set:1;
         bool cpu_sched_set:1;
         bool no_new_privileges_set:1;
+        bool memory_deny_write_execute;
 };
 
 #include "cgroup-util.h"

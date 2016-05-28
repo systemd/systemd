@@ -719,6 +719,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, runtime_directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, runtime_directory), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MemoryDenyWriteExecute", "b", bus_property_get_bool, offsetof(ExecContext, memory_deny_write_execute), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -1056,7 +1057,7 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name,
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork",
-                              "NoNewPrivileges", "SyslogLevelPrefix")) {
+                              "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1080,6 +1081,8 @@ int bus_exec_context_set_transient_property(
                                 c->no_new_privileges = b;
                         else if (streq(name, "SyslogLevelPrefix"))
                                 c->syslog_level_prefix = b;
+                        else if (streq(name, "MemoryDenyWriteExecute"))
+                                c->memory_deny_write_execute = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s\n", name, yes_no(b));
                 }
