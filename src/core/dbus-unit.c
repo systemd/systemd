@@ -1205,7 +1205,7 @@ static int bus_unit_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDescription=%s\n", d);
+                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDescription=%s", d);
                 }
 
                 return 1;
@@ -1219,7 +1219,7 @@ static int bus_unit_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         u->default_dependencies = b;
-                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDefaultDependencies=%s\n", yes_no(b));
+                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDefaultDependencies=%s", yes_no(b));
                 }
 
                 return 1;
@@ -1257,7 +1257,7 @@ static int bus_unit_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
+                        unit_write_drop_in_private_format(u, mode, name, "Slice=%s", s);
                 }
 
                 return 1;
@@ -1305,7 +1305,7 @@ static int bus_unit_set_transient_property(
                                 if (!label)
                                         return -ENOMEM;
 
-                                unit_write_drop_in_format(u, mode, label, "[Unit]\n%s=%s\n", name, other);
+                                unit_write_drop_in_format(u, mode, label, "[Unit]\n%s=%s", name, other);
                         }
 
                 }

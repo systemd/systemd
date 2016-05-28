@@ -63,7 +63,7 @@ int bus_kill_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->kill_mode = k;
 
-                        unit_write_drop_in_private_format(u, mode, name, "KillMode=%s\n", kill_mode_to_string(k));
+                        unit_write_drop_in_private_format(u, mode, name, "KillMode=%s", kill_mode_to_string(k));
                 }
 
                 return 1;
@@ -81,7 +81,7 @@ int bus_kill_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->kill_signal = sig;
 
-                        unit_write_drop_in_private_format(u, mode, name, "KillSignal=%s\n", signal_to_string(sig));
+                        unit_write_drop_in_private_format(u, mode, name, "KillSignal=%s", signal_to_string(sig));
                 }
 
                 return 1;
@@ -96,7 +96,7 @@ int bus_kill_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->send_sighup = b;
 
-                        unit_write_drop_in_private_format(u, mode, name, "SendSIGHUP=%s\n", yes_no(b));
+                        unit_write_drop_in_private_format(u, mode, name, "SendSIGHUP=%s", yes_no(b));
                 }
 
                 return 1;
@@ -111,7 +111,7 @@ int bus_kill_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         c->send_sigkill = b;
 
-                        unit_write_drop_in_private_format(u, mode, name, "SendSIGKILL=%s\n", yes_no(b));
+                        unit_write_drop_in_private_format(u, mode, name, "SendSIGKILL=%s", yes_no(b));
                 }
 
                 return 1;

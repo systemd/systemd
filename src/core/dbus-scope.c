@@ -147,7 +147,7 @@ static int bus_scope_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        unit_write_drop_in_format(UNIT(s), mode, name, "[Scope]\nTimeoutStopSec="USEC_FMT"us\n", s->timeout_stop_usec);
+                        unit_write_drop_in_private_format(UNIT(s), mode, name, "TimeoutStopSec="USEC_FMT"us", s->timeout_stop_usec);
                 } else {
                         r = sd_bus_message_skip(message, "t");
                         if (r < 0)
