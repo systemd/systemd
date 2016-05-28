@@ -2146,7 +2146,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
-        /* We handle router advertisments ourselves, tell the kernel to GTFO */
+        /* We handle router advertisements ourselves, tell the kernel to GTFO */
         r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
