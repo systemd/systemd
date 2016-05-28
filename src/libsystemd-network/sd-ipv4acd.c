@@ -33,41 +33,25 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "random-util.h"
-#include "refcnt.h"
 #include "siphash24.h"
+#include "string-util.h"
 #include "util.h"
 
 /* Constants from the RFC */
-#define PROBE_WAIT 1
-#define PROBE_NUM 3
-#define PROBE_MIN 1
-#define PROBE_MAX 2
-#define ANNOUNCE_WAIT 2
-#define ANNOUNCE_NUM 2
-#define ANNOUNCE_INTERVAL 2
-#define MAX_CONFLICTS 10
-#define RATE_LIMIT_INTERVAL 60
-#define DEFEND_INTERVAL 10
-
-#define IPV4ACD_NETWORK 0xA9FE0000L
-#define IPV4ACD_NETMASK 0xFFFF0000L
-
-#define log_ipv4acd_full(ll, level, error, fmt, ...) log_internal(level, error, __FILE__, __LINE__, __func__, "ACD: " fmt, ##__VA_ARGS__)
-
-#define log_ipv4acd_debug(ll, ...)   log_ipv4acd_full(ll, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_ipv4acd_info(ll, ...)    log_ipv4acd_full(ll, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_ipv4acd_notice(ll, ...)  log_ipv4acd_full(ll, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_ipv4acd_warning(ll, ...) log_ipv4acd_full(ll, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_ipv4acd_error(ll, ...)   log_ipv4acd_full(ll, LOG_ERR, 0, ##__VA_ARGS__)
-
-#define log_ipv4acd_debug_errno(ll, error, ...)   log_ipv4acd_full(ll, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_ipv4acd_info_errno(ll, error, ...)    log_ipv4acd_full(ll, LOG_INFO, error, ##__VA_ARGS__)
-#define log_ipv4acd_notice_errno(ll, error, ...)  log_ipv4acd_full(ll, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_ipv4acd_warning_errno(ll, error, ...) log_ipv4acd_full(ll, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_ipv4acd_error_errno(ll, error, ...)   log_ipv4acd_full(ll, LOG_ERR, error, ##__VA_ARGS__)
+#define PROBE_WAIT_USEC (1U * USEC_PER_SEC)
+#define PROBE_NUM 3U
+#define PROBE_MIN_USEC (1U * USEC_PER_SEC)
+#define PROBE_MAX_USEC (2U * USEC_PER_SEC)
+#define ANNOUNCE_WAIT_USEC (2U * USEC_PER_SEC)
+#define ANNOUNCE_NUM 2U
+#define ANNOUNCE_INTERVAL_USEC (2U * USEC_PER_SEC)
+#define MAX_CONFLICTS 10U
+#define RATE_LIMIT_INTERVAL_USEC (60U * USEC_PER_SEC)
+#define DEFEND_INTERVAL_USEC (10U * USEC_PER_SEC)
 
 typedef enum IPv4ACDState {
         IPV4ACD_STATE_INIT,
+        IPV4ACD_STATE_STARTED,
         IPV4ACD_STATE_WAITING_PROBE,
         IPV4ACD_STATE_PROBING,
         IPV4ACD_STATE_WAITING_ANNOUNCE,
@@ -78,158 +62,164 @@ typedef enum IPv4ACDState {
 } IPv4ACDState;
 
 struct sd_ipv4acd {
-        RefCount n_ref;
+        unsigned n_ref;
 
         IPv4ACDState state;
-        int index;
+        int ifindex;
         int fd;
-        int iteration;
-        int conflict;
-        sd_event_source *receive_message;
-        sd_event_source *timer;
+
+        unsigned n_iteration;
+        unsigned n_conflict;
+
+        sd_event_source *receive_message_event_source;
+        sd_event_source *timer_event_source;
+
         usec_t defend_window;
         be32_t address;
+
         /* External */
         struct ether_addr mac_addr;
+
         sd_event *event;
         int event_priority;
-        sd_ipv4acd_callback_t cb;
+        sd_ipv4acd_callback_t callback;
         void* userdata;
 };
 
-sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *ll) {
-        if (ll)
-                assert_se(REFCNT_INC(ll->n_ref) >= 2);
+#define log_ipv4acd_errno(acd, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4ACD: " fmt, ##__VA_ARGS__)
+#define log_ipv4acd(acd, fmt, ...) log_ipv4acd_errno(acd, 0, fmt, ##__VA_ARGS__)
 
-        return ll;
+static void ipv4acd_set_state(sd_ipv4acd *acd, IPv4ACDState st, bool reset_counter) {
+        assert(acd);
+        assert(st < _IPV4ACD_STATE_MAX);
+
+        if (st == acd->state && !reset_counter)
+                acd->n_iteration++;
+        else {
+                acd->state = st;
+                acd->n_iteration = 0;
+        }
 }
 
-sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *ll) {
-        if (!ll || REFCNT_DEC(ll->n_ref) > 0)
+static void ipv4acd_reset(sd_ipv4acd *acd) {
+        assert(acd);
+
+        acd->timer_event_source = sd_event_source_unref(acd->timer_event_source);
+        acd->receive_message_event_source = sd_event_source_unref(acd->receive_message_event_source);
+
+        acd->fd = safe_close(acd->fd);
+
+        ipv4acd_set_state(acd, IPV4ACD_STATE_INIT, true);
+}
+
+sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *acd) {
+        if (!acd)
                 return NULL;
 
-        ll->receive_message = sd_event_source_unref(ll->receive_message);
-        ll->fd = safe_close(ll->fd);
+        assert_se(acd->n_ref >= 1);
+        acd->n_ref++;
 
-        ll->timer = sd_event_source_unref(ll->timer);
+        return acd;
+}
 
-        sd_ipv4acd_detach_event(ll);
+sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd) {
+        if (!acd)
+                return NULL;
 
-        free(ll);
+        assert_se(acd->n_ref >= 1);
+        acd->n_ref--;
+
+        if (acd->n_ref > 0)
+                return NULL;
+
+        ipv4acd_reset(acd);
+        sd_ipv4acd_detach_event(acd);
+
+        free(acd);
 
         return NULL;
 }
 
 int sd_ipv4acd_new(sd_ipv4acd **ret) {
-        _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *ll = NULL;
+        _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *acd = NULL;
 
         assert_return(ret, -EINVAL);
 
-        ll = new0(sd_ipv4acd, 1);
-        if (!ll)
+        acd = new0(sd_ipv4acd, 1);
+        if (!acd)
                 return -ENOMEM;
 
-        ll->n_ref = REFCNT_INIT;
-        ll->state = IPV4ACD_STATE_INIT;
-        ll->index = -1;
-        ll->fd = -1;
+        acd->n_ref = 1;
+        acd->state = IPV4ACD_STATE_INIT;
+        acd->ifindex = -1;
+        acd->fd = -1;
 
-        *ret = ll;
-        ll = NULL;
+        *ret = acd;
+        acd = NULL;
 
         return 0;
 }
 
-static void ipv4acd_set_state(sd_ipv4acd *ll, IPv4ACDState st, bool reset_counter) {
+static void ipv4acd_client_notify(sd_ipv4acd *acd, int event) {
+        assert(acd);
 
-        assert(ll);
-        assert(st < _IPV4ACD_STATE_MAX);
-
-        if (st == ll->state && !reset_counter)
-                ll->iteration++;
-        else {
-                ll->state = st;
-                ll->iteration = 0;
-        }
-}
-
-static void ipv4acd_client_notify(sd_ipv4acd *ll, int event) {
-        assert(ll);
-
-        if (!ll->cb)
+        if (!acd->callback)
                 return;
 
-        ll->cb(ll, event, ll->userdata);
+        acd->callback(acd, event, acd->userdata);
 }
 
-static void ipv4acd_stop(sd_ipv4acd *ll) {
-        assert(ll);
+int sd_ipv4acd_stop(sd_ipv4acd *acd) {
+        assert_return(acd, -EINVAL);
 
-        ll->receive_message = sd_event_source_unref(ll->receive_message);
-        ll->fd = safe_close(ll->fd);
+        ipv4acd_reset(acd);
 
-        ll->timer = sd_event_source_unref(ll->timer);
+        log_ipv4acd(acd, "STOPPED");
 
-        log_ipv4acd_debug(ll, "STOPPED");
-
-        ipv4acd_set_state (ll, IPV4ACD_STATE_INIT, true);
-}
-
-int sd_ipv4acd_stop(sd_ipv4acd *ll) {
-        assert_return(ll, -EINVAL);
-
-        ipv4acd_stop(ll);
-
-        ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_STOP);
+        ipv4acd_client_notify(acd, SD_IPV4ACD_EVENT_STOP);
 
         return 0;
 }
 
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata);
 
-static int ipv4acd_set_next_wakeup(sd_ipv4acd *ll, int sec, int random_sec) {
+static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_usec) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
-        usec_t next_timeout;
-        usec_t time_now;
+        usec_t next_timeout, time_now;
         int r;
 
-        assert(sec >= 0);
-        assert(random_sec >= 0);
-        assert(ll);
+        assert(acd);
 
-        next_timeout = sec * USEC_PER_SEC;
+        next_timeout = usec;
 
-        if (random_sec)
-                next_timeout += random_u32() % (random_sec * USEC_PER_SEC);
+        if (random_usec > 0)
+                next_timeout += (usec_t) random_u64() % random_usec;
 
-        assert_se(sd_event_now(ll->event, clock_boottime_or_monotonic(), &time_now) >= 0);
+        assert_se(sd_event_now(acd->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
-        r = sd_event_add_time(ll->event, &timer, clock_boottime_or_monotonic(),
-                              time_now + next_timeout, 0, ipv4acd_on_timeout, ll);
+        r = sd_event_add_time(acd->event, &timer, clock_boottime_or_monotonic(), time_now + next_timeout, 0, ipv4acd_on_timeout, acd);
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(timer, ll->event_priority);
+        r = sd_event_source_set_priority(timer, acd->event_priority);
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_description(timer, "ipv4acd-timer");
-        if (r < 0)
-                return r;
+        (void) sd_event_source_set_description(timer, "ipv4acd-timer");
 
-        ll->timer = sd_event_source_unref(ll->timer);
-        ll->timer = timer;
+        sd_event_source_unref(acd->timer_event_source);
+        acd->timer_event_source = timer;
         timer = NULL;
 
         return 0;
 }
 
-static bool ipv4acd_arp_conflict(sd_ipv4acd *ll, struct ether_arp *arp) {
-        assert(ll);
+static bool ipv4acd_arp_conflict(sd_ipv4acd *acd, struct ether_arp *arp) {
+        assert(acd);
         assert(arp);
 
         /* see the BPF */
-        if (memcmp(arp->arp_spa, &ll->address, sizeof(ll->address)) == 0)
+        if (memcmp(arp->arp_spa, &acd->address, sizeof(acd->address)) == 0)
                 return true;
 
         /* the TPA matched instead of the SPA, this is not a conflict */
@@ -237,116 +227,118 @@ static bool ipv4acd_arp_conflict(sd_ipv4acd *ll, struct ether_arp *arp) {
 }
 
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_ipv4acd *ll = userdata;
+        sd_ipv4acd *acd = userdata;
         int r = 0;
 
-        assert(ll);
+        assert(acd);
 
-        switch (ll->state) {
-        case IPV4ACD_STATE_INIT:
+        switch (acd->state) {
 
-                ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_PROBE, true);
+        case IPV4ACD_STATE_STARTED:
+                ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_PROBE, true);
 
-                if (ll->conflict >= MAX_CONFLICTS) {
-                        log_ipv4acd_notice(ll, "Max conflicts reached, delaying by %us", RATE_LIMIT_INTERVAL);
-                        r = ipv4acd_set_next_wakeup(ll, RATE_LIMIT_INTERVAL, PROBE_WAIT);
+                if (acd->n_conflict >= MAX_CONFLICTS) {
+                        char ts[FORMAT_TIMESPAN_MAX];
+                        log_ipv4acd(acd, "Max conflicts reached, delaying by %s", format_timespan(ts, sizeof(ts), RATE_LIMIT_INTERVAL_USEC, 0));
+
+                        r = ipv4acd_set_next_wakeup(acd, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT_USEC);
                         if (r < 0)
-                                goto out;
+                                goto fail;
 
-                        ll->conflict = 0;
+                        acd->n_conflict = 0;
                 } else {
-                        r = ipv4acd_set_next_wakeup(ll, 0, PROBE_WAIT);
+                        r = ipv4acd_set_next_wakeup(acd, 0, PROBE_WAIT_USEC);
                         if (r < 0)
-                                goto out;
+                                goto fail;
                 }
 
                 break;
+
         case IPV4ACD_STATE_WAITING_PROBE:
         case IPV4ACD_STATE_PROBING:
                 /* Send a probe */
-                r = arp_send_probe(ll->fd, ll->index, ll->address, &ll->mac_addr);
+                r = arp_send_probe(acd->fd, acd->ifindex, acd->address, &acd->mac_addr);
                 if (r < 0) {
-                        log_ipv4acd_error_errno(ll, r, "Failed to send ARP probe: %m");
-                        goto out;
+                        log_ipv4acd_errno(acd, r, "Failed to send ARP probe: %m");
+                        goto fail;
                 } else {
                         _cleanup_free_ char *address = NULL;
-                        union in_addr_union addr = { .in.s_addr = ll->address };
+                        union in_addr_union addr = { .in.s_addr = acd->address };
 
-                        r = in_addr_to_string(AF_INET, &addr, &address);
-                        if (r >= 0)
-                                log_ipv4acd_debug(ll, "Probing %s", address);
+                        (void) in_addr_to_string(AF_INET, &addr, &address);
+                        log_ipv4acd(acd, "Probing %s", strna(address));
                 }
 
-                if (ll->iteration < PROBE_NUM - 2) {
-                        ipv4acd_set_state(ll, IPV4ACD_STATE_PROBING, false);
+                if (acd->n_iteration < PROBE_NUM - 2) {
+                        ipv4acd_set_state(acd, IPV4ACD_STATE_PROBING, false);
 
-                        r = ipv4acd_set_next_wakeup(ll, PROBE_MIN, (PROBE_MAX-PROBE_MIN));
+                        r = ipv4acd_set_next_wakeup(acd, PROBE_MIN_USEC, (PROBE_MAX_USEC-PROBE_MIN_USEC));
                         if (r < 0)
-                                goto out;
+                                goto fail;
                 } else {
-                        ipv4acd_set_state(ll, IPV4ACD_STATE_WAITING_ANNOUNCE, true);
+                        ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_ANNOUNCE, true);
 
-                        r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_WAIT, 0);
+                        r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_WAIT_USEC, 0);
                         if (r < 0)
-                                goto out;
+                                goto fail;
                 }
 
                 break;
 
         case IPV4ACD_STATE_ANNOUNCING:
-                if (ll->iteration >= ANNOUNCE_NUM - 1) {
-                        ipv4acd_set_state(ll, IPV4ACD_STATE_RUNNING, false);
-
+                if (acd->n_iteration >= ANNOUNCE_NUM - 1) {
+                        ipv4acd_set_state(acd, IPV4ACD_STATE_RUNNING, false);
                         break;
                 }
+
+                /* fall through */
+
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
                 /* Send announcement packet */
-                r = arp_send_announcement(ll->fd, ll->index, ll->address, &ll->mac_addr);
+                r = arp_send_announcement(acd->fd, acd->ifindex, acd->address, &acd->mac_addr);
                 if (r < 0) {
-                        log_ipv4acd_error_errno(ll, r, "Failed to send ARP announcement: %m");
-                        goto out;
+                        log_ipv4acd_errno(acd, r, "Failed to send ARP announcement: %m");
+                        goto fail;
                 } else
-                        log_ipv4acd_debug(ll, "ANNOUNCE");
+                        log_ipv4acd(acd, "ANNOUNCE");
 
-                ipv4acd_set_state(ll, IPV4ACD_STATE_ANNOUNCING, false);
+                ipv4acd_set_state(acd, IPV4ACD_STATE_ANNOUNCING, false);
 
-                r = ipv4acd_set_next_wakeup(ll, ANNOUNCE_INTERVAL, 0);
+                r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_INTERVAL_USEC, 0);
                 if (r < 0)
-                        goto out;
+                        goto fail;
 
-                if (ll->iteration == 0) {
-                        ll->conflict = 0;
-                        ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_BIND);
+                if (acd->n_iteration == 0) {
+                        acd->n_conflict = 0;
+                        ipv4acd_client_notify(acd, SD_IPV4ACD_EVENT_BIND);
                 }
 
                 break;
+
         default:
                 assert_not_reached("Invalid state.");
         }
 
-out:
-        if (r < 0)
-                sd_ipv4acd_stop(ll);
+        return 0;
 
-        return 1;
+fail:
+        sd_ipv4acd_stop(acd);
+        return 0;
 }
 
-static void ipv4acd_on_conflict(sd_ipv4acd *ll) {
+static void ipv4acd_on_conflict(sd_ipv4acd *acd) {
         _cleanup_free_ char *address = NULL;
-        union in_addr_union addr = { .in.s_addr = ll->address };
-        int r;
+        union in_addr_union addr = { .in.s_addr = acd->address };
 
-        assert(ll);
+        assert(acd);
 
-        ll->conflict++;
+        acd->n_conflict++;
 
-        r = in_addr_to_string(AF_INET, &addr, &address);
-        if (r >= 0)
-                log_ipv4acd_debug(ll, "Conflict on %s (%u)", address, ll->conflict);
+        (void) in_addr_to_string(AF_INET, &addr, &address);
+        log_ipv4acd(acd, "Conflict on %s (%u)", strna(address), acd->n_conflict);
 
-        ipv4acd_stop(ll);
-
-        ipv4acd_client_notify(ll, SD_IPV4ACD_EVENT_CONFLICT);
+        ipv4acd_reset(acd);
+        ipv4acd_client_notify(acd, SD_IPV4ACD_EVENT_CONFLICT);
 }
 
 static int ipv4acd_on_packet(
@@ -355,47 +347,50 @@ static int ipv4acd_on_packet(
                 uint32_t revents,
                 void *userdata) {
 
-        sd_ipv4acd *ll = userdata;
+        sd_ipv4acd *acd = userdata;
         struct ether_arp packet;
         ssize_t n;
         int r;
 
         assert(s);
-        assert(ll);
+        assert(acd);
         assert(fd >= 0);
 
         n = recv(fd, &packet, sizeof(struct ether_arp), 0);
         if (n < 0) {
-                r = log_ipv4acd_debug_errno(ll, errno, "Failed to read ARP packet: %m");
-                goto out;
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                log_ipv4acd_errno(acd, errno, "Failed to read ARP packet: %m");
+                goto fail;
         }
         if ((size_t) n != sizeof(struct ether_arp)) {
-                log_ipv4acd_debug(ll, "Ignoring too short ARP packet.");
+                log_ipv4acd(acd, "Ignoring too short ARP packet.");
                 return 0;
         }
 
-        switch (ll->state) {
+        switch (acd->state) {
 
         case IPV4ACD_STATE_ANNOUNCING:
         case IPV4ACD_STATE_RUNNING:
 
-                if (ipv4acd_arp_conflict(ll, &packet)) {
+                if (ipv4acd_arp_conflict(acd, &packet)) {
                         usec_t ts;
 
-                        assert_se(sd_event_now(ll->event, clock_boottime_or_monotonic(), &ts) >= 0);
+                        assert_se(sd_event_now(acd->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
                         /* Defend address */
-                        if (ts > ll->defend_window) {
-                                ll->defend_window = ts + DEFEND_INTERVAL * USEC_PER_SEC;
-                                r = arp_send_announcement(ll->fd, ll->index, ll->address, &ll->mac_addr);
+                        if (ts > acd->defend_window) {
+                                acd->defend_window = ts + DEFEND_INTERVAL_USEC;
+                                r = arp_send_announcement(acd->fd, acd->ifindex, acd->address, &acd->mac_addr);
                                 if (r < 0) {
-                                        log_ipv4acd_error_errno(ll, r, "Failed to send ARP announcement: %m");
-                                        goto out;
+                                        log_ipv4acd_errno(acd, r, "Failed to send ARP announcement: %m");
+                                        goto fail;
                                 } else
-                                        log_ipv4acd_debug(ll, "DEFEND");
+                                        log_ipv4acd(acd, "DEFEND");
 
                         } else
-                                ipv4acd_on_conflict(ll);
+                                ipv4acd_on_conflict(acd);
                 }
                 break;
 
@@ -403,132 +398,129 @@ static int ipv4acd_on_packet(
         case IPV4ACD_STATE_PROBING:
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
                 /* BPF ensures this packet indicates a conflict */
-                ipv4acd_on_conflict(ll);
+                ipv4acd_on_conflict(acd);
                 break;
 
         default:
                 assert_not_reached("Invalid state.");
         }
 
-out:
-        if (r < 0)
-                sd_ipv4acd_stop(ll);
+        return 0;
 
-        return 1;
+fail:
+        sd_ipv4acd_stop(acd);
+        return 0;
 }
 
-int sd_ipv4acd_set_index(sd_ipv4acd *ll, int interface_index) {
-        assert_return(ll, -EINVAL);
-        assert_return(interface_index > 0, -EINVAL);
-        assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
+int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int ifindex) {
+        assert_return(acd, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        ll->index = interface_index;
+        acd->ifindex = ifindex;
 
         return 0;
 }
 
-int sd_ipv4acd_set_mac(sd_ipv4acd *ll, const struct ether_addr *addr) {
-        assert_return(ll, -EINVAL);
+int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {
+        assert_return(acd, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
+        assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        memcpy(&ll->mac_addr, addr, ETH_ALEN);
-
-        return 0;
-}
-
-int sd_ipv4acd_detach_event(sd_ipv4acd *ll) {
-        assert_return(ll, -EINVAL);
-
-        ll->event = sd_event_unref(ll->event);
+        acd->mac_addr = *addr;
 
         return 0;
 }
 
-int sd_ipv4acd_attach_event(sd_ipv4acd *ll, sd_event *event, int64_t priority) {
+int sd_ipv4acd_detach_event(sd_ipv4acd *acd) {
+        assert_return(acd, -EINVAL);
+
+        acd->event = sd_event_unref(acd->event);
+
+        return 0;
+}
+
+int sd_ipv4acd_attach_event(sd_ipv4acd *acd, sd_event *event, int64_t priority) {
         int r;
 
-        assert_return(ll, -EINVAL);
-        assert_return(!ll->event, -EBUSY);
+        assert_return(acd, -EINVAL);
+        assert_return(!acd->event, -EBUSY);
 
         if (event)
-                ll->event = sd_event_ref(event);
+                acd->event = sd_event_ref(event);
         else {
-                r = sd_event_default(&ll->event);
+                r = sd_event_default(&acd->event);
                 if (r < 0)
                         return r;
         }
 
-        ll->event_priority = priority;
+        acd->event_priority = priority;
 
         return 0;
 }
 
-int sd_ipv4acd_set_callback(sd_ipv4acd *ll, sd_ipv4acd_callback_t cb, void *userdata) {
-        assert_return(ll, -EINVAL);
+int sd_ipv4acd_set_callback(sd_ipv4acd *acd, sd_ipv4acd_callback_t cb, void *userdata) {
+        assert_return(acd, -EINVAL);
 
-        ll->cb = cb;
-        ll->userdata = userdata;
+        acd->callback = cb;
+        acd->userdata = userdata;
 
         return 0;
 }
 
-int sd_ipv4acd_set_address(sd_ipv4acd *ll, const struct in_addr *address) {
-        assert_return(ll, -EINVAL);
+int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address) {
+        assert_return(acd, -EINVAL);
         assert_return(address, -EINVAL);
-        assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
+        assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        ll->address = address->s_addr;
+        acd->address = address->s_addr;
 
         return 0;
 }
 
-int sd_ipv4acd_is_running(sd_ipv4acd *ll) {
-        assert_return(ll, false);
+int sd_ipv4acd_is_running(sd_ipv4acd *acd) {
+        assert_return(acd, false);
 
-        return ll->state != IPV4ACD_STATE_INIT;
+        return acd->state != IPV4ACD_STATE_INIT;
 }
 
-int sd_ipv4acd_start(sd_ipv4acd *ll) {
+int sd_ipv4acd_start(sd_ipv4acd *acd) {
         int r;
 
-        assert_return(ll, -EINVAL);
-        assert_return(ll->event, -EINVAL);
-        assert_return(ll->index > 0, -EINVAL);
-        assert_return(ll->address != 0, -EINVAL);
-        assert_return(!ether_addr_is_null(&ll->mac_addr), -EINVAL);
-        assert_return(ll->state == IPV4ACD_STATE_INIT, -EBUSY);
+        assert_return(acd, -EINVAL);
+        assert_return(acd->event, -EINVAL);
+        assert_return(acd->ifindex > 0, -EINVAL);
+        assert_return(acd->address != 0, -EINVAL);
+        assert_return(!ether_addr_is_null(&acd->mac_addr), -EINVAL);
+        assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        ll->defend_window = 0;
-
-        r = arp_network_bind_raw_socket(ll->index, ll->address, &ll->mac_addr);
+        r = arp_network_bind_raw_socket(acd->ifindex, acd->address, &acd->mac_addr);
         if (r < 0)
-                goto out;
-
-        ll->fd = safe_close(ll->fd);
-        ll->fd = r;
-
-        r = sd_event_add_io(ll->event, &ll->receive_message, ll->fd,
-                            EPOLLIN, ipv4acd_on_packet, ll);
-        if (r < 0)
-                goto out;
-
-        r = sd_event_source_set_priority(ll->receive_message, ll->event_priority);
-        if (r < 0)
-                goto out;
-
-        r = sd_event_source_set_description(ll->receive_message, "ipv4acd-receive-message");
-        if (r < 0)
-                goto out;
-
-        r = ipv4acd_set_next_wakeup(ll, 0, 0);
-        if (r < 0)
-                goto out;
-out:
-        if (r < 0) {
-                ipv4acd_stop(ll);
                 return r;
-        }
 
+        safe_close(acd->fd);
+        acd->fd = r;
+        acd->defend_window = 0;
+        acd->n_conflict = 0;
+
+        r = sd_event_add_io(acd->event, &acd->receive_message_event_source, acd->fd, EPOLLIN, ipv4acd_on_packet, acd);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(acd->receive_message_event_source, acd->event_priority);
+        if (r < 0)
+                goto fail;
+
+        (void) sd_event_source_set_description(acd->receive_message_event_source, "ipv4acd-receive-message");
+
+        r = ipv4acd_set_next_wakeup(acd, 0, 0);
+        if (r < 0)
+                goto fail;
+
+        ipv4acd_set_state(acd, IPV4ACD_STATE_STARTED, true);
         return 0;
+
+fail:
+        ipv4acd_reset(acd);
+        return r;
 }

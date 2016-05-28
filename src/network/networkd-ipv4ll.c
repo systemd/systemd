@@ -215,9 +215,7 @@ int ipv4ll_configure(Link *link) {
         if (link->udev_device) {
                 r = net_get_unique_predictable_data(link->udev_device, &seed);
                 if (r >= 0) {
-                        assert_cc(sizeof(unsigned) <= 8);
-
-                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, (unsigned)seed);
+                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
                         if (r < 0)
                                 return r;
                 }
@@ -231,7 +229,7 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4ll_set_index(link->ipv4ll, link->ifindex);
+        r = sd_ipv4ll_set_ifindex(link->ipv4ll, link->ifindex);
         if (r < 0)
                 return r;
 

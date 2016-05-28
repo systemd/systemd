@@ -45,7 +45,7 @@ struct sd_dhcp6_client {
         enum DHCP6State state;
         sd_event *event;
         int event_priority;
-        int index;
+        int ifindex;
         struct in6_addr local_address;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
@@ -64,7 +64,7 @@ struct sd_dhcp6_client {
         uint8_t retransmit_count;
         sd_event_source *timeout_resend;
         sd_event_source *timeout_resend_expire;
-        sd_dhcp6_client_callback_t cb;
+        sd_dhcp6_client_callback_t callback;
         void *userdata;
         struct duid duid;
         size_t duid_len;
@@ -115,22 +115,22 @@ int sd_dhcp6_client_set_callback(
                 sd_dhcp6_client *client,
                 sd_dhcp6_client_callback_t cb,
                 void *userdata) {
+
         assert_return(client, -EINVAL);
 
-        client->cb = cb;
+        client->callback = cb;
         client->userdata = userdata;
 
         return 0;
 }
 
-int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index) {
-        assert_return(client, -EINVAL);
-        assert_return(interface_index >= -1, -EINVAL);
+int sd_dhcp6_client_set_ifindex(sd_dhcp6_client *client, int ifindex) {
 
+        assert_return(client, -EINVAL);
+        assert_return(ifindex >= -1, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
-        client->index = interface_index;
-
+        client->ifindex = ifindex;
         return 0;
 }
 
@@ -256,6 +256,7 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         switch(option) {
+
         case SD_DHCP6_OPTION_DNS_SERVERS:
         case SD_DHCP6_OPTION_DOMAIN_LIST:
         case SD_DHCP6_OPTION_SNTP_SERVERS:
@@ -292,20 +293,25 @@ int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
 }
 
 static void client_notify(sd_dhcp6_client *client, int event) {
-        if (client->cb)
-                client->cb(client, event, client->userdata);
+        assert(client);
+
+        if (client->callback)
+                client->callback(client, event, client->userdata);
 }
 
 static void client_set_lease(sd_dhcp6_client *client, sd_dhcp6_lease *lease) {
+        assert(client);
+
         if (client->lease) {
                 dhcp6_lease_clear_timers(&client->lease->ia);
                 sd_dhcp6_lease_unref(client->lease);
         }
+
         client->lease = lease;
 }
 
 static int client_reset(sd_dhcp6_client *client) {
-        assert_return(client, -EINVAL);
+        assert(client);
 
         client_set_lease(client, NULL);
 
@@ -352,6 +358,8 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         int r;
         usec_t elapsed_usec;
         be16_t elapsed_time;
+
+        assert(client);
 
         len = sizeof(DHCP6Message) + optlen;
 
@@ -454,9 +462,9 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = userdata;
 
-        assert_return(s, -EINVAL);
-        assert_return(client, -EINVAL);
-        assert_return(client->lease, -EINVAL);
+        assert(s);
+        assert(client);
+        assert(client->lease);
 
         client->lease->ia.timeout_t2 =
                 sd_event_source_unref(client->lease->ia.timeout_t2);
@@ -471,9 +479,9 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = userdata;
 
-        assert_return(s, -EINVAL);
-        assert_return(client, -EINVAL);
-        assert_return(client->lease, -EINVAL);
+        assert(s);
+        assert(client);
+        assert(client->lease);
 
         client->lease->ia.timeout_t1 =
                 sd_event_source_unref(client->lease->ia.timeout_t1);
@@ -671,7 +679,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (client->ia_na.id)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->index, client->mac_addr, client->mac_addr_len, &client->ia_na.id);
+        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, &client->ia_na.id);
         if (r < 0)
                 return r;
 
@@ -689,6 +697,11 @@ static int client_parse_message(
         size_t optlen, id_len;
         bool clientid = false;
         be32_t iaid_lease;
+
+        assert(client);
+        assert(message);
+        assert(len >= sizeof(DHCP6Message));
+        assert(lease);
 
         option = (uint8_t *)message + sizeof(DHCP6Message);
         len -= sizeof(DHCP6Message);
@@ -834,9 +847,12 @@ static int client_parse_message(
 }
 
 static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, size_t len) {
-        int r;
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         bool rapid_commit;
+        int r;
+
+        assert(client);
+        assert(reply);
 
         if (reply->type != DHCP6_REPLY)
                 return 0;
@@ -865,9 +881,9 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
 }
 
 static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *advertise, size_t len) {
-        int r;
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t pref_advertise = 0, pref_lease = 0;
+        int r;
 
         if (advertise->type != DHCP6_ADVERTISE)
                 return 0;
@@ -898,7 +914,12 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
         return r;
 }
 
-static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int client_receive_message(
+                sd_event_source *s,
+                int fd, uint32_t
+                revents,
+                void *userdata) {
+
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
         _cleanup_free_ DHCP6Message *message = NULL;
@@ -924,8 +945,11 @@ static int client_receive_message(sd_event_source *s, int fd, uint32_t revents, 
 
                 return log_dhcp6_client_errno(client, errno, "Could not receive message from UDP socket: %m");
 
-        } else if ((size_t)len < sizeof(DHCP6Message))
+        }
+        if ((size_t) len < sizeof(DHCP6Message)) {
+                log_dhcp6_client(client, "Too small to be DHCP6 message: ignoring");
                 return 0;
+        }
 
         switch(message->type) {
         case DHCP6_SOLICIT:
@@ -1019,7 +1043,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
-        assert_return(client->index > 0, -EINVAL);
+        assert_return(client->ifindex > 0, -EINVAL);
         assert_return(client->state != state, -EINVAL);
 
         client->timeout_resend_expire =
@@ -1152,12 +1176,12 @@ int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
 }
 
 int sd_dhcp6_client_start(sd_dhcp6_client *client) {
-        int r = 0;
         enum DHCP6State state = DHCP6_STATE_SOLICITATION;
+        int r = 0;
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
-        assert_return(client->index > 0, -EINVAL);
+        assert_return(client->ifindex > 0, -EINVAL);
         assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) &client->local_address) > 0, -EINVAL);
 
         if (!IN_SET(client->state, DHCP6_STATE_STOPPED))
@@ -1175,7 +1199,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        r = dhcp6_network_bind_udp_socket(client->index, &client->local_address);
+        r = dhcp6_network_bind_udp_socket(client->ifindex, &client->local_address);
         if (r < 0) {
                 _cleanup_free_ char *p = NULL;
 
@@ -1244,8 +1268,7 @@ int sd_dhcp6_client_detach_event(sd_dhcp6_client *client) {
 }
 
 sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client) {
-        if (!client)
-                return NULL;
+        assert_return(client, NULL);
 
         return client->event;
 }
@@ -1293,15 +1316,11 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 return -ENOMEM;
 
         client->n_ref = 1;
-
         client->ia_na.type = SD_DHCP6_OPTION_IA_NA;
-
-        client->index = -1;
-
+        client->ifindex = -1;
         client->fd = -1;
 
         client->req_opts_len = ELEMENTSOF(default_req_opts);
-
         client->req_opts = new0(be16_t, client->req_opts_len);
         if (!client->req_opts)
                 return -ENOMEM;

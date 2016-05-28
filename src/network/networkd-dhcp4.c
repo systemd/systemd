@@ -554,7 +554,7 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_client_set_index(link->dhcp_client, link->ifindex);
+        r = sd_dhcp_client_set_ifindex(link->dhcp_client, link->ifindex);
         if (r < 0)
                 return r;
 

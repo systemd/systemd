@@ -82,7 +82,7 @@ int sd_dhcp6_client_set_callback(
                 sd_dhcp6_client_callback_t cb,
                 void *userdata);
 
-int sd_dhcp6_client_set_index(
+int sd_dhcp6_client_set_ifindex(
                 sd_dhcp6_client *client,
                 int interface_index);
 int sd_dhcp6_client_set_local_address(

@@ -64,7 +64,7 @@ static int client_run(int ifindex, const char *seed_str, const struct ether_addr
         assert_se(sd_ipv4ll_new(&ll) >= 0);
         assert_se(sd_ipv4ll_attach_event(ll, e, 0) >= 0);
 
-        assert_se(sd_ipv4ll_set_index(ll, ifindex) >= 0);
+        assert_se(sd_ipv4ll_set_ifindex(ll, ifindex) >= 0);
         assert_se(sd_ipv4ll_set_mac(ll, ha) >= 0);
         assert_se(sd_ipv4ll_set_callback(ll, ll_handler, NULL) >= 0);
 

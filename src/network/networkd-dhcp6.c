@@ -237,7 +237,7 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 goto error;
 
-        r = sd_dhcp6_client_set_index(client, link->ifindex);
+        r = sd_dhcp6_client_set_ifindex(client, link->ifindex);
         if (r < 0)
                 goto error;
 
