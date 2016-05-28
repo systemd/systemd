@@ -1568,6 +1568,13 @@ static int link_up(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
+        /* set it free if not enslaved with networkd */
+        if (!link->network->bridge && !link->network->bond) {
+                r = sd_netlink_message_append_u32(req, IFLA_MASTER, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
+        }
+
         r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
