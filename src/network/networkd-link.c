@@ -110,6 +110,9 @@ static bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
+        if (link->network->bridge)
+                return false;
+
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
         return link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
 }
@@ -1586,7 +1589,7 @@ static int link_up(Link *link) {
         }
 
         /* If IPv6 not configured (no static IPv6 address and IPv6LL autoconfiguration is disabled)
-           for this interface then disable IPv6 else enable it. */
+           for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
         if (link->network->mtu) {
