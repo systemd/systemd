@@ -116,6 +116,8 @@
                 <_message>Explicit request is required to run programs as a non-logged-in user.</_message>
                 <defaults>
                         <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
                 </defaults>
         </action>
 
