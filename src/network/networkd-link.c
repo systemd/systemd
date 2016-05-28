@@ -110,7 +110,11 @@ static bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
-        return link_dhcp6_enabled(link) || link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
+        if (link->network->bridge)
+                return false;
+
+        /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
+        return link_ipv6ll_enabled(link) || network_has_static_ipv6_addresses(link->network);
 }
 
 static bool link_lldp_rx_enabled(Link *link) {
@@ -1567,6 +1571,13 @@ static int link_up(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
+        /* set it free if not enslaved with networkd */
+        if (!link->network->bridge && !link->network->bond) {
+                r = sd_netlink_message_append_u32(req, IFLA_MASTER, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
+        }
+
         r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
@@ -1577,8 +1588,8 @@ static int link_up(Link *link) {
                         return log_link_error_errno(link, r, "Could not set MAC address: %m");
         }
 
-        /* If IPv6 not configured (no static IPv6 address and neither DHCPv6 nor IPv6LL is enabled)
-           for this interface then disable IPv6 else enable it. */
+        /* If IPv6 not configured (no static IPv6 address and IPv6LL autoconfiguration is disabled)
+           for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
         if (link->network->mtu) {
@@ -1607,7 +1618,20 @@ static int link_up(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
 
-                ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
+                if (!link_ipv6ll_enabled(link))
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
+                else {
+                        const char *p = NULL;
+                        _cleanup_free_ char *stable_secret = NULL;
+
+                        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/stable_secret");
+                        r = read_one_line_file(p, &stable_secret);
+
+                        if (r < 0)
+                                ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
+                        else
+                                ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+                }
                 r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
