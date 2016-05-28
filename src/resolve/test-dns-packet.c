@@ -29,6 +29,7 @@
 #include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,90,4b,fa,4c,fe,af,9d,d5,a1,d7,2e,8a,b1)
 
@@ -56,7 +57,7 @@ static void test_packet_from_file(const char* filename, bool canonical) {
                 const char *s, *s2;
                 uint64_t hash1, hash2;
 
-                packet_size = le64toh( *(uint64_t*)(data + offset) );
+                packet_size = unaligned_read_le64(data + offset);
                 assert_se(packet_size > 0);
                 assert_se(offset + 8 + packet_size <= data_size);
 
