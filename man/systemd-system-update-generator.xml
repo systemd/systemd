@@ -56,9 +56,8 @@
     generator that automatically redirects the boot process to
     <filename>system-update.target</filename>, if
     <filename>/system-update</filename> exists. This is required to
-    implement the logic explained in the <ulink
-    url="http://freedesktop.org/wiki/Software/systemd/SystemUpdates">System
-    Updates Specification</ulink>.
+    implement the logic explained in the
+    <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
 
     <para><filename>systemd-system-update-generator</filename> implements

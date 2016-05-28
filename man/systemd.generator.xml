@@ -313,8 +313,8 @@
       scheduled. Since this needs to override the default user
       configuration for <filename>default.target</filename>, it uses
       argv[2]. For details about this logic, see
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/SystemUpdates">Implementing
-      Offline System Updates</ulink>.</para>
+      <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+      </para>
     </example>
 
     <example>
