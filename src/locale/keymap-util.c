@@ -522,7 +522,7 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
         return 0;
 }
 
-static int find_legacy_keymap(Context *c, char **new_keymap) {
+int find_legacy_keymap(Context *c, char **new_keymap) {
         _cleanup_fclose_ FILE *f;
         unsigned n = 0;
         unsigned best_matching = 0;
@@ -617,6 +617,7 @@ int find_language_fallback(const char *lang, char **language) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
 
+        assert(lang);
         assert(language);
 
         f = fopen(SYSTEMD_LANGUAGE_FALLBACK_MAP, "re");
@@ -651,7 +652,7 @@ int x11_convert_to_vconsole(Context *c) {
                         !isempty(c->vc_keymap) ||
                         !isempty(c->vc_keymap_toggle);
 
-                context_free_x11(c);
+                context_free_vconsole(c);
         } else {
                 char *new_keymap = NULL;
                 int r;

@@ -33,6 +33,7 @@ typedef struct Context {
 } Context;
 
 int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **new_keymap);
+int find_legacy_keymap(Context *c, char **new_keymap);
 int find_language_fallback(const char *lang, char **language);
 
 int context_read_data(Context *c);

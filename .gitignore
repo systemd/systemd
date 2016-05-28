@@ -217,6 +217,7 @@
 /test-journal-stream
 /test-journal-syslog
 /test-journal-verify
+/test-keymap-util
 /test-libsystemd-sym*
 /test-libudev
 /test-libudev-sym*

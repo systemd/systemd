@@ -4782,6 +4782,18 @@ dist_pkgdata_DATA = \
 	src/locale/kbd-model-map \
 	src/locale/language-fallback-map
 
+test_keymap_util_SOURCES = \
+	src/locale/test-keymap-util.c \
+	src/locale/keymap-util.c \
+	src/locale/keymap-util.h
+
+test_keymap_util_LDADD = \
+	libshared.la \
+	-ldl
+
+tests += \
+	test-keymap-util
+
 localectl_SOURCES = \
 	src/locale/localectl.c
 
