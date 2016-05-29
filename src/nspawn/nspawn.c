@@ -2247,15 +2247,15 @@ static int setup_machine_id(const char *directory) {
         return 0;
 }
 
-static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
+static int recursive_chown(ContainerContext *c) {
         int r;
 
-        assert(directory);
+        assert(*c->root);
 
-        if (arg_userns_mode == USER_NAMESPACE_NO || !arg_userns_chown)
+        if (c->userns->mode == USER_NAMESPACE_NO || !arg_userns_chown)
                 return 0;
 
-        r = path_patch_uid(directory, arg_uid_shift, arg_uid_range);
+        r = userns_path_patch_uid(c->userns, *c->root);
         if (r == -EOPNOTSUPP)
                 return log_error_errno(r, "Automatic UID/GID adjusting is only supported for UID/GID ranges starting at multiples of 2^16 with a range of 2^16.");
         if (r == -EBADE)
@@ -2803,7 +2803,7 @@ static int outer_child(
         if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to make bind mount: %m");
 
-        r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
+        r = recursive_chown(container);
         if (r < 0)
                 return r;
 

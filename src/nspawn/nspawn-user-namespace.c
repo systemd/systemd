@@ -445,7 +445,7 @@ finish:
         return r;
 }
 
-static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t range) {
+static int fd_patch_uid_internal(UserNamespaceContext *userns_ctx, int fd, bool donate_fd) {
         struct stat st;
         int r;
 
@@ -456,13 +456,13 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
          * following the concept that the upper 16bit of a UID identify the container, and the lower 16bit are the actual
          * UID within the container. */
 
-        if ((shift & 0xFFFF) != 0) {
+        if ((userns_ctx->uid_shift & 0xFFFF) != 0) {
                 /* We only support containers where the shift starts at a 2^16 boundary */
                 r = -EOPNOTSUPP;
                 goto finish;
         }
 
-        if (range != 0x10000) {
+        if (userns_ctx->uid_range != 0x10000) {
                 /* We only support containers with 16bit UID ranges for the patching logic */
                 r = -EOPNOTSUPP;
                 goto finish;
@@ -481,10 +481,10 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
 
         /* Try to detect if the range is already right. Of course, this a pretty drastic optimization, as we assume
          * that if the top-level dir has the right upper 16bit assigned, then everything below will have too... */
-        if (((uint32_t) (st.st_uid ^ shift) >> 16) == 0)
+        if (((uint32_t) (st.st_uid ^ userns_ctx->uid_shift) >> 16) == 0)
                 return 0;
 
-        return recurse_fd(fd, donate_fd, &st, shift, true);
+        return recurse_fd(fd, donate_fd, &st, userns_ctx->uid_shift, true);
 
 finish:
         if (donate_fd)
@@ -493,18 +493,18 @@ finish:
         return r;
 }
 
-int fd_patch_uid(int fd, uid_t shift, uid_t range) {
-        return fd_patch_uid_internal(fd, false, shift, range);
+int userns_fd_patch_uid(UserNamespaceContext *userns_ctx, int fd) {
+        return fd_patch_uid_internal(userns_ctx, fd, false);
 }
 
-int path_patch_uid(const char *path, uid_t shift, uid_t range) {
+int userns_path_patch_uid(UserNamespaceContext *userns_ctx, const char *path) {
         int fd;
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0)
                 return -errno;
 
-        return fd_patch_uid_internal(fd, true, shift, range);
+        return fd_patch_uid_internal(userns_ctx, fd, true);
 }
 
 int userns_lchown(UserNamespaceContext *userns_ctx, const char *path) {

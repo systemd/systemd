@@ -25,6 +25,7 @@
 #include "util.h"
 
 int main(int argc, char *argv[]) {
+        UserNamespaceContext *userns;
         uid_t shift, range;
         int r;
 
@@ -49,13 +50,21 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        r = path_patch_uid(argv[1], shift, range);
+        r = userns_ctx_new(0, 0, shift, range, USER_NAMESPACE_FIXED, &userns);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create UserNamespaceContext object: %m");
+                return EXIT_FAILURE;
+        }
+
+        r = userns_path_patch_uid(userns, argv[1]);
         if (r < 0) {
                 log_error_errno(r, "Failed to patch directory tree: %m");
                 return EXIT_FAILURE;
         }
 
         log_info("Changed: %s", yes_no(r));
+
+        userns_ctx_free(userns);
 
         return EXIT_SUCCESS;
 }
