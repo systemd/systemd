@@ -28,6 +28,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "nspawn-mount.h"
+#include "nspawn-user-namespace.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -181,19 +182,21 @@ int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
 
 static int tmpfs_patch_options(
                 const char *options,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                UserNamespaceContext *userns_ctx,
                 const char *selinux_apifs_context,
                 char **ret) {
 
         char *buf = NULL;
 
-        if (userns && uid_shift != 0) {
-                assert(uid_shift != UID_INVALID);
+        if (userns_ctx->mode != USER_NAMESPACE_NO && userns_ctx->uid_shift != 0) {
+                assert(userns_ctx->uid_shift != UID_INVALID);
 
                 if (options)
-                        (void) asprintf(&buf, "%s,uid=" UID_FMT ",gid=" UID_FMT, options, uid_shift, uid_shift);
+                        (void) asprintf(&buf, "%s,uid=" UID_FMT ",gid=" UID_FMT, options,
+                                        userns_ctx->uid_shift, userns_ctx->uid_shift);
                 else
-                        (void) asprintf(&buf, "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift);
+                        (void) asprintf(&buf, "uid=" UID_FMT ",gid=" UID_FMT,
+                                        userns_ctx->uid_shift, userns_ctx->uid_shift);
                 if (!buf)
                         return -ENOMEM;
 
@@ -280,9 +283,9 @@ int mount_sysfs(const char *dest) {
 }
 
 int mount_all(const char *dest,
-              bool use_userns, bool in_userns,
+              UserNamespaceContext *userns_ctx,
+              bool in_userns,
               bool use_netns,
-              uid_t uid_shift, uid_t uid_range,
               const char *selinux_apifs_context) {
 
         typedef struct MountPoint {
@@ -348,7 +351,7 @@ int mount_all(const char *dest,
 
                 o = mount_table[k].options;
                 if (streq_ptr(mount_table[k].type, "tmpfs")) {
-                        r = tmpfs_patch_options(o, use_userns, uid_shift, uid_range, selinux_apifs_context, &options);
+                        r = tmpfs_patch_options(o, userns_ctx, selinux_apifs_context, &options);
                         if (r < 0)
                                 return log_oom();
                         if (r > 0)
@@ -469,7 +472,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
 static int mount_tmpfs(
                 const char *dest,
                 CustomMount *m,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                UserNamespaceContext *userns_ctx,
                 const char *selinux_apifs_context) {
 
         const char *where, *options;
@@ -485,7 +488,7 @@ static int mount_tmpfs(
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
 
-        r = tmpfs_patch_options(m->options, userns, uid_shift, uid_range, selinux_apifs_context, &buf);
+        r = tmpfs_patch_options(m->options, userns_ctx, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
         options = r > 0 ? buf : m->options;
@@ -563,8 +566,8 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 
 int mount_custom(
                 const char *dest,
-                CustomMount *mounts, unsigned n,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                CustomMount *mounts,
+                UserNamespaceContext *userns_ctx, unsigned n,
                 const char *selinux_apifs_context) {
 
         unsigned i;
@@ -582,7 +585,7 @@ int mount_custom(
                         break;
 
                 case CUSTOM_MOUNT_TMPFS:
-                        r = mount_tmpfs(dest, m, userns, uid_shift, uid_range, selinux_apifs_context);
+                        r = mount_tmpfs(dest, m, userns_ctx, selinux_apifs_context);
                         break;
 
                 case CUSTOM_MOUNT_OVERLAY:
@@ -630,7 +633,7 @@ static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controlle
 
 static int mount_legacy_cgroups(
                 const char *dest,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                UserNamespaceContext *userns_ctx,
                 const char *selinux_apifs_context) {
 
         _cleanup_set_free_free_ Set *controllers = NULL;
@@ -648,7 +651,7 @@ static int mount_legacy_cgroups(
         if (r == 0) {
                 _cleanup_free_ char *options = NULL;
 
-                r = tmpfs_patch_options("mode=755", userns, uid_shift, uid_range, selinux_apifs_context, &options);
+                r = tmpfs_patch_options("mode=755", userns_ctx, selinux_apifs_context, &options);
                 if (r < 0)
                         return log_oom();
 
@@ -759,14 +762,14 @@ static int mount_unified_cgroups(const char *dest) {
 
 int mount_cgroups(
                 const char *dest,
+                UserNamespaceContext *userns_ctx,
                 bool unified_requested,
-                bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
         if (unified_requested)
                 return mount_unified_cgroups(dest);
         else
-                return mount_legacy_cgroups(dest, userns, uid_shift, uid_range, selinux_apifs_context);
+                return mount_legacy_cgroups(dest, userns_ctx, selinux_apifs_context);
 }
 
 int mount_systemd_cgroup_writable(
@@ -808,8 +811,8 @@ int mount_systemd_cgroup_writable(
 
 int setup_volatile_state(
                 const char *directory,
+                UserNamespaceContext *userns_ctx,
                 VolatileMode mode,
-                bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
         _cleanup_free_ char *buf = NULL;
@@ -834,7 +837,7 @@ int setup_volatile_state(
                 return log_error_errno(errno, "Failed to create %s: %m", directory);
 
         options = "mode=755";
-        r = tmpfs_patch_options(options, userns, uid_shift, uid_range, selinux_apifs_context, &buf);
+        r = tmpfs_patch_options(options, userns_ctx, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
         if (r > 0)
@@ -848,8 +851,8 @@ int setup_volatile_state(
 
 int setup_volatile(
                 const char *directory,
+                UserNamespaceContext *userns_ctx,
                 VolatileMode mode,
-                bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
         bool tmpfs_mounted = false, bind_mounted = false;
@@ -870,7 +873,7 @@ int setup_volatile(
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
 
         options = "mode=755";
-        r = tmpfs_patch_options(options, userns, uid_shift, uid_range, selinux_apifs_context, &buf);
+        r = tmpfs_patch_options(options, userns_ctx, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
         if (r > 0)

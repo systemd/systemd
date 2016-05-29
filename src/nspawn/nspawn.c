@@ -2524,11 +2524,9 @@ static int inner_child(
         }
 
         r = mount_all(NULL,
-                      arg_userns_mode != USER_NAMESPACE_NO,
+                      container->userns,
                       true,
                       arg_private_network,
-                      arg_uid_shift,
-                      arg_uid_range,
                       arg_selinux_apifs_context);
 
         if (r < 0)
@@ -2809,20 +2807,16 @@ static int outer_child(
 
         r = setup_volatile(
                         directory,
+                        container->userns,
                         arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_context);
         if (r < 0)
                 return r;
 
         r = setup_volatile_state(
                         directory,
+                        container->userns,
                         arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_context);
         if (r < 0)
                 return r;
@@ -2838,11 +2832,9 @@ static int outer_child(
         }
 
         r = mount_all(directory,
-                      arg_userns_mode != USER_NAMESPACE_NO,
+                      container->userns,
                       false,
                       arg_private_network,
-                      arg_uid_shift,
-                      arg_uid_range,
                       arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -2888,20 +2880,16 @@ static int outer_child(
         r = mount_custom(
                         directory,
                         arg_custom_mounts,
+                        container->userns,
                         arg_n_custom_mounts,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
 
         r = mount_cgroups(
                         directory,
+                        container->userns,
                         arg_unified_cgroup_hierarchy,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;

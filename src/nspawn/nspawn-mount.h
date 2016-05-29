@@ -21,6 +21,8 @@
 
 #include <stdbool.h>
 
+#include "nspawn-user-namespace.h"
+
 typedef enum VolatileMode {
         VOLATILE_NO,
         VOLATILE_YES,
@@ -55,15 +57,15 @@ int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s);
 
 int custom_mount_compare(const void *a, const void *b);
 
-int mount_all(const char *dest, bool use_userns, bool in_userns, bool use_netns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int mount_all(const char *dest, UserNamespaceContext *userns_ctx, bool in_userns, bool use_netns, const char *selinux_apifs_context);
 int mount_sysfs(const char *dest);
 
-int mount_cgroups(const char *dest, bool unified_requested, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int mount_cgroups(const char *dest, UserNamespaceContext *userns_ctx, bool unified_requested, const char *selinux_apifs_context);
 int mount_systemd_cgroup_writable(const char *dest, bool unified_requested);
 
-int mount_custom(const char *dest, CustomMount *mounts, unsigned n, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int mount_custom(const char *dest, CustomMount *mounts, UserNamespaceContext *userns_ctx, unsigned n, const char *selinux_apifs_context);
 
-int setup_volatile(const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
-int setup_volatile_state(const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int setup_volatile(const char *directory, UserNamespaceContext *userns_ctx, VolatileMode mode, const char *selinux_apifs_context);
+int setup_volatile_state(const char *directory, UserNamespaceContext *userns_ctx, VolatileMode mode, const char *selinux_apifs_context);
 
 VolatileMode volatile_mode_from_string(const char *s);
