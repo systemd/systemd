@@ -257,7 +257,7 @@ static void help(void) {
                "  -U --private-users=pick   Run within user namespace, pick UID/GID range automatically\n"
                "     --private-users[=UIDBASE[:NUIDS]]\n"
                "                            Run within user namespace, user configured UID/GID range\n"
-               "     --private-user-chown   Adjust OS tree file ownership for private UID/GID range\n"
+               "     --private-users-chown  Adjust OS tree file ownership for private UID/GID range\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
                "                            Assign an existing network interface to the\n"
