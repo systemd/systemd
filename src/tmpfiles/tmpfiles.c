@@ -866,7 +866,7 @@ static int parse_attribute_from_arg(Item *item) {
                 { 'a', FS_APPEND_FL },       /* writes to file may only append */
                 { 'c', FS_COMPR_FL },        /* Compress file */
                 { 'd', FS_NODUMP_FL },       /* do not dump file */
-                { 'e', FS_EXTENT_FL },       /* Top of directory hierarchies*/
+                { 'e', FS_EXTENT_FL },       /* Extents */
                 { 'i', FS_IMMUTABLE_FL },    /* Immutable file */
                 { 'j', FS_JOURNAL_DATA_FL }, /* Reserved for ext3 */
                 { 's', FS_SECRM_FL },        /* Secure deletion */
