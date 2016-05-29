@@ -220,7 +220,7 @@ static int bus_timer_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         char time[FORMAT_TIMESPAN_MAX];
 
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
 
                         v = new0(TimerValue, 1);
                         if (!v)
@@ -249,7 +249,7 @@ static int bus_timer_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, str);
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, str);
 
                         v = new0(TimerValue, 1);
                         if (!v) {
@@ -277,7 +277,7 @@ static int bus_timer_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         t->accuracy_usec = u;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "AccuracySec=" USEC_FMT "us\n", u);
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "AccuracySec=" USEC_FMT "us", u);
                 }
 
                 return 1;
@@ -291,7 +291,7 @@ static int bus_timer_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         t->random_usec = u;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "RandomizedDelaySec=" USEC_FMT "us\n", u);
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "RandomizedDelaySec=" USEC_FMT "us", u);
                 }
 
                 return 1;
@@ -305,7 +305,7 @@ static int bus_timer_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         t->wake_system = b;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, yes_no(b));
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, yes_no(b));
                 }
 
                 return 1;
@@ -319,7 +319,7 @@ static int bus_timer_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         t->remain_after_elapse = b;
-                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, yes_no(b));
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s", name, yes_no(b));
                 }
 
                 return 1;

@@ -166,7 +166,7 @@
             process. That includes simple things such as logging to
             <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
             or <command>systemd</command> itself (this means: no
-            <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)!.
+            <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)!
             Non-essential file systems like
             <filename>/var</filename> and <filename>/home</filename>
             are mounted after generators have run. Generators
@@ -309,12 +309,12 @@
 
       <para><citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       temporarily redirects <filename>default.target</filename> to
-      <filename>system-update.target</filename> if a system update is
+      <filename>system-update.target</filename>, if a system update is
       scheduled. Since this needs to override the default user
       configuration for <filename>default.target</filename>, it uses
       argv[2]. For details about this logic, see
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/SystemUpdates">Implementing
-      Offline System Updates</ulink>.</para>
+      <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+      </para>
     </example>
 
     <example>

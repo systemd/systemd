@@ -263,7 +263,7 @@ static int bus_cgroup_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         c->delegate = b;
-                        unit_write_drop_in_private(u, mode, name, b ? "Delegate=yes\n" : "Delegate=no\n");
+                        unit_write_drop_in_private(u, mode, name, b ? "Delegate=yes" : "Delegate=no");
                 }
 
                 return 1;
@@ -298,7 +298,7 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->cpu_accounting = b;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPUACCT|CGROUP_MASK_CPU);
-                        unit_write_drop_in_private(u, mode, name, b ? "CPUAccounting=yes\n" : "CPUAccounting=no\n");
+                        unit_write_drop_in_private(u, mode, name, b ? "CPUAccounting=yes" : "CPUAccounting=no");
                 }
 
                 return 1;
@@ -318,9 +318,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
 
                         if (shares == CGROUP_CPU_SHARES_INVALID)
-                                unit_write_drop_in_private(u, mode, name, "CPUShares=\n");
+                                unit_write_drop_in_private(u, mode, name, "CPUShares=");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "CPUShares=%" PRIu64 "\n", shares);
+                                unit_write_drop_in_private_format(u, mode, name, "CPUShares=%" PRIu64, shares);
                 }
 
                 return 1;
@@ -340,9 +340,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
 
                         if (shares == CGROUP_CPU_SHARES_INVALID)
-                                unit_write_drop_in_private(u, mode, name, "StartupCPUShares=\n");
+                                unit_write_drop_in_private(u, mode, name, "StartupCPUShares=");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "StartupCPUShares=%" PRIu64 "\n", shares);
+                                unit_write_drop_in_private_format(u, mode, name, "StartupCPUShares=%" PRIu64, shares);
                 }
 
                 return 1;
@@ -360,7 +360,7 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->cpu_quota_per_sec_usec = u64;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
-                        unit_write_drop_in_private_format(u, mode, "CPUQuota", "CPUQuota=%0.f%%\n", (double) (c->cpu_quota_per_sec_usec / 10000));
+                        unit_write_drop_in_private_format(u, mode, "CPUQuota", "CPUQuota=%0.f%%", (double) (c->cpu_quota_per_sec_usec / 10000));
                 }
 
                 return 1;
@@ -375,7 +375,7 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->io_accounting = b;
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
-                        unit_write_drop_in_private(u, mode, name, b ? "IOAccounting=yes\n" : "IOAccounting=no\n");
+                        unit_write_drop_in_private(u, mode, name, b ? "IOAccounting=yes" : "IOAccounting=no");
                 }
 
                 return 1;
@@ -395,9 +395,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
                         if (weight == CGROUP_WEIGHT_INVALID)
-                                unit_write_drop_in_private(u, mode, name, "IOWeight=\n");
+                                unit_write_drop_in_private(u, mode, name, "IOWeight=");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "IOWeight=%" PRIu64 "\n", weight);
+                                unit_write_drop_in_private_format(u, mode, name, "IOWeight=%" PRIu64, weight);
                 }
 
                 return 1;
@@ -417,9 +417,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
                         if (weight == CGROUP_WEIGHT_INVALID)
-                                unit_write_drop_in_private(u, mode, name, "StartupIOWeight=\n");
+                                unit_write_drop_in_private(u, mode, name, "StartupIOWeight=");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "StartupIOWeight=%" PRIu64 "\n", weight);
+                                unit_write_drop_in_private_format(u, mode, name, "StartupIOWeight=%" PRIu64, weight);
                 }
 
                 return 1;
@@ -592,7 +592,7 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->blockio_accounting = b;
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
-                        unit_write_drop_in_private(u, mode, name, b ? "BlockIOAccounting=yes\n" : "BlockIOAccounting=no\n");
+                        unit_write_drop_in_private(u, mode, name, b ? "BlockIOAccounting=yes" : "BlockIOAccounting=no");
                 }
 
                 return 1;
@@ -612,9 +612,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
 
                         if (weight == CGROUP_BLKIO_WEIGHT_INVALID)
-                                unit_write_drop_in_private(u, mode, name, "BlockIOWeight=\n");
+                                unit_write_drop_in_private(u, mode, name, "BlockIOWeight=");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "BlockIOWeight=%" PRIu64 "\n", weight);
+                                unit_write_drop_in_private_format(u, mode, name, "BlockIOWeight=%" PRIu64, weight);
                 }
 
                 return 1;
@@ -634,9 +634,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
 
                         if (weight == CGROUP_BLKIO_WEIGHT_INVALID)
-                                unit_write_drop_in_private(u, mode, name, "StartupBlockIOWeight=\n");
+                                unit_write_drop_in_private(u, mode, name, "StartupBlockIOWeight=");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "StartupBlockIOWeight=%" PRIu64 "\n", weight);
+                                unit_write_drop_in_private_format(u, mode, name, "StartupBlockIOWeight=%" PRIu64, weight);
                 }
 
                 return 1;
@@ -824,7 +824,7 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->memory_accounting = b;
                         unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
-                        unit_write_drop_in_private(u, mode, name, b ? "MemoryAccounting=yes\n" : "MemoryAccounting=no\n");
+                        unit_write_drop_in_private(u, mode, name, b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
                 }
 
                 return 1;
@@ -847,9 +847,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
 
                         if (v == CGROUP_LIMIT_MAX)
-                                unit_write_drop_in_private_format(u, mode, name, "%s=max\n", name);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=max", name);
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64 "\n", name, v);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, v);
                 }
 
                 return 1;
@@ -866,9 +866,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
 
                         if (limit == (uint64_t) -1)
-                                unit_write_drop_in_private(u, mode, name, "MemoryLimit=infinity\n");
+                                unit_write_drop_in_private(u, mode, name, "MemoryLimit=infinity");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "MemoryLimit=%" PRIu64 "\n", limit);
+                                unit_write_drop_in_private_format(u, mode, name, "MemoryLimit=%" PRIu64, limit);
                 }
 
                 return 1;
@@ -888,7 +888,7 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->device_policy = p;
                         unit_invalidate_cgroup(u, CGROUP_MASK_DEVICES);
-                        unit_write_drop_in_private_format(u, mode, name, "DevicePolicy=%s\n", policy);
+                        unit_write_drop_in_private_format(u, mode, name, "DevicePolicy=%s", policy);
                 }
 
                 return 1;
@@ -992,7 +992,7 @@ int bus_cgroup_set_property(
                 if (mode != UNIT_CHECK) {
                         c->tasks_accounting = b;
                         unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
-                        unit_write_drop_in_private(u, mode, name, b ? "TasksAccounting=yes\n" : "TasksAccounting=no\n");
+                        unit_write_drop_in_private(u, mode, name, b ? "TasksAccounting=yes" : "TasksAccounting=no");
                 }
 
                 return 1;
@@ -1009,9 +1009,9 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
                         if (limit == (uint64_t) -1)
-                                unit_write_drop_in_private(u, mode, name, "TasksMax=infinity\n");
+                                unit_write_drop_in_private(u, mode, name, "TasksMax=infinity");
                         else
-                                unit_write_drop_in_private_format(u, mode, name, "TasksMax=%" PRIu64 "\n", limit);
+                                unit_write_drop_in_private_format(u, mode, name, "TasksMax=%" PRIu64, limit);
                 }
 
                 return 1;
