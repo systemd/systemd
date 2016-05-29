@@ -1,3 +1,5 @@
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -18,6 +20,22 @@
 ***/
 
 #include <sys/types.h>
+
+typedef enum UserNamespaceMode {
+        USER_NAMESPACE_NO,
+        USER_NAMESPACE_FIXED,
+        USER_NAMESPACE_PICK,
+        _USER_NAMESPACE_MODE_MAX,
+        _USER_NAMESPACE_MODE_INVALID = -1,
+} UserNamespaceMode;
+
+typedef struct UserNamespaceContext {
+        uid_t			base_uid;
+        gid_t			base_gid;
+        uid_t			uid_shift;
+        uid_t			uid_range;
+        UserNamespaceMode	mode;
+} UserNamespaceContext;
 
 int fd_patch_uid(int fd, uid_t shift, uid_t range);
 int path_patch_uid(const char *path, uid_t shift, uid_t range);

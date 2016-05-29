@@ -30,7 +30,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "missing.h"
-#include "nspawn-patch-uid.h"
+#include "nspawn-user-namespace.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"

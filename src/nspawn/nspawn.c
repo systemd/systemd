@@ -74,7 +74,7 @@
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
-#include "nspawn-patch-uid.h"
+#include "nspawn-user-namespace.h"
 #include "nspawn-register.h"
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"

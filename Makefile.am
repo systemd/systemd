@@ -3024,8 +3024,8 @@ systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn-setuid.h \
 	src/nspawn/nspawn-stub-pid1.c \
 	src/nspawn/nspawn-stub-pid1.h \
-	src/nspawn/nspawn-patch-uid.c \
-	src/nspawn/nspawn-patch-uid.h \
+	src/nspawn/nspawn-user-namespace.c \
+	src/nspawn/nspawn-user-namespace.h \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
@@ -3054,8 +3054,8 @@ systemd_nspawn_LDADD += \
 endif
 
 test_patch_uid_SOURCES = \
-	src/nspawn/nspawn-patch-uid.c \
-	src/nspawn/nspawn-patch-uid.h \
+	src/nspawn/nspawn-user-namespace.c \
+	src/nspawn/nspawn-user-namespace.h \
 	src/nspawn/test-patch-uid.c
 
 test_patch_uid_LDADD = \

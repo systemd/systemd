@@ -20,7 +20,7 @@
 #include <stdlib.h>
 
 #include "log.h"
-#include "nspawn-patch-uid.h"
+#include "nspawn-user-namespace.h"
 #include "user-util.h"
 #include "util.h"
 
