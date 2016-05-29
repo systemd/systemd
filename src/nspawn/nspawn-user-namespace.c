@@ -17,6 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <fcntl.h>
 #include <linux/magic.h>
 #ifdef HAVE_ACL
@@ -36,6 +37,35 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+int userns_ctx_new(uid_t base_uid, gid_t base_gid,
+                   uid_t uid_shift, uid_t uid_range,
+                   UserNamespaceMode mode, UserNamespaceContext **ctx) {
+        UserNamespaceContext *u;
+
+        assert(ctx);
+
+        u = new0(UserNamespaceContext, 1);
+        if (!u)
+                return -ENOMEM;
+
+        u->base_uid = base_uid;
+        u->base_gid = base_gid;
+        u->uid_shift = uid_shift;
+        u->uid_range = uid_range;
+        u->mode = mode;
+
+        *ctx = u;
+        return 0;
+}
+
+UserNamespaceContext* userns_ctx_free(UserNamespaceContext *ctx) {
+        if (!ctx)
+                return NULL;
+
+        free(ctx);
+        return NULL;
+}
 
 #ifdef HAVE_ACL
 
@@ -475,4 +505,94 @@ int path_patch_uid(const char *path, uid_t shift, uid_t range) {
                 return -errno;
 
         return fd_patch_uid_internal(fd, true, shift, range);
+}
+
+int userns_lchown(UserNamespaceContext *userns_ctx, const char *path) {
+        uid_t uid = userns_ctx->base_uid;
+        gid_t gid = userns_ctx->base_gid;
+
+        assert(userns_ctx);
+        assert(path);
+
+        if (userns_ctx->mode == USER_NAMESPACE_NO)
+                return 0;
+
+        if (uid == UID_INVALID && gid == GID_INVALID)
+                return 0;
+
+        if (uid != UID_INVALID) {
+                uid += userns_ctx->uid_shift;
+
+                if (uid < userns_ctx->uid_shift ||
+                    uid >= userns_ctx->uid_shift + userns_ctx->uid_range)
+                        return -EOVERFLOW;
+        }
+
+        if (gid != GID_INVALID) {
+                gid += (gid_t) userns_ctx->uid_shift;
+
+                if (gid < (gid_t) userns_ctx->uid_shift ||
+                    gid >= (gid_t) (userns_ctx->uid_shift + userns_ctx->uid_range))
+                        return -EOVERFLOW;
+        }
+
+        if (lchown(path, uid, gid) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int userns_mkdir(UserNamespaceContext *userns_ctx, const char *root,
+                 const char *path, mode_t mode) {
+        const char *q;
+
+        q = prefix_roota(root, path);
+        if (mkdir(q, mode) < 0) {
+                if (errno == EEXIST)
+                        return 0;
+                return -errno;
+        }
+
+        return userns_lchown(userns_ctx, q);
+}
+
+int userns_path_update_userns_ctx(UserNamespaceContext *userns_ctx, const char *path) {
+        int r;
+        uid_t shift = userns_ctx->uid_shift;
+        uid_t range = userns_ctx->uid_range;
+
+        assert(userns_ctx);
+        assert(path);
+
+        if (userns_ctx->mode == USER_NAMESPACE_NO) {
+                userns_ctx->uid_shift = 0;
+                userns_ctx->uid_range = 0;
+                return 0;
+        }
+
+        if (userns_ctx->uid_shift == UID_INVALID) {
+                struct stat st;
+
+                r = stat(path, &st);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to determine UID base of %s: %m", path);
+
+                shift = st.st_uid & UINT32_C(0xffff0000);
+
+                if (shift != (st.st_gid & UINT32_C(0xffff0000))) {
+                        log_error("UID and GID base of %s don't match.", path);
+                        return -EINVAL;
+                }
+
+                range = UINT32_C(0x10000);
+        }
+
+        if (shift > (uid_t) -1 - range) {
+                log_error("UID base too high for UID range.");
+                return -EINVAL;
+        }
+
+        userns_ctx->uid_shift = shift;
+        userns_ctx->uid_range = range;
+        return 0;
 }

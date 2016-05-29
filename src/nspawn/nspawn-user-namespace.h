@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/stat.h>
 #include <sys/types.h>
 
 typedef enum UserNamespaceMode {
@@ -37,5 +38,15 @@ typedef struct UserNamespaceContext {
         UserNamespaceMode	mode;
 } UserNamespaceContext;
 
+int userns_ctx_new(uid_t base_uid, gid_t base_gid,
+                   uid_t uid_shift, uid_t uid_range,
+                   UserNamespaceMode mode, UserNamespaceContext **ctx);
+UserNamespaceContext* userns_ctx_free(UserNamespaceContext *ctx);
+
 int fd_patch_uid(int fd, uid_t shift, uid_t range);
 int path_patch_uid(const char *path, uid_t shift, uid_t range);
+
+int userns_lchown(UserNamespaceContext *userns_ctx, const char *path);
+int userns_mkdir(UserNamespaceContext *userns_ctx, const char *root,
+                 const char *path, mode_t mode);
+int userns_path_update_userns_ctx(UserNamespaceContext *userns_ctx, const char *path);
