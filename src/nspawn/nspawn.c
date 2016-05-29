@@ -2792,9 +2792,14 @@ static int outer_child(
                                 log_error("Short read while recieving UID shift.");
                                 return -EIO;
                         }
+
+                        r = userns_ctx_set(container->userns, arg_uid_shift, arg_uid_range);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set UID shift: %m");
                 }
 
-                log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
+                log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".",
+                         container->userns->uid_shift, container->userns->uid_range);
         }
 
         /* Turn directory into bind mount */

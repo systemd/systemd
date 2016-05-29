@@ -67,6 +67,41 @@ UserNamespaceContext* userns_ctx_free(UserNamespaceContext *ctx) {
         return NULL;
 }
 
+int userns_ctx_set(UserNamespaceContext *userns_ctx, uid_t uid_shift, uid_t uid_range) {
+        uid_t uid = userns_ctx->base_uid;
+        gid_t gid = userns_ctx->base_gid;
+
+        assert(userns_ctx);
+
+        if (!uid_is_valid(uid_shift))
+                return -ENXIO;
+
+        if (userns_ctx->mode == USER_NAMESPACE_NO)
+                return 0;
+
+        if (uid == UID_INVALID && gid == GID_INVALID)
+                return 0;
+
+        if (uid != UID_INVALID) {
+                uid += uid_shift;
+
+                if (uid < uid_shift || uid >= uid_shift + uid_range)
+                        return -EOVERFLOW;
+        }
+
+        if (gid != GID_INVALID) {
+                gid += (gid_t) uid_shift;
+
+                if (gid < (gid_t) uid_shift || gid >= (gid_t) uid_shift + uid_range)
+                        return -EOVERFLOW;
+        }
+
+        userns_ctx->uid_shift = uid_shift;
+        userns_ctx->uid_range = uid_range;
+
+        return 0;
+}
+
 #ifdef HAVE_ACL
 
 static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {

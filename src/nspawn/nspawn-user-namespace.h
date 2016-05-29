@@ -43,6 +43,8 @@ int userns_ctx_new(uid_t base_uid, gid_t base_gid,
                    UserNamespaceMode mode, UserNamespaceContext **ctx);
 UserNamespaceContext* userns_ctx_free(UserNamespaceContext *ctx);
 
+int userns_ctx_set(UserNamespaceContext *userns_ctx, uid_t uid_shift, uid_t uid_range);
+
 int userns_fd_patch_uid(UserNamespaceContext *userns_ctx, const int fd);
 int userns_path_patch_uid(UserNamespaceContext *userns_ctx, const char *path);
 
