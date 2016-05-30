@@ -100,3 +100,4 @@ Bridge.MaxAgeSec,            config_parse_sec,                   0,             
 Bridge.ForwardDelaySec,      config_parse_sec,                   0,                             offsetof(Bridge, forward_delay)
 Bridge.MulticastQuerier,     config_parse_tristate,              0,                             offsetof(Bridge, mcast_querier)
 Bridge.MulticastSnooping,    config_parse_tristate,              0,                             offsetof(Bridge, mcast_snooping)
+Bridge.VLANFiltering,        config_parse_tristate,              0,                             offsetof(Bridge, vlan_filtering)

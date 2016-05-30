@@ -330,6 +330,15 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>VLANFiltering=</varname></term>
+          <listitem>
+            <para>A boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
+            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's
+            default setting applies.
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
   </refsect1>
