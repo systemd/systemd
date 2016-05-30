@@ -97,10 +97,6 @@ typedef struct Context {
         Hashmap *polkit_registry;
 } Context;
 
-static const char* nonempty(const char *s) {
-        return isempty(s) ? NULL : s;
-}
-
 static bool startswith_comma(const char *s, const char *prefix) {
         const char *t;
 
@@ -171,8 +167,7 @@ static int locale_read_data(Context *c) {
                 for (p = 0; p < _LOCALE_MAX; p++) {
                         assert(names[p]);
 
-                        r = free_and_strdup(&c->locale[p],
-                                            nonempty(getenv(names[p])));
+                        r = free_and_strdup(&c->locale[p], empty_to_null(getenv(names[p])));
                         if (r < 0)
                                 return r;
                 }
@@ -1041,11 +1036,8 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        if (isempty(keymap))
-                keymap = NULL;
-
-        if (isempty(keymap_toggle))
-                keymap_toggle = NULL;
+        keymap = empty_to_null(keymap);
+        keymap_toggle = empty_to_null(keymap_toggle);
 
         if (!streq_ptr(keymap, c->vc_keymap) ||
             !streq_ptr(keymap_toggle, c->vc_keymap_toggle)) {
@@ -1214,17 +1206,10 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        if (isempty(layout))
-                layout = NULL;
-
-        if (isempty(model))
-                model = NULL;
-
-        if (isempty(variant))
-                variant = NULL;
-
-        if (isempty(options))
-                options = NULL;
+        layout = empty_to_null(layout);
+        model = empty_to_null(model);
+        variant = empty_to_null(variant);
+        options = empty_to_null(options);
 
         if (!streq_ptr(layout, c->x11_layout) ||
             !streq_ptr(model, c->x11_model) ||

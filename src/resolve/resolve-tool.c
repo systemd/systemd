@@ -658,10 +658,8 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         assert(bus);
         assert(domain);
 
-        if (isempty(name))
-                name = NULL;
-        if (isempty(type))
-                type = NULL;
+        name = empty_to_null(name);
+        type = empty_to_null(type);
 
         if (arg_ifindex > 0 && !if_indextoname(arg_ifindex, ifname))
                 return log_error_errno(errno, "Failed to resolve interface name for index %i: %m", arg_ifindex);
@@ -820,10 +818,8 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (isempty(canonical_name))
-                canonical_name = NULL;
-        if (isempty(canonical_type))
-                canonical_type = NULL;
+        canonical_name = empty_to_null(canonical_name);
+        canonical_type = empty_to_null(canonical_type);
 
         if (!streq_ptr(name, canonical_name) ||
             !streq_ptr(type, canonical_type) ||

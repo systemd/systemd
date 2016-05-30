@@ -479,8 +479,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (isempty(name))
-                name = NULL;
+        name = empty_to_null(name);
 
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
@@ -499,9 +498,9 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (isempty(name)) {
+        if (isempty(name))
                 c->data[PROP_STATIC_HOSTNAME] = mfree(c->data[PROP_STATIC_HOSTNAME]);
-        } else {
+        else {
                 char *h;
 
                 if (!hostname_is_valid(name, false))
@@ -546,8 +545,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         if (r < 0)
                 return r;
 
-        if (isempty(name))
-                name = NULL;
+        name = empty_to_null(name);
 
         if (streq_ptr(name, c->data[prop]))
                 return sd_bus_reply_method_return(m, NULL);
@@ -570,9 +568,9 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (isempty(name)) {
+        if (isempty(name))
                 c->data[prop] = mfree(c->data[prop]);
-        } else {
+        else {
                 char *h;
 
                 /* The icon name might ultimately be used as file

@@ -527,9 +527,7 @@ static int load_sysv(SysvStub *s) {
                                         t[k-1] = 0;
                                 }
 
-                                j = strstrip(t+12);
-                                if (isempty(j))
-                                        j = NULL;
+                                j = empty_to_null(strstrip(t+12));
 
                                 r = free_and_strdup(&chkconfig_description, j);
                                 if (r < 0)
@@ -605,9 +603,7 @@ static int load_sysv(SysvStub *s) {
 
                                 state = LSB_DESCRIPTION;
 
-                                j = strstrip(t+12);
-                                if (isempty(j))
-                                        j = NULL;
+                                j = empty_to_null(strstrip(t+12));
 
                                 r = free_and_strdup(&long_description, j);
                                 if (r < 0)
@@ -618,9 +614,7 @@ static int load_sysv(SysvStub *s) {
 
                                 state = LSB;
 
-                                j = strstrip(t+18);
-                                if (isempty(j))
-                                        j = NULL;
+                                j = empty_to_null(strstrip(t+18));
 
                                 r = free_and_strdup(&short_description, j);
                                 if (r < 0)
