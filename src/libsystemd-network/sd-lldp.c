@@ -138,6 +138,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
                 if (lldp_neighbor_equal(n, old)) {
                         /* Is this equal, then restart the TTL counter, but don't do anyting else. */
+                        old->timestamp = n->timestamp;
                         lldp_start_timer(lldp, old);
                         lldp_callback(lldp, SD_LLDP_EVENT_REFRESHED, old);
                         return 0;
@@ -202,6 +203,7 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
         ssize_t space, length;
         sd_lldp *lldp = userdata;
+        struct timespec ts;
 
         assert(fd >= 0);
         assert(lldp);
@@ -222,6 +224,12 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
                 log_lldp("Packet size mismatch.");
                 return -EINVAL;
         }
+
+        /* Try to get the timestamp of this packet if it is known */
+        if (ioctl(fd, SIOCGSTAMPNS, &ts) >= 0)
+                triple_timestamp_from_realtime(&n->timestamp, timespec_load(&ts));
+        else
+                triple_timestamp_get(&n->timestamp);
 
         return lldp_handle_datagram(lldp, n);
 }

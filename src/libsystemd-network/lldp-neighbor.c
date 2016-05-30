@@ -360,9 +360,16 @@ end_marker:
 void lldp_neighbor_start_ttl(sd_lldp_neighbor *n) {
         assert(n);
 
-        if (n->ttl > 0)
-                n->until = usec_add(now(clock_boottime_or_monotonic()), n->ttl * USEC_PER_SEC);
-        else
+        if (n->ttl > 0) {
+                usec_t base;
+
+                /* Use the packet's timestamp if there is one known */
+                base = triple_timestamp_by_clock(&n->timestamp, clock_boottime_or_monotonic());
+                if (base <= 0 || base == USEC_INFINITY)
+                        base = now(clock_boottime_or_monotonic()); /* Otherwise, take the current time */
+
+                n->until = usec_add(base, n->ttl * USEC_PER_SEC);
+        } else
                 n->until = 0;
 
         if (n->lldp)
@@ -790,5 +797,18 @@ _public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret,
         *ret = (uint8_t*) LLDP_NEIGHBOR_RAW(n) + n->rindex;
         *size = length + 2;
 
+        return 0;
+}
+
+int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret) {
+        assert_return(n, -EINVAL);
+        assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
+        assert_return(clock_supported(clock), -EOPNOTSUPP);
+        assert_return(ret, -EINVAL);
+
+        if (!triple_timestamp_is_set(&n->timestamp))
+                return -ENODATA;
+
+        *ret = triple_timestamp_by_clock(&n->timestamp, clock);
         return 0;
 }

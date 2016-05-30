@@ -43,6 +43,8 @@ struct sd_lldp_neighbor {
         sd_lldp *lldp;
         unsigned n_ref;
 
+        triple_timestamp timestamp;
+
         usec_t until;
         unsigned prioq_idx;
 
