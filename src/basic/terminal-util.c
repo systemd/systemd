@@ -1193,6 +1193,19 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         return receive_one_fd(pair[0], 0);
 }
 
+bool terminal_is_dumb(void) {
+        const char *e;
+
+        if (!on_tty())
+                return true;
+
+        e = getenv("TERM");
+        if (!e)
+                return true;
+
+        return streq(e, "dumb");
+}
+
 bool colors_enabled(void) {
         static int enabled = -1;
 
@@ -1202,10 +1215,8 @@ bool colors_enabled(void) {
                 colors = getenv("SYSTEMD_COLORS");
                 if (colors)
                         enabled = parse_boolean(colors) != 0;
-                else if (streq_ptr(getenv("TERM"), "dumb"))
-                        enabled = false;
                 else
-                        enabled = on_tty();
+                        enabled = !terminal_is_dumb();
         }
 
         return enabled;
