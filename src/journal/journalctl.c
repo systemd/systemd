@@ -1664,15 +1664,19 @@ static int setup_keys(void) {
         if (on_tty()) {
                 fprintf(stderr,
                         "\n"
-                        "The new key pair has been generated. The " ANSI_HIGHLIGHT "secret sealing key" ANSI_NORMAL " has been written to\n"
+                        "The new key pair has been generated. The %ssecret sealing key%s has been written to\n"
                         "the following local file. This key file is automatically updated when the\n"
                         "sealing key is advanced. It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
-                        "Please write down the following " ANSI_HIGHLIGHT "secret verification key" ANSI_NORMAL ". It should be stored\n"
+                        "Please write down the following %ssecret verification key%s. It should be stored\n"
                         "at a safe location and should not be saved locally on disk.\n"
-                        "\n\t" ANSI_HIGHLIGHT_RED, p);
+                        "\n\t%s",
+                        ansi_highlight(), ansi_normal(),
+                        ansi_highlight(), ansi_normal(),
+                        ansi_highlight_red(),
+                        p);
                 fflush(stderr);
         }
         for (i = 0; i < seed_size; i++) {
@@ -1687,8 +1691,9 @@ static int setup_keys(void) {
                 char tsb[FORMAT_TIMESPAN_MAX], *hn;
 
                 fprintf(stderr,
-                        ANSI_NORMAL "\n"
+                        "%s\n"
                         "The sealing key is automatically changed every %s.\n",
+                        ansi_normal(),
                         format_timespan(tsb, sizeof(tsb), arg_interval, 0));
 
                 hn = gethostname_malloc();

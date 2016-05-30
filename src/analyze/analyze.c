@@ -758,9 +758,9 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
 
         if (times) {
                 if (times->time)
-                        printf("%s%s @%s +%s%s", ANSI_HIGHLIGHT_RED, name,
+                        printf("%s%s @%s +%s%s", ansi_highlight_red(), name,
                                format_timespan(ts, sizeof(ts), times->activating - boot->userspace_time, USEC_PER_MSEC),
-                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ANSI_NORMAL);
+                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ansi_normal());
                 else if (times->activated > boot->userspace_time)
                         printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
@@ -926,8 +926,8 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
         if (times) {
                 if (times->time)
-                        printf("%s%s +%s%s\n", ANSI_HIGHLIGHT_RED, id,
-                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ANSI_NORMAL);
+                        printf("%s%s +%s%s\n", ansi_highlight_red(), id,
+                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ansi_normal());
                 else if (times->activated > boot->userspace_time)
                         printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
