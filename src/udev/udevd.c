@@ -368,7 +368,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 manager->monitor = udev_monitor_unref(manager->monitor);
                 manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
                 manager->ctrl = udev_ctrl_unref(manager->ctrl);
-                manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
                 manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
 
                 manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
