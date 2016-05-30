@@ -199,6 +199,14 @@ static void test_x11_convert_to_vconsole(void) {
 
         assert_se(x11_convert_to_vconsole(&c) == 1);
         assert_se(streq(c.vc_keymap, "ru"));
+
+        /* https://bugzilla.redhat.com/show_bug.cgi?id=1333998 */
+        log_info("/* test with a simple new mapping (ru:) */");
+        assert_se(free_and_strdup(&c.x11_layout, "ru") >= 0);
+        assert_se(free_and_strdup(&c.x11_variant, NULL) >= 0);
+
+        assert_se(x11_convert_to_vconsole(&c) == 0);
+        assert_se(streq(c.vc_keymap, "ru"));
 }
 
 int main(int argc, char **argv) {

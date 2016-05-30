@@ -39,7 +39,7 @@ static bool startswith_comma(const char *s, const char *prefix) {
         if (!s)
                 return false;
 
-        return *s == ',';
+        return *s == ',' || *s == '\0';
 }
 
 static const char* strnulldash(const char *s) {
