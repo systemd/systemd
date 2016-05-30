@@ -1160,7 +1160,7 @@
         effect is inverted: only the listed system calls will result
         in immediate process termination (blacklisting). If running in
         user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capabiblity (e.g. setting
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
         <varname>User=nobody</varname>),
         <varname>NoNewPrivileges=yes</varname> is implied. This
         feature makes use of the Secure Computing Mode 2 interfaces of
@@ -1222,7 +1222,7 @@
         more strictly: to the architecture the system manager is
         compiled for). If running in user mode, or in system mode,
         but without the <constant>CAP_SYS_ADMIN</constant>
-        capabiblity (e.g. setting <varname>User=nobody</varname>),
+        capability (e.g. setting <varname>User=nobody</varname>),
         <varname>NoNewPrivileges=yes</varname> is implied. Note
         that setting this option to a non-empty list implies that
         <constant>native</constant> is included too. By default, this
@@ -1254,7 +1254,7 @@
         has no effect on 32-bit x86 and is ignored (but works
         correctly on x86-64). If running in user mode, or in system
         mode, but without the <constant>CAP_SYS_ADMIN</constant>
-        capabiblity (e.g. setting <varname>User=nobody</varname>),
+        capability (e.g. setting <varname>User=nobody</varname>),
         <varname>NoNewPrivileges=yes</varname> is implied. By
         default, no restriction applies, all address families are
         accessible to processes. If assigned the empty string, any
