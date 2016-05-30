@@ -155,14 +155,14 @@ int ask_char(char *ret, const char *replies, const char *text, ...) {
                 char c;
                 bool need_nl = true;
 
-                if (on_tty())
+                if (colors_enabled())
                         fputs(ANSI_HIGHLIGHT, stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
-                if (on_tty())
+                if (colors_enabled())
                         fputs(ANSI_NORMAL, stdout);
 
                 fflush(stdout);
@@ -199,14 +199,14 @@ int ask_string(char **ret, const char *text, ...) {
                 char line[LINE_MAX];
                 va_list ap;
 
-                if (on_tty())
+                if (colors_enabled())
                         fputs(ANSI_HIGHLIGHT, stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
-                if (on_tty())
+                if (colors_enabled())
                         fputs(ANSI_NORMAL, stdout);
 
                 fflush(stdout);
