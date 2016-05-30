@@ -4633,6 +4633,8 @@ static int show_one(
                  */
                 if (info.pid_file && access(info.pid_file, F_OK) == 0)
                         r = 1;
+                else if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive"))
+                        r = 4;
                 else
                         r = 3;
         }
