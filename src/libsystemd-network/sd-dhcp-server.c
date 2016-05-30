@@ -633,7 +633,8 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
 
                 break;
         case SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE:
-                if (len == 2)
+
+                if (len == 2 && unaligned_read_be16(option) >= sizeof(DHCPPacket))
                         req->max_optlen = unaligned_read_be16(option) - sizeof(DHCPPacket);
 
                 break;
