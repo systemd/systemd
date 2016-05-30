@@ -30,17 +30,6 @@ __get_machines() {
 		{ while read a b; do echo " $a"; done; } | sort -u;
 }
 
-__journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
-                  ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID} COREDUMP_EXE
-                  _{P,U,G}ID _COMM _EXE _CMDLINE
-                  _CAP_EFFECTIVE _AUDIT_{SESSION,LOGINUID}
-                  _SYSTEMD_{CGROUP,SESSION,{,USER_}UNIT,OWNER_UID,SLICE}
-                  _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
-                  _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
-                  _KERNEL_{DEVICE,SUBSYSTEM}
-                  _UDEV_{SYSNAME,DEVNODE,DEVLINK}
-                  __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
-
 __syslog_priorities=(emerg alert crit err warning notice info debug)
 
 _journalctl() {
@@ -79,7 +68,7 @@ _journalctl() {
                                 comps='short short-iso short-precise short-monotonic verbose export json json-pretty json-sse cat'
                         ;;
                         --field|-F)
-                                comps=${__journal_fields[*]}
+                                comps=$(journalctl --fields | sort 2>/dev/null)
 			;;
                         --machine|-M)
                                 comps=$( __get_machines )
@@ -125,8 +114,9 @@ _journalctl() {
                 mapfile -t field_vals < <(journalctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
                 COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
         else
+                mapfile -t field_vals < <(journalctl --fields 2>/dev/null)
                 compopt -o nospace
-                COMPREPLY=( $(compgen -W '${__journal_fields[*]}' -S= -- "$cur") )
+                COMPREPLY=( $(compgen -W '${field_vals[*]}' -S= -- "$cur") )
         fi
 }
 
