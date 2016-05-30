@@ -318,8 +318,7 @@
         <varname>TasksAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit
-        settings. <varname>DefaulTasksAccounting=</varname> defaults
-        to on, the other three settings to off.</para></listitem>
+        settings. All settings are off per default.</para></listitem>
       </varlistentry>
 
       <varlistentry>
