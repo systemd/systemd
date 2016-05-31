@@ -4561,6 +4561,14 @@ static int show_one(
                 .tasks_current = (uint64_t) -1,
                 .tasks_max = (uint64_t) -1,
         };
+        struct property_info {
+                const char *load_state, *active_state;
+        } property_info = {};
+        static const struct bus_properties_map property_map[] = {
+                { "LoadState",   "s", NULL, offsetof(struct property_info, load_state)   },
+                { "ActiveState", "s", NULL, offsetof(struct property_info, active_state) },
+                {}
+        };
         ExecStatusInfo *p;
         int r;
 
@@ -4580,6 +4588,17 @@ static int show_one(
                         "s", "");
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
+
+        r = bus_message_map_all_properties(reply, property_map, &property_info);
+        if (r < 0)
+                return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
+
+        if (streq_ptr(property_info.load_state, "not-found") && streq_ptr(property_info.active_state, "inactive"))
+                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
+
+        r = sd_bus_message_rewind(reply, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
@@ -4889,6 +4908,9 @@ static int show(int argc, char *argv[], void *userdata) {
                                         return r;
                                 else if (r > 0 && ret == 0)
                                         ret = r;
+
+                                if (r == EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN)
+                                        log_error("Can't display property %s. Unit %s does not exist.", *patterns, *name);
                         }
                 }
         }
