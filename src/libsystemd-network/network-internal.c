@@ -27,7 +27,7 @@
 #include "condition.h"
 #include "conf-parser.h"
 #include "dhcp-lease-internal.h"
-#include "ether-addr-util.c"
+#include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "network-internal.h"
