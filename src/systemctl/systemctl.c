@@ -85,6 +85,25 @@
 #include "verbs.h"
 #include "virt.h"
 
+/* The init script exit status codes
+   0       program is running or service is OK
+   1       program is dead and /var/run pid file exists
+   2       program is dead and /var/lock lock file exists
+   3       program is not running
+   4       program or service status is unknown
+   5-99    reserved for future LSB use
+   100-149 reserved for distribution use
+   150-199 reserved for application use
+   200-254 reserved
+*/
+enum {
+        EXIT_PROGRAM_RUNNING_OR_SERVICE_OK        = 0,
+        EXIT_PROGRAM_DEAD_AND_PID_EXISTS          = 1,
+        EXIT_PROGRAM_DEAD_AND_LOCK_FILE_EXISTS    = 2,
+        EXIT_PROGRAM_NOT_RUNNING                  = 3,
+        EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN   = 4,
+};
+
 static char **arg_types = NULL;
 static char **arg_states = NULL;
 static char **arg_properties = NULL;
@@ -3291,12 +3310,12 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
 static int check_unit_active(int argc, char *argv[], void *userdata) {
         const UnitActiveState states[] = { UNIT_ACTIVE, UNIT_RELOADING };
         /* According to LSB: 3, "program is not running" */
-        return check_unit_generic(3, states, ELEMENTSOF(states), strv_skip(argv, 1));
+        return check_unit_generic(EXIT_PROGRAM_NOT_RUNNING, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
 static int check_unit_failed(int argc, char *argv[], void *userdata) {
         const UnitActiveState states[] = { UNIT_FAILED };
-        return check_unit_generic(1, states, ELEMENTSOF(states), strv_skip(argv, 1));
+        return check_unit_generic(EXIT_PROGRAM_DEAD_AND_PID_EXISTS, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
 static int kill_unit(int argc, char *argv[], void *userdata) {
@@ -4632,11 +4651,11 @@ static int show_one(
                  * 4: program or service status is unknown
                  */
                 if (info.pid_file && access(info.pid_file, F_OK) == 0)
-                        r = 1;
+                        r = EXIT_PROGRAM_DEAD_AND_PID_EXISTS;
                 else if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive"))
-                        r = 4;
+                        r = EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
                 else
-                        r = 3;
+                        r = EXIT_PROGRAM_NOT_RUNNING;
         }
 
         while ((p = info.exec)) {
