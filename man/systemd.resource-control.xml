@@ -248,7 +248,7 @@
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
-          special value <literal>max</literal>, no memory limit is applied. This controls the
+          special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
@@ -269,7 +269,7 @@
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
-          special value <literal>max</literal>, no memory limit is applied. This controls the
+          special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
