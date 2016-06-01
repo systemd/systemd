@@ -10,6 +10,7 @@ KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
 NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 FSTYPE="${FSTYPE:-ext3}"
+UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-no}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
@@ -70,6 +71,7 @@ init=$ROOTLIBDIR/systemd \
 ro \
 console=ttyS0 \
 selinux=0 \
+systemd.unified_cgroup_hierarchy=$UNIFIED_CGROUP_HIERARCHY \
 $KERNEL_APPEND \
 "
 
@@ -101,6 +103,9 @@ run_nspawn() {
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
+
+    _nspawn_cmd="env UNIFIED_CGROUP_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY $_nspawn_cmd"
+
     set -x
     $_nspawn_cmd
 }
