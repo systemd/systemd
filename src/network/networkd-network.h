@@ -28,6 +28,7 @@
 #include "resolve-util.h"
 
 #include "networkd-address.h"
+#include "networkd-brvlan.h"
 #include "networkd-fdb.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-netdev.h"
@@ -36,6 +37,9 @@
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
+
+#define BRIDGE_VLAN_BITMAP_MAX 4096
+#define BRIDGE_VLAN_BITMAP_LEN (BRIDGE_VLAN_BITMAP_MAX / 32)
 
 typedef enum DCHPClientIdentifier {
         DHCP_CLIENT_ID_MAC,
@@ -145,6 +149,10 @@ struct Network {
         bool allow_port_to_be_root;
         bool unicast_flood;
         unsigned cost;
+
+        uint16_t pvid;
+        uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         AddressFamilyBoolean ip_forward;
         bool ip_masquerade;

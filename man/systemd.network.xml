@@ -1130,6 +1130,39 @@
         </varlistentry>
       </variablelist>
   </refsect1>
+  <refsect1>
+    <title>[BridgeVLAN] Section Options</title>
+      <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
+      the following keys. Specify several <literal>[BridgeVLAN]</literal> sections to configure several VLAN entries.
+      The <varname>VLANFiltering=</varname> option has to be enabled, see <literal>[Bridge]</literal> section in
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>VLAN=</varname></term>
+          <listitem>
+            <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. VLAN IDs are valid
+            from 1 to 4094.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>EgressUntagged=</varname></term>
+          <listitem>
+            <para>The VLAN ID specified here will be used to untag frames on egress. Configuring
+            <varname>EgressUntagged=</varname> implicates the use of <varname>VLAN=</varname> above and will enable the
+            VLAN ID for ingress as well. This can be either a single ID or a range M-N.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>PVID=</varname></term>
+          <listitem>
+            <para>The Port VLAN ID specified here is assigned to all untagged frames at ingress.
+            <varname>PVID=</varname> can be used only once. Configuring <varname>PVID=</varname> implicates the use of
+            <varname>VLAN=</varname> above and will enable the VLAN ID for ingress as well.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
 
   <refsect1>
     <title>Example</title>
@@ -1174,6 +1207,26 @@ Name=enp2s0
 
 [Network]
 Bridge=bridge0</programlisting>
+    </example>
+    <example>
+      <title>/etc/systemd/network/25-bridge-slave-interface-vlan.network</title>
+
+      <programlisting>[Match]
+Name=enp2s0
+
+[Network]
+Bridge=bridge0
+
+[BridgeVLAN]
+VLAN=1-32
+PVID=42
+EgressUntagged=42
+
+[BridgeVLAN]
+VLAN=100-200
+
+[BridgeVLAN]
+EgressUntagged=300-400</programlisting>
     </example>
     <example>
       <title>/etc/systemd/network/25-ipip.network</title>

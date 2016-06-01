@@ -4,6 +4,7 @@
 #include "networkd.h"
 #include "networkd-conf.h"
 #include "network-internal.h"
+#include "vlan-util.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -112,6 +113,9 @@ Bridge.AllowPortToBeRoot,               config_parse_bool,                      
 Bridge.UnicastFlood,                    config_parse_bool,                              0,                             offsetof(Network, unicast_flood)
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                        0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                       0,                             0
+BridgeVLAN.PVID,                        config_parse_vlanid,                            0,                             offsetof(Network, pvid)
+BridgeVLAN.VLAN,                        config_parse_brvlan_vlan,                       0,                             0
+BridgeVLAN.EgressUntagged,              config_parse_brvlan_untagged,                   0,                             0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                            0,                             offsetof(Network, link_local)
 DHCPv4.UseDNS,                          config_parse_bool,                              0,                             offsetof(Network, dhcp_use_dns)

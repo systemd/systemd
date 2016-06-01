@@ -1114,6 +1114,16 @@ int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
         return 1;
 }
 
+static int link_set_bridge_vlan(Link *link) {
+        int r = 0;
+
+        r = br_vlan_configure(link, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
+        if (r < 0)
+                log_link_error_errno(link, r, "Failed to assign VLANs to bridge port: %m");
+
+        return r;
+}
+
 static int link_set_bridge_fdb(Link *link) {
         FdbEntry *fdb_entry;
         int r = 0;
@@ -1994,6 +2004,12 @@ static int link_joined(Link *link) {
                 r = link_set_bridge(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
+        }
+
+        if (link->network->bridge || NETDEV_KIND_BRIDGE == netdev_kind_from_string(link->kind)) {
+                r = link_set_bridge_vlan(link);
+                if (r < 0)
+                        log_link_error_errno(link, r, "Could not set bridge vlan: %m");
         }
 
         return link_enter_set_addresses(link);
