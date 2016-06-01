@@ -160,7 +160,7 @@ int link_set_timezone(Link *link, const char *timezone);
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
 int dhcp6_configure(Link *link);
-int dhcp6_request_address(Link *link);
+int dhcp6_request_address(Link *link, int ir);
 int ndisc_configure(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;

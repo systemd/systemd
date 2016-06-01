@@ -1444,15 +1444,12 @@ static int link_acquire_ipv6_conf(Link *link) {
                 assert(link->dhcp6_client);
                 assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
-                log_link_debug(link, "Acquiring DHCPv6 lease");
-
-                r = sd_dhcp6_client_set_local_address(link->dhcp6_client, &link->ipv6ll_address);
-                if (r < 0 && r != -EBUSY)
-                        return log_link_warning_errno(link, r, "Could not set IPv6LL address in DHCP client: %m");
-
-                r = sd_dhcp6_client_start(link->dhcp6_client);
+                /* start DHCPv6 client in stateless mode */
+                r = dhcp6_request_address(link, true);
                 if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
+                else
+                        log_link_debug(link, "Acquiring DHCPv6 lease");
         }
 
         if (link_ipv6_accept_ra_enabled(link)) {
