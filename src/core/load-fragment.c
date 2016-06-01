@@ -2396,6 +2396,55 @@ int config_parse_documentation(const char *unit,
 }
 
 #ifdef HAVE_SECCOMP
+static int syscall_filter_parse_one(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                ExecContext *c,
+                bool invert,
+                const char *t,
+                bool warn) {
+        int r;
+
+        if (*t == '@') {
+                const SystemCallFilterSet *set;
+
+                for (set = syscall_filter_sets; set->set_name; set++)
+                        if (streq(set->set_name, t)) {
+                                const char *sys;
+
+                                NULSTR_FOREACH(sys, set->value) {
+                                        r = syscall_filter_parse_one(unit, filename, line, c, invert, sys, false);
+                                        if (r < 0)
+                                                return r;
+                                }
+                                break;
+                        }
+        } else {
+                int id;
+
+                id = seccomp_syscall_resolve_name(t);
+                if (id < 0)  {
+                        if (warn)
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse system call, ignoring: %s", t);
+                        return 0;
+                }
+
+                /* If we previously wanted to forbid a syscall and now
+                 * we want to allow it, then remove it from the list
+                 */
+                if (!invert == c->syscall_whitelist) {
+                        r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
+                        if (r == 0)
+                                return 0;
+                        if (r < 0)
+                                return log_oom();
+                } else
+                        set_remove(c->syscall_filter, INT_TO_PTR(id + 1));
+        }
+        return 0;
+}
+
 int config_parse_syscall_filter(
                 const char *unit,
                 const char *filename,
@@ -2407,13 +2456,6 @@ int config_parse_syscall_filter(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-
-        static const char default_syscalls[] =
-                "execve\0"
-                "exit\0"
-                "exit_group\0"
-                "rt_sigreturn\0"
-                "sigreturn\0";
 
         ExecContext *c = data;
         Unit *u = userdata;
@@ -2448,53 +2490,26 @@ int config_parse_syscall_filter(
                         /* Allow everything but the ones listed */
                         c->syscall_whitelist = false;
                 else {
-                        const char *i;
-
                         /* Allow nothing but the ones listed */
                         c->syscall_whitelist = true;
 
                         /* Accept default syscalls if we are on a whitelist */
-                        NULSTR_FOREACH(i, default_syscalls)  {
-                                int id;
-
-                                id = seccomp_syscall_resolve_name(i);
-                                if (id < 0)
-                                        continue;
-
-                                r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
-                                if (r == 0)
-                                        continue;
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = syscall_filter_parse_one(unit, filename, line, c, false, "@default", false);
+                        if (r < 0)
+                                return r;
                 }
         }
 
         FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                 _cleanup_free_ char *t = NULL;
-                int id;
 
                 t = strndup(word, l);
                 if (!t)
                         return log_oom();
 
-                id = seccomp_syscall_resolve_name(t);
-                if (id < 0)  {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse system call, ignoring: %s", t);
-                        continue;
-                }
-
-                /* If we previously wanted to forbid a syscall and now
-                 * we want to allow it, then remove it from the list
-                 */
-                if (!invert == c->syscall_whitelist)  {
-                        r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
-                        if (r == 0)
-                                continue;
-                        if (r < 0)
-                                return log_oom();
-                } else
-                        set_remove(c->syscall_filter, INT_TO_PTR(id + 1));
+                r = syscall_filter_parse_one(unit, filename, line, c, invert, t, true);
+                if (r < 0)
+                        return r;
         }
         if (!isempty(state))
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
