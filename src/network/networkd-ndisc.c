@@ -197,21 +197,12 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
         int r;
 
         assert(link);
-        assert(link->dhcp6_client);
-        assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
         switch (event) {
         case SD_NDISC_EVENT_TIMEOUT:
-                /* (re)start DHCPv6 client in stateful mode */
-                r = dhcp6_request_address(link, false);
-                if (r < 0 && r != -EBUSY)
-                        log_link_warning_errno(link, r, "Could not acquire DHCPv6 lease after NDisc timeout: %m");
-                else
-                        log_link_debug(link, "Acquiring DHCPv6 lease after NDisc timeout");
-
                 link->ndisc_configured = true;
                 link_check_ready(link);
 
