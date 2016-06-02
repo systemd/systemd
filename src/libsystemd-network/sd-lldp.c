@@ -530,11 +530,10 @@ _public_ int sd_lldp_set_filter_address(sd_lldp *lldp, const struct ether_addr *
         /* In order to deal nicely with bridges that send back our own packets, allow one address to be filtered, so
          * that our own can be filtered out here. */
 
-        if (!addr) {
+        if (addr)
+                lldp->filter_address = *addr;
+        else
                 zero(lldp->filter_address);
-                return 0;
-        }
 
-        lldp->filter_address = *addr;
         return 0;
 }
