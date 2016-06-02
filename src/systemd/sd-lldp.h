@@ -129,6 +129,7 @@ int sd_lldp_stop(sd_lldp *lldp);
 
 int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int64_t priority);
 int sd_lldp_detach_event(sd_lldp *lldp);
+sd_event *sd_lldp_get_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);
 int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex);

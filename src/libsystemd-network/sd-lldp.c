@@ -322,6 +322,12 @@ _public_ int sd_lldp_detach_event(sd_lldp *lldp) {
         return 0;
 }
 
+_public_ sd_event* sd_lldp_get_event(sd_lldp *lldp) {
+        assert_return(lldp, NULL);
+
+        return lldp->event;
+}
+
 _public_ int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata) {
         assert_return(lldp, -EINVAL);
 
