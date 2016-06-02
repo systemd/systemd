@@ -658,7 +658,7 @@ _public_ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint
         return 0;
 }
 
-int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
+_public_ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
         int r;
 
@@ -800,7 +800,7 @@ _public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret,
         return 0;
 }
 
-int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret) {
+_public_ int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret) {
         assert_return(n, -EINVAL);
         assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
         assert_return(clock_supported(clock), -EOPNOTSUPP);
