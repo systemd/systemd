@@ -125,7 +125,6 @@ struct CGroupContext {
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
-void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, ManagerState state);
 
 CGroupMask cgroup_context_get_mask(CGroupContext *c);
 

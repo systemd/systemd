@@ -413,7 +413,7 @@ static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight) {
                      CGROUP_BLKIO_WEIGHT_MIN, CGROUP_BLKIO_WEIGHT_MAX);
 }
 
-static void cgroup_apply_io_device_weight(const char *path, const char *dev_path, uint64_t io_weight) {
+static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_t io_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
         int r;
@@ -423,13 +423,13 @@ static void cgroup_apply_io_device_weight(const char *path, const char *dev_path
                 return;
 
         xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), io_weight);
-        r = cg_set_attribute("io", path, "io.weight", buf);
+        r = cg_set_attribute("io", u->cgroup_path, "io.weight", buf);
         if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set io.weight on %s: %m", path);
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set io.weight: %m");
 }
 
-static void cgroup_apply_blkio_device_weight(const char *path, const char *dev_path, uint64_t blkio_weight) {
+static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint64_t blkio_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
         int r;
@@ -439,13 +439,13 @@ static void cgroup_apply_blkio_device_weight(const char *path, const char *dev_p
                 return;
 
         xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), blkio_weight);
-        r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
+        r = cg_set_attribute("blkio", u->cgroup_path, "blkio.weight_device", buf);
         if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set blkio.weight_device on %s: %m", path);
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set blkio.weight_device: %m");
 }
 
-static unsigned cgroup_apply_io_device_limit(const char *path, const char *dev_path, uint64_t *limits) {
+static unsigned cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
         char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
         CGroupIOLimitType type;
@@ -469,14 +469,14 @@ static unsigned cgroup_apply_io_device_limit(const char *path, const char *dev_p
         xsprintf(buf, "%u:%u rbps=%s wbps=%s riops=%s wiops=%s\n", major(dev), minor(dev),
                  limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
                  limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
-        r = cg_set_attribute("io", path, "io.max", buf);
+        r = cg_set_attribute("io", u->cgroup_path, "io.max", buf);
         if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set io.max on %s: %m", path);
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set io.max: %m");
         return n;
 }
 
-static unsigned cgroup_apply_blkio_device_limit(const char *path, const char *dev_path, uint64_t rbps, uint64_t wbps) {
+static unsigned cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint64_t rbps, uint64_t wbps) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
         unsigned n = 0;
@@ -489,18 +489,18 @@ static unsigned cgroup_apply_blkio_device_limit(const char *path, const char *de
         if (rbps != CGROUP_LIMIT_MAX)
                 n++;
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), rbps);
-        r = cg_set_attribute("blkio", path, "blkio.throttle.read_bps_device", buf);
+        r = cg_set_attribute("blkio", u->cgroup_path, "blkio.throttle.read_bps_device", buf);
         if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set blkio.throttle.read_bps_device on %s: %m", path);
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set blkio.throttle.read_bps_device: %m");
 
         if (wbps != CGROUP_LIMIT_MAX)
                 n++;
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), wbps);
-        r = cg_set_attribute("blkio", path, "blkio.throttle.write_bps_device", buf);
+        r = cg_set_attribute("blkio", u->cgroup_path, "blkio.throttle.write_bps_device", buf);
         if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set blkio.throttle.write_bps_device on %s: %m", path);
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set blkio.throttle.write_bps_device: %m");
 
         return n;
 }
@@ -509,22 +509,29 @@ static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
         return c->memory_low > 0 || c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX;
 }
 
-static void cgroup_apply_unified_memory_limit(const char *path, const char *file, uint64_t v) {
+static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_t v) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max";
         int r;
 
         if (v != CGROUP_LIMIT_MAX)
                 xsprintf(buf, "%" PRIu64 "\n", v);
 
-        r = cg_set_attribute("memory", path, file, buf);
+        r = cg_set_attribute("memory", u->cgroup_path, file, buf);
         if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set %s on %s: %m", file, path);
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set %s: %m", file);
 }
 
-void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, ManagerState state) {
+static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
+        const char *path;
+        CGroupContext *c;
         bool is_root;
         int r;
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        path = u->cgroup_path;
 
         assert(c);
         assert(path);
@@ -551,14 +558,14 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         c->cpu_shares != CGROUP_CPU_SHARES_INVALID ? c->cpu_shares : CGROUP_CPU_SHARES_DEFAULT);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set cpu.shares on %s: %m", path);
+                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to set cpu.shares: %m");
 
                 sprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
                 r = cg_set_attribute("cpu", path, "cpu.cfs_period_us", buf);
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set cpu.cfs_period_us on %s: %m", path);
+                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to set cpu.cfs_period_us: %m");
 
                 if (c->cpu_quota_per_sec_usec != USEC_INFINITY) {
                         sprintf(buf, USEC_FMT "\n", c->cpu_quota_per_sec_usec * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
@@ -566,8 +573,8 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                 } else
                         r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", "-1");
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set cpu.cfs_quota_us on %s: %m", path);
+                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to set cpu.cfs_quota_us: %m");
         }
 
         if (mask & CGROUP_MASK_IO) {
@@ -588,21 +595,21 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         xsprintf(buf, "default %" PRIu64 "\n", weight);
                         r = cg_set_attribute("io", path, "io.weight", buf);
                         if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set io.weight on %s: %m", path);
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to set io.weight: %m");
 
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
 
                                 /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->io_device_weights)
-                                        cgroup_apply_io_device_weight(path, w->path, w->weight);
+                                        cgroup_apply_io_device_weight(u, w->path, w->weight);
                         } else if (has_blockio) {
                                 CGroupBlockIODeviceWeight *w;
 
                                 /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->blockio_device_weights)
-                                        cgroup_apply_io_device_weight(path, w->path, cgroup_weight_blkio_to_io(w->weight));
+                                        cgroup_apply_io_device_weight(u, w->path, cgroup_weight_blkio_to_io(w->weight));
                         }
                 }
 
@@ -611,7 +618,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         CGroupIODeviceLimit *l, *next;
 
                         LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
-                                if (!cgroup_apply_io_device_limit(path, l->path, l->limits))
+                                if (!cgroup_apply_io_device_limit(u, l->path, l->limits))
                                         cgroup_context_free_io_device_limit(c, l);
                         }
                 } else if (has_blockio) {
@@ -627,7 +634,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                                 limits[CGROUP_IO_RBPS_MAX] = b->rbps;
                                 limits[CGROUP_IO_WBPS_MAX] = b->wbps;
 
-                                if (!cgroup_apply_io_device_limit(path, b->path, limits))
+                                if (!cgroup_apply_io_device_limit(u, b->path, limits))
                                         cgroup_context_free_blockio_device_bandwidth(c, b);
                         }
                 }
@@ -651,21 +658,21 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         xsprintf(buf, "%" PRIu64 "\n", weight);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set blkio.weight on %s: %m", path);
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to set blkio.weight: %m");
 
                         if (has_blockio) {
                                 CGroupBlockIODeviceWeight *w;
 
                                 /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->blockio_device_weights)
-                                        cgroup_apply_blkio_device_weight(path, w->path, w->weight);
+                                        cgroup_apply_blkio_device_weight(u, w->path, w->weight);
                         } else if (has_io) {
                                 CGroupIODeviceWeight *w;
 
                                 /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->io_device_weights)
-                                        cgroup_apply_blkio_device_weight(path, w->path, cgroup_weight_io_to_blkio(w->weight));
+                                        cgroup_apply_blkio_device_weight(u, w->path, cgroup_weight_io_to_blkio(w->weight));
                         }
                 }
 
@@ -674,14 +681,14 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         CGroupBlockIODeviceBandwidth *b, *next;
 
                         LIST_FOREACH_SAFE(device_bandwidths, b, next, c->blockio_device_bandwidths) {
-                                if (!cgroup_apply_blkio_device_limit(path, b->path, b->rbps, b->wbps))
+                                if (!cgroup_apply_blkio_device_limit(u, b->path, b->rbps, b->wbps))
                                         cgroup_context_free_blockio_device_bandwidth(c, b);
                         }
                 } else if (has_io) {
                         CGroupIODeviceLimit *l, *next;
 
                         LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
-                                if (!cgroup_apply_blkio_device_limit(path, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]))
+                                if (!cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]))
                                         cgroup_context_free_io_device_limit(c, l);
                         }
                 }
@@ -696,9 +703,9 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         else
                                 max = c->memory_limit;
 
-                        cgroup_apply_unified_memory_limit(path, "memory.low", c->memory_low);
-                        cgroup_apply_unified_memory_limit(path, "memory.high", c->memory_high);
-                        cgroup_apply_unified_memory_limit(path, "memory.max", max);
+                        cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
+                        cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
+                        cgroup_apply_unified_memory_limit(u, "memory.max", max);
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
@@ -709,8 +716,8 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
 
                         r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
                         if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to set memory.limit_in_bytes on %s: %m", path);
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to set memory.limit_in_bytes: %m");
                 }
         }
 
@@ -726,8 +733,8 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                 else
                         r = cg_set_attribute("devices", path, "devices.allow", "a");
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to reset devices.list on %s: %m", path);
+                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to reset devices.list: %m");
 
                 if (c->device_policy == CGROUP_CLOSED ||
                     (c->device_policy == CGROUP_AUTO && c->device_allow)) {
@@ -773,7 +780,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         else if (startswith(a->path, "char-"))
                                 whitelist_major(path, a->path + 5, 'c', acc);
                         else
-                                log_debug("Ignoring device %s while writing cgroup attribute.", a->path);
+                                log_unit_debug(u, "Ignoring device %s while writing cgroup attribute.", a->path);
                 }
         }
 
@@ -788,8 +795,8 @@ void cgroup_context_apply(CGroupContext *c, CGroupMask mask, const char *path, M
                         r = cg_set_attribute("pids", path, "pids.max", "max");
 
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set pids.max on %s: %m", path);
+                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to set pids.max: %m");
         }
 }
 
@@ -1224,7 +1231,7 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
                 return r;
 
         /* Finally, apply the necessary attributes. */
-        cgroup_context_apply(unit_get_cgroup_context(u), target_mask, u->cgroup_path, state);
+        cgroup_context_apply(u, target_mask, state);
 
         return 0;
 }
@@ -1355,7 +1362,7 @@ void unit_prune_cgroup(Unit *u) {
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
         if (r < 0) {
-                log_debug_errno(r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
+                log_unit_debug_errno(u, r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
                 return;
         }
 
