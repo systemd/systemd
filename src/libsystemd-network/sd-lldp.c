@@ -43,7 +43,6 @@ static void lldp_flush_neighbors(sd_lldp *lldp) {
 
 static void lldp_callback(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n) {
         assert(lldp);
-        assert(n);
 
         log_lldp("Invoking callback for '%c'.", event);
 
@@ -172,7 +171,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
 finish:
         if (old)
-                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, n);
+                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, old);
 
         return r;
 }
