@@ -51,8 +51,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!file) {
                 if (errno == ENOENT)
                         return 0;
-                else
-                        return -errno;
+
+                return -errno;
         }
 
         if (null_or_empty_fd(fileno(file))) {
@@ -134,6 +134,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->ipv6_hop_limit = -1;
         network->duid.type = _DUID_TYPE_INVALID;
         network->proxy_arp = -1;
+        network->ipv6_accept_ra_use_dns = true;
 
         r = config_parse(NULL, filename, file,
                          "Match\0"

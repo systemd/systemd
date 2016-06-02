@@ -3430,6 +3430,9 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
 	src/libsystemd-network/sd-ndisc.c \
+	src/libsystemd-network/ndisc-internal.h \
+	src/libsystemd-network/ndisc-router.h \
+	src/libsystemd-network/ndisc-router.c \
 	src/libsystemd-network/icmp6-util.h \
 	src/libsystemd-network/icmp6-util.c \
 	src/libsystemd-network/sd-dhcp6-client.c \
@@ -5462,6 +5465,7 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
 	src/network/networkd-dhcp6.c \
+	src/network/networkd-ndisc.h \
 	src/network/networkd-ndisc.c \
 	src/network/networkd-network.h \
 	src/network/networkd-network.c \

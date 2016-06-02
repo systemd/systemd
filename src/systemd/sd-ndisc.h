@@ -22,6 +22,8 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
+#include <netinet/in.h>
+#include <sys/types.h>
 
 #include "sd-event.h"
 
@@ -29,55 +31,99 @@
 
 _SD_BEGIN_DECLARATIONS;
 
+/* Neightbor Discovery Options, RFC 4861, Section 4.6 and
+ * https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml#icmpv6-parameters-5 */
 enum {
-        SD_NDISC_EVENT_STOP     = 0,
-        SD_NDISC_EVENT_TIMEOUT  = 1,
+        SD_NDISC_OPTION_SOURCE_LL_ADDRESS  = 1,
+        SD_NDISC_OPTION_TARGET_LL_ADDRESS  = 2,
+        SD_NDISC_OPTION_PREFIX_INFORMATION = 3,
+        SD_NDISC_OPTION_MTU                = 5,
+        SD_NDISC_OPTION_ROUTE_INFORMATION  = 24,
+        SD_NDISC_OPTION_RDNSS              = 25,
+        SD_NDISC_OPTION_FLAGS_EXTENSION    = 26,
+        SD_NDISC_OPTION_DNSSL              = 31,
+        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37,
+};
+
+/* Route preference, RFC 4191, Section 2.1 */
+enum {
+        SD_NDISC_PREFERENCE_LOW    = 3U,
+        SD_NDISC_PREFERENCE_MEDIUM = 0U,
+        SD_NDISC_PREFERENCE_HIGH   = 1U,
 };
 
 typedef struct sd_ndisc sd_ndisc;
+typedef struct sd_ndisc_router sd_ndisc_router;
 
-typedef void(*sd_ndisc_router_callback_t)(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata);
-typedef void(*sd_ndisc_prefix_onlink_callback_t)(sd_ndisc *nd, const struct in6_addr *prefix, unsigned prefixlen,
-                                                 unsigned lifetime, void *userdata);
-typedef void(*sd_ndisc_prefix_autonomous_callback_t)(sd_ndisc *nd, const struct in6_addr *prefix, unsigned prefixlen,
-                                                     unsigned lifetime_prefered, unsigned lifetime_valid, void *userdata);
-typedef void(*sd_ndisc_callback_t)(sd_ndisc *nd, int event, void *userdata);
+typedef enum sd_ndisc_event {
+        SD_NDISC_EVENT_TIMEOUT = 't',
+        SD_NDISC_EVENT_ROUTER  = 'r',
+} sd_ndisc_event;
 
-int sd_ndisc_set_callback(sd_ndisc *nd,
-                          sd_ndisc_router_callback_t rcb,
-                          sd_ndisc_prefix_onlink_callback_t plcb,
-                          sd_ndisc_prefix_autonomous_callback_t pacb,
-                          sd_ndisc_callback_t cb,
-                          void *userdata);
-int sd_ndisc_set_ifindex(sd_ndisc *nd, int interface_index);
-int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
+typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata);
+
+int sd_ndisc_new(sd_ndisc **ret);
+sd_ndisc *sd_ndisc_ref(sd_ndisc *nd);
+sd_ndisc *sd_ndisc_unref(sd_ndisc *nd);
+
+int sd_ndisc_start(sd_ndisc *nd);
+int sd_ndisc_stop(sd_ndisc *nd);
 
 int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority);
 int sd_ndisc_detach_event(sd_ndisc *nd);
 sd_event *sd_ndisc_get_event(sd_ndisc *nd);
 
-sd_ndisc *sd_ndisc_ref(sd_ndisc *nd);
-sd_ndisc *sd_ndisc_unref(sd_ndisc *nd);
-int sd_ndisc_new(sd_ndisc **ret);
+int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t cb, void *userdata);
+int sd_ndisc_set_ifindex(sd_ndisc *nd, int interface_index);
+int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
 
-int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu);
+int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *ret);
+int sd_ndisc_get_hop_limit(sd_ndisc *nd, uint8_t *ret);
 
-int sd_ndisc_stop(sd_ndisc *nd);
-int sd_ndisc_router_discovery_start(sd_ndisc *nd);
+int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, size_t raw_size);
+sd_ndisc_router *sd_ndisc_router_ref(sd_ndisc_router *rt);
+sd_ndisc_router *sd_ndisc_router_unref(sd_ndisc_router *rt);
 
-#define SD_NDISC_ADDRESS_FORMAT_STR "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
+int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *ret_addr);
+int sd_ndisc_router_get_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
+int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *size);
 
-#define SD_NDISC_ADDRESS_FORMAT_VAL(address) \
-        be16toh((address).s6_addr16[0]),        \
-        be16toh((address).s6_addr16[1]),        \
-        be16toh((address).s6_addr16[2]),        \
-        be16toh((address).s6_addr16[3]),        \
-        be16toh((address).s6_addr16[4]),        \
-        be16toh((address).s6_addr16[5]),        \
-        be16toh((address).s6_addr16[6]),        \
-        be16toh((address).s6_addr16[7])
+int sd_ndisc_router_get_hop_limit(sd_ndisc_router *rt, uint8_t *ret);
+int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret_flags);
+int sd_ndisc_router_get_preference(sd_ndisc_router *rt, unsigned *ret);
+int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint16_t *ret_lifetime);
+int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret);
+
+/* Generic option access */
+int sd_ndisc_router_option_rewind(sd_ndisc_router *rt);
+int sd_ndisc_router_option_next(sd_ndisc_router *rt);
+int sd_ndisc_router_option_get_type(sd_ndisc_router *rt, uint8_t *ret);
+int sd_ndisc_router_option_is_type(sd_ndisc_router *rt, uint8_t type);
+int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t *size);
+
+/* Specific option access: SD_NDISC_OPTION_PREFIX_INFORMATION */
+int sd_ndisc_router_prefix_get_valid_lifetime(sd_ndisc_router *rt, uint32_t *ret);
+int sd_ndisc_router_prefix_get_preferred_lifetime(sd_ndisc_router *rt, uint32_t *ret);
+int sd_ndisc_router_prefix_get_flags(sd_ndisc_router *rt, uint8_t *ret);
+int sd_ndisc_router_prefix_get_address(sd_ndisc_router *rt, struct in6_addr *ret_addr);
+int sd_ndisc_router_prefix_get_prefixlen(sd_ndisc_router *rt, unsigned *prefixlen);
+
+/* Specific option access: SD_NDISC_OPTION_ROUTE_INFORMATION */
+int sd_ndisc_router_route_get_lifetime(sd_ndisc_router *rt, uint32_t *ret);
+int sd_ndisc_router_route_get_address(sd_ndisc_router *rt, struct in6_addr *ret_addr);
+int sd_ndisc_router_route_get_prefixlen(sd_ndisc_router *rt, unsigned *prefixlen);
+int sd_ndisc_router_route_get_preference(sd_ndisc_router *rt, unsigned *ret);
+
+/* Specific option access: SD_NDISC_OPTION_RDNSS */
+int sd_ndisc_router_rdnss_get_addresses(sd_ndisc_router *rt, const struct in6_addr **ret);
+int sd_ndisc_router_rdnss_get_lifetime(sd_ndisc_router *rt, uint32_t *ret);
+
+/* Specific option access: SD_NDISC_OPTION_DNSSL */
+int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret);
+int sd_ndisc_router_dnssl_get_lifetime(sd_ndisc_router *rt, uint32_t *ret);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc, sd_ndisc_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router, sd_ndisc_router_unref);
 
 _SD_END_DECLARATIONS;
 

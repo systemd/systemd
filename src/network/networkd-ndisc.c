@@ -17,14 +17,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/ether.h>
 #include <netinet/icmp6.h>
-#include <netinet/in.h>
-#include <linux/if.h>
 
 #include "sd-ndisc.h"
 
 #include "networkd.h"
+#include "networkd-ndisc.h"
+
+#define NDISC_DNSSL_MAX 64U
+#define NDISC_RDNSS_MAX 64U
 
 static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
@@ -49,19 +50,92 @@ static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         return 1;
 }
 
-static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr *prefix, unsigned prefixlen,
-                                            unsigned lifetime_preferred, unsigned lifetime_valid, void *userdata) {
-        _cleanup_address_free_ Address *address = NULL;
-        Link *link = userdata;
+static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
+        _cleanup_route_free_ Route *route = NULL;
+        struct in6_addr gateway;
+        uint16_t lifetime;
+        unsigned preference;
         usec_t time_now;
         int r;
 
-        assert(nd);
         assert(link);
-        assert(link->network);
+        assert(rt);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        r = sd_ndisc_router_get_lifetime(rt, &lifetime);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
                 return;
+        }
+        if (lifetime == 0) /* not a default router */
+                return;
+
+        r = sd_ndisc_router_get_address(rt, &gateway);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_get_preference(rt, &preference);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+                return;
+        }
+
+        r = route_new(&route);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Could not allocate route: %m");
+                return;
+        }
+
+        route->family = AF_INET6;
+        route->table = RT_TABLE_MAIN;
+        route->protocol = RTPROT_RA;
+        route->pref = preference;
+        route->gw.in6 = gateway;
+        route->lifetime = time_now + lifetime * USEC_PER_SEC;
+
+        r = route_configure(route, link, ndisc_netlink_handler);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Could not set default route: %m");
+                link_enter_failed(link);
+                return;
+        }
+
+        link->ndisc_messages++;
+}
+
+static void ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
+        _cleanup_address_free_ Address *address = NULL;
+        uint32_t lifetime_valid, lifetime_preferred;
+        unsigned prefixlen;
+        int r;
+
+        assert(link);
+        assert(rt);
+
+        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get prefix length: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get prefix valid lifetime: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get prefix preferred lifetime: %m");
+                return;
+        }
 
         r = address_new(&address);
         if (r < 0) {
@@ -69,10 +143,13 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
                 return;
         }
 
-        assert_se(sd_event_now(link->manager->event, clock_boottime_or_monotonic(), &time_now) >= 0);
-
         address->family = AF_INET6;
-        address->in_addr.in6 = *prefix;
+        r = sd_ndisc_router_prefix_get_address(rt, &address->in_addr.in6);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get prefix address: %m");
+                return;
+        }
+
         if (in_addr_is_null(AF_INET6, (const union in_addr_union *) &link->network->ipv6_token) == 0)
                 memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
         else {
@@ -102,17 +179,33 @@ static void ndisc_prefix_autonomous_handler(sd_ndisc *nd, const struct in6_addr 
         link->ndisc_messages++;
 }
 
-static void ndisc_prefix_onlink_handler(sd_ndisc *nd, const struct in6_addr *prefix, unsigned prefixlen, unsigned lifetime, void *userdata) {
+static void ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_route_free_ Route *route = NULL;
-        Link *link = userdata;
         usec_t time_now;
+        uint32_t lifetime;
+        unsigned prefixlen;
         int r;
 
-        assert(nd);
         assert(link);
+        assert(rt);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
                 return;
+        }
+
+        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get prefix length: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
+                return;
+        }
 
         r = route_new(&route);
         if (r < 0) {
@@ -120,15 +213,18 @@ static void ndisc_prefix_onlink_handler(sd_ndisc *nd, const struct in6_addr *pre
                 return;
         }
 
-        assert_se(sd_event_now(link->manager->event, clock_boottime_or_monotonic(), &time_now) >= 0);
-
         route->family = AF_INET6;
         route->table = RT_TABLE_MAIN;
         route->protocol = RTPROT_RA;
         route->flags = RTM_F_PREFIX;
-        route->dst.in6 = *prefix;
         route->dst_prefixlen = prefixlen;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
+
+        r = sd_ndisc_router_prefix_get_address(rt, &route->dst.in6);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get prefix address: %m");
+                return;
+        }
 
         r = route_configure(route, link, ndisc_netlink_handler);
         if (r < 0) {
@@ -140,32 +236,47 @@ static void ndisc_prefix_onlink_handler(sd_ndisc *nd, const struct in6_addr *pre
         link->ndisc_messages++;
 }
 
-static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_addr *gateway, unsigned lifetime, int pref, void *userdata) {
+static void ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_route_free_ Route *route = NULL;
-        Link *link = userdata;
+        struct in6_addr gateway;
+        uint32_t lifetime;
+        unsigned preference, prefixlen;
         usec_t time_now;
         int r;
 
         assert(link);
-        assert(link->network);
-        assert(link->manager);
-        assert(link->dhcp6_client);
-        assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        r = sd_ndisc_router_route_get_lifetime(rt, &lifetime);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
+                return;
+        }
+        if (lifetime == 0)
                 return;
 
-        if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER)) {
-                /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags */
-                r = dhcp6_request_address(link, flags & ND_RA_FLAG_MANAGED ? false : true);
-                if (r < 0 && r != -EBUSY)
-                        log_link_warning_errno(link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
-                else
-                        log_link_debug(link, "Acquiring DHCPv6 lease on NDisc request");
+        r = sd_ndisc_router_get_address(rt, &gateway);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
+                return;
         }
 
-        if (!gateway)
+        r = sd_ndisc_router_route_get_prefixlen(rt, &prefixlen);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get route prefix length: %m");
                 return;
+        }
+
+        r = sd_ndisc_router_route_get_preference(rt, &preference);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+                return;
+        }
 
         r = route_new(&route);
         if (r < 0) {
@@ -173,18 +284,23 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
                 return;
         }
 
-        assert_se(sd_event_now(link->manager->event, clock_boottime_or_monotonic(), &time_now) >= 0);
-
         route->family = AF_INET6;
         route->table = RT_TABLE_MAIN;
         route->protocol = RTPROT_RA;
-        route->pref = pref;
-        route->gw.in6 = *gateway;
+        route->pref = preference;
+        route->gw.in6 = gateway;
+        route->dst_prefixlen = prefixlen;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
+
+        r = sd_ndisc_router_route_get_address(rt, &route->dst.in6);
+        if (r < 0) {
+                log_link_error_errno(link, r, "Failed to get route address: %m");
+                return;
+        }
 
         r = route_configure(route, link, ndisc_netlink_handler);
         if (r < 0) {
-                log_link_warning_errno(link, r, "Could not set default route: %m");
+                log_link_warning_errno(link, r, "Could not set additional route: %m");
                 link_enter_failed(link);
                 return;
         }
@@ -192,7 +308,290 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
         link->ndisc_messages++;
 }
 
-static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
+static void ndisc_rdnss_hash_func(const void *p, struct siphash *state) {
+        const NDiscRDNSS *x = p;
+
+        siphash24_compress(&x->address, sizeof(x->address), state);
+}
+
+static int ndisc_rdnss_compare_func(const void *_a, const void *_b) {
+        const NDiscRDNSS *a = _a, *b = _b;
+
+        return memcmp(&a->address, &b->address, sizeof(a->address));
+}
+
+static const struct hash_ops ndisc_rdnss_hash_ops = {
+        .hash = ndisc_rdnss_hash_func,
+        .compare = ndisc_rdnss_compare_func
+};
+
+static void ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
+        uint32_t lifetime;
+        const struct in6_addr *a;
+        usec_t time_now;
+        int i, n, r;
+
+        assert(link);
+        assert(rt);
+
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RDNSS lifetime: %m");
+                return;
+        }
+
+        n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
+        if (n < 0) {
+                log_link_warning_errno(link, n, "Failed to get RDNSS addresses: %m");
+                return;
+        }
+
+        for (i = 0; i < n; i++) {
+                NDiscRDNSS d = {
+                        .address = a[i]
+                }, *x;
+
+                if (lifetime == 0) {
+                        (void) set_remove(link->ndisc_rdnss, &d);
+                        link_dirty(link);
+                        continue;
+                }
+
+                x = set_get(link->ndisc_rdnss, &d);
+                if (x) {
+                        x->valid_until = time_now + lifetime * USEC_PER_SEC;
+                        continue;
+                }
+
+                ndisc_vacuum(link);
+
+                if (set_size(link->ndisc_rdnss) >= NDISC_RDNSS_MAX) {
+                        log_link_warning(link, "Too many RDNSS records per link, ignoring.");
+                        continue;
+                }
+
+                r = set_ensure_allocated(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops);
+                if (r < 0) {
+                        log_oom();
+                        return;
+                }
+
+                x = new0(NDiscRDNSS, 1);
+                if (!x) {
+                        log_oom();
+                        return;
+                }
+
+                x->address = a[i];
+                x->valid_until = time_now + lifetime * USEC_PER_SEC;
+
+                r = set_put(link->ndisc_rdnss, x);
+                if (r < 0) {
+                        free(x);
+                        log_oom();
+                        return;
+                }
+
+                assert(r > 0);
+                link_dirty(link);
+        }
+}
+
+static void ndisc_dnssl_hash_func(const void *p, struct siphash *state) {
+        const NDiscDNSSL *x = p;
+
+        siphash24_compress(NDISC_DNSSL_DOMAIN(x), strlen(NDISC_DNSSL_DOMAIN(x)), state);
+}
+
+static int ndisc_dnssl_compare_func(const void *_a, const void *_b) {
+        const NDiscDNSSL *a = _a, *b = _b;
+
+        return strcmp(NDISC_DNSSL_DOMAIN(a), NDISC_DNSSL_DOMAIN(b));
+}
+
+static const struct hash_ops ndisc_dnssl_hash_ops = {
+        .hash = ndisc_dnssl_hash_func,
+        .compare = ndisc_dnssl_compare_func
+};
+
+static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
+        _cleanup_strv_free_ char **l = NULL;
+        uint32_t lifetime;
+        usec_t time_now;
+        char **i;
+        int r;
+
+        assert(link);
+        assert(rt);
+
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RDNSS lifetime: %m");
+                return;
+        }
+
+        r = sd_ndisc_router_dnssl_get_domains(rt, &l);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RDNSS addresses: %m");
+                return;
+        }
+
+        STRV_FOREACH(i, l) {
+                struct {
+                        NDiscDNSSL header;
+                        char domain[strlen(*i)];
+                } s;
+                NDiscDNSSL *x;
+
+                zero(s.header);
+                strcpy(s.domain, *i);
+
+                if (lifetime == 0) {
+                        (void) set_remove(link->ndisc_dnssl, &s);
+                        link_dirty(link);
+                        continue;
+                }
+
+                x = set_get(link->ndisc_dnssl, &s);
+                if (x) {
+                        x->valid_until = time_now + lifetime * USEC_PER_SEC;
+                        continue;
+                }
+
+                ndisc_vacuum(link);
+
+                if (set_size(link->ndisc_dnssl) >= NDISC_DNSSL_MAX) {
+                        log_link_warning(link, "Too many DNSSL records per link, ignoring.");
+                        continue;
+                }
+
+                r = set_ensure_allocated(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops);
+                if (r < 0) {
+                        log_oom();
+                        return;
+                }
+
+                x = malloc0(ALIGN(sizeof(NDiscDNSSL)) + strlen(*i) + 1);
+                if (!x) {
+                        log_oom();
+                        return;
+                }
+
+                strcpy(NDISC_DNSSL_DOMAIN(x), *i);
+                x->valid_until = time_now + lifetime * USEC_PER_SEC;
+
+                r = set_put(link->ndisc_dnssl, x);
+                if (r < 0) {
+                        free(x);
+                        log_oom();
+                        return;
+                }
+
+                assert(r > 0);
+                link_dirty(link);
+        }
+}
+
+static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
+        int r;
+
+        assert(link);
+        assert(rt);
+
+        r = sd_ndisc_router_option_rewind(rt);
+        for (;;) {
+                uint8_t type;
+
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to iterate through options: %m");
+                        return;
+                }
+                if (r == 0) /* EOF */
+                        break;
+
+                r = sd_ndisc_router_option_get_type(rt, &type);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to get RA option type: %m");
+                        return;
+                }
+
+                switch (type) {
+
+                case SD_NDISC_OPTION_PREFIX_INFORMATION: {
+                        uint8_t flags;
+
+                        r = sd_ndisc_router_prefix_get_flags(rt, &flags);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to get RA prefix flags: %m");
+                                return;
+                        }
+
+                        if (flags & ND_OPT_PI_FLAG_ONLINK)
+                                ndisc_router_process_onlink_prefix(link, rt);
+                        if (flags & ND_OPT_PI_FLAG_AUTO)
+                                ndisc_router_process_autonomous_prefix(link, rt);
+
+                        break;
+                }
+
+                case SD_NDISC_OPTION_ROUTE_INFORMATION:
+                        ndisc_router_process_route(link, rt);
+                        break;
+
+                case SD_NDISC_OPTION_RDNSS:
+                        ndisc_router_process_rdnss(link, rt);
+                        break;
+
+                case SD_NDISC_OPTION_DNSSL:
+                        ndisc_router_process_dnssl(link, rt);
+                        break;
+                }
+
+                r = sd_ndisc_router_option_next(rt);
+        }
+}
+
+static void ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
+        uint64_t flags;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+        assert(rt);
+
+        r = sd_ndisc_router_get_flags(rt, &flags);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get RA flags: %m");
+                return;
+        }
+
+        if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER)) {
+                /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags */
+                r = dhcp6_request_address(link, !(flags & ND_RA_FLAG_MANAGED));
+                if (r < 0 && r != -EBUSY)
+                        log_link_warning_errno(link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
+                else
+                        log_link_debug(link, "Acquiring DHCPv6 lease on NDisc request");
+        }
+
+        ndisc_router_process_default(link, rt);
+        ndisc_router_process_options(link, rt);
+}
+
+static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata) {
         Link *link = userdata;
 
         assert(link);
@@ -201,12 +600,15 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
                 return;
 
         switch (event) {
+
+        case SD_NDISC_EVENT_ROUTER:
+                ndisc_router_handler(link, rt);
+                break;
+
         case SD_NDISC_EVENT_TIMEOUT:
                 link->ndisc_configured = true;
                 link_check_ready(link);
 
-                break;
-        case SD_NDISC_EVENT_STOP:
                 break;
         default:
                 log_link_warning(link, "IPv6 Neighbor Discovery unknown event: %d", event);
@@ -216,30 +618,52 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
 int ndisc_configure(Link *link) {
         int r;
 
-        assert_return(link, -EINVAL);
+        assert(link);
 
-        r = sd_ndisc_new(&link->ndisc_router_discovery);
+        r = sd_ndisc_new(&link->ndisc);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_attach_event(link->ndisc_router_discovery, NULL, 0);
+        r = sd_ndisc_attach_event(link->ndisc, NULL, 0);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_mac(link->ndisc_router_discovery, &link->mac);
+        r = sd_ndisc_set_mac(link->ndisc, &link->mac);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_ifindex(link->ndisc_router_discovery, link->ifindex);
+        r = sd_ndisc_set_ifindex(link->ndisc, link->ifindex);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_callback(link->ndisc_router_discovery,
-                                  ndisc_router_handler,
-                                  ndisc_prefix_onlink_handler,
-                                  ndisc_prefix_autonomous_handler,
-                                  ndisc_handler,
-                                  link);
+        r = sd_ndisc_set_callback(link->ndisc, ndisc_handler, link);
+        if (r < 0)
+                return r;
 
-        return r;
+        return 0;
+}
+
+void ndisc_vacuum(Link *link) {
+        NDiscRDNSS *r;
+        NDiscDNSSL *d;
+        Iterator i;
+        usec_t time_now;
+
+        assert(link);
+
+        /* Removes all RDNSS and DNSSL entries whose validity time has passed */
+
+        time_now = now(clock_boottime_or_monotonic());
+
+        SET_FOREACH(r, link->ndisc_rdnss, i)
+                if (r->valid_until < time_now) {
+                        (void) set_remove(link->ndisc_rdnss, r);
+                        link_dirty(link);
+                }
+
+        SET_FOREACH(d, link->ndisc_dnssl, i)
+                if (d->valid_until < time_now) {
+                        (void) set_remove(link->ndisc_dnssl, d);
+                        link_dirty(link);
+                }
 }

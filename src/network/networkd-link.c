@@ -28,8 +28,9 @@
 #include "fileio.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "networkd.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-ndisc.h"
+#include "networkd.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -504,7 +505,10 @@ static void link_free(Link *link) {
 
         sd_ipv4ll_unref(link->ipv4ll);
         sd_dhcp6_client_unref(link->dhcp6_client);
-        sd_ndisc_unref(link->ndisc_router_discovery);
+        sd_ndisc_unref(link->ndisc);
+
+        set_free_free(link->ndisc_rdnss);
+        set_free_free(link->ndisc_dnssl);
 
         if (link->manager)
                 hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
@@ -616,8 +620,8 @@ static int link_stop_clients(Link *link) {
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
         }
 
-        if (link->ndisc_router_discovery) {
-                k = sd_ndisc_stop(link->ndisc_router_discovery);
+        if (link->ndisc) {
+                k = sd_ndisc_stop(link->ndisc);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
         }
@@ -1453,11 +1457,11 @@ static int link_acquire_ipv6_conf(Link *link) {
         }
 
         if (link_ipv6_accept_ra_enabled(link)) {
-                assert(link->ndisc_router_discovery);
+                assert(link->ndisc);
 
                 log_link_debug(link, "Discovering IPv6 routers");
 
-                r = sd_ndisc_router_discovery_start(link->ndisc_router_discovery);
+                r = sd_ndisc_start(link->ndisc);
                 if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
         }
@@ -3087,6 +3091,22 @@ int link_save(Link *link) {
                                 if (space)
                                         fputc(' ', f);
                                 serialize_in6_addrs(f, in6_addrs, r);
+                                space = true;
+                        }
+                }
+
+                /* Make sure to flush out old entries before we use the NDISC data */
+                ndisc_vacuum(link);
+
+                if (link->network->dhcp_use_dns && link->ndisc_rdnss) {
+                        NDiscRDNSS *dd;
+
+                        SET_FOREACH(dd, link->ndisc_rdnss, i) {
+                                if (space)
+                                        fputc(' ', f);
+
+                                serialize_in6_addrs(f, &dd->address, 1);
+                                space = true;
                         }
                 }
 
@@ -3132,7 +3152,6 @@ int link_save(Link *link) {
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         if (link->dhcp_lease)
                                 (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
-
                         if (dhcp6_lease)
                                 (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
                 }
@@ -3140,22 +3159,34 @@ int link_save(Link *link) {
                 fputs("DOMAINS=", f);
                 fputstrv(f, link->network->search_domains, NULL, &space);
 
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp_domainname)
-                        fputs_with_space(f, dhcp_domainname, NULL, &space);
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
+                        NDiscDNSSL *dd;
 
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES && dhcp6_domains)
-                        fputstrv(f, dhcp6_domains, NULL, &space);
+                        if (dhcp_domainname)
+                                fputs_with_space(f, dhcp_domainname, NULL, &space);
+                        if (dhcp6_domains)
+                                fputstrv(f, dhcp6_domains, NULL, &space);
+
+                        SET_FOREACH(dd, link->ndisc_dnssl, i)
+                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                }
 
                 fputc('\n', f);
 
                 fputs("ROUTE_DOMAINS=", f);
                 fputstrv(f, link->network->route_domains, NULL, NULL);
 
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp_domainname)
-                        fputs_with_space(f, dhcp_domainname, NULL, &space);
+                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
+                        NDiscDNSSL *dd;
 
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE && dhcp6_domains)
-                        fputstrv(f, dhcp6_domains, NULL, &space);
+                        if (dhcp_domainname)
+                                fputs_with_space(f, dhcp_domainname, NULL, &space);
+                        if (dhcp6_domains)
+                                fputstrv(f, dhcp6_domains, NULL, &space);
+
+                        SET_FOREACH(dd, link->ndisc_dnssl, i)
+                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                }
 
                 fputc('\n', f);
 
