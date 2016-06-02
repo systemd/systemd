@@ -595,11 +595,11 @@ done:
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret) {
+_public_ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec) {
         assert_return(n, -EINVAL);
-        assert_return(ret, -EINVAL);
+        assert_return(ret_sec, -EINVAL);
 
-        *ret = n->ttl;
+        *ret_sec = n->ttl;
         return 0;
 }
 

@@ -155,7 +155,7 @@ int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const vo
 int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_port_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size);
 int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const char **ret);
-int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret);
+int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec);
 int sd_lldp_neighbor_get_system_name(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_system_description(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret);
