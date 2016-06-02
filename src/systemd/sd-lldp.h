@@ -23,6 +23,7 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
+#include <sys/types.h>
 
 #include "sd-event.h"
 
