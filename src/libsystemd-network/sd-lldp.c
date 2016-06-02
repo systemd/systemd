@@ -216,8 +216,12 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
                 return -ENOMEM;
 
         length = recv(fd, LLDP_NEIGHBOR_RAW(n), n->raw_size, MSG_DONTWAIT);
-        if (length < 0)
+        if (length < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
                 return log_lldp_errno(errno, "Failed to read LLDP datagram: %m");
+        }
 
         if ((size_t) length != n->raw_size) {
                 log_lldp("Packet size mismatch.");
