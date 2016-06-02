@@ -675,7 +675,7 @@ _public_ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, 
                 return r;
 
         *ret = n;
-        n = 0;
+        n = NULL;
 
         return r;
 }
