@@ -700,7 +700,7 @@ _public_ int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
         if (n->rindex + 2 > n->raw_size) /* Truncated message */
                 return -EBADMSG;
 
-        length = LLDP_NEIGHBOR_LENGTH(n);
+        length = LLDP_NEIGHBOR_TLV_LENGTH(n);
         if (n->rindex + 2 + length > n->raw_size)
                 return -EBADMSG;
 
@@ -718,7 +718,7 @@ _public_ int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type) {
         if (n->rindex + 2 > n->raw_size)
                 return -EBADMSG;
 
-        *type = LLDP_NEIGHBOR_TYPE(n);
+        *type = LLDP_NEIGHBOR_TLV_TYPE(n);
         return 0;
 }
 
@@ -750,14 +750,14 @@ _public_ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[3], u
         if (r == 0)
                 return -ENXIO;
 
-        length = LLDP_NEIGHBOR_LENGTH(n);
+        length = LLDP_NEIGHBOR_TLV_LENGTH(n);
         if (length < 4)
                 return -EBADMSG;
 
         if (n->rindex + 2 + length > n->raw_size)
                 return -EBADMSG;
 
-        d = LLDP_NEIGHBOR_DATA(n);
+        d = LLDP_NEIGHBOR_TLV_DATA(n);
         memcpy(oui, d, 3);
         *subtype = d[3];
 
@@ -789,8 +789,7 @@ _public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret,
         if (n->rindex + 2 > n->raw_size)
                 return -EBADMSG;
 
-        length = LLDP_NEIGHBOR_LENGTH(n);
-
+        length = LLDP_NEIGHBOR_TLV_LENGTH(n);
         if (n->rindex + 2 + length > n->raw_size)
                 return -EBADMSG;
 
