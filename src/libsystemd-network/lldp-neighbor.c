@@ -686,7 +686,7 @@ _public_ int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         assert(n->raw_size >= sizeof(struct ether_header));
         n->rindex = sizeof(struct ether_header);
 
-        return 0;
+        return n->rindex < n->raw_size;
 }
 
 _public_ int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
