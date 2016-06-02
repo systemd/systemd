@@ -164,30 +164,32 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 }
 
 static void write_resolv_conf_search(
-                const char *domain,
-                FILE *f,
-                unsigned *count,
-                unsigned *length) {
+                OrderedSet *domains,
+                FILE *f) {
+        unsigned length = 0, count = 0;
+        Iterator i;
+        char *domain;
 
-        assert(domain);
+        assert(domains);
         assert(f);
-        assert(length);
 
-        if (*count >= MAXDNSRCH ||
-            *length + strlen(domain) > 256) {
-                if (*count == MAXDNSRCH)
-                        fputs(" # Too many search domains configured, remaining ones ignored.", f);
-                if (*length <= 256)
-                        fputs(" # Total length of all search domains is too long, remaining ones ignored.", f);
+        fputs("search", f);
 
-                return;
+        ORDERED_SET_FOREACH(domain, domains, i) {
+                if (++count > MAXDNSRCH) {
+                        fputs("\n# Too many search domains configured, remaining ones ignored.", f);
+                        break;
+                }
+                length += strlen(domain) + 1;
+                if (length > 256) {
+                        fputs("\n# Total length of all search domains is too long, remaining ones ignored.", f);
+                        break;
+                }
+                fputc(' ', f);
+                fputs(domain, f);
         }
 
-        (*length) += strlen(domain);
-        (*count)++;
-
-        fputc(' ', f);
-        fputs(domain, f);
+        fputs("\n", f);
 }
 
 static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
@@ -209,15 +211,8 @@ static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *doma
                         write_resolv_conf_server(s, f, &count);
         }
 
-        if (!ordered_set_isempty(domains)) {
-                unsigned length = 0, count = 0;
-                char *domain;
-
-                fputs("search", f);
-                ORDERED_SET_FOREACH(domain, domains, i)
-                        write_resolv_conf_search(domain, f, &count, &length);
-                fputs("\n", f);
-        }
+        if (!ordered_set_isempty(domains))
+                write_resolv_conf_search(domains, f);
 
         return fflush_and_check(f);
 }

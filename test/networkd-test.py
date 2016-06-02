@@ -370,6 +370,77 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ { s/^.*=//
     def test_coldplug_dhcp_ip6(self):
         pass
 
+    def test_search_domains(self):
+
+        # we don't use this interface for this test
+        self.if_router = None
+
+        with open('/run/systemd/network/test.netdev', 'w') as f:
+            f.write('''[NetDev]
+Name=dummy0
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc''')
+        with open('/run/systemd/network/test.network', 'w') as f:
+            f.write('''[Match]
+Name=dummy0
+[Network]
+Address=192.168.42.100
+DNS=192.168.42.1
+Domains= one two three four five six seven eight nine ten''')
+        self.addCleanup(os.remove, '/run/systemd/network/test.netdev')
+        self.addCleanup(os.remove, '/run/systemd/network/test.network')
+
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+
+        if os.path.islink('/etc/resolv.conf'):
+            for timeout in range(50):
+                with open('/etc/resolv.conf') as f:
+                    contents = f.read()
+                if 'search one\n' in contents:
+                    break
+                time.sleep(0.1)
+            self.assertIn('search one two three four five six\n'
+                          '# Too many search domains configured, remaining ones ignored.\n',
+                          contents)
+
+    def test_search_domains_too_long(self):
+
+        # we don't use this interface for this test
+        self.if_router = None
+
+        name_prefix = 'a' * 60
+
+        with open('/run/systemd/network/test.netdev', 'w') as f:
+            f.write('''[NetDev]
+Name=dummy0
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc''')
+        with open('/run/systemd/network/test.network', 'w') as f:
+            f.write('''[Match]
+Name=dummy0
+[Network]
+Address=192.168.42.100
+DNS=192.168.42.1
+Domains=''')
+            for i in range(5):
+                f.write('%s%i ' % (name_prefix, i))
+
+        self.addCleanup(os.remove, '/run/systemd/network/test.netdev')
+        self.addCleanup(os.remove, '/run/systemd/network/test.network')
+
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+
+        if os.path.islink('/etc/resolv.conf'):
+            for timeout in range(50):
+                with open('/etc/resolv.conf') as f:
+                    contents = f.read()
+                if 'search one\n' in contents:
+                    break
+                time.sleep(0.1)
+            self.assertIn('search %(p)s0 %(p)s1 %(p)s2 %(p)s3\n'
+                          '# Total length of all search domains is too long, remaining ones ignored.' % {'p': name_prefix},
+                          contents)
+
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
