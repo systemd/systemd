@@ -17,6 +17,8 @@
     coding style)
 */
 
+#include <stdio.h>
+
 #include "macro.h"
 #include "siphash24.h"
 #include "unaligned.h"
