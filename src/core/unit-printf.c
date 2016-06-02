@@ -67,7 +67,7 @@ static int specifier_instance_unescaped(char specifier, void *data, void *userda
         return unit_name_unescape(strempty(u->instance), ret);
 }
 
-static int specifier_filename(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_filename_unescaped(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
 
         assert(u);
@@ -76,6 +76,14 @@ static int specifier_filename(char specifier, void *data, void *userdata, char *
                 return unit_name_path_unescape(u->instance, ret);
         else
                 return unit_name_to_path(u->id, ret);
+}
+
+static int specifier_filename(char specifier, void *data, void *userdata, char **ret) {
+        Unit *u = userdata;
+
+        assert(u);
+
+        return unit_name_to_path(u->id, ret);
 }
 
 static int specifier_cgroup(char specifier, void *data, void *userdata, char **ret) {
@@ -246,7 +254,8 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
                 { 'i', specifier_string,              u->instance },
                 { 'I', specifier_instance_unescaped,  NULL },
 
-                { 'f', specifier_filename,            NULL },
+                { 'f', specifier_filename_unescaped,  NULL },
+                { 'F', specifier_filename,            NULL },
                 { 'c', specifier_cgroup,              NULL },
                 { 'r', specifier_cgroup_slice,        NULL },
                 { 'R', specifier_cgroup_root,         NULL },

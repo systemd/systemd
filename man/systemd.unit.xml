@@ -1237,6 +1237,11 @@
       <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the prefix name prepended with <filename>/</filename>.</entry>
           </row>
           <row>
+      <entry><literal>%F</literal></entry>
+      <entry>Filename</entry>
+      <entry>This is always the the prefix name prepended with <filename>/</filename>.</entry>
+          </row>
+          <row>
       <entry><literal>%c</literal></entry>
       <entry>Control group path of the unit</entry>
       <entry>This path does not include the <filename>/sys/fs/cgroup/systemd/</filename> prefix.</entry>
