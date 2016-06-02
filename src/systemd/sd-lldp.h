@@ -30,9 +30,6 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-typedef struct sd_lldp sd_lldp;
-typedef struct sd_lldp_neighbor sd_lldp_neighbor;
-
 /* IEEE 802.3AB Clause 9: TLV Types */
 enum {
         SD_LLDP_TYPE_END                 = 0,
@@ -111,6 +108,9 @@ enum {
         SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION      = 7,
 };
 
+typedef struct sd_lldp sd_lldp;
+typedef struct sd_lldp_neighbor sd_lldp_neighbor;
+
 typedef enum sd_lldp_event {
         SD_LLDP_EVENT_ADDED     = 'a',
         SD_LLDP_EVENT_REMOVED   = 'r',
@@ -120,7 +120,8 @@ typedef enum sd_lldp_event {
 
 typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata);
 
-int sd_lldp_new(sd_lldp **ret, int ifindex);
+int sd_lldp_new(sd_lldp **ret);
+sd_lldp* sd_lldp_ref(sd_lldp *lldp);
 sd_lldp* sd_lldp_unref(sd_lldp *lldp);
 
 int sd_lldp_start(sd_lldp *lldp);
@@ -130,6 +131,7 @@ int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int64_t priority);
 int sd_lldp_detach_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);
+int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex);
 
 /* Controls how much and what to store in the neighbors database */
 int sd_lldp_set_neighbors_max(sd_lldp *lldp, uint64_t n);

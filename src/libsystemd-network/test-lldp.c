@@ -54,15 +54,19 @@ static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n
 static int start_lldp(sd_lldp **lldp, sd_event *e, sd_lldp_callback_t cb, void *cb_data) {
         int r;
 
-        r = sd_lldp_new(lldp, 42);
+        r = sd_lldp_new(lldp);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_attach_event(*lldp, e, 0);
+        r = sd_lldp_set_ifindex(*lldp, 42);
         if (r < 0)
                 return r;
 
         r = sd_lldp_set_callback(*lldp, cb, cb_data);
+        if (r < 0)
+                return r;
+
+        r = sd_lldp_attach_event(*lldp, e, 0);
         if (r < 0)
                 return r;
 

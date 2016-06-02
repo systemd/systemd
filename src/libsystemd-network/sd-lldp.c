@@ -234,10 +234,20 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
         return lldp_handle_datagram(lldp, n);
 }
 
+static void lldp_reset(sd_lldp *lldp) {
+        assert(lldp);
+
+        lldp->timer_event_source = sd_event_source_unref(lldp->timer_event_source);
+        lldp->io_event_source = sd_event_source_unref(lldp->io_event_source);
+        lldp->fd = safe_close(lldp->fd);
+}
+
 _public_ int sd_lldp_start(sd_lldp *lldp) {
         int r;
 
         assert_return(lldp, -EINVAL);
+        assert_return(lldp->event, -EINVAL);
+        assert_return(lldp->ifindex > 0, -EINVAL);
 
         if (lldp->fd >= 0)
                 return 0;
@@ -248,24 +258,21 @@ _public_ int sd_lldp_start(sd_lldp *lldp) {
         if (lldp->fd < 0)
                 return lldp->fd;
 
-        if (lldp->event) {
-                r = sd_event_add_io(lldp->event, &lldp->io_event_source, lldp->fd, EPOLLIN, lldp_receive_datagram, lldp);
-                if (r < 0)
-                        goto fail;
+        r = sd_event_add_io(lldp->event, &lldp->io_event_source, lldp->fd, EPOLLIN, lldp_receive_datagram, lldp);
+        if (r < 0)
+                goto fail;
 
-                r = sd_event_source_set_priority(lldp->io_event_source, lldp->event_priority);
-                if (r < 0)
-                        goto fail;
+        r = sd_event_source_set_priority(lldp->io_event_source, lldp->event_priority);
+        if (r < 0)
+                goto fail;
 
-                (void) sd_event_source_set_description(lldp->io_event_source, "lldp-io");
-        }
+        (void) sd_event_source_set_description(lldp->io_event_source, "lldp-io");
 
+        log_lldp("Started LLDP client");
         return 1;
 
 fail:
-        lldp->io_event_source = sd_event_source_unref(lldp->io_event_source);
-        lldp->fd = safe_close(lldp->fd);
-
+        lldp_reset(lldp);
         return r;
 }
 
@@ -275,10 +282,9 @@ _public_ int sd_lldp_stop(sd_lldp *lldp) {
         if (lldp->fd < 0)
                 return 0;
 
-        lldp->timer_event_source = sd_event_source_unref(lldp->timer_event_source);
-        lldp->io_event_source = sd_event_source_unref(lldp->io_event_source);
-        lldp->fd = safe_close(lldp->fd);
+        log_lldp("Stopping LLDP client");
 
+        lldp_reset(lldp);
         lldp_flush_neighbors(lldp);
 
         return 1;
@@ -322,39 +328,60 @@ _public_ int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *us
         return 0;
 }
 
+_public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
+        assert_return(lldp, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(lldp->fd < 0, -EBUSY);
+
+        lldp->ifindex = ifindex;
+        return 0;
+}
+
+_public_ sd_lldp* sd_lldp_ref(sd_lldp *lldp) {
+
+        if (!lldp)
+                return NULL;
+
+        assert(lldp->n_ref > 0);
+        lldp->n_ref++;
+
+        return lldp;
+}
+
 _public_ sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
 
         if (!lldp)
                 return NULL;
 
+        assert(lldp->n_ref > 0);
+        lldp->n_ref --;
+
+        if (lldp->n_ref > 0)
+                return NULL;
+
+        lldp_reset(lldp);
+        sd_lldp_detach_event(lldp);
         lldp_flush_neighbors(lldp);
 
         hashmap_free(lldp->neighbor_by_id);
         prioq_free(lldp->neighbor_by_expiry);
-
-        sd_event_source_unref(lldp->io_event_source);
-        sd_event_source_unref(lldp->timer_event_source);
-        sd_event_unref(lldp->event);
-        safe_close(lldp->fd);
-
         free(lldp);
 
         return NULL;
 }
 
-_public_ int sd_lldp_new(sd_lldp **ret, int ifindex) {
+_public_ int sd_lldp_new(sd_lldp **ret) {
         _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(ifindex > 0, -EINVAL);
 
         lldp = new0(sd_lldp, 1);
         if (!lldp)
                 return -ENOMEM;
 
+        lldp->n_ref = 1;
         lldp->fd = -1;
-        lldp->ifindex = ifindex;
         lldp->neighbors_max = LLDP_DEFAULT_NEIGHBORS_MAX;
         lldp->capability_mask = (uint16_t) -1;
 

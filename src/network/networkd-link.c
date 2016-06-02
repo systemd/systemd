@@ -2364,7 +2364,11 @@ static int link_configure(Link *link) {
         }
 
         if (link_lldp_rx_enabled(link)) {
-                r = sd_lldp_new(&link->lldp, link->ifindex);
+                r = sd_lldp_new(&link->lldp);
+                if (r < 0)
+                        return r;
+
+                r = sd_lldp_set_ifindex(link->lldp, link->ifindex);
                 if (r < 0)
                         return r;
 

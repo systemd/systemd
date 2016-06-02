@@ -28,6 +28,8 @@
 #include "prioq.h"
 
 struct sd_lldp {
+        unsigned n_ref;
+
         int ifindex;
         int fd;
 
