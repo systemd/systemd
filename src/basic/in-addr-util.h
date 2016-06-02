@@ -36,6 +36,9 @@ struct in_addr_data {
         union in_addr_union address;
 };
 
+bool in4_addr_is_null(const struct in_addr *a);
+bool in6_addr_is_null(const struct in6_addr *a);
+
 int in_addr_is_null(int family, const union in_addr_union *u);
 int in_addr_is_link_local(int family, const union in_addr_union *u);
 int in_addr_is_localhost(int family, const union in_addr_union *u);
