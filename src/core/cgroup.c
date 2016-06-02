@@ -36,6 +36,22 @@
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
+static void cgroup_compat_warn(void)
+{
+        static bool cgroup_compat_warned = false;
+
+        if (cgroup_compat_warned)
+                return;
+
+        log_warning("cgroup compatibility translation between legacy and unified hierarchy settings activated. See cgroup-compat debug messages for details.");
+        cgroup_compat_warned = true;
+}
+
+#define log_cgroup_compat(unit, fmt, ...) do {                                  \
+                cgroup_compat_warn();                                           \
+                log_unit_debug(unit, "cgroup-compat: " fmt, ##__VA_ARGS__);     \
+        } while (0)
+
 void cgroup_context_init(CGroupContext *c) {
         assert(c);
 
@@ -587,9 +603,14 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
                         if (has_io)
                                 weight = cgroup_context_io_weight(c, state);
-                        else if (has_blockio)
-                                weight = cgroup_weight_blkio_to_io(cgroup_context_blkio_weight(c, state));
-                        else
+                        else if (has_blockio) {
+                                uint64_t blkio_weight = cgroup_context_blkio_weight(c, state);
+
+                                weight = cgroup_weight_blkio_to_io(blkio_weight);
+
+                                log_cgroup_compat(u, "Applying [Startup]BlockIOWeight %" PRIu64 " as [Startup]IOWeight %" PRIu64,
+                                                  blkio_weight, weight);
+                        } else
                                 weight = CGROUP_WEIGHT_DEFAULT;
 
                         xsprintf(buf, "default %" PRIu64 "\n", weight);
@@ -608,8 +629,14 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                                 CGroupBlockIODeviceWeight *w;
 
                                 /* FIXME: no way to reset this list */
-                                LIST_FOREACH(device_weights, w, c->blockio_device_weights)
-                                        cgroup_apply_io_device_weight(u, w->path, cgroup_weight_blkio_to_io(w->weight));
+                                LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
+                                        weight = cgroup_weight_blkio_to_io(w->weight);
+
+                                        log_cgroup_compat(u, "Applying BlockIODeviceWeight %" PRIu64 " as IODeviceWeight %" PRIu64 " for %s",
+                                                          w->weight, weight, w->path);
+
+                                        cgroup_apply_io_device_weight(u, w->path, weight);
+                                }
                         }
                 }
 
@@ -634,6 +661,9 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                                 limits[CGROUP_IO_RBPS_MAX] = b->rbps;
                                 limits[CGROUP_IO_WBPS_MAX] = b->wbps;
 
+                                log_cgroup_compat(u, "Applying BlockIO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as IO{Read|Write}BandwidthMax for %s",
+                                                  b->rbps, b->wbps, b->path);
+
                                 if (!cgroup_apply_io_device_limit(u, b->path, limits))
                                         cgroup_context_free_blockio_device_bandwidth(c, b);
                         }
@@ -650,9 +680,14 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
                         if (has_blockio)
                                 weight = cgroup_context_blkio_weight(c, state);
-                        else if (has_io)
+                        else if (has_io) {
+                                uint64_t io_weight = cgroup_context_io_weight(c, state);
+
                                 weight = cgroup_weight_io_to_blkio(cgroup_context_io_weight(c, state));
-                        else
+
+                                log_cgroup_compat(u, "Applying [Startup]IOWeight %" PRIu64 " as [Startup]BlockIOWeight %" PRIu64,
+                                                  io_weight, weight);
+                        } else
                                 weight = CGROUP_BLKIO_WEIGHT_DEFAULT;
 
                         xsprintf(buf, "%" PRIu64 "\n", weight);
@@ -671,8 +706,14 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                                 CGroupIODeviceWeight *w;
 
                                 /* FIXME: no way to reset this list */
-                                LIST_FOREACH(device_weights, w, c->io_device_weights)
-                                        cgroup_apply_blkio_device_weight(u, w->path, cgroup_weight_io_to_blkio(w->weight));
+                                LIST_FOREACH(device_weights, w, c->io_device_weights) {
+                                        weight = cgroup_weight_io_to_blkio(w->weight);
+
+                                        log_cgroup_compat(u, "Applying IODeviceWeight %" PRIu64 " as BlockIODeviceWeight %" PRIu64 " for %s",
+                                                          w->weight, weight, w->path);
+
+                                        cgroup_apply_blkio_device_weight(u, w->path, weight);
+                                }
                         }
                 }
 
@@ -688,6 +729,9 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                         CGroupIODeviceLimit *l, *next;
 
                         LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
+                                log_cgroup_compat(u, "Applying IO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as BlockIO{Read|Write}BandwidthMax for %s",
+                                                  l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX], l->path);
+
                                 if (!cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]))
                                         cgroup_context_free_io_device_limit(c, l);
                         }
@@ -700,8 +744,12 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
                         if (cgroup_context_has_unified_memory_config(c))
                                 max = c->memory_max;
-                        else
+                        else {
                                 max = c->memory_limit;
+
+                                if (max != CGROUP_LIMIT_MAX)
+                                        log_cgroup_compat(u, "Applying MemoryLimit %" PRIu64 " as MemoryMax", max);
+                        }
 
                         cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
                         cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
@@ -711,8 +759,12 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
                         if (c->memory_limit != CGROUP_LIMIT_MAX)
                                 xsprintf(buf, "%" PRIu64 "\n", c->memory_limit);
-                        else
+                        else {
                                 xsprintf(buf, "%" PRIu64 "\n", c->memory_max);
+
+                                if (c->memory_max != CGROUP_LIMIT_MAX)
+                                        log_cgroup_compat(u, "Applying MemoryMax %" PRIu64 " as MemoryLimit", c->memory_max);
+                        }
 
                         r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
                         if (r < 0)
