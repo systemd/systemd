@@ -28,6 +28,8 @@
 #include "string-util.h"
 #include "util.h"
 
+#define STATIC_ROUTES_PER_NETWORK_MAX 1024U
+
 int route_new(Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
 
@@ -51,6 +53,9 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
         int r;
 
+        assert(network);
+        assert(ret);
+
         if (section) {
                 route = hashmap_get(network->routes_by_section, UINT_TO_PTR(section));
                 if (route) {
@@ -60,6 +65,9 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                         return 0;
                 }
         }
+
+        if (network->n_static_routes >= STATIC_ROUTES_PER_NETWORK_MAX)
+                return -E2BIG;
 
         r = route_new(&route);
         if (r < 0)
@@ -77,6 +85,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
 
         route->network = network;
         LIST_PREPEND(routes, network->static_routes, route);
+        network->n_static_routes++;
 
         *ret = route;
         route = NULL;
@@ -91,9 +100,11 @@ void route_free(Route *route) {
         if (route->network) {
                 LIST_REMOVE(routes, route->network->static_routes, route);
 
+                assert(route->network->n_static_routes > 0);
+                route->network->n_static_routes--;
+
                 if (route->section)
-                        hashmap_remove(route->network->routes_by_section,
-                                       UINT_TO_PTR(route->section));
+                        hashmap_remove(route->network->routes_by_section, UINT_TO_PTR(route->section));
         }
 
         if (route->link) {

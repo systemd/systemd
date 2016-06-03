@@ -32,6 +32,8 @@
 #include "utf8.h"
 #include "util.h"
 
+#define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
+
 int address_new(Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
 
@@ -54,6 +56,9 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
         int r;
 
+        assert(network);
+        assert(ret);
+
         if (section) {
                 address = hashmap_get(network->addresses_by_section, UINT_TO_PTR(section));
                 if (address) {
@@ -64,18 +69,21 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
                 }
         }
 
+        if (network->n_static_addresses >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+                return -E2BIG;
+
         r = address_new(&address);
         if (r < 0)
                 return r;
 
         if (section) {
                 address->section = section;
-                hashmap_put(network->addresses_by_section,
-                            UINT_TO_PTR(address->section), address);
+                hashmap_put(network->addresses_by_section, UINT_TO_PTR(address->section), address);
         }
 
         address->network = network;
         LIST_APPEND(addresses, network->static_addresses, address);
+        network->n_static_addresses++;
 
         *ret = address;
         address = NULL;
@@ -89,10 +97,11 @@ void address_free(Address *address) {
 
         if (address->network) {
                 LIST_REMOVE(addresses, address->network->static_addresses, address);
+                assert(address->network->n_static_addresses > 0);
+                address->network->n_static_addresses--;
 
                 if (address->section)
-                        hashmap_remove(address->network->addresses_by_section,
-                                       UINT_TO_PTR(address->section));
+                        hashmap_remove(address->network->addresses_by_section, UINT_TO_PTR(address->section));
         }
 
         if (address->link) {
