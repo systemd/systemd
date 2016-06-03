@@ -86,6 +86,7 @@ typedef struct SysvStub {
         bool has_lsb;
         bool reload;
         bool loaded;
+        bool default_dependencies;
 } SysvStub;
 
 static void free_sysvstub(SysvStub *s) {
@@ -192,6 +193,9 @@ static int generate_unit_file(SysvStub *s) {
 
         if (s->description)
                 fprintf(f, "Description=%s\n", s->description);
+
+        if (!s->default_dependencies)
+                fprintf(f, "DefaultDependencies=no\n");
 
         STRV_FOREACH(p, s->before)
                 fprintf(f, "Before=%s\n", *p);
@@ -824,6 +828,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                 return log_oom();
 
                         service->sysv_start_priority = -1;
+                        service->default_dependencies = true;
                         service->name = name;
                         service->path = fpath;
                         name = fpath = NULL;
@@ -915,6 +920,9 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                         if (rcnd_table[i].type == RUNLEVEL_UP)
                                                 service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
 
+                                        if (rcnd_table[i].type == RUNLEVEL_DOWN)
+                                                service->default_dependencies = false;
+
                                         r = set_ensure_allocated(&runlevel_services[i], NULL);
                                         if (r < 0) {
                                                 log_oom();
@@ -927,8 +935,22 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                                 goto finish;
                                         }
 
-                                } else if (de->d_name[0] == 'K' &&
-                                           (rcnd_table[i].type == RUNLEVEL_DOWN)) {
+                                } else if (rcnd_table[i].type == RUNLEVEL_DOWN) {
+
+                                        assert(de->d_name[0] == 'K');
+
+                                        /* This case is not really useful per se since it
+                                         * handles the weird case where both 'K' and 'S'
+                                         * symlinks would be installed at a down runlevel
+                                         * for the same service. Not sure how SysV handles
+                                         * this case but systemd will simply won't start
+                                         * nor stop the service at all.
+                                         *
+                                         * However adding a shutdown conflict might also
+                                         * help the handling of early boot SysV services
+                                         * still supported by some distros. Indeed those
+                                         * services won't use the default deps but still
+                                         * will want to be stopped at shutdown. */
 
                                         r = set_ensure_allocated(&shutdown_services, NULL);
                                         if (r < 0) {
