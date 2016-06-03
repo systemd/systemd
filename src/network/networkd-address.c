@@ -338,7 +338,12 @@ static int address_release(Address *address) {
         return 0;
 }
 
-int address_update(Address *address, unsigned char flags, unsigned char scope, struct ifa_cacheinfo *cinfo) {
+int address_update(
+                Address *address,
+                unsigned char flags,
+                unsigned char scope,
+                const struct ifa_cacheinfo *cinfo) {
+
         bool ready;
         int r;
 

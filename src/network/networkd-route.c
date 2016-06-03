@@ -226,13 +226,17 @@ int route_get(Link *link,
         return -ENOENT;
 }
 
-static int route_add_internal(Link *link, Set **routes,
-                              int family,
-                              union in_addr_union *dst,
-                              unsigned char dst_prefixlen,
-                              unsigned char tos,
-                              uint32_t priority,
-                              unsigned char table, Route **ret) {
+static int route_add_internal(
+                Link *link,
+                Set **routes,
+                int family,
+                const union in_addr_union *dst,
+                unsigned char dst_prefixlen,
+                unsigned char tos,
+                uint32_t priority,
+                unsigned char table,
+                Route **ret) {
+
         _cleanup_route_free_ Route *route = NULL;
         int r;
 
@@ -269,23 +273,29 @@ static int route_add_internal(Link *link, Set **routes,
         return 0;
 }
 
-int route_add_foreign(Link *link,
-                      int family,
-                      union in_addr_union *dst,
-                      unsigned char dst_prefixlen,
-                      unsigned char tos,
-                      uint32_t priority,
-                      unsigned char table, Route **ret) {
+int route_add_foreign(
+                Link *link,
+                int family,
+                const union in_addr_union *dst,
+                unsigned char dst_prefixlen,
+                unsigned char tos,
+                uint32_t priority,
+                unsigned char table,
+                Route **ret) {
+
         return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
 }
 
-int route_add(Link *link,
+int route_add(
+              Link *link,
               int family,
-              union in_addr_union *dst,
+              const union in_addr_union *dst,
               unsigned char dst_prefixlen,
               unsigned char tos,
               uint32_t priority,
-              unsigned char table, Route **ret) {
+              unsigned char table,
+              Route **ret) {
+
         Route *route;
         int r;
 
@@ -318,12 +328,13 @@ int route_add(Link *link,
 }
 
 int route_update(Route *route,
-                 union in_addr_union *src,
+                 const union in_addr_union *src,
                  unsigned char src_prefixlen,
-                 union in_addr_union *gw,
-                 union in_addr_union *prefsrc,
+                 const union in_addr_union *gw,
+                 const union in_addr_union *prefsrc,
                  unsigned char scope,
                  unsigned char protocol) {
+
         assert(route);
         assert(src);
         assert(gw);
