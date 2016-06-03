@@ -149,21 +149,19 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
         assert(link);
         assert(link->network);
         assert(link->manager);
+        assert(link->dhcp6_client);
+        assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
         if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER)) {
-                if (flags & ND_RA_FLAG_MANAGED)
-                        dhcp6_request_address(link);
-
-                r = sd_dhcp6_client_set_local_address(link->dhcp6_client, &link->ipv6ll_address);
+                /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags */
+                r = dhcp6_request_address(link, flags & ND_RA_FLAG_MANAGED ? false : true);
                 if (r < 0 && r != -EBUSY)
-                        log_link_warning_errno(link, r, "Could not set IPv6LL address in DHCP client: %m");
-
-                r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0 && r != -EBUSY)
-                        log_link_warning_errno(link, r, "Starting DHCPv6 client on NDisc request failed: %m");
+                        log_link_warning_errno(link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
+                else
+                        log_link_debug(link, "Acquiring DHCPv6 lease on NDisc request");
         }
 
         if (!gateway)
@@ -205,16 +203,6 @@ static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
 
         switch (event) {
         case SD_NDISC_EVENT_TIMEOUT:
-                dhcp6_request_address(link);
-
-                r = sd_dhcp6_client_set_local_address(link->dhcp6_client, &link->ipv6ll_address);
-                if (r < 0 && r != -EBUSY)
-                        log_link_warning_errno(link, r, "Could not set IPv6LL address in DHCP client: %m");
-
-                r = sd_dhcp6_client_start(link->dhcp6_client);
-                if (r < 0 && r != -EBUSY)
-                        log_link_warning_errno(link, r, "Starting DHCPv6 client after NDisc timeout failed: %m");
-
                 link->ndisc_configured = true;
                 link_check_ready(link);
 

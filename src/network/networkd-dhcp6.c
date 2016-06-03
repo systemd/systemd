@@ -164,19 +164,13 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         link_check_ready(link);
 }
 
-int dhcp6_request_address(Link *link) {
+int dhcp6_request_address(Link *link, int ir) {
         int r, inf_req;
         bool running;
 
         assert(link);
         assert(link->dhcp6_client);
-
-        r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
-        if (r < 0)
-                return r;
-
-        if (!inf_req)
-                return 0;
+        assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
         r = sd_dhcp6_client_is_running(link->dhcp6_client);
         if (r < 0)
@@ -185,12 +179,27 @@ int dhcp6_request_address(Link *link) {
                 running = !!r;
 
         if (running) {
+                r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
+                if (r < 0)
+                        return r;
+
+                if (inf_req == ir)
+                        return 0;
+
                 r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_dhcp6_client_set_local_address(link->dhcp6_client, &link->ipv6ll_address);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, false);
+        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, ir);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp6_client_start(link->dhcp6_client);
         if (r < 0)
                 return r;
 
@@ -212,10 +221,6 @@ int dhcp6_configure(Link *link) {
                 return r;
 
         r = sd_dhcp6_client_attach_event(client, NULL, 0);
-        if (r < 0)
-                goto error;
-
-        r = sd_dhcp6_client_set_information_request(client, true);
         if (r < 0)
                 goto error;
 
