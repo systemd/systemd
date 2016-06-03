@@ -916,7 +916,7 @@ CHANGES WITH 226:
           available, systemd will fall back to the legacy cgroup
           hierarchy setup, as before. Host system and containers can
           mix and match legacy and unified hierarchies as they
-          wish. nspawn understands the $UNIFIED_CROUP_HIERARCHY
+          wish. nspawn understands the $UNIFIED_CGROUP_HIERARCHY
           environment variable to individually select the hierarchy to
           use for executed containers. By default, nspawn will use the
           unified hierarchy for the containers if the host uses the
