@@ -28,6 +28,7 @@
 #include "string-util.h"
 #include "util.h"
 
+#define ROUTES_PER_LINK_MAX 2048U
 #define STATIC_ROUTES_PER_NETWORK_MAX 1024U
 
 int route_new(Route **ret) {
@@ -187,39 +188,42 @@ static const struct hash_ops route_hash_ops = {
 
 int route_get(Link *link,
               int family,
-              union in_addr_union *dst,
+              const union in_addr_union *dst,
               unsigned char dst_prefixlen,
               unsigned char tos,
               uint32_t priority,
               unsigned char table,
               Route **ret) {
-        Route route = {
+
+        Route route, *existing;
+
+        assert(link);
+        assert(dst);
+
+        route = (Route) {
                 .family = family,
+                .dst = *dst,
                 .dst_prefixlen = dst_prefixlen,
                 .tos = tos,
                 .priority = priority,
                 .table = table,
-        }, *existing;
-
-        assert(link);
-        assert(dst);
-        assert(ret);
-
-        route.dst = *dst;
+        };
 
         existing = set_get(link->routes, &route);
         if (existing) {
-                *ret = existing;
+                if (ret)
+                        *ret = existing;
                 return 1;
-        } else {
-                existing = set_get(link->routes_foreign, &route);
-                if (!existing)
-                        return -ENOENT;
         }
 
-        *ret = existing;
+        existing = set_get(link->routes_foreign, &route);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
 
-        return 0;
+        return -ENOENT;
 }
 
 static int route_add_internal(Link *link, Set **routes,
@@ -460,8 +464,11 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         return 1;
 }
 
-int route_configure(Route *route, Link *link,
-                    sd_netlink_message_handler_t callback) {
+int route_configure(
+                Route *route,
+                Link *link,
+                sd_netlink_message_handler_t callback) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
         usec_t lifetime;
@@ -472,6 +479,10 @@ int route_configure(Route *route, Link *link,
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
         assert(route->family == AF_INET || route->family == AF_INET6);
+
+        if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
+            set_size(route->link->routes) >= ROUTES_PER_LINK_MAX)
+                return -E2BIG;
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
                                       RTM_NEWROUTE, route->family,

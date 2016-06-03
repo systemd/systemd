@@ -32,6 +32,7 @@
 #include "utf8.h"
 #include "util.h"
 
+#define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
 int address_new(Address **ret) {
@@ -392,31 +393,38 @@ int address_drop(Address *address) {
         return 0;
 }
 
-int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
-        Address address = {}, *existing;
+int address_get(Link *link,
+                int family,
+                const union in_addr_union *in_addr,
+                unsigned char prefixlen,
+                Address **ret) {
+
+        Address address, *existing;
 
         assert(link);
         assert(in_addr);
-        assert(ret);
 
-        address.family = family;
-        address.in_addr = *in_addr;
-        address.prefixlen = prefixlen;
+        address = (Address) {
+                .family = family,
+                .in_addr = *in_addr,
+                .prefixlen = prefixlen,
+        };
 
         existing = set_get(link->addresses, &address);
         if (existing) {
-                *ret = existing;
-
+                if (ret)
+                        *ret = existing;
                 return 1;
-        } else {
-                existing = set_get(link->addresses_foreign, &address);
-                if (!existing)
-                        return -ENOENT;
         }
 
-        *ret = existing;
+        existing = set_get(link->addresses_foreign, &address);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
 
-        return 0;
+        return -ENOENT;
 }
 
 int address_remove(
@@ -518,7 +526,12 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         return 0;
 }
 
-int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback, bool update) {
+int address_configure(
+                Address *address,
+                Link *link,
+                sd_netlink_message_handler_t callback,
+                bool update) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -528,6 +541,11 @@ int address_configure(Address *address, Link *link, sd_netlink_message_handler_t
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        /* If this is a new address, then refuse adding more than the limit */
+        if (address_get(link, address->family, &address->in_addr, address->prefixlen, NULL) <= 0 &&
+            set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+                return -E2BIG;
 
         r = address_acquire(link, address, &address);
         if (r < 0)
