@@ -32,7 +32,7 @@
 /* create a new FDB entry or get an existing one. */
 int fdb_entry_new_static(
                 Network *network,
-                const unsigned section,
+                unsigned section,
                 FdbEntry **ret) {
 
         _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
@@ -102,7 +102,7 @@ static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
-int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
+int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         sd_netlink *rtnl;
         int r;

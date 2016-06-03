@@ -1092,7 +1092,7 @@ int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
         return 1;
 }
 
-static int link_set_bridge_fdb(Link *const link) {
+static int link_set_bridge_fdb(Link *link) {
         FdbEntry *fdb_entry;
         int r = 0;
 
@@ -1107,7 +1107,7 @@ static int link_set_bridge_fdb(Link *const link) {
         return r;
 }
 
-static int link_set_proxy_arp(Link *const link) {
+static int link_set_proxy_arp(Link *link) {
         const char *p = NULL;
         int r;
 
