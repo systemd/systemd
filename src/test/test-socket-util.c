@@ -286,6 +286,55 @@ static void test_in_addr_to_string(void) {
         test_in_addr_to_string_one(AF_INET6, "fe80::");
 }
 
+static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex, const char *b) {
+        _cleanup_free_ char *r = NULL;
+        union in_addr_union ua, uuaa;
+        int ff, ifindex2;
+
+        assert_se(in_addr_from_string(f, a, &ua) >= 0);
+        assert_se(in_addr_ifindex_to_string(f, &ua, ifindex, &r) >= 0);
+        printf("test_in_addr_ifindex_to_string_one: %s == %s\n", b, r);
+        assert_se(streq(b, r));
+
+        assert_se(in_addr_ifindex_from_string_auto(b, &ff, &uuaa, &ifindex2) >= 0);
+        assert_se(ff == f);
+        assert_se(in_addr_equal(f, &ua, &uuaa));
+        assert_se(ifindex2 == ifindex || ifindex2 == 0);
+}
+
+static void test_in_addr_ifindex_to_string(void) {
+        test_in_addr_ifindex_to_string_one(AF_INET, "192.168.0.1", 7, "192.168.0.1");
+        test_in_addr_ifindex_to_string_one(AF_INET, "10.11.12.13", 9, "10.11.12.13");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "::1", 11, "::1");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 12, "fe80::%12");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 0, "fe80::");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::14", 12, "fe80::14%12");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::15", -7, "fe80::15");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::16", LOOPBACK_IFINDEX, "fe80::16%1");
+}
+
+static void test_in_addr_ifindex_from_string_auto(void) {
+        int family, ifindex;
+        union in_addr_union ua;
+
+        /* Most in_addr_ifindex_from_string_auto() invocations have already been tested above, but let's test some more */
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::17", &family, &ua, &ifindex) >= 0);
+        assert_se(family == AF_INET6);
+        assert_se(ifindex == 0);
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::18%19", &family, &ua, &ifindex) >= 0);
+        assert_se(family == AF_INET6);
+        assert_se(ifindex == 19);
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::18%lo", &family, &ua, &ifindex) >= 0);
+        assert_se(family == AF_INET6);
+        assert_se(ifindex == LOOPBACK_IFINDEX);
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
+}
+
 static void *connect_thread(void *arg) {
         union sockaddr_union *sa = arg;
         _cleanup_close_ int fd = -1;
@@ -398,6 +447,8 @@ int main(int argc, char *argv[]) {
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
         test_in_addr_to_string();
+        test_in_addr_ifindex_to_string();
+        test_in_addr_ifindex_from_string_auto();
 
         test_nameinfo_pretty();
 

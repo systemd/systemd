@@ -92,7 +92,7 @@ int manager_read_resolv_conf(Manager *m) {
 
                 a = first_word(l, "nameserver");
                 if (a) {
-                        r = manager_add_dns_server_by_string(m, DNS_SERVER_SYSTEM, a);
+                        r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, a);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
 
@@ -149,9 +149,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         assert(f);
         assert(count);
 
-        (void) dns_server_string(s);
-
-        if (!s->server_string) {
+        if (!dns_server_string(s)) {
                 log_warning("Our of memory, or invalid DNS address. Ignoring server.");
                 return;
         }
@@ -160,7 +158,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
                 fputs("# Too many DNS servers configured, the following entries may be ignored.\n", f);
         (*count)++;
 
-        fprintf(f, "nameserver %s\n", s->server_string);
+        fprintf(f, "nameserver %s\n", dns_server_string(s));
 }
 
 static void write_resolv_conf_search(

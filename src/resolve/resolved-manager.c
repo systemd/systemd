@@ -903,7 +903,7 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &addr->in, port, p);
-        else if (family == AF_INET6)
+        if (family == AF_INET6)
                 return manager_ipv6_send(m, fd, ifindex, &addr->in6, port, p);
 
         return -EAFNOSUPPORT;

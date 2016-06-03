@@ -27,18 +27,18 @@
 
 int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
         union in_addr_union address;
-        int family, r;
+        int family, r, ifindex = 0;
         DnsServer *s;
 
         assert(m);
         assert(word);
 
-        r = in_addr_from_string_auto(word, &family, &address);
+        r = in_addr_ifindex_from_string_auto(word, &family, &address, &ifindex);
         if (r < 0)
                 return r;
 
         /* Filter out duplicates */
-        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address);
+        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, ifindex);
         if (s) {
                 /*
                  * Drop the marker. This is used to find the servers
@@ -50,7 +50,7 @@ int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char 
                 return 0;
         }
 
-        return dns_server_new(m, NULL, type, NULL, family, &address);
+        return dns_server_new(m, NULL, type, NULL, family, &address, ifindex);
 }
 
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
@@ -70,7 +70,7 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
 
                 r = manager_add_dns_server_by_string(m, type, word);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to add DNS server address '%s', ignoring.", word);
+                        log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
         }
 
         return 0;
@@ -125,7 +125,7 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
 
                 r = manager_add_search_domain_by_string(m, word);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to add search domain '%s', ignoring.", word);
+                        log_warning_errno(r, "Failed to add search domain '%s', ignoring: %m", word);
         }
 
         return 0;

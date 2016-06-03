@@ -43,7 +43,8 @@ int dns_server_new(
                 DnsServerType type,
                 Link *l,
                 int family,
-                const union in_addr_union *in_addr) {
+                const union in_addr_union *in_addr,
+                int ifindex) {
 
         DnsServer *s;
 
@@ -75,6 +76,7 @@ int dns_server_new(
         s->type = type;
         s->family = family;
         s->address = *in_addr;
+        s->ifindex = ifindex;
         s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
 
         switch (type) {
@@ -518,11 +520,24 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
         return dns_packet_append_opt(packet, packet_size, edns_do, NULL);
 }
 
+int dns_server_ifindex(const DnsServer *s) {
+        assert(s);
+
+        /* The link ifindex always takes precedence */
+        if (s->link)
+                return s->link->ifindex;
+
+        if (s->ifindex > 0)
+                return s->ifindex;
+
+        return 0;
+}
+
 const char *dns_server_string(DnsServer *server) {
         assert(server);
 
         if (!server->server_string)
-                (void) in_addr_to_string(server->family, &server->address, &server->server_string);
+                (void) in_addr_ifindex_to_string(server->family, &server->address, dns_server_ifindex(server), &server->server_string);
 
         return strna(server->server_string);
 }
@@ -571,17 +586,28 @@ static void dns_server_hash_func(const void *p, struct siphash *state) {
 
         siphash24_compress(&s->family, sizeof(s->family), state);
         siphash24_compress(&s->address, FAMILY_ADDRESS_SIZE(s->family), state);
+        siphash24_compress(&s->ifindex, sizeof(s->ifindex), state);
 }
 
 static int dns_server_compare_func(const void *a, const void *b) {
         const DnsServer *x = a, *y = b;
+        int r;
 
         if (x->family < y->family)
                 return -1;
         if (x->family > y->family)
                 return 1;
 
-        return memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
+        r = memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
+        if (r != 0)
+                return r;
+
+        if (x->ifindex < y->ifindex)
+                return -1;
+        if (x->ifindex > y->ifindex)
+                return 1;
+
+        return 0;
 }
 
 const struct hash_ops dns_server_hash_ops = {
@@ -623,11 +649,11 @@ void dns_server_mark_all(DnsServer *first) {
         dns_server_mark_all(first->servers_next);
 }
 
-DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr) {
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, int ifindex) {
         DnsServer *s;
 
         LIST_FOREACH(servers, s, first)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0)
+                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0 && s->ifindex == ifindex)
                         return s;
 
         return NULL;

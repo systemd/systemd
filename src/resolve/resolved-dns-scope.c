@@ -307,13 +307,15 @@ static int dns_scope_socket(
         union sockaddr_union sa = {};
         socklen_t salen;
         static const int one = 1;
-        int ret, r;
+        int ret, r, ifindex;
 
         assert(s);
 
         if (server) {
                 assert(family == AF_UNSPEC);
                 assert(!address);
+
+                ifindex = dns_server_ifindex(server);
 
                 sa.sa.sa_family = server->family;
                 if (server->family == AF_INET) {
@@ -323,7 +325,7 @@ static int dns_scope_socket(
                 } else if (server->family == AF_INET6) {
                         sa.in6.sin6_port = htobe16(port);
                         sa.in6.sin6_addr = server->address.in6;
-                        sa.in6.sin6_scope_id = s->link ? s->link->ifindex : 0;
+                        sa.in6.sin6_scope_id = ifindex;
                         salen = sizeof(sa.in6);
                 } else
                         return -EAFNOSUPPORT;
@@ -332,6 +334,7 @@ static int dns_scope_socket(
                 assert(address);
 
                 sa.sa.sa_family = family;
+                ifindex = s->link ? s->link->ifindex : 0;
 
                 if (family == AF_INET) {
                         sa.in.sin_port = htobe16(port);
@@ -340,7 +343,7 @@ static int dns_scope_socket(
                 } else if (family == AF_INET6) {
                         sa.in6.sin6_port = htobe16(port);
                         sa.in6.sin6_addr = address->in6;
-                        sa.in6.sin6_scope_id = s->link ? s->link->ifindex : 0;
+                        sa.in6.sin6_scope_id = ifindex;
                         salen = sizeof(sa.in6);
                 } else
                         return -EAFNOSUPPORT;
@@ -357,14 +360,14 @@ static int dns_scope_socket(
         }
 
         if (s->link) {
-                uint32_t ifindex = htobe32(s->link->ifindex);
+                be32_t ifindex_be = htobe32(ifindex);
 
                 if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex, sizeof(ifindex));
+                        r = setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex_be, sizeof(ifindex_be));
                         if (r < 0)
                                 return -errno;
                 } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex, sizeof(ifindex));
+                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex_be, sizeof(ifindex_be));
                         if (r < 0)
                                 return -errno;
                 }

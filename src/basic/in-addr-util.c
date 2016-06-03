@@ -20,12 +20,14 @@
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>
+#include <net/if.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #include "alloc-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "util.h"
 
 int in_addr_is_null(int family, const union in_addr_union *u) {
@@ -224,6 +226,48 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
         return 0;
 }
 
+int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret) {
+        size_t l;
+        char *x;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        /* Much like in_addr_to_string(), but optionally appends the zone interface index to the address, to properly
+         * handle IPv6 link-local addresses. */
+
+        if (family != AF_INET6)
+                goto fallback;
+        if (ifindex <= 0)
+                goto fallback;
+
+        r = in_addr_is_link_local(family, u);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                goto fallback;
+
+        l = INET6_ADDRSTRLEN + 1 + DECIMAL_STR_MAX(ifindex) + 1;
+        x = new(char, l);
+        if (!x)
+                return -ENOMEM;
+
+        errno = 0;
+        if (!inet_ntop(family, u, x, l)) {
+                free(x);
+                return errno > 0 ? -errno : -EINVAL;
+        }
+
+        sprintf(strchr(x, 0), "%%%i", ifindex);
+        *ret = x;
+
+        return 0;
+
+fallback:
+        return in_addr_to_string(family, u, ret);
+}
+
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret) {
 
         assert(s);
@@ -259,6 +303,47 @@ int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *re
         }
 
         return -EINVAL;
+}
+
+int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
+        const char *suffix;
+        int r, ifi = 0;
+
+        assert(s);
+        assert(family);
+        assert(ret);
+
+        /* Similar to in_addr_from_string_auto() but also parses an optionally appended IPv6 zone suffix ("scope id")
+         * if one is found. */
+
+        suffix = strchr(s, '%');
+        if (suffix) {
+
+                if (ifindex) {
+                        /* If we shall return the interface index, try to parse it */
+                        r = parse_ifindex(suffix + 1, &ifi);
+                        if (r < 0) {
+                                unsigned u;
+
+                                u = if_nametoindex(suffix + 1);
+                                if (u <= 0)
+                                        return -errno;
+
+                                ifi = (int) u;
+                        }
+                }
+
+                s = strndupa(s, suffix - s);
+        }
+
+        r = in_addr_from_string_auto(s, family, ret);
+        if (r < 0)
+                return r;
+
+        if (ifindex)
+                *ifindex = ifi;
+
+        return r;
 }
 
 unsigned char in_addr_netmask_to_prefixlen(const struct in_addr *addr) {
