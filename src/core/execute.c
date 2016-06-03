@@ -25,6 +25,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/capability.h>
+#include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
@@ -1190,6 +1191,45 @@ finish:
         return r;
 }
 
+static int apply_memory_deny_write_execute(const ExecContext *c) {
+        scmp_filter_ctx *seccomp;
+        int r;
+
+        assert(c);
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_rule_add(
+                        seccomp,
+                        SCMP_ACT_KILL,
+                        SCMP_SYS(mmap),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC|PROT_WRITE, PROT_EXEC|PROT_WRITE));
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_rule_add(
+                        seccomp,
+                        SCMP_ACT_KILL,
+                        SCMP_SYS(mprotect),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 #endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
@@ -1912,6 +1952,13 @@ static int exec_child(
                         }
                 }
 
+                if (context->memory_deny_write_execute) {
+                        r = apply_memory_deny_write_execute(context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
                 if (use_syscall_filter) {
                         r = apply_seccomp(context);
                         if (r < 0) {
@@ -2371,7 +2418,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateDevices: %s\n"
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
-                "%sIgnoreSIGPIPE: %s\n",
+                "%sIgnoreSIGPIPE: %s\n"
+                "%sMemoryDenyWriteExecute: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
@@ -2381,7 +2429,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_devices),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
-                prefix, yes_no(c->ignore_sigpipe));
+                prefix, yes_no(c->ignore_sigpipe),
+                prefix, yes_no(c->memory_deny_write_execute));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);
