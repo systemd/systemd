@@ -2811,7 +2811,7 @@ int config_parse_memory_limit(
         uint64_t bytes = CGROUP_LIMIT_MAX;
         int r;
 
-        if (!isempty(rvalue) && !streq(rvalue, "infinity") && !streq(rvalue, "max")) {
+        if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
                 r = parse_size(rvalue, 1024, &bytes);
                 if (r < 0 || bytes < 1) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Memory limit '%s' invalid. Ignoring.", rvalue);
@@ -3080,7 +3080,7 @@ int config_parse_io_limit(
                 return 0;
         }
 
-        if (streq("max", limit)) {
+        if (streq("infinity", limit)) {
                 num = CGROUP_LIMIT_MAX;
         } else {
                 r = parse_size(limit, 1000, &num);
