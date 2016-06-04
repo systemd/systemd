@@ -24,16 +24,10 @@
 
 static void test_find_language_fallback(void) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
-        int r;
 
-        log_info("/* %s */", __func__);
+        log_info("/*** %s ***/", __func__);
 
-        r = find_language_fallback("foobar", &ans);
-        if (r == -ENOENT) {
-                log_info_errno(r, "Skipping language fallback tests: %m");
-                return;
-        }
-        assert_se(r == 0);
+        assert_se(find_language_fallback("foobar", &ans) == 0);
         assert_se(ans == NULL);
 
         assert_se(find_language_fallback("csb", &ans) == 0);
@@ -50,16 +44,17 @@ static void test_find_converted_keymap(void) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
         int r;
 
-        log_info("/* %s */", __func__);
+        log_info("/*** %s ***/", __func__);
 
         assert_se(find_converted_keymap("pl", "foobar", &ans) == 0);
         assert_se(ans == NULL);
 
         r = find_converted_keymap("pl", NULL, &ans);
         if (r == 0) {
-                log_info_errno(r, "Skipping find_converted_keymap tests: %m");
+                log_info("Skipping rest of %s: keymaps are not installed", __func__);
                 return;
         }
+
         assert_se(r == 1);
         assert_se(streq(ans, "pl"));
 
@@ -70,17 +65,11 @@ static void test_find_converted_keymap(void) {
 static void test_find_legacy_keymap(void) {
         Context c = {};
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
-        int r;
 
-        log_info("/* %s */", __func__);
+        log_info("/*** %s ***/", __func__);
 
         c.x11_layout = (char*) "foobar";
-        r = find_legacy_keymap(&c, &ans);
-        if (r == -ENOENT) {
-                log_info_errno(r, "Skipping test_legacy_keymap tests: %m");
-                return;
-        }
-        assert_se(r == 0);
+        assert_se(find_legacy_keymap(&c, &ans) == 0);
         assert_se(ans == NULL);
 
         c.x11_layout = (char*) "pl";
@@ -95,7 +84,7 @@ static void test_find_legacy_keymap(void) {
 static void test_vconsole_convert_to_x11(void) {
         _cleanup_(context_free) Context c = {};
 
-        log_info("/* %s */", __func__);
+        log_info("/*** %s ***/", __func__);
 
         log_info("/* test emptying first (:) */");
         assert_se(free_and_strdup(&c.x11_layout, "foo") >= 0);
@@ -148,8 +137,9 @@ static void test_vconsole_convert_to_x11(void) {
 
 static void test_x11_convert_to_vconsole(void) {
         _cleanup_(context_free) Context c = {};
+        int r;
 
-        log_info("/* %s */", __func__);
+        log_info("/*** %s ***/", __func__);
 
         log_info("/* test emptying first (:) */");
         assert_se(free_and_strdup(&c.vc_keymap, "foobar") >= 0);
@@ -176,7 +166,13 @@ static void test_x11_convert_to_vconsole(void) {
         log_info("/* test with known variant, new mapping (es:dvorak) */");
         assert_se(free_and_strdup(&c.x11_variant, "dvorak") >= 0);
 
-        assert_se(x11_convert_to_vconsole(&c) == 1);
+        r = x11_convert_to_vconsole(&c);
+        if (r == 0) {
+                log_info("Skipping rest of %s: keymaps are not installed", __func__);
+                return;
+        }
+
+        assert_se(r == 1);
         assert_se(streq(c.vc_keymap, "es-dvorak"));
 
         log_info("/* test with old mapping (fr:latin9) */");

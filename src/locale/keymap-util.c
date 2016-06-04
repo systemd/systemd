@@ -46,6 +46,26 @@ static const char* strnulldash(const char *s) {
         return isempty(s) || streq(s, "-") ? NULL : s;
 }
 
+static const char* systemd_kbd_model_map(void) {
+        const char* s;
+
+        s = getenv("SYSTEMD_KBD_MODEL_MAP");
+        if (s)
+                return s;
+
+        return SYSTEMD_KBD_MODEL_MAP;
+}
+
+static const char* systemd_language_fallback_map(void) {
+        const char* s;
+
+        s = getenv("SYSTEMD_LANGUAGE_FALLBACK_MAP");
+        if (s)
+                return s;
+
+        return SYSTEMD_LANGUAGE_FALLBACK_MAP;
+}
+
 static void context_free_x11(Context *c) {
         c->x11_layout = mfree(c->x11_layout);
         c->x11_options = mfree(c->x11_options);
@@ -427,7 +447,10 @@ static int read_next_mapping(const char* filename,
 }
 
 int vconsole_convert_to_x11(Context *c) {
+        const char *map;
         int modified = -1;
+
+        map = systemd_kbd_model_map();
 
         if (isempty(c->vc_keymap)) {
                 modified =
@@ -441,7 +464,7 @@ int vconsole_convert_to_x11(Context *c) {
                 _cleanup_fclose_ FILE *f = NULL;
                 unsigned n = 0;
 
-                f = fopen(SYSTEMD_KBD_MODEL_MAP, "re");
+                f = fopen(map, "re");
                 if (!f)
                         return -errno;
 
@@ -449,7 +472,7 @@ int vconsole_convert_to_x11(Context *c) {
                         _cleanup_strv_free_ char **a = NULL;
                         int r;
 
-                        r = read_next_mapping(SYSTEMD_KBD_MODEL_MAP, 5, UINT_MAX, f, &n, &a);
+                        r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -526,14 +549,17 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
 }
 
 int find_legacy_keymap(Context *c, char **new_keymap) {
-        _cleanup_fclose_ FILE *f;
+        const char *map;
+        _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
         unsigned best_matching = 0;
         int r;
 
         assert(!isempty(c->x11_layout));
 
-        f = fopen(SYSTEMD_KBD_MODEL_MAP, "re");
+        map = systemd_kbd_model_map();
+
+        f = fopen(map, "re");
         if (!f)
                 return -errno;
 
@@ -541,7 +567,7 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                 _cleanup_strv_free_ char **a = NULL;
                 unsigned matching = 0;
 
-                r = read_next_mapping(SYSTEMD_KBD_MODEL_MAP, 5, UINT_MAX, f, &n, &a);
+                r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -619,13 +645,16 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
 }
 
 int find_language_fallback(const char *lang, char **language) {
+        const char *map;
         _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
 
         assert(lang);
         assert(language);
 
-        f = fopen(SYSTEMD_LANGUAGE_FALLBACK_MAP, "re");
+        map = systemd_language_fallback_map();
+
+        f = fopen(map, "re");
         if (!f)
                 return -errno;
 
@@ -633,7 +662,7 @@ int find_language_fallback(const char *lang, char **language) {
                 _cleanup_strv_free_ char **a = NULL;
                 int r;
 
-                r = read_next_mapping(SYSTEMD_LANGUAGE_FALLBACK_MAP, 2, 2, f, &n, &a);
+                r = read_next_mapping(map, 2, 2, f, &n, &a);
                 if (r <= 0)
                         return r;
 
