@@ -70,6 +70,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "set.h"
+#include "sigbus.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "spawn-ask-password-agent.h"
@@ -7807,6 +7808,7 @@ int main(int argc, char*argv[]) {
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
+        sigbus_install();
 
         /* Explicitly not on_tty() to avoid setting cached value.
          * This becomes relevant for piping output which might be
