@@ -502,6 +502,20 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
                 automount_set_state(a, AUTOMOUNT_RUNNING);
         }
 
+        if (IN_SET(MOUNT(other)->state,
+                   MOUNT_MOUNTING, MOUNT_MOUNTING_DONE,
+                   MOUNT_MOUNTED, MOUNT_REMOUNTING,
+                   MOUNT_MOUNTING_SIGTERM, MOUNT_MOUNTING_SIGKILL,
+                   MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
+                   MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
+                   MOUNT_FAILED)) {
+
+                (void) automount_send_ready(a, a->expire_tokens, -ENODEV);
+        }
+
+        if (MOUNT(other)->state == MOUNT_DEAD)
+                (void) automount_send_ready(a, a->expire_tokens, 0);
+
         /* The mount is in some unhappy state now, let's unfreeze any waiting clients */
         if (IN_SET(MOUNT(other)->state,
                    MOUNT_DEAD, MOUNT_UNMOUNTING,
