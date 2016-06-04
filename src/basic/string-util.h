@@ -66,6 +66,10 @@ static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
 
+static inline const char *empty_to_null(const char *p) {
+        return isempty(p) ? NULL : p;
+}
+
 static inline char *startswith(const char *s, const char *prefix) {
         size_t l;
 

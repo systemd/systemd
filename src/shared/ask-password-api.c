@@ -253,10 +253,12 @@ int ask_password_tty(
                         goto finish;
                 }
 
-                loop_write(ttyfd, ANSI_HIGHLIGHT, strlen(ANSI_HIGHLIGHT), false);
+                if (colors_enabled())
+                        loop_write(ttyfd, ANSI_HIGHLIGHT, strlen(ANSI_HIGHLIGHT), false);
                 loop_write(ttyfd, message, strlen(message), false);
                 loop_write(ttyfd, " ", 1, false);
-                loop_write(ttyfd, ANSI_NORMAL, strlen(ANSI_NORMAL), false);
+                if (colors_enabled())
+                        loop_write(ttyfd, ANSI_NORMAL, strlen(ANSI_NORMAL), false);
 
                 new_termios = old_termios;
                 new_termios.c_lflag &= ~(ICANON|ECHO);

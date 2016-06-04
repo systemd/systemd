@@ -5218,9 +5218,7 @@ static int switch_root(int argc, char *argv[], void *userdata) {
                 init = cmdline_init;
         }
 
-        if (isempty(init))
-                init = NULL;
-
+        init = empty_to_null(init);
         if (init) {
                 const char *root_systemd_path = NULL, *root_init_path = NULL;
 

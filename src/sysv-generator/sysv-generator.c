@@ -42,32 +42,19 @@
 #include "unit-name.h"
 #include "util.h"
 
-typedef enum RunlevelType {
-        RUNLEVEL_UP,
-        RUNLEVEL_DOWN
-} RunlevelType;
-
 static const struct {
         const char *path;
         const char *target;
-        const RunlevelType type;
 } rcnd_table[] = {
         /* Standard SysV runlevels for start-up */
-        { "rc1.d",  SPECIAL_RESCUE_TARGET,     RUNLEVEL_UP },
-        { "rc2.d",  SPECIAL_MULTI_USER_TARGET, RUNLEVEL_UP },
-        { "rc3.d",  SPECIAL_MULTI_USER_TARGET, RUNLEVEL_UP },
-        { "rc4.d",  SPECIAL_MULTI_USER_TARGET, RUNLEVEL_UP },
-        { "rc5.d",  SPECIAL_GRAPHICAL_TARGET,  RUNLEVEL_UP },
+        { "rc1.d",  SPECIAL_RESCUE_TARGET     },
+        { "rc2.d",  SPECIAL_MULTI_USER_TARGET },
+        { "rc3.d",  SPECIAL_MULTI_USER_TARGET },
+        { "rc4.d",  SPECIAL_MULTI_USER_TARGET },
+        { "rc5.d",  SPECIAL_GRAPHICAL_TARGET  },
 
-        /* Standard SysV runlevels for shutdown */
-        { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
-        { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN }
-
-        /* Note that the order here matters, as we read the
-           directories in this order, and we want to make sure that
-           sysv_start_priority is known when we first load the
-           unit. And that value we only know from S links. Hence
-           UP must be read before DOWN */
+        /* We ignore the SysV runlevels for shutdown here, as SysV services get default dependencies anyway, and that
+         * means they are shut down anyway at system power off if running. */
 };
 
 static const char *arg_dest = "/tmp";
@@ -82,7 +69,6 @@ typedef struct SysvStub {
         char **after;
         char **wants;
         char **wanted_by;
-        char **conflicts;
         bool has_lsb;
         bool reload;
         bool loaded;
@@ -100,7 +86,6 @@ static void free_sysvstub(SysvStub *s) {
         strv_free(s->after);
         strv_free(s->wants);
         strv_free(s->wanted_by);
-        strv_free(s->conflicts);
         free(s);
 }
 
@@ -199,8 +184,6 @@ static int generate_unit_file(SysvStub *s) {
                 fprintf(f, "After=%s\n", *p);
         STRV_FOREACH(p, s->wants)
                 fprintf(f, "Wants=%s\n", *p);
-        STRV_FOREACH(p, s->conflicts)
-                fprintf(f, "Conflicts=%s\n", *p);
 
         fprintf(f,
                 "\n[Service]\n"
@@ -527,9 +510,7 @@ static int load_sysv(SysvStub *s) {
                                         t[k-1] = 0;
                                 }
 
-                                j = strstrip(t+12);
-                                if (isempty(j))
-                                        j = NULL;
+                                j = empty_to_null(strstrip(t+12));
 
                                 r = free_and_strdup(&chkconfig_description, j);
                                 if (r < 0)
@@ -605,9 +586,7 @@ static int load_sysv(SysvStub *s) {
 
                                 state = LSB_DESCRIPTION;
 
-                                j = strstrip(t+12);
-                                if (isempty(j))
-                                        j = NULL;
+                                j = empty_to_null(strstrip(t+12));
 
                                 r = free_and_strdup(&long_description, j);
                                 if (r < 0)
@@ -618,9 +597,7 @@ static int load_sysv(SysvStub *s) {
 
                                 state = LSB;
 
-                                j = strstrip(t+18);
-                                if (isempty(j))
-                                        j = NULL;
+                                j = empty_to_null(strstrip(t+18));
 
                                 r = free_and_strdup(&short_description, j);
                                 if (r < 0)
@@ -841,7 +818,6 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
 
 static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_services) {
         Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
-        _cleanup_set_free_ Set *shutdown_services = NULL;
         _cleanup_strv_free_ char **sysvrcnd_path = NULL;
         SysvStub *service;
         unsigned i;
@@ -912,8 +888,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
 
                                 if (de->d_name[0] == 'S')  {
 
-                                        if (rcnd_table[i].type == RUNLEVEL_UP)
-                                                service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
+                                        service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
 
                                         r = set_ensure_allocated(&runlevel_services[i], NULL);
                                         if (r < 0) {
@@ -927,20 +902,6 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                                 goto finish;
                                         }
 
-                                } else if (de->d_name[0] == 'K' &&
-                                           (rcnd_table[i].type == RUNLEVEL_DOWN)) {
-
-                                        r = set_ensure_allocated(&shutdown_services, NULL);
-                                        if (r < 0) {
-                                                log_oom();
-                                                goto finish;
-                                        }
-
-                                        r = set_put(shutdown_services, service);
-                                        if (r < 0) {
-                                                log_oom();
-                                                goto finish;
-                                        }
                                 }
                         }
                 }
@@ -960,19 +921,6 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 goto finish;
                         }
                 }
-
-        SET_FOREACH(service, shutdown_services, j) {
-                r = strv_extend(&service->before, SPECIAL_SHUTDOWN_TARGET);
-                if (r < 0) {
-                        log_oom();
-                        goto finish;
-                }
-                r = strv_extend(&service->conflicts, SPECIAL_SHUTDOWN_TARGET);
-                if (r < 0) {
-                        log_oom();
-                        goto finish;
-                }
-        }
 
         r = 0;
 

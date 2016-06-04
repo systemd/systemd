@@ -655,8 +655,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read(message, "ss", &user, &path);
         if (r < 0)
                 return r;
-        if (isempty(user))
-                user = NULL;
+        user = empty_to_null(user);
         if (isempty(path))
                 path = "/bin/sh";
         if (!path_is_absolute(path))
