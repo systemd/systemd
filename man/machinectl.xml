@@ -373,8 +373,7 @@
         <para>To interactively start a container on the command line
         with full access to the container's console, please invoke
         <command>systemd-nspawn</command> directly. To stop a running
-        container use <command>machinectl poweroff</command>, see
-        below.</para></listitem>
+        container use <command>machinectl poweroff</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -461,8 +460,8 @@
         <listitem><para>Power off one or more containers. This will
         trigger a reboot by sending SIGRTMIN+4 to the container's init
         process, which causes systemd-compatible init systems to shut
-        down cleanly. This operation does not work on containers that
-        do not run a
+        down cleanly. Use <command>stop</command> as alias for <command>poweroff</command>.
+        This operation does not work on containers that do not run a
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
         init system, such as sysvinit. Use
         <command>terminate</command> (see below) to immediately
