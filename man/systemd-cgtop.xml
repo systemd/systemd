@@ -52,6 +52,7 @@
     <cmdsynopsis>
       <command>systemd-cgtop</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">GROUP</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -62,7 +63,9 @@
     groups of the local Linux control group hierarchy, ordered by
     their CPU, memory, or disk I/O load. The display is refreshed in
     regular intervals (by default every 1s), similar in style to
-    <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    If a control group path is specified, shows only the services of
+    the specified control group.</para>
 
     <para>If <command>systemd-cgtop</command> is not connected to a
     tty, no column headers are printed and the default is to only run
@@ -252,7 +255,8 @@
 
         <listitem><para>Limit control groups shown to the part
         corresponding to the container
-        <replaceable>MACHINE</replaceable>.</para></listitem>
+        <replaceable>MACHINE</replaceable>.
+        This option may not be used when a control group path is specified.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
