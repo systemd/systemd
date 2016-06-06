@@ -225,29 +225,31 @@ int manager_write_resolv_conf(Manager *m) {
         assert(m);
 
         /* Read the system /etc/resolv.conf first */
-        manager_read_resolv_conf(m);
+        (void) manager_read_resolv_conf(m);
 
         /* Add the full list to a set, to filter out duplicates */
         r = manager_compile_dns_servers(m, &dns);
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Failed to compile list of DNS servers: %m");
 
         r = manager_compile_search_domains(m, &domains);
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Failed to compile list of search domains: %m");
 
         r = fopen_temporary_label(PRIVATE_RESOLV_CONF, PRIVATE_RESOLV_CONF, &f, &temp_path);
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Failed to open private resolv.conf file for writing: %m");
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         r = write_resolv_conf_contents(f, dns, domains);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to write private resolv.conf contents: %m");
                 goto fail;
+        }
 
         if (rename(temp_path, PRIVATE_RESOLV_CONF) < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "Failed to move private resolv.conf file into place: %m");
                 goto fail;
         }
 
@@ -256,5 +258,6 @@ int manager_write_resolv_conf(Manager *m) {
 fail:
         (void) unlink(PRIVATE_RESOLV_CONF);
         (void) unlink(temp_path);
+
         return r;
 }
