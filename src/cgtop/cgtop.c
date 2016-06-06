@@ -868,13 +868,15 @@ static int get_cgroup_root(char **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *unit = NULL, *path = NULL;
+        char *aux;
         const char *m;
         int r;
 
         if (arg_root) {
-                *ret = strdup(arg_root);
-                if (!*ret)
+                aux = strdup(arg_root);
+                if (!aux)
                         return log_oom();
+                *ret = aux;
                 return 0;
         }
 
