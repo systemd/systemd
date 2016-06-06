@@ -2693,10 +2693,9 @@ static int start_unit_one(
         if (r < 0) {
                 const char *verb;
 
-                if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
-                        /* There's always a fallback possible for
-                         * legacy actions. */
-                        return -EADDRNOTAVAIL;
+                /* There's always a fallback possible for legacy actions. */
+                if (arg_action != ACTION_SYSTEMCTL)
+                        return r;
 
                 verb = method_to_verb(method);
 
