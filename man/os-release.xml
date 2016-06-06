@@ -176,6 +176,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>VERSION_CODENAME=</varname></term>
+
+        <listitem><para>
+        A lower-case string (no spaces or other characters outside of
+        0–9, a–z, ".", "_" and "-") identifying the operating system
+        release code name, excluding any OS name information or
+        release version, and suitable for processing by scripts or
+        usage in generated filenames. This field is optional and may
+        not be implemented on all systems.
+        Examples:
+        <literal>VERSION_CODENAME=buster</literal>,
+        <literal>VERSION_CODENAME=xenial</literal>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>VERSION_ID=</varname></term>
 
         <listitem><para>A lower-case string (mostly numeric, no spaces
