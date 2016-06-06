@@ -1706,7 +1706,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                                 /* This has just been unmounted by
                                  * somebody else, follow the state
                                  * change. */
-                                mount->result = MOUNT_SUCCESS;
+                                mount->result = MOUNT_SUCCESS; /* make sure we forget any earlier umount failures */
                                 mount_enter_dead(mount, MOUNT_SUCCESS);
                                 break;
 
