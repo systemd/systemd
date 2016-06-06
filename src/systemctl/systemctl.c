@@ -174,6 +174,7 @@ static bool arg_firmware_setup = false;
 static bool arg_now = false;
 
 static int daemon_reload(int argc, char *argv[], void* userdata);
+static int trivial_method(int argc, char *argv[], void *userdata);
 static int halt_now(enum action a);
 static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state);
 
@@ -2283,7 +2284,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
         int r = 0;
 
         if (argc <= 1)
-                return daemon_reload(argc, argv, userdata);
+                return trivial_method(argc, argv, userdata);
 
         polkit_agent_open_if_enabled();
 
@@ -3251,7 +3252,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                    ACTION_REBOOT,
                    ACTION_KEXEC,
                    ACTION_EXIT))
-                return daemon_reload(argc, argv, userdata);
+                return trivial_method(argc, argv, userdata);
 
         /* First try logind, to allow authentication with polkit */
         if (IN_SET(a,
@@ -5052,6 +5053,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
 
 static int daemon_reload(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -5062,25 +5064,75 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_action == ACTION_RELOAD)
-                method = "Reload";
-        else if (arg_action == ACTION_REEXEC)
-                method = "Reexecute";
-        else {
-                assert(arg_action == ACTION_SYSTEMCTL);
+        switch (arg_action) {
 
-                method =
-                        streq(argv[0], "clear-jobs")    ||
-                        streq(argv[0], "cancel")        ? "ClearJobs" :
-                        streq(argv[0], "daemon-reexec") ? "Reexecute" :
-                        streq(argv[0], "reset-failed")  ? "ResetFailed" :
-                        streq(argv[0], "halt")          ? "Halt" :
-                        streq(argv[0], "poweroff")      ? "PowerOff" :
-                        streq(argv[0], "reboot")        ? "Reboot" :
-                        streq(argv[0], "kexec")         ? "KExec" :
-                        streq(argv[0], "exit")          ? "Exit" :
-                                    /* "daemon-reload" */ "Reload";
+        case ACTION_RELOAD:
+                method = "Reload";
+                break;
+
+        case ACTION_REEXEC:
+                method = "Reexecute";
+                break;
+
+        case ACTION_SYSTEMCTL:
+                method = streq(argv[0], "daemon-reexec") ? "Reexecute" :
+                                     /* "daemon-reload" */ "Reload";
+                break;
+
+        default:
+                assert_not_reached("Unexpected action");
         }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        method);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Note we use an extra-long timeout here. This is because a reload or reexec means generators are rerun which
+         * are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the generators can have
+         * their timeout, and for everything else there's the same time budget in place. */
+
+        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
+
+        /* On reexecution, we expect a disconnect, not a reply */
+        if (IN_SET(r, -ETIMEDOUT, -ECONNRESET) && streq(method, "Reexecute"))
+                r = 0;
+
+        if (r < 0 && arg_action == ACTION_SYSTEMCTL)
+                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+
+        /* Note that for the legacy commands (i.e. those with action != ACTION_SYSTEMCTL) we support fallbacks to the
+         * old ways of doing things, hence don't log any error in that case here. */
+
+        return r < 0 ? r : 0;
+}
+
+static int trivial_method(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *method;
+        sd_bus *bus;
+        int r;
+
+        polkit_agent_open_if_enabled();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        method =
+                streq(argv[0], "clear-jobs")    ||
+                streq(argv[0], "cancel")        ? "ClearJobs" :
+                streq(argv[0], "reset-failed")  ? "ResetFailed" :
+                streq(argv[0], "halt")          ? "Halt" :
+                streq(argv[0], "reboot")        ? "Reboot" :
+                streq(argv[0], "kexec")         ? "KExec" :
+                streq(argv[0], "exit")          ? "Exit" :
+                             /* poweroff */       "PowerOff";
 
         r = sd_bus_call_method(
                         bus,
@@ -5091,16 +5143,11 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
                         &error,
                         NULL,
                         NULL);
-        if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
-                /* There's always a fallback possible for
-                 * legacy actions. */
-                r = -EADDRNOTAVAIL;
-        else if ((r == -ETIMEDOUT || r == -ECONNRESET) && streq(method, "Reexecute"))
-                /* On reexecution, we expect a disconnect, not a
-                 * reply */
-                r = 0;
-        else if (r < 0)
-                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+        if (r < 0 && arg_action == ACTION_SYSTEMCTL)
+                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+
+        /* Note that for the legacy commands (i.e. those with action != ACTION_SYSTEMCTL) we support fallbacks to the
+         * old ways of doing things, hence don't log any error in that case here. */
 
         return r < 0 ? r : 0;
 }
@@ -5112,7 +5159,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
         int r, q;
 
         if (argc <= 1)
-                return daemon_reload(argc, argv, userdata);
+                return trivial_method(argc, argv, userdata);
 
         polkit_agent_open_if_enabled();
 
@@ -7497,7 +7544,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers       },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs         },
                 { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines     },
-                { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
+                { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, trivial_method    },
                 { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job        },
                 { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
                 { "stop",                  2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
@@ -7570,7 +7617,7 @@ static int reload_with_fallback(void) {
                 return 0;
 
         /* Nothing else worked, so let's try signals */
-        assert(arg_action == ACTION_RELOAD || arg_action == ACTION_REEXEC);
+        assert(IN_SET(arg_action, ACTION_RELOAD, ACTION_REEXEC));
 
         if (kill(1, arg_action == ACTION_RELOAD ? SIGHUP : SIGTERM) < 0)
                 return log_error_errno(errno, "kill() failed: %m");
@@ -7584,8 +7631,7 @@ static int start_with_fallback(void) {
         if (start_unit(0, NULL, NULL) >= 0)
                 return 0;
 
-        /* Nothing else worked, so let's try
-         * /dev/initctl */
+        /* Nothing else worked, so let's try /dev/initctl */
         if (talk_initctl() > 0)
                 return 0;
 
