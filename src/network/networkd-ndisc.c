@@ -194,7 +194,6 @@ static void ndisc_router_handler(sd_ndisc *nd, uint8_t flags, const struct in6_a
 
 static void ndisc_handler(sd_ndisc *nd, int event, void *userdata) {
         Link *link = userdata;
-        int r;
 
         assert(link);
 
