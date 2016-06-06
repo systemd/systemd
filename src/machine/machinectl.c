@@ -2720,6 +2720,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "terminate",       2,        VERB_ANY, 0,            terminate_machine },
                 { "reboot",          2,        VERB_ANY, 0,            reboot_machine    },
                 { "poweroff",        2,        VERB_ANY, 0,            poweroff_machine  },
+                { "stop",            2,        VERB_ANY, 0,            poweroff_machine  }, /* Convenience alias */
                 { "kill",            2,        VERB_ANY, 0,            kill_machine      },
                 { "login",           VERB_ANY, 2,        0,            login_machine     },
                 { "shell",           VERB_ANY, VERB_ANY, 0,            shell_machine     },

@@ -23,6 +23,7 @@ _available_machines() {
     "status:Show VM/container status"
     "show:Show properties of one or more VMs/containers"
     "start:Start container as a service"
+    "stop:Stop container (equal to poweroff)"
     "login:Get a login prompt on a VM/container"
     "enable:Enable automatic container start at boot"
     "disable:Disable automatic container start at boot"
