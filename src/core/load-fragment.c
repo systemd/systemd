@@ -3743,7 +3743,7 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
 
                         /* If the symlink name we are looking at is unit template, then
                            we must search for instance of this template */
-                        if (unit_name_is_valid(k, UNIT_NAME_TEMPLATE)) {
+                        if (unit_name_is_valid(k, UNIT_NAME_TEMPLATE) && (*u)->instance) {
                                 _cleanup_free_ char *instance = NULL;
 
                                 r = unit_name_replace_instance(k, (*u)->instance, &instance);
