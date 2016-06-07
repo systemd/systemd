@@ -145,6 +145,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                          "DHCP\0"
                          "DHCPv4\0" /* compat */
                          "DHCPServer\0"
+                         "IPv6AcceptRA\0"
                          "Bridge\0"
                          "BridgeFDB\0",
                          config_item_perf_lookup, network_network_gperf_lookup,

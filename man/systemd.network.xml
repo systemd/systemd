@@ -240,7 +240,7 @@
             By enabling DHCPv6 support explicitly, the DHCPv6 client will
             be started regardless of the presence of routers on the link,
             or what flags the routers pass. See
-            <literal>IPv6AcceptRouterAdvertisements=</literal>.</para>
+            <literal>IPv6AcceptRA=</literal>.</para>
 
             <para>Furthermore, note that by default the domain name
             specified through DHCP is not used for name resolution.
@@ -527,7 +527,7 @@
           <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>IPv6AcceptRouterAdvertisements=</varname></term>
+          <term><varname>IPv6AcceptRA=</varname></term>
           <listitem><para>Enable or disable IPv6 Router Advertisement (RA) reception support for the interface.  Takes
           a boolean parameter. If true, RAs are accepted; if false, RAs are ignored, independently of the local
           forwarding state. When not set, the kernel default is used, and RAs are accepted only when local forwarding
@@ -535,7 +535,7 @@
           the relevant flags are set in the RA data, or if no routers are found on the link.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the
-          <literal>[IPv6AcceptRouterAdvertisements]</literal> section, see below.</para>
+          <literal>[IPv6AcceptRA]</literal> section, see below.</para>
 
           <para>Also see <ulink
           url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink> in the kernel
@@ -895,9 +895,9 @@
     </refsect1>
 
   <refsect1>
-    <title>[IPv6AcceptRouterAdvertisements] Section Options</title>
-      <para>The <literal>[IPv6AcceptRouterAdvertisements]</literal> section configures the IPv6 Router Advertisement
-      (RA) client, if it is enabled with the <varname>IPv6AcceptRouterAdvertisements=</varname> setting described
+    <title>[IPv6AcceptRA] Section Options</title>
+      <para>The <literal>[IPv6AcceptRA]</literal> section configures the IPv6 Router Advertisement
+      (RA) client, if it is enabled with the <varname>IPv6AcceptRA=</varname> setting described
       above:</para>
 
       <variablelist class='network-directives'>
