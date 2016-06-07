@@ -552,6 +552,10 @@ static int chown_terminal(int fd, uid_t uid) {
 
         assert(fd >= 0);
 
+        /* Before we chown/chmod the TTY, let's ensure this is actually a tty */
+        if (isatty(fd) < 1)
+                return 0;
+
         /* This might fail. What matters are the results. */
         (void) fchown(fd, uid, -1);
         (void) fchmod(fd, TTY_MODE);
