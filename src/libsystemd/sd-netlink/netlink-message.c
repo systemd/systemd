@@ -120,7 +120,9 @@ sd_netlink_message *sd_netlink_message_ref(sd_netlink_message *m) {
 }
 
 sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
-        if (m && REFCNT_DEC(m->n_ref) == 0) {
+        sd_netlink_message *t;
+
+        while (m && REFCNT_DEC(m->n_ref) == 0) {
                 unsigned i;
 
                 free(m->hdr);
@@ -128,9 +130,9 @@ sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
                 for (i = 0; i <= m->n_containers; i++)
                         free(m->containers[i].attributes);
 
-                sd_netlink_message_unref(m->next);
-
-                free(m);
+                t = m;
+                m = m->next;
+                free(t);
         }
 
         return NULL;
