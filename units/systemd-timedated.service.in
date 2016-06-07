@@ -18,3 +18,4 @@ WatchdogSec=3min
 PrivateTmp=yes
 ProtectSystem=yes
 ProtectHome=yes
+MemoryDenyWriteExecute=yes

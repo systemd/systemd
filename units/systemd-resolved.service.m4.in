@@ -27,6 +27,7 @@ CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRI
 ProtectSystem=full
 ProtectHome=yes
 WatchdogSec=3min
+MemoryDenyWriteExecute=yes
 
 [Install]
 WantedBy=multi-user.target
