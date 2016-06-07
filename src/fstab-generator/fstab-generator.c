@@ -496,6 +496,12 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
+        if (streq(arg_root_what, "gpt-auto")) {
+                /* This is handled by the gpt-auto generator */
+                log_debug("Skipping root directory handling, as gpt-auto was requested.");
+                return 0;
+        }
+
         what = fstab_node_to_udev_node(arg_root_what);
         if (!what)
                 return log_oom();
