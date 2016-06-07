@@ -159,7 +159,31 @@ static void test_le(void) {
         assert_se(memcmp(&scratch[7], &data[7], sizeof(uint64_t)) == 0);
 }
 
+static void test_ne(void) {
+        uint16_t x = 4711;
+        uint32_t y = 123456;
+        uint64_t z = 9876543210;
+
+        /* Note that we don't bother actually testing alignment issues in this function, after all the _ne() functions
+         * are just aliases for the _le() or _be() implementations, which we test extensively above. Hence, in this
+         * function, just ensure that they map to the right version on the local architecture. */
+
+        assert_se(unaligned_read_ne16(&x) == 4711);
+        assert_se(unaligned_read_ne32(&y) == 123456);
+        assert_se(unaligned_read_ne64(&z) == 9876543210);
+
+        unaligned_write_ne16(&x, 1);
+        unaligned_write_ne32(&y, 2);
+        unaligned_write_ne64(&z, 3);
+
+        assert_se(x == 1);
+        assert_se(y == 2);
+        assert_se(z == 3);
+}
+
 int main(int argc, const char *argv[]) {
         test_be();
         test_le();
+        test_ne();
+        return 0;
 }

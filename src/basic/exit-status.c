@@ -38,8 +38,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
                 return "FAILURE";
         }
 
-
-        if (level == EXIT_STATUS_SYSTEMD || level == EXIT_STATUS_LSB) {
+        if (IN_SET(level, EXIT_STATUS_SYSTEMD, EXIT_STATUS_LSB)) {
                 switch ((int) status) {
 
                 case EXIT_CHDIR:
@@ -189,13 +188,9 @@ bool is_clean_exit(int code, int status, ExitStatusSet *success_status) {
         /* If a daemon does not implement handlers for some of the
          * signals that's not considered an unclean shutdown */
         if (code == CLD_KILLED)
-                return
-                        status == SIGHUP ||
-                        status == SIGINT ||
-                        status == SIGTERM ||
-                        status == SIGPIPE ||
+                return IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE) ||
                         (success_status &&
-                        set_contains(success_status->signal, INT_TO_PTR(status)));
+                         set_contains(success_status->signal, INT_TO_PTR(status)));
 
         return false;
 }
@@ -207,15 +202,14 @@ bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status) {
 
         return
                 code == CLD_EXITED &&
-                (status == EXIT_NOTINSTALLED || status == EXIT_NOTCONFIGURED);
+                IN_SET(status, EXIT_NOTINSTALLED, EXIT_NOTCONFIGURED);
 }
 
 void exit_status_set_free(ExitStatusSet *x) {
         assert(x);
 
-        set_free(x->status);
-        set_free(x->signal);
-        x->status = x->signal = NULL;
+        x->status = set_free(x->status);
+        x->signal = set_free(x->signal);
 }
 
 bool exit_status_set_is_empty(ExitStatusSet *x) {

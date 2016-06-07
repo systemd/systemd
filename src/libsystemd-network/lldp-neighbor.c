@@ -360,9 +360,16 @@ end_marker:
 void lldp_neighbor_start_ttl(sd_lldp_neighbor *n) {
         assert(n);
 
-        if (n->ttl > 0)
-                n->until = usec_add(now(clock_boottime_or_monotonic()), n->ttl * USEC_PER_SEC);
-        else
+        if (n->ttl > 0) {
+                usec_t base;
+
+                /* Use the packet's timestamp if there is one known */
+                base = triple_timestamp_by_clock(&n->timestamp, clock_boottime_or_monotonic());
+                if (base <= 0 || base == USEC_INFINITY)
+                        base = now(clock_boottime_or_monotonic()); /* Otherwise, take the current time */
+
+                n->until = usec_add(base, n->ttl * USEC_PER_SEC);
+        } else
                 n->until = 0;
 
         if (n->lldp)
@@ -588,11 +595,11 @@ done:
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret) {
+_public_ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec) {
         assert_return(n, -EINVAL);
-        assert_return(ret, -EINVAL);
+        assert_return(ret_sec, -EINVAL);
 
-        *ret = n->ttl;
+        *ret_sec = n->ttl;
         return 0;
 }
 
@@ -651,7 +658,7 @@ _public_ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint
         return 0;
 }
 
-int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
+_public_ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
         int r;
 
@@ -668,7 +675,7 @@ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t ra
                 return r;
 
         *ret = n;
-        n = 0;
+        n = NULL;
 
         return r;
 }
@@ -679,7 +686,7 @@ _public_ int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         assert(n->raw_size >= sizeof(struct ether_header));
         n->rindex = sizeof(struct ether_header);
 
-        return 0;
+        return n->rindex < n->raw_size;
 }
 
 _public_ int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
@@ -693,7 +700,7 @@ _public_ int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
         if (n->rindex + 2 > n->raw_size) /* Truncated message */
                 return -EBADMSG;
 
-        length = LLDP_NEIGHBOR_LENGTH(n);
+        length = LLDP_NEIGHBOR_TLV_LENGTH(n);
         if (n->rindex + 2 + length > n->raw_size)
                 return -EBADMSG;
 
@@ -711,7 +718,7 @@ _public_ int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type) {
         if (n->rindex + 2 > n->raw_size)
                 return -EBADMSG;
 
-        *type = LLDP_NEIGHBOR_TYPE(n);
+        *type = LLDP_NEIGHBOR_TLV_TYPE(n);
         return 0;
 }
 
@@ -743,14 +750,14 @@ _public_ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[3], u
         if (r == 0)
                 return -ENXIO;
 
-        length = LLDP_NEIGHBOR_LENGTH(n);
+        length = LLDP_NEIGHBOR_TLV_LENGTH(n);
         if (length < 4)
                 return -EBADMSG;
 
         if (n->rindex + 2 + length > n->raw_size)
                 return -EBADMSG;
 
-        d = LLDP_NEIGHBOR_DATA(n);
+        d = LLDP_NEIGHBOR_TLV_DATA(n);
         memcpy(oui, d, 3);
         *subtype = d[3];
 
@@ -782,13 +789,25 @@ _public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret,
         if (n->rindex + 2 > n->raw_size)
                 return -EBADMSG;
 
-        length = LLDP_NEIGHBOR_LENGTH(n);
-
+        length = LLDP_NEIGHBOR_TLV_LENGTH(n);
         if (n->rindex + 2 + length > n->raw_size)
                 return -EBADMSG;
 
         *ret = (uint8_t*) LLDP_NEIGHBOR_RAW(n) + n->rindex;
         *size = length + 2;
 
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret) {
+        assert_return(n, -EINVAL);
+        assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
+        assert_return(clock_supported(clock), -EOPNOTSUPP);
+        assert_return(ret, -EINVAL);
+
+        if (!triple_timestamp_is_set(&n->timestamp))
+                return -ENODATA;
+
+        *ret = triple_timestamp_by_clock(&n->timestamp, clock);
         return 0;
 }

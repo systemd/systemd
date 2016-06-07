@@ -43,7 +43,6 @@ static void lldp_flush_neighbors(sd_lldp *lldp) {
 
 static void lldp_callback(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n) {
         assert(lldp);
-        assert(n);
 
         log_lldp("Invoking callback for '%c'.", event);
 
@@ -138,6 +137,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
                 if (lldp_neighbor_equal(n, old)) {
                         /* Is this equal, then restart the TTL counter, but don't do anyting else. */
+                        old->timestamp = n->timestamp;
                         lldp_start_timer(lldp, old);
                         lldp_callback(lldp, SD_LLDP_EVENT_REFRESHED, old);
                         return 0;
@@ -171,7 +171,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
 finish:
         if (old)
-                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, n);
+                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, old);
 
         return r;
 }
@@ -202,6 +202,7 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
         ssize_t space, length;
         sd_lldp *lldp = userdata;
+        struct timespec ts;
 
         assert(fd >= 0);
         assert(lldp);
@@ -215,21 +216,41 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
                 return -ENOMEM;
 
         length = recv(fd, LLDP_NEIGHBOR_RAW(n), n->raw_size, MSG_DONTWAIT);
-        if (length < 0)
+        if (length < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
                 return log_lldp_errno(errno, "Failed to read LLDP datagram: %m");
+        }
 
         if ((size_t) length != n->raw_size) {
                 log_lldp("Packet size mismatch.");
                 return -EINVAL;
         }
 
+        /* Try to get the timestamp of this packet if it is known */
+        if (ioctl(fd, SIOCGSTAMPNS, &ts) >= 0)
+                triple_timestamp_from_realtime(&n->timestamp, timespec_load(&ts));
+        else
+                triple_timestamp_get(&n->timestamp);
+
         return lldp_handle_datagram(lldp, n);
+}
+
+static void lldp_reset(sd_lldp *lldp) {
+        assert(lldp);
+
+        lldp->timer_event_source = sd_event_source_unref(lldp->timer_event_source);
+        lldp->io_event_source = sd_event_source_unref(lldp->io_event_source);
+        lldp->fd = safe_close(lldp->fd);
 }
 
 _public_ int sd_lldp_start(sd_lldp *lldp) {
         int r;
 
         assert_return(lldp, -EINVAL);
+        assert_return(lldp->event, -EINVAL);
+        assert_return(lldp->ifindex > 0, -EINVAL);
 
         if (lldp->fd >= 0)
                 return 0;
@@ -240,24 +261,21 @@ _public_ int sd_lldp_start(sd_lldp *lldp) {
         if (lldp->fd < 0)
                 return lldp->fd;
 
-        if (lldp->event) {
-                r = sd_event_add_io(lldp->event, &lldp->io_event_source, lldp->fd, EPOLLIN, lldp_receive_datagram, lldp);
-                if (r < 0)
-                        goto fail;
+        r = sd_event_add_io(lldp->event, &lldp->io_event_source, lldp->fd, EPOLLIN, lldp_receive_datagram, lldp);
+        if (r < 0)
+                goto fail;
 
-                r = sd_event_source_set_priority(lldp->io_event_source, lldp->event_priority);
-                if (r < 0)
-                        goto fail;
+        r = sd_event_source_set_priority(lldp->io_event_source, lldp->event_priority);
+        if (r < 0)
+                goto fail;
 
-                (void) sd_event_source_set_description(lldp->io_event_source, "lldp-io");
-        }
+        (void) sd_event_source_set_description(lldp->io_event_source, "lldp-io");
 
+        log_lldp("Started LLDP client");
         return 1;
 
 fail:
-        lldp->io_event_source = sd_event_source_unref(lldp->io_event_source);
-        lldp->fd = safe_close(lldp->fd);
-
+        lldp_reset(lldp);
         return r;
 }
 
@@ -267,10 +285,9 @@ _public_ int sd_lldp_stop(sd_lldp *lldp) {
         if (lldp->fd < 0)
                 return 0;
 
-        lldp->timer_event_source = sd_event_source_unref(lldp->timer_event_source);
-        lldp->io_event_source = sd_event_source_unref(lldp->io_event_source);
-        lldp->fd = safe_close(lldp->fd);
+        log_lldp("Stopping LLDP client");
 
+        lldp_reset(lldp);
         lldp_flush_neighbors(lldp);
 
         return 1;
@@ -305,6 +322,12 @@ _public_ int sd_lldp_detach_event(sd_lldp *lldp) {
         return 0;
 }
 
+_public_ sd_event* sd_lldp_get_event(sd_lldp *lldp) {
+        assert_return(lldp, NULL);
+
+        return lldp->event;
+}
+
 _public_ int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata) {
         assert_return(lldp, -EINVAL);
 
@@ -314,39 +337,60 @@ _public_ int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *us
         return 0;
 }
 
+_public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
+        assert_return(lldp, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(lldp->fd < 0, -EBUSY);
+
+        lldp->ifindex = ifindex;
+        return 0;
+}
+
+_public_ sd_lldp* sd_lldp_ref(sd_lldp *lldp) {
+
+        if (!lldp)
+                return NULL;
+
+        assert(lldp->n_ref > 0);
+        lldp->n_ref++;
+
+        return lldp;
+}
+
 _public_ sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
 
         if (!lldp)
                 return NULL;
 
+        assert(lldp->n_ref > 0);
+        lldp->n_ref --;
+
+        if (lldp->n_ref > 0)
+                return NULL;
+
+        lldp_reset(lldp);
+        sd_lldp_detach_event(lldp);
         lldp_flush_neighbors(lldp);
 
         hashmap_free(lldp->neighbor_by_id);
         prioq_free(lldp->neighbor_by_expiry);
-
-        sd_event_source_unref(lldp->io_event_source);
-        sd_event_source_unref(lldp->timer_event_source);
-        sd_event_unref(lldp->event);
-        safe_close(lldp->fd);
-
         free(lldp);
 
         return NULL;
 }
 
-_public_ int sd_lldp_new(sd_lldp **ret, int ifindex) {
+_public_ int sd_lldp_new(sd_lldp **ret) {
         _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(ifindex > 0, -EINVAL);
 
         lldp = new0(sd_lldp, 1);
         if (!lldp)
                 return -ENOMEM;
 
+        lldp->n_ref = 1;
         lldp->fd = -1;
-        lldp->ifindex = ifindex;
         lldp->neighbors_max = LLDP_DEFAULT_NEIGHBORS_MAX;
         lldp->capability_mask = (uint16_t) -1;
 
@@ -486,11 +530,10 @@ _public_ int sd_lldp_set_filter_address(sd_lldp *lldp, const struct ether_addr *
         /* In order to deal nicely with bridges that send back our own packets, allow one address to be filtered, so
          * that our own can be filtered out here. */
 
-        if (!addr) {
+        if (addr)
+                lldp->filter_address = *addr;
+        else
                 zero(lldp->filter_address);
-                return 0;
-        }
 
-        lldp->filter_address = *addr;
         return 0;
 }

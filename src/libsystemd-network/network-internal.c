@@ -380,18 +380,21 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
         return size;
 }
 
-void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses,
-                         size_t size) {
+void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses, size_t size) {
         unsigned i;
 
         assert(f);
         assert(addresses);
         assert(size);
 
-        for (i = 0; i < size; i++)
-                fprintf(f, SD_NDISC_ADDRESS_FORMAT_STR"%s",
-                        SD_NDISC_ADDRESS_FORMAT_VAL(addresses[i]),
-                        (i < (size - 1)) ? " ": "");
+        for (i = 0; i < size; i++) {
+                char buffer[INET6_ADDRSTRLEN];
+
+                fputs(inet_ntop(AF_INET6, addresses+i, buffer, sizeof(buffer)), f);
+
+                if (i < size - 1)
+                        fputc(' ', f);
+        }
 }
 
 int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {

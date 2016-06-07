@@ -28,18 +28,26 @@
 #include "macro.h"
 #include "util.h"
 
+bool in4_addr_is_null(const struct in_addr *a) {
+        return a->s_addr == 0;
+}
+
+bool in6_addr_is_null(const struct in6_addr *a) {
+        return
+                a->s6_addr32[0] == 0 &&
+                a->s6_addr32[1] == 0 &&
+                a->s6_addr32[2] == 0 &&
+                a->s6_addr32[3] == 0;
+}
+
 int in_addr_is_null(int family, const union in_addr_union *u) {
         assert(u);
 
         if (family == AF_INET)
-                return u->in.s_addr == 0;
+                return in4_addr_is_null(&u->in);
 
         if (family == AF_INET6)
-                return
-                        u->in6.s6_addr32[0] == 0 &&
-                        u->in6.s6_addr32[1] == 0 &&
-                        u->in6.s6_addr32[2] == 0 &&
-                        u->in6.s6_addr32[3] == 0;
+                return in6_addr_is_null(&u->in6);
 
         return -EAFNOSUPPORT;
 }

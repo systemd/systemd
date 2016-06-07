@@ -23,15 +23,13 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
+#include <sys/types.h>
 
 #include "sd-event.h"
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
-
-typedef struct sd_lldp sd_lldp;
-typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
 /* IEEE 802.3AB Clause 9: TLV Types */
 enum {
@@ -111,6 +109,9 @@ enum {
         SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION      = 7,
 };
 
+typedef struct sd_lldp sd_lldp;
+typedef struct sd_lldp_neighbor sd_lldp_neighbor;
+
 typedef enum sd_lldp_event {
         SD_LLDP_EVENT_ADDED     = 'a',
         SD_LLDP_EVENT_REMOVED   = 'r',
@@ -120,7 +121,8 @@ typedef enum sd_lldp_event {
 
 typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata);
 
-int sd_lldp_new(sd_lldp **ret, int ifindex);
+int sd_lldp_new(sd_lldp **ret);
+sd_lldp* sd_lldp_ref(sd_lldp *lldp);
 sd_lldp* sd_lldp_unref(sd_lldp *lldp);
 
 int sd_lldp_start(sd_lldp *lldp);
@@ -128,8 +130,10 @@ int sd_lldp_stop(sd_lldp *lldp);
 
 int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int64_t priority);
 int sd_lldp_detach_event(sd_lldp *lldp);
+sd_event *sd_lldp_get_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);
+int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex);
 
 /* Controls how much and what to store in the neighbors database */
 int sd_lldp_set_neighbors_max(sd_lldp *lldp, uint64_t n);
@@ -145,6 +149,7 @@ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n);
 /* Access to LLDP frame metadata */
 int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address);
 int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_addr* address);
+int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret);
 int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size);
 
 /* High-level, direct, parsed out field access. These fields exist at most once, hence may be queried directly. */
@@ -152,7 +157,7 @@ int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const vo
 int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_port_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size);
 int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const char **ret);
-int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret);
+int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec);
 int sd_lldp_neighbor_get_system_name(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_system_description(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret);

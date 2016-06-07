@@ -43,6 +43,8 @@ struct sd_lldp_neighbor {
         sd_lldp *lldp;
         unsigned n_ref;
 
+        triple_timestamp timestamp;
+
         usec_t until;
         unsigned prioq_idx;
 
@@ -81,18 +83,18 @@ static inline void *LLDP_NEIGHBOR_RAW(const sd_lldp_neighbor *n) {
         return (uint8_t*) n + ALIGN(sizeof(sd_lldp_neighbor));
 }
 
-static inline uint8_t LLDP_NEIGHBOR_TYPE(const sd_lldp_neighbor *n) {
+static inline uint8_t LLDP_NEIGHBOR_TLV_TYPE(const sd_lldp_neighbor *n) {
         return ((uint8_t*) LLDP_NEIGHBOR_RAW(n))[n->rindex] >> 1;
 }
 
-static inline size_t LLDP_NEIGHBOR_LENGTH(const sd_lldp_neighbor *n) {
+static inline size_t LLDP_NEIGHBOR_TLV_LENGTH(const sd_lldp_neighbor *n) {
         uint8_t *p;
 
         p = (uint8_t*) LLDP_NEIGHBOR_RAW(n) + n->rindex;
         return p[1] + (((size_t) (p[0] & 1)) << 8);
 }
 
-static inline void* LLDP_NEIGHBOR_DATA(const sd_lldp_neighbor *n) {
+static inline void* LLDP_NEIGHBOR_TLV_DATA(const sd_lldp_neighbor *n) {
         return ((uint8_t*) LLDP_NEIGHBOR_RAW(n)) + n->rindex + 2;
 }
 

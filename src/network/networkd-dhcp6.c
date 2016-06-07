@@ -60,10 +60,15 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
         return 1;
 }
 
-static int dhcp6_address_change(Link *link, struct in6_addr *ip6_addr,
-                                uint32_t lifetime_preferred, uint32_t lifetime_valid) {
-        int r;
+static int dhcp6_address_change(
+                Link *link,
+                struct in6_addr *ip6_addr,
+                uint32_t lifetime_preferred,
+                uint32_t lifetime_valid) {
+
         _cleanup_address_free_ Address *addr = NULL;
+        char buffer[INET6_ADDRSTRLEN];
+        int r;
 
         r = address_new(&addr);
         if (r < 0)
@@ -79,8 +84,8 @@ static int dhcp6_address_change(Link *link, struct in6_addr *ip6_addr,
         addr->cinfo.ifa_valid = lifetime_valid;
 
         log_link_info(link,
-                      "DHCPv6 address "SD_NDISC_ADDRESS_FORMAT_STR"/%d timeout preferred %d valid %d",
-                      SD_NDISC_ADDRESS_FORMAT_VAL(addr->in_addr.in6),
+                      "DHCPv6 address %s/%d timeout preferred %d valid %d",
+                      inet_ntop(AF_INET6, &addr->in_addr.in6, buffer, sizeof(buffer)),
                       addr->prefixlen, lifetime_preferred, lifetime_valid);
 
         r = address_configure(addr, link, dhcp6_address_handler, true);
