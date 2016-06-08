@@ -853,7 +853,7 @@ int config_parse_tmpfs_size(
         /* First, try to parse as percentage */
         r = parse_percent(rvalue);
         if (r > 0 && r < 100)
-                *sz = PAGE_ALIGN((size_t) ((physical_memory() * (uint64_t) r) / 100U));
+                *sz = physical_memory_scale(r, 100U);
         else {
                 uint64_t k;
 

@@ -805,6 +805,33 @@ uint64_t physical_memory(void) {
         return MIN(mem, lim);
 }
 
+uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
+        uint64_t p, m, ps, r;
+
+        assert(max > 0);
+
+        /* Returns the physical memory size, multiplied by v divided by max. Returns UINT64_MAX on overflow. On success
+         * the result is a multiple of the page size (rounds down). */
+
+        ps = page_size();
+        assert(ps > 0);
+
+        p = physical_memory() / ps;
+        assert(p > 0);
+
+        m = p * v;
+        if (m / p != v)
+                return UINT64_MAX;
+
+        m /= max;
+
+        r = m * ps;
+        if (r / ps != m)
+                return UINT64_MAX;
+
+        return r;
+}
+
 int update_reboot_parameter_and_warn(const char *param) {
         int r;
 

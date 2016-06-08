@@ -2821,7 +2821,7 @@ int config_parse_memory_limit(
                                 return 0;
                         }
                 } else
-                        bytes = (((physical_memory() / page_size()) * (uint64_t) r) / 100) * page_size();
+                        bytes = physical_memory_scale(r, 100U);
 
                 if (bytes < 1) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Memory limit '%s' too small. Ignoring.", rvalue);
