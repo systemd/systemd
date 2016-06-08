@@ -475,6 +475,24 @@ static void test_safe_atod(void) {
         assert_se(*e == ',');
 }
 
+static void test_parse_percent(void) {
+        assert_se(parse_percent("") == -EINVAL);
+        assert_se(parse_percent("foo") == -EINVAL);
+        assert_se(parse_percent("0") == -EINVAL);
+        assert_se(parse_percent("50") == -EINVAL);
+        assert_se(parse_percent("100") == -EINVAL);
+        assert_se(parse_percent("-1") == -EINVAL);
+        assert_se(parse_percent("0%") == 0);
+        assert_se(parse_percent("55%") == 55);
+        assert_se(parse_percent("100%") == 100);
+        assert_se(parse_percent("-7%") == -ERANGE);
+        assert_se(parse_percent("107%") == -ERANGE);
+        assert_se(parse_percent("%") == -EINVAL);
+        assert_se(parse_percent("%%") == -EINVAL);
+        assert_se(parse_percent("%1") == -EINVAL);
+        assert_se(parse_percent("1%%") == -EINVAL);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -488,6 +506,7 @@ int main(int argc, char *argv[]) {
         test_safe_atou16();
         test_safe_atoi16();
         test_safe_atod();
+        test_parse_percent();
 
         return 0;
 }

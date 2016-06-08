@@ -83,18 +83,14 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "sv", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
-                else if (endswith(eq, "%")) {
-                        double percent;
-
-                        if (sscanf(eq, "%lf%%", &percent) != 1 || percent <= 0) {
-                                log_error("CPU quota '%s' invalid.", eq);
+                else {
+                        r = parse_percent(eq);
+                        if (r <= 0) {
+                                log_error_errno(r, "CPU quota '%s' invalid.", eq);
                                 return -EINVAL;
                         }
 
-                        r = sd_bus_message_append(m, "sv", "CPUQuotaPerSecUSec", "t", (usec_t) percent * USEC_PER_SEC / 100);
-                } else {
-                        log_error("CPU quota needs to be in percent.");
-                        return -EINVAL;
+                        r = sd_bus_message_append(m, "sv", "CPUQuotaPerSecUSec", "t", (usec_t) r * USEC_PER_SEC / 100U);
                 }
 
                 goto finish;
@@ -110,6 +106,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 char *n;
                 usec_t t;
                 size_t l;
+
                 r = parse_sec(eq, &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);

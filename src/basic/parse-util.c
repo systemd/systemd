@@ -532,3 +532,22 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
 
         return 0;
 }
+
+int parse_percent(const char *p) {
+        const char *pc, *n;
+        unsigned v;
+        int r;
+
+        pc = endswith(p, "%");
+        if (!pc)
+                return -EINVAL;
+
+        n = strndupa(p, pc - p);
+        r = safe_atou(n, &v);
+        if (r < 0)
+                return r;
+        if (v > 100)
+                return -ERANGE;
+
+        return (int) v;
+}
