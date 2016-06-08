@@ -849,7 +849,7 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
 
                         if (v == CGROUP_LIMIT_MAX)
-                                unit_write_drop_in_private_format(u, mode, name, "%s=max", name);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=infinity", name);
                         else
                                 unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, v);
                 }
