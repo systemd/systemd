@@ -28,6 +28,7 @@ ProtectSystem=full
 ProtectHome=yes
 WatchdogSec=3min
 MemoryDenyWriteExecute=yes
+SystemCallFilter=~@clock @module @mount @obsolete @raw-io ptrace
 
 [Install]
 WantedBy=multi-user.target

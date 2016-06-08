@@ -21,3 +21,4 @@ PrivateNetwork=yes
 ProtectSystem=yes
 ProtectHome=yes
 MemoryDenyWriteExecute=yes
+SystemCallFilter=~@clock @module @mount @obsolete @raw-io ptrace
