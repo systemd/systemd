@@ -641,7 +641,7 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth")) {
+        } else if (STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
                 const char *path;
                 bool read = true;
                 unsigned n = 0;
@@ -835,6 +835,8 @@ int bus_cgroup_set_property(
                 r = sd_bus_message_read(message, "t", &v);
                 if (r < 0)
                         return r;
+                if (v <= 0)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is too small", name);
 
                 if (mode != UNIT_CHECK) {
                         if (streq(name, "MemoryLow"))
@@ -860,6 +862,8 @@ int bus_cgroup_set_property(
                 r = sd_bus_message_read(message, "t", &limit);
                 if (r < 0)
                         return r;
+                if (limit <= 0)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is too small", name);
 
                 if (mode != UNIT_CHECK) {
                         c->memory_limit = limit;
