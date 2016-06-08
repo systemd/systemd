@@ -124,7 +124,7 @@ int manager_handle_action(
                 return -EALREADY;
         }
 
-        inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE || handle == HANDLE_HYBRID_SLEEP ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
+        inhibit_operation = IN_SET(handle, HANDLE_SUSPEND, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP) ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
