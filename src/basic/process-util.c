@@ -102,6 +102,7 @@ int get_process_comm(pid_t pid, char **name) {
 
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
+        bool space = false;
         char *r = NULL, *k;
         const char *p;
         int c;
@@ -128,14 +129,21 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                                 return -ENOMEM;
                         }
 
-                        r[len++] = isprint(c) ? c : ' ';
-                }
+                        if (isprint(c)) {
+                                if (space) {
+                                        r[len++] = ' ';
+                                        space = false;
+                                }
+
+                                r[len++] = c;
+                        } else
+                                space = true;
+               }
 
                 if (len > 0)
-                        r[len-1] = 0;
+                        r[len] = 0;
 
         } else {
-                bool space = false;
                 size_t left;
 
                 r = new(char, max_length);
