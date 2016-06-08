@@ -43,7 +43,7 @@ typedef int (*sd_netlink_message_handler_t)(sd_netlink *nl, sd_netlink_message *
 int sd_netlink_new_from_netlink(sd_netlink **nl, int fd);
 int sd_netlink_open(sd_netlink **nl);
 int sd_netlink_open_fd(sd_netlink **nl, int fd);
-int sd_netlink_inc_rcvbuf(const sd_netlink *const rtnl, const int size);
+int sd_netlink_inc_rcvbuf(sd_netlink *nl, const size_t size);
 
 sd_netlink *sd_netlink_ref(sd_netlink *nl);
 sd_netlink *sd_netlink_unref(sd_netlink *nl);

@@ -144,7 +144,10 @@ int sd_netlink_open(sd_netlink **ret) {
         return 0;
 }
 
-int sd_netlink_inc_rcvbuf(const sd_netlink *const rtnl, const int size) {
+int sd_netlink_inc_rcvbuf(sd_netlink *rtnl, size_t size) {
+        assert_return(rtnl, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+
         return fd_inc_rcvbuf(rtnl->fd, size);
 }
 

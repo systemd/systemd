@@ -28,6 +28,9 @@
 #include "string-util.h"
 #include "util.h"
 
+#define ROUTES_PER_LINK_MAX 2048U
+#define STATIC_ROUTES_PER_NETWORK_MAX 1024U
+
 int route_new(Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
 
@@ -51,6 +54,9 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
         int r;
 
+        assert(network);
+        assert(ret);
+
         if (section) {
                 route = hashmap_get(network->routes_by_section, UINT_TO_PTR(section));
                 if (route) {
@@ -60,6 +66,9 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                         return 0;
                 }
         }
+
+        if (network->n_static_routes >= STATIC_ROUTES_PER_NETWORK_MAX)
+                return -E2BIG;
 
         r = route_new(&route);
         if (r < 0)
@@ -77,6 +86,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
 
         route->network = network;
         LIST_PREPEND(routes, network->static_routes, route);
+        network->n_static_routes++;
 
         *ret = route;
         route = NULL;
@@ -91,9 +101,11 @@ void route_free(Route *route) {
         if (route->network) {
                 LIST_REMOVE(routes, route->network->static_routes, route);
 
+                assert(route->network->n_static_routes > 0);
+                route->network->n_static_routes--;
+
                 if (route->section)
-                        hashmap_remove(route->network->routes_by_section,
-                                       UINT_TO_PTR(route->section));
+                        hashmap_remove(route->network->routes_by_section, UINT_TO_PTR(route->section));
         }
 
         if (route->link) {
@@ -176,48 +188,55 @@ static const struct hash_ops route_hash_ops = {
 
 int route_get(Link *link,
               int family,
-              union in_addr_union *dst,
+              const union in_addr_union *dst,
               unsigned char dst_prefixlen,
               unsigned char tos,
               uint32_t priority,
               unsigned char table,
               Route **ret) {
-        Route route = {
+
+        Route route, *existing;
+
+        assert(link);
+        assert(dst);
+
+        route = (Route) {
                 .family = family,
+                .dst = *dst,
                 .dst_prefixlen = dst_prefixlen,
                 .tos = tos,
                 .priority = priority,
                 .table = table,
-        }, *existing;
-
-        assert(link);
-        assert(dst);
-        assert(ret);
-
-        route.dst = *dst;
+        };
 
         existing = set_get(link->routes, &route);
         if (existing) {
-                *ret = existing;
+                if (ret)
+                        *ret = existing;
                 return 1;
-        } else {
-                existing = set_get(link->routes_foreign, &route);
-                if (!existing)
-                        return -ENOENT;
         }
 
-        *ret = existing;
+        existing = set_get(link->routes_foreign, &route);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
 
-        return 0;
+        return -ENOENT;
 }
 
-static int route_add_internal(Link *link, Set **routes,
-                              int family,
-                              union in_addr_union *dst,
-                              unsigned char dst_prefixlen,
-                              unsigned char tos,
-                              uint32_t priority,
-                              unsigned char table, Route **ret) {
+static int route_add_internal(
+                Link *link,
+                Set **routes,
+                int family,
+                const union in_addr_union *dst,
+                unsigned char dst_prefixlen,
+                unsigned char tos,
+                uint32_t priority,
+                unsigned char table,
+                Route **ret) {
+
         _cleanup_route_free_ Route *route = NULL;
         int r;
 
@@ -254,23 +273,29 @@ static int route_add_internal(Link *link, Set **routes,
         return 0;
 }
 
-int route_add_foreign(Link *link,
-                      int family,
-                      union in_addr_union *dst,
-                      unsigned char dst_prefixlen,
-                      unsigned char tos,
-                      uint32_t priority,
-                      unsigned char table, Route **ret) {
+int route_add_foreign(
+                Link *link,
+                int family,
+                const union in_addr_union *dst,
+                unsigned char dst_prefixlen,
+                unsigned char tos,
+                uint32_t priority,
+                unsigned char table,
+                Route **ret) {
+
         return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
 }
 
-int route_add(Link *link,
+int route_add(
+              Link *link,
               int family,
-              union in_addr_union *dst,
+              const union in_addr_union *dst,
               unsigned char dst_prefixlen,
               unsigned char tos,
               uint32_t priority,
-              unsigned char table, Route **ret) {
+              unsigned char table,
+              Route **ret) {
+
         Route *route;
         int r;
 
@@ -303,12 +328,13 @@ int route_add(Link *link,
 }
 
 int route_update(Route *route,
-                 union in_addr_union *src,
+                 const union in_addr_union *src,
                  unsigned char src_prefixlen,
-                 union in_addr_union *gw,
-                 union in_addr_union *prefsrc,
+                 const union in_addr_union *gw,
+                 const union in_addr_union *prefsrc,
                  unsigned char scope,
                  unsigned char protocol) {
+
         assert(route);
         assert(src);
         assert(gw);
@@ -449,8 +475,11 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         return 1;
 }
 
-int route_configure(Route *route, Link *link,
-                    sd_netlink_message_handler_t callback) {
+int route_configure(
+                Route *route,
+                Link *link,
+                sd_netlink_message_handler_t callback) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
         usec_t lifetime;
@@ -461,6 +490,10 @@ int route_configure(Route *route, Link *link,
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
         assert(route->family == AF_INET || route->family == AF_INET6);
+
+        if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
+            set_size(route->link->routes) >= ROUTES_PER_LINK_MAX)
+                return -E2BIG;
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
                                       RTM_NEWROUTE, route->family,

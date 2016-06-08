@@ -32,6 +32,9 @@
 #include "utf8.h"
 #include "util.h"
 
+#define ADDRESSES_PER_LINK_MAX 2048U
+#define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
+
 int address_new(Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
 
@@ -54,6 +57,9 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
         int r;
 
+        assert(network);
+        assert(ret);
+
         if (section) {
                 address = hashmap_get(network->addresses_by_section, UINT_TO_PTR(section));
                 if (address) {
@@ -64,18 +70,21 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
                 }
         }
 
+        if (network->n_static_addresses >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+                return -E2BIG;
+
         r = address_new(&address);
         if (r < 0)
                 return r;
 
         if (section) {
                 address->section = section;
-                hashmap_put(network->addresses_by_section,
-                            UINT_TO_PTR(address->section), address);
+                hashmap_put(network->addresses_by_section, UINT_TO_PTR(address->section), address);
         }
 
         address->network = network;
         LIST_APPEND(addresses, network->static_addresses, address);
+        network->n_static_addresses++;
 
         *ret = address;
         address = NULL;
@@ -89,10 +98,11 @@ void address_free(Address *address) {
 
         if (address->network) {
                 LIST_REMOVE(addresses, address->network->static_addresses, address);
+                assert(address->network->n_static_addresses > 0);
+                address->network->n_static_addresses--;
 
                 if (address->section)
-                        hashmap_remove(address->network->addresses_by_section,
-                                       UINT_TO_PTR(address->section));
+                        hashmap_remove(address->network->addresses_by_section, UINT_TO_PTR(address->section));
         }
 
         if (address->link) {
@@ -328,7 +338,12 @@ static int address_release(Address *address) {
         return 0;
 }
 
-int address_update(Address *address, unsigned char flags, unsigned char scope, struct ifa_cacheinfo *cinfo) {
+int address_update(
+                Address *address,
+                unsigned char flags,
+                unsigned char scope,
+                const struct ifa_cacheinfo *cinfo) {
+
         bool ready;
         int r;
 
@@ -383,31 +398,38 @@ int address_drop(Address *address) {
         return 0;
 }
 
-int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
-        Address address = {}, *existing;
+int address_get(Link *link,
+                int family,
+                const union in_addr_union *in_addr,
+                unsigned char prefixlen,
+                Address **ret) {
+
+        Address address, *existing;
 
         assert(link);
         assert(in_addr);
-        assert(ret);
 
-        address.family = family;
-        address.in_addr = *in_addr;
-        address.prefixlen = prefixlen;
+        address = (Address) {
+                .family = family,
+                .in_addr = *in_addr,
+                .prefixlen = prefixlen,
+        };
 
         existing = set_get(link->addresses, &address);
         if (existing) {
-                *ret = existing;
-
+                if (ret)
+                        *ret = existing;
                 return 1;
-        } else {
-                existing = set_get(link->addresses_foreign, &address);
-                if (!existing)
-                        return -ENOENT;
         }
 
-        *ret = existing;
+        existing = set_get(link->addresses_foreign, &address);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
 
-        return 0;
+        return -ENOENT;
 }
 
 int address_remove(
@@ -509,7 +531,12 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         return 0;
 }
 
-int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback, bool update) {
+int address_configure(
+                Address *address,
+                Link *link,
+                sd_netlink_message_handler_t callback,
+                bool update) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -519,6 +546,11 @@ int address_configure(Address *address, Link *link, sd_netlink_message_handler_t
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        /* If this is a new address, then refuse adding more than the limit */
+        if (address_get(link, address->family, &address->in_addr, address->prefixlen, NULL) <= 0 &&
+            set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+                return -E2BIG;
 
         r = address_acquire(link, address, &address);
         if (r < 0)
