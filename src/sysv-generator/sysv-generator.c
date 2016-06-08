@@ -856,7 +856,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 _cleanup_free_ char *name = NULL, *fpath = NULL;
                                 int a, b;
 
-                                if (de->d_name[0] != 'S' && de->d_name[0] != 'K')
+                                if (de->d_name[0] != 'S')
                                         continue;
 
                                 if (strlen(de->d_name) < 4)
@@ -886,27 +886,22 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                         continue;
                                 }
 
-                                if (de->d_name[0] == 'S')  {
+                                service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
 
-                                        service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
+                                r = set_ensure_allocated(&runlevel_services[i], NULL);
+                                if (r < 0) {
+                                        log_oom();
+                                        goto finish;
+                                }
 
-                                        r = set_ensure_allocated(&runlevel_services[i], NULL);
-                                        if (r < 0) {
-                                                log_oom();
-                                                goto finish;
-                                        }
-
-                                        r = set_put(runlevel_services[i], service);
-                                        if (r < 0) {
-                                                log_oom();
-                                                goto finish;
-                                        }
-
+                                r = set_put(runlevel_services[i], service);
+                                if (r < 0) {
+                                        log_oom();
+                                        goto finish;
                                 }
                         }
                 }
         }
-
 
         for (i = 0; i < ELEMENTSOF(rcnd_table); i ++)
                 SET_FOREACH(service, runlevel_services[i], j) {
