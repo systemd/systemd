@@ -26,6 +26,7 @@
 #include "def.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "parse-util.h"
 #include "raw-clone.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -263,6 +264,18 @@ static void test_raw_clone(void) {
         }
 }
 
+static void test_physical_memory(void) {
+        uint64_t p;
+        char buf[FORMAT_BYTES_MAX];
+
+        p = physical_memory();
+        assert_se(p > 0);
+        assert_se(p < UINT64_MAX);
+        assert_se(p % page_size() == 0);
+
+        log_info("Memory: %s", format_bytes(buf, sizeof(buf), p));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -277,6 +290,7 @@ int main(int argc, char *argv[]) {
         test_log2i();
         test_execute_directory();
         test_raw_clone();
+        test_physical_memory();
 
         return 0;
 }
