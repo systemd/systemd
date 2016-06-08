@@ -92,16 +92,14 @@
   <refsect1>
     <title>Automatic Dependencies</title>
 
-    <para>Units with the <varname>Slice=</varname> setting set get
-    automatic <varname>Requires=</varname> and
-    <varname>After=</varname> dependencies on the specified slice
-    unit.</para>
+    <para>Units with the <varname>Slice=</varname> setting set automatically acquire <varname>Requires=</varname> and
+    <varname>After=</varname> dependencies on the specified slice unit.</para>
   </refsect1>
 
   <refsect1>
     <title>Unified and Legacy Control Group Hierarchies</title>
 
-    <para>Unified control group hierarchy is the new version of kernel control group interface. Depending on the
+    <para>The unified control group hierarchy is the new version of kernel control group interface. Depending on the
     resource type, there are differences in resource control capabilities.  Also, because of interface changes, some
     resource types have a separate set of options on the unified hierarchy.</para>
 
@@ -117,8 +115,8 @@
         <varlistentry>
           <term><option>Memory</option></term>
           <listitem>
-            <para><varname>MemoryMax</varname> replaces <varname>MemoryLimit</varname>. <varname>MemoryLow</varname>
-            and <varname>MemoryHigh</varname> are effective only on unified hierarchy.</para>
+            <para><varname>MemoryMax=</varname> replaces <varname>MemoryLimit=</varname>. <varname>MemoryLow=</varname>
+            and <varname>MemoryHigh=</varname> are effective only on unified hierarchy.</para>
           </listitem>
         </varlistentry>
       </variablelist>
