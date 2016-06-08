@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/sh -e
 
 # create GPT table with EFI System Partition
 rm -f test-efi-disk.img
@@ -11,7 +11,7 @@ mkfs.vfat -F32 ${LOOP}p1
 mkdir -p mnt
 mount ${LOOP}p1 mnt
 
-mkdir -p mnt/EFI/{Boot,systemd}
+mkdir -p mnt/EFI/Boot mnt/EFI/systemd
 cp systemd-bootx64.efi mnt/EFI/Boot/bootx64.efi
 
 [ -e /boot/shellx64.efi ] && cp /boot/shellx64.efi mnt/
@@ -28,13 +28,13 @@ objcopy \
 
 # install entries
 mkdir -p mnt/loader/entries
-echo -e "timeout 3\n" > mnt/loader/loader.conf
-echo -e "title Test\nefi /test\n" > mnt/loader/entries/test.conf
-echo -e "title Test2\nlinux /test2\noptions option=yes word number=1000 more\n" > mnt/loader/entries/test2.conf
-echo -e "title Test3\nlinux /test3\n" > mnt/loader/entries/test3.conf
-echo -e "title Test4\nlinux /test4\n" > mnt/loader/entries/test4.conf
-echo -e "title Test5\nefi /test5\n" > mnt/loader/entries/test5.conf
-echo -e "title Test6\nlinux /test6\n" > mnt/loader/entries/test6.conf
+printf "timeout 3\n\n" > mnt/loader/loader.conf
+printf "title Test\nefi /test\n\n" > mnt/loader/entries/test.conf
+printf "title Test2\nlinux /test2\noptions option=yes word number=1000 more\n\n" > mnt/loader/entries/test2.conf
+printf "title Test3\nlinux /test3\n\n" > mnt/loader/entries/test3.conf
+printf "title Test4\nlinux /test4\n\n" > mnt/loader/entries/test4.conf
+printf "title Test5\nefi /test5\n\n" > mnt/loader/entries/test5.conf
+printf "title Test6\nlinux /test6\n\n" > mnt/loader/entries/test6.conf
 
 sync
 umount mnt
