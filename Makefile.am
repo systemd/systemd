@@ -1042,6 +1042,8 @@ libshared_la_SOURCES = \
 	src/shared/resolve-util.h \
 	src/shared/bus-unit-util.c \
 	src/shared/bus-unit-util.h \
+	src/shared/vlan-util.h \
+	src/shared/vlan-util.c \
 	src/shared/tests.h \
 	src/shared/tests.c
 
