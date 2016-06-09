@@ -85,11 +85,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* Write finish default resolv.conf to avoid a dangling
-         * symlink */
-        r = manager_write_resolv_conf(m);
-        if (r < 0)
-                log_warning_errno(r, "Could not create "PRIVATE_RESOLV_CONF": %m");
+        /* Write finish default resolv.conf to avoid a dangling symlink */
+        (void) manager_write_resolv_conf(m);
 
         sd_notify(false,
                   "READY=1\n"

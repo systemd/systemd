@@ -284,9 +284,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
                         log_warning_errno(r, "Failed to update monitor information for %i: %m", l->ifindex);
         }
 
-        r = manager_write_resolv_conf(m);
-        if (r < 0)
-                log_warning_errno(r, "Could not update "PRIVATE_RESOLV_CONF": %m");
+        (void) manager_write_resolv_conf(m);
 
         return 0;
 }
@@ -903,7 +901,7 @@ int manager_send(Manager *m, int fd, int ifindex, int family, const union in_add
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &addr->in, port, p);
-        else if (family == AF_INET6)
+        if (family == AF_INET6)
                 return manager_ipv6_send(m, fd, ifindex, &addr->in6, port, p);
 
         return -EAFNOSUPPORT;

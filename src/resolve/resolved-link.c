@@ -216,11 +216,11 @@ static int link_update_dns_servers(Link *l) {
                 if (r < 0)
                         goto clear;
 
-                s = dns_server_find(l->dns_servers, family, &a);
+                s = dns_server_find(l->dns_servers, family, &a, 0);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, 0);
                         if (r < 0)
                                 goto clear;
                 }

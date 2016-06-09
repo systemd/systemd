@@ -23,6 +23,7 @@
 #include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-link-bus.h"
+#include "resolved-resolv-conf.h"
 #include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_resolve_support, resolve_support, ResolveSupport);
@@ -218,11 +219,11 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         for (i = 0; i < n; i++) {
                 DnsServer *s;
 
-                s = dns_server_find(l->dns_servers, dns[i].family, &dns[i].address);
+                s = dns_server_find(l->dns_servers, dns[i].family, &dns[i].address, 0);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address, 0);
                         if (r < 0)
                                 goto clear;
                 }
@@ -231,6 +232,8 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
 
         dns_server_unlink_marked(l->dns_servers);
         link_allocate_scopes(l);
+
+        (void) manager_write_resolv_conf(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);
 
@@ -306,6 +309,9 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 goto clear;
 
         dns_search_domain_unlink_marked(l->search_domains);
+
+        (void) manager_write_resolv_conf(l->manager);
+
         return sd_bus_reply_method_return(message, NULL);
 
 clear:
@@ -443,6 +449,8 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         link_flush_settings(l);
         link_allocate_scopes(l);
         link_add_rrs(l, false);
+
+        (void) manager_write_resolv_conf(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);
 }

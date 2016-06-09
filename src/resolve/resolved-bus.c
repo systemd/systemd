@@ -1221,7 +1221,7 @@ int bus_dns_server_append(sd_bus_message *reply, DnsServer *s, bool with_ifindex
                 return r;
 
         if (with_ifindex) {
-                r = sd_bus_message_append(reply, "i", s->link ? s->link->ifindex : 0);
+                r = sd_bus_message_append(reply, "i", dns_server_ifindex(s));
                 if (r < 0)
                         return r;
         }

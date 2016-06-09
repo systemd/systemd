@@ -382,3 +382,20 @@
   tools, and we should continue to do so, as it makes it easy to
   identify command line parameter variables, and makes it clear why it
   is OK that they are global variables.
+
+- When exposing public C APIs, be careful what function parameters you make
+  "const". For example, a parameter taking a context object should probably not
+  be "const", even if you are writing an other-wise read-only accessor function
+  for it. The reason is that making it "const" fixates the contract that your
+  call won't alter the object ever, as part of the API. However, that's often
+  quite a promise, given that this even prohibits object-internal caching or
+  lazy initialization of object variables. Moreover it's usually not too useful
+  for client applications. Hence: please be careful and avoid "const" on object
+  parameters, unless you are very sure "const" is appropriate.
+
+- Make sure to enforce limits on every user controllable resource. If the user
+  can allocate resources in your code, your code must enforce some form of
+  limits after which it will refuse operation. It's fine if it is hardcoded (at
+  least initially), but it needs to be there. This is particularly important
+  for objects that unprivileged users may allocate, but also matters for
+  everything else any user may allocated.
