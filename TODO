@@ -33,7 +33,10 @@ Janitorial Clean-ups:
 
 Features:
 
-* use phyical_memory() to allow MemoryLimit= configuration based on available system memory
+* resolved: make sure when we get an ip address with ifindex suffix, we handle
+  it nicely
+
+* resolved: maybe add a switch to disable any local caching
 
 * ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
 
@@ -227,7 +230,6 @@ Features:
   - resolved should optionally register additional per-interface LLMNR
     names, so that for the container case we can establish the same name
     (maybe "host") for referencing the server, everywhere.
-  - enable DNSSEC by default
   - allow clients to request DNSSEC for a single lookup even if DNSSEC is off (?)
 
 * refcounting in sd-resolve is borked
