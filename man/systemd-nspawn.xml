@@ -980,6 +980,19 @@
         effect.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>--notify-ready=</varname></term>
+
+        <listitem><para>Configures support for notifications from the container's init process.
+        <varname>--notify-ready=</varname> takes a boolean (<option>no</option> and  <option>yes</option>).
+        With option <option>no</option> systemd-nspawn notifies systemd
+        with a <literal>READY=1</literal> message when the init process is created.
+        With option <option>yes</option> systemd-nspawn waits for the
+        <literal>READY=1</literal> message from the init process in the container
+        before sending its own to systemd. For more details about notifications
+        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
