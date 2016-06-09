@@ -55,6 +55,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_DUMMY,
         NETDEV_KIND_TUN,
         NETDEV_KIND_TAP,
+        NETDEV_KIND_VRF,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;

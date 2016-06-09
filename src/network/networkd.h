@@ -41,6 +41,7 @@
 #include "networkd-netdev-tuntap.h"
 #include "networkd-netdev-veth.h"
 #include "networkd-netdev-vlan.h"
+#include "networkd-netdev-vrf.h"
 #include "networkd-netdev-vxlan.h"
 #include "networkd-network.h"
 #include "networkd-util.h"

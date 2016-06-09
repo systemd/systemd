@@ -55,6 +55,8 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_TUN] = &tun_vtable,
         [NETDEV_KIND_TAP] = &tap_vtable,
         [NETDEV_KIND_IP6TNL] = &ip6tnl_vtable,
+        [NETDEV_KIND_VRF] = &vrf_vtable,
+
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -78,6 +80,8 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_TUN] = "tun",
         [NETDEV_KIND_TAP] = "tap",
         [NETDEV_KIND_IP6TNL] = "ip6tnl",
+        [NETDEV_KIND_VRF] = "vrf",
+
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);

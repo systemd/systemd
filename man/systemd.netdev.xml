@@ -161,6 +161,10 @@
 
           <row><entry><varname>vxlan</varname></entry>
           <entry>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</entry></row>
+
+          <row><entry><varname>vrf</varname></entry>
+            <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/Documentation/networking/vrf.txt">VRF</ulink>) interface to create seperate routing and forwarding domains.</entry></row>
+
         </tbody>
       </tgroup>
     </table>
@@ -1137,7 +1141,16 @@ Name=dummy-test
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc</programlisting>
     </example>
+    <example>
+      <title>/etc/systemd/network/25-vrf.netdev</title>
+      <para>Create an VRF interface with table 42.</para>
+      <programlisting>[NetDev]
+Name=vrf-test
+Kind=vrf
 
+[VRF]
+TableId=42</programlisting>
+    </example>
   </refsect1>
   <refsect1>
     <title>See Also</title>

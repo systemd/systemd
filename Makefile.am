@@ -5462,6 +5462,8 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-link.c \
 	src/network/networkd-netdev.h \
 	src/network/networkd-netdev.c \
+	src/network/networkd-netdev-vrf.h \
+	src/network/networkd-netdev-vrf.c \
 	src/network/networkd-netdev-tunnel.h \
 	src/network/networkd-netdev-tunnel.c \
 	src/network/networkd-netdev-veth.h \
