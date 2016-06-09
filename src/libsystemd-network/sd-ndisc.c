@@ -307,7 +307,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SO_TIMESTAMP &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(&rt->timestamp, timeval_load(CMSG_DATA(cmsg)));
+                        triple_timestamp_from_realtime(&rt->timestamp, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
         }
 
         if (!triple_timestamp_is_set(&rt->timestamp))
