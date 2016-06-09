@@ -19,3 +19,4 @@ PrivateTmp=yes
 ProtectSystem=yes
 ProtectHome=yes
 MemoryDenyWriteExecute=yes
+SystemCallFilter=~@module @mount @obsolete @raw-io ptrace
