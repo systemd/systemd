@@ -20,6 +20,7 @@
 #include <net/if.h>
 
 #include "networkd-netdev-vlan.h"
+#include "vlan-util.h"
 
 static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
         VLan *v;
@@ -33,11 +34,9 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 
         assert(v);
 
-        if (v->id <= VLANID_MAX) {
-                r = sd_netlink_message_append_u16(req, IFLA_VLAN_ID, v->id);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_ID attribute: %m");
-        }
+        r = sd_netlink_message_append_u16(req, IFLA_VLAN_ID, v->id);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_ID attribute: %m");
 
         return 0;
 }
@@ -52,8 +51,8 @@ static int netdev_vlan_verify(NetDev *netdev, const char *filename) {
 
         assert(v);
 
-        if (v->id > VLANID_MAX) {
-                log_warning("VLAN without valid Id (%"PRIu64") configured in %s. Ignoring", v->id, filename);
+        if (v->id == VLANID_INVALID) {
+                log_warning("VLAN without valid Id (%"PRIu16") configured in %s.", v->id, filename);
                 return -EINVAL;
         }
 
@@ -66,7 +65,7 @@ static void vlan_init(NetDev *netdev) {
         assert(netdev);
         assert(v);
 
-        v->id = VLANID_MAX + 1;
+        v->id = VLANID_INVALID;
 }
 
 const NetDevVTable vlan_vtable = {

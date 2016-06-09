@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright 2016 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,15 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct VLan VLan;
+#include <stdbool.h>
+#include <inttypes.h>
 
-#include "networkd-netdev.h"
+#define VLANID_MAX 4094
+#define VLANID_INVALID UINT16_MAX
 
-struct VLan {
-        NetDev meta;
+/* Note that we permit VLAN Id 0 here, as that is apparently OK by the Linux kernel */
+static inline bool vlanid_is_valid(uint16_t id) {
+        return id <= VLANID_MAX;
+}
 
-        uint16_t id;
-};
+int parse_vlanid(const char *p, uint16_t *ret);
 
-DEFINE_NETDEV_CAST(VLAN, VLan);
-extern const NetDevVTable vlan_vtable;
+int config_parse_vlanid(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

@@ -3,6 +3,7 @@
 #include "conf-parser.h"
 #include "network-internal.h"
 #include "networkd-netdev-bond.h"
+#include "networkd-netdev-bridge.h"
 #include "networkd-netdev-ipvlan.h"
 #include "networkd-netdev-macvlan.h"
 #include "networkd-netdev-tunnel.h"
@@ -10,8 +11,8 @@
 #include "networkd-netdev-veth.h"
 #include "networkd-netdev-vlan.h"
 #include "networkd-netdev-vxlan.h"
-#include "networkd-netdev-bridge.h"
 #include "networkd-netdev.h"
+#include "vlan-util.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -33,7 +34,7 @@ NetDev.Name,                 config_parse_ifname,                0,             
 NetDev.Kind,                 config_parse_netdev_kind,           0,                             offsetof(NetDev, kind)
 NetDev.MTUBytes,             config_parse_iec_size,              0,                             offsetof(NetDev, mtu)
 NetDev.MACAddress,           config_parse_hwaddr,                0,                             offsetof(NetDev, mac)
-VLAN.Id,                     config_parse_uint64,                0,                             offsetof(VLan, id)
+VLAN.Id,                     config_parse_vlanid,                0,                             offsetof(VLan, id)
 MACVLAN.Mode,                config_parse_macvlan_mode,          0,                             offsetof(MacVlan, mode)
 MACVTAP.Mode,                config_parse_macvlan_mode,          0,                             offsetof(MacVlan, mode)
 IPVLAN.Mode,                 config_parse_ipvlan_mode,           0,                             offsetof(IPVlan, mode)
