@@ -83,6 +83,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
+#include "sd-daemon.h"
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
@@ -2101,6 +2102,11 @@ int exec_spawn(Unit *unit,
                    LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
                    "EXECUTABLE=%s", command->path,
                    NULL);
+
+        sd_notifyf(false,
+                   "READY=1\n"
+                   "STATUS=About to execute: %s", line);
+
         pid = fork();
         if (pid < 0)
                 return log_unit_error_errno(unit, errno, "Failed to fork: %m");

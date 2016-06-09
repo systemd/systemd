@@ -187,6 +187,13 @@ static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
 static const char *arg_container_service_name = "systemd-nspawn";
+static bool arg_defer_notify = false;
+
+/* FIXME: Ideally, the socket would be in /run/systemd/nspawn/notify
+ * However, "/run" is a tmpfs in a different mntns
+ * TODO: check how /run/systemd/nspawn/incoming works and do something similar
+ * */
+static const char *notify_socket_path = "/notify";
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -1080,6 +1087,10 @@ static int parse_argv(int argc, char *argv[]) {
         e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
         if (e)
                 arg_container_service_name = e;
+
+        e = getenv("SYSTEMD_NSPAWN_DEFER_NOTIFY_READY");
+        if (e)
+                arg_defer_notify = true;
 
         return 1;
 }
@@ -2529,6 +2540,7 @@ static int inner_child(
                 NULL, /* container_uuid */
                 NULL, /* LISTEN_FDS */
                 NULL, /* LISTEN_PID */
+                NULL, /* NOTIFY_SOCKET */
                 NULL
         };
 
@@ -2654,6 +2666,10 @@ static int inner_child(
 
                 if ((asprintf((char **)(envp + n_env++), "LISTEN_FDS=%u", fdset_size(fds)) < 0) ||
                     (asprintf((char **)(envp + n_env++), "LISTEN_PID=1") < 0))
+                        return log_oom();
+        }
+        if (arg_defer_notify) {
+                if (asprintf((char **)(envp + n_env++), "NOTIFY_SOCKET=%s", notify_socket_path) < 0)
                         return log_oom();
         }
 
@@ -3054,6 +3070,138 @@ static int setup_uid_map(pid_t pid) {
         r = write_string_file(uid_map, line, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to write GID map: %m");
+
+        return 0;
+}
+
+static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+
+        char buf[NOTIFY_BUFFER_MAX+1];
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
+        } control = {};
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+
+        struct cmsghdr *cmsg;
+        struct ucred *ucred = NULL;
+        int r, *fd_array = NULL;
+        unsigned n_fds = 0;
+        ssize_t n;
+
+        if (revents != EPOLLIN) {
+                log_warning("Got unexpected poll event for notify fd.");
+                return 0;
+        }
+
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return -errno;
+        }
+
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+
+                        fd_array = (int*) CMSG_DATA(cmsg);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                           cmsg->cmsg_type == SCM_CREDENTIALS &&
+                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                }
+        }
+
+        if (n_fds > 0) {
+                assert(fd_array);
+
+                r = fdset_new_array(&fds, fd_array, n_fds);
+                if (r < 0) {
+                        close_many(fd_array, n_fds);
+                        return log_oom();
+                }
+        }
+
+        if (!ucred || ucred->pid <= 0) {
+                log_warning("Received notify message without valid credentials. Ignoring.");
+                return 0;
+        }
+
+        if ((size_t) n >= sizeof(buf)) {
+                log_warning("Received notify message exceeded maximum size. Ignoring.");
+                return 0;
+        }
+
+        buf[n] = 0;
+        sd_notifyf(false,
+                   "READY=1\n"
+                   "STATUS=Forward message: %s", buf);
+
+        if (fdset_size(fds) > 0)
+                log_warning("Got auxiliary fds with notification message, closing all.");
+
+        return 0;
+}
+
+static int setup_sd_notify(sd_event *event, const char *root) {
+        static const int one = 1;
+        int r;
+        sd_event_source *notify_event_source;
+        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *notify_socket = NULL;
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+
+        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to allocate notification socket: %m");
+
+#define NOTIFY_RCVBUF_SIZE (8*1024*1024)
+        fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
+
+        (void) asprintf(&notify_socket, "%s%s", root, notify_socket_path);
+
+        (void) mkdir_parents_label(notify_socket, 0755);
+        (void) unlink(notify_socket);
+
+        strncpy(sa.un.sun_path, notify_socket, sizeof(sa.un.sun_path)-1);
+        r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        if (r < 0)
+                return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
+
+        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        if (r < 0)
+                return log_error_errno(errno, "SO_PASSCRED failed: %m");
+
+        r = sd_event_add_io(event, &notify_event_source, fd, EPOLLIN, nspawn_dispatch_notify_fd, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate notify event source: %m");
+
+        fd = -1;
+
+        /* Process signals a bit earlier than SIGCHLD, so that we can
+         * still identify to which service an exit message belongs */
+        r = sd_event_source_set_priority(notify_event_source, SD_EVENT_PRIORITY_NORMAL-7);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority of notify event source: %m");
+
+        (void) sd_event_source_set_description(notify_event_source, "manager-notify");
 
         return 0;
 }
@@ -3848,6 +3996,19 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
+                /* Prepare sd_notify server */
+                r = sd_event_new(&event);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to get default event source: %m");
+                        goto finish;
+                }
+
+                r = setup_sd_notify(event, arg_directory);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to setup sd_notify: %m");
+                        goto finish;
+                }
+
                 /* Let the child know that we are ready and wait that the child is completely ready now. */
                 if (!barrier_place_and_sync(&barrier)) { /* #4 */
                         log_error("Child died too early.");
@@ -3860,15 +4021,10 @@ int main(int argc, char *argv[]) {
                 etc_passwd_lock = safe_close(etc_passwd_lock);
 
                 sd_notifyf(false,
-                           "READY=1\n"
                            "STATUS=Container running.\n"
                            "X_NSPAWN_LEADER_PID=" PID_FMT, pid);
-
-                r = sd_event_new(&event);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get default event source: %m");
-                        goto finish;
-                }
+                if (!arg_defer_notify)
+                        sd_notify(false, "READY=1\n");
 
                 if (arg_kill_signal > 0) {
                         /* Try to kill the init system on SIGINT or SIGTERM */
