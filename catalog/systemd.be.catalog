@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2015 Viktar Vaŭčkievič
+#  Copyright 2015, 2016 Viktar Vaŭčkievič
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -19,7 +19,6 @@
 # Message catalog for systemd's own messages
 # Belarusian translation
 
-# The catalog format is documented on
 # Фармат каталога апісаны на старонцы
 # http://www.freedesktop.org/wiki/Software/systemd/catalog
 
@@ -40,6 +39,22 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Працэс сістэмнага журналявання спыніўся і закрыў усе файлы.
 
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Дыскавае месца, занятае часопісам
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) цяпер займае @CURRENT_USE_PRETTY@.
+Максімальна дазволены памер складае @MAX_USE_PRETTY@.
+Пакідаем вольнымі не меньш за @DISK_KEEP_FREE_PRETTY@ (даступна на дыску
+@DISK_AVAILABLE_PRETTY@).
+Такім чынам, ліміт складае @LIMIT_PRETTY@, з якіх @AVAILABLE_PRETTY@
+даступна.
+
+Ліміты на памер наладжваецца з дапамогай SystemMaxUse=, SystemKeepFree=,
+SystemMaxFileSize=, RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize= у
+файле /etc/systemd/journald.conf. Глядзіце journald.conf(5) для дэталей.
+
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Паведамленні з сэрвісу адкінуты
 Defined-By: systemd
@@ -52,9 +67,9 @@ Documentation: man:journald.conf(5)
 Майце на ўвазе, што былі адкінуты паведамлення толькі гэтага сэрвісу.
 Паведамленні іншых сэрвісаў засталіся.
 
-Мяжа, пасля якой паведамленні будуць адкінуты, наладжваецца з
-дапамогай RateLimitIntervalSec= і RateLimitBurst= у файле
-/etc/systemd/journald.conf. Глядзіце journald.conf(5) для дэталей.
+Мяжа, пасля якой паведамленні будуць адкінуты, наладжваецца з дапамогай
+RateLimitIntervalSec= і RateLimitBurst= у файле /etc/systemd/journald.conf.
+Глядзіце journald.conf(5) для дэталей.
 
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Паведамленні страчаны
@@ -239,10 +254,10 @@ Subject: Кропка мантавання не пустая
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-Каталог @WHERE@ указаны як кропка мантавання (другое поле ў /etc/fstab
-ці Where= поле ў файле юніта systemd) і не пусты. Гэта не перашкаджае
-мантаванню, але існуючыя ў ім файлы будуць недаступны. Для доступу да
-іх, калі ласка, змантуйце гэтую файлавую сістэму ў іншае месца.
+Каталог @WHERE@ указаны як кропка мантавання (другое поле ў /etc/fstab ці
+Where= поле ў файле юніта systemd) і не пусты. Гэта не перашкаджае
+мантаванню, але існуючыя ў ім файлы будуць недаступны. Для доступу да іх,
+калі ласка, змантуйце гэтую файлавую сістэму ў іншае месца.
 
 -- 24d8d4452573402496068381a6312df2
 Subject: Віртуальная машына або кантэйнер запусціўся
@@ -258,3 +273,41 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Віртуальная машына @NAME@ з лідарам № @LEADER@ спынена.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: Механізм DNSSEC адключаны, бо сервер не падтымлівае яго 
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+Сэрвіс вызначэння імён (systemd-resolved.service) вызначыў, што DNS-сервер
+не падтрымлівае механізм DNSSEC. У выніку праверка DNSSEC была адключана.
+
+Гэтая падзея ўзнікае калі наладжаны DNSSEC=allow-downgrade
+у файле resolved.conf і DNS-сервер не падтрымлівае механізм DNSSEC.
+Звярніце ўвагу, што рэжым allow-downgrade дазваляе правесці атаку
+«DNSSEC downgrade», у ходзе якой зламыснік можа адключыць праверку DNSSEC
+шляхам падстаноўкі падробленых DNSSEC-адказаў у камунікацыйны канал.
+
+Гэта падзея можа быць прыкметай таго, што DNS-сервер сапраўды несумяшчальны
+з DNSSEC або што зламысніку паспяхова атрымалася правесці атаку па
+адключэнню DNSSEC.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: Збой пры праверцы DNSSEC
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+DNS-запыт або рэсурсны запіс не прайшоў праверку DNSSEC.
+Як правіла, гэта паказвае на знешняе ўздзеянне на канал сувязі.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: Давераны ключ DNSSEC быў ануляваны
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Давераны ключ DNSSEC быў ануляваны. Неабходна наладзіць новы давераны ключ
+або абнавіць аперацыйную сістэму, каб атрымаць абноўлены давераны ключ
+DNSSEC.
