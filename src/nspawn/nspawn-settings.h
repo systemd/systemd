@@ -24,6 +24,7 @@
 #include "macro.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
+#include "nspawn-user-namespace.h"
 
 typedef enum StartMode {
         START_PID1, /* Run parameters as command line as process 1 */
@@ -32,14 +33,6 @@ typedef enum StartMode {
         _START_MODE_MAX,
         _START_MODE_INVALID = -1
 } StartMode;
-
-typedef enum UserNamespaceMode {
-        USER_NAMESPACE_NO,
-        USER_NAMESPACE_FIXED,
-        USER_NAMESPACE_PICK,
-        _USER_NAMESPACE_MODE_MAX,
-        _USER_NAMESPACE_MODE_INVALID = -1,
-} UserNamespaceMode;
 
 typedef enum SettingsMask {
         SETTING_START_MODE        = 1 << 0,

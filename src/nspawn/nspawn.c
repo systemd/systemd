@@ -74,7 +74,7 @@
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
-#include "nspawn-patch-uid.h"
+#include "nspawn-user-namespace.h"
 #include "nspawn-register.h"
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
@@ -116,6 +116,14 @@ typedef enum LinkJournal {
         LINK_HOST,
         LINK_GUEST
 } LinkJournal;
+
+typedef struct ContainerContext {
+        /* root directory */
+        char **root;
+
+        /* The User namespace context of this container */
+        UserNamespaceContext	*userns;
+} ContainerContext;
 
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
@@ -187,6 +195,45 @@ static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
 static const char *arg_container_service_name = "systemd-nspawn";
+static ContainerContext *container = NULL;
+
+static ContainerContext* container_ctx_free(ContainerContext *c);
+
+static int container_ctx_new(ContainerContext **c) {
+        ContainerContext *c_ctx;
+        int r;
+
+        assert(c);
+
+        c_ctx = new0(ContainerContext, 1);
+        if (!c_ctx)
+                return -ENOMEM;
+
+        /* Currently it's just a mirror to arg_directory */
+        c_ctx->root = &arg_directory;
+
+        r = userns_ctx_new(0, 0, arg_uid_shift, arg_uid_range,
+                           arg_userns_mode, &c_ctx->userns);
+        if (r < 0)
+                goto fail;
+
+        *c = c_ctx;
+        return 0;
+
+fail:
+        container_ctx_free(c_ctx);
+        return r;
+}
+
+static ContainerContext* container_ctx_free(ContainerContext *c) {
+        if (!c)
+                return NULL;
+
+        c->userns = userns_ctx_free(c->userns);
+
+        free(c);
+        return NULL;
+}
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -211,7 +258,7 @@ static void help(void) {
                "  -U --private-users=pick   Run within user namespace, pick UID/GID range automatically\n"
                "     --private-users[=UIDBASE[:NUIDS]]\n"
                "                            Run within user namespace, user configured UID/GID range\n"
-               "     --private-user-chown   Adjust OS tree file ownership for private UID/GID range\n"
+               "     --private-users-chown  Adjust OS tree file ownership for private UID/GID range\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
                "                            Assign an existing network interface to the\n"
@@ -1109,48 +1156,6 @@ static int verify_arguments(void) {
         return 0;
 }
 
-static int userns_lchown(const char *p, uid_t uid, gid_t gid) {
-        assert(p);
-
-        if (arg_userns_mode == USER_NAMESPACE_NO)
-                return 0;
-
-        if (uid == UID_INVALID && gid == GID_INVALID)
-                return 0;
-
-        if (uid != UID_INVALID) {
-                uid += arg_uid_shift;
-
-                if (uid < arg_uid_shift || uid >= arg_uid_shift + arg_uid_range)
-                        return -EOVERFLOW;
-        }
-
-        if (gid != GID_INVALID) {
-                gid += (gid_t) arg_uid_shift;
-
-                if (gid < (gid_t) arg_uid_shift || gid >= (gid_t) (arg_uid_shift + arg_uid_range))
-                        return -EOVERFLOW;
-        }
-
-        if (lchown(p, uid, gid) < 0)
-                return -errno;
-
-        return 0;
-}
-
-static int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        const char *q;
-
-        q = prefix_roota(root, path);
-        if (mkdir(q, mode) < 0) {
-                if (errno == EEXIST)
-                        return 0;
-                return -errno;
-        }
-
-        return userns_lchown(q, uid, gid);
-}
-
 static int setup_timezone(const char *dest) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         const char *where, *check, *what;
@@ -1205,7 +1210,7 @@ static int setup_timezone(const char *dest) {
                 return 0;
         }
 
-        r = userns_lchown(where, 0, 0);
+        r = userns_lchown(container->userns, where);
         if (r < 0)
                 return log_warning_errno(r, "Failed to chown /etc/localtime: %m");
 
@@ -1239,7 +1244,7 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
         }
 
-        r = userns_lchown(where, 0, 0);
+        r = userns_lchown(container->userns, where);
         if (r < 0)
                 log_warning_errno(r, "Failed to chown /etc/resolv.conf: %m");
 
@@ -1310,7 +1315,7 @@ static int copy_devnodes(const char *dest) {
         u = umask(0000);
 
         /* Create /dev/net, so that we can create /dev/net/tun in it */
-        if (userns_mkdir(dest, "/dev/net", 0755, 0, 0) < 0)
+        if (userns_mkdir(container->userns, dest, "/dev/net", 0755) < 0)
                 return log_error_errno(r, "Failed to create /dev/net directory: %m");
 
         NULSTR_FOREACH(d, devnodes) {
@@ -1344,7 +1349,7 @@ static int copy_devnodes(const char *dest) {
                                         return log_error_errno(errno, "Both mknod and bind mount (%s) failed: %m", to);
                         }
 
-                        r = userns_lchown(to, 0, 0);
+                        r = userns_lchown(container->userns, to);
                         if (r < 0)
                                 return log_error_errno(r, "chown() of device node %s failed: %m", to);
                 }
@@ -1379,7 +1384,7 @@ static int setup_pts(const char *dest) {
                 return log_error_errno(errno, "Failed to create /dev/pts: %m");
         if (mount("devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options) < 0)
                 return log_error_errno(errno, "Failed to mount /dev/pts: %m");
-        r = userns_lchown(p, 0, 0);
+        r = userns_lchown(container->userns, p);
         if (r < 0)
                 return log_error_errno(r, "Failed to chown /dev/pts: %m");
 
@@ -1387,13 +1392,13 @@ static int setup_pts(const char *dest) {
         p = prefix_roota(dest, "/dev/ptmx");
         if (symlink("pts/ptmx", p) < 0)
                 return log_error_errno(errno, "Failed to create /dev/ptmx symlink: %m");
-        r = userns_lchown(p, 0, 0);
+        r = userns_lchown(container->userns, p);
         if (r < 0)
                 return log_error_errno(r, "Failed to chown /dev/ptmx: %m");
 
         /* And fix /dev/pts/ptmx ownership */
         p = prefix_roota(dest, "/dev/pts/ptmx");
-        r = userns_lchown(p, 0, 0);
+        r = userns_lchown(container->userns, p);
         if (r < 0)
                 return log_error_errno(r, "Failed to chown /dev/pts/ptmx: %m");
 
@@ -1522,15 +1527,15 @@ static int setup_journal(const char *directory) {
                 return -EEXIST;
         }
 
-        r = userns_mkdir(directory, "/var", 0755, 0, 0);
+        r = userns_mkdir(container->userns, directory, "/var", 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /var: %m");
 
-        r = userns_mkdir(directory, "/var/log", 0755, 0, 0);
+        r = userns_mkdir(container->userns, directory, "/var/log", 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /var/log: %m");
 
-        r = userns_mkdir(directory, "/var/log/journal", 0755, 0, 0);
+        r = userns_mkdir(container->userns, directory, "/var/log/journal", 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /var/log/journal: %m");
 
@@ -1561,7 +1566,7 @@ static int setup_journal(const char *directory) {
                      arg_link_journal == LINK_AUTO) &&
                     path_equal(d, q)) {
 
-                        r = userns_mkdir(directory, p, 0755, 0, 0);
+                        r = userns_mkdir(container->userns, directory, p, 0755);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to create directory %s: %m", q);
                         return 0;
@@ -1593,7 +1598,7 @@ static int setup_journal(const char *directory) {
                                 return log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
                 }
 
-                r = userns_mkdir(directory, p, 0755, 0, 0);
+                r = userns_mkdir(container->userns, directory, p, 0755);
                 if (r < 0)
                         log_warning_errno(r, "Failed to create directory %s: %m", q);
                 return 0;
@@ -1617,7 +1622,7 @@ static int setup_journal(const char *directory) {
         if (dir_is_empty(q) == 0)
                 log_warning("%s is not empty, proceeding anyway.", q);
 
-        r = userns_mkdir(directory, p, 0755, 0, 0);
+        r = userns_mkdir(container->userns, directory, p, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s: %m", q);
 
@@ -1673,15 +1678,15 @@ static int setup_propagate(const char *root) {
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        r = userns_mkdir(root, "/run/systemd", 0755, 0, 0);
+        r = userns_mkdir(container->userns, root, "/run/systemd", 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd: %m");
 
-        r = userns_mkdir(root, "/run/systemd/nspawn", 0755, 0, 0);
+        r = userns_mkdir(container->userns, root, "/run/systemd/nspawn", 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/nspawn: %m");
 
-        r = userns_mkdir(root, "/run/systemd/nspawn/incoming", 0600, 0, 0);
+        r = userns_mkdir(container->userns, root, "/run/systemd/nspawn/incoming", 0600);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/nspawn/incoming: %m");
 
@@ -2243,15 +2248,15 @@ static int setup_machine_id(const char *directory) {
         return 0;
 }
 
-static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
+static int recursive_chown(ContainerContext *c) {
         int r;
 
-        assert(directory);
+        assert(*c->root);
 
-        if (arg_userns_mode == USER_NAMESPACE_NO || !arg_userns_chown)
+        if (c->userns->mode == USER_NAMESPACE_NO || !arg_userns_chown)
                 return 0;
 
-        r = path_patch_uid(directory, arg_uid_shift, arg_uid_range);
+        r = userns_path_patch_uid(c->userns, *c->root);
         if (r == -EOPNOTSUPP)
                 return log_error_errno(r, "Automatic UID/GID adjusting is only supported for UID/GID ranges starting at multiples of 2^16 with a range of 2^16.");
         if (r == -EBADE)
@@ -2326,19 +2331,19 @@ static void loop_remove(int nr, int *image_fd) {
  * < 0 : wait_for_terminate() failed to get the state of the
  *       container, the container was terminated by a signal, or
  *       failed for an unknown reason.  No change is made to the
- *       container argument.
+ *       container_status argument.
  * > 0 : The program executed in the container terminated with an
  *       error.  The exit code of the program executed in the
- *       container is returned.  The container argument has been set
- *       to CONTAINER_TERMINATED.
+ *       container is returned.  The container_stauts argument has been
+ *       set to CONTAINER_TERMINATED.
  *   0 : The container is being rebooted, has been shut down or exited
- *       successfully.  The container argument has been set to either
+ *       successfully.  The container_status argument has been set to either
  *       CONTAINER_TERMINATED or CONTAINER_REBOOTED.
  *
  * That is, success is indicated by a return value of zero, and an
  * error is indicated by a non-zero value.
  */
-static int wait_for_container(pid_t pid, ContainerStatus *container) {
+static int wait_for_container(pid_t pid, ContainerStatus *container_status) {
         siginfo_t status;
         int r;
 
@@ -2354,18 +2359,18 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
                 else
                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s failed with error code %i.", arg_machine, status.si_status);
 
-                *container = CONTAINER_TERMINATED;
+                *container_status = CONTAINER_TERMINATED;
                 return status.si_status;
 
         case CLD_KILLED:
                 if (status.si_status == SIGINT) {
                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s has been shut down.", arg_machine);
-                        *container = CONTAINER_TERMINATED;
+                        *container_status = CONTAINER_TERMINATED;
                         return 0;
 
                 } else if (status.si_status == SIGHUP) {
                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s is being rebooted.", arg_machine);
-                        *container = CONTAINER_REBOOTED;
+                        *container_status = CONTAINER_REBOOTED;
                         return 0;
                 }
 
@@ -2475,39 +2480,6 @@ static int determine_names(void) {
         return 0;
 }
 
-static int determine_uid_shift(const char *directory) {
-        int r;
-
-        if (arg_userns_mode == USER_NAMESPACE_NO) {
-                arg_uid_shift = 0;
-                return 0;
-        }
-
-        if (arg_uid_shift == UID_INVALID) {
-                struct stat st;
-
-                r = stat(directory, &st);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to determine UID base of %s: %m", directory);
-
-                arg_uid_shift = st.st_uid & UINT32_C(0xffff0000);
-
-                if (arg_uid_shift != (st.st_gid & UINT32_C(0xffff0000))) {
-                        log_error("UID and GID base of %s don't match.", directory);
-                        return -EINVAL;
-                }
-
-                arg_uid_range = UINT32_C(0x10000);
-        }
-
-        if (arg_uid_shift > (uid_t) -1 - arg_uid_range) {
-                log_error("UID base too high for UID range.");
-                return -EINVAL;
-        }
-
-        return 0;
-}
-
 static int inner_child(
                 Barrier *barrier,
                 const char *directory,
@@ -2553,11 +2525,9 @@ static int inner_child(
         }
 
         r = mount_all(NULL,
-                      arg_userns_mode != USER_NAMESPACE_NO,
+                      container->userns,
                       true,
                       arg_private_network,
-                      arg_uid_shift,
-                      arg_uid_range,
                       arg_selinux_apifs_context);
 
         if (r < 0)
@@ -2794,9 +2764,12 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = determine_uid_shift(directory);
+        r = userns_path_update_userns_ctx(container->userns, directory);
         if (r < 0)
                 return r;
+
+        arg_uid_shift = container->userns->uid_shift;
+        arg_uid_range = container->userns->uid_range;
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* Let the parent know which UID shift we read from the image */
@@ -2820,35 +2793,36 @@ static int outer_child(
                                 log_error("Short read while recieving UID shift.");
                                 return -EIO;
                         }
+
+                        r = userns_ctx_set(container->userns, arg_uid_shift, arg_uid_range);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set UID shift: %m");
                 }
 
-                log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
+                log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".",
+                         container->userns->uid_shift, container->userns->uid_range);
         }
 
         /* Turn directory into bind mount */
         if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to make bind mount: %m");
 
-        r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
+        r = recursive_chown(container);
         if (r < 0)
                 return r;
 
         r = setup_volatile(
                         directory,
+                        container->userns,
                         arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_context);
         if (r < 0)
                 return r;
 
         r = setup_volatile_state(
                         directory,
+                        container->userns,
                         arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_context);
         if (r < 0)
                 return r;
@@ -2864,11 +2838,9 @@ static int outer_child(
         }
 
         r = mount_all(directory,
-                      arg_userns_mode != USER_NAMESPACE_NO,
+                      container->userns,
                       false,
                       arg_private_network,
-                      arg_uid_shift,
-                      arg_uid_range,
                       arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -2914,20 +2886,16 @@ static int outer_child(
         r = mount_custom(
                         directory,
                         arg_custom_mounts,
+                        container->userns,
                         arg_n_custom_mounts,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
 
         r = mount_cgroups(
                         directory,
+                        container->userns,
                         arg_unified_cgroup_hierarchy,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -3332,6 +3300,12 @@ int main(int argc, char *argv[]) {
         r = verify_arguments();
         if (r < 0)
                 goto finish;
+
+        r = container_ctx_new(&container);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create container object: %m");
+                goto finish;
+        }
 
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
@@ -4008,6 +3982,8 @@ finish:
         strv_free(arg_parameters);
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
+
+        container_ctx_free(container);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }
