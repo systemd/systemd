@@ -81,7 +81,8 @@ struct ExecCommand {
         char **argv;
         ExecStatus exec_status;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
-        bool ignore;
+        bool ignore:1;
+        bool privileged:1;
 };
 
 struct ExecRuntime {

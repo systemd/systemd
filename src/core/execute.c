@@ -1717,7 +1717,7 @@ static int exec_child(
 
         umask(context->umask);
 
-        if (params->apply_permissions) {
+        if (params->apply_permissions && !command->privileged) {
                 r = enforce_groups(context, username, gid);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
@@ -1842,7 +1842,7 @@ static int exec_child(
         }
 
 #ifdef HAVE_SELINUX
-        if (params->apply_permissions && mac_selinux_use() && params->selinux_context_net && socket_fd >= 0) {
+        if (params->apply_permissions && mac_selinux_use() && params->selinux_context_net && socket_fd >= 0 && !command->privileged) {
                 r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
                 if (r < 0) {
                         *exit_status = EXIT_SELINUX_CONTEXT;
@@ -1867,7 +1867,7 @@ static int exec_child(
                 return r;
         }
 
-        if (params->apply_permissions) {
+        if (params->apply_permissions && !command->privileged) {
 
                 bool use_address_families = context->address_families_whitelist ||
                         !set_isempty(context->address_families);

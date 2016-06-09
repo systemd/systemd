@@ -295,9 +295,10 @@
         If the absolute filename is prefixed with
         <literal>-</literal>, an exit code of the command normally
         considered a failure (i.e. non-zero exit status or abnormal
-        exit due to signal) is ignored and considered success. If both
-        <literal>-</literal> and <literal>@</literal> are used, they
-        can appear in either order.</para>
+        exit due to signal) is ignored and considered success.
+        If the absolute path is prefixed with <literal>!</literal> then
+        it is executed with full privileges. <literal>-</literal>, <literal>@</literal>, and <literal>!</literal>
+        may be used together and they can appear in any order.</para>
 
         <para>If more than one command is specified, the commands are
         invoked sequentially in the order they appear in the unit

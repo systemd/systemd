@@ -596,7 +596,7 @@ int config_parse_exec(
         p = rvalue;
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
-                bool separate_argv0 = false, ignore = false;
+                bool separate_argv0 = false, ignore = false, privileged = false;
                 _cleanup_free_ ExecCommand *nce = NULL;
                 _cleanup_strv_free_ char **n = NULL;
                 size_t nlen = 0, nbufsize = 0;
@@ -610,14 +610,18 @@ int config_parse_exec(
                         return 0;
 
                 f = firstword;
-                for (i = 0; i < 2; i++) {
-                        /* We accept an absolute path as first argument, or
-                         * alternatively an absolute prefixed with @ to allow
-                         * overriding of argv[0]. */
+                for (i = 0; i < 3; i++) {
+                        /* We accept an absolute path as first argument.
+                         * If it's prefixed with - and the path doesn't exist,
+                         * we ignore it instead of erroring out;
+                         * if it's prefixed with @, we allow overriding of argv[0];
+                         * and if it's prefixed with !, it will be run with full privileges */
                         if (*f == '-' && !ignore)
                                 ignore = true;
                         else if (*f == '@' && !separate_argv0)
                                 separate_argv0 = true;
+                        else if (*f == '!' && !privileged)
+                                privileged = true;
                         else
                                 break;
                         f++;
@@ -715,6 +719,7 @@ int config_parse_exec(
                 nce->argv = n;
                 nce->path = path;
                 nce->ignore = ignore;
+                nce->privileged = privileged;
 
                 exec_command_append_list(e, nce);
 
