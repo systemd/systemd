@@ -4527,18 +4527,216 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                 break;
         }
 
-        r = bus_print_property(name, m, arg_value, arg_all);
+        r = sd_bus_message_skip(m, contents);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         if (r == 0) {
-                r = sd_bus_message_skip(m, contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
                 if (arg_all)
                         printf("%s=[unprintable]\n", name);
         }
+
+        return 0;
+}
+
+struct property_info {
+        const char *version;
+        const char *features;
+        const char *architecture;
+        const char *tainted;
+        const char *load_state;
+        const char *active_state;
+        const char *log_level;
+        const char *log_target;
+        const char *default_std_output;
+        const char *control_group;
+        const char *system_state;
+        const char *virtualization;
+        const char *id;
+
+        char **unit_path;
+        char **environment;
+
+        unsigned exit_code;
+        unsigned default_start_limit_burst;
+        unsigned n_names;
+        unsigned n_failed_units;
+        unsigned n_jobs;
+        unsigned n_installed_jobs;
+        unsigned n_failed_jobs;
+
+        double progress;
+
+        bool default_cpu_accounting;
+        bool default_blockio_accounting;
+        bool default_memory_accounting;
+        bool default_tasks_accounting;
+        bool confirm_spawn;
+        bool show_status;
+
+        usec_t default_start_limit_interval;
+        usec_t default_timer_accuracy_usec;
+        usec_t default_timeout_stop_usec;
+        usec_t loader_timestamp_monotonic;
+        usec_t default_restart_usec;
+        usec_t timer_slack_nsec;
+        usec_t default_tasks_max;
+        usec_t runtime_watchdog;
+        usec_t shutdown_watchdog_usec;
+
+        dual_timestamp firmware_timestamp;
+        dual_timestamp loader_timestamp;
+        dual_timestamp kernel_timestamp;
+        dual_timestamp initrd_timestamp;
+        dual_timestamp userspace_timestamp;
+        dual_timestamp finish_timestamp;
+        dual_timestamp security_start_timestamp;
+        dual_timestamp security_finish_timestamp;
+        dual_timestamp generators_start_timestamp;
+        dual_timestamp generators_finish_timestamp;
+        dual_timestamp unitsload_start_timestamp;
+        dual_timestamp unitsload_finish_timestamp;
+
+        struct rlimit rlimit[_RLIMIT_MAX];
+};
+
+
+static void print_timestamp(const char *name, uint64_t u) {
+        if (endswith(name, "Timestamp")) {
+                char timestamp[FORMAT_TIMESTAMP_MAX], *t;
+
+                t = format_timestamp(timestamp, sizeof(timestamp), u);
+                if (t)
+                        print_prop(name, "%s", strempty(t));
+
+        } else if (strstr(name, "USec")) {
+                char timespan[FORMAT_TIMESPAN_MAX];
+
+                print_prop(name, "%s", format_timespan(timespan, sizeof(timespan), u, 0));
+        } else
+                print_prop(name, "%"PRIu64, u);
+}
+
+static int show_property(struct property_info *i) {
+        _cleanup_free_ char *t = NULL;
+
+        if (i->id) {
+                print_prop("Id",                 "%s",                     i->id);
+                return 0;
+        }
+
+        print_prop("Version",                    "%s",                     i->version);
+        print_prop("Features",                   "%s",                     i->features);
+        print_prop("Architecture",               "%s",                     i->architecture);
+        print_prop("NNames",                     "%u",                     i->n_names);
+        print_prop("NFailedUnits",               "%u",                     i->n_failed_units);
+        print_prop("NJobs",                      "%u",                     i->n_jobs);
+        print_prop("NInstalledJobs",             "%u",                     i->n_installed_jobs);
+        print_prop("NFailedJobs",                "%u",                     i->n_failed_jobs);
+        print_prop("Progress",                   "%g",                     i->progress);
+
+        t = strv_join(i->environment, " ");
+        if (!t)
+                return log_oom();
+
+        print_prop("Environment",                "%s",                      t);
+
+        free(t);
+        t = NULL;
+
+        t = strv_join(i->unit_path, " ");
+        if (!t)
+                return log_oom();
+
+        print_prop("UnitPath",                   "%s",                      t);
+
+        if (i->virtualization)
+                print_prop("Virtualization",     "%s",                      i->virtualization);
+        if (i->tainted)
+                print_prop("Tainted",            "%s",                      i->tainted);
+
+        print_prop("LogLevel",                   "%s",                      i->log_level);
+        print_prop("LogTarget",                  "%s",                      i->log_target);
+        print_prop("DefaultStandardOutput",      "%s",                      i->default_std_output);
+        print_prop("DefaultStandardError",       "%s",                      i->default_std_output);
+
+        if (i->control_group)
+                print_prop("ControlGroup",       "%s",                      i->control_group);
+
+        print_prop("SystemState",                "%s",                      i->system_state);
+
+        print_prop("DefaultCPUAccounting",       "%s",                      yes_no(i->default_cpu_accounting));
+        print_prop("DefaultBlockIOAccounting",   "%s",                      yes_no(i->default_blockio_accounting));
+        print_prop("DefaultMemoryAccounting",    "%s",                      yes_no(i->default_memory_accounting));
+        print_prop("DefaultTasksAccounting",     "%s",                      yes_no(i->default_tasks_accounting));
+        print_prop("ConfirmSpawn",               "%s",                      yes_no(i->confirm_spawn));
+        print_prop("ShowStatus",                 "%s",                      yes_no(i->show_status));
+
+        print_prop("RuntimeWatchdogUSec",        "%"PRIu64, (long unsigned) i->runtime_watchdog);
+        print_prop("ShutdownWatchdogUSec",       "%"PRIu64, (long unsigned) i->shutdown_watchdog_usec);
+        print_prop("DefaultLimitCPU",            "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_CPU].rlim_cur);
+        print_prop("DefaultLimitCPUSoft",        "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_CPU].rlim_max);
+        print_prop("DefaultLimitFSIZE",          "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_FSIZE].rlim_cur);
+        print_prop("DefaultLimitFSIZESoft",      "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_FSIZE].rlim_max);
+        print_prop("DefaultLimitDATA",           "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_DATA].rlim_cur);
+        print_prop("DefaultLimitDATASoft",       "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_DATA].rlim_max);
+        print_prop("DefaultLimitSTACK",          "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_STACK].rlim_cur);
+        print_prop("DefaultLimitSTACKSoft",      "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_STACK].rlim_max);
+        print_prop("DefaultLimitCORE",           "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_CORE].rlim_cur);
+        print_prop("DefaultLimitCORESoft",       "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_CORE].rlim_max);
+        print_prop("DefaultLimitRSS",            "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_RSS].rlim_cur);
+        print_prop("DefaultLimitRSSSoft",        "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_RSS].rlim_max);
+        print_prop("DefaultLimitNOFILE",         "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_NOFILE].rlim_cur);
+        print_prop("DefaultLimitNOFILESoft",     "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_NOFILE].rlim_max);
+        print_prop("DefaultLimitAS",             "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_AS].rlim_cur);
+        print_prop("DefaultLimitASSoft",         "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_AS].rlim_max);
+        print_prop("DefaultLimitNPROC",          "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_NPROC].rlim_cur);
+        print_prop("DefaultLimitNPROCSoft",      "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_NPROC].rlim_max);
+        print_prop("DefaultLimitMEMLOCK",        "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_MEMLOCK].rlim_cur);
+        print_prop("DefaultLimitMEMLOCKSoft",    "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_MEMLOCK].rlim_max);
+        print_prop("DefaultLimitLOCKS",          "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_LOCKS].rlim_cur);
+        print_prop("DefaultLimitLOCKSSoft",      "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_LOCKS].rlim_max);
+        print_prop("DefaultLimitSIGPENDING",     "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_SIGPENDING].rlim_cur);
+        print_prop("DefaultLimitSIGPENDINGSoft", "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_SIGPENDING].rlim_max);
+        print_prop("DefaultLimitMSGQUEUE",       "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_MSGQUEUE].rlim_cur);
+        print_prop("DefaultLimitMSGQUEUESoft",   "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_MSGQUEUE].rlim_max);
+        print_prop("DefaultLimitNICE",           "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_NICE].rlim_cur);
+        print_prop("DefaultLimitNICESoft",       "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_NICE].rlim_max);
+        print_prop("DefaultLimitRTPRIO",         "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_RTPRIO].rlim_cur);
+        print_prop("DefaultLimitRTPRIOSoft",     "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_RTPRIO].rlim_max);
+        print_prop("DefaultLimitRTTIME",         "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_RTTIME].rlim_cur);
+        print_prop("DefaultLimitRTTIMESoft",     "%"PRIu64, (long unsigned) i->rlimit[RLIMIT_RTTIME].rlim_max);
+
+        print_timestamp("FirmwareTimestampMonotonic",                       i->firmware_timestamp.monotonic);
+        print_timestamp("LoaderTimestampMonotonic",                         i->loader_timestamp.monotonic);
+        print_timestamp("KernelTimestamp",                                  i->kernel_timestamp.realtime);
+        print_timestamp("KernelTimestampMonotonic",                         i->kernel_timestamp.monotonic);
+        print_timestamp("InitRDTimestamp",                                  i->initrd_timestamp.realtime);
+        print_timestamp("InitRDTimestampMonotonic",                         i->initrd_timestamp.monotonic);
+        print_timestamp("UserspaceTimestamp",                               i->userspace_timestamp.realtime);
+        print_timestamp("UserspaceTimestampMonotonic",                      i->userspace_timestamp.monotonic);
+        print_timestamp("FinishTimestamp",                                  i->finish_timestamp.realtime);
+        print_timestamp("FinishTimestampMonotonic",                         i->finish_timestamp.monotonic);
+        print_timestamp("SecurityStartTimestamp",                           i->security_start_timestamp.realtime);
+        print_timestamp("SecurityStartTimestampMonotonic",                  i->security_start_timestamp.monotonic);
+        print_timestamp("SecurityFinishTimestamp",                          i->security_finish_timestamp.realtime);
+        print_timestamp("SecurityFinishTimestampMonotonic",                 i->security_finish_timestamp.monotonic);
+        print_timestamp("GeneratorsStartTimestamp",                         i-> generators_start_timestamp.realtime);
+        print_timestamp("GeneratorsStartTimestampMonotonic",                i->generators_start_timestamp.monotonic);
+        print_timestamp("GeneratorsFinishTimestamp",                        i->generators_finish_timestamp.realtime);
+        print_timestamp("GeneratorsFinishTimestampMonotonic",               i->generators_finish_timestamp.monotonic);
+        print_timestamp("UnitsLoadStartTimestamp",                          i->unitsload_start_timestamp.realtime);
+        print_timestamp("UnitsLoadStartTimestampMonotonic",                 i->unitsload_start_timestamp.monotonic);
+        print_timestamp("UnitsLoadFinishTimestamp",                         i->unitsload_finish_timestamp.realtime);
+        print_timestamp("UnitsLoadFinishTimestampMonotonic",                i->unitsload_finish_timestamp.monotonic);
+        print_timestamp("DefaultTimerAccuracyUSec",                         i->loader_timestamp_monotonic);
+        print_timestamp("DefaultTimeoutStartUSec",                          i->default_start_limit_interval);
+        print_timestamp("DefaultTimeoutStopUSec",                           i->default_timeout_stop_usec);
+        print_timestamp("DefaultRestartUSec",                               i->default_restart_usec);
+        print_timestamp("DefaultStartLimitInterval",                        i->default_start_limit_interval);
+        print_timestamp("DefaultStartLimitBurst",                           i->loader_timestamp_monotonic);
+        print_timestamp("DefaultTasksMax",                                  i->default_tasks_max);
+        print_timestamp("TimerSlackNSec",                                   i->timer_slack_nsec);
 
         return 0;
 }
@@ -4562,12 +4760,102 @@ static int show_one(
                 .tasks_current = (uint64_t) -1,
                 .tasks_max = (uint64_t) -1,
         };
-        struct property_info {
-                const char *load_state, *active_state;
-        } property_info = {};
+        struct property_info property_info={};
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", NULL, offsetof(struct property_info, load_state)   },
-                { "ActiveState", "s", NULL, offsetof(struct property_info, active_state) },
+                { "Id",                                  "s",  NULL, offsetof(struct property_info, id)                                    },
+                { "LoadState",                           "s",  NULL, offsetof(struct property_info, load_state)                            },
+                { "ActiveState",                         "s",  NULL, offsetof(struct property_info, active_state)                          },
+                { "Version",                             "s",  NULL, offsetof(struct property_info, version)                               },
+                { "Features",                            "s",  NULL, offsetof(struct property_info, features)                              },
+                { "Architecture",                        "s",  NULL, offsetof(struct property_info, architecture)                          },
+                { "Virtualization",                      "s",  NULL, offsetof(struct property_info, virtualization)                        },
+                { "Tainted",                             "s",  NULL, offsetof(struct property_info, tainted)                               },
+                { "LogLevel",                            "s",  NULL, offsetof(struct property_info, log_level)                             },
+                { "LogTarget",                           "s",  NULL, offsetof(struct property_info, log_target)                            },
+                { "DefaultStandardOutput",               "s",  NULL, offsetof(struct property_info, default_std_output)                    },
+                { "DefaultStandardError",                "s",  NULL, offsetof(struct property_info, default_std_output)                    },
+                { "LoadState",                           "s",  NULL, offsetof(struct property_info, load_state)                            },
+                { "ActiveState",                         "s",  NULL, offsetof(struct property_info, active_state)                          },
+                { "ControlGroup",                        "s",  NULL, offsetof(struct property_info, control_group)                         },
+                { "SystemState",                         "s",  NULL, offsetof(struct property_info, system_state)                          },
+                { "NNames",                              "u",  NULL, offsetof(struct property_info, n_names)                               },
+                { "NFailedUnits",                        "u",  NULL, offsetof(struct property_info, n_failed_units)                        },
+                { "NJobs",                               "u",  NULL, offsetof(struct property_info, n_jobs)                                },
+                { "NInstalledJobs",                      "u",  NULL, offsetof(struct property_info, n_installed_jobs)                      },
+                { "NFailedJobs",                         "u",  NULL, offsetof(struct property_info, n_failed_jobs)                         },
+                { "UnitPath",                            "as", NULL, offsetof(struct property_info, unit_path)                             },
+                { "Environment",                         "as", NULL, offsetof(struct property_info, environment)                           },
+                { "Progress",                            "d",  NULL, offsetof(struct property_info, progress)                              },
+                { "DefaultCPUAccounting",                "b",  NULL, offsetof(struct property_info, default_cpu_accounting)                },
+                { "DefaultBlockIOAccounting",            "b",  NULL, offsetof(struct property_info, default_blockio_accounting)            },
+                { "DefaultMemoryAccounting",             "b",  NULL, offsetof(struct property_info, default_memory_accounting)             },
+                { "DefaultTasksAccounting",              "b",  NULL, offsetof(struct property_info, default_tasks_accounting)              },
+                { "ConfirmSpawn",                        "b",  NULL, offsetof(struct property_info, confirm_spawn)                         },
+                { "ShowStatus",                          "b",  NULL, offsetof(struct property_info, show_status)                           },
+                { "FirmwareTimestampMonotonic",          "t",  NULL, offsetof(struct property_info, firmware_timestamp.monotonic)          },
+                { "LoaderTimestampMonotonic",            "t",  NULL, offsetof(struct property_info, loader_timestamp.monotonic)            },
+                { "KernelTimestamp",                     "t",  NULL, offsetof(struct property_info, kernel_timestamp.realtime)             },
+                { "KernelTimestampMonotonic",            "t",  NULL, offsetof(struct property_info, kernel_timestamp.monotonic)            },
+                { "InitRDTimestamp",                     "t",  NULL, offsetof(struct property_info, initrd_timestamp.realtime)             },
+                { "InitRDTimestampMonotonic",            "t",  NULL, offsetof(struct property_info, initrd_timestamp.monotonic)            },
+                { "UserspaceTimestamp",                  "t",  NULL, offsetof(struct property_info, userspace_timestamp.realtime)          },
+                { "UserspaceTimestampMonotonic",         "t",  NULL, offsetof(struct property_info, userspace_timestamp.monotonic)         },
+                { "FinishTimestamp",                     "t",  NULL, offsetof(struct property_info, finish_timestamp.realtime)             },
+                { "FinishTimestampMonotonic",            "t",  NULL, offsetof(struct property_info, finish_timestamp.monotonic)            },
+                { "SecurityStartTimestamp",              "t",  NULL, offsetof(struct property_info, security_start_timestamp.realtime)     },
+                { "SecurityStartTimestampMonotonic",     "t",  NULL, offsetof(struct property_info, security_start_timestamp.monotonic)    },
+                { "SecurityFinishTimestamp",             "t",  NULL, offsetof(struct property_info, security_finish_timestamp.realtime)    },
+                { "SecurityFinishTimestampMonotonic",    "t",  NULL, offsetof(struct property_info, security_finish_timestamp.monotonic)   },
+                { "GeneratorsStartTimestamp",            "t",  NULL, offsetof(struct property_info, generators_start_timestamp.realtime)   },
+                { "GeneratorsStartTimestampMonotonic",   "t",  NULL, offsetof(struct property_info, generators_start_timestamp.monotonic)  },
+                { "GeneratorsFinishTimestamp",           "t",  NULL, offsetof(struct property_info, generators_finish_timestamp.realtime)  },
+                { "GeneratorsFinishTimestampMonotonic",  "t",  NULL, offsetof(struct property_info, generators_finish_timestamp.monotonic) },
+                { "UnitsLoadStartTimestamp",             "t",  NULL, offsetof(struct property_info, unitsload_start_timestamp.realtime)    },
+                { "UnitsLoadStartTimestampMonotonic",    "t",  NULL, offsetof(struct property_info, unitsload_start_timestamp.monotonic)   },
+                { "UnitsLoadFinishTimestamp",            "t",  NULL, offsetof(struct property_info, unitsload_finish_timestamp.realtime)   },
+                { "UnitsLoadFinishTimestampMonotonic",   "t",  NULL, offsetof(struct property_info, unitsload_finish_timestamp.monotonic)  },
+                { "DefaultTimerAccuracyUSec",            "t",  NULL, offsetof(struct property_info, loader_timestamp_monotonic)            },
+                { "DefaultTimeoutStartUSec",             "t",  NULL, offsetof(struct property_info, default_start_limit_interval)          },
+                { "DefaultTimeoutStopUSec",              "t",  NULL, offsetof(struct property_info, default_timeout_stop_usec)             },
+                { "DefaultRestartUSec",                  "t",  NULL, offsetof(struct property_info, default_restart_usec)                  },
+                { "DefaultStartLimitInterval",           "t",  NULL, offsetof(struct property_info, default_start_limit_interval)          },
+                { "DefaultStartLimitBurst",              "t",  NULL, offsetof(struct property_info, loader_timestamp_monotonic)            },
+                { "DefaultLimitCPU",                     "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_CPU].rlim_cur)           },
+                { "DefaultLimitCPUSoft",                 "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_CPU].rlim_max)           },
+                { "DefaultLimitFSIZE",                   "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_FSIZE].rlim_cur)         },
+                { "DefaultLimitFSIZESoft",               "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_FSIZE].rlim_max)         },
+                { "DefaultLimitDATA",                    "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_DATA].rlim_cur)          },
+                { "DefaultLimitDATASoft",                "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_DATA].rlim_max)          },
+                { "DefaultLimitSTACK",                   "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_STACK].rlim_cur)         },
+                { "DefaultLimitSTACKSoft",               "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_STACK].rlim_max)         },
+                { "DefaultLimitCORE",                    "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_CORE].rlim_cur )         },
+                { "DefaultLimitCORESoft",                "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_CORE].rlim_max)          },
+                { "DefaultLimitRSS",                     "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_RSS].rlim_cur )          },
+                { "DefaultLimitRSSSoft",                 "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_RSS].rlim_max)           },
+                { "DefaultLimitNOFILE",                  "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_NOFILE].rlim_cur)        },
+                { "DefaultLimitNOFILESoft",              "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_NOFILE].rlim_max)        },
+                { "DefaultLimitAS",                      "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_AS].rlim_cur)            },
+                { "DefaultLimitASSoft",                  "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_AS].rlim_max)            },
+                { "DefaultLimitNPROC",                   "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_NPROC].rlim_cur)         },
+                { "DefaultLimitNPROCSoft",               "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_NPROC].rlim_max)         },
+                { "DefaultLimitMEMLOCK",                 "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_MEMLOCK].rlim_cur)       },
+                { "DefaultLimitMEMLOCKSoft",             "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_MEMLOCK].rlim_max)       },
+                { "DefaultLimitLOCKS",                   "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_LOCKS].rlim_cur )        },
+                { "DefaultLimitLOCKSSoft",               "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_LOCKS].rlim_max)         },
+                { "DefaultLimitSIGPENDING",              "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_SIGPENDING].rlim_cur)    },
+                { "DefaultLimitSIGPENDINGSoft",          "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_SIGPENDING].rlim_max)    },
+                { "DefaultLimitMSGQUEUE",                "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_MSGQUEUE].rlim_cur)      },
+                { "DefaultLimitMSGQUEUESoft",            "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_MSGQUEUE].rlim_max)      },
+                { "DefaultLimitNICE",                    "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_NICE].rlim_cur)          },
+                { "DefaultLimitNICESoft",                "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_NICE].rlim_max)          },
+                { "DefaultLimitRTPRIO",                  "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_RTPRIO].rlim_cur)        },
+                { "DefaultLimitRTPRIOSoft",              "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_RTPRIO].rlim_max)        },
+                { "DefaultLimitRTTIME",                  "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_RTTIME].rlim_cur)        },
+                { "DefaultLimitRTTIMESoft",              "t",  NULL, offsetof(struct property_info, rlimit[RLIMIT_RTTIME].rlim_max)        },
+                { "RuntimeWatchdogUSec",                 "t",  NULL, offsetof(struct property_info, runtime_watchdog)                      },
+                { "ShutdownWatchdogUSec",                "t",  NULL, offsetof(struct property_info, shutdown_watchdog_usec)                },
+                { "DefaultTasksMax",                     "t",  NULL, offsetof(struct property_info, default_tasks_max)                     },
+                { "TimerSlackNSec",                      "t",  NULL, offsetof(struct property_info, timer_slack_nsec)                      },
                 {}
         };
         ExecStatusInfo *p;
@@ -4596,6 +4884,12 @@ static int show_one(
 
         if (streq_ptr(property_info.load_state, "not-found") && streq_ptr(property_info.active_state, "inactive"))
                 return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
+
+        if (show_properties) {
+                r = show_property(&property_info);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_rewind(reply, true);
         if (r < 0)
