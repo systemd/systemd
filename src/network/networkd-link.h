@@ -179,6 +179,11 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
 int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
+extern const sd_bus_vtable lease_vtable[];
+
+int lease_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
+int lease_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 #define _cleanup_link_unref_ _cleanup_(link_unrefp)
 
