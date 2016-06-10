@@ -329,7 +329,7 @@
       <varlistentry>
         <term><varname>Private=</varname></term>
 
-        <listitem><para>Takes a boolean argument, which defaults to off. If
+        <listitem><para>Takes a boolean argument, which defaults to on. If
         enabled, the container will run in its own network namespace
         and not share network interfaces and configuration with the
         host. This setting corresponds to the
