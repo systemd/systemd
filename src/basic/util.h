@@ -86,6 +86,7 @@ int prot_from_flags(int flags) _const_;
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
 
 bool in_initrd(void);
+void in_initrd_force(bool value);
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),

@@ -23,6 +23,7 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "util.h"
 
 static int parse_item(const char *key, const char *value) {
         assert_se(key);
@@ -36,9 +37,19 @@ static void test_parse_proc_cmdline(void) {
 }
 
 static void test_runlevel_to_target(void) {
+        in_initrd_force(false);
         assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
         assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
         assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
+        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), NULL));
+
+        in_initrd_force(true);
+        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
+        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("3"), NULL));
+        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
 }
 
 int main(void) {

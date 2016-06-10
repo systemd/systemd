@@ -64,6 +64,7 @@ assert_cc(EAGAIN == EWOULDBLOCK);
 
 int saved_argc = 0;
 char **saved_argv = NULL;
+static int saved_in_initrd = -1;
 
 size_t page_size(void) {
         static thread_local size_t pgsz = 0;
@@ -454,11 +455,10 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
 }
 
 bool in_initrd(void) {
-        static int saved = -1;
         struct statfs s;
 
-        if (saved >= 0)
-                return saved;
+        if (saved_in_initrd >= 0)
+                return saved_in_initrd;
 
         /* We make two checks here:
          *
@@ -470,11 +470,15 @@ bool in_initrd(void) {
          * emptying when transititioning to the main systemd.
          */
 
-        saved = access("/etc/initrd-release", F_OK) >= 0 &&
-                statfs("/", &s) >= 0 &&
-                is_temporary_fs(&s);
+        saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0 &&
+                          statfs("/", &s) >= 0 &&
+                          is_temporary_fs(&s);
 
-        return saved;
+        return saved_in_initrd;
+}
+
+void in_initrd_force(bool value) {
+        saved_in_initrd = value;
 }
 
 /* hey glibc, APIs with callbacks without a user pointer are so useless */
