@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2015 Viktar Vaŭčkievič
+#  Copyright 2015, 2016 Viktar Vaŭčkievič
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -19,7 +19,6 @@
 # Message catalog for systemd's own messages
 # Belarusian Latin translation
 
-# The catalog format is documented on
 # Farmat kataloha apisany na staroncy
 # http://www.freedesktop.org/wiki/Software/systemd/catalog
 
@@ -40,6 +39,23 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Praces sistemnaha žurnaliavannia spyniŭsia i zakryŭ usie fajly.
 
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: dyskavaje miesca, zaniataje časopisam
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) ciapier zajmaje @CURRENT_USE_PRETTY@.
+Maksimaĺna dazvolieny pamier skladaje @MAX_USE_PRETTY@.
+Pakidajem voĺnymi nie mieńš za @DISK_KEEP_FREE_PRETTY@ (dastupna na dysku
+@DISK_AVAILABLE_PRETTY@).
+Takim čynam, limit skladaje @LIMIT_PRETTY@, z jakich @AVAILABLE_PRETTY@
+dastupna.
+
+Limity na pamier naladžvaiecca z dapamohaj SystemMaxUse=, SystemKeepFree=,
+SystemMaxFileSize=, RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize= u
+fajlie /etc/systemd/journald.conf. Hliadzicie journald.conf(5) dlia
+detaliej.
+
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Paviedamlienni z servisu adkinuty
 Defined-By: systemd
@@ -52,17 +68,17 @@ Servis adpraviŭ zanadta štat paviedamlienniaŭ za karotki pramiežak času.
 Majcie na ŭvazie, što byli adkinuty paviedamliennia toĺki hetaha servisu.
 Paviedamlienni inšych servisaŭ zastalisia.
 
-Miaža, paslia jakoj paviedamlienni buduć adkinuty, naladžvajecca z
-dapamohaj RateLimitIntervalSec= i RateLimitBurst= u fajlie
-/etc/systemd/journald.conf. Hliadzicie journald.conf(5) dlia detaliej.
+Miaža, paslia jakoj paviedamlienni buduć adkinuty, naladžvajecca z dapamohaj
+RateLimitIntervalSec= i RateLimitBurst= u fajlie /etc/systemd/journald.conf.
+Hliadzicie journald.conf(5) dlia detaliej.
 
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Paviedamlienni stračany
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-Paviedamlienni jadra byli stračany, tak jak sistema žurnaliavannia nie paspiela
-ich apracavać.
+Paviedamlienni jadra byli stračany, tak jak sistema žurnaliavannia nie
+paspiela ich apracavać.
 
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Praces @COREDUMP_PID@ (@COREDUMP_COMM@) skinuŭ damp pamiaci
@@ -99,7 +115,8 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
-Novaje pracoŭnaje miesca № @SEAT_ID@ naladžana i dastupna dlia vykarystannia.
+Novaje pracoŭnaje miesca № @SEAT_ID@ naladžana i dastupna dlia
+vykarystannia.
 
 -- e7852bfe46784ed0accde04bc864c2d5
 Subject: Pracoŭnaje miesca № @SEAT_ID@ vydaliena
@@ -114,7 +131,8 @@ Subject: Čas zmienieny
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-Sistemny hadzinnik zmienieny na @REALTIME@ mikrasiekund ad 1 studzienia 1970.
+Sistemny hadzinnik zmienieny na @REALTIME@ mikrasiekund ad 1 studzienia
+1970.
 
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Časavy pojas zmienieny na @TIMEZONE@
@@ -258,3 +276,43 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Virtuaĺnaja mašyna @NAME@ z lidaram № @LEADER@ spyniena.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: Miechanizm DNSSEC adkliučany, bo siervier nie padtrymlivaje jaho 
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+
+Servis vyznačennia imion (systemd-resolved.service) vyznačyŭ, što
+DNS-siervier nie padtrymlivaje miechanizm DNSSEC. U vyniku pravierka DNSSEC
+byla adkliučana.
+
+Hetaja padzieja ŭznikaje kali naladžany DNSSEC=allow-downgrade
+u fajlie resolved.conf i DNS-siervier nie padtrymlivaje miechanizm DNSSEC.
+Zviarnicie ŭvahu, što režym allow-downgrade dazvaliaje praviesci ataku
+«DNSSEC downgrade», u chodzie jakoj zlamysnik moža adkliučyć pravierku
+DNSSEC šliacham padstanoŭki padroblienych DNSSEC-adkazaŭ u kamunikacyjny
+kanal.
+
+Heta padzieja moža być prykmietaj taho, što DNS-siervier sapraŭdy
+niesumiaščaĺny z DNSSEC abo što zlamysniku paspiachova atrymalasia praviesci
+ataku pa adkliučenniu DNSSEC.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: Zboj pry praviercy DNSSEC
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+DNS-zapyt abo resursny zapis nie prajšoŭ pravierku DNSSEC.
+Jak pravila, heta pakazvaje na zniešniaje ŭzdziejannie na kanal suviazi.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: Davierany kliuč DNSSEC byŭ anuliavany
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:systemd-resolved.service(8)
+
+Davierany kliuč DNSSEC byŭ anuliavany. Nieabchodna naladzić novy davierany
+kliuč abo abnavić apieracyjnuju sistemu, kab atrymać abnoŭlieny davierany
+kliuč DNSSEC.
