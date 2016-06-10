@@ -47,6 +47,10 @@ Features:
 
 * RestrictNamespaces= or so in services (taking away the ability to create namespaces, with setns, unshare, clone)
 
+* RestrictRealtime= which takes aware ability to create realtime processes
+
+* nspawn: make /proc/sys/net writable?
+
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
