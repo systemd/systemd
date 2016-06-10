@@ -60,7 +60,7 @@ const sd_bus_vtable network_vtable[] = {
 
         SD_BUS_PROPERTY("Description", "s", NULL, offsetof(Network, description), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Network, filename), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, offsetof(Network, match_mac), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchPath", "as", NULL, offsetof(Network, match_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchDriver", "as", NULL, offsetof(Network, match_driver), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchType", "as", NULL, offsetof(Network, match_type), SD_BUS_VTABLE_PROPERTY_CONST),
