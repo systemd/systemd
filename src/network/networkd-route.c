@@ -492,7 +492,7 @@ int route_configure(
         assert(route->family == AF_INET || route->family == AF_INET6);
 
         if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
-            set_size(route->link->routes) >= ROUTES_PER_LINK_MAX)
+            set_size(link->routes) >= ROUTES_PER_LINK_MAX)
                 return -E2BIG;
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
