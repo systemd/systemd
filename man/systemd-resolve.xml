@@ -288,6 +288,12 @@
         <listitem><para>Resets the statistics counters shown in <option>--statistics</option> to zero.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--flush-caches</option></term>
+
+        <listitem><para>Flushes all DNS resource record caches the service maintains locally.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

@@ -66,6 +66,7 @@ static enum {
         MODE_RESOLVE_TLSA,
         MODE_STATISTICS,
         MODE_RESET_STATISTICS,
+        MODE_FLUSH_CACHES,
 } arg_mode = MODE_RESOLVE_HOST;
 
 static ServiceFamily service_family_from_string(const char *s) {
@@ -1037,6 +1038,24 @@ static int reset_statistics(sd_bus *bus) {
         return 0;
 }
 
+static int flush_caches(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.resolve1",
+                               "/org/freedesktop/resolve1",
+                               "org.freedesktop.resolve1.Manager",
+                               "FlushCaches",
+                               &error,
+                               NULL,
+                               NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to flush caches: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
@@ -1097,6 +1116,7 @@ static void help(void) {
                "     --legend=BOOL          Print headers and additional info (default: yes)\n"
                "     --statistics           Show resolver statistics\n"
                "     --reset-statistics     Reset resolver statistics\n"
+               "     --flush-caches         Flush all local DNS caches\n"
                , program_invocation_short_name);
 }
 
@@ -1114,6 +1134,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SEARCH,
                 ARG_STATISTICS,
                 ARG_RESET_STATISTICS,
+                ARG_FLUSH_CACHES,
         };
 
         static const struct option options[] = {
@@ -1134,6 +1155,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "search",           required_argument, NULL, ARG_SEARCH           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
                 { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
+                { "flush-caches",     no_argument,       NULL, ARG_FLUSH_CACHES     },
                 {}
         };
 
@@ -1307,6 +1329,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_mode = MODE_RESET_STATISTICS;
                         break;
 
+                case ARG_FLUSH_CACHES:
+                        arg_mode = MODE_FLUSH_CACHES;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1472,6 +1498,16 @@ int main(int argc, char **argv) {
                 }
 
                 r = reset_statistics(bus);
+                break;
+
+        case MODE_FLUSH_CACHES:
+                if (argc > optind) {
+                        log_error("Too many arguments.");
+                        r = -EINVAL;
+                        goto finish;
+                }
+
+                r = flush_caches(bus);
                 break;
         }
 

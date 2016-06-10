@@ -468,16 +468,14 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
 
 static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = userdata;
-        DnsScope *scope;
 
         assert(s);
         assert(si);
         assert(m);
 
-        LIST_FOREACH(scopes, scope, m->dns_scopes)
-                dns_cache_flush(&scope->cache);
-
+        manager_flush_caches(m);
         log_info("Flushed all caches.");
+
         return 0;
 }
 
@@ -1250,4 +1248,13 @@ bool manager_routable(Manager *m, int family) {
                         return true;
 
         return false;
+}
+
+void manager_flush_caches(Manager *m) {
+        DnsScope *scope;
+
+        assert(m);
+
+        LIST_FOREACH(scopes, scope, m->dns_scopes)
+                dns_cache_flush(&scope->cache);
 }
