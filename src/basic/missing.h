@@ -759,6 +759,14 @@ struct btrfs_ioctl_quota_ctl_args {
 #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 #endif
 
+#ifndef BRIDGE_VLAN_INFO_RANGE_BEGIN
+#define BRIDGE_VLAN_INFO_RANGE_BEGIN (1<<3) /* VLAN is start of vlan range */
+#endif
+
+#ifndef BRIDGE_VLAN_INFO_RANGE_END
+#define BRIDGE_VLAN_INFO_RANGE_END (1<<4) /* VLAN is end of vlan range */
+#endif
+
 #if !HAVE_DECL_IFLA_BR_VLAN_DEFAULT_PVID
 #define IFLA_BR_UNSPEC 0
 #define IFLA_BR_FORWARD_DELAY 1

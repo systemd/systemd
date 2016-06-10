@@ -5480,6 +5480,8 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-manager-bus.c \
 	src/network/networkd-fdb.h \
 	src/network/networkd-fdb.c \
+	src/network/networkd-brvlan.h \
+	src/network/networkd-brvlan.c \
 	src/network/networkd-address-pool.h \
 	src/network/networkd-address-pool.c \
 	src/network/networkd-util.h \

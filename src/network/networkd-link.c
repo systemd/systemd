@@ -396,13 +396,22 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         _cleanup_link_unref_ Link *link = NULL;
         uint16_t type;
-        const char *ifname;
+        const char *ifname, *kind = NULL;
         int r, ifindex;
         unsigned short iftype;
 
         assert(manager);
         assert(message);
         assert(ret);
+
+        /* check for link kind */
+        r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
+        if (r == 0) {
+                (void)sd_netlink_message_read_string(message, IFLA_INFO_KIND, &kind);
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0)
@@ -437,6 +446,12 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         link->ifname = strdup(ifname);
         if (!link->ifname)
                 return -ENOMEM;
+
+        if (kind) {
+                link->kind = strdup(kind);
+                if (!link->kind)
+                        return -ENOMEM;
+        }
 
         r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
@@ -514,6 +529,9 @@ static void link_free(Link *link) {
                 hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
 
         free(link->ifname);
+
+        if (link->kind)
+                free(link->kind);
 
         (void)unlink(link->state_file);
         free(link->state_file);
@@ -1094,6 +1112,16 @@ int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
                 log_link_warning_errno(link, r, "Could not drop address: %m");
 
         return 1;
+}
+
+static int link_set_bridge_vlan(Link *link) {
+        int r = 0;
+
+        r = br_vlan_configure(link, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
+        if (r < 0)
+                log_link_error_errno(link, r, "Failed to assign VLANs to bridge port: %m");
+
+        return r;
 }
 
 static int link_set_bridge_fdb(Link *link) {
@@ -1976,6 +2004,12 @@ static int link_joined(Link *link) {
                 r = link_set_bridge(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
+        }
+
+        if (link->network->bridge || NETDEV_KIND_BRIDGE == netdev_kind_from_string(link->kind)) {
+                r = link_set_bridge_vlan(link);
+                if (r < 0)
+                        log_link_error_errno(link, r, "Could not set bridge vlan: %m");
         }
 
         return link_enter_set_addresses(link);

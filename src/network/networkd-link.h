@@ -68,6 +68,7 @@ typedef struct Link {
 
         int ifindex;
         char *ifname;
+        char *kind;
         unsigned short iftype;
         char *state_file;
         struct ether_addr mac;

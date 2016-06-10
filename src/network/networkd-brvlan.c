@@ -1,0 +1,335 @@
+/***
+  This file is part of systemd.
+
+  Copyright (C) 2016 BISDN GmbH. All rights reserved.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <netinet/in.h>
+#include <linux/if_bridge.h>
+#include <stdbool.h>
+
+#include "alloc-util.h"
+#include "conf-parser.h"
+#include "netlink-util.h"
+#include "networkd-brvlan.h"
+#include "networkd.h"
+#include "parse-util.h"
+#include "vlan-util.h"
+
+static bool is_bit_set(unsigned bit, uint32_t scope) {
+        assert(bit < sizeof(scope)*8);
+        return scope & (1 << bit);
+}
+
+static inline void set_bit(unsigned nr, uint32_t *addr) {
+        if (nr < BRIDGE_VLAN_BITMAP_MAX)
+                addr[nr / 32] |= (((uint32_t) 1) << (nr % 32));
+}
+
+static inline int is_vid_valid(unsigned vid) {
+        if (vid > VLANID_MAX || vid == 0)
+                return -EINVAL;
+        return 0;
+}
+
+static int find_next_bit(int i, uint32_t x) {
+        int j;
+
+        if (i >= 32)
+                return -1;
+
+        /* find first bit */
+        if (i < 0)
+                return BUILTIN_FFS_U32(x);
+
+        /* mask off prior finds to get next */
+        j = __builtin_ffs(x >> i);
+        return j ? j + i : 0;
+}
+
+static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
+        struct bridge_vlan_info br_vlan;
+        int i, j, k, r, done, cnt;
+        uint16_t begin, end;
+        bool untagged;
+
+        assert(link);
+        assert(req);
+        assert(br_vid_bitmap);
+        assert(br_untagged_bitmap);
+
+        i = cnt = -1;
+
+        begin = end = UINT16_MAX;
+        for (k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
+                unsigned base_bit;
+                uint32_t vid_map = br_vid_bitmap[k];
+                uint32_t untagged_map = br_untagged_bitmap[k];
+
+                base_bit = k * 32;
+                i = -1;
+                done = 0;
+                do {
+                        j = find_next_bit(i, vid_map);
+                        if (j > 0) {
+                                /* first hit of any bit */
+                                if (begin == UINT16_MAX && end == UINT16_MAX) {
+                                        begin = end = j - 1 + base_bit;
+                                        untagged = is_bit_set(j - 1, untagged_map);
+                                        goto next;
+                                }
+
+                                /* this bit is a continuation of prior bits */
+                                if (j - 2 + base_bit == end && untagged == is_bit_set(j - 1, untagged_map) && (uint16_t)j - 1 + base_bit != pvid && (uint16_t)begin != pvid) {
+                                        end++;
+                                        goto next;
+                                }
+                        } else
+                                done = 1;
+
+                        if (begin != UINT16_MAX) {
+                                cnt++;
+                                if (done && k < BRIDGE_VLAN_BITMAP_LEN - 1)
+                                        break;
+
+                                br_vlan.flags = 0;
+                                if (untagged)
+                                        br_vlan.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+
+                                if (begin == end) {
+                                        br_vlan.vid = begin;
+
+                                        if (begin == pvid)
+                                                br_vlan.flags |= BRIDGE_VLAN_INFO_PVID;
+
+                                        r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
+                                        if (r < 0)
+                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                } else {
+                                        br_vlan.vid = begin;
+                                        br_vlan.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
+
+                                        r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
+                                        if (r < 0)
+                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+
+                                        br_vlan.vid = end;
+                                        br_vlan.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
+                                        br_vlan.flags |= BRIDGE_VLAN_INFO_RANGE_END;
+
+                                        r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
+                                        if (r < 0)
+                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                }
+
+                                if (done)
+                                        break;
+                        }
+                        if (j > 0) {
+                                begin = end = j - 1 + base_bit;
+                                untagged = is_bit_set(j - 1, untagged_map);
+                        }
+
+                next:
+                        i = j;
+                } while(!done);
+        }
+        if (!cnt)
+                return -EINVAL;
+
+        return cnt;
+}
+
+static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link);
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST)
+                log_link_error_errno(link, r, "Could not add VLAN to bridge port: %m");
+
+        return 1;
+}
+
+int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32_t *br_untagged_bitmap) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+        uint16_t flags;
+        sd_netlink *rtnl;
+
+        assert(link);
+        assert(link->manager);
+        assert(br_vid_bitmap);
+        assert(br_untagged_bitmap);
+        assert(link->network);
+
+        /* pvid might not be in br_vid_bitmap yet */
+        if (pvid)
+                set_bit(pvid, br_vid_bitmap);
+
+        rtnl = link->manager->rtnl;
+
+        /* create new RTM message */
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_rtnl_message_link_set_family(req, PF_BRIDGE);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set message family: %m");
+
+        r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
+
+        /* master needs flag self */
+        if (!link->network->bridge) {
+                flags = BRIDGE_FLAGS_SELF;
+                sd_netlink_message_append_data(req, IFLA_BRIDGE_FLAGS, &flags, sizeof(uint16_t));
+        }
+
+        /* add vlan info */
+        r = append_vlan_info_data(link, req, pvid, br_vid_bitmap, br_untagged_bitmap);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append VLANs: %m");
+
+        r = sd_netlink_message_close_container(req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
+
+        /* send message to the kernel */
+        r = sd_netlink_call_async(rtnl, req, set_brvlan_handler, link, 0, NULL);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        return 0;
+}
+
+static int parse_vid_range(const char *rvalue, uint16_t *vid, uint16_t *vid_end) {
+        int r;
+        char *p;
+        char *_rvalue = NULL;
+        uint16_t _vid = UINT16_MAX;
+        uint16_t _vid_end = UINT16_MAX;
+
+        assert(rvalue);
+        assert(vid);
+        assert(vid_end);
+
+        _rvalue = strdupa(rvalue);
+        p = strchr(_rvalue, '-');
+        if (p) {
+                *p = '\0';
+                p++;
+                r = parse_vlanid(_rvalue, &_vid);
+                if (r < 0)
+                        return r;
+
+                if (!_vid)
+                        return -ERANGE;
+
+                r = parse_vlanid(p, &_vid_end);
+                if (r < 0)
+                        return r;
+
+                if (!_vid_end)
+                        return -ERANGE;
+        } else {
+                r = parse_vlanid(_rvalue, &_vid);
+                if (r < 0)
+                        return r;
+
+                if (!_vid)
+                        return -ERANGE;
+        }
+
+        *vid = _vid;
+        *vid_end = _vid_end;
+        return r;
+}
+
+int config_parse_brvlan_vlan(const char *unit, const char *filename,
+                             unsigned line, const char *section,
+                             unsigned section_line, const char *lvalue,
+                             int ltype, const char *rvalue, void *data,
+                             void *userdata) {
+        Network *network = userdata;
+        int r;
+        uint16_t vid, vid_end;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_vid_range(rvalue, &vid, &vid_end);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VLAN, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (UINT16_MAX == vid_end)
+                set_bit(vid++, network->br_vid_bitmap);
+        else {
+                if (vid >= vid_end) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid VLAN range, ignoring %s", rvalue);
+                        return 0;
+                }
+                for (; vid <= vid_end; vid++)
+                        set_bit(vid, network->br_vid_bitmap);
+        }
+        return 0;
+}
+
+int config_parse_brvlan_untagged(const char *unit, const char *filename,
+                                 unsigned line, const char *section,
+                                 unsigned section_line, const char *lvalue,
+                                 int ltype, const char *rvalue, void *data,
+                                 void *userdata) {
+        Network *network = userdata;
+        int r;
+        uint16_t vid, vid_end;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_vid_range(rvalue, &vid, &vid_end);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse VLAN: %s", rvalue);
+                return 0;
+        }
+
+        if (UINT16_MAX == vid_end) {
+                set_bit(vid, network->br_vid_bitmap);
+                set_bit(vid, network->br_untagged_bitmap);
+        } else {
+                if (vid >= vid_end) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid VLAN range, ignoring %s", rvalue);
+                        return 0;
+                }
+                for (; vid <= vid_end; vid++) {
+                        set_bit(vid, network->br_vid_bitmap);
+                        set_bit(vid, network->br_untagged_bitmap);
+                }
+        }
+        return 0;
+}
