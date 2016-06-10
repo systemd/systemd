@@ -56,7 +56,8 @@ typedef enum SettingsMask {
         SETTING_CUSTOM_MOUNTS     = 1 << 11,
         SETTING_WORKING_DIRECTORY = 1 << 12,
         SETTING_USERNS            = 1 << 13,
-        _SETTINGS_MASK_ALL        = (1 << 14) -1
+        SETTING_NOTIFY_READY      = 1 << 14,
+        _SETTINGS_MASK_ALL        = (1 << 15) -1
 } SettingsMask;
 
 typedef struct Settings {
@@ -73,6 +74,7 @@ typedef struct Settings {
         char *working_directory;
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
+        bool notify_ready;
 
         /* [Image] */
         int read_only;

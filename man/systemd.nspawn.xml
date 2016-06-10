@@ -259,6 +259,15 @@
         <option>--private-users=</option> command line switch, and takes the same options. This option is privileged
         (see above). </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NotifyReady=</varname></term>
+
+        <listitem><para>Configures support for notifications from the container's init process.
+        This is equivalent to use <option>--notify-ready=</option> command line switch,
+        and takes the same options. See <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details about the specific options supported.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

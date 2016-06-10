@@ -104,6 +104,10 @@
  * UID range here */
 #define UID_SHIFT_PICK_MIN ((uid_t) UINT32_C(0x00080000))
 #define UID_SHIFT_PICK_MAX ((uid_t) UINT32_C(0x6FFF0000))
+/* nspawn is listening on the socket at the path in the constant nspawn_notify_socket_path
+ * nspawn_notify_socket_path is relative to the container
+ * the init process in the container pid can send messages to nspawn following the sd_notify(3) protocol */
+#define NSPAWN_NOTIFY_SOCKET_PATH "/run/systemd/nspawn/notify"
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
@@ -187,6 +191,7 @@ static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
 static const char *arg_container_service_name = "systemd-nspawn";
+static bool arg_notify_ready = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -267,6 +272,8 @@ static void help(void) {
                "                            the service unit nspawn is running in\n"
                "     --volatile[=MODE]      Run the system in volatile mode\n"
                "     --settings=BOOLEAN     Load additional settings from .nspawn file\n"
+               "     --notify-ready=BOOLEAN Receive notifications from the container's init process,\n"
+               "                            accepted values: yes and no\n"
                , program_invocation_short_name);
 }
 
@@ -367,6 +374,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SETTINGS,
                 ARG_CHDIR,
                 ARG_PRIVATE_USERS_CHOWN,
+                ARG_NOTIFY_READY,
         };
 
         static const struct option options[] = {
@@ -415,6 +423,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL       },
                 { "settings",              required_argument, NULL, ARG_SETTINGS          },
                 { "chdir",                 required_argument, NULL, ARG_CHDIR             },
+                { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY      },
                 {}
         };
 
@@ -985,6 +994,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         arg_settings_mask |= SETTING_WORKING_DIRECTORY;
+                        break;
+
+                case ARG_NOTIFY_READY:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("%s is not a valid notify mode. Valid modes are: yes, no, and ready.", optarg);
+                                return -EINVAL;
+                        }
+                        arg_notify_ready = r;
+                        arg_settings_mask |= SETTING_NOTIFY_READY;
                         break;
 
                 case '?':
@@ -2529,6 +2548,7 @@ static int inner_child(
                 NULL, /* container_uuid */
                 NULL, /* LISTEN_FDS */
                 NULL, /* LISTEN_PID */
+                NULL, /* NOTIFY_SOCKET */
                 NULL
         };
 
@@ -2656,6 +2676,8 @@ static int inner_child(
                     (asprintf((char **)(envp + n_env++), "LISTEN_PID=1") < 0))
                         return log_oom();
         }
+        if (asprintf((char **)(envp + n_env++), "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
+                return log_oom();
 
         env_use = strv_env_merge(2, envp, arg_setenv);
         if (!env_use)
@@ -2725,6 +2747,37 @@ static int inner_child(
         return log_error_errno(r, "execv() failed: %m");
 }
 
+static int setup_sd_notify_child(void) {
+        static const int one = 1;
+        int fd = -1;
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        int r;
+
+        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to allocate notification socket: %m");
+
+        (void) mkdir_parents(NSPAWN_NOTIFY_SOCKET_PATH, 0755);
+        (void) unlink(NSPAWN_NOTIFY_SOCKET_PATH);
+
+        strncpy(sa.un.sun_path, NSPAWN_NOTIFY_SOCKET_PATH, sizeof(sa.un.sun_path)-1);
+        r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        if (r < 0) {
+                safe_close(fd);
+                return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
+        }
+
+        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        if (r < 0) {
+                safe_close(fd);
+                return log_error_errno(errno, "SO_PASSCRED failed: %m");
+        }
+
+        return fd;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -2736,6 +2789,7 @@ static int outer_child(
                 bool secondary,
                 int pid_socket,
                 int uuid_socket,
+                int notify_socket,
                 int kmsg_socket,
                 int rtnl_socket,
                 int uid_shift_socket,
@@ -2744,12 +2798,14 @@ static int outer_child(
         pid_t pid;
         ssize_t l;
         int r;
+        _cleanup_close_ int fd = -1;
 
         assert(barrier);
         assert(directory);
         assert(console);
         assert(pid_socket >= 0);
         assert(uuid_socket >= 0);
+        assert(notify_socket >= 0);
         assert(kmsg_socket >= 0);
 
         cg_unified_flush();
@@ -2936,6 +2992,10 @@ static int outer_child(
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
 
+        fd = setup_sd_notify_child();
+        if (fd < 0)
+                return fd;
+
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS) |
                         (arg_private_network ? CLONE_NEWNET : 0) |
@@ -2945,6 +3005,7 @@ static int outer_child(
         if (pid == 0) {
                 pid_socket = safe_close(pid_socket);
                 uuid_socket = safe_close(uuid_socket);
+                notify_socket = safe_close(notify_socket);
                 uid_shift_socket = safe_close(uid_shift_socket);
 
                 /* The inner child has all namespaces that are
@@ -2974,8 +3035,13 @@ static int outer_child(
                 return -EIO;
         }
 
+        l = send_one_fd(notify_socket, fd, 0);
+        if (l < 0)
+                return log_error_errno(errno, "Failed to send notify fd: %m");
+
         pid_socket = safe_close(pid_socket);
         uuid_socket = safe_close(uuid_socket);
+        notify_socket = safe_close(notify_socket);
         kmsg_socket = safe_close(kmsg_socket);
         rtnl_socket = safe_close(rtnl_socket);
 
@@ -3054,6 +3120,96 @@ static int setup_uid_map(pid_t pid) {
         r = write_string_file(uid_map, line, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to write GID map: %m");
+
+        return 0;
+}
+
+static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+        char buf[NOTIFY_BUFFER_MAX+1];
+        char *p = NULL;
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
+        } control = {};
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        struct ucred *ucred = NULL;
+        ssize_t n;
+        pid_t inner_child_pid;
+        _cleanup_strv_free_ char **tags = NULL;
+
+        assert(userdata);
+
+        inner_child_pid = PTR_TO_PID(userdata);
+
+        if (revents != EPOLLIN) {
+                log_warning("Got unexpected poll event for notify fd.");
+                return 0;
+        }
+
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return log_warning_errno(errno, "Couldn't read notification socket: %m");
+        }
+        cmsg_close_all(&msghdr);
+
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                           cmsg->cmsg_type == SCM_CREDENTIALS &&
+                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                }
+        }
+
+        if (!ucred || ucred->pid != inner_child_pid) {
+                log_warning("Received notify message without valid credentials. Ignoring.");
+                return 0;
+        }
+
+        if ((size_t) n >= sizeof(buf)) {
+                log_warning("Received notify message exceeded maximum size. Ignoring.");
+                return 0;
+        }
+
+        buf[n] = 0;
+        tags = strv_split(buf, "\n\r");
+        if (!tags)
+                return log_oom();
+
+        if (strv_find(tags, "READY=1"))
+                sd_notifyf(false, "READY=1\n");
+
+        p = strv_find_startswith(tags, "STATUS=");
+        if (p)
+                sd_notifyf(false, "STATUS=Container running: %s", p);
+
+        return 0;
+}
+
+static int setup_sd_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid) {
+        int r;
+        sd_event_source *notify_event_source;
+
+        r = sd_event_add_io(event, &notify_event_source, fd, EPOLLIN, nspawn_dispatch_notify_fd, inner_child_pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate notify event source: %m");
+
+        (void) sd_event_source_set_description(notify_event_source, "nspawn-notify");
 
         return 0;
 }
@@ -3285,6 +3441,9 @@ static int load_settings(void) {
                         arg_userns_chown = settings->userns_chown;
                 }
         }
+
+        if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0)
+                arg_notify_ready = settings->notify_ready;
 
         return 0;
 }
@@ -3536,7 +3695,9 @@ int main(int argc, char *argv[]) {
                         rtnl_socket_pair[2] = { -1, -1 },
                         pid_socket_pair[2] = { -1, -1 },
                         uuid_socket_pair[2] = { -1, -1 },
+                        notify_socket_pair[2] = { -1, -1 },
                         uid_shift_socket_pair[2] = { -1, -1 };
+                _cleanup_close_ int notify_socket= -1;
                 _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
@@ -3587,6 +3748,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, notify_socket_pair) < 0) {
+                        r = log_error_errno(errno, "Failed to create notify socket pair: %m");
+                        goto finish;
+                }
+
                 if (arg_userns_mode != USER_NAMESPACE_NO)
                         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0) {
                                 r = log_error_errno(errno, "Failed to create uid shift socket pair: %m");
@@ -3628,6 +3794,7 @@ int main(int argc, char *argv[]) {
                         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                         pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
                         uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
+                        notify_socket_pair[0] = safe_close(notify_socket_pair[0]);
                         uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
 
                         (void) reset_all_signal_handlers();
@@ -3643,6 +3810,7 @@ int main(int argc, char *argv[]) {
                                         secondary,
                                         pid_socket_pair[1],
                                         uuid_socket_pair[1],
+                                        notify_socket_pair[1],
                                         kmsg_socket_pair[1],
                                         rtnl_socket_pair[1],
                                         uid_shift_socket_pair[1],
@@ -3661,6 +3829,7 @@ int main(int argc, char *argv[]) {
                 rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
                 pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
                 uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
+                notify_socket_pair[1] = safe_close(notify_socket_pair[1]);
                 uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
 
                 if (arg_userns_mode != USER_NAMESPACE_NO) {
@@ -3731,6 +3900,13 @@ int main(int argc, char *argv[]) {
                 if (l != sizeof(arg_uuid)) {
                         log_error("Short read while reading container machined ID.");
                         r = EIO;
+                        goto finish;
+                }
+
+                /* We also retrieve the socket used for notifications generated by outer child */
+                notify_socket = receive_one_fd(notify_socket_pair[0], 0);
+                if (notify_socket < 0) {
+                        r = log_error_errno(errno, "Failed to receive notification socket from the outer child: %m");
                         goto finish;
                 }
 
@@ -3848,6 +4024,16 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
+                r = sd_event_new(&event);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to get default event source: %m");
+                        goto finish;
+                }
+
+                r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(pid));
+                if (r < 0)
+                        goto finish;
+
                 /* Let the child know that we are ready and wait that the child is completely ready now. */
                 if (!barrier_place_and_sync(&barrier)) { /* #4 */
                         log_error("Child died too early.");
@@ -3860,15 +4046,10 @@ int main(int argc, char *argv[]) {
                 etc_passwd_lock = safe_close(etc_passwd_lock);
 
                 sd_notifyf(false,
-                           "READY=1\n"
                            "STATUS=Container running.\n"
                            "X_NSPAWN_LEADER_PID=" PID_FMT, pid);
-
-                r = sd_event_new(&event);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get default event source: %m");
-                        goto finish;
-                }
+                if (!arg_notify_ready)
+                        sd_notify(false, "READY=1\n");
 
                 if (arg_kill_signal > 0) {
                         /* Try to kill the init system on SIGINT or SIGTERM */
