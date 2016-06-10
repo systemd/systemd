@@ -136,23 +136,28 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         if (pos > 1) {
                 if (pos > 2)
                         p = mempset(p, ' ', pos-2);
-                p = stpcpy(p, ANSI_RED);
+                if (log_get_show_color())
+                        p = stpcpy(p, ANSI_RED);
                 *p++ = '*';
         }
 
         if (pos > 0 && pos <= width) {
-                p = stpcpy(p, ANSI_HIGHLIGHT_RED);
+                if (log_get_show_color())
+                        p = stpcpy(p, ANSI_HIGHLIGHT_RED);
                 *p++ = '*';
         }
 
-        p = stpcpy(p, ANSI_NORMAL);
+        if (log_get_show_color())
+                p = stpcpy(p, ANSI_NORMAL);
 
         if (pos < width) {
-                p = stpcpy(p, ANSI_RED);
+                if (log_get_show_color())
+                        p = stpcpy(p, ANSI_RED);
                 *p++ = '*';
                 if (pos < width-1)
                         p = mempset(p, ' ', width-1-pos);
-                strcpy(p, ANSI_NORMAL);
+                if (log_get_show_color())
+                        strcpy(p, ANSI_NORMAL);
         }
 }
 
