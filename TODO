@@ -51,6 +51,9 @@ Features:
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
 
+* expose the "privileged" flag of ExecCommand on the bus, and open it up to
+  transient units
+
 * rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the
   kernel doesn't support linkat() that replaces existing files, currently)
 
