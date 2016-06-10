@@ -182,25 +182,20 @@ static int export_legacy_dbus_address(
         _cleanup_free_ char *s = NULL;
         int r = PAM_BUF_ERR;
 
-        if (is_kdbus_available()) {
-                if (asprintf(&s, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, uid, runtime) < 0)
-                        goto error;
-        } else {
-                /* FIXME: We *really* should move the access() check into the
-                 * daemons that spawn dbus-daemon, instead of forcing
-                 * DBUS_SESSION_BUS_ADDRESS= here. */
+        /* FIXME: We *really* should move the access() check into the
+         * daemons that spawn dbus-daemon, instead of forcing
+         * DBUS_SESSION_BUS_ADDRESS= here. */
 
-                s = strjoin(runtime, "/bus", NULL);
-                if (!s)
-                        goto error;
+        s = strjoin(runtime, "/bus", NULL);
+        if (!s)
+                goto error;
 
-                if (access(s, F_OK) < 0)
-                        return PAM_SUCCESS;
+        if (access(s, F_OK) < 0)
+                return PAM_SUCCESS;
 
-                s = mfree(s);
-                if (asprintf(&s, UNIX_USER_BUS_ADDRESS_FMT, runtime) < 0)
-                        goto error;
-        }
+        s = mfree(s);
+        if (asprintf(&s, UNIX_USER_BUS_ADDRESS_FMT, runtime) < 0)
+                goto error;
 
         r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", s, 0);
         if (r != PAM_SUCCESS)

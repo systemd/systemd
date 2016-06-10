@@ -64,9 +64,6 @@ int kmod_setup(void) {
                 /* this should never be a module */
                 { "unix",      "/proc/net/unix",            true,   true,    NULL      },
 
-                /* IPC is needed before we bring up any other services */
-                { "kdbus",     "/sys/fs/kdbus",             false,  false,   is_kdbus_wanted },
-
 #ifdef HAVE_LIBIPTC
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
                 { "ip_tables", "/proc/net/ip_tables_names", false,  false,   NULL      },

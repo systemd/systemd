@@ -2902,28 +2902,8 @@ systemd_gpt_auto_generator_CFLAGS = \
 endif
 
 # ------------------------------------------------------------------------------
-systemgenerator_PROGRAMS +=  \
-	systemd-dbus1-generator
-
-systemd_dbus1_generator_SOURCES = \
-	src/dbus1-generator/dbus1-generator.c
-
-systemd_dbus1_generator_LDADD = \
-	libshared.la
-
-dbus1-generator-install-hook:
-	$(AM_V_at)$(MKDIR_P) $(DESTDIR)$(usergeneratordir)
-	$(AM_V_RM)rm -f $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
-	$(AM_V_LN)$(LN_S) --relative -f $(DESTDIR)$(systemgeneratordir)/systemd-dbus1-generator $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
-
-dbus1-generator-uninstall-hook:
-	rm -f $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
-
 dist_xinitrc_SCRIPTS = \
 	xorg/50-systemd-user.sh
-
-INSTALL_EXEC_HOOKS += dbus1-generator-install-hook
-UNINSTALL_EXEC_HOOKS += dbus1-generator-uninstall-hook
 
 # ------------------------------------------------------------------------------
 systemd_sysv_generator_SOURCES = \

@@ -574,20 +574,9 @@ static int service_setup_bus_name(Service *s) {
         if (!s->bus_name)
                 return 0;
 
-        if (is_kdbus_available()) {
-                const char *n;
-
-                n = strjoina(s->bus_name, ".busname");
-                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency to .busname unit: %m");
-
-        } else {
-                /* If kdbus is not available, we know the dbus socket is required, hence pull it in, and require it */
-                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
-        }
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 
         /* Regardless if kdbus is used or not, we always want to be ordered against dbus.socket if both are in the transaction. */
         r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, NULL, true);

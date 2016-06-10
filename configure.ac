@@ -1280,16 +1280,6 @@ AC_ARG_WITH(tpm-pcrindex,
 AC_DEFINE_UNQUOTED(SD_TPM_PCR, [$SD_TPM_PCR], [TPM PCR register number to use])
 
 # ------------------------------------------------------------------------------
-have_kdbus=no
-AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--disable-kdbus], [do not connect to kdbus by default]))
-if test "x$enable_kdbus" != "xno"; then
-        AC_DEFINE(ENABLE_KDBUS, 1, [Define if kdbus is to be connected to by default])
-        have_kdbus=yes
-        M4_DEFINES="$M4_DEFINES -DENABLE_KDBUS"
-fi
-AM_CONDITIONAL(ENABLE_KDBUS, [test "$have_kdbus" = "yes"])
-
-# ------------------------------------------------------------------------------
 AC_ARG_WITH(rc-local-script-path-start,
         AS_HELP_STRING([--with-rc-local-script-path-start=PATH],
                 [Path to /etc/rc.local]),
