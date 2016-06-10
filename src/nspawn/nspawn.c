@@ -137,6 +137,8 @@ static bool arg_ephemeral = false;
 static LinkJournal arg_link_journal = LINK_AUTO;
 static bool arg_link_journal_try = false;
 static uint64_t arg_caps_retain =
+        (1ULL << CAP_AUDIT_CONTROL) |
+        (1ULL << CAP_AUDIT_WRITE) |
         (1ULL << CAP_CHOWN) |
         (1ULL << CAP_DAC_OVERRIDE) |
         (1ULL << CAP_DAC_READ_SEARCH) |
@@ -146,23 +148,21 @@ static uint64_t arg_caps_retain =
         (1ULL << CAP_KILL) |
         (1ULL << CAP_LEASE) |
         (1ULL << CAP_LINUX_IMMUTABLE) |
+        (1ULL << CAP_MKNOD) |
         (1ULL << CAP_NET_BIND_SERVICE) |
         (1ULL << CAP_NET_BROADCAST) |
         (1ULL << CAP_NET_RAW) |
-        (1ULL << CAP_SETGID) |
         (1ULL << CAP_SETFCAP) |
+        (1ULL << CAP_SETGID) |
         (1ULL << CAP_SETPCAP) |
         (1ULL << CAP_SETUID) |
         (1ULL << CAP_SYS_ADMIN) |
+        (1ULL << CAP_SYS_BOOT) |
         (1ULL << CAP_SYS_CHROOT) |
         (1ULL << CAP_SYS_NICE) |
         (1ULL << CAP_SYS_PTRACE) |
-        (1ULL << CAP_SYS_TTY_CONFIG) |
         (1ULL << CAP_SYS_RESOURCE) |
-        (1ULL << CAP_SYS_BOOT) |
-        (1ULL << CAP_AUDIT_WRITE) |
-        (1ULL << CAP_AUDIT_CONTROL) |
-        (1ULL << CAP_MKNOD);
+        (1ULL << CAP_SYS_TTY_CONFIG);
 static CustomMount *arg_custom_mounts = NULL;
 static unsigned arg_n_custom_mounts = 0;
 static char **arg_setenv = NULL;
