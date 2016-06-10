@@ -1442,26 +1442,6 @@ static int get_any_link(Manager *m, int ifindex, Link **ret, sd_bus_error *error
         return 0;
 }
 
-static int get_unmanaged_link(Manager *m, int ifindex, Link **ret, sd_bus_error *error) {
-        Link *l;
-        int r;
-
-        assert(m);
-        assert(ret);
-
-        r = get_any_link(m, ifindex, &l, error);
-        if (r < 0)
-                return r;
-
-        if (l->flags & IFF_LOOPBACK)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->name);
-        if (l->is_managed)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->name);
-
-        *ret = l;
-        return 0;
-}
-
 static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
         int ifindex, r;
         Link *l;
@@ -1475,7 +1455,7 @@ static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_
         if (r < 0)
                 return r;
 
-        r = get_unmanaged_link(m, ifindex, &l, error);
+        r = get_any_link(m, ifindex, &l, error);
         if (r < 0)
                 return r;
 
