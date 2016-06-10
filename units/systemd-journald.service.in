@@ -25,7 +25,7 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG C
 WatchdogSec=3min
 FileDescriptorStoreMax=1024
 MemoryDenyWriteExecute=yes
-SystemCallFilter=~@clock @module @mount @obsolete @raw-io ptrace
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
 
 # Increase the default a bit in order to allow many simultaneous
 # services being run since we keep one fd open per service. Also, when
