@@ -577,6 +577,12 @@ static int client_message_init(
                         return r;
 
                 client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + duid_len;
+
+                /* Some broken DHCP servers will not reply unless the Client
+                   Identifier is less than 8 bytes. */
+                if (client->client_id_len > 7) {
+                        client->client_id_len = 7;
+                }
         }
 
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
