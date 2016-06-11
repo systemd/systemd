@@ -39,12 +39,6 @@ static inline void set_bit(unsigned nr, uint32_t *addr) {
                 addr[nr / 32] |= (((uint32_t) 1) << (nr % 32));
 }
 
-static inline int is_vid_valid(unsigned vid) {
-        if (vid > VLANID_MAX || vid == 0)
-                return -EINVAL;
-        return 0;
-}
-
 static int find_next_bit(int i, uint32_t x) {
         int j;
 
@@ -240,21 +234,21 @@ static int parse_vid_range(const char *rvalue, uint16_t *vid, uint16_t *vid_end)
                 if (r < 0)
                         return r;
 
-                if (!_vid)
+                if (_vid == 0)
                         return -ERANGE;
 
                 r = parse_vlanid(p, &_vid_end);
                 if (r < 0)
                         return r;
 
-                if (!_vid_end)
+                if (_vid_end == 0)
                         return -ERANGE;
         } else {
                 r = parse_vlanid(_rvalue, &_vid);
                 if (r < 0)
                         return r;
 
-                if (!_vid)
+                if (_vid == 0)
                         return -ERANGE;
         }
 
