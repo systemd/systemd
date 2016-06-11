@@ -877,6 +877,19 @@ enum {
         _GC_OFFSET_MAX
 };
 
+static void unit_gc_mark_good(Unit *u, unsigned gc_marker)
+{
+        Iterator i;
+        Unit *other;
+
+        u->gc_marker = gc_marker + GC_OFFSET_GOOD;
+
+        /* Recursively mark referenced units as GOOD as well */
+        SET_FOREACH(other, u->dependencies[UNIT_REFERENCES], i)
+                if (other->gc_marker == gc_marker + GC_OFFSET_UNSURE)
+                        unit_gc_mark_good(other, gc_marker);
+}
+
 static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
         Iterator i;
         Unit *other;
@@ -886,6 +899,7 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 
         if (u->gc_marker == gc_marker + GC_OFFSET_GOOD ||
             u->gc_marker == gc_marker + GC_OFFSET_BAD ||
+            u->gc_marker == gc_marker + GC_OFFSET_UNSURE ||
             u->gc_marker == gc_marker + GC_OFFSET_IN_PATH)
                 return;
 
@@ -926,7 +940,7 @@ bad:
         return;
 
 good:
-        u->gc_marker = gc_marker + GC_OFFSET_GOOD;
+        unit_gc_mark_good(u, gc_marker);
 }
 
 static unsigned manager_dispatch_gc_queue(Manager *m) {
