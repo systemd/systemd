@@ -26,6 +26,7 @@
 #include "networkd-fdb.h"
 #include "networkd.h"
 #include "util.h"
+#include "vlan-util.h"
 
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 
@@ -240,9 +241,9 @@ int config_parse_fdb_vlan_id(
         if (r < 0)
                 return log_oom();
 
-        r = config_parse_unsigned(unit, filename, line, section,
-                                  section_line, lvalue, ltype,
-                                  rvalue, &fdb_entry->vlan_id, userdata);
+        r = config_parse_vlanid(unit, filename, line, section,
+                                section_line, lvalue, ltype,
+                                rvalue, &fdb_entry->vlan_id, userdata);
         if (r < 0)
                 return r;
 
