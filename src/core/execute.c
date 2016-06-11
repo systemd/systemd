@@ -799,7 +799,7 @@ static int setup_pam(
                 const char *user,
                 uid_t uid,
                 const char *tty,
-                char ***pam_env,
+                char ***env,
                 int fds[], unsigned n_fds) {
 
         static const struct pam_conv conv = {
@@ -818,7 +818,7 @@ static int setup_pam(
 
         assert(name);
         assert(user);
-        assert(pam_env);
+        assert(env);
 
         /* We set up PAM in the parent process, then fork. The child
          * will then stay around until killed via PR_GET_PDEATHSIG or
@@ -842,6 +842,12 @@ static int setup_pam(
 
         if (tty) {
                 pam_code = pam_set_item(handle, PAM_TTY, tty);
+                if (pam_code != PAM_SUCCESS)
+                        goto fail;
+        }
+
+        STRV_FOREACH(e, *env) {
+                pam_code = pam_putenv(handle, *e);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
@@ -966,8 +972,8 @@ static int setup_pam(
         if (!barrier_place_and_sync(&barrier))
                 log_error("PAM initialization failed");
 
-        *pam_env = e;
-        e = NULL;
+        strv_free(*env);
+        *env = e;
 
         return 0;
 
@@ -1464,7 +1470,7 @@ static int exec_child(
                 char **files_env,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
+        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         const char *username = NULL, *home = NULL, *shell = NULL, *wd;
         uid_t uid = UID_INVALID;
@@ -1715,6 +1721,30 @@ static int exec_child(
                 }
         }
 
+        r = build_environment(context, params, n_fds, home, username, shell, &our_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return r;
+        }
+
+        r = build_pass_environment(context, &pass_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return r;
+        }
+
+        accum_env = strv_env_merge(5,
+                                   params->environment,
+                                   our_env,
+                                   pass_env,
+                                   context->environment,
+                                   files_env,
+                                   NULL);
+        if (!accum_env) {
+                *exit_status = EXIT_MEMORY;
+                return -ENOMEM;
+        }
+
         umask(context->umask);
 
         if (params->apply_permissions && !command->privileged) {
@@ -1751,7 +1781,7 @@ static int exec_child(
 #endif
 #ifdef HAVE_PAM
                 if (context->pam_name && username) {
-                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
+                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
                                 *exit_status = EXIT_PAM;
                                 return r;
@@ -1997,38 +2027,13 @@ static int exec_child(
 #endif
         }
 
-        r = build_environment(context, params, n_fds, home, username, shell, &our_env);
-        if (r < 0) {
-                *exit_status = EXIT_MEMORY;
-                return r;
-        }
-
-        r = build_pass_environment(context, &pass_env);
-        if (r < 0) {
-                *exit_status = EXIT_MEMORY;
-                return r;
-        }
-
-        final_env = strv_env_merge(6,
-                                   params->environment,
-                                   our_env,
-                                   pass_env,
-                                   context->environment,
-                                   files_env,
-                                   pam_env,
-                                   NULL);
-        if (!final_env) {
-                *exit_status = EXIT_MEMORY;
-                return -ENOMEM;
-        }
-
-        final_argv = replace_env_argv(argv, final_env);
+        final_argv = replace_env_argv(argv, accum_env);
         if (!final_argv) {
                 *exit_status = EXIT_MEMORY;
                 return -ENOMEM;
         }
 
-        final_env = strv_env_clean(final_env);
+        accum_env = strv_env_clean(accum_env);
 
         if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *line;
@@ -2045,7 +2050,7 @@ static int exec_child(
                 }
         }
 
-        execve(command->path, final_argv, final_env);
+        execve(command->path, final_argv, accum_env);
         *exit_status = EXIT_EXEC;
         return -errno;
 }
