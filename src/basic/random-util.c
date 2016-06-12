@@ -46,7 +46,7 @@ int dev_urandom(void *p, size_t n) {
          * never block, and will always return some data from the
          * kernel, regardless if the random pool is fully initialized
          * or not. It thus makes no guarantee for the quality of the
-         * returned entropy, but is good enough for or usual usecases
+         * returned entropy, but is good enough for our usual usecases
          * of seeding the hash functions for hashtable */
 
         /* Use the getrandom() syscall unless we know we don't have
