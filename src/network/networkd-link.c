@@ -530,8 +530,7 @@ static void link_free(Link *link) {
 
         free(link->ifname);
 
-        if (link->kind)
-                free(link->kind);
+        free(link->kind);
 
         (void)unlink(link->state_file);
         free(link->state_file);
@@ -2006,7 +2005,7 @@ static int link_joined(Link *link) {
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
         }
 
-        if (link->network->bridge || NETDEV_KIND_BRIDGE == netdev_kind_from_string(link->kind)) {
+        if (link->network->bridge || streq("bridge", link->kind)) {
                 r = link_set_bridge_vlan(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge vlan: %m");
