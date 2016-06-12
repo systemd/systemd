@@ -244,8 +244,8 @@ void network_free(Network *network) {
         strv_free(network->bind_carrier);
 
         netdev_unref(network->bridge);
-
         netdev_unref(network->bond);
+        netdev_unref(network->vrf);
 
         HASHMAP_FOREACH(netdev, network->stacked_netdevs, i) {
                 hashmap_remove(network->stacked_netdevs, netdev->ifname);
@@ -469,6 +469,10 @@ int config_parse_netdev(const char *unit,
                 break;
         case NETDEV_KIND_BOND:
                 network->bond = netdev;
+
+                break;
+        case NETDEV_KIND_VRF:
+                network->vrf = netdev;
 
                 break;
         case NETDEV_KIND_VLAN:

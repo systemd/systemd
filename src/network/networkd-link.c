@@ -1600,7 +1600,7 @@ static int link_up(Link *link) {
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
         /* set it free if not enslaved with networkd */
-        if (!link->network->bridge && !link->network->bond) {
+        if (!link->network->bridge && !link->network->bond && !link->network->vrf) {
                 r = sd_netlink_message_append_u32(req, IFLA_MASTER, 0);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
@@ -2055,6 +2055,7 @@ static int link_enter_join_netdev(Link *link) {
 
         if (!link->network->bridge &&
             !link->network->bond &&
+            !link->network->vrf &&
             hashmap_isempty(link->network->stacked_netdevs))
                 return link_joined(link);
 
@@ -2094,6 +2095,26 @@ static int link_enter_join_netdev(Link *link) {
                                          LOG_NETDEV_INTERFACE(link->network->bridge),
                                          LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bridge->ifname),
                                          NULL),
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                link->enslaving++;
+        }
+
+        if (link->network->vrf) {
+                log_struct(LOG_DEBUG,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_NETDEV_INTERFACE(link->network->vrf),
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->vrf->ifname),
+                           NULL);
+                r = netdev_join(link->network->vrf, link, netdev_join_handler);
+                if (r < 0) {
+                        log_struct_errno(LOG_WARNING, r,
+                                         LOG_LINK_INTERFACE(link),
+                                         LOG_NETDEV_INTERFACE(link->network->vrf),
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->vrf->ifname),
+                                         NULL);
                         link_enter_failed(link);
                         return r;
                 }

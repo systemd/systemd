@@ -579,6 +579,12 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>VRF=</varname></term>
+          <listitem>
+            <para>The name of the VRF to add the link to.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>VLAN=</varname></term>
           <listitem>
             <para>The name of a VLAN to create on the link. This
@@ -1276,6 +1282,17 @@ Name=bond1
 
 [Network]
 DHCP=yes
+</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/25-vrf.network</title>
+      <para>Add the bond1 interface to the VRF master interface vrf-test. This will redirect routes generated on this interface to be within the routing table defined during VRF creation. Traffic won't be redirected towards the VRFs routing table unless specific ip-rules are added.</para>
+      <programlisting>[Match]
+Name=bond1
+
+[Network]
+VRF=vrf-test
 </programlisting>
     </example>
 
