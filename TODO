@@ -73,6 +73,8 @@ Features:
 
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
 
+* resolved: when routing queries, make sure only look for the *longest* suffix...
+
 * resolved: maybe, after all, implement local listening for DNS packets on port
   127.0.0.53:53.
 
