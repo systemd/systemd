@@ -28,6 +28,7 @@
 #include "architecture.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -150,8 +151,16 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        test_get_process_comm(1);
-        test_get_process_comm(getpid());
+        if (argc > 1) {
+                pid_t pid = 0;
+
+                (void) parse_pid(argv[1], &pid);
+                test_get_process_comm(pid);
+        } else {
+                test_get_process_comm(1);
+                test_get_process_comm(getpid());
+        }
+
         test_pid_is_unwaited();
         test_pid_is_alive();
         test_personality();
