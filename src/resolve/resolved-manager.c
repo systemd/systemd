@@ -474,7 +474,6 @@ static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si
         assert(m);
 
         manager_flush_caches(m);
-        log_info("Flushed all caches.");
 
         return 0;
 }
@@ -1257,4 +1256,6 @@ void manager_flush_caches(Manager *m) {
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_cache_flush(&scope->cache);
+
+        log_info("Flushed all caches.");
 }
