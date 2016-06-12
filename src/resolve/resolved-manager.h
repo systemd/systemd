@@ -120,6 +120,7 @@ struct Manager {
         sd_bus_slot *prepare_for_sleep_slot;
 
         sd_event_source *sigusr1_event_source;
+        sd_event_source *sigusr2_event_source;
 
         unsigned n_transactions_total;
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
@@ -169,3 +170,5 @@ bool manager_dnssec_supported(Manager *m);
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
 
 bool manager_routable(Manager *m, int family);
+
+void manager_flush_caches(Manager *m);

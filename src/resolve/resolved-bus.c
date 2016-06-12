@@ -1442,26 +1442,6 @@ static int get_any_link(Manager *m, int ifindex, Link **ret, sd_bus_error *error
         return 0;
 }
 
-static int get_unmanaged_link(Manager *m, int ifindex, Link **ret, sd_bus_error *error) {
-        Link *l;
-        int r;
-
-        assert(m);
-        assert(ret);
-
-        r = get_any_link(m, ifindex, &l, error);
-        if (r < 0)
-                return r;
-
-        if (l->flags & IFF_LOOPBACK)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->name);
-        if (l->is_managed)
-                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->name);
-
-        *ret = l;
-        return 0;
-}
-
 static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
         int ifindex, r;
         Link *l;
@@ -1475,7 +1455,7 @@ static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_
         if (r < 0)
                 return r;
 
-        r = get_unmanaged_link(m, ifindex, &l, error);
+        r = get_any_link(m, ifindex, &l, error);
         if (r < 0)
                 return r;
 
@@ -1535,6 +1515,17 @@ static int bus_method_get_link(sd_bus_message *message, void *userdata, sd_bus_e
         return sd_bus_reply_method_return(message, "o", p);
 }
 
+static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        assert(message);
+        assert(m);
+
+        manager_flush_caches(m);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
@@ -1550,6 +1541,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("ResolveRecord", "isqqt", "a(iqqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveService", "isssit", "a(qqqsa(iiay)s)aayssst", bus_method_resolve_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, 0),
+        SD_BUS_METHOD("FlushCaches", NULL, NULL, bus_method_flush_caches, 0),
         SD_BUS_METHOD("GetLink", "i", "o", bus_method_get_link, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, 0),
         SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, 0),

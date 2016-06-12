@@ -466,6 +466,19 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         return 0;
 }
 
+static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = userdata;
+
+        assert(s);
+        assert(si);
+        assert(m);
+
+        manager_flush_caches(m);
+        log_info("Flushed all caches.");
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -526,6 +539,7 @@ int manager_new(Manager **ret) {
                 return r;
 
         (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
+        (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
 
         *ret = m;
         m = NULL;
@@ -584,6 +598,7 @@ Manager *manager_free(Manager *m) {
         sd_bus_unref(m->bus);
 
         sd_event_source_unref(m->sigusr1_event_source);
+        sd_event_source_unref(m->sigusr2_event_source);
 
         sd_event_unref(m->event);
 
@@ -1233,4 +1248,13 @@ bool manager_routable(Manager *m, int family) {
                         return true;
 
         return false;
+}
+
+void manager_flush_caches(Manager *m) {
+        DnsScope *scope;
+
+        assert(m);
+
+        LIST_FOREACH(scopes, scope, m->dns_scopes)
+                dns_cache_flush(&scope->cache);
 }

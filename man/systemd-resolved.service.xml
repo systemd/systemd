@@ -146,6 +146,28 @@
   </refsect1>
 
   <refsect1>
+    <title>Signals</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>SIGUSR1</constant></term>
+
+        <listitem><para>Upon reception of the SIGUSR1 process signal <command>systemd-resolved</command> will dump the
+        contents of all DNS resource record caches it maintains into the system logs.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SIGUSR2</constant></term>
+
+        <listitem><para>Upon reception of the SIGUSR2 process signal <command>systemd-resolved</command> will flush all
+        caches it maintains. Note that it should normally not be necessary to request this explicitly – except for
+        debugging purposes – as <command>systemd-resolved</command> flushes the caches automatically anyway any time
+        the host's network configuration changes.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
