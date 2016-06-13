@@ -2800,8 +2800,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         unit_tidy_watch_pids(u, s->main_pid, s->control_pid);
         unit_watch_all_pids(u);
 
-        /* If the PID set is empty now, then let's finish this off */
-        if (set_isempty(u->pids))
+        /* If the PID set is empty now, then let's finish this off
+           (On unified we use proper notifications) */
+        if (cg_unified() <= 0 && set_isempty(u->pids))
                 service_notify_cgroup_empty_event(u);
 }
 
