@@ -3847,13 +3847,12 @@ static void print_status_info(
                 printf("      CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
         }
 
-        if (i->control_group)
-                printf("   CGroup: %s\n", i->control_group);
-
-        {
+        if (i->control_group) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 static const char prefix[] = "           ";
                 unsigned c;
+
+                printf("   CGroup: %s\n", i->control_group);
 
                 c = columns();
                 if (c > sizeof(prefix) - 1)
