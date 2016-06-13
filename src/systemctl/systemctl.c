@@ -3274,6 +3274,18 @@ static int start_special(int argc, char *argv[], void *userdata) {
         return start_unit(argc, argv, userdata);
 }
 
+static int start_system_special(int argc, char *argv[], void *userdata) {
+        /* Like start_special above, but raises an error when running in user mode */
+
+        if (arg_scope != UNIT_FILE_SYSTEM) {
+                log_error("Bad action for %s mode.",
+                          arg_scope == UNIT_FILE_GLOBAL ? "--global" : "--user");
+                return -EINVAL;
+        }
+
+        return start_special(argc, argv, userdata);
+}
+
 static int check_unit_generic(int code, const UnitActiveState good_states[], int nb_states, char **args) {
         _cleanup_strv_free_ char **names = NULL;
         UnitActiveState active_state;
@@ -7539,71 +7551,71 @@ static int systemctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_NOCHROOT, list_units },
-                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,             list_unit_files   },
-                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_sockets      },
-                { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers       },
-                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs         },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines     },
-                { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, trivial_method    },
-                { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job        },
-                { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "stop",                  2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "condstop",              2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with ALTLinux */
-                { "reload",                2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "restart",               2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "try-restart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "reload-or-restart",     2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "reload-or-try-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatbility with old systemctl <= 228 */
-                { "try-reload-or-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit        },
-                { "force-reload",          2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with SysV */
-                { "condreload",            2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with ALTLinux */
-                { "condrestart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit        }, /* For compatibility with RH */
-                { "isolate",               2,        2,        VERB_NOCHROOT, start_unit        },
-                { "kill",                  2,        VERB_ANY, VERB_NOCHROOT, kill_unit         },
-                { "is-active",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_active },
-                { "check",                 2,        VERB_ANY, VERB_NOCHROOT, check_unit_active },
-                { "is-failed",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_failed },
-                { "show",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
-                { "cat",                   2,        VERB_ANY, VERB_NOCHROOT, cat               },
-                { "status",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
-                { "help",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show              },
-                { "daemon-reload",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
-                { "daemon-reexec",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload     },
-                { "show-environment",      VERB_ANY, 1,        VERB_NOCHROOT, show_environment  },
-                { "set-environment",       2,        VERB_ANY, VERB_NOCHROOT, set_environment   },
-                { "unset-environment",     2,        VERB_ANY, VERB_NOCHROOT, set_environment   },
-                { "import-environment",    VERB_ANY, VERB_ANY, VERB_NOCHROOT, import_environment},
-                { "halt",                  VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "poweroff",              VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "reboot",                VERB_ANY, 2,        VERB_NOCHROOT, start_special     },
-                { "kexec",                 VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "suspend",               VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "hibernate",             VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "hybrid-sleep",          VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "default",               VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "rescue",                VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "emergency",             VERB_ANY, 1,        VERB_NOCHROOT, start_special     },
-                { "exit",                  VERB_ANY, 2,        VERB_NOCHROOT, start_special     },
-                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, reset_failed      },
-                { "enable",                2,        VERB_ANY, 0,             enable_unit       },
-                { "disable",               2,        VERB_ANY, 0,             enable_unit       },
-                { "is-enabled",            2,        VERB_ANY, 0,             unit_is_enabled   },
-                { "reenable",              2,        VERB_ANY, 0,             enable_unit       },
-                { "preset",                2,        VERB_ANY, 0,             enable_unit       },
-                { "preset-all",            VERB_ANY, 1,        0,             preset_all        },
-                { "mask",                  2,        VERB_ANY, 0,             enable_unit       },
-                { "unmask",                2,        VERB_ANY, 0,             enable_unit       },
-                { "link",                  2,        VERB_ANY, 0,             enable_unit       },
-                { "revert",                2,        VERB_ANY, 0,             enable_unit       },
-                { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root       },
-                { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies },
-                { "set-default",           2,        2,        0,             set_default       },
-                { "get-default",           VERB_ANY, 1,        0,             get_default       },
-                { "set-property",          3,        VERB_ANY, VERB_NOCHROOT, set_property      },
-                { "is-system-running",     VERB_ANY, 1,        0,             is_system_running },
-                { "add-wants",             3,        VERB_ANY, 0,             add_dependency    },
-                { "add-requires",          3,        VERB_ANY, 0,             add_dependency    },
-                { "edit",                  2,        VERB_ANY, VERB_NOCHROOT, edit              },
+                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,             list_unit_files      },
+                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_sockets         },
+                { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers          },
+                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs            },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines        },
+                { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, trivial_method       },
+                { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job           },
+                { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
+                { "stop",                  2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
+                { "condstop",              2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with ALTLinux */
+                { "reload",                2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
+                { "restart",               2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
+                { "try-restart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
+                { "reload-or-restart",     2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
+                { "reload-or-try-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatbility with old systemctl <= 228 */
+                { "try-reload-or-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
+                { "force-reload",          2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with SysV */
+                { "condreload",            2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with ALTLinux */
+                { "condrestart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with RH */
+                { "isolate",               2,        2,        VERB_NOCHROOT, start_unit           },
+                { "kill",                  2,        VERB_ANY, VERB_NOCHROOT, kill_unit            },
+                { "is-active",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_active    },
+                { "check",                 2,        VERB_ANY, VERB_NOCHROOT, check_unit_active    },
+                { "is-failed",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_failed    },
+                { "show",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show                 },
+                { "cat",                   2,        VERB_ANY, VERB_NOCHROOT, cat                  },
+                { "status",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, show                 },
+                { "help",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show                 },
+                { "daemon-reload",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload        },
+                { "daemon-reexec",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload        },
+                { "show-environment",      VERB_ANY, 1,        VERB_NOCHROOT, show_environment     },
+                { "set-environment",       2,        VERB_ANY, VERB_NOCHROOT, set_environment      },
+                { "unset-environment",     2,        VERB_ANY, VERB_NOCHROOT, set_environment      },
+                { "import-environment",    VERB_ANY, VERB_ANY, VERB_NOCHROOT, import_environment   },
+                { "halt",                  VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "poweroff",              VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "reboot",                VERB_ANY, 2,        VERB_NOCHROOT, start_system_special },
+                { "kexec",                 VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "suspend",               VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "hibernate",             VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "hybrid-sleep",          VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "default",               VERB_ANY, 1,        VERB_NOCHROOT, start_special        },
+                { "rescue",                VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "emergency",             VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
+                { "exit",                  VERB_ANY, 2,        VERB_NOCHROOT, start_special        },
+                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, reset_failed         },
+                { "enable",                2,        VERB_ANY, 0,             enable_unit          },
+                { "disable",               2,        VERB_ANY, 0,             enable_unit          },
+                { "is-enabled",            2,        VERB_ANY, 0,             unit_is_enabled      },
+                { "reenable",              2,        VERB_ANY, 0,             enable_unit          },
+                { "preset",                2,        VERB_ANY, 0,             enable_unit          },
+                { "preset-all",            VERB_ANY, 1,        0,             preset_all           },
+                { "mask",                  2,        VERB_ANY, 0,             enable_unit          },
+                { "unmask",                2,        VERB_ANY, 0,             enable_unit          },
+                { "link",                  2,        VERB_ANY, 0,             enable_unit          },
+                { "revert",                2,        VERB_ANY, 0,             enable_unit          },
+                { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root          },
+                { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies    },
+                { "set-default",           2,        2,        0,             set_default          },
+                { "get-default",           VERB_ANY, 1,        0,             get_default          },
+                { "set-property",          3,        VERB_ANY, VERB_NOCHROOT, set_property         },
+                { "is-system-running",     VERB_ANY, 1,        0,             is_system_running    },
+                { "add-wants",             3,        VERB_ANY, 0,             add_dependency       },
+                { "add-requires",          3,        VERB_ANY, 0,             add_dependency       },
+                { "edit",                  2,        VERB_ANY, VERB_NOCHROOT, edit                 },
                 {}
         };
 
