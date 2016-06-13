@@ -325,9 +325,6 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         assert(field);
         assert(uid);
 
-        if (pid == 0)
-                return getuid();
-
         p = procfs_file_alloca(pid, "status");
         f = fopen(p, "re");
         if (!f) {

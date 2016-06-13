@@ -28,72 +28,66 @@
 #include "architecture.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "virt.h"
 
-static void test_get_process_comm(void) {
+static void test_get_process_comm(pid_t pid) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL, *cwd = NULL, *root = NULL;
         _cleanup_free_ char *env = NULL;
+        char path[strlen("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
         pid_t e;
         uid_t u;
         gid_t g;
         dev_t h;
         int r;
-        pid_t me;
 
-        if (stat("/proc/1/comm", &st) == 0) {
-                assert_se(get_process_comm(1, &a) >= 0);
-                log_info("pid1 comm: '%s'", a);
+        xsprintf(path, "/proc/"PID_FMT"/comm", pid);
+
+        if (stat(path, &st) == 0) {
+                assert_se(get_process_comm(pid, &a) >= 0);
+                log_info("PID"PID_FMT" comm: '%s'", pid, a);
         } else
-                log_warning("/proc/1/comm does not exist.");
+                log_warning("%s not exist.", path);
 
-        assert_se(get_process_cmdline(1, 0, true, &c) >= 0);
-        log_info("pid1 cmdline: '%s'", c);
+        assert_se(get_process_cmdline(pid, 0, true, &c) >= 0);
+        log_info("PID"PID_FMT" cmdline: '%s'", pid, c);
 
-        assert_se(get_process_cmdline(1, 8, false, &d) >= 0);
-        log_info("pid1 cmdline truncated: '%s'", d);
+        assert_se(get_process_cmdline(pid, 8, false, &d) >= 0);
+        log_info("PID"PID_FMT" cmdline truncated: '%s'", pid, d);
 
-        assert_se(get_process_ppid(1, &e) >= 0);
-        log_info("pid1 ppid: "PID_FMT, e);
-        assert_se(e == 0);
+        assert_se(get_process_ppid(pid, &e) >= 0);
+        log_info("PID"PID_FMT" PPID: "PID_FMT, pid, e);
+        assert_se(pid == 1 ? e == 0 : e > 0);
 
-        assert_se(is_kernel_thread(1) == 0);
+        assert_se(is_kernel_thread(pid) == 0 || pid != 1);
 
-        r = get_process_exe(1, &f);
+        r = get_process_exe(pid, &f);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("pid1 exe: '%s'", strna(f));
+        log_info("PID"PID_FMT" exe: '%s'", pid, strna(f));
 
-        assert_se(get_process_uid(1, &u) == 0);
-        log_info("pid1 uid: "UID_FMT, u);
-        assert_se(u == 0);
+        assert_se(get_process_uid(pid, &u) == 0);
+        log_info("PID"PID_FMT" UID: "UID_FMT, pid, u);
+        assert_se(u == 0 || pid != 1);
 
-        assert_se(get_process_gid(1, &g) == 0);
-        log_info("pid1 gid: "GID_FMT, g);
-        assert_se(g == 0);
+        assert_se(get_process_gid(pid, &g) == 0);
+        log_info("PID"PID_FMT" GID: "GID_FMT, pid, g);
+        assert_se(g == 0 || pid != 1);
 
-        me = getpid();
-
-        r = get_process_cwd(me, &cwd);
+        r = get_process_environ(pid, &env);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("pid1 cwd: '%s'", cwd);
-
-        r = get_process_root(me, &root);
-        assert_se(r >= 0 || r == -EACCES);
-        log_info("pid1 root: '%s'", root);
-
-        r = get_process_environ(me, &env);
-        assert_se(r >= 0 || r == -EACCES);
-        log_info("self strlen(environ): '%zu'", strlen(env));
+        log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t)strlen(env) : (ssize_t)-errno);
 
         if (!detect_container())
-                assert_se(get_ctty_devnr(1, &h) == -ENXIO);
+                assert_se(get_ctty_devnr(pid, &h) == -ENXIO || pid != 1);
 
-        getenv_for_pid(1, "PATH", &i);
-        log_info("pid1 $PATH: '%s'", strna(i));
+        getenv_for_pid(pid, "PATH", &i);
+        log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
 }
 
 static void test_pid_is_unwaited(void) {
@@ -157,7 +151,16 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        test_get_process_comm();
+        if (argc > 1) {
+                pid_t pid = 0;
+
+                (void) parse_pid(argv[1], &pid);
+                test_get_process_comm(pid);
+        } else {
+                test_get_process_comm(1);
+                test_get_process_comm(getpid());
+        }
+
         test_pid_is_unwaited();
         test_pid_is_alive();
         test_personality();
