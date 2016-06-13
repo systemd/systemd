@@ -4606,7 +4606,7 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
-        if (streq_ptr(property_info.load_state, "not-found") && streq_ptr(property_info.active_state, "inactive"))
+        if (show_properties && streq_ptr(property_info.load_state, "not-found") && streq_ptr(property_info.active_state, "inactive"))
                 return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
 
         r = sd_bus_message_rewind(reply, true);
@@ -4923,7 +4923,7 @@ static int show(int argc, char *argv[], void *userdata) {
                                         ret = r;
 
                                 if (r == EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN)
-                                        log_error("Can't display property %s. Unit %s does not exist.", *patterns, *name);
+                                        log_error("Unit %s does not exist.", *name);
                         }
                 }
         }
