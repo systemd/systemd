@@ -29,7 +29,7 @@ ProtectSystem=full
 ProtectHome=yes
 WatchdogSec=3min
 MemoryDenyWriteExecute=yes
-SystemCallFilter=~@module @mount @obsolete @raw-io ptrace
+SystemCallFilter=~@cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
 
 [Install]
 WantedBy=sysinit.target

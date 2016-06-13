@@ -95,7 +95,31 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 .set_name = "@clock",
                 .value =
                 "adjtimex\0"
+                "clock_adjtime\0"
+                "clock_settime\0"
                 "settimeofday\0"
+                "stime\0"
+        }, {
+                /* CPU emulation calls */
+                .set_name = "@cpu-emulation",
+                .value =
+                "modify_ldt\0"
+                "subpage_prot\0"
+                "switch_endian\0"
+                "vm86\0"
+                "vm86old\0"
+        }, {
+                /* Debugging/Performance Monitoring/Tracing */
+                .set_name = "@debug",
+                .value =
+                "lookup_dcookie\0"
+                "perf_event_open\0"
+                "process_vm_readv\0"
+                "process_vm_writev\0"
+                "ptrace\0"
+                "rtas\0"
+                "s390_runtime_instr\0"
+                "sys_debug_setcontext\0"
         }, {
                 /* Default list */
                 .set_name = "@default",
@@ -148,10 +172,16 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "shmdt\0"
                 "shmget\0"
         }, {
+                /* Keyring */
+                .set_name = "@keyring",
+                .value =
+                "add_key\0"
+                "keyctl\0"
+                "request_key\0"
+        }, {
                 /* Kernel module control */
                 .set_name = "@module",
                 .value =
-                "create_module\0"
                 "delete_module\0"
                 "finit_module\0"
                 "init_module\0"
@@ -197,40 +227,26 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "_sysctl\0"
                 "afs_syscall\0"
                 "break\0"
-                "fattach\0"
-                "fdetach\0"
+                "create_module\0"
                 "ftime\0"
                 "get_kernel_syms\0"
-                "get_mempolicy\0"
-                "getmsg\0"
                 "getpmsg\0"
                 "gtty\0"
-                "isastream\0"
                 "lock\0"
-                "madvise1\0"
-                "modify_ldt\0"
                 "mpx\0"
-                "pciconfig_iobase\0"
-                "perf_event_open\0"
                 "prof\0"
                 "profil\0"
-                "putmsg\0"
                 "putpmsg\0"
                 "query_module\0"
-                "rtas\0"
-                "s390_runtime_instr\0"
                 "security\0"
                 "sgetmask\0"
                 "ssetmask\0"
                 "stty\0"
-                "subpage_prot\0"
-                "switch_endian\0"
-                "sys_debug_setcontext\0"
+                "sysfs\0"
                 "tuxcall\0"
                 "ulimit\0"
                 "uselib\0"
-                "vm86\0"
-                "vm86old\0"
+                "ustat\0"
                 "vserver\0"
         }, {
                 /* Nice grab-bag of all system calls which need superuser capabilities */
@@ -242,6 +258,7 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "acct\0"
                 "bdflush\0"
                 "bpf\0"
+                "capset\0"
                 "chown32\0"
                 "chown\0"
                 "chroot\0"
@@ -268,7 +285,6 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "setreuid\0"
                 "setuid32\0"
                 "setuid\0"
-                "stime\0"
                 "swapoff\0"
                 "swapon\0"
                 "sysctl\0"
@@ -295,6 +311,7 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 .value =
                 "ioperm\0"
                 "iopl\0"
+                "pciconfig_iobase\0"
                 "pciconfig_read\0"
                 "pciconfig_write\0"
                 "s390_pci_mmio_read\0"
