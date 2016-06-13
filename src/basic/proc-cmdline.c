@@ -160,17 +160,29 @@ static const char * const rlmap[] = {
         "3",         SPECIAL_MULTI_USER_TARGET,
         "4",         SPECIAL_MULTI_USER_TARGET,
         "5",         SPECIAL_GRAPHICAL_TARGET,
+        NULL
+};
+
+static const char * const rlmap_initrd[] = {
+        "emergency", SPECIAL_EMERGENCY_TARGET,
+        "rescue",    SPECIAL_RESCUE_TARGET,
+        NULL
 };
 
 const char* runlevel_to_target(const char *word) {
         size_t i;
+        const char * const *rlmap_ptr = in_initrd() ? rlmap_initrd
+                                                    : rlmap;
 
         if (!word)
                 return NULL;
 
-        for (i = 0; i < ELEMENTSOF(rlmap); i += 2)
-                if (streq(word, rlmap[i]))
-                        return rlmap[i+1];
+        if (in_initrd() && (word = startswith(word, "rd.")) == NULL)
+                return NULL;
+
+        for (i = 0; rlmap_ptr[i] != NULL; i += 2)
+                if (streq(word, rlmap_ptr[i]))
+                        return rlmap_ptr[i+1];
 
         return NULL;
 }

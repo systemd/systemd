@@ -146,7 +146,9 @@
 
       <varlistentry>
         <term><varname>-b</varname></term>
+        <term><varname>rd.emergency</varname></term>
         <term><varname>emergency</varname></term>
+        <term><varname>rd.rescue</varname></term>
         <term><varname>rescue</varname></term>
         <term><varname>single</varname></term>
         <term><varname>s</varname></term>
@@ -158,7 +160,7 @@
         <term><varname>5</varname></term>
         <listitem>
           <para>Parameters understood by the system and service
-          manager, as compatibility options. For details, see
+          manager, as compatibility and convenience options. For details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>

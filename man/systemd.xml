@@ -1024,25 +1024,27 @@
 
       <varlistentry>
         <term><varname>emergency</varname></term>
+        <term><varname>rd.emergency</varname></term>
         <term><varname>-b</varname></term>
 
         <listitem><para>Boot into emergency mode. This is equivalent
-        to <varname>systemd.unit=emergency.target</varname> and
-        provided for compatibility reasons and to be easier to
-        type.</para></listitem>
+        to <varname>systemd.unit=emergency.target</varname> or
+        <varname>rd.systemd.unit=emergency.target</varname>, respectively, and
+        provided for compatibility reasons and to be easier to type.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>rescue</varname></term>
+        <term><varname>rd.rescue</varname></term>
         <term><varname>single</varname></term>
         <term><varname>s</varname></term>
         <term><varname>S</varname></term>
         <term><varname>1</varname></term>
 
         <listitem><para>Boot into rescue mode. This is equivalent to
-        <varname>systemd.unit=rescue.target</varname> and provided for
-        compatibility reasons and to be easier to
-        type.</para></listitem>
+        <varname>systemd.unit=rescue.target</varname> or
+        <varname>rd.systemd.unit=rescue.target</varname>, respectively, and
+        provided for compatibility reasons and to be easier to type.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -409,7 +409,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 if (detect_container() > 0)
                         log_set_target(LOG_TARGET_CONSOLE);
 
-        } else if (!in_initrd() && !value) {
+        } else if (!value) {
                 const char *target;
 
                 /* SysV compatibility */
