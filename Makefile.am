@@ -141,6 +141,10 @@ else
 noinst_PROGRAMS =
 TESTS =
 endif
+AM_TESTS_ENVIRONMENT = \
+	export SYSTEMD_KBD_MODEL_MAP=$(abs_top_srcdir)/src/locale/kbd-model-map; \
+	export SYSTEMD_LANGUAGE_FALLBACK_MAP=$(abs_top_srcdir)/src/locale/language-fallback-map;
+
 if ENABLE_BASH_COMPLETION
 dist_bashcompletion_DATA = $(dist_bashcompletion_data)
 nodist_bashcompletion_DATA = $(nodist_bashcompletion_data)
@@ -213,6 +217,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/shared \
 	-I $(top_builddir)/src/shared \
 	-I $(top_srcdir)/src/network \
+	-I $(top_srcdir)/src/locale \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_builddir)/src/journal \
@@ -4746,7 +4751,9 @@ BUSNAMES_TARGET_WANTS += \
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
 systemd_localed_SOURCES = \
-	src/locale/localed.c
+	src/locale/localed.c \
+	src/locale/keymap-util.c \
+	src/locale/keymap-util.h
 
 systemd_localed_LDADD = \
 	libshared.la \
@@ -4783,6 +4790,18 @@ BUSNAMES_TARGET_WANTS += \
 dist_pkgdata_DATA = \
 	src/locale/kbd-model-map \
 	src/locale/language-fallback-map
+
+test_keymap_util_SOURCES = \
+	src/locale/test-keymap-util.c \
+	src/locale/keymap-util.c \
+	src/locale/keymap-util.h
+
+test_keymap_util_LDADD = \
+	libshared.la \
+	-ldl
+
+tests += \
+	test-keymap-util
 
 localectl_SOURCES = \
 	src/locale/localectl.c
