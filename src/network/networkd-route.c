@@ -795,6 +795,7 @@ int config_parse_route_priority(const char *unit,
                                 void *userdata) {
         Network *network = userdata;
         _cleanup_route_free_ Route *n = NULL;
+        uint32_t k;
         int r;
 
         assert(filename);
@@ -807,12 +808,14 @@ int config_parse_route_priority(const char *unit,
         if (r < 0)
                 return r;
 
-        r = config_parse_uint32(unit, filename, line, section,
-                                section_line, lvalue, ltype,
-                                rvalue, &n->priority, userdata);
-        if (r < 0)
-                return r;
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
 
+        n->priority = k;
         n = NULL;
 
         return 0;
