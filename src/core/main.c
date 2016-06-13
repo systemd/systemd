@@ -1967,6 +1967,9 @@ finish:
                                 log_error_errno(r, "Failed to switch root, trying to continue: %m");
                 }
 
+                /* Reopen the console */
+                (void) make_console_stdio();
+
                 args_size = MAX(6, argc+1);
                 args = newa(const char*, args_size);
 
@@ -2017,9 +2020,6 @@ finish:
 
                 arg_serialization = safe_fclose(arg_serialization);
                 fds = fdset_free(fds);
-
-                /* Reopen the console */
-                (void) make_console_stdio();
 
                 for (j = 1, i = 1; j < (unsigned) argc; j++)
                         args[i++] = argv[j];
