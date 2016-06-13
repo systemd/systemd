@@ -4558,12 +4558,20 @@ static int show_one(
                 const char *verb,
                 sd_bus *bus,
                 const char *path,
+                const char *unit,
                 bool show_properties,
                 bool *new_line,
                 bool *ellipsized) {
 
+        static const struct bus_properties_map property_map[] = {
+                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)   },
+                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
+                {}
+        };
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_set_free_ Set *found_properties = NULL;
         UnitStatusInfo info = {
                 .memory_current = (uint64_t) -1,
                 .memory_high = CGROUP_LIMIT_MAX,
@@ -4572,14 +4580,6 @@ static int show_one(
                 .cpu_usage_nsec = (uint64_t) -1,
                 .tasks_current = (uint64_t) -1,
                 .tasks_max = (uint64_t) -1,
-        };
-        struct property_info {
-                const char *load_state, *active_state;
-        } property_info = {};
-        static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", NULL, offsetof(struct property_info, load_state)   },
-                { "ActiveState", "s", NULL, offsetof(struct property_info, active_state) },
-                {}
         };
         ExecStatusInfo *p;
         int r;
@@ -4601,16 +4601,24 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
-        r = bus_message_map_all_properties(reply, property_map, &property_info);
-        if (r < 0)
-                return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
+        if (unit) {
+                r = bus_message_map_all_properties(reply, property_map, &info);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
-        if (streq_ptr(property_info.load_state, "not-found") && streq_ptr(property_info.active_state, "inactive"))
-                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
+                if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
+                        log_error("Unit %s could not be found.", unit);
 
-        r = sd_bus_message_rewind(reply, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+                        if (streq(verb, "status"))
+                                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
+
+                        return -ENOENT;
+                }
+
+                r = sd_bus_message_rewind(reply, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+        }
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
@@ -4636,9 +4644,17 @@ static int show_one(
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (show_properties)
+                if (show_properties) {
+                        r = set_ensure_allocated(&found_properties, &string_hash_ops);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = set_put(found_properties, name);
+                        if (r < 0 && r != EEXIST)
+                                return log_oom();
+
                         r = print_property(name, reply, contents);
-                else
+                } else
                         r = status_property(name, reply, &info, contents);
                 if (r < 0)
                         return r;
@@ -4660,34 +4676,29 @@ static int show_one(
 
         r = 0;
 
-        if (!show_properties) {
-                if (streq(verb, "help"))
-                        show_unit_help(&info);
+        if (show_properties) {
+                char **pp;
+
+                STRV_FOREACH(pp, arg_properties) {
+                        if (!set_contains(found_properties, *pp)) {
+                                log_warning("Property %s does not exist.", *pp);
+                                r = -ENXIO;
+                        }
+                }
+        } else if (streq(verb, "help"))
+                show_unit_help(&info);
+        else if (streq(verb, "status")) {
+                print_status_info(bus, &info, ellipsized);
+
+                if (info.active_state && STR_IN_SET(info.active_state, "inactive", "failed"))
+                        r = EXIT_PROGRAM_NOT_RUNNING;
                 else
-                        print_status_info(bus, &info, ellipsized);
+                        r = EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
         }
 
         strv_free(info.documentation);
         strv_free(info.dropin_paths);
         strv_free(info.listen);
-
-        if (!streq_ptr(info.active_state, "active") &&
-            !streq_ptr(info.active_state, "reloading") &&
-            streq(verb, "status")) {
-                /* According to LSB: "program not running" */
-                /* 0: program is running or service is OK
-                 * 1: program is dead and /run PID file exists
-                 * 2: program is dead and /run/lock lock file exists
-                 * 3: program is not running
-                 * 4: program or service status is unknown
-                 */
-                if (info.pid_file && access(info.pid_file, F_OK) == 0)
-                        r = EXIT_PROGRAM_DEAD_AND_PID_EXISTS;
-                else if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive"))
-                        r = EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
-                else
-                        r = EXIT_PROGRAM_NOT_RUNNING;
-        }
 
         while ((p = info.exec)) {
                 LIST_REMOVE(exec, info.exec, p);
@@ -4761,7 +4772,7 @@ static int show_all(
                 if (!p)
                         return log_oom();
 
-                r = show_one(verb, bus, p, show_properties, new_line, ellipsized);
+                r = show_one(verb, bus, p, u->id, show_properties, new_line, ellipsized);
                 if (r < 0)
                         return r;
                 else if (r > 0 && ret == 0)
@@ -4857,7 +4868,7 @@ static int show(int argc, char *argv[], void *userdata) {
 
         /* If no argument is specified inspect the manager itself */
         if (show_properties && argc <= 1)
-                return show_one(argv[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line, &ellipsized);
+                return show_one(argv[0], bus, "/org/freedesktop/systemd1", NULL, show_properties, &new_line, &ellipsized);
 
         if (show_status && argc <= 1) {
 
@@ -4872,7 +4883,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 char **name;
 
                 STRV_FOREACH(name, strv_skip(argv, 1)) {
-                        _cleanup_free_ char *unit = NULL;
+                        _cleanup_free_ char *path = NULL, *unit = NULL;
                         uint32_t id;
 
                         if (safe_atou32(*name, &id) < 0) {
@@ -4882,19 +4893,23 @@ static int show(int argc, char *argv[], void *userdata) {
                                 continue;
                         } else if (show_properties) {
                                 /* Interpret as job id */
-                                if (asprintf(&unit, "/org/freedesktop/systemd1/job/%u", id) < 0)
+                                if (asprintf(&path, "/org/freedesktop/systemd1/job/%u", id) < 0)
                                         return log_oom();
 
                         } else {
                                 /* Interpret as PID */
-                                r = get_unit_dbus_path_by_pid(bus, id, &unit);
+                                r = get_unit_dbus_path_by_pid(bus, id, &path);
                                 if (r < 0) {
                                         ret = r;
                                         continue;
                                 }
+
+                                r = unit_name_from_dbus_path(path, &unit);
+                                if (r < 0)
+                                        return log_oom();
                         }
 
-                        r = show_one(argv[0], bus, unit, show_properties, &new_line, &ellipsized);
+                        r = show_one(argv[0], bus, path, unit, show_properties, &new_line, &ellipsized);
                         if (r < 0)
                                 return r;
                         else if (r > 0 && ret == 0)
@@ -4909,20 +4924,17 @@ static int show(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to expand names: %m");
 
                         STRV_FOREACH(name, names) {
-                                _cleanup_free_ char *unit;
+                                _cleanup_free_ char *path;
 
-                                unit = unit_dbus_path_from_name(*name);
-                                if (!unit)
+                                path = unit_dbus_path_from_name(*name);
+                                if (!path)
                                         return log_oom();
 
-                                r = show_one(argv[0], bus, unit, show_properties, &new_line, &ellipsized);
+                                r = show_one(argv[0], bus, path, *name, show_properties, &new_line, &ellipsized);
                                 if (r < 0)
                                         return r;
-                                else if (r > 0 && ret == 0)
+                                if (r > 0 && ret == 0)
                                         ret = r;
-
-                                if (r == EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN)
-                                        log_error("Can't display property %s. Unit %s does not exist.", *patterns, *name);
                         }
                 }
         }
