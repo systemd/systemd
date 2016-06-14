@@ -195,7 +195,6 @@ typedef enum SwapState {
         _SWAP_STATE_INVALID = -1
 } SwapState;
 
-
 typedef enum TargetState {
         TARGET_DEAD,
         TARGET_ACTIVE,
