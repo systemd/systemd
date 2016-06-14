@@ -245,17 +245,22 @@ static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *canonical = NULL;
         union in_addr_union parsed;
-        int r, ff;
+        int r, ff, parsed_ifindex = 0;
 
         /* Check if the hostname is actually already an IP address formatted as string. In that case just parse it,
          * let's not attempt to look it up. */
 
-        r = in_addr_from_string_auto(hostname, &ff, &parsed);
+        r = in_addr_ifindex_from_string_auto(hostname, &ff, &parsed, &parsed_ifindex);
         if (r < 0) /* not an address */
                 return 0;
 
         if (family != AF_UNSPEC && ff != family)
                 return sd_bus_reply_method_errorf(m, BUS_ERROR_NO_SUCH_RR, "The specified address is not of the requested family.");
+        if (ifindex > 0 && parsed_ifindex > 0 && parsed_ifindex != ifindex)
+                return sd_bus_reply_method_errorf(m, BUS_ERROR_NO_SUCH_RR, "The specified address interface index does not match requested interface.");
+
+        if (parsed_ifindex > 0)
+                ifindex = parsed_ifindex;
 
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
@@ -288,7 +293,7 @@ static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname
         /* When an IP address is specified we just return it as canonical name, in order to avoid a DNS
          * look-up. However, we reformat it to make sure it's in a truly canonical form (i.e. on IPv6 the inner
          * omissions are always done the same way). */
-        r = in_addr_to_string(ff, &parsed, &canonical);
+        r = in_addr_ifindex_to_string(ff, &parsed, ifindex, &canonical);
         if (r < 0)
                 return r;
 
