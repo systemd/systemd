@@ -380,7 +380,7 @@
       <para>Modify the internal state of the running udev daemon.</para>
       <variablelist>
         <varlistentry>
-          <term><option>-x</option></term>
+          <term><option>-e</option></term>
           <term><option>--exit</option></term>
           <listitem>
             <para>Signal and wait for systemd-udevd to exit.</para>
