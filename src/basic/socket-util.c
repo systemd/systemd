@@ -85,7 +85,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         return -EINVAL;
 
                 a->sockaddr.in6.sin6_family = AF_INET6;
-                a->sockaddr.in6.sin6_port = htons((uint16_t) u);
+                a->sockaddr.in6.sin6_port = htobe16((uint16_t)u);
                 a->size = sizeof(struct sockaddr_in6);
 
         } else if (*s == '/') {
@@ -133,7 +133,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         if (r > 0) {
                                 /* Gotcha, it's a traditional IPv4 address */
                                 a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htons((uint16_t) u);
+                                a->sockaddr.in.sin_port = htobe16((uint16_t)u);
                                 a->size = sizeof(struct sockaddr_in);
                         } else {
                                 unsigned idx;
@@ -147,7 +147,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                         return -EINVAL;
 
                                 a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htons((uint16_t) u);
+                                a->sockaddr.in6.sin6_port = htobe16((uint16_t)u);
                                 a->sockaddr.in6.sin6_scope_id = idx;
                                 a->sockaddr.in6.sin6_addr = in6addr_any;
                                 a->size = sizeof(struct sockaddr_in6);
@@ -164,12 +164,12 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
                         if (socket_ipv6_is_supported()) {
                                 a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htons((uint16_t) u);
+                                a->sockaddr.in6.sin6_port = htobe16((uint16_t)u);
                                 a->sockaddr.in6.sin6_addr = in6addr_any;
                                 a->size = sizeof(struct sockaddr_in6);
                         } else {
                                 a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htons((uint16_t) u);
+                                a->sockaddr.in.sin_port = htobe16((uint16_t)u);
                                 a->sockaddr.in.sin_addr.s_addr = INADDR_ANY;
                                 a->size = sizeof(struct sockaddr_in);
                         }
@@ -488,9 +488,7 @@ int sockaddr_port(const struct sockaddr *_sa) {
         if (!IN_SET(sa->sa.sa_family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
-        return ntohs(sa->sa.sa_family == AF_INET6 ?
-                       sa->in6.sin6_port :
-                       sa->in.sin_port);
+        return be16toh(sa->sa.sa_family == AF_INET6 ? sa->in6.sin6_port : sa->in.sin_port);
 }
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret) {
@@ -506,13 +504,13 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
         case AF_INET: {
                 uint32_t a;
 
-                a = ntohl(sa->in.sin_addr.s_addr);
+                a = be32toh(sa->in.sin_addr.s_addr);
 
                 if (include_port)
                         r = asprintf(&p,
                                      "%u.%u.%u.%u:%u",
                                      a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
-                                     ntohs(sa->in.sin_port));
+                                     be16toh(sa->in.sin_port));
                 else
                         r = asprintf(&p,
                                      "%u.%u.%u.%u",
@@ -534,7 +532,7 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                                 r = asprintf(&p,
                                              "%u.%u.%u.%u:%u",
                                              a[0], a[1], a[2], a[3],
-                                             ntohs(sa->in6.sin6_port));
+                                             be16toh(sa->in6.sin6_port));
                         else
                                 r = asprintf(&p,
                                              "%u.%u.%u.%u",
@@ -550,7 +548,7 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                                 r = asprintf(&p,
                                              "[%s]:%u",
                                              a,
-                                             ntohs(sa->in6.sin6_port));
+                                             be16toh(sa->in6.sin6_port));
                                 if (r < 0)
                                         return -ENOMEM;
                         } else {

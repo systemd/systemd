@@ -107,9 +107,9 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 return -errno;
 
         link->ll.sll_family = AF_PACKET;
-        link->ll.sll_protocol = htons(ETH_P_IP);
+        link->ll.sll_protocol = htobe16(ETH_P_IP);
         link->ll.sll_ifindex = ifindex;
-        link->ll.sll_hatype = htons(arp_type);
+        link->ll.sll_hatype = htobe16(arp_type);
         link->ll.sll_halen = mac_addr_len;
         memcpy(link->ll.sll_addr, bcast_addr, mac_addr_len);
 

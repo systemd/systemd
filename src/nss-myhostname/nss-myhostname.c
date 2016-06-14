@@ -38,7 +38,7 @@
  * IPv6 we use ::1 which unfortunately will not translate back to the
  * hostname but instead something like "localhost" or so. */
 
-#define LOCALADDRESS_IPV4 (htonl(0x7F000002))
+#define LOCALADDRESS_IPV4 (htobe32(0x7F000002))
 #define LOCALADDRESS_IPV6 &in6addr_loopback
 
 NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);
@@ -75,7 +75,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                  * is optional */
 
                 canonical = "localhost";
-                local_address_ipv4 = htonl(INADDR_LOOPBACK);
+                local_address_ipv4 = htobe32(INADDR_LOOPBACK);
 
         } else if (is_gateway_hostname(name)) {
 
@@ -348,7 +348,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
 
         if (is_localhost(name)) {
                 canonical = "localhost";
-                local_address_ipv4 = htonl(INADDR_LOOPBACK);
+                local_address_ipv4 = htobe32(INADDR_LOOPBACK);
 
         } else if (is_gateway_hostname(name)) {
 
@@ -437,9 +437,9 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 if ((*(uint32_t*) addr) == LOCALADDRESS_IPV4)
                         goto found;
 
-                if ((*(uint32_t*) addr) == htonl(INADDR_LOOPBACK)) {
+                if ((*(uint32_t*) addr) == htobe32(INADDR_LOOPBACK)) {
                         canonical = "localhost";
-                        local_address_ipv4 = htonl(INADDR_LOOPBACK);
+                        local_address_ipv4 = htobe32(INADDR_LOOPBACK);
                         goto found;
                 }
 

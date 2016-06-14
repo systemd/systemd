@@ -310,12 +310,12 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
                         if (l < sizeof(struct sockaddr_in))
                                 return -EINVAL;
 
-                        return htons(port) == sockaddr.in.sin_port;
+                        return htobe16(port) == sockaddr.in.sin_port;
                 } else {
                         if (l < sizeof(struct sockaddr_in6))
                                 return -EINVAL;
 
-                        return htons(port) == sockaddr.in6.sin6_port;
+                        return htobe16(port) == sockaddr.in6.sin6_port;
                 }
         }
 

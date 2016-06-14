@@ -650,9 +650,9 @@ retry:
 
         if (memcmp(buf.raw, "libudev", 8) == 0) {
                 /* udev message needs proper version magic */
-                if (buf.nlh.magic != htonl(UDEV_MONITOR_MAGIC)) {
+                if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC)) {
                         log_debug("unrecognized message signature (%x != %x)",
-                                 buf.nlh.magic, htonl(UDEV_MONITOR_MAGIC));
+                                 buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
                         return NULL;
                 }
                 if (buf.nlh.properties_off+32 > (size_t)buflen) {
@@ -715,7 +715,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         ssize_t blen, count;
         struct udev_monitor_netlink_header nlh = {
                 .prefix = "libudev",
-                .magic = htonl(UDEV_MONITOR_MAGIC),
+                .magic = htobe32(UDEV_MONITOR_MAGIC),
                 .header_size = sizeof nlh,
         };
         struct iovec iov[2] = {
@@ -736,19 +736,19 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 
         /* fill in versioned header */
         val = udev_device_get_subsystem(udev_device);
-        nlh.filter_subsystem_hash = htonl(util_string_hash32(val));
+        nlh.filter_subsystem_hash = htobe32(util_string_hash32(val));
 
         val = udev_device_get_devtype(udev_device);
         if (val != NULL)
-                nlh.filter_devtype_hash = htonl(util_string_hash32(val));
+                nlh.filter_devtype_hash = htobe32(util_string_hash32(val));
 
         /* add tag bloom filter */
         tag_bloom_bits = 0;
         udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
                 tag_bloom_bits |= util_string_bloom64(udev_list_entry_get_name(list_entry));
         if (tag_bloom_bits > 0) {
-                nlh.filter_tag_bloom_hi = htonl(tag_bloom_bits >> 32);
-                nlh.filter_tag_bloom_lo = htonl(tag_bloom_bits & 0xffffffff);
+                nlh.filter_tag_bloom_hi = htobe32(tag_bloom_bits >> 32);
+                nlh.filter_tag_bloom_lo = htobe32(tag_bloom_bits & 0xffffffff);
         }
 
         /* add properties list */

@@ -399,3 +399,10 @@
   least initially), but it needs to be there. This is particularly important
   for objects that unprivileged users may allocate, but also matters for
   everything else any user may allocated.
+
+- htonl()/ntohl() and htons()/ntohs() are weird. Please use htobe32() and
+  htobe16() instead, it's much more descriptive, and actually says what really
+  is happening, after all htonl() and htons() don't operation on longs and
+  shorts as their name would suggest, but on uint32_t and uint16_t. Also,
+  "network byte order" is just a weird name for "big endian", hence we might
+  want to call it "big endian" right-away.

@@ -400,8 +400,8 @@ int main(int argc, char **argv) {
         _cleanup_free_ char *dir = NULL, *hostname = NULL;
         const char *module;
 
-        const uint32_t local_address_ipv4 = htonl(0x7F000001);
-        const uint32_t local_address_ipv4_2 = htonl(0x7F000002);
+        const uint32_t local_address_ipv4 = htobe32(0x7F000001);
+        const uint32_t local_address_ipv4_2 = htobe32(0x7F000002);
         _cleanup_free_ struct local_address *addresses = NULL;
         int n_addresses;
 
