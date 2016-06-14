@@ -49,6 +49,10 @@ typedef struct Tunnel {
         unsigned tos;
         unsigned flags;
 
+        uint32_t key;
+        uint32_t ikey;
+        uint32_t okey;
+
         union in_addr_union local;
         union in_addr_union remote;
 
@@ -108,3 +112,8 @@ int config_parse_encap_limit(const char *unit, const char *filename,
                              unsigned section_line, const char *lvalue,
                              int ltype, const char *rvalue, void *data,
                              void *userdata);
+int config_parse_tunnel_key(const char *unit, const char *filename,
+                            unsigned line, const char *section,
+                            unsigned section_line, const char *lvalue,
+                            int ltype, const char *rvalue, void *data,
+                            void *userdata);

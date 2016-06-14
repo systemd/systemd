@@ -200,6 +200,33 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         return r;
 }
 
+static int netdev_vti_fill_message_key(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        Tunnel *t = VTI(netdev);
+        uint32_t ikey, okey;
+        int r;
+
+        assert(link);
+        assert(m);
+        assert(t);
+
+        if (t->key != 0)
+                ikey = okey = htobe32(t->key);
+        else {
+                ikey = htobe32(t->ikey);
+                okey = htobe32(t->okey);
+        }
+
+        r = sd_netlink_message_append_u32(m, IFLA_VTI_IKEY, ikey);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_IKEY attribute: %m");
+
+        r = sd_netlink_message_append_u32(m, IFLA_VTI_OKEY, okey);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_OKEY attribute: %m");
+
+        return 0;
+}
+
 static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t = VTI(netdev);
         int r;
@@ -213,6 +240,10 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+
+        r = netdev_vti_fill_message_key(netdev, link, m);
+        if (r < 0)
+                return r;
 
         r = sd_netlink_message_append_in_addr(m, IFLA_VTI_LOCAL, &t->local.in);
         if (r < 0)
@@ -238,6 +269,10 @@ static int netdev_vti6_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+
+        r = netdev_vti_fill_message_key(netdev, link, m);
+        if (r < 0)
+                return r;
 
         r = sd_netlink_message_append_in6_addr(m, IFLA_VTI_LOCAL, &t->local.in6);
         if (r < 0)
@@ -409,6 +444,46 @@ int config_parse_tunnel_address(const char *unit,
 
         t->family = f;
         *addr = buffer;
+
+        return 0;
+}
+
+int config_parse_tunnel_key(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
+        union in_addr_union buffer;
+        Tunnel *t = userdata;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = in_addr_from_string(AF_INET, rvalue, &buffer);
+        if (r < 0) {
+                r = safe_atou32(rvalue, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse tunnel key ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+        } else
+                k = be32toh(buffer.in.s_addr);
+
+        if (streq(lvalue, "Key"))
+                t->key = k;
+        else if (streq(lvalue, "InputKey"))
+                t->ikey = k;
+        else
+                t->okey = k;
 
         return 0;
 }
