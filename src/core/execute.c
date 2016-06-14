@@ -289,7 +289,15 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
         return r;
 }
 
-static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, const char *unit_id, int nfd, uid_t uid, gid_t gid) {
+static int connect_logger_as(
+                const ExecContext *context,
+                ExecOutput output,
+                const char *ident,
+                const char *unit_id,
+                int nfd,
+                uid_t uid,
+                gid_t gid) {
+
         int fd, r;
 
         assert(context);
@@ -310,7 +318,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 return -errno;
         }
 
-        fd_inc_sndbuf(fd, SNDBUF_SIZE);
+        (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         dprintf(fd,
                 "%s\n"
@@ -328,11 +336,11 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 output == EXEC_OUTPUT_KMSG || output == EXEC_OUTPUT_KMSG_AND_CONSOLE,
                 is_terminal_output(output));
 
-        if (fd != nfd) {
-                r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                safe_close(fd);
-        } else
-                r = nfd;
+        if (fd == nfd)
+                return nfd;
+
+        r = dup2(fd, nfd) < 0 ? -errno : nfd;
+        safe_close(fd);
 
         return r;
 }
