@@ -35,7 +35,7 @@
 #include "util.h"
 
 #define DEFAULT_TNL_HOP_LIMIT   64
-#define IP6_FLOWINFO_FLOWLABEL  htonl(0x000FFFFF)
+#define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
 
 static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
         [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
@@ -444,7 +444,7 @@ int config_parse_ipv6_flowlabel(const char* unit,
                 if (k > 0xFFFFF)
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPv6 flowlabel option, ignoring: %s", rvalue);
                 else {
-                        *ipv6_flowlabel = htonl(k) & IP6_FLOWINFO_FLOWLABEL;
+                        *ipv6_flowlabel = htobe32(k) & IP6_FLOWINFO_FLOWLABEL;
                         t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
                 }
         }

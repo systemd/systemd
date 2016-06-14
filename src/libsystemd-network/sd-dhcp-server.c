@@ -260,7 +260,7 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
                                         DHCPPacket *packet, size_t len) {
         union sockaddr_union link = {
                 .ll.sll_family = AF_PACKET,
-                .ll.sll_protocol = htons(ETH_P_IP),
+                .ll.sll_protocol = htobe16(ETH_P_IP),
                 .ll.sll_ifindex = server->ifindex,
                 .ll.sll_halen = ETH_ALEN,
         };

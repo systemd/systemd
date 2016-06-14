@@ -353,7 +353,7 @@ static void test_nameinfo_pretty(void) {
         union sockaddr_union s = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = 0,
-                .in.sin_addr.s_addr = htonl(INADDR_ANY),
+                .in.sin_addr.s_addr = htobe32(INADDR_ANY),
         };
         int r;
 
@@ -391,17 +391,17 @@ static void test_sockaddr_equal(void) {
         union sockaddr_union a = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = 0,
-                .in.sin_addr.s_addr = htonl(INADDR_ANY),
+                .in.sin_addr.s_addr = htobe32(INADDR_ANY),
         };
         union sockaddr_union b = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = 0,
-                .in.sin_addr.s_addr = htonl(INADDR_ANY),
+                .in.sin_addr.s_addr = htobe32(INADDR_ANY),
         };
         union sockaddr_union c = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = 0,
-                .in.sin_addr.s_addr = htonl(1234),
+                .in.sin_addr.s_addr = htobe32(1234),
         };
         union sockaddr_union d = {
                 .in6.sin6_family = AF_INET6,

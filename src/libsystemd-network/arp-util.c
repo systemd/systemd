@@ -79,7 +79,7 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
         };
         union sockaddr_union link = {
                 .ll.sll_family = AF_PACKET,
-                .ll.sll_protocol = htons(ETH_P_ARP),
+                .ll.sll_protocol = htobe16(ETH_P_ARP),
                 .ll.sll_ifindex = ifindex,
                 .ll.sll_halen = ETH_ALEN,
                 .ll.sll_addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
@@ -112,17 +112,17 @@ static int arp_send_packet(int fd, int ifindex,
                            bool announce) {
         union sockaddr_union link = {
                 .ll.sll_family = AF_PACKET,
-                .ll.sll_protocol = htons(ETH_P_ARP),
+                .ll.sll_protocol = htobe16(ETH_P_ARP),
                 .ll.sll_ifindex = ifindex,
                 .ll.sll_halen = ETH_ALEN,
                 .ll.sll_addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
         };
         struct ether_arp arp = {
-                .ea_hdr.ar_hrd = htons(ARPHRD_ETHER), /* HTYPE */
-                .ea_hdr.ar_pro = htons(ETHERTYPE_IP), /* PTYPE */
+                .ea_hdr.ar_hrd = htobe16(ARPHRD_ETHER), /* HTYPE */
+                .ea_hdr.ar_pro = htobe16(ETHERTYPE_IP), /* PTYPE */
                 .ea_hdr.ar_hln = ETH_ALEN, /* HLEN */
                 .ea_hdr.ar_pln = sizeof(be32_t), /* PLEN */
-                .ea_hdr.ar_op = htons(ARPOP_REQUEST), /* REQUEST */
+                .ea_hdr.ar_op = htobe16(ARPOP_REQUEST), /* REQUEST */
         };
         int r;
 
