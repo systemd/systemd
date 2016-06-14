@@ -18,7 +18,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sched.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -26,6 +29,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "fd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -59,7 +63,11 @@ static void test_get_process_comm(pid_t pid) {
         log_info("PID"PID_FMT" cmdline: '%s'", pid, c);
 
         assert_se(get_process_cmdline(pid, 8, false, &d) >= 0);
-        log_info("PID"PID_FMT" cmdline truncated: '%s'", pid, d);
+        log_info("PID"PID_FMT" cmdline truncated to 8: '%s'", pid, d);
+
+        free(d);
+        assert_se(get_process_cmdline(pid, 1, false, &d) >= 0);
+        log_info("PID"PID_FMT" cmdline truncated to 1: '%s'", pid, d);
 
         assert_se(get_process_ppid(pid, &e) >= 0);
         log_info("PID"PID_FMT" PPID: "PID_FMT, pid, e);
@@ -147,6 +155,187 @@ static void test_personality(void) {
 #endif
 }
 
+static void test_get_process_cmdline_harder(void) {
+        char path[] = "/tmp/test-cmdlineXXXXXX";
+        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *line = NULL;
+        pid_t pid;
+
+        if (geteuid() != 0)
+                return;
+
+        pid = fork();
+        if (pid > 0) {
+                siginfo_t si;
+
+                (void) wait_for_terminate(pid, &si);
+
+                assert_se(si.si_code == CLD_EXITED);
+                assert_se(si.si_status == 0);
+
+                return;
+        }
+
+        assert_se(pid == 0);
+        assert_se(unshare(CLONE_NEWNS) >= 0);
+
+        fd = mkostemp(path, O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(mount(path, "/proc/self/cmdline", "bind", MS_BIND, NULL) >= 0);
+        assert_se(unlink(path) >= 0);
+
+        assert_se(prctl(PR_SET_NAME, "testa") >= 0);
+
+        assert_se(get_process_cmdline(getpid(), 0, false, &line) == -ENOENT);
+
+        assert_se(get_process_cmdline(getpid(), 0, true, &line) >= 0);
+        assert_se(streq(line, "[testa]"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 1, true, &line) >= 0);
+        assert_se(streq(line, ""));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 2, true, &line) >= 0);
+        assert_se(streq(line, "["));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 3, true, &line) >= 0);
+        assert_se(streq(line, "[."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 4, true, &line) >= 0);
+        assert_se(streq(line, "[.."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 5, true, &line) >= 0);
+        assert_se(streq(line, "[..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 6, true, &line) >= 0);
+        assert_se(streq(line, "[...]"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 7, true, &line) >= 0);
+        assert_se(streq(line, "[t...]"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 8, true, &line) >= 0);
+        assert_se(streq(line, "[testa]"));
+        line = mfree(line);
+
+        assert_se(write(fd, "\0\0\0\0\0\0\0\0\0", 10) == 10);
+
+        assert_se(get_process_cmdline(getpid(), 0, false, &line) == -ENOENT);
+
+        assert_se(get_process_cmdline(getpid(), 0, true, &line) >= 0);
+        assert_se(streq(line, "[testa]"));
+        line = mfree(line);
+
+        assert_se(write(fd, "foo\0bar\0\0\0\0\0", 10) == 10);
+
+        assert_se(get_process_cmdline(getpid(), 0, false, &line) >= 0);
+        assert_se(streq(line, "foo bar"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 0, true, &line) >= 0);
+        assert_se(streq(line, "foo bar"));
+        line = mfree(line);
+
+        assert_se(write(fd, "quux", 4) == 4);
+        assert_se(get_process_cmdline(getpid(), 0, false, &line) >= 0);
+        assert_se(streq(line, "foo bar quux"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 0, true, &line) >= 0);
+        assert_se(streq(line, "foo bar quux"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 1, true, &line) >= 0);
+        assert_se(streq(line, ""));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 2, true, &line) >= 0);
+        assert_se(streq(line, "."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 3, true, &line) >= 0);
+        assert_se(streq(line, ".."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 4, true, &line) >= 0);
+        assert_se(streq(line, "..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 5, true, &line) >= 0);
+        assert_se(streq(line, "f..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 6, true, &line) >= 0);
+        assert_se(streq(line, "fo..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 7, true, &line) >= 0);
+        assert_se(streq(line, "foo..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 8, true, &line) >= 0);
+        assert_se(streq(line, "foo..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 9, true, &line) >= 0);
+        assert_se(streq(line, "foo b..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 10, true, &line) >= 0);
+        assert_se(streq(line, "foo ba..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 11, true, &line) >= 0);
+        assert_se(streq(line, "foo bar..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 12, true, &line) >= 0);
+        assert_se(streq(line, "foo bar..."));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 13, true, &line) >= 0);
+        assert_se(streq(line, "foo bar quux"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 14, true, &line) >= 0);
+        assert_se(streq(line, "foo bar quux"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 1000, true, &line) >= 0);
+        assert_se(streq(line, "foo bar quux"));
+        line = mfree(line);
+
+        assert_se(ftruncate(fd, 0) >= 0);
+        assert_se(prctl(PR_SET_NAME, "aaaa bbbb cccc") >= 0);
+
+        assert_se(get_process_cmdline(getpid(), 0, false, &line) == -ENOENT);
+
+        assert_se(get_process_cmdline(getpid(), 0, true, &line) >= 0);
+        assert_se(streq(line, "[aaaa bbbb cccc]"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 10, true, &line) >= 0);
+        assert_se(streq(line, "[aaaa...]"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 11, true, &line) >= 0);
+        assert_se(streq(line, "[aaaa...]"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(getpid(), 12, true, &line) >= 0);
+        assert_se(streq(line, "[aaaa b...]"));
+        line = mfree(line);
+
+        safe_close(fd);
+        _exit(0);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -164,6 +353,7 @@ int main(int argc, char *argv[]) {
         test_pid_is_unwaited();
         test_pid_is_alive();
         test_personality();
+        test_get_process_cmdline_harder();
 
         return 0;
 }
