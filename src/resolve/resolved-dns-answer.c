@@ -185,7 +185,7 @@ int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex, Dns
         return dns_answer_add(*a, rr, ifindex, flags);
 }
 
-int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl) {
+int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *soa = NULL;
 
         soa = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, name);
@@ -208,7 +208,7 @@ int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl) {
         soa->soa.expire = 1;
         soa->soa.minimum = ttl;
 
-        return dns_answer_add(a, soa, 0, DNS_ANSWER_AUTHENTICATED);
+        return dns_answer_add(a, soa, ifindex, DNS_ANSWER_AUTHENTICATED);
 }
 
 int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags *ret_flags) {

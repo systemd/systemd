@@ -721,7 +721,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         assert(p->question->n_keys == 1);
         key = p->question->keys[0];
 
-        r = dns_zone_lookup(&s->zone, key, &answer, &soa, &tentative);
+        r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
         if (r < 0) {
                 log_debug_errno(r, "Failed to lookup key: %m");
                 return;
@@ -1028,4 +1028,13 @@ bool dns_scope_network_good(DnsScope *s) {
                 return true;
 
         return manager_routable(s->manager, AF_UNSPEC);
+}
+
+int dns_scope_ifindex(DnsScope *s) {
+        assert(s);
+
+        if (s->link)
+                return s->link->ifindex;
+
+        return 0;
 }
