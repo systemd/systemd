@@ -324,6 +324,7 @@ AC_CHECK_TYPES([char16_t, char32_t, key_serial_t],
 ]])
 
 AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
+                IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
                 IFLA_MACVLAN_FLAGS,
                 IFLA_IPVLAN_MODE,
                 IFLA_VTI_REMOTE,
