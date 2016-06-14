@@ -639,6 +639,33 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Key=</varname></term>
+        <listitem>
+          <para>The <varname>Key=</varname> parameter specifies the same key to use in
+          both directions (<varname>InputKey=</varname> and <varname>OutputKey=</varname>).
+          The <varname>Key=</varname> is either a number or an IPv4 address-like dotted quad.
+          It is used as mark-configured SAD/SPD entry as part of the lookup key (both in data
+          and control path) in ip xfrm (framework used to implement IPsec protocol).
+          See <ulink url="http://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
+          ip-xfrm - transform configuration</ulink> for details. It is only used for VTI/VTI6
+          tunnels.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>InputKey=</varname></term>
+        <listitem>
+          <para>The <varname>InputKey=</varname> parameter specifies the key to use for input.
+          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6 tunnels.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>OutputKey=</varname></term>
+        <listitem>
+          <para>The <varname>OutputKey=</varname> parameter specifies the key to use for output.
+          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6 tunnels.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Mode=</varname></term>
         <listitem>
           <para>An <literal>ip6tnl</literal> tunnel can be in one of three
