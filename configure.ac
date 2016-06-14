@@ -249,6 +249,7 @@ AC_CHECK_SIZEOF(uid_t)
 AC_CHECK_SIZEOF(gid_t)
 AC_CHECK_SIZEOF(time_t)
 AC_CHECK_SIZEOF(dev_t)
+AC_CHECK_SIZEOF(ino_t)
 AC_CHECK_SIZEOF(rlim_t,,[
        #include <sys/time.h>
        #include <sys/resource.h>

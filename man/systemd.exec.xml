@@ -1539,6 +1539,26 @@
         <citerefentry project='man-pages'><refentrytitle>termcap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$JOURNAL_STREAM</varname></term>
+
+        <listitem><para>If the standard output or standard error output of the executed processes are connected to the
+        journal (for example, by setting <varname>StandardError=journal</varname>) <varname>$JOURNAL_STREAM</varname>
+        contains the device and inode numbers of the connection file descriptor, formatted in decimal, separated by a
+        colon (<literal>:</literal>). This permits invoked processes to safely detect whether their standard output or
+        standard error output are connected to the journal. The device and inode numbers of the file descriptors should
+        be compared with the values set in the environment variable to determine whether the process output is still
+        connected to the journal. Note that it is generally not sufficient to only check whether
+        <varname>$JOURNAL_STREAM</varname> is set at all as services might invoke external processes replacing their
+        standard output or standard error output, without unsetting the environment variable.</para>
+
+        <para>This environment variable is primarily useful to allow services to optionally upgrade their used log
+        protocol to the native journal protocol (using
+        <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry> and other
+        functions) if their standard output or standard error output is connected to the journal anyway, thus enabling
+        delivery of structured metadata along with logged messages.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Additional variables may be configured by the following
