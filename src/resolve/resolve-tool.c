@@ -199,7 +199,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 if (ifindex > 0 && !if_indextoname(ifindex, ifname))
                         log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
 
-                r = in_addr_to_string(family, a, &pretty);
+                r = in_addr_ifindex_to_string(family, a, ifindex, &pretty);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print address for %s: %m", name);
 
@@ -253,7 +253,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (ifindex <= 0)
                 ifindex = arg_ifindex;
 
-        r = in_addr_to_string(family, address, &pretty);
+        r = in_addr_ifindex_to_string(family, address, ifindex, &pretty);
         if (r < 0)
                 return log_oom();
 
@@ -342,31 +342,6 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 
         print_source(flags, ts);
 
-        return 0;
-}
-
-static int parse_address(const char *s, int *family, union in_addr_union *address, int *ifindex) {
-        const char *percent, *a;
-        int ifi = 0;
-        int r;
-
-        percent = strchr(s, '%');
-        if (percent) {
-                if (parse_ifindex(percent+1, &ifi) < 0) {
-                        ifi = if_nametoindex(percent+1);
-                        if (ifi <= 0)
-                                return -EINVAL;
-                }
-
-                a = strndupa(s, percent - s);
-        } else
-                a = s;
-
-        r = in_addr_from_string_auto(a, family, address);
-        if (r < 0)
-                return r;
-
-        *ifindex = ifi;
         return 0;
 }
 
@@ -1392,7 +1367,7 @@ int main(int argc, char **argv) {
                         if (startswith(argv[optind], "dns:"))
                                 k = resolve_rfc4501(bus, argv[optind]);
                         else {
-                                k = parse_address(argv[optind], &family, &a, &ifindex);
+                                k = in_addr_ifindex_from_string_auto(argv[optind], &family, &a, &ifindex);
                                 if (k >= 0)
                                         k = resolve_address(bus, family, &a, ifindex);
                                 else
