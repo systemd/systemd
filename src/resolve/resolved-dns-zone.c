@@ -287,12 +287,15 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         return 0;
 }
 
-int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
+int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         unsigned n_answer = 0;
         DnsZoneItem *j, *first;
         bool tentative = true, need_soa = false;
         int r;
+
+        /* Note that we don't actually need the ifindex for anything. However when it is passed we'll initialize the
+         * ifindex field in the answer with it */
 
         assert(z);
         assert(key);
@@ -389,7 +392,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         if (k < 0)
                                 return k;
                         if (k > 0) {
-                                r = dns_answer_add(answer, j->rr, 0, DNS_ANSWER_AUTHENTICATED);
+                                r = dns_answer_add(answer, j->rr, ifindex, DNS_ANSWER_AUTHENTICATED);
                                 if (r < 0)
                                         return r;
 
@@ -398,7 +401,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                 }
 
                 if (found && !added) {
-                        r = dns_answer_add_soa(soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL);
+                        r = dns_answer_add_soa(soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL, ifindex);
                         if (r < 0)
                                 return r;
                 }
@@ -415,7 +418,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         if (j->state != DNS_ZONE_ITEM_PROBING)
                                 tentative = false;
 
-                        r = dns_answer_add(answer, j->rr, 0, DNS_ANSWER_AUTHENTICATED);
+                        r = dns_answer_add(answer, j->rr, ifindex, DNS_ANSWER_AUTHENTICATED);
                         if (r < 0)
                                 return r;
                 }
@@ -435,7 +438,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, DnsAnswer **ret_answer, Dns
                         }
 
                         if (add_soa) {
-                                r = dns_answer_add_soa(soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL);
+                                r = dns_answer_add_soa(soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL, ifindex);
                                 if (r < 0)
                                         return r;
                         }

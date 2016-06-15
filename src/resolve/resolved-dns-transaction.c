@@ -557,8 +557,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
         /* The interface index is difficult to determine if we are
          * connecting to the local host, hence fill this in right away
          * instead of determining it from the socket */
-        if (t->scope->link)
-                t->stream->ifindex = t->scope->link->ifindex;
+        t->stream->ifindex = dns_scope_ifindex(t->scope);
 
         dns_transaction_reset_answer(t);
 
@@ -798,12 +797,9 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_LLMNR:
-                assert(t->scope->link);
+                /* For LLMNR we will not accept any packets from other interfaces */
 
-                /* For LLMNR we will not accept any packets from other
-                 * interfaces */
-
-                if (p->ifindex != t->scope->link->ifindex)
+                if (p->ifindex != dns_scope_ifindex(t->scope))
                         return;
 
                 if (p->family != t->scope->family)
@@ -820,10 +816,9 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 break;
 
         case DNS_PROTOCOL_MDNS:
-                assert(t->scope->link);
-
                 /* For mDNS we will not accept any packets from other interfaces */
-                if (p->ifindex != t->scope->link->ifindex)
+
+                if (p->ifindex != dns_scope_ifindex(t->scope))
                         return;
 
                 if (p->family != t->scope->family)
@@ -1246,7 +1241,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
          * for probing or verifying a zone item. */
         if (set_isempty(t->notify_zone_items)) {
 
-                r = dns_zone_lookup(&t->scope->zone, t->key, &t->answer, NULL, NULL);
+                r = dns_zone_lookup(&t->scope->zone, t->key, dns_scope_ifindex(t->scope), &t->answer, NULL, NULL);
                 if (r < 0)
                         return r;
                 if (r > 0) {
