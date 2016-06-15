@@ -190,6 +190,27 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
         return 0;
 }
 
+static int link_update_dns_server_one(Link *l, const char *name) {
+        union in_addr_union a;
+        DnsServer *s;
+        int family, r;
+
+        assert(l);
+        assert(name);
+
+        r = in_addr_from_string_auto(name, &family, &a);
+        if (r < 0)
+                return r;
+
+        s = dns_server_find(l->dns_servers, family, &a, 0);
+        if (s) {
+                dns_server_move_back_and_unmark(s);
+                return 0;
+        }
+
+        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, 0);
+}
+
 static int link_update_dns_servers(Link *l) {
         _cleanup_strv_free_ char **nameservers = NULL;
         char **nameserver;
@@ -208,22 +229,9 @@ static int link_update_dns_servers(Link *l) {
         dns_server_mark_all(l->dns_servers);
 
         STRV_FOREACH(nameserver, nameservers) {
-                union in_addr_union a;
-                DnsServer *s;
-                int family;
-
-                r = in_addr_from_string_auto(*nameserver, &family, &a);
+                r = link_update_dns_server_one(l, *nameserver);
                 if (r < 0)
                         goto clear;
-
-                s = dns_server_find(l->dns_servers, family, &a, 0);
-                if (s)
-                        dns_server_move_back_and_unmark(s);
-                else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, 0);
-                        if (r < 0)
-                                goto clear;
-                }
         }
 
         dns_server_unlink_marked(l->dns_servers);
