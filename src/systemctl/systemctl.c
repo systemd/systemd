@@ -588,7 +588,8 @@ static int get_unit_list(
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+        if (r < 0 && (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD) ||
+                      sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED))) {
                 /* Fallback to legacy ListUnitsFiltered method */
                 fallback = true;
                 log_debug_errno(r, "Failed to list units: %s Falling back to ListUnitsFiltered method.", bus_error_message(&error, r));
