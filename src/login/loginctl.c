@@ -290,7 +290,7 @@ typedef struct SessionStatusInfo {
         char *seat;
         char *tty;
         char *display;
-        bool remote;
+        int remote;
         char *remote_host;
         char *remote_user;
         char *service;
@@ -304,7 +304,7 @@ typedef struct SessionStatusInfo {
 
 typedef struct UserStatusInfo {
         uid_t uid;
-        bool linger;
+        int linger;
         char *name;
         struct dual_timestamp timestamp;
         char *state;

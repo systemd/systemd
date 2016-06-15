@@ -57,11 +57,11 @@ typedef struct StatusInfo {
         char *timezone;
 
         usec_t rtc_time;
-        bool rtc_local;
+        int rtc_local;
 
-        bool ntp_enabled;
-        bool ntp_capable;
-        bool ntp_synced;
+        int ntp_enabled;
+        int ntp_capable;
+        int ntp_synced;
 } StatusInfo;
 
 static void status_info_clear(StatusInfo *info) {
