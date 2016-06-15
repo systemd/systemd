@@ -162,7 +162,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 int manager_is_own_hostname(Manager *m, const char *name);
 
 int manager_compile_dns_servers(Manager *m, OrderedSet **servers);
-int manager_compile_search_domains(Manager *m, OrderedSet **domains);
+int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route);
 
 DnssecMode manager_get_dnssec_mode(Manager *m);
 bool manager_dnssec_supported(Manager *m);

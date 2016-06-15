@@ -1153,7 +1153,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         return 0;
 }
 
-int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
+int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route) {
         DnsSearchDomain *d;
         Iterator i;
         Link *l;
@@ -1167,6 +1167,11 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
                 return r;
 
         LIST_FOREACH(domains, d, m->search_domains) {
+
+                if (filter_route >= 0 &&
+                    d->route_only != !!filter_route)
+                        continue;
+
                 r = ordered_set_put(*domains, d->name);
                 if (r == -EEXIST)
                         continue;
@@ -1177,6 +1182,11 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains) {
         HASHMAP_FOREACH(l, m->links, i) {
 
                 LIST_FOREACH(domains, d, l->search_domains) {
+
+                        if (filter_route >= 0 &&
+                            d->route_only != !!filter_route)
+                                continue;
+
                         r = ordered_set_put(*domains, d->name);
                         if (r == -EEXIST)
                                 continue;
