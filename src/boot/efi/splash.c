@@ -19,6 +19,7 @@
 #include "graphics.h"
 #include "splash.h"
 #include "util.h"
+#include "macro.h"
 
 struct bmp_file {
         CHAR8 signature[2];
@@ -245,7 +246,7 @@ EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
 
                 /* add row padding; new lines always start at 32 bit boundary */
                 row_size = in - pixmap;
-                in += ((row_size + 3) & ~3) - row_size;
+                in += ALIGN4(row_size) - row_size;
         }
 
         return EFI_SUCCESS;
