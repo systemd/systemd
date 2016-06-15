@@ -265,6 +265,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         dns_server_unlink_marked(l->dns_servers);
         link_allocate_scopes(l);
 
+        (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);
@@ -346,6 +347,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
 
         dns_search_domain_unlink_marked(l->search_domains);
 
+        (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);
@@ -384,6 +386,8 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
         link_allocate_scopes(l);
         link_add_rrs(l, false);
 
+        (void) link_save_user(l);
+
         return sd_bus_reply_method_return(message, NULL);
 }
 
@@ -416,6 +420,8 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         link_allocate_scopes(l);
         link_add_rrs(l, false);
 
+        (void) link_save_user(l);
+
         return sd_bus_reply_method_return(message, NULL);
 }
 
@@ -445,6 +451,8 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
         }
 
         link_set_dnssec_mode(l, mode);
+
+        (void) link_save_user(l);
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -489,6 +497,8 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         l->dnssec_negative_trust_anchors = ns;
         ns = NULL;
 
+        (void) link_save_user(l);
+
         return sd_bus_reply_method_return(message, NULL);
 }
 
@@ -507,6 +517,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         link_allocate_scopes(l);
         link_add_rrs(l, false);
 
+        (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);

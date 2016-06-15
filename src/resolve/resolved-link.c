@@ -22,7 +22,10 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "missing.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "resolved-link.h"
 #include "string-util.h"
@@ -48,6 +51,9 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
         l->operstate = IF_OPER_UNKNOWN;
+
+        if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
+                return -ENOMEM;
 
         r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
         if (r < 0)
@@ -92,6 +98,8 @@ Link *link_free(Link *l) {
         dns_scope_free(l->llmnr_ipv6_scope);
         dns_scope_free(l->mdns_ipv4_scope);
         dns_scope_free(l->mdns_ipv6_scope);
+
+        free(l->state_file);
 
         free(l);
         return NULL;
@@ -165,7 +173,7 @@ void link_add_rrs(Link *l, bool force_remove) {
                 link_address_add_rrs(a, force_remove);
 }
 
-int link_update_rtnl(Link *l, sd_netlink_message *m) {
+int link_process_rtnl(Link *l, sd_netlink_message *m) {
         const char *n = NULL;
         int r;
 
@@ -511,10 +519,11 @@ static void link_read_settings(Link *l) {
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
 }
 
-int link_update_monitor(Link *l) {
+int link_update(Link *l) {
         assert(l);
 
         link_read_settings(l);
+        link_load_user(l);
         link_allocate_scopes(l);
         link_add_rrs(l, false);
 
@@ -845,4 +854,262 @@ bool link_address_relevant(LinkAddress *a, bool local_multicast) {
                 return false;
 
         return true;
+}
+
+static bool link_needs_save(Link *l) {
+        assert(l);
+
+        /* Returns true if any of the settings where set different from the default */
+
+        if (l->is_managed)
+                return false;
+
+        if (l->llmnr_support != RESOLVE_SUPPORT_YES ||
+            l->mdns_support != RESOLVE_SUPPORT_NO ||
+            l->dnssec_mode != _DNSSEC_MODE_INVALID)
+                return true;
+
+        if (l->dns_servers ||
+            l->search_domains)
+                return true;
+
+        if (!set_isempty(l->dnssec_negative_trust_anchors))
+                return true;
+
+        return false;
+}
+
+int link_save_user(Link *l) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *v;
+        int r;
+
+        assert(l);
+        assert(l->state_file);
+
+        if (!link_needs_save(l)) {
+                (void) unlink(l->state_file);
+                return 0;
+        }
+
+        r = mkdir_parents(l->state_file, 0700);
+        if (r < 0)
+                goto fail;
+
+        r = fopen_temporary(l->state_file, &f, &temp_path);
+        if (r < 0)
+                goto fail;
+
+        fputs("# This is private data. Do not parse.\n", f);
+
+        v = resolve_support_to_string(l->llmnr_support);
+        if (v)
+                fprintf(f, "LLMNR=%s\n", v);
+
+        v = resolve_support_to_string(l->mdns_support);
+        if (v)
+                fprintf(f, "MDNS=%s\n", v);
+
+        v = dnssec_mode_to_string(l->dnssec_mode);
+        if (v)
+                fprintf(f, "DNSSEC=%s\n", v);
+
+        if (l->dns_servers) {
+                DnsServer *server;
+
+                fputs("SERVERS=", f);
+                LIST_FOREACH(servers, server, l->dns_servers) {
+
+                        if (server != l->dns_servers)
+                                fputc(' ', f);
+
+                        v = dns_server_string(server);
+                        if (!v) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        fputs(v, f);
+                }
+                fputc('\n', f);
+        }
+
+        if (l->search_domains) {
+                DnsSearchDomain *domain;
+
+                fputs("DOMAINS=", f);
+                LIST_FOREACH(domains, domain, l->search_domains) {
+
+                        if (domain != l->search_domains)
+                                fputc(' ', f);
+
+                        if (domain->route_only)
+                                fputc('~', f);
+
+                        fputs(DNS_SEARCH_DOMAIN_NAME(domain), f);
+                }
+                fputc('\n', f);
+        }
+
+        if (!set_isempty(l->dnssec_negative_trust_anchors)) {
+                bool space = false;
+                Iterator i;
+                char *nta;
+
+                fputs("NTAS=", f);
+                SET_FOREACH(nta, l->dnssec_negative_trust_anchors, i) {
+
+                        if (space)
+                                fputc(' ', f);
+
+                        fputs(nta, f);
+                        space = true;
+                }
+                fputc('\n', f);
+        }
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
+
+        if (rename(temp_path, l->state_file) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        return 0;
+
+fail:
+        (void) unlink(l->state_file);
+
+        if (temp_path)
+                (void) unlink(temp_path);
+
+        return log_error_errno(r, "Failed to save link data %s: %m", l->state_file);
+}
+
+int link_load_user(Link *l) {
+        _cleanup_free_ char
+                *llmnr = NULL,
+                *mdns = NULL,
+                *dnssec = NULL,
+                *servers = NULL,
+                *domains = NULL,
+                *ntas = NULL;
+
+        ResolveSupport s;
+        int r;
+
+        assert(l);
+        assert(l->state_file);
+
+        /* Try to load only a single time */
+        if (l->loaded)
+                return 0;
+        l->loaded = true;
+
+        if (l->is_managed)
+                return 0; /* if the device is managed, then networkd is our configuration source, not the bus API */
+
+        r = parse_env_file(l->state_file, NEWLINE,
+                           "LLMNR", &llmnr,
+                           "MDNS", &mdns,
+                           "DNSSEC", &dnssec,
+                           "SERVERS", &servers,
+                           "DOMAINS", &domains,
+                           "NTAS", &ntas,
+                           NULL);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                goto fail;
+
+        link_flush_settings(l);
+
+        /* If we can't recognize the LLMNR or MDNS setting we don't override the default */
+        s = resolve_support_from_string(llmnr);
+        if (s >= 0)
+                l->llmnr_support = s;
+
+        s = resolve_support_from_string(mdns);
+        if (s >= 0)
+                l->mdns_support = s;
+
+        /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
+        l->dnssec_mode = dnssec_mode_from_string(dnssec);
+
+        if (servers) {
+                const char *p = servers;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r < 0)
+                                goto fail;
+                        if (r == 0)
+                                break;
+
+                        r = link_update_dns_server_one(l, word);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to load DNS server '%s', ignoring: %m", word);
+                                continue;
+                        }
+                }
+        }
+
+        if (domains) {
+                const char *p = domains;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+                        const char *n;
+                        bool is_route;
+
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r < 0)
+                                goto fail;
+                        if (r == 0)
+                                break;
+
+                        is_route = word[0] == '~';
+                        n = is_route ? word + 1 : word;
+
+                        r = link_update_search_domain_one(l, n, is_route);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to load search domain '%s', ignoring: %m", word);
+                                continue;
+                        }
+                }
+        }
+
+        if (ntas) {
+                _cleanup_set_free_free_ Set *ns = NULL;
+
+                ns = set_new(&dns_name_hash_ops);
+                if (!ns) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                r = set_put_strsplit(ns, ntas, NULL, 0);
+                if (r < 0)
+                        goto fail;
+
+                l->dnssec_negative_trust_anchors = ns;
+                ns = NULL;
+        }
+
+        return 0;
+
+fail:
+        return log_error_errno(r, "Failed to load link data %s: %m", l->state_file);
+}
+
+void link_remove_user(Link *l) {
+        assert(l);
+        assert(l->state_file);
+
+        (void) unlink(l->state_file);
 }
