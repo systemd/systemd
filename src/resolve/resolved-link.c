@@ -447,7 +447,7 @@ clear:
         return r;
 }
 
-static int link_is_unmanaged(Link *l) {
+static int link_is_managed(Link *l) {
         _cleanup_free_ char *state = NULL;
         int r;
 
@@ -455,11 +455,11 @@ static int link_is_unmanaged(Link *l) {
 
         r = sd_network_link_get_setup_state(l->ifindex, &state);
         if (r == -ENODATA)
-                return 1;
+                return 0;
         if (r < 0)
                 return r;
 
-        return STR_IN_SET(state, "pending", "unmanaged");
+        return !STR_IN_SET(state, "pending", "unmanaged");
 }
 
 static void link_read_settings(Link *l) {
@@ -469,12 +469,12 @@ static void link_read_settings(Link *l) {
 
         /* Read settings from networkd, except when networkd is not managing this interface. */
 
-        r = link_is_unmanaged(l);
+        r = link_is_managed(l);
         if (r < 0) {
                 log_warning_errno(r, "Failed to determine whether interface %s is managed: %m", l->name);
                 return;
         }
-        if (r > 0) {
+        if (r == 0) {
 
                 /* If this link used to be managed, but is now unmanaged, flush all our settings — but only once. */
                 if (l->is_managed)
