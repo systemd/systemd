@@ -341,7 +341,6 @@ clear:
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
         _cleanup_strv_free_ char **ntas = NULL;
         _cleanup_set_free_free_ Set *ns = NULL;
-        char **i;
         int r;
 
         assert(l);
@@ -358,11 +357,9 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
         if (!ns)
                 return -ENOMEM;
 
-        STRV_FOREACH(i, ntas) {
-                r = set_put_strdup(ns, *i);
-                if (r < 0)
-                        return r;
-        }
+        r = set_put_strdupv(ns, ntas);
+        if (r < 0)
+                return r;
 
         set_free_free(l->dnssec_negative_trust_anchors);
         l->dnssec_negative_trust_anchors = ns;
@@ -378,6 +375,9 @@ clear:
 static int link_update_search_domain_one(Link *l, const char *name, bool route_only) {
         DnsSearchDomain *d;
         int r;
+
+        assert(l);
+        assert(name);
 
         r = dns_search_domain_find(l->search_domains, name, &d);
         if (r < 0)
