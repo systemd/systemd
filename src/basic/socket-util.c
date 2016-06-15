@@ -986,7 +986,7 @@ ssize_t next_datagram_size_fd(int fd) {
 
         l = recv(fd, NULL, 0, MSG_PEEK|MSG_TRUNC);
         if (l < 0) {
-                if (errno == EOPNOTSUPP)
+                if (errno == EOPNOTSUPP || errno == EFAULT)
                         goto fallback;
 
                 return -errno;
