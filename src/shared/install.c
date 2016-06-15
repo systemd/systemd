@@ -779,7 +779,7 @@ static int find_symlinks(
 
         fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0) {
-                if (errno == ENOENT)
+                if (IN_SET(errno, ENOENT, ENOTDIR, EACCES))
                         return 0;
                 return -errno;
         }
@@ -1271,7 +1271,7 @@ static int unit_file_search(
                         info->path = path;
                         path = NULL;
                         return r;
-                } else if (r != -ENOENT)
+                } else if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
                         return r;
         }
 
@@ -1296,7 +1296,7 @@ static int unit_file_search(
                                 info->path = path;
                                 path = NULL;
                                 return r;
-                        } else if (r != -ENOENT)
+                        } else if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
                                 return r;
                 }
         }
@@ -2870,6 +2870,10 @@ int unit_file_get_list(
                 if (!d) {
                         if (errno == ENOENT)
                                 continue;
+                        if (IN_SET(errno, ENOTDIR, EACCES)) {
+                                log_debug("Failed to open \"%s\": %m", *i);
+                                continue;
+                        }
 
                         return -errno;
                 }

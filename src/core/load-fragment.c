@@ -3830,7 +3830,15 @@ static int load_from_path(Unit *u, const char *path) {
                         if (r >= 0)
                                 break;
                         filename = mfree(filename);
-                        if (r != -ENOENT)
+
+                        /* ENOENT means that the file is missing or is a dangling symlink.
+                         * ENOTDIR means that one of paths we expect to be is a directory
+                         * is not a directory, we should just ignore that.
+                         * EACCES means that the directory or file permissions are wrong.
+                         */
+                        if (r == -EACCES)
+                                log_debug_errno(r, "Cannot access \"%s\": %m", filename);
+                        else if (!IN_SET(r, -ENOENT, -ENOTDIR))
                                 return r;
 
                         /* Empty the symlink names for the next run */
