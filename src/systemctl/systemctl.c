@@ -4872,7 +4872,6 @@ static int show(int argc, char *argv[], void *userdata) {
 
         if (show_status && argc <= 1) {
 
-                pager_open(arg_no_pager, false);
                 show_system_status(bus);
                 new_line = true;
 
