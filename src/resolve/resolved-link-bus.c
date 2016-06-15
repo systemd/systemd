@@ -28,7 +28,23 @@
 #include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_resolve_support, resolve_support, ResolveSupport);
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_dnssec_mode, dnssec_mode, DnssecMode);
+
+static int property_get_dnssec_mode(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = userdata;
+
+        assert(reply);
+        assert(l);
+
+        return sd_bus_message_append(reply, "s", dnssec_mode_to_string(link_get_dnssec_mode(l)));
+}
 
 static int property_get_dns(
                 sd_bus *bus,
@@ -504,7 +520,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", property_get_resolve_support, offsetof(Link, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", property_get_resolve_support, offsetof(Link, mdns_support), 0),
-        SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, offsetof(Link, dnssec_mode), 0),
+        SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
 
