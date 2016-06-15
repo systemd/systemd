@@ -21,17 +21,21 @@
 #include <net/if.h>
 
 #include "sd-bus.h"
+#include "sd-netlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "escape.h"
-#include "in-addr-util.h"
 #include "gcrypt-util.h"
+#include "in-addr-util.h"
+#include "netlink-util.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "strv.h"
 #include "terminal-util.h"
 
 #define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
@@ -42,6 +46,7 @@ static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
+static bool arg_no_pager = false;
 
 typedef enum ServiceFamily {
         SERVICE_FAMILY_TCP,
@@ -67,6 +72,7 @@ static enum {
         MODE_STATISTICS,
         MODE_RESET_STATISTICS,
         MODE_FLUSH_CACHES,
+        MODE_STATUS,
 } arg_mode = MODE_RESOLVE_HOST;
 
 static ServiceFamily service_family_from_string(const char *s) {
@@ -1031,6 +1037,472 @@ static int flush_caches(sd_bus *bus) {
         return 0;
 }
 
+static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        char ***l = userdata;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+        assert(l);
+
+        r = sd_bus_message_enter_container(m, 'a', "(iay)");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const void *a;
+                char *pretty;
+                int family;
+                size_t sz;
+
+                r = sd_bus_message_enter_container(m, 'r', "iay");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(m, "i", &family);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_array(m, 'y', &a, &sz);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return r;
+
+                if (!IN_SET(family, AF_INET, AF_INET6)) {
+                        log_debug("Unexpected family, ignoring.");
+                        continue;
+                }
+
+                if (sz != FAMILY_ADDRESS_SIZE(family)) {
+                        log_debug("Address size mismatch, ignoring.");
+                        continue;
+                }
+
+                r = in_addr_to_string(family, a, &pretty);
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(l, pretty);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        char ***l = userdata;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+        assert(l);
+
+        r = sd_bus_message_enter_container(m, 'a', "(sb)");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *domain;
+                int route_only;
+                char *pretty;
+
+                r = sd_bus_message_read(m, "(sb)", &domain, &route_only);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (route_only)
+                        pretty = strappend("~", domain);
+                else
+                        pretty = strdup(domain);
+                if (!pretty)
+                        return -ENOMEM;
+
+                r = strv_consume(l, pretty);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empty_line) {
+
+        struct link_info {
+                uint64_t scopes_mask;
+                char *llmnr;
+                char *mdns;
+                char *dnssec;
+                char **dns;
+                char **domains;
+                char **ntas;
+                int dnssec_supported;
+        } link_info = {};
+
+        static const struct bus_properties_map property_map[] = {
+                { "ScopesMask",                 "t",      NULL,                 offsetof(struct link_info, scopes_mask)      },
+                { "DNS",                        "a(iay)", map_link_dns_servers, offsetof(struct link_info, dns)              },
+                { "Domains",                    "a(sb)",  map_link_domains,     offsetof(struct link_info, domains)          },
+                { "LLMNR",                      "s",      NULL,                 offsetof(struct link_info, llmnr)            },
+                { "MulticastDNS",               "s",      NULL,                 offsetof(struct link_info, mdns)             },
+                { "DNSSEC",                     "s",      NULL,                 offsetof(struct link_info, dnssec)           },
+                { "DNSSECNegativeTrustAnchors", "as",     NULL,                 offsetof(struct link_info, ntas)             },
+                { "DNSSECSupported",            "b",      NULL,                 offsetof(struct link_info, dnssec_supported) },
+                {}
+        };
+
+        _cleanup_free_ char *ifi = NULL, *p = NULL;
+        char ifname[IF_NAMESIZE] = "";
+        char **i;
+        int r;
+
+        assert(bus);
+        assert(ifindex > 0);
+        assert(empty_line);
+
+        if (!name) {
+                if (!if_indextoname(ifindex, ifname))
+                        return log_error_errno(errno, "Failed to resolve interface name for %i: %m", ifindex);
+
+                name = ifname;
+        }
+
+        if (asprintf(&ifi, "%i", ifindex) < 0)
+                return log_oom();
+
+        r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifi, &p);
+        if (r < 0)
+                return log_oom();
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.resolve1",
+                                   p,
+                                   property_map,
+                                   &link_info);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get link data for %i: %m", ifindex);
+                goto finish;
+        }
+
+        pager_open(arg_no_pager, false);
+
+        if (*empty_line)
+                fputc('\n', stdout);
+
+        printf("%sLink %i (%s)%s\n",
+               ansi_highlight(), ifindex, name, ansi_normal());
+
+        if (link_info.scopes_mask == 0)
+                printf("      Current Scopes: none\n");
+        else
+                printf("      Current Scopes:%s%s%s%s%s\n",
+                       link_info.scopes_mask & SD_RESOLVED_DNS ? " DNS" : "",
+                       link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
+                       link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "",
+                       link_info.scopes_mask & SD_RESOLVED_MDNS_IPV4 ? " mDNS/IPv4" : "",
+                       link_info.scopes_mask & SD_RESOLVED_MDNS_IPV6 ? " mDNS/IPv6" : "");
+
+        printf("       LLMNR setting: %s\n"
+               "MulticastDNS setting: %s\n"
+               "      DNSSEC setting: %s\n"
+               "    DNSSEC supported: %s\n",
+               strna(link_info.llmnr),
+               strna(link_info.mdns),
+               strna(link_info.dnssec),
+               yes_no(link_info.dnssec_supported));
+
+        STRV_FOREACH(i, link_info.dns) {
+                printf("          %s %s\n",
+                       i == link_info.dns ? "DNS Server:" : "           ",
+                       *i);
+        }
+
+        STRV_FOREACH(i, link_info.domains) {
+                printf("          %s %s\n",
+                       i == link_info.domains ? "DNS Domain:" : "           ",
+                       *i);
+        }
+
+        STRV_FOREACH(i, link_info.ntas) {
+                printf("          %s %s\n",
+                       i == link_info.ntas ? "DNSSEC NTA:" : "           ",
+                       *i);
+        }
+
+        *empty_line = true;
+
+        r = 0;
+
+finish:
+        strv_free(link_info.dns);
+        strv_free(link_info.domains);
+        free(link_info.llmnr);
+        free(link_info.mdns);
+        free(link_info.dnssec);
+        strv_free(link_info.ntas);
+        return r;
+}
+
+static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        char ***l = userdata;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+        assert(l);
+
+        r = sd_bus_message_enter_container(m, 'a', "(iiay)");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const void *a;
+                char *pretty;
+                int family, ifindex;
+                size_t sz;
+
+                r = sd_bus_message_enter_container(m, 'r', "iiay");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(m, "ii", &ifindex, &family);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_array(m, 'y', &a, &sz);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return r;
+
+                if (ifindex != 0) /* only show the global ones here */
+                        continue;
+
+                if (!IN_SET(family, AF_INET, AF_INET6)) {
+                        log_debug("Unexpected family, ignoring.");
+                        continue;
+                }
+
+                if (sz != FAMILY_ADDRESS_SIZE(family)) {
+                        log_debug("Address size mismatch, ignoring.");
+                        continue;
+                }
+
+                r = in_addr_to_string(family, a, &pretty);
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(l, pretty);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        char ***l = userdata;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+        assert(l);
+
+        r = sd_bus_message_enter_container(m, 'a', "(isb)");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *domain;
+                int route_only, ifindex;
+                char *pretty;
+
+                r = sd_bus_message_read(m, "(isb)", &ifindex, &domain, &route_only);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (ifindex != 0) /* only show the global ones here */
+                        continue;
+
+                if (route_only)
+                        pretty = strappend("~", domain);
+                else
+                        pretty = strdup(domain);
+                if (!pretty)
+                        return -ENOMEM;
+
+                r = strv_consume(l, pretty);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int status_global(sd_bus *bus, bool *empty_line) {
+
+        struct global_info {
+                char **dns;
+                char **domains;
+                char **ntas;
+        } global_info = {};
+
+        static const struct bus_properties_map property_map[] = {
+                { "DNS",                        "a(iiay)", map_global_dns_servers, offsetof(struct global_info, dns)     },
+                { "Domains",                    "a(isb)",  map_global_domains,     offsetof(struct global_info, domains) },
+                { "DNSSECNegativeTrustAnchors", "as",      NULL,                   offsetof(struct global_info, ntas)    },
+                {}
+        };
+
+        char **i;
+        int r;
+
+        assert(bus);
+        assert(empty_line);
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.resolve1",
+                                   "/org/freedesktop/resolve1",
+                                   property_map,
+                                   &global_info);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get global data: %m");
+                goto finish;
+        }
+
+        if (strv_isempty(global_info.dns) && strv_isempty(global_info.domains) && strv_isempty(global_info.ntas)) {
+                r = 0;
+                goto finish;
+        }
+
+        pager_open(arg_no_pager, false);
+
+        printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
+        STRV_FOREACH(i, global_info.dns) {
+                printf("          %s %s\n",
+                       i == global_info.dns ? "DNS Server:" : "           ",
+                       *i);
+        }
+
+        STRV_FOREACH(i, global_info.domains) {
+                printf("          %s %s\n",
+                       i == global_info.domains ? "DNS Domain:" : "           ",
+                       *i);
+        }
+
+        strv_sort(global_info.ntas);
+        STRV_FOREACH(i, global_info.ntas) {
+                printf("          %s %s\n",
+                       i == global_info.ntas ? "DNSSEC NTA:" : "           ",
+                       *i);
+        }
+
+        *empty_line = true;
+
+        r = 0;
+
+finish:
+        strv_free(global_info.dns);
+        strv_free(global_info.domains);
+        strv_free(global_info.ntas);
+
+        return r;
+}
+
+static int status_all(sd_bus *bus) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        sd_netlink_message *i;
+        bool empty_line = true;
+        int r;
+
+        assert(bus);
+
+        r = status_global(bus, &empty_line);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_netlink_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate links: %m");
+
+        r = 0;
+        for (i = reply; i; i = sd_netlink_message_next(i)) {
+                const char *name;
+                int ifindex, q;
+                uint16_t type;
+
+                q = sd_netlink_message_get_type(i, &type);
+                if (q < 0)
+                        return rtnl_log_parse_error(q);
+
+                if (type != RTM_NEWLINK)
+                        continue;
+
+                q = sd_rtnl_message_link_get_ifindex(i, &ifindex);
+                if (q < 0)
+                        return rtnl_log_parse_error(q);
+
+                if (ifindex == LOOPBACK_IFINDEX)
+                        continue;
+
+                q = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
+                if (q < 0)
+                        return rtnl_log_parse_error(q);
+
+                q = status_ifindex(bus, ifindex, name, &empty_line);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
+
+        return r;
+}
+
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
@@ -1038,8 +1510,8 @@ static void help_protocol_types(void) {
 }
 
 static void help_dns_types(void) {
-        int i;
         const char *t;
+        int i;
 
         if (arg_legend)
                 puts("Known DNS RR types:");
@@ -1051,8 +1523,8 @@ static void help_dns_types(void) {
 }
 
 static void help_dns_classes(void) {
-        int i;
         const char *t;
+        int i;
 
         if (arg_legend)
                 puts("Known DNS RR classes:");
@@ -1073,6 +1545,7 @@ static void help(void) {
                "Resolve domain names, IPv4 and IPv6 addresses, DNS resource records, and services.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
+               "     --no-pager             Do not pipe output into a pager\n"
                "  -4                        Resolve IPv4 addresses\n"
                "  -6                        Resolve IPv6 addresses\n"
                "  -i --interface=INTERFACE  Look on interface\n"
@@ -1091,6 +1564,7 @@ static void help(void) {
                "     --legend=BOOL          Print headers and additional info (default: yes)\n"
                "     --statistics           Show resolver statistics\n"
                "     --reset-statistics     Reset resolver statistics\n"
+               "     --status               Show link and server status\n"
                "     --flush-caches         Flush all local DNS caches\n"
                , program_invocation_short_name);
 }
@@ -1109,7 +1583,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SEARCH,
                 ARG_STATISTICS,
                 ARG_RESET_STATISTICS,
+                ARG_STATUS,
                 ARG_FLUSH_CACHES,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -1130,7 +1606,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "search",           required_argument, NULL, ARG_SEARCH           },
                 { "statistics",       no_argument,       NULL, ARG_STATISTICS,      },
                 { "reset-statistics", no_argument,       NULL, ARG_RESET_STATISTICS },
+                { "status",           no_argument,       NULL, ARG_STATUS           },
                 { "flush-caches",     no_argument,       NULL, ARG_FLUSH_CACHES     },
+                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER         },
                 {}
         };
 
@@ -1306,6 +1784,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FLUSH_CACHES:
                         arg_mode = MODE_FLUSH_CACHES;
+                        break;
+
+                case ARG_STATUS:
+                        arg_mode = MODE_STATUS;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case '?':
@@ -1484,8 +1970,38 @@ int main(int argc, char **argv) {
 
                 r = flush_caches(bus);
                 break;
+
+        case MODE_STATUS:
+
+                if (argc > optind) {
+                        char **ifname;
+                        bool empty_line = false;
+
+                        r = 0;
+                        STRV_FOREACH(ifname, argv + optind) {
+                                int ifindex, q;
+
+                                q = parse_ifindex(argv[optind], &ifindex);
+                                if (q < 0) {
+                                        ifindex = if_nametoindex(argv[optind]);
+                                        if (ifindex <= 0) {
+                                                log_error_errno(errno, "Failed to resolve interface name: %s", argv[optind]);
+                                                continue;
+                                        }
+                                }
+
+                                q = status_ifindex(bus, ifindex, NULL, &empty_line);
+                                if (q < 0 && r >= 0)
+                                        r = q;
+                        }
+                } else
+                        r = status_all(bus);
+
+                break;
         }
 
 finish:
+        pager_close();
+
         return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
