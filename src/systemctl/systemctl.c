@@ -588,7 +588,8 @@ static int get_unit_list(
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+        if (r < 0 && (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD) ||
+                      sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED))) {
                 /* Fallback to legacy ListUnitsFiltered method */
                 fallback = true;
                 log_debug_errno(r, "Failed to list units: %s Falling back to ListUnitsFiltered method.", bus_error_message(&error, r));
@@ -734,11 +735,11 @@ static int list_units(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        pager_open(arg_no_pager, false);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        pager_open(arg_no_pager, false);
 
         r = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (r < 0)
@@ -946,11 +947,11 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
         int r = 0, n;
         sd_bus *bus;
 
-        pager_open(arg_no_pager, false);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        pager_open(arg_no_pager, false);
 
         n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1253,11 +1254,11 @@ static int list_timers(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r = 0;
 
-        pager_open(arg_no_pager, false);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        pager_open(arg_no_pager, false);
 
         n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1424,8 +1425,6 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
         int r;
         bool fallback = false;
 
-        pager_open(arg_no_pager, false);
-
         if (install_client_side()) {
                 Hashmap *h;
                 UnitFileList *u;
@@ -1539,6 +1538,8 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
+
+        pager_open(arg_no_pager, false);
 
         qsort_safe(units, c, sizeof(UnitFileList), compare_unit_file_list);
         output_unit_file_list(units, c);
@@ -1788,11 +1789,11 @@ static int list_dependencies(int argc, char *argv[], void *userdata) {
         } else
                 u = SPECIAL_DEFAULT_TARGET;
 
-        pager_open(arg_no_pager, false);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        pager_open(arg_no_pager, false);
 
         puts(u);
 
@@ -2019,8 +2020,6 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 return -EPERM;
         }
 
-        pager_open(arg_no_pager, false);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -2028,6 +2027,8 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         r = get_machine_list(bus, &machine_infos, strv_skip(argv, 1));
         if (r < 0)
                 return r;
+
+        pager_open(arg_no_pager, false);
 
         qsort_safe(machine_infos, r, sizeof(struct machine_info), compare_machine_info);
         output_machines_list(machine_infos, r);
@@ -2232,8 +2233,6 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         int r;
         bool skipped = false;
 
-        pager_open(arg_no_pager, false);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -2274,6 +2273,8 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        pager_open(arg_no_pager, false);
+
         output_jobs_list(jobs, c, skipped);
         return 0;
 }
@@ -2286,11 +2287,11 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
         if (argc <= 1)
                 return trivial_method(argc, argv, userdata);
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         STRV_FOREACH(name, strv_skip(argv, 1)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2827,12 +2828,12 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         char **name;
         int r = 0;
 
-        ask_password_agent_open_if_enabled();
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        ask_password_agent_open_if_enabled();
+        polkit_agent_open_if_enabled();
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 enum action action;
@@ -2953,9 +2954,6 @@ static int logind_reboot(enum action a) {
         sd_bus *bus;
         int r;
 
-        polkit_agent_open_if_enabled();
-        (void) logind_set_wall_message();
-
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
@@ -2990,6 +2988,9 @@ static int logind_reboot(enum action a) {
         default:
                 return -EINVAL;
         }
+
+        polkit_agent_open_if_enabled();
+        (void) logind_set_wall_message();
 
         r = sd_bus_call_method(
                         bus,
@@ -3337,11 +3338,11 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r, q;
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
@@ -4854,6 +4855,10 @@ static int show(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
         pager_open(arg_no_pager, false);
 
         if (show_status)
@@ -4862,17 +4867,12 @@ static int show(int argc, char *argv[], void *userdata) {
                  * be split up into many files. */
                 setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
-
         /* If no argument is specified inspect the manager itself */
         if (show_properties && argc <= 1)
                 return show_one(argv[0], bus, "/org/freedesktop/systemd1", NULL, show_properties, &new_line, &ellipsized);
 
         if (show_status && argc <= 1) {
 
-                pager_open(arg_no_pager, false);
                 show_system_status(bus);
                 new_line = true;
 
@@ -5029,11 +5029,11 @@ static int set_property(int argc, char *argv[], void *userdata) {
         char **i;
         int r;
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -5081,11 +5081,11 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         switch (arg_action) {
 
@@ -5141,11 +5141,11 @@ static int trivial_method(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         method =
                 streq(argv[0], "clear-jobs")    ||
@@ -5184,11 +5184,11 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
         if (argc <= 1)
                 return trivial_method(argc, argv, userdata);
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
         if (r < 0)
@@ -5223,11 +5223,11 @@ static int show_environment(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        pager_open(arg_no_pager, false);
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        pager_open(arg_no_pager, false);
 
         r = sd_bus_get_property(
                         bus,
@@ -5332,11 +5332,11 @@ static int set_environment(int argc, char *argv[], void *userdata) {
         assert(argc > 1);
         assert(argv);
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         method = streq(argv[0], "set-environment")
                 ? "SetEnvironment"
@@ -5369,11 +5369,11 @@ static int import_environment(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        polkit_agent_open_if_enabled();
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
+
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -5666,11 +5666,11 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 const char *method;
                 sd_bus *bus;
 
-                polkit_agent_open_if_enabled();
-
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
                         return r;
+
+                polkit_agent_open_if_enabled();
 
                 if (streq(verb, "enable")) {
                         method = "EnableUnitFiles";
@@ -5832,11 +5832,11 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
-                polkit_agent_open_if_enabled();
-
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
                         return r;
+
+                polkit_agent_open_if_enabled();
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -5894,11 +5894,11 @@ static int preset_all(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
-                polkit_agent_open_if_enabled();
-
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
                         return r;
+
+                polkit_agent_open_if_enabled();
 
                 r = sd_bus_call_method(
                                 bus,
@@ -7720,8 +7720,6 @@ static int logind_schedule_shutdown(void) {
         sd_bus *bus;
         int r;
 
-        (void) logind_set_wall_message();
-
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
@@ -7747,6 +7745,8 @@ static int logind_schedule_shutdown(void) {
 
         if (arg_dry)
                 action = strjoina("dry-", action);
+
+        (void) logind_set_wall_message();
 
         r = sd_bus_call_method(
                         bus,
