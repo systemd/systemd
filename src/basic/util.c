@@ -36,6 +36,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "cgroup-util.h"
 #include "def.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -771,15 +772,64 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 }
 
 uint64_t physical_memory(void) {
-        long mem;
+        _cleanup_free_ char *root = NULL, *value = NULL;
+        uint64_t mem, lim;
+        size_t ps;
+        long sc;
 
-        /* We return this as uint64_t in case we are running as 32bit
-         * process on a 64bit kernel with huge amounts of memory */
+        /* We return this as uint64_t in case we are running as 32bit process on a 64bit kernel with huge amounts of
+         * memory.
+         *
+         * In order to support containers nicely that have a configured memory limit we'll take the minimum of the
+         * physically reported amount of memory and the limit configured for the root cgroup, if there is any. */
 
-        mem = sysconf(_SC_PHYS_PAGES);
-        assert(mem > 0);
+        sc = sysconf(_SC_PHYS_PAGES);
+        assert(sc > 0);
 
-        return (uint64_t) mem * (uint64_t) page_size();
+        ps = page_size();
+        mem = (uint64_t) sc * (uint64_t) ps;
+
+        if (cg_get_root_path(&root) < 0)
+                return mem;
+
+        if (cg_get_attribute("memory", root, "memory.limit_in_bytes", &value))
+                return mem;
+
+        if (safe_atou64(value, &lim) < 0)
+                return mem;
+
+        /* Make sure the limit is a multiple of our own page size */
+        lim /= ps;
+        lim *= ps;
+
+        return MIN(mem, lim);
+}
+
+uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
+        uint64_t p, m, ps, r;
+
+        assert(max > 0);
+
+        /* Returns the physical memory size, multiplied by v divided by max. Returns UINT64_MAX on overflow. On success
+         * the result is a multiple of the page size (rounds down). */
+
+        ps = page_size();
+        assert(ps > 0);
+
+        p = physical_memory() / ps;
+        assert(p > 0);
+
+        m = p * v;
+        if (m / p != v)
+                return UINT64_MAX;
+
+        m /= max;
+
+        r = m * ps;
+        if (r / ps != m)
+                return UINT64_MAX;
+
+        return r;
 }
 
 int update_reboot_parameter_and_warn(const char *param) {

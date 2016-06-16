@@ -843,7 +843,6 @@ int config_parse_tmpfs_size(
                 void *userdata) {
 
         size_t *sz = data;
-        const char *e;
         int r;
 
         assert(filename);
@@ -851,29 +850,17 @@ int config_parse_tmpfs_size(
         assert(rvalue);
         assert(data);
 
-        e = endswith(rvalue, "%");
-        if (e) {
-                unsigned long ul;
-                char *f;
-
-                errno = 0;
-                ul = strtoul(rvalue, &f, 10);
-                if (errno > 0 || f != e) {
-                        log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse percentage value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                if (ul <= 0 || ul >= 100) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Percentage value out of range, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                *sz = PAGE_ALIGN((size_t) ((physical_memory() * (uint64_t) ul) / (uint64_t) 100));
-        } else {
+        /* First, try to parse as percentage */
+        r = parse_percent(rvalue);
+        if (r > 0 && r < 100)
+                *sz = physical_memory_scale(r, 100U);
+        else {
                 uint64_t k;
 
+                /* If the passed argument was not a percentage, or out of range, parse as byte size */
+
                 r = parse_size(rvalue, 1024, &k);
-                if (r < 0 || (uint64_t) (size_t) k != k) {
+                if (r < 0 || k <= 0 || (uint64_t) (size_t) k != k) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
                         return 0;
                 }

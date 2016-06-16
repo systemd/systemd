@@ -3375,7 +3375,7 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
                 return -EINVAL;
 
         wrapped = strjoina("# This is a drop-in unit file extension, created via \"systemctl set-property\"\n"
-                           "or an equivalent operation. Do not edit.\n",
+                           "# or an equivalent operation. Do not edit.\n",
                            data,
                            "\n");
 

@@ -2774,7 +2774,7 @@ int config_parse_cpu_quota(
                 void *userdata) {
 
         CGroupContext *c = data;
-        double percent;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -2785,18 +2785,13 @@ int config_parse_cpu_quota(
                 return 0;
         }
 
-        if (!endswith(rvalue, "%")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "CPU quota '%s' not ending in '%%'. Ignoring.", rvalue);
+        r = parse_percent(rvalue);
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "CPU quota '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
-        if (sscanf(rvalue, "%lf%%", &percent) != 1 || percent <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "CPU quota '%s' invalid. Ignoring.", rvalue);
-                return 0;
-        }
-
-        c->cpu_quota_per_sec_usec = (usec_t) (percent * USEC_PER_SEC / 100);
-
+        c->cpu_quota_per_sec_usec = ((usec_t) r * USEC_PER_SEC) / 100U;
         return 0;
 }
 
@@ -2817,9 +2812,19 @@ int config_parse_memory_limit(
         int r;
 
         if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
-                r = parse_size(rvalue, 1024, &bytes);
-                if (r < 0 || bytes < 1) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Memory limit '%s' invalid. Ignoring.", rvalue);
+
+                r = parse_percent(rvalue);
+                if (r < 0) {
+                        r = parse_size(rvalue, 1024, &bytes);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Memory limit '%s' invalid. Ignoring.", rvalue);
+                                return 0;
+                        }
+                } else
+                        bytes = physical_memory_scale(r, 100U);
+
+                if (bytes < 1) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Memory limit '%s' too small. Ignoring.", rvalue);
                         return 0;
                 }
         }

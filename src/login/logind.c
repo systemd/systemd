@@ -61,7 +61,7 @@ static void manager_reset_config(Manager *m) {
         m->idle_action_usec = 30 * USEC_PER_MINUTE;
         m->idle_action = HANDLE_IGNORE;
 
-        m->runtime_dir_size = PAGE_ALIGN((size_t) (physical_memory() / 10)); /* 10% */
+        m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
         m->user_tasks_max = 12288;
         m->sessions_max = 8192;
         m->inhibitors_max = 8192;

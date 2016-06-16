@@ -92,16 +92,14 @@
   <refsect1>
     <title>Automatic Dependencies</title>
 
-    <para>Units with the <varname>Slice=</varname> setting set get
-    automatic <varname>Requires=</varname> and
-    <varname>After=</varname> dependencies on the specified slice
-    unit.</para>
+    <para>Units with the <varname>Slice=</varname> setting set automatically acquire <varname>Requires=</varname> and
+    <varname>After=</varname> dependencies on the specified slice unit.</para>
   </refsect1>
 
   <refsect1>
     <title>Unified and Legacy Control Group Hierarchies</title>
 
-    <para>Unified control group hierarchy is the new version of kernel control group interface. Depending on the
+    <para>The unified control group hierarchy is the new version of kernel control group interface. Depending on the
     resource type, there are differences in resource control capabilities.  Also, because of interface changes, some
     resource types have a separate set of options on the unified hierarchy.</para>
 
@@ -117,8 +115,8 @@
         <varlistentry>
           <term><option>Memory</option></term>
           <listitem>
-            <para><varname>MemoryMax</varname> replaces <varname>MemoryLimit</varname>. <varname>MemoryLow</varname>
-            and <varname>MemoryHigh</varname> are effective only on unified hierarchy.</para>
+            <para><varname>MemoryMax=</varname> replaces <varname>MemoryLimit=</varname>. <varname>MemoryLow=</varname>
+            and <varname>MemoryHigh=</varname> are effective only on unified hierarchy.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -228,9 +226,11 @@
           reclaimed as long as memory can be reclaimed from unprotected units.</para>
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. This controls the
-          <literal>memory.low</literal> control group attribute. For details about this control group attribute, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          percentage value may be specified, which is taken relative to the installed physical memory on the
+          system. This controls the <literal>memory.low</literal> control group attribute. For details about this
+          control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
           <para>Implies <literal>MemoryAccounting=true</literal>.</para>
 
@@ -247,7 +247,9 @@
           aggressively in such cases. This is the main mechanism to control memory usage of a unit.</para>
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          percentage value may be specified, which is taken relative to the installed physical memory on the
+          system. If assigned the
           special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
@@ -268,8 +270,9 @@
           last line of defense.</para>
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
-          special value <literal>infinity</literal>, no memory limit is applied. This controls the
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          percentage value may be specified, which is taken relative to the installed physical memory on the system. If
+          assigned the special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
@@ -284,17 +287,14 @@
         <term><varname>MemoryLimit=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
-          <para>Specify the limit on maximum memory usage of the
-          executed processes. The limit specifies how much process and
-          kernel memory can be used by tasks in this unit. Takes a
-          memory size in bytes. If the value is suffixed with K, M, G
-          or T, the specified memory size is parsed as Kilobytes,
-          Megabytes, Gigabytes, or Terabytes (with the base 1024),
-          respectively. If assigned the special value
-          <literal>infinity</literal>, no memory limit is applied. This
-          controls the <literal>memory.limit_in_bytes</literal>
-          control group attribute. For details about this control
-          group attribute, see <ulink
+          <para>Specify the limit on maximum memory usage of the executed processes. The limit specifies how much
+          process and kernel memory can be used by tasks in this unit. Takes a memory size in bytes. If the value is
+          suffixed with K, M, G or T, the specified memory size is parsed as Kilobytes, Megabytes, Gigabytes, or
+          Terabytes (with the base 1024), respectively. Alternatively, a percentage value may be specified, which is
+          taken relative to the installed physical memory on the system. If assigned the special value
+          <literal>infinity</literal>, no memory limit is applied. This controls the
+          <literal>memory.limit_in_bytes</literal> control group attribute. For details about this control group
+          attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>.</para>
 
           <para>Implies <literal>MemoryAccounting=true</literal>.</para>

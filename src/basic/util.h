@@ -184,6 +184,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
 uint64_t physical_memory(void);
+uint64_t physical_memory_scale(uint64_t v, uint64_t max);
 
 int update_reboot_parameter_and_warn(const char *param);
 

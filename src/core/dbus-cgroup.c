@@ -641,7 +641,7 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth")) {
+        } else if (STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
                 const char *path;
                 bool read = true;
                 unsigned n = 0;
@@ -835,6 +835,8 @@ int bus_cgroup_set_property(
                 r = sd_bus_message_read(message, "t", &v);
                 if (r < 0)
                         return r;
+                if (v <= 0)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is too small", name);
 
                 if (mode != UNIT_CHECK) {
                         if (streq(name, "MemoryLow"))
@@ -847,9 +849,41 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
 
                         if (v == CGROUP_LIMIT_MAX)
-                                unit_write_drop_in_private_format(u, mode, name, "%s=max", name);
+                                unit_write_drop_in_private_format(u, mode, name, "%s=infinity", name);
                         else
                                 unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, v);
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "MemoryLowByPhysicalMemory", "MemoryHighByPhysicalMemory", "MemoryMaxByPhysicalMemory")) {
+                uint32_t raw;
+                uint64_t v;
+
+                r = sd_bus_message_read(message, "u", &raw);
+                if (r < 0)
+                        return r;
+
+                v = physical_memory_scale(raw, UINT32_MAX);
+                if (v <= 0 || v == UINT64_MAX)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is out of range", name);
+
+                if (mode != UNIT_CHECK) {
+                        const char *e;
+
+                        /* Chop off suffix */
+                        assert_se(e = endswith(name, "ByPhysicalMemory"));
+                        name = strndupa(name, e - name);
+
+                        if (streq(name, "MemoryLow"))
+                                c->memory_low = v;
+                        else if (streq(name, "MemoryHigh"))
+                                c->memory_high = v;
+                        else
+                                c->memory_max = v;
+
+                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu32 "%%", name, (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100, (uint64_t) UINT32_MAX)));
                 }
 
                 return 1;
@@ -860,6 +894,8 @@ int bus_cgroup_set_property(
                 r = sd_bus_message_read(message, "t", &limit);
                 if (r < 0)
                         return r;
+                if (limit <= 0)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is too small", name);
 
                 if (mode != UNIT_CHECK) {
                         c->memory_limit = limit;
@@ -869,6 +905,26 @@ int bus_cgroup_set_property(
                                 unit_write_drop_in_private(u, mode, name, "MemoryLimit=infinity");
                         else
                                 unit_write_drop_in_private_format(u, mode, name, "MemoryLimit=%" PRIu64, limit);
+                }
+
+                return 1;
+
+        } else if (streq(name, "MemoryLimitByPhysicalMemory")) {
+                uint64_t limit;
+                uint32_t raw;
+
+                r = sd_bus_message_read(message, "u", &raw);
+                if (r < 0)
+                        return r;
+
+                limit = physical_memory_scale(raw, UINT32_MAX);
+                if (limit <= 0 || limit == UINT64_MAX)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is out of range", name);
+
+                if (mode != UNIT_CHECK) {
+                        c->memory_limit = limit;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
+                        unit_write_drop_in_private_format(u, mode, "MemoryLimit", "MemoryLimit=%" PRIu32 "%%", (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100, (uint64_t) UINT32_MAX)));
                 }
 
                 return 1;
