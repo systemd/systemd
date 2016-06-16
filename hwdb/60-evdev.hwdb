@@ -127,6 +127,13 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLati
  EVDEV_ABS_35=76:1815:22
  EVDEV_ABS_36=131:1330:30
 
+# Dell Precision M4700
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnDellInc.:pnPrecisionM4700*
+ EVDEV_ABS_00=0:1960:24
+ EVDEV_ABS_01=113:1436:30
+ EVDEV_ABS_35=0:1960:24
+ EVDEV_ABS_36=113:1436:30
+
 # Dell XPS15 9550
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnXPS159550*
  EVDEV_ABS_00=::41
