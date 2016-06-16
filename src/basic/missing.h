@@ -837,6 +837,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #define IFLA_BRPORT_PROXYARP 10
 #endif
 
+#if !HAVE_DECL_IFLA_VRF_TABLE
+#define IFLA_VRF_TABLE 1
+#endif
+
 #if !HAVE_DECL_NDA_IFINDEX
 #define NDA_UNSPEC 0
 #define NDA_DST 1

@@ -37,6 +37,7 @@ Network.MACVTAP,                        config_parse_netdev,                    
 Network.IPVLAN,                         config_parse_netdev,                            0,                             0
 Network.VXLAN,                          config_parse_netdev,                            0,                             0
 Network.Tunnel,                         config_parse_tunnel,                            0,                             0
+Network.VRF,                            config_parse_netdev,                            0,                             0
 Network.DHCP,                           config_parse_dhcp,                              0,                             offsetof(Network, dhcp)
 Network.DHCPServer,                     config_parse_bool,                              0,                             offsetof(Network, dhcp_server)
 Network.LinkLocalAddressing,            config_parse_address_family_boolean,            0,                             offsetof(Network, link_local)

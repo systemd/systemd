@@ -278,6 +278,10 @@ static const NLType rtnl_link_info_data_ip6tnl_types[] = {
         [IFLA_IPTUN_FLOWINFO]            = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_link_info_data_vrf_types[] = {
+        [IFLA_VRF_TABLE]                 = { .type = NETLINK_TYPE_U32 },
+};
+
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
@@ -298,6 +302,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] = "vti",
         [NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL] = "vti6",
         [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] = "ip6tnl",
+        [NL_UNION_LINK_INFO_DATA_VRF] = "vrf",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -337,6 +342,9 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
                                                   .types = rtnl_link_info_data_ipvti_types },
         [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types),
                                                      .types = rtnl_link_info_data_ip6tnl_types },
+
+        [NL_UNION_LINK_INFO_DATA_VRF] =  { .count = ELEMENTSOF(rtnl_link_info_data_vrf_types),
+                                                     .types = rtnl_link_info_data_vrf_types },
 
 };
 
