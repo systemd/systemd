@@ -161,6 +161,8 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
                 if (len > 0)
                         r[len] = 0;
+                else
+                        r = mfree(r);
 
         } else {
                 bool dotdotdot = false;
@@ -214,7 +216,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         }
 
                         strncpy(k, "...", left-1);
-                        k[left] = 0;
+                        k[left-1] = 0;
                 } else
                         *k = 0;
         }
