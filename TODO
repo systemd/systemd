@@ -33,9 +33,6 @@ Janitorial Clean-ups:
 
 Features:
 
-* resolved: make sure when we get an ip address with ifindex suffix, we handle
-  it nicely
-
 * resolved: maybe add a switch to disable any local caching
 
 * ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
