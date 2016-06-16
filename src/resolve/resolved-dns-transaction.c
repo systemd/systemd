@@ -404,7 +404,11 @@ static void dns_transaction_retry(DnsTransaction *t) {
 }
 
 static int dns_transaction_maybe_restart(DnsTransaction *t) {
+        int r;
+
         assert(t);
+
+        /* Returns > 0 if the transaction was restarted, 0 if not */
 
         if (!t->server)
                 return 0;
@@ -420,7 +424,12 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
 
         log_debug("Server feature level is now lower than when we began our transaction. Restarting with new ID.");
         dns_transaction_shuffle_id(t);
-        return dns_transaction_go(t);
+
+        r = dns_transaction_go(t);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 static int on_stream_complete(DnsStream *s, int error) {
@@ -1420,6 +1429,9 @@ int dns_transaction_go(DnsTransaction *t) {
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
+
+        /* Returns > 0 if the transaction is now pending, returns 0 if could be processed immediately and has finished
+         * now. */
 
         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
