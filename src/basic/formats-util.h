@@ -61,3 +61,19 @@
 #else
 #  error Unknown rlim_t size
 #endif
+
+#if SIZEOF_DEV_T == 8
+#  define DEV_FMT "%" PRIu64
+#elif SIZEOF_DEV_T == 4
+#  define DEV_FMT "%" PRIu32
+#else
+#  error Unknown dev_t size
+#endif
+
+#if SIZEOF_INO_T == 8
+#  define INO_FMT "%" PRIu64
+#elif SIZEOF_INO_T == 4
+#  define INO_FMT "%" PRIu32
+#else
+#  error Unknown ino_t size
+#endif

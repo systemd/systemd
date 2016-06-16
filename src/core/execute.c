@@ -289,7 +289,15 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
         return r;
 }
 
-static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, const char *unit_id, int nfd, uid_t uid, gid_t gid) {
+static int connect_logger_as(
+                const ExecContext *context,
+                ExecOutput output,
+                const char *ident,
+                const char *unit_id,
+                int nfd,
+                uid_t uid,
+                gid_t gid) {
+
         int fd, r;
 
         assert(context);
@@ -310,7 +318,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 return -errno;
         }
 
-        fd_inc_sndbuf(fd, SNDBUF_SIZE);
+        (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         dprintf(fd,
                 "%s\n"
@@ -328,11 +336,11 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 output == EXEC_OUTPUT_KMSG || output == EXEC_OUTPUT_KMSG_AND_CONSOLE,
                 is_terminal_output(output));
 
-        if (fd != nfd) {
-                r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                safe_close(fd);
-        } else
-                r = nfd;
+        if (fd == nfd)
+                return nfd;
+
+        r = dup2(fd, nfd) < 0 ? -errno : nfd;
+        safe_close(fd);
 
         return r;
 }
@@ -446,7 +454,10 @@ static int setup_output(
                 int fileno,
                 int socket_fd,
                 const char *ident,
-                uid_t uid, gid_t gid) {
+                uid_t uid,
+                gid_t gid,
+                dev_t *journal_stream_dev,
+                ino_t *journal_stream_ino) {
 
         ExecOutput o;
         ExecInput i;
@@ -456,6 +467,8 @@ static int setup_output(
         assert(context);
         assert(params);
         assert(ident);
+        assert(journal_stream_dev);
+        assert(journal_stream_ino);
 
         if (fileno == STDOUT_FILENO && params->stdout_fd >= 0) {
 
@@ -535,6 +548,17 @@ static int setup_output(
                 if (r < 0) {
                         log_unit_error_errno(unit, r, "Failed to connect %s to the journal socket, ignoring: %m", fileno == STDOUT_FILENO ? "stdout" : "stderr");
                         r = open_null_as(O_WRONLY, fileno);
+                } else {
+                        struct stat st;
+
+                        /* If we connected this fd to the journal via a stream, patch the device/inode into the passed
+                         * parameters, but only then. This is useful so that we can set $JOURNAL_STREAM that permits
+                         * services to detect whether they are connected to the journal or not. */
+
+                        if (fstat(fileno, &st) >= 0) {
+                                *journal_stream_dev = st.st_dev;
+                                *journal_stream_ino = st.st_ino;
+                        }
                 }
                 return r;
 
@@ -1278,6 +1302,8 @@ static int build_environment(
                 const char *home,
                 const char *username,
                 const char *shell,
+                dev_t journal_stream_dev,
+                ino_t journal_stream_ino,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -1287,7 +1313,7 @@ static int build_environment(
         assert(c);
         assert(ret);
 
-        our_env = new0(char*, 11);
+        our_env = new0(char*, 12);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1359,8 +1385,15 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
+        if (journal_stream_dev != 0 && journal_stream_ino != 0) {
+                if (asprintf(&x, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino) < 0)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
         our_env[n_env++] = NULL;
-        assert(n_env <= 11);
+        assert(n_env <= 12);
 
         *ret = our_env;
         our_env = NULL;
@@ -1473,10 +1506,12 @@ static int exec_child(
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         const char *username = NULL, *home = NULL, *shell = NULL, *wd;
+        dev_t journal_stream_dev = 0;
+        ino_t journal_stream_ino = 0;
+        bool needs_mount_namespace;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r;
-        bool needs_mount_namespace;
 
         assert(unit);
         assert(command);
@@ -1576,13 +1611,13 @@ static int exec_child(
                 return r;
         }
 
-        r = setup_output(unit, context, params, STDOUT_FILENO, socket_fd, basename(command->path), uid, gid);
+        r = setup_output(unit, context, params, STDOUT_FILENO, socket_fd, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return r;
         }
 
-        r = setup_output(unit, context, params, STDERR_FILENO, socket_fd, basename(command->path), uid, gid);
+        r = setup_output(unit, context, params, STDERR_FILENO, socket_fd, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return r;
@@ -1721,7 +1756,16 @@ static int exec_child(
                 }
         }
 
-        r = build_environment(context, params, n_fds, home, username, shell, &our_env);
+        r = build_environment(
+                        context,
+                        params,
+                        n_fds,
+                        home,
+                        username,
+                        shell,
+                        journal_stream_dev,
+                        journal_stream_ino,
+                        &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
                 return r;
