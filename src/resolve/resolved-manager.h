@@ -72,7 +72,6 @@ struct Manager {
 
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
-        bool permit_domain_search;
 
         bool need_builtin_fallbacks:1;
 
