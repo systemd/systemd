@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/3166"
@@ -62,7 +62,7 @@ EOF
 
 
         cat >$initdir/test-fail-on-restart.sh <<'EOF'
-#!/bin/bash -x
+#!/bin/sh -x
 
 systemctl start fail-on-restart.service
 active_state=$(systemctl show --property ActiveState fail-on-restart.service)

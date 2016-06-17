@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
@@ -202,7 +202,7 @@ create_valgrind_wrapper() {
     local _valgrind_wrapper=$initdir/$ROOTLIBDIR/systemd-under-valgrind
     ddebug "Create $_valgrind_wrapper"
     cat >$_valgrind_wrapper <<EOF
-#!/bin/bash
+#!/bin/sh
 
 exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
 EOF
@@ -213,7 +213,7 @@ create_strace_wrapper() {
     local _strace_wrapper=$initdir/$ROOTLIBDIR/systemd-under-strace
     ddebug "Create $_strace_wrapper"
     cat >$_strace_wrapper <<EOF
-#!/bin/bash
+#!/bin/sh
 
 exec strace -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
 EOF
@@ -305,7 +305,7 @@ strip_binaries() {
 create_rc_local() {
     mkdir -p $initdir/etc/rc.d
     cat >$initdir/etc/rc.d/rc.local <<EOF
-#!/bin/bash
+#!/bin/sh
 exit 0
 EOF
     chmod 0755 $initdir/etc/rc.d/rc.local

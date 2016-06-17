@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 fd=0
 
 OPTIND=1

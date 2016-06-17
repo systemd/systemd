@@ -155,7 +155,7 @@
       after having set up its communication channel. During runtime it
       sends further status updates to the init system:</para>
 
-      <programlisting>#!/bin/bash
+      <programlisting>#!/bin/sh
 
 mkfifo /tmp/waldo
 systemd-notify --ready --status="Waiting for data..."
