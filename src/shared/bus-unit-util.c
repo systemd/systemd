@@ -1123,7 +1123,8 @@ static int dump_processes(
                 assert(n == cg->n_children);
                 qsort_safe(children, n, sizeof(struct CGroupInfo*), cgroup_info_compare_func);
 
-                n_columns = MAX(LESS_BY(n_columns, 2U), 20U);
+                if (n_columns != 0)
+                    n_columns = MAX(LESS_BY(n_columns, 2U), 20U);
 
                 for (i = 0; i < n; i++) {
                         _cleanup_free_ char *pp = NULL;
