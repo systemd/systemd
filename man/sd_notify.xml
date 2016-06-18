@@ -250,6 +250,15 @@
         restrictions, it is ignored.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term>WATCHDOG_USEC=...</term>
+
+        <listitem><para>Reset <varname>watchdog_usec</varname> value during runtime.
+        Notice that this is not available when using <function>sd_event_set_watchdog()</function>
+        or <function>sd_watchdog_enabled()</function>.
+        Example : <literal>WATCHDOG_USEC=20000000</literal></para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>It is recommended to prefix variable names that are not

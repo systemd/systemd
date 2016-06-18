@@ -120,6 +120,8 @@ struct Service {
 
         dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;
+        usec_t watchdog_override_usec;
+        bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
