@@ -497,8 +497,8 @@
           <para>These are targets that are called whenever the SysV
           compatibility code asks for runlevel 2, 3, 4, 5,
           respectively. It is a good idea to make this an alias for
-          (i.e. symlink to) <filename>multi-user.target</filename>
-          (for runlevel 2) or <filename>graphical.target</filename>
+          (i.e. symlink to) <filename>graphical.target</filename>
+          (for runlevel 5) or <filename>multi-user.target</filename>
           (the others).</para>
         </listitem>
       </varlistentry>
