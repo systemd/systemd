@@ -26,6 +26,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -163,6 +166,14 @@ static void test_get_process_cmdline_harder(void) {
 
         if (geteuid() != 0)
                 return;
+
+#ifdef HAVE_VALGRIND_VALGRIND_H
+        /* valgrind patches open(/proc//cmdline)
+         * so, test_get_process_cmdline_harder fails always
+         * See https://github.com/systemd/systemd/pull/3555#issuecomment-226564908 */
+        if (RUNNING_ON_VALGRIND)
+                return;
+#endif
 
         pid = fork();
         if (pid > 0) {
