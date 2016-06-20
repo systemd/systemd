@@ -1294,6 +1294,35 @@ static int bump_unix_max_dgram_qlen(void) {
         return 1;
 }
 
+static int fixup_environment(void) {
+        _cleanup_free_ char *term = NULL;
+        int r;
+
+        /* When started as PID1, the kernel uses /dev/console
+         * for our stdios and uses TERM=linux whatever the
+         * backend device used by the console. We try to make
+         * a better guess here since some consoles might not
+         * have support for color mode for example.
+         *
+         * However if TERM was configured through the kernel
+         * command line then leave it alone. */
+
+        r = get_proc_cmdline_key("TERM=", &term);
+        if (r < 0)
+                return r;
+
+        if (r == 0) {
+                term = strdup(default_term_for_tty("/dev/console") + 5);
+                if (!term)
+                        return -errno;
+        }
+
+        if (setenv("TERM", term, 1) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1479,6 +1508,14 @@ int main(int argc, char *argv[]) {
                 if (!skip_setup)
                         (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
         }
+
+        /* We expect the environment to be set correctly if run inside a
+         * container. */
+        if (arg_system && detect_container() <= 0)
+                if (fixup_environment() < 0) {
+                        error_message = "Failed to fix up PID1 environment";
+                        goto finish;
+                }
 
         /* Initialize default unit */
         r = free_and_strdup(&arg_default_unit, SPECIAL_DEFAULT_TARGET);
