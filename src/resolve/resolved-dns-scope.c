@@ -578,6 +578,7 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
 }
 
 int dns_scope_llmnr_membership(DnsScope *s, bool b) {
+        assert(s);
 
         if (s->protocol != DNS_PROTOCOL_LLMNR)
                 return 0;
@@ -586,6 +587,7 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
 }
 
 int dns_scope_mdns_membership(DnsScope *s, bool b) {
+        assert(s);
 
         if (s->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
@@ -604,7 +606,6 @@ static int dns_scope_make_reply_packet(
                 DnsPacket **ret) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        unsigned i;
         int r;
 
         assert(s);
@@ -631,35 +632,20 @@ static int dns_scope_make_reply_packet(
                                                               0 /* (cd) */,
                                                               rcode));
 
-        if (q) {
-                for (i = 0; i < q->n_keys; i++) {
-                        r = dns_packet_append_key(p, q->keys[i], NULL);
-                        if (r < 0)
-                                return r;
-                }
+        r = dns_packet_append_question(p, q);
+        if (r < 0)
+                return r;
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(dns_question_size(q));
 
-                DNS_PACKET_HEADER(p)->qdcount = htobe16(q->n_keys);
-        }
+        r = dns_packet_append_answer(p, answer);
+        if (r < 0)
+                return r;
+        DNS_PACKET_HEADER(p)->ancount = htobe16(dns_answer_size(answer));
 
-        if (answer) {
-                for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, answer->items[i].rr, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-                DNS_PACKET_HEADER(p)->ancount = htobe16(answer->n_rrs);
-        }
-
-        if (soa) {
-                for (i = 0; i < soa->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, soa->items[i].rr, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-                DNS_PACKET_HEADER(p)->arcount = htobe16(soa->n_rrs);
-        }
+        r = dns_packet_append_answer(p, soa);
+        if (r < 0)
+                return r;
+        DNS_PACKET_HEADER(p)->arcount = htobe16(dns_answer_size(soa));
 
         *ret = p;
         p = NULL;

@@ -791,6 +791,7 @@ int dns_packet_truncate_opt(DnsPacket *p) {
 }
 
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start) {
+
         size_t saved_size, rdlength_offset, end, rdlength, rds;
         int r;
 
@@ -1132,6 +1133,36 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 fail:
         dns_packet_truncate(p, saved_size);
         return r;
+}
+
+int dns_packet_append_question(DnsPacket *p, DnsQuestion *q) {
+        DnsResourceKey *key;
+        int r;
+
+        assert(p);
+
+        DNS_QUESTION_FOREACH(key, q) {
+                r = dns_packet_append_key(p, key, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(p);
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                r = dns_packet_append_rr(p, rr, NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {

@@ -183,6 +183,8 @@ int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compressio
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start);
 int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
+int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
+int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
 int dns_packet_truncate_opt(DnsPacket *p);
