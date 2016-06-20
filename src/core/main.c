@@ -1995,10 +1995,6 @@ finish:
                         args[i++] = sfd;
                         args[i++] = NULL;
 
-                        /* do not pass along the environment we inherit from the kernel or initrd */
-                        if (switch_root_dir)
-                                (void) clearenv();
-
                         assert(i <= args_size);
 
                         /*
