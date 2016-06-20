@@ -154,6 +154,7 @@ static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResource
                 goto gc;
         }
 
+        t->clamp_ttl = c->query->clamp_ttl;
         return 1;
 
 gc:
@@ -420,7 +421,8 @@ int dns_query_new(
                 DnsQuery **ret,
                 DnsQuestion *question_utf8,
                 DnsQuestion *question_idna,
-                int ifindex, uint64_t flags) {
+                int ifindex,
+                uint64_t flags) {
 
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         DnsResourceKey *key;

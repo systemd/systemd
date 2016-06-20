@@ -74,6 +74,8 @@ struct DnsTransaction {
         bool initial_jitter_scheduled:1;
         bool initial_jitter_elapsed:1;
 
+        bool clamp_ttl:1;
+
         DnsPacket *sent, *received;
 
         DnsAnswer *answer;

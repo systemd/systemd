@@ -1532,6 +1532,232 @@ const struct hash_ops dns_resource_record_hash_ops = {
         .compare = dns_resource_record_compare_func,
 };
 
+DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;
+        DnsResourceRecord *t;
+
+        assert(rr);
+
+        copy = dns_resource_record_new(rr->key);
+        if (!copy)
+                return NULL;
+
+        copy->ttl = rr->ttl;
+        copy->expiry = rr->expiry;
+        copy->n_skip_labels_signer = rr->n_skip_labels_signer;
+        copy->n_skip_labels_source = rr->n_skip_labels_source;
+        copy->unparseable = rr->unparseable;
+
+        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+
+        case DNS_TYPE_SRV:
+                copy->srv.priority = rr->srv.priority;
+                copy->srv.weight = rr->srv.weight;
+                copy->srv.port = rr->srv.port;
+                copy->srv.name = strdup(rr->srv.name);
+                if (!copy->srv.name)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME:
+                copy->ptr.name = strdup(rr->ptr.name);
+                if (!copy->ptr.name)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_HINFO:
+                copy->hinfo.cpu = strdup(rr->hinfo.cpu);
+                if (!copy->hinfo.cpu)
+                        return NULL;
+
+                copy->hinfo.os = strdup(rr->hinfo.os);
+                if(!copy->hinfo.os)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_TXT:
+        case DNS_TYPE_SPF:
+                copy->txt.items = dns_txt_item_copy(rr->txt.items);
+                if (!copy->txt.items)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_A:
+                copy->a = rr->a;
+                break;
+
+        case DNS_TYPE_AAAA:
+                copy->aaaa = rr->aaaa;
+                break;
+
+        case DNS_TYPE_SOA:
+                copy->soa.mname = strdup(rr->soa.mname);
+                if (!copy->soa.mname)
+                        return NULL;
+                copy->soa.rname = strdup(rr->soa.rname);
+                if (!copy->soa.rname)
+                        return NULL;
+                copy->soa.serial = rr->soa.serial;
+                copy->soa.refresh = rr->soa.refresh;
+                copy->soa.retry = rr->soa.retry;
+                copy->soa.expire = rr->soa.expire;
+                copy->soa.minimum = rr->soa.minimum;
+                break;
+
+        case DNS_TYPE_MX:
+                copy->mx.priority = rr->mx.priority;
+                copy->mx.exchange = strdup(rr->mx.exchange);
+                if (!copy->mx.exchange)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_LOC:
+                copy->loc = rr->loc;
+                break;
+
+        case DNS_TYPE_SSHFP:
+                copy->sshfp.algorithm = rr->sshfp.algorithm;
+                copy->sshfp.fptype = rr->sshfp.fptype;
+                copy->sshfp.fingerprint = memdup(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size);
+                if (!copy->sshfp.fingerprint)
+                        return NULL;
+                copy->sshfp.fingerprint_size = rr->sshfp.fingerprint_size;
+                break;
+
+        case DNS_TYPE_DNSKEY:
+                copy->dnskey.flags = rr->dnskey.flags;
+                copy->dnskey.protocol = rr->dnskey.protocol;
+                copy->dnskey.algorithm = rr->dnskey.algorithm;
+                copy->dnskey.key = memdup(rr->dnskey.key, rr->dnskey.key_size);
+                if (!copy->dnskey.key)
+                        return NULL;
+                copy->dnskey.key_size = rr->dnskey.key_size;
+                break;
+
+        case DNS_TYPE_RRSIG:
+                copy->rrsig.type_covered = rr->rrsig.type_covered;
+                copy->rrsig.algorithm = rr->rrsig.algorithm;
+                copy->rrsig.labels = rr->rrsig.labels;
+                copy->rrsig.original_ttl = rr->rrsig.original_ttl;
+                copy->rrsig.expiration = rr->rrsig.expiration;
+                copy->rrsig.inception = rr->rrsig.inception;
+                copy->rrsig.key_tag = rr->rrsig.key_tag;
+                copy->rrsig.signer = strdup(rr->rrsig.signer);
+                if (!copy->rrsig.signer)
+                        return NULL;
+                copy->rrsig.signature = memdup(rr->rrsig.signature, rr->rrsig.signature_size);
+                if (!copy->rrsig.signature)
+                        return NULL;
+                copy->rrsig.signature_size = rr->rrsig.signature_size;
+                break;
+
+        case DNS_TYPE_NSEC:
+                copy->nsec.next_domain_name = strdup(rr->nsec.next_domain_name);
+                if (!copy->nsec.next_domain_name)
+                        return NULL;
+                copy->nsec.types = bitmap_copy(rr->nsec.types);
+                if (!copy->nsec.types)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_DS:
+                copy->ds.key_tag = rr->ds.key_tag;
+                copy->ds.algorithm = rr->ds.algorithm;
+                copy->ds.digest_type = rr->ds.digest_type;
+                copy->ds.digest = memdup(rr->ds.digest, rr->ds.digest_size);
+                if (!copy->ds.digest)
+                        return NULL;
+                copy->ds.digest_size = rr->ds.digest_size;
+                break;
+
+        case DNS_TYPE_NSEC3:
+                copy->nsec3.algorithm = rr->nsec3.algorithm;
+                copy->nsec3.flags = rr->nsec3.flags;
+                copy->nsec3.iterations = rr->nsec3.iterations;
+                copy->nsec3.salt = memdup(rr->nsec3.salt, rr->nsec3.salt_size);
+                if (!copy->nsec3.salt)
+                        return NULL;
+                copy->nsec3.salt_size = rr->nsec3.salt_size;
+                copy->nsec3.next_hashed_name = memdup(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size);
+                if (!copy->nsec3.next_hashed_name_size)
+                        return NULL;
+                copy->nsec3.next_hashed_name_size = rr->nsec3.next_hashed_name_size;
+                copy->nsec3.types = bitmap_copy(rr->nsec3.types);
+                if (!copy->nsec3.types)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_TLSA:
+                copy->tlsa.cert_usage = rr->tlsa.cert_usage;
+                copy->tlsa.selector = rr->tlsa.selector;
+                copy->tlsa.matching_type = rr->tlsa.matching_type;
+                copy->tlsa.data = memdup(rr->tlsa.data, rr->tlsa.data_size);
+                if (!copy->tlsa.data)
+                        return NULL;
+                copy->tlsa.data_size = rr->tlsa.data_size;
+                break;
+
+        case DNS_TYPE_CAA:
+                copy->caa.flags = rr->caa.flags;
+                copy->caa.tag = strdup(rr->caa.tag);
+                if (!copy->caa.tag)
+                        return NULL;
+                copy->caa.value = memdup(rr->caa.value, rr->caa.value_size);
+                if (!copy->caa.value)
+                        return NULL;
+                copy->caa.value_size = rr->caa.value_size;
+                break;
+
+        case DNS_TYPE_OPT:
+        default:
+                copy->generic.data = memdup(rr->generic.data, rr->generic.data_size);
+                if (!copy->generic.data)
+                        return NULL;
+                copy->generic.data_size = rr->generic.data_size;
+                break;
+        }
+
+        t = copy;
+        copy = NULL;
+
+        return t;
+}
+
+int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl) {
+        DnsResourceRecord *old_rr, *new_rr;
+        uint32_t new_ttl;
+
+        assert(rr);
+        old_rr = *rr;
+
+        if (old_rr->key->type == DNS_TYPE_OPT)
+                return -EINVAL;
+
+        new_ttl = MIN(old_rr->ttl, max_ttl);
+        if (new_ttl == old_rr->ttl)
+                return 0;
+
+        if (old_rr->n_ref == 1) {
+                /* Patch in place */
+                old_rr->ttl = new_ttl;
+                return 1;
+        }
+
+        new_rr = dns_resource_record_copy(old_rr);
+        if (!new_rr)
+                return -ENOMEM;
+
+        new_rr->ttl = new_ttl;
+
+        dns_resource_record_unref(*rr);
+        *rr = new_rr;
+
+        return 1;
+}
+
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
         DnsTxtItem *n;
 
@@ -1562,6 +1788,25 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
                 return false;
 
         return dns_txt_item_equal(a->items_next, b->items_next);
+}
+
+DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
+        DnsTxtItem *i, *copy = NULL, *end = NULL;
+
+        LIST_FOREACH(items, i, first) {
+                DnsTxtItem *j;
+
+                j = memdup(i, offsetof(DnsTxtItem, data) + i->length + 1);
+                if (!j) {
+                        dns_txt_item_free_all(copy);
+                        return NULL;
+                }
+
+                LIST_INSERT_AFTER(items, copy, end, j);
+                end = j;
+        }
+
+        return copy;
 }
 
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {

@@ -27,10 +27,9 @@
 typedef struct Bitmap Bitmap;
 
 Bitmap *bitmap_new(void);
-
-void bitmap_free(Bitmap *b);
-
+Bitmap *bitmap_copy(Bitmap *b);
 int bitmap_ensure_allocated(Bitmap **b);
+void bitmap_free(Bitmap *b);
 
 int bitmap_set(Bitmap *b, unsigned n);
 void bitmap_unset(Bitmap *b, unsigned n);

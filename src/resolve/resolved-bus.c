@@ -672,6 +672,10 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
+        /* Let's request that the TTL is fixed up for locally cached entries, after all we return it in the wire format
+         * blob */
+        q->clamp_ttl = true;
+
         q->request = sd_bus_message_ref(message);
         q->complete = bus_method_resolve_record_complete;
 
