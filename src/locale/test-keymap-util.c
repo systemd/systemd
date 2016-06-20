@@ -58,8 +58,8 @@ static void test_find_converted_keymap(void) {
         assert_se(r == 1);
         assert_se(streq(ans, "pl"));
 
-        assert_se(find_converted_keymap("pl", "dvorak", &ans) == 1);
-        assert_se(streq(ans, "pl-dvorak"));
+        assert_se(find_converted_keymap("pl", "dvorak", &ans2) == 1);
+        assert_se(streq(ans2, "pl-dvorak"));
 }
 
 static void test_find_legacy_keymap(void) {
