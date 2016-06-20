@@ -1723,7 +1723,7 @@ int manager_setup_cgroup(Manager *m) {
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
-                log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c), yes_no(m->cgroup_supported & c));
+                log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c), yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
 
         return 0;
 }
