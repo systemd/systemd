@@ -56,6 +56,10 @@ static inline unsigned dns_question_size(DnsQuestion *q) {
         return q ? q->n_keys : 0;
 }
 
+static inline bool dns_question_isempty(DnsQuestion *q) {
+        return dns_question_size(q) <= 0;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
 
 #define _DNS_QUESTION_FOREACH(u, key, q)                                \

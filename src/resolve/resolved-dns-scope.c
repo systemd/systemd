@@ -610,9 +610,9 @@ static int dns_scope_make_reply_packet(
         assert(s);
         assert(ret);
 
-        if ((!q || q->n_keys <= 0)
-            && (!answer || answer->n_rrs <= 0)
-            && (!soa || soa->n_rrs <= 0))
+        if (dns_question_isempty(q) &&
+            dns_answer_isempty(answer) &&
+            dns_answer_isempty(soa))
                 return -EINVAL;
 
         r = dns_packet_new(&p, s->protocol, 0);
@@ -718,7 +718,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        assert(p->question->n_keys == 1);
+        assert(dns_question_size(p->question) == 1);
         key = p->question->keys[0];
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
