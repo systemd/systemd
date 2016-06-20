@@ -654,17 +654,17 @@ static int dns_scope_make_reply_packet(
 }
 
 static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
-        unsigned n;
+        DnsResourceRecord *rr;
+        DnsResourceKey *key;
 
         assert(s);
         assert(p);
 
-        if (p->question)
-                for (n = 0; n < p->question->n_keys; n++)
-                        dns_zone_verify_conflicts(&s->zone, p->question->keys[n]);
-        if (p->answer)
-                for (n = 0; n < p->answer->n_rrs; n++)
-                        dns_zone_verify_conflicts(&s->zone, p->answer->items[n].rr->key);
+        DNS_QUESTION_FOREACH(key, p->question)
+                dns_zone_verify_conflicts(&s->zone, key);
+
+        DNS_ANSWER_FOREACH(rr, p->answer)
+                dns_zone_verify_conflicts(&s->zone, rr->key);
 }
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
