@@ -676,13 +676,15 @@ fail:
 }
 
 /* Append the OPT pseudo-RR described in RFC6891 */
-int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start) {
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, int rcode, size_t *start) {
         size_t saved_size;
         int r;
 
         assert(p);
         /* we must never advertise supported packet size smaller than the legacy max */
         assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+        assert(rcode >= 0);
+        assert(rcode <= _DNS_RCODE_MAX);
 
         if (p->opt_start != (size_t) -1)
                 return -EBUSY;
@@ -701,13 +703,13 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, si
         if (r < 0)
                 goto fail;
 
-        /* maximum udp packet that can be received */
+        /* class: maximum udp packet that can be received */
         r = dns_packet_append_uint16(p, max_udp_size, NULL);
         if (r < 0)
                 goto fail;
 
         /* extended RCODE and VERSION */
-        r = dns_packet_append_uint16(p, 0, NULL);
+        r = dns_packet_append_uint16(p, ((uint16_t) rcode & 0x0FF0) << 4, NULL);
         if (r < 0)
                 goto fail;
 
