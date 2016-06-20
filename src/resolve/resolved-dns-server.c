@@ -21,6 +21,7 @@
 
 #include "alloc-util.h"
 #include "resolved-dns-server.h"
+#include "resolved-dns-stub.h"
 #include "resolved-resolv-conf.h"
 #include "siphash24.h"
 #include "string-table.h"
@@ -748,6 +749,19 @@ void manager_next_dns_server(Manager *m) {
                 manager_set_dns_server(m, m->fallback_dns_servers);
         else
                 manager_set_dns_server(m, m->dns_servers);
+}
+
+bool dns_server_address_valid(int family, const union in_addr_union *sa) {
+
+        /* Refuses the 0 IP addresses as well as 127.0.0.53 (which is our own DNS stub) */
+
+        if (in_addr_is_null(family, sa))
+                return false;
+
+        if (family == AF_INET && sa->in.s_addr == htobe32(INADDR_DNS_STUB))
+                return false;
+
+        return true;
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {

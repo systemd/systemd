@@ -264,6 +264,7 @@ int dns_packet_validate_query(DnsPacket *p) {
         switch (p->protocol) {
 
         case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_DNS:
                 /* RFC 4795, Section 2.1.1. says to discard all queries with QDCOUNT != 1 */
                 if (DNS_PACKET_QDCOUNT(p) != 1)
                         return -EBADMSG;
@@ -719,9 +720,8 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                 goto fail;
 
         /* RDLENGTH */
-
-        if (edns0_do) {
-                /* If DO is on, also append RFC6975 Algorithm data */
+        if (edns0_do & !DNS_PACKET_QR(p)) {
+                /* If DO is on and this is not a reply, also append RFC6975 Algorithm data */
 
                 static const uint8_t rfc6975[] = {
 
@@ -752,7 +752,6 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                 r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL);
         } else
                 r = dns_packet_append_uint16(p, 0, NULL);
-
         if (r < 0)
                 goto fail;
 
@@ -2062,8 +2061,10 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
         assert(rr->key->type == DNS_TYPE_OPT);
 
         /* Check that the version is 0 */
-        if (((rr->ttl >> 16) & UINT32_C(0xFF)) != 0)
-                return false;
+        if (((rr->ttl >> 16) & UINT32_C(0xFF)) != 0) {
+                *rfc6975 = false;
+                return true; /* if it's not version 0, it's OK, but we will ignore the OPT field contents */
+        }
 
         p = rr->opt.data;
         l = rr->opt.data_size;
@@ -2186,16 +2187,27 @@ int dns_packet_extract(DnsPacket *p) {
                                         continue;
                                 }
 
-                                if (has_rfc6975) {
-                                        /* If the OPT RR contains RFC6975 algorithm data, then this is indication that
-                                         * the server just copied the OPT it got from us (which contained that data)
-                                         * back into the reply. If so, then it doesn't properly support EDNS, as
-                                         * RFC6975 makes it very clear that the algorithm data should only be contained
-                                         * in questions, never in replies. Crappy Belkin routers copy the OPT data for
-                                         * example, hence let's detect this so that we downgrade early. */
-                                        log_debug("OPT RR contained RFC6975 data, ignoring.");
-                                        bad_opt = true;
-                                        continue;
+                                if (DNS_PACKET_QR(p)) {
+                                        /* Additional checks for responses */
+
+                                        if (!DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(rr)) {
+                                                /* If this is a reply and we don't know the EDNS version then something
+                                                 * is weird... */
+                                                log_debug("EDNS version newer that our request, bad server.");
+                                                return -EBADMSG;
+                                        }
+
+                                        if (has_rfc6975) {
+                                                /* If the OPT RR contains RFC6975 algorithm data, then this is indication that
+                                                 * the server just copied the OPT it got from us (which contained that data)
+                                                 * back into the reply. If so, then it doesn't properly support EDNS, as
+                                                 * RFC6975 makes it very clear that the algorithm data should only be contained
+                                                 * in questions, never in replies. Crappy Belkin routers copy the OPT data for
+                                                 * example, hence let's detect this so that we downgrade early. */
+                                                log_debug("OPT RR contained RFC6975 data, ignoring.");
+                                                bad_opt = true;
+                                                continue;
+                                        }
                                 }
 
                                 p->opt = dns_resource_record_ref(rr);

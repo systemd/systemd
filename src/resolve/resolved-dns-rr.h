@@ -282,6 +282,13 @@ static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
         return rr->wire_format_size - rr->wire_format_rdata_offset;
 }
 
+static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(DnsResourceRecord *rr) {
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_OPT);
+
+        return ((rr->ttl >> 16) & 0xFF) == 0;
+}
+
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);

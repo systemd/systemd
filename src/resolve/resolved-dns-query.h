@@ -99,6 +99,10 @@ struct DnsQuery {
         unsigned block_all_complete;
         char *request_address_string;
 
+        /* DNS stub information */
+        DnsPacket *request_dns_packet;
+        DnsStream *request_dns_stream;
+
         /* Completion callback */
         void (*complete)(DnsQuery* q);
         unsigned block_ready;

@@ -230,6 +230,9 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                 if (sz != FAMILY_ADDRESS_SIZE(family))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
+                if (!dns_server_address_valid(family, d))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;

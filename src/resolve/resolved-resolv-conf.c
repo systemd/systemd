@@ -194,10 +194,13 @@ static int write_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *doma
         Iterator i;
 
         fputs("# This file is managed by systemd-resolved(8). Do not edit.\n#\n"
-              "# Third party programs must not access this file directly, but\n"
-              "# only through the symlink at /etc/resolv.conf. To manage\n"
-              "# resolv.conf(5) in a different way, replace the symlink by a\n"
-              "# static file or a different symlink.\n\n", f);
+              "# This is a dynamic resolv.conf file for connecting local clients directly to\n"
+              "# all known DNS servers.\n#\n"
+              "# Third party programs must not access this file directly, but only through the\n"
+              "# symlink at /etc/resolv.conf. To manage resolv.conf(5) in a different way,\n"
+              "# replace this symlink by a static file or a different symlink.\n#\n"
+              "# See systemd-resolved.service(8) for details about the supported modes of\n"
+              "# operation for /etc/resolv.conf.\n\n", f);
 
         if (ordered_set_isempty(dns))
                 fputs("# No DNS servers known.\n", f);

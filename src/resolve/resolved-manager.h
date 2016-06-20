@@ -128,6 +128,13 @@ struct Manager {
         Set* etc_hosts_by_address;
         Hashmap* etc_hosts_by_name;
         usec_t etc_hosts_last, etc_hosts_mtime;
+
+        /* Local DNS stub on 127.0.0.53:53 */
+        int dns_stub_udp_fd;
+        int dns_stub_tcp_fd;
+
+        sd_event_source *dns_stub_udp_event_source;
+        sd_event_source *dns_stub_tcp_event_source;
 };
 
 /* Manager */
@@ -140,7 +147,7 @@ int manager_start(Manager *m);
 uint32_t manager_find_mtu(Manager *m);
 
 int manager_write(Manager *m, int fd, DnsPacket *p);
-int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *addr, uint16_t port, DnsPacket *p);
+int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *destination, uint16_t port, const union in_addr_union *source, DnsPacket *p);
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
 
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);

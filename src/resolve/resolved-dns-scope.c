@@ -232,7 +232,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, ifindex, family, &addr, LLMNR_PORT, p);
+                r = manager_send(s->manager, fd, ifindex, family, &addr, LLMNR_PORT, NULL, p);
                 if (r < 0)
                         return r;
 
@@ -257,7 +257,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, ifindex, family, &addr, MDNS_PORT, p);
+                r = manager_send(s->manager, fd, ifindex, family, &addr, MDNS_PORT, NULL, p);
                 if (r < 0)
                         return r;
 
@@ -668,11 +668,11 @@ static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
 }
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
         bool tentative = false;
-        int r, fd;
+        int r;
 
         assert(s);
         assert(p);
@@ -694,7 +694,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         r = dns_packet_extract(p);
         if (r < 0) {
-                log_debug_errno(r, "Failed to extract resources from incoming packet: %m");
+                log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
                 return;
         }
 
@@ -724,9 +724,21 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        if (stream)
+        if (stream) {
                 r = dns_stream_write_packet(stream, reply);
-        else {
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to enqueue reply packet: %m");
+                        return;
+                }
+
+                /* Let's take an extra reference on this stream, so that it stays around after returning. The reference
+                 * will be dangling until the stream is disconnected, and the default completion handler of the stream
+                 * will then unref the stream and destroy it */
+                if (DNS_STREAM_QUEUED(stream))
+                        dns_stream_ref(stream);
+        } else {
+                int fd;
+
                 if (!ratelimit_test(&s->ratelimit))
                         return;
 
@@ -748,12 +760,11 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                  * verified uniqueness for all records. Also see RFC
                  * 4795, Section 2.7 */
 
-                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, reply);
-        }
-
-        if (r < 0) {
-                log_debug_errno(r, "Failed to send reply packet: %m");
-                return;
+                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, NULL, reply);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send reply packet: %m");
+                        return;
+                }
         }
 }
 
