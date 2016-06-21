@@ -481,7 +481,7 @@ static int mmap_try_harder(MMapCache *m, void *addr, int fd, int prot, int flags
                 if (ptr != MAP_FAILED)
                         break;
                 if (errno != ENOMEM)
-                        return -errno;
+                        return negative_errno();
 
                 r = make_room(m);
                 if (r < 0)
@@ -571,7 +571,7 @@ static int add_mmap(
         return 1;
 
 outofmem:
-        munmap(d, wsize);
+        (void) munmap(d, wsize);
         return -ENOMEM;
 }
 

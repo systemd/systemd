@@ -58,7 +58,7 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
         struct bridge_vlan_info br_vlan;
         int i, j, k, r, done, cnt;
         uint16_t begin, end;
-        bool untagged;
+        bool untagged = false;
 
         assert(link);
         assert(req);
