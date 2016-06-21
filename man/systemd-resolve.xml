@@ -114,6 +114,12 @@
     and IPv6 addresses. If the parameters specified are formatted as IPv4 or IPv6 operation the reverse operation is
     done, and a hostname is retrieved for the specified addresses.</para>
 
+    <para>The program's output contains information about the protocol used for the look-up and on which network
+    interface the data was discovered. It also contains information on whether the information could be
+    authenticated. All data for which local DNSSEC validation succeeds is considered authenticated. Moreover all data
+    originating from local, trusted sources is also reported authenticated, including resolution of the local host
+    name, the <literal>localhost</literal> host name or all data from <filename>/etc/hosts</filename>.</para>
+
     <para>The <option>--type=</option> switch may be used to specify a DNS resource record type (A, AAAA, SOA, MX, ...) in
     order to request a specific DNS resource record, instead of the address or reverse address lookups.
     The special value <literal>help</literal> may be used to list known values.</para>
