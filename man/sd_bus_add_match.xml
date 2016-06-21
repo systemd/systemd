@@ -1,0 +1,119 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2016 Julian Orth
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_bus_add_match">
+
+  <refentryinfo>
+    <title>sd_bus_add_match</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <firstname>Julian</firstname>
+        <surname>Orth</surname>
+        <email>ju.orth@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_add_match</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_add_match</refname>
+
+    <refpurpose>Add a match rule for message dispatching</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_match</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>match</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_message_handler_t</function>)</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+      <function>sd_bus_add_match()</function> adds a match rule used to dispatch
+      incoming messages. The syntax of the rule passed in
+      <parameter>match</parameter> is described in the
+      <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus Specification</ulink>.
+    </para>
+
+    <para>
+      The message <parameter>m</parameter> passed to the callback is only
+      borrowed, that is, the callback should not call
+      <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      on it. If the callback wants to hold on to the message beyond the lifetime
+      of the callback, it needs to call
+      <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      to create a new reference.
+    </para>
+
+    <para>
+      If an error occurs during the callback invocation, the callback should
+      return a negative error number. If it wants other callbacks that match the
+      same rule to be called, it should return 0. Otherwise it should return a
+      positive integer.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>
+      On success, <function>sd_bus_add_match()</function> returns 0 or a
+      positive integer. On failure, it returns a negative errno-style error
+      code.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

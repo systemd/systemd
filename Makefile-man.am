@@ -31,11 +31,13 @@ MANPAGES += \
 	man/sd-id128.3 \
 	man/sd-journal.3 \
 	man/sd_booted.3 \
+	man/sd_bus_add_match.3 \
 	man/sd_bus_creds_get_pid.3 \
 	man/sd_bus_creds_new_from_pid.3 \
 	man/sd_bus_default.3 \
 	man/sd_bus_error.3 \
 	man/sd_bus_error_add_map.3 \
+	man/sd_bus_get_fd.3 \
 	man/sd_bus_message_append.3 \
 	man/sd_bus_message_append_array.3 \
 	man/sd_bus_message_append_basic.3 \
@@ -43,9 +45,11 @@ MANPAGES += \
 	man/sd_bus_message_append_strv.3 \
 	man/sd_bus_message_get_cookie.3 \
 	man/sd_bus_message_get_monotonic_usec.3 \
+	man/sd_bus_message_read_basic.3 \
 	man/sd_bus_negotiate_fds.3 \
 	man/sd_bus_new.3 \
 	man/sd_bus_path_encode.3 \
+	man/sd_bus_process.3 \
 	man/sd_bus_request_name.3 \
 	man/sd_event_add_child.3 \
 	man/sd_event_add_defer.3 \
@@ -2522,11 +2526,13 @@ EXTRA_DIST += \
 	man/sd-journal.xml \
 	man/sd-login.xml \
 	man/sd_booted.xml \
+	man/sd_bus_add_match.xml \
 	man/sd_bus_creds_get_pid.xml \
 	man/sd_bus_creds_new_from_pid.xml \
 	man/sd_bus_default.xml \
 	man/sd_bus_error.xml \
 	man/sd_bus_error_add_map.xml \
+	man/sd_bus_get_fd.xml \
 	man/sd_bus_message_append.xml \
 	man/sd_bus_message_append_array.xml \
 	man/sd_bus_message_append_basic.xml \
@@ -2534,9 +2540,11 @@ EXTRA_DIST += \
 	man/sd_bus_message_append_strv.xml \
 	man/sd_bus_message_get_cookie.xml \
 	man/sd_bus_message_get_monotonic_usec.xml \
+	man/sd_bus_message_read_basic.xml \
 	man/sd_bus_negotiate_fds.xml \
 	man/sd_bus_new.xml \
 	man/sd_bus_path_encode.xml \
+	man/sd_bus_process.xml \
 	man/sd_bus_request_name.xml \
 	man/sd_event_add_child.xml \
 	man/sd_event_add_defer.xml \
