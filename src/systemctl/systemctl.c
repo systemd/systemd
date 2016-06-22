@@ -2499,7 +2499,7 @@ static int unit_find_paths(
                 r = 1;
         }
 
-        if (r == 0)
+        if (r == 0 && !arg_force)
                 log_error("No files found for %s.", unit_name);
 
         return r;
@@ -6070,7 +6070,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                         return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
 
         } else if (r < 0)
-                return log_error_errno(r, "Failed to copy \"%s\" to \"%s\": %m", original_path, t);
+                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
 
         *ret_tmp_fn = t;
         t = NULL;
@@ -6114,9 +6114,10 @@ static int get_file_to_edit(
         return 0;
 }
 
-static int unit_file_create_dropin(
+static int unit_file_create_new(
                 const LookupPaths *paths,
                 const char *unit_name,
+                const char *suffix,
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
@@ -6127,7 +6128,7 @@ static int unit_file_create_dropin(
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        ending = strjoina(unit_name, ".d/override.conf");
+        ending = strjoina(unit_name, suffix);
         r = get_file_to_edit(paths, ending, &tmp_new_path);
         if (r < 0)
                 return r;
@@ -6180,7 +6181,6 @@ static int unit_file_create_copy(
 
         r = create_edit_temp_file(tmp_new_path, fragment_path, &tmp_tmp_path);
         if (r < 0) {
-                log_error_errno(r, "Failed to create temporary file for \"%s\": %m", tmp_new_path);
                 free(tmp_new_path);
                 return r;
         }
@@ -6291,18 +6291,26 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 r = unit_find_paths(bus, *name, &lp, &path, NULL);
                 if (r < 0)
                         return r;
-                else if (r == 0)
-                        return -ENOENT;
-                else if (!path) {
-                        // FIXME: support units with path==NULL (no FragmentPath)
-                        log_error("No fragment exists for %s.", *name);
-                        return -ENOENT;
+                else if (!arg_force) {
+                        if (r == 0) {
+                                log_error("Run 'systemctl edit --force %s' to create a new unit.", *name);
+                                return -ENOENT;
+                        } else if (!path) {
+                                // FIXME: support units with path==NULL (no FragmentPath)
+                                log_error("No fragment exists for %s.", *name);
+                                return -ENOENT;
+                        }
                 }
 
-                if (arg_full)
-                        r = unit_file_create_copy(&lp, *name, path, &new_path, &tmp_path);
-                else
-                        r = unit_file_create_dropin(&lp, *name, &new_path, &tmp_path);
+                if (path) {
+                        if (arg_full)
+                                r = unit_file_create_copy(&lp, *name, path, &new_path, &tmp_path);
+                        else
+                                r = unit_file_create_new(&lp, *name, ".d/override.conf", &new_path, &tmp_path);
+                } else {
+                        r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
+                }
+
                 if (r < 0)
                         return r;
 

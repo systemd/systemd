@@ -197,9 +197,7 @@ Features:
 
 * systemctl: if some operation fails, show log output?
 
-* systemctl edit:
-- allow creation of units from scratch
-- use equvalent of cat() to insert existing config as a comment, prepended with #.
+* systemctl edit: use equvalent of cat() to insert existing config as a comment, prepended with #.
   Upon editor exit, lines with one # are removed, lines with two # are left with one #, etc.
 
 * exponential backoff in timesyncd when we cannot reach a server
