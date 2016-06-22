@@ -836,8 +836,6 @@ libbasic_la_SOURCES = \
 	src/basic/ordered-set.c \
 	src/basic/bitmap.c \
 	src/basic/bitmap.h \
-	src/basic/fdset.c \
-	src/basic/fdset.h \
 	src/basic/prioq.c \
 	src/basic/prioq.h \
 	src/basic/web-util.c \
@@ -1050,7 +1048,9 @@ libshared_la_SOURCES = \
 	src/shared/vlan-util.h \
 	src/shared/vlan-util.c \
 	src/shared/tests.h \
-	src/shared/tests.c
+	src/shared/tests.c \
+	src/shared/fdset.c \
+	src/shared/fdset.h
 
 if HAVE_UTMP
 libshared_la_SOURCES += \
