@@ -3364,6 +3364,7 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
                 /* When this is a transient unit file in creation, then let's not create a new drop-in but instead
                  * write to the transient unit file. */
                 fputs(data, u->transient_file);
+                fputc('\n', u->transient_file);
                 return 0;
         }
 
