@@ -6093,7 +6093,7 @@ static int get_file_to_edit(
                 return log_oom();
 
         if (arg_runtime) {
-                run = strjoin(paths->runtime_config, name, NULL);
+                run = strjoin(paths->runtime_config, "/", name, NULL);
                 if (!run)
                         return log_oom();
         }
