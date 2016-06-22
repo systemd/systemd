@@ -1234,7 +1234,7 @@
           <row>
       <entry><literal>%f</literal></entry>
       <entry>Unescaped filename</entry>
-      <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the prefix name prepended with <filename>/</filename>.</entry>
+      <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>.</entry>
           </row>
           <row>
       <entry><literal>%c</literal></entry>
