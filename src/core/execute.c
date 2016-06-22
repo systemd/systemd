@@ -1951,12 +1951,14 @@ static int exec_child(
                 int secure_bits = context->secure_bits;
 
                 for (i = 0; i < _RLIMIT_MAX; i++) {
+
                         if (!context->rlimit[i])
                                 continue;
 
-                        if (setrlimit_closest(i, context->rlimit[i]) < 0) {
+                        r = setrlimit_closest(i, context->rlimit[i]);
+                        if (r < 0) {
                                 *exit_status = EXIT_LIMITS;
-                                return -errno;
+                                return r;
                         }
                 }
 
