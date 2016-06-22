@@ -2017,7 +2017,7 @@ static int exec_child(
                         }
 
                 if (context->no_new_privileges ||
-                    (!have_effective_cap(CAP_SYS_ADMIN) && (use_address_families || use_syscall_filter)))
+                    (!have_effective_cap(CAP_SYS_ADMIN) && (use_address_families || context->memory_deny_write_execute || use_syscall_filter)))
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return -errno;
