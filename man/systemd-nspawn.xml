@@ -67,69 +67,82 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-nspawn</command> may be used to run a
-    command or OS in a light-weight namespace container. In many ways
-    it is similar to
-    <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-    but more powerful since it fully virtualizes the file system
-    hierarchy, as well as the process tree, the various IPC subsystems
-    and the host and domain name.</para>
+    <para><command>systemd-nspawn</command> may be used to run a command or OS in a light-weight namespace
+    container. In many ways it is similar to <citerefentry
+    project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but more powerful
+    since it fully virtualizes the file system hierarchy, as well as the process tree, the various IPC subsystems and
+    the host and domain name.</para>
 
-    <para><command>systemd-nspawn</command> limits access to various
-    kernel interfaces in the container to read-only, such as
-    <filename>/sys</filename>, <filename>/proc/sys</filename> or
-    <filename>/sys/fs/selinux</filename>. Network interfaces and the
-    system clock may not be changed from within the container. Device
-    nodes may not be created. The host system cannot be rebooted and
-    kernel modules may not be loaded from within the container.</para>
+    <para>Like <citerefentry
+    project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> the
+    <command>systemd-nspawn</command> command may be invoked on any directory tree containing an operating system tree,
+    using the <option>--directory=</option> command line option. By using the <option>--machine=</option> option an OS
+    tree is automatically searched in a couple of locations, most importantly in
+    <filename>/var/lib/machines</filename>, the suggested directory to place container images installed on the
+    system.</para>
 
-    <para>Note that even though these security precautions are taken
-    <command>systemd-nspawn</command> is not suitable for fully secure
-    container setups. Many of the security features may be
-    circumvented and are hence primarily useful to avoid accidental
-    changes to the host system from the container.</para>
+    <para>In contrast to <citerefentry
+    project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
+    may be used to boot full Linux-based operating systems in a container.</para>
 
-    <para>In contrast to
-    <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
-    may be used to boot full Linux-based operating systems in a
+    <para><command>systemd-nspawn</command> limits access to various kernel interfaces in the container to read-only,
+    such as <filename>/sys</filename>, <filename>/proc/sys</filename> or <filename>/sys/fs/selinux</filename>. The
+    host's network interfaces and the system clock may not be changed from within the container. Device nodes may not
+    be created. The host system cannot be rebooted and kernel modules may not be loaded from within the
     container.</para>
 
-    <para>Use a tool like
-    <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    or
-    <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    to set up an OS directory tree suitable as file system hierarchy
-    for <command>systemd-nspawn</command> containers.</para>
+    <para>Use a tool like <citerefentry
+    project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>, <citerefentry
+    project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+    <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
+    set up an OS directory tree suitable as file system hierarchy for <command>systemd-nspawn</command> containers. See
+    the Examples section below for details on suitable invocation of these commands.</para>
 
-    <para>Note that <command>systemd-nspawn</command> will mount file
-    systems private to the container to <filename>/dev</filename>,
-    <filename>/run</filename> and similar. These will not be visible
-    outside of the container, and their contents will be lost when the
-    container exits.</para>
-
-    <para>Note that running two <command>systemd-nspawn</command>
-    containers from the same directory tree will not make processes in
-    them see each other. The PID namespace separation of the two
-    containers is complete and the containers will share very few
-    runtime objects except for the underlying file system. Use
-    <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-    <command>login</command> command to request an additional login
-    prompt in a running container.</para>
-
-    <para><command>systemd-nspawn</command> implements the
-    <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
-    Interface</ulink> specification.</para>
-
-    <para>As a safety check <command>systemd-nspawn</command> will
-    verify the existence of <filename>/usr/lib/os-release</filename>
-    or <filename>/etc/os-release</filename> in the container tree
-    before starting the container (see
-    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-    It might be necessary to add this file to the container tree
-    manually if the OS of the container is too old to contain this
+    <para>As a safety check <command>systemd-nspawn</command> will verify the existence of
+    <filename>/usr/lib/os-release</filename> or <filename>/etc/os-release</filename> in the container tree before
+    starting the container (see
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>).  It might be
+    necessary to add this file to the container tree manually if the OS of the container is too old to contain this
     file out-of-the-box.</para>
+
+    <para><command>systemd-nspawn</command> may be invoked directly from the interactive command line or run as system
+    service in the background. In this mode each container instance runs as its own service instance; a default
+    template unit file <filename>systemd-nspawn@.service</filename> is provided to make this easy, taking the container
+    name as instance identifier. Note that different default options apply when <command>systemd-nspawn</command> is
+    invoked by the template unit file than interactively on the commnd line. Most importanly the template unit file
+    makes use of the <option>--boot</option> which is not the default in case <command>systemd-nspawn</command> is
+    invoked from the interactive command line. Further differences with the defaults are documented dalong with the
+    various supported options below.</para>
+
+    <para>The <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool may
+    be used to execute a number of operations on containers. In particular it provides easy-to-use commands to run
+    containers as system services using the <filename>systemd-nspawn@.service</filename> template unit
+    file.</para>
+
+    <para>Along with each container a settings file with the <filename>.nspawn</filename> suffix may exist, containing
+    additional settings to apply when running the container. See
+    <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. Settings files override the default options used by the <filename>systemd-nspawn@.service</filename>
+    template unit file, making it usually unnecessary to alter this template file directly.</para>
+
+    <para>Note that <command>systemd-nspawn</command> will mount file systems private to the container to
+    <filename>/dev</filename>, <filename>/run</filename> and similar. These will not be visible outside of the
+    container, and their contents will be lost when the container exits.</para>
+
+    <para>Note that running two <command>systemd-nspawn</command> containers from the same directory tree will not make
+    processes in them see each other. The PID namespace separation of the two containers is complete and the containers
+    will share very few runtime objects except for the underlying file system. Use
+    <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>login</command> or <command>shell</command> commands to request an additional login session in a running
+    container.</para>
+
+    <para><command>systemd-nspawn</command> implements the <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink>
+    specification.</para>
+
+    <para>While running, containers invoked with <command>systemd-nspawn</command> are registered with the
+    <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry> service that
+    keeps track of running containers, and provides programming interfaces to interact with them.</para>
   </refsect1>
 
   <refsect1>
@@ -139,7 +152,7 @@
     are used as arguments for the init binary. Otherwise,
     <replaceable>COMMAND</replaceable> specifies the program to launch
     in the container, and the remaining arguments are used as
-    arguments for this program. If <option>-b</option> is not used and
+    arguments for this program. If <option>--boot</option> is not used and
     no arguments are specified, a shell is launched in the
     container.</para>
 
@@ -310,6 +323,9 @@
             </tbody>
           </tgroup>
         </table>
+
+        <para>Note that <option>--boot</option> is the default mode of operation if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
         </listitem>
       </varlistentry>
 
@@ -446,7 +462,10 @@
 
         <listitem><para>If the kernel supports the user namespaces feature, equivalent to
         <option>--private-users=pick</option>, otherwise equivalent to
-        <option>--private-users=no</option>.</para></listitem>
+        <option>--private-users=no</option>.</para>
+
+        <para>Note that <option>-U</option> is the default if the <filename>systemd-nspawn@.service</filename> template unit
+        file is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -540,6 +559,9 @@
         assignment via DHCP. In case <filename>systemd-networkd</filename> is running on both the host and inside the
         container, automatic IP communication from the container to the host is thus available, with further
         connectivity to the external network.</para>
+
+        <para>Note that <option>--network-veth</option> is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
         </listitem>
       </varlistentry>
 
@@ -705,7 +727,10 @@
         Effectively, booting a container once with
         <literal>guest</literal> or <literal>host</literal> will link
         the journal persistently if further on the default of
-        <literal>auto</literal> is used.</para></listitem>
+        <literal>auto</literal> is used.</para>
+
+        <para>Note that <option>--link-journal=try-guest</option> is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -981,10 +1006,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>--notify-ready=</varname></term>
+        <term><option>--notify-ready=</option></term>
 
         <listitem><para>Configures support for notifications from the container's init process.
-        <varname>--notify-ready=</varname> takes a boolean (<option>no</option> and  <option>yes</option>).
+        <option>--notify-ready=</option> takes a boolean (<option>no</option> and  <option>yes</option>).
         With option <option>no</option> systemd-nspawn notifies systemd
         with a <literal>READY=1</literal> message when the init process is created.
         With option <option>yes</option> systemd-nspawn waits for the

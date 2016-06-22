@@ -146,7 +146,8 @@
         specified parameters using <varname>Parameters=</varname> are passed as additional arguments to the
         <filename>init</filename> process. This setting corresponds to the <option>--boot</option> switch on the
         <command>systemd-nspawn</command> command line. This option may not be combined with
-        <varname>ProcessTwo=yes</varname>.</para></listitem>
+        <varname>ProcessTwo=yes</varname>. This option is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -257,7 +258,8 @@
 
         <listitem><para>Configures support for usernamespacing. This is equivalent to the
         <option>--private-users=</option> command line switch, and takes the same options. This option is privileged
-        (see above). </para></listitem>
+        (see above). This option is the default if the <filename>systemd-nspawn@.service</filename> template unit file
+        is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -367,13 +369,11 @@
       <varlistentry>
         <term><varname>VirtualEthernet=</varname></term>
 
-        <listitem><para>Takes a boolean argument. Configures whether
-        to create a virtual Ethernet connection
-        (<literal>veth</literal>) between host and the container. This
-        setting implies <varname>Private=yes</varname>. This setting
-        corresponds to the <option>--network-veth</option> command
-        line switch. This option is privileged (see
-        above).</para></listitem>
+        <listitem><para>Takes a boolean argument. Configures whether to create a virtual Ethernet connection
+        (<literal>veth</literal>) between host and the container. This setting implies
+        <varname>Private=yes</varname>. This setting corresponds to the <option>--network-veth</option> command line
+        switch. This option is privileged (see above). This option is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
