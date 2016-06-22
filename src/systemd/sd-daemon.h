@@ -196,6 +196,11 @@ int sd_is_mq(int fd, const char *path);
                   invocation. This variable is only supported with
                   sd_pid_notify_with_fds().
 
+     WATCHDOG_USEC=...
+                  Reset watchdog_usec value during runtime.
+                  To reset watchdog_usec value, start the service again.
+                  Example: "WATCHDOG_USEC=20000000"
+
   Daemons can choose to send additional variables. However, it is
   recommended to prefix variable names not listed above with X_.
 

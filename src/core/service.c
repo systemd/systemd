@@ -200,16 +200,27 @@ static void service_stop_watchdog(Service *s) {
         s->watchdog_timestamp = DUAL_TIMESTAMP_NULL;
 }
 
+static usec_t service_get_watchdog_usec(Service *s) {
+        assert(s);
+
+        if (s->watchdog_override_enable)
+                return s->watchdog_override_usec;
+        else
+                return s->watchdog_usec;
+}
+
 static void service_start_watchdog(Service *s) {
         int r;
+        usec_t watchdog_usec;
 
         assert(s);
 
-        if (s->watchdog_usec <= 0)
+        watchdog_usec = service_get_watchdog_usec(s);
+        if (watchdog_usec == 0 || watchdog_usec == USEC_INFINITY)
                 return;
 
         if (s->watchdog_event_source) {
-                r = sd_event_source_set_time(s->watchdog_event_source, usec_add(s->watchdog_timestamp.monotonic, s->watchdog_usec));
+                r = sd_event_source_set_time(s->watchdog_event_source, usec_add(s->watchdog_timestamp.monotonic, watchdog_usec));
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to reset watchdog timer: %m");
                         return;
@@ -221,7 +232,7 @@ static void service_start_watchdog(Service *s) {
                                 UNIT(s)->manager->event,
                                 &s->watchdog_event_source,
                                 CLOCK_MONOTONIC,
-                                usec_add(s->watchdog_timestamp.monotonic, s->watchdog_usec), 0,
+                                usec_add(s->watchdog_timestamp.monotonic, watchdog_usec), 0,
                                 service_dispatch_watchdog, s);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to add watchdog timer: %m");
@@ -244,6 +255,17 @@ static void service_reset_watchdog(Service *s) {
 
         dual_timestamp_get(&s->watchdog_timestamp);
         service_start_watchdog(s);
+}
+
+static void service_reset_watchdog_timeout(Service *s, usec_t watchdog_override_usec) {
+        assert(s);
+
+        s->watchdog_override_enable = true;
+        s->watchdog_override_usec = watchdog_override_usec;
+        service_reset_watchdog(s);
+
+        log_unit_debug(UNIT(s), "watchdog_usec="USEC_FMT, s->watchdog_usec);
+        log_unit_debug(UNIT(s), "watchdog_override_usec="USEC_FMT, s->watchdog_override_usec);
 }
 
 static void service_fd_store_unlink(ServiceFDStore *fs) {
@@ -1992,6 +2014,9 @@ static int service_start(Unit *u) {
 
         s->notify_state = NOTIFY_UNKNOWN;
 
+        s->watchdog_override_enable = false;
+        s->watchdog_override_usec = 0;
+
         service_enter_start_pre(s);
         return 1;
 }
@@ -2122,6 +2147,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
         unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
+
+        if (s->watchdog_override_enable)
+               unit_serialize_item_format(u, f, "watchdog-override-usec", USEC_FMT, s->watchdog_override_usec);
 
         return 0;
 }
@@ -2316,6 +2344,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         asynchronous_close(s->stderr_fd);
                         s->stderr_fd = fdset_remove(fds, fd);
                         s->exec_context.stdio_as_fds = true;
+                }
+        } else if (streq(key, "watchdog-override-usec")) {
+                usec_t watchdog_override_usec;
+                if (timestamp_deserialize(value, &watchdog_override_usec) < 0)
+                        log_unit_debug(u, "Failed to parse watchdog_override_usec value: %s", value);
+                else {
+                        s->watchdog_override_enable = true;
+                        s->watchdog_override_usec = watchdog_override_usec;
                 }
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
@@ -2895,12 +2931,15 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata) {
         Service *s = SERVICE(userdata);
         char t[FORMAT_TIMESPAN_MAX];
+        usec_t watchdog_usec;
 
         assert(s);
         assert(source == s->watchdog_event_source);
 
+        watchdog_usec = service_get_watchdog_usec(s);
+
         log_unit_error(UNIT(s), "Watchdog timeout (limit %s)!",
-                       format_timespan(t, sizeof(t), s->watchdog_usec, 1));
+                       format_timespan(t, sizeof(t), watchdog_usec, 1));
 
         service_enter_signal(s, SERVICE_STOP_SIGABRT, SERVICE_FAILURE_WATCHDOG);
 
@@ -3035,6 +3074,15 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                 }
 
                 service_add_fd_store_set(s, fds, name);
+        }
+
+        e = strv_find_startswith(tags, "WATCHDOG_USEC=");
+        if (e) {
+                usec_t watchdog_override_usec;
+                if (safe_atou64(e, &watchdog_override_usec) < 0)
+                        log_unit_warning(u, "Failed to parse WATCHDOG_USEC=%s", e);
+                else
+                        service_reset_watchdog_timeout(s, watchdog_override_usec);
         }
 
         /* Notify clients about changed status or main pid */
