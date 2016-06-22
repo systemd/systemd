@@ -1,5 +1,19 @@
 systemd System and Service Manager
 
+CHANGES WITH 231:
+
+        * When using systemd's default tmp.mount for /tmp, this will now be
+          mounted with the "nosuid" and "nodev" options. This avoids
+          privilege escalation attacks that put traps and exploits into /tmp.
+          However, this might cause some problems if you e. g. put container
+          images or overlays into /tmp; if you need this, override tmp.mount's
+          "Options=" with a drop-in, or mount /tmp from /etc/fstab with your
+          desired options.
+
+        Contributions from: ...
+
+        — Somewhere, 2016-XX-XX
+
 CHANGES WITH 230:
 
         * DNSSEC is now turned on by default in systemd-resolved (in
