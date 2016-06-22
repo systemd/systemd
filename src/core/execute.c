@@ -1264,6 +1264,76 @@ finish:
         return r;
 }
 
+static int apply_restrict_realtime(const ExecContext *c) {
+        static const int permitted_policies[] = {
+                SCHED_OTHER,
+                SCHED_BATCH,
+                SCHED_IDLE,
+        };
+
+        scmp_filter_ctx *seccomp;
+        unsigned i;
+        int r, p, max_policy = 0;
+
+        assert(c);
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        /* Determine the highest policy constant we want to allow */
+        for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
+                if (permitted_policies[i] > max_policy)
+                        max_policy = permitted_policies[i];
+
+        /* Go through all policies with lower values than that, and block them -- unless they appear in the
+         * whitelist. */
+        for (p = 0; p < max_policy; p++) {
+                bool good = false;
+
+                /* Check if this is in the whitelist. */
+                for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
+                        if (permitted_policies[i] == p) {
+                                good = true;
+                                break;
+                        }
+
+                if (good)
+                        continue;
+
+                /* Deny this policy */
+                r = seccomp_rule_add(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(sched_setscheduler),
+                                1,
+                                SCMP_A1(SCMP_CMP_EQ, p));
+                if (r < 0)
+                        goto finish;
+        }
+
+        /* Blacklist all other policies, i.e. the ones with higher values. Note that all comparisons are unsigned here,
+         * hence no need no check for < 0 values. */
+        r = seccomp_rule_add(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(sched_setscheduler),
+                        1,
+                        SCMP_A1(SCMP_CMP_GT, max_policy));
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 #endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
@@ -1962,6 +2032,14 @@ static int exec_child(
                         }
                 }
 
+                /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly requested. */
+                if (context->restrict_realtime && !context->rlimit[RLIMIT_RTPRIO]) {
+                        if (setrlimit(RLIMIT_RTPRIO, &RLIMIT_MAKE_CONST(0)) < 0) {
+                                *exit_status = EXIT_LIMITS;
+                                return -errno;
+                        }
+                }
+
                 if (!cap_test_all(context->capability_bounding_set)) {
                         r = capability_bounding_set_drop(context->capability_bounding_set, false);
                         if (r < 0) {
@@ -2017,7 +2095,7 @@ static int exec_child(
                         }
 
                 if (context->no_new_privileges ||
-                    (!have_effective_cap(CAP_SYS_ADMIN) && (use_address_families || context->memory_deny_write_execute || use_syscall_filter)))
+                    (!have_effective_cap(CAP_SYS_ADMIN) && (use_address_families || context->memory_deny_write_execute || context->restrict_realtime || use_syscall_filter)))
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return -errno;
@@ -2039,6 +2117,15 @@ static int exec_child(
                                 return r;
                         }
                 }
+
+                if (context->restrict_realtime) {
+                        r = apply_restrict_realtime(context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
+
                 if (use_syscall_filter) {
                         r = apply_seccomp(context);
                         if (r < 0) {
@@ -2474,7 +2561,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
-                "%sMemoryDenyWriteExecute: %s\n",
+                "%sMemoryDenyWriteExecute: %s\n"
+                "%sRestrictRealtime: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
@@ -2485,7 +2573,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
                 prefix, yes_no(c->ignore_sigpipe),
-                prefix, yes_no(c->memory_deny_write_execute));
+                prefix, yes_no(c->memory_deny_write_execute),
+                prefix, yes_no(c->restrict_realtime));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

@@ -193,12 +193,14 @@ struct ExecContext {
         char **runtime_directory;
         mode_t runtime_directory_mode;
 
+        bool memory_deny_write_execute;
+        bool restrict_realtime;
+
         bool oom_score_adjust_set:1;
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
         bool no_new_privileges_set:1;
-        bool memory_deny_write_execute;
 };
 
 #include "cgroup-util.h"
