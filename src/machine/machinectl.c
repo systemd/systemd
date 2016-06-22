@@ -1535,11 +1535,7 @@ static int make_service_name(const char *name, char **ret) {
                 return -EINVAL;
         }
 
-        e = unit_name_escape(name);
-        if (!e)
-                return log_oom();
-
-        r = unit_name_build("systemd-nspawn", e, ".service", ret);
+        r = unit_name_build("systemd-nspawn", name, ".service", ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to build unit name: %m");
 
