@@ -134,6 +134,20 @@ int cg_read_event(const char *controller, const char *path, const char *event,
         return -ENOENT;
 }
 
+bool cg_ns_supported(void) {
+        static thread_local int enabled = -1;
+
+        if (enabled >= 0)
+                return enabled;
+
+        if (access("/proc/self/ns/cgroup", F_OK) == 0)
+                enabled = 1;
+        else
+                enabled = 0;
+
+        return enabled;
+}
+
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
         _cleanup_free_ char *fs = NULL;
         int r;
