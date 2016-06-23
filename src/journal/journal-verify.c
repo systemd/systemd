@@ -26,6 +26,7 @@
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -825,6 +826,8 @@ int journal_file_verify(
         int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
         unsigned i;
         bool found_last = false;
+        _cleanup_free_ char *tmp_dir;
+
 #ifdef HAVE_GCRYPT
         uint64_t last_tag = 0;
 #endif
@@ -843,19 +846,25 @@ int journal_file_verify(
         } else if (f->seal)
                 return -ENOKEY;
 
-        data_fd = open_tmpfile_unlinkable("/var/tmp", O_RDWR | O_CLOEXEC);
+        r = var_tmp(&tmp_dir);
+        if (r < 0) {
+                log_error_errno(r, "Failed to determine temporary directory: %m");
+                goto fail;
+        }
+
+        data_fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
         if (data_fd < 0) {
                 r = log_error_errno(data_fd, "Failed to create data file: %m");
                 goto fail;
         }
 
-        entry_fd = open_tmpfile_unlinkable("/var/tmp", O_RDWR | O_CLOEXEC);
+        entry_fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
         if (entry_fd < 0) {
                 r = log_error_errno(entry_fd, "Failed to create entry file: %m");
                 goto fail;
         }
 
-        entry_array_fd = open_tmpfile_unlinkable("/var/tmp", O_RDWR | O_CLOEXEC);
+        entry_array_fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
         if (entry_array_fd < 0) {
                 r = log_error_errno(entry_array_fd,
                                     "Failed to create entry array file: %m");
