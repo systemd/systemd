@@ -624,6 +624,12 @@ int dns_cache_put(
 
         dns_cache_remove_previous(c, key, answer);
 
+        /* We only care for positive replies and NXDOMAINs, on all
+         * other replies we will simply flush the respective entries,
+         * and that's it */
+        if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
+                return 0;
+
         if (dns_answer_size(answer) <= 0) {
                 char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
@@ -631,12 +637,6 @@ int dns_cache_put(
                           dns_resource_key_to_string(key, key_str, sizeof key_str));
                 return 0;
         }
-
-        /* We only care for positive replies and NXDOMAINs, on all
-         * other replies we will simply flush the respective entries,
-         * and that's it */
-        if (!IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
-                return 0;
 
         cache_keys = dns_answer_size(answer);
         if (key)
