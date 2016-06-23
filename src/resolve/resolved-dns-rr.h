@@ -282,6 +282,13 @@ static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
         return rr->wire_format_size - rr->wire_format_rdata_offset;
 }
 
+static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(DnsResourceRecord *rr) {
+        assert(rr);
+        assert(rr->key->type == DNS_TYPE_OPT);
+
+        return ((rr->ttl >> 16) & 0xFF) == 0;
+}
+
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
@@ -318,6 +325,7 @@ int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const u
 int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
 const char* dns_resource_record_to_string(DnsResourceRecord *rr);
+DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
@@ -327,8 +335,11 @@ int dns_resource_record_source(DnsResourceRecord *rr, const char **ret);
 int dns_resource_record_is_signer(DnsResourceRecord *rr, const char *zone);
 int dns_resource_record_is_synthetic(DnsResourceRecord *rr);
 
+int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl);
+
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
+DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
 
 void dns_resource_record_hash_func(const void *i, struct siphash *state);
 

@@ -232,7 +232,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, ifindex, family, &addr, LLMNR_PORT, p);
+                r = manager_send(s->manager, fd, ifindex, family, &addr, LLMNR_PORT, NULL, p);
                 if (r < 0)
                         return r;
 
@@ -257,7 +257,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, ifindex, family, &addr, MDNS_PORT, p);
+                r = manager_send(s->manager, fd, ifindex, family, &addr, MDNS_PORT, NULL, p);
                 if (r < 0)
                         return r;
 
@@ -578,6 +578,7 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
 }
 
 int dns_scope_llmnr_membership(DnsScope *s, bool b) {
+        assert(s);
 
         if (s->protocol != DNS_PROTOCOL_LLMNR)
                 return 0;
@@ -586,6 +587,7 @@ int dns_scope_llmnr_membership(DnsScope *s, bool b) {
 }
 
 int dns_scope_mdns_membership(DnsScope *s, bool b) {
+        assert(s);
 
         if (s->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
@@ -604,15 +606,14 @@ static int dns_scope_make_reply_packet(
                 DnsPacket **ret) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        unsigned i;
         int r;
 
         assert(s);
         assert(ret);
 
-        if ((!q || q->n_keys <= 0)
-            && (!answer || answer->n_rrs <= 0)
-            && (!soa || soa->n_rrs <= 0))
+        if (dns_question_isempty(q) &&
+            dns_answer_isempty(answer) &&
+            dns_answer_isempty(soa))
                 return -EINVAL;
 
         r = dns_packet_new(&p, s->protocol, 0);
@@ -631,35 +632,20 @@ static int dns_scope_make_reply_packet(
                                                               0 /* (cd) */,
                                                               rcode));
 
-        if (q) {
-                for (i = 0; i < q->n_keys; i++) {
-                        r = dns_packet_append_key(p, q->keys[i], NULL);
-                        if (r < 0)
-                                return r;
-                }
+        r = dns_packet_append_question(p, q);
+        if (r < 0)
+                return r;
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(dns_question_size(q));
 
-                DNS_PACKET_HEADER(p)->qdcount = htobe16(q->n_keys);
-        }
+        r = dns_packet_append_answer(p, answer);
+        if (r < 0)
+                return r;
+        DNS_PACKET_HEADER(p)->ancount = htobe16(dns_answer_size(answer));
 
-        if (answer) {
-                for (i = 0; i < answer->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, answer->items[i].rr, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-                DNS_PACKET_HEADER(p)->ancount = htobe16(answer->n_rrs);
-        }
-
-        if (soa) {
-                for (i = 0; i < soa->n_rrs; i++) {
-                        r = dns_packet_append_rr(p, soa->items[i].rr, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-                DNS_PACKET_HEADER(p)->arcount = htobe16(soa->n_rrs);
-        }
+        r = dns_packet_append_answer(p, soa);
+        if (r < 0)
+                return r;
+        DNS_PACKET_HEADER(p)->arcount = htobe16(dns_answer_size(soa));
 
         *ret = p;
         p = NULL;
@@ -668,25 +654,25 @@ static int dns_scope_make_reply_packet(
 }
 
 static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
-        unsigned n;
+        DnsResourceRecord *rr;
+        DnsResourceKey *key;
 
         assert(s);
         assert(p);
 
-        if (p->question)
-                for (n = 0; n < p->question->n_keys; n++)
-                        dns_zone_verify_conflicts(&s->zone, p->question->keys[n]);
-        if (p->answer)
-                for (n = 0; n < p->answer->n_rrs; n++)
-                        dns_zone_verify_conflicts(&s->zone, p->answer->items[n].rr->key);
+        DNS_QUESTION_FOREACH(key, p->question)
+                dns_zone_verify_conflicts(&s->zone, key);
+
+        DNS_ANSWER_FOREACH(rr, p->answer)
+                dns_zone_verify_conflicts(&s->zone, rr->key);
 }
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
         bool tentative = false;
-        int r, fd;
+        int r;
 
         assert(s);
         assert(p);
@@ -708,7 +694,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         r = dns_packet_extract(p);
         if (r < 0) {
-                log_debug_errno(r, "Failed to extract resources from incoming packet: %m");
+                log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
                 return;
         }
 
@@ -718,7 +704,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        assert(p->question->n_keys == 1);
+        assert(dns_question_size(p->question) == 1);
         key = p->question->keys[0];
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
@@ -738,9 +724,21 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        if (stream)
+        if (stream) {
                 r = dns_stream_write_packet(stream, reply);
-        else {
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to enqueue reply packet: %m");
+                        return;
+                }
+
+                /* Let's take an extra reference on this stream, so that it stays around after returning. The reference
+                 * will be dangling until the stream is disconnected, and the default completion handler of the stream
+                 * will then unref the stream and destroy it */
+                if (DNS_STREAM_QUEUED(stream))
+                        dns_stream_ref(stream);
+        } else {
+                int fd;
+
                 if (!ratelimit_test(&s->ratelimit))
                         return;
 
@@ -762,12 +760,11 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                  * verified uniqueness for all records. Also see RFC
                  * 4795, Section 2.7 */
 
-                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, reply);
-        }
-
-        if (r < 0) {
-                log_debug_errno(r, "Failed to send reply packet: %m");
-                return;
+                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, NULL, reply);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send reply packet: %m");
+                        return;
+                }
         }
 }
 

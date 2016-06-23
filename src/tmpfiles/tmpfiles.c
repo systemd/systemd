@@ -2178,7 +2178,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         Iterator iterator;
         unsigned v = 0;
         Item *i;
-        int r;
+        int r = 0;
 
         assert(fn);
 

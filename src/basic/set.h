@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "extract-word.h"
 #include "hashmap.h"
 #include "macro.h"
 
@@ -122,6 +123,7 @@ static inline char **set_get_strv(Set *s) {
 int set_consume(Set *s, void *value);
 int set_put_strdup(Set *s, const char *p);
 int set_put_strdupv(Set *s, char **l);
+int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags);
 
 #define SET_FOREACH(e, s, i) \
         for ((i) = ITERATOR_FIRST; set_iterate((s), &(i), (void**)&(e)); )

@@ -91,18 +91,19 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
         DnsScope *scope;
         int r;
 
+        assert(s);
+        assert(fd >= 0);
+        assert(m);
+
         r = manager_recv(m, fd, DNS_PROTOCOL_LLMNR, &p);
         if (r <= 0)
                 return r;
 
         scope = manager_find_scope(m, p);
-        if (!scope) {
+        if (!scope)
                 log_warning("Got LLMNR UDP packet on unknown scope. Ignoring.");
-                return 0;
-        }
-
-        if (dns_packet_validate_reply(p) > 0) {
-                log_debug("Got LLMNR reply packet for id %u", DNS_PACKET_ID(p));
+        else if (dns_packet_validate_reply(p) > 0) {
+                log_debug("Got LLMNR UDP reply packet for id %u", DNS_PACKET_ID(p));
 
                 dns_scope_check_conflicts(scope, p);
 
@@ -111,7 +112,7 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
                         dns_transaction_process_reply(t, p);
 
         } else if (dns_packet_validate_query(p) > 0)  {
-                log_debug("Got LLMNR query packet for id %u", DNS_PACKET_ID(p));
+                log_debug("Got LLMNR UDP query packet for id %u", DNS_PACKET_ID(p));
 
                 dns_scope_process_query(scope, NULL, p);
         } else
@@ -283,25 +284,19 @@ static int on_llmnr_stream_packet(DnsStream *s) {
         DnsScope *scope;
 
         assert(s);
+        assert(s->read_packet);
 
         scope = manager_find_scope(s->manager, s->read_packet);
-        if (!scope) {
+        if (!scope)
                 log_warning("Got LLMNR TCP packet on unknown scope. Ignoring.");
-                return 0;
-        }
-
-        if (dns_packet_validate_query(s->read_packet) > 0) {
-                log_debug("Got query packet for id %u", DNS_PACKET_ID(s->read_packet));
+        else if (dns_packet_validate_query(s->read_packet) > 0) {
+                log_debug("Got LLMNR TCP query packet for id %u", DNS_PACKET_ID(s->read_packet));
 
                 dns_scope_process_query(scope, s, s->read_packet);
-
-                /* If no reply packet was set, we free the stream */
-                if (s->write_packet)
-                        return 0;
         } else
-                log_debug("Invalid LLMNR TCP packet.");
+                log_debug("Invalid LLMNR TCP packet, ignoring.");
 
-        dns_stream_free(s);
+        dns_stream_unref(s);
         return 0;
 }
 

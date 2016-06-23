@@ -1048,7 +1048,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 
         case SD_BUS_TYPE_BOOLEAN: {
                 unsigned b;
-                bool *p = userdata;
+                int *p = userdata;
 
                 r = sd_bus_message_read_basic(m, type, &b);
                 if (r < 0)

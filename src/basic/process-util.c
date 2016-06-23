@@ -553,7 +553,7 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
                         if (errno == EINTR)
                                 continue;
 
-                        return -errno;
+                        return negative_errno();
                 }
 
                 return 0;

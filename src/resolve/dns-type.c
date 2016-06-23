@@ -96,6 +96,15 @@ bool dns_type_is_valid_query(uint16_t type) {
                        DNS_TYPE_RRSIG);
 }
 
+bool dns_type_is_zone_transer(uint16_t type) {
+
+        /* Zone transfers, either normal or incremental */
+
+        return IN_SET(type,
+                      DNS_TYPE_AXFR,
+                      DNS_TYPE_IXFR);
+}
+
 bool dns_type_is_valid_rr(uint16_t type) {
 
         /* The types valid as RR in packets (but not necessarily

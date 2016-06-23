@@ -81,12 +81,15 @@ struct Link {
         char name[IF_NAMESIZE];
         uint32_t mtu;
         uint8_t operstate;
+
+        bool loaded;
+        char *state_file;
 };
 
 int link_new(Manager *m, Link **ret, int ifindex);
 Link *link_free(Link *l);
-int link_update_rtnl(Link *l, sd_netlink_message *m);
-int link_update_monitor(Link *l);
+int link_process_rtnl(Link *l, sd_netlink_message *m);
+int link_update(Link *l);
 bool link_relevant(Link *l, int family, bool local_multicast);
 LinkAddress* link_find_address(Link *l, int family, const union in_addr_union *in_addr);
 void link_add_rrs(Link *l, bool force_remove);
@@ -101,6 +104,10 @@ void link_next_dns_server(Link *l);
 
 DnssecMode link_get_dnssec_mode(Link *l);
 bool link_dnssec_supported(Link *l);
+
+int link_save_user(Link *l);
+int link_load_user(Link *l);
+void link_remove_user(Link *l);
 
 int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr);
 LinkAddress *link_address_free(LinkAddress *a);

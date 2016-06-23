@@ -14,7 +14,7 @@ m4_ifdef(`HAVE_SMACK_RUN_LABEL',
 t /etc/mtab - - - - security.SMACK64=_
 )m4_dnl
 m4_ifdef(`ENABLE_RESOLVED',
-L! /etc/resolv.conf - - - - ../run/systemd/resolve/resolv.conf
+L! /etc/resolv.conf - - - - ../usr/lib/systemd/resolv.conf
 )m4_dnl
 C /etc/nsswitch.conf - - - -
 m4_ifdef(`HAVE_PAM',

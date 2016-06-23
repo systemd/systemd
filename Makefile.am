@@ -125,6 +125,7 @@ dist_systemunit_DATA_busnames =
 dist_sysusers_DATA =
 check_PROGRAMS =
 check_DATA =
+dist_rootlibexec_DATA =
 tests=
 manual_tests =
 TEST_EXTENSIONS = .py
@@ -5147,7 +5148,7 @@ systemd_export_LDADD = \
 	$(ZLIB_LIBS) \
 	-lbz2
 
-dist_rootlibexec_DATA = \
+dist_rootlibexec_DATA += \
 	src/import/import-pubring.gpg
 
 nodist_systemunit_DATA += \
@@ -5259,6 +5260,8 @@ systemd_resolved_SOURCES = \
 	src/resolve/resolved-dns-stream.c \
 	src/resolve/resolved-dns-trust-anchor.h \
 	src/resolve/resolved-dns-trust-anchor.c \
+	src/resolve/resolved-dns-stub.h \
+	src/resolve/resolved-dns-stub.c \
 	src/resolve/resolved-etc-hosts.h \
 	src/resolve/resolved-etc-hosts.c \
 	src/shared/gcrypt-util.c \
@@ -5410,6 +5413,9 @@ gperf_gperf_sources += \
 EXTRA_DIST += \
 	units/systemd-resolved.service.m4.in \
 	src/resolve/resolved.conf.in
+
+dist_rootlibexec_DATA += \
+	src/resolve/resolv.conf
 
 # ------------------------------------------------------------------------------
 if ENABLE_NETWORKD

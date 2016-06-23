@@ -71,6 +71,10 @@ struct DnsQuery {
          * family */
         bool suppress_unroutable_family;
 
+
+        /* If true, the RR TTLs of the answer will be clamped by their current left validity in the cache */
+        bool clamp_ttl;
+
         DnsTransactionState state;
         unsigned n_cname_redirects;
 
@@ -94,6 +98,10 @@ struct DnsQuery {
         union in_addr_union request_address;
         unsigned block_all_complete;
         char *request_address_string;
+
+        /* DNS stub information */
+        DnsPacket *request_dns_packet;
+        DnsStream *request_dns_stream;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);

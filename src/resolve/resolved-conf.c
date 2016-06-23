@@ -37,6 +37,10 @@ int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char 
         if (r < 0)
                 return r;
 
+        /* Silently filter out 0.0.0.0 and 127.0.0.53 (our own stub DNS listener) */
+        if (!dns_server_address_valid(family, &address))
+                return 0;
+
         /* Filter out duplicates */
         s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, ifindex);
         if (s) {

@@ -294,8 +294,15 @@
         <listitem><para>Flushes all DNS resource record caches the service maintains locally.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--status</option></term>
+
+        <listitem><para>Shows the global and per-link DNS settings in currently in effect.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
   </refsect1>
 

@@ -118,6 +118,8 @@ static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
 #define DNS_PACKET_AD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 5) & 1)
 #define DNS_PACKET_CD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 4) & 1)
 
+#define DNS_PACKET_FLAG_TC (UINT16_C(1) << 9)
+
 static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
         uint16_t rcode;
 
@@ -126,7 +128,34 @@ static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
         else
                 rcode = 0;
 
-        return rcode | (be16toh(DNS_PACKET_HEADER(p)->flags) & 15);
+        return rcode | (be16toh(DNS_PACKET_HEADER(p)->flags) & 0xF);
+}
+
+static inline uint16_t DNS_PACKET_PAYLOAD_SIZE_MAX(DnsPacket *p) {
+
+        /* Returns the advertised maximum datagram size for replies, or the DNS default if there's nothing defined. */
+
+        if (p->opt)
+                return MAX(DNS_PACKET_UNICAST_SIZE_MAX, p->opt->key->class);
+
+        return DNS_PACKET_UNICAST_SIZE_MAX;
+}
+
+static inline bool DNS_PACKET_DO(DnsPacket *p) {
+        if (!p->opt)
+                return false;
+
+        return !!(p->opt->ttl & (1U << 15));
+}
+
+static inline bool DNS_PACKET_VERSION_SUPPORTED(DnsPacket *p) {
+        /* Returns true if this packet is in a version we support. Which means either non-EDNS or EDNS(0), but not EDNS
+         * of any newer versions */
+
+        if (!p->opt)
+                return true;
+
+        return DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(p->opt);
 }
 
 /* LLMNR defines some bits differently */
@@ -182,7 +211,9 @@ int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, bool canonica
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *start, size_t *rdata_start);
-int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, size_t *start);
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, int rcode, size_t *start);
+int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
+int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
 int dns_packet_truncate_opt(DnsPacket *p);
@@ -232,7 +263,8 @@ enum {
         DNS_RCODE_BADNAME = 20,
         DNS_RCODE_BADALG = 21,
         DNS_RCODE_BADTRUNC = 22,
-        _DNS_RCODE_MAX_DEFINED
+        _DNS_RCODE_MAX_DEFINED,
+        _DNS_RCODE_MAX = 4095 /* 4 bit rcode in the header plus 8 bit rcode in OPT, makes 12 bit */
 };
 
 const char* dns_rcode_to_string(int i) _const_;

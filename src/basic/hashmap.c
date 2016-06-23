@@ -1764,6 +1764,9 @@ void *ordered_hashmap_next(OrderedHashmap *h, const void *key) {
 int set_consume(Set *s, void *value) {
         int r;
 
+        assert(s);
+        assert(value);
+
         r = set_put(s, value);
         if (r <= 0)
                 free(value);
@@ -1791,6 +1794,8 @@ int set_put_strdupv(Set *s, char **l) {
         int n = 0, r;
         char **i;
 
+        assert(s);
+
         STRV_FOREACH(i, l) {
                 r = set_put_strdup(s, *i);
                 if (r < 0)
@@ -1800,4 +1805,24 @@ int set_put_strdupv(Set *s, char **l) {
         }
 
         return n;
+}
+
+int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags) {
+        const char *p = v;
+        int r;
+
+        assert(s);
+        assert(v);
+
+        for (;;) {
+                char *word;
+
+                r = extract_first_word(&p, &word, separators, flags);
+                if (r <= 0)
+                        return r;
+
+                r = set_consume(s, word);
+                if (r < 0)
+                        return r;
+        }
 }

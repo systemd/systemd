@@ -60,7 +60,14 @@ static void dns_transaction_flush_dnssec_transactions(DnsTransaction *t) {
 static void dns_transaction_close_connection(DnsTransaction *t) {
         assert(t);
 
-        t->stream = dns_stream_free(t->stream);
+        if (t->stream) {
+                /* Let's detach the stream from our transaction, in case something else keeps a reference to it. */
+                t->stream->complete = NULL;
+                t->stream->on_packet = NULL;
+                t->stream->transaction = NULL;
+                t->stream = dns_stream_unref(t->stream);
+        }
+
         t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
         t->dns_udp_fd = safe_close(t->dns_udp_fd);
 }
@@ -444,7 +451,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         t = s->transaction;
         p = dns_packet_ref(s->read_packet);
 
-        t->stream = dns_stream_free(t->stream);
+        dns_transaction_close_connection(t);
 
         if (ERRNO_IS_DISCONNECT(error)) {
                 usec_t usec;
@@ -556,7 +563,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
 
         r = dns_stream_write_packet(t->stream, t->sent);
         if (r < 0) {
-                t->stream = dns_stream_free(t->stream);
+                t->stream = dns_stream_unref(t->stream);
                 return r;
         }
 
@@ -1274,7 +1281,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
-                r = dns_cache_lookup(&t->scope->cache, t->key, &t->answer_rcode, &t->answer, &t->answer_authenticated);
+                r = dns_cache_lookup(&t->scope->cache, t->key, t->clamp_ttl, &t->answer_rcode, &t->answer, &t->answer_authenticated);
                 if (r < 0)
                         return r;
                 if (r > 0) {

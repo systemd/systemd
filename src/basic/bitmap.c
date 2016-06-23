@@ -50,6 +50,23 @@ Bitmap *bitmap_new(void) {
         return new0(Bitmap, 1);
 }
 
+Bitmap *bitmap_copy(Bitmap *b) {
+        Bitmap *ret;
+
+        ret = bitmap_new();
+        if (!ret)
+                return NULL;
+
+        ret->bitmaps = newdup(uint64_t, b->bitmaps, b->n_bitmaps);
+        if (!ret->bitmaps) {
+                free(ret);
+                return NULL;
+        }
+
+        ret->n_bitmaps = ret->bitmaps_allocated = b->n_bitmaps;
+        return ret;
+}
+
 void bitmap_free(Bitmap *b) {
         if (!b)
                 return;

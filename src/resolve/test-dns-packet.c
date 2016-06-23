@@ -33,6 +33,19 @@
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,90,4b,fa,4c,fe,af,9d,d5,a1,d7,2e,8a,b1)
 
+static void verify_rr_copy(DnsResourceRecord *rr) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;
+        const char *a, *b;
+
+        assert_se(copy = dns_resource_record_copy(rr));
+        assert_se(dns_resource_record_equal(copy, rr) > 0);
+
+        assert_se(a = dns_resource_record_to_string(rr));
+        assert_se(b = dns_resource_record_to_string(copy));
+
+        assert_se(streq(a, b));
+}
+
 static uint64_t hash(DnsResourceRecord *rr) {
         struct siphash state;
 
@@ -66,6 +79,8 @@ static void test_packet_from_file(const char* filename, bool canonical) {
                 assert_se(dns_packet_append_blob(p, data + offset + 8, packet_size, NULL) >= 0);
                 assert_se(dns_packet_read_rr(p, &rr, NULL, NULL) >= 0);
 
+                verify_rr_copy(rr);
+
                 s = dns_resource_record_to_string(rr);
                 assert_se(s);
                 puts(s);
@@ -77,6 +92,8 @@ static void test_packet_from_file(const char* filename, bool canonical) {
                 assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, 0) >= 0);
                 assert_se(dns_packet_append_blob(p2, rr->wire_format, rr->wire_format_size, NULL) >= 0);
                 assert_se(dns_packet_read_rr(p2, &rr2, NULL, NULL) >= 0);
+
+                verify_rr_copy(rr);
 
                 s2 = dns_resource_record_to_string(rr);
                 assert_se(s2);
