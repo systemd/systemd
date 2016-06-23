@@ -10,6 +10,14 @@ CHANGES WITH 231:
           "Options=" with a drop-in, or mount /tmp from /etc/fstab with your
           desired options.
 
+        * systemd-resolved gained a new "Cache=" option in resolved.conf.
+          Local caching makes DNS poisoning attacks slightly easier and allows
+          a local user to detect whether any other user on the same machine has
+          recently visited a given DNS name (privacy). If that is a concern,
+          you can disable local caching with this option at the cost of slower
+          DNS resolution (which is particularly expensive with DNSSEC). The
+          default continues to be "yes" (i. e.  caching is enabled).
+
         Contributions from: ...
 
         — Somewhere, 2016-XX-XX
