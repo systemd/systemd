@@ -10,7 +10,7 @@ TEST_DESCRIPTION="SELinux tests"
 
 . $TEST_BASE_DIR/test-functions
 SETUP_SELINUX=yes
-KERNEL_APPEND="$KERNEL_APPEND selinux=1"
+KERNEL_APPEND="$KERNEL_APPEND selinux=1 security=selinux"
 
 check_result_qemu() {
     ret=1
