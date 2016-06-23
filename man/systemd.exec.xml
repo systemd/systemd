@@ -1413,6 +1413,19 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RestrictRealtime=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If set, any attempts to enable realtime scheduling in a process of
+        the unit are refused. This restricts access to realtime task scheduling policies such as
+        <constant>SCHED_FIFO</constant>, <constant>SCHED_RR</constant> or <constant>SCHED_DEADLINE</constant>. See
+        <citerefentry><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details about
+        these scheduling policies. Realtime scheduling policies may be used to monopolize CPU time for longer periods
+        of time, and may hence be used to lock up or otherwise trigger Denial-of-Service situations on the system. It
+        is hence recommended to restrict access to realtime scheduling to the few programs that actually require
+        them. Defaults to off.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
