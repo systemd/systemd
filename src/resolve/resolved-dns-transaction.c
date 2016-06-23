@@ -652,14 +652,15 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         return 0;
 
                 case DNS_TRANSACTION_RCODE_FAILURE:
-                        if (dt->answer_rcode != DNS_RCODE_NXDOMAIN) {
+                        if (!IN_SET(dt->answer_rcode, DNS_RCODE_NXDOMAIN, DNS_RCODE_SERVFAIL)) {
                                 log_debug("Auxiliary DNSSEC RR query failed with rcode=%s.", dns_rcode_to_string(dt->answer_rcode));
                                 goto fail;
                         }
 
-                        /* Fall-through: NXDOMAIN is good enough for us. This is because some DNS servers erronously
-                         * return NXDOMAIN for empty non-terminals (Akamai...), and we need to handle that nicely, when
-                         * asking for parent SOA or similar RRs to make unsigned proofs. */
+                        /* Fall-through: NXDOMAIN/SERVFAIL is good enough for us. This is because some DNS servers
+                         * erronously return NXDOMAIN/SERVFAIL for empty non-terminals (Akamai...) or missing DS
+                         * records (Facebook), and we need to handle that nicely, when asking for parent SOA or similar
+                         * RRs to make unsigned proofs. */
 
                 case DNS_TRANSACTION_SUCCESS:
                         /* All good. */
