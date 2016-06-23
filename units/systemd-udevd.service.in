@@ -24,3 +24,4 @@ ExecStart=@rootlibexecdir@/systemd-udevd
 MountFlags=slave
 KillMode=mixed
 WatchdogSec=3min
+TasksMax=infinity
