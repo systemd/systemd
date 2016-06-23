@@ -21,8 +21,11 @@ check_result_qemu() {
 }
 
 test_run() {
-    run_qemu || return 1
-    check_result_qemu || return 1
+    if run_qemu; then
+        check_result_qemu || return 1
+    else
+        dwarn "can't run QEMU, skipping"
+    fi
     return 0
 }
 
