@@ -1200,8 +1200,6 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
         child_fail:
                 (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
-
                 _exit(EXIT_FAILURE);
         }
 
