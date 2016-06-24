@@ -202,6 +202,23 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Cache=</varname></term>
+        <listitem><para>Takes a boolean argument. If "yes" (the default),
+        resolving a domain name which already got queried earlier will re-use
+        the previous result as long as that is still valid, and thus does not
+        need to do an actual network request.</para>
+
+        <para>However, local caching slightly increases the chance of a
+        successful DNS poisoning attack, and might also be a privacy problem in
+        some environments: By measuring the time it takes to resolve a
+        particular network name, a user can determine whether any other user on
+        the same machine recently visited that name. If either of these is a
+        concern, you may disable the local caching. Be aware that this comes at
+        a performance cost, which is <emphasis>very</emphasis> high with DNSSEC.
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

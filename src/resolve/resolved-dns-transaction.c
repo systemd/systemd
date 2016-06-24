@@ -590,6 +590,10 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
         if (!IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR))
                 return;
 
+        /* Caching disabled? */
+        if (!t->scope->manager->enable_cache)
+                return;
+
         /* We never cache if this packet is from the local host, under
          * the assumption that a locally running DNS server would
          * cache this anyway, and probably knows better when to flush
