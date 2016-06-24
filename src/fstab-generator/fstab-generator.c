@@ -683,10 +683,15 @@ int main(int argc, char *argv[]) {
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
+                int k;
+
                 r = add_sysroot_mount();
-                if (r == 0)
-                        r = add_sysroot_usr_mount();
-        }
+
+                k = add_sysroot_usr_mount();
+                if (k < 0)
+                        r = k;
+        } else
+                r = 0;
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
