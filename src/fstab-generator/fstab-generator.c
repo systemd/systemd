@@ -502,7 +502,7 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
-        if (streq(arg_root_what, "/dev/nfs")) {
+        if (path_equal(arg_root_what, "/dev/nfs")) {
                 /* This is handled by the kernel or the initrd */
                 log_debug("Skipping root directory handling, as /dev/nfs was requested.");
                 return 0;
