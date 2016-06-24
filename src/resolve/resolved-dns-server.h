@@ -77,7 +77,6 @@ struct DnsServer {
         unsigned n_failed_udp;
         unsigned n_failed_tcp;
 
-        bool packet_failed:1;
         bool packet_truncated:1;
         bool packet_bad_opt:1;
         bool packet_rrsig_missing:1;
@@ -113,10 +112,10 @@ void dns_server_move_back_and_unmark(DnsServer *s);
 
 void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t rtt, size_t size);
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec);
-void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level);
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 

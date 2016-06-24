@@ -245,6 +245,26 @@ static void dns_server_verified(DnsServer *s, DnsServerFeatureLevel level) {
         assert_se(sd_event_now(s->manager->event, clock_boottime_or_monotonic(), &s->verified_usec) >= 0);
 }
 
+static void dns_server_reset_counters(DnsServer *s) {
+        assert(s);
+
+        s->n_failed_udp = 0;
+        s->n_failed_tcp = 0;
+        s->packet_truncated = false;
+        s->verified_usec = 0;
+
+        /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only when the
+         * grace period ends, but not when lowering the possible feature level, as a lower level feature level should
+         * not make RRSIGs appear or OPT appear, but rather make them disappear. If the reappear anyway, then that's
+         * indication for a differently broken OPT/RRSIG implementation, and we really don't want to support that
+         * either.
+         *
+         * This is particularly important to deal with certain Belkin routers which break OPT for certain lookups (A),
+         * but pass traffic through for others (AAAA). If we detect the broken behaviour on one lookup we should not
+         * reenable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
+         * incomplete. */
+}
+
 void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t rtt, size_t size) {
         assert(s);
 
@@ -305,17 +325,6 @@ void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel le
         s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
-void dns_server_packet_failed(DnsServer *s, DnsServerFeatureLevel level) {
-        assert(s);
-
-        /* Invoked whenever we get a FORMERR, SERVFAIL or NOTIMP rcode from a server. */
-
-        if (s->possible_feature_level != level)
-                return;
-
-        s->packet_failed = true;
-}
-
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
 
@@ -353,6 +362,24 @@ void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level) {
         s->packet_bad_opt = true;
 }
 
+void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level) {
+        assert(s);
+
+        /* Invoked whenever we got a FORMERR, SERVFAIL or NOTIMP rcode from a server and downgrading the feature level
+         * for the transaction made it go away. In this case we immediately downgrade to the feature level that made
+         * things work. */
+
+        if (s->verified_feature_level > level)
+                s->verified_feature_level = level;
+
+        if (s->possible_feature_level > level) {
+                s->possible_feature_level = level;
+                dns_server_reset_counters(s);
+        }
+
+        log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.", dns_server_string(s));
+}
+
 static bool dns_server_grace_period_expired(DnsServer *s) {
         usec_t ts;
 
@@ -370,27 +397,6 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
         s->features_grace_period_usec = MIN(s->features_grace_period_usec * 2, DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC);
 
         return true;
-}
-
-static void dns_server_reset_counters(DnsServer *s) {
-        assert(s);
-
-        s->n_failed_udp = 0;
-        s->n_failed_tcp = 0;
-        s->packet_failed = false;
-        s->packet_truncated = false;
-        s->verified_usec = 0;
-
-        /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only when the
-         * grace period ends, but not when lowering the possible feature level, as a lower level feature level should
-         * not make RRSIGs appear or OPT appear, but rather make them disappear. If the reappear anyway, then that's
-         * indication for a differently broken OPT/RRSIG implementation, and we really don't want to support that
-         * either.
-         *
-         * This is particularly important to deal with certain Belkin routers which break OPT for certain lookups (A),
-         * but pass traffic through for others (AAAA). If we detect the broken behaviour on one lookup we should not
-         * reenable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
-         * incomplete. */
 }
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
@@ -453,16 +459,6 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * idea. We might downgrade all the way down to TCP this way. */
 
                         log_debug("Lost too many UDP packets, downgrading feature level...");
-                        s->possible_feature_level--;
-
-                } else if (s->packet_failed &&
-                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
-
-                        /* We got a failure packet, and are at a feature level above UDP. Note that in this case we
-                         * downgrade no further than UDP, under the assumption that a failure packet indicates an
-                         * incompatible packet contents, but not a problem with the transport. */
-
-                        log_debug("Got server failure, downgrading feature level...");
                         s->possible_feature_level--;
 
                 } else if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&

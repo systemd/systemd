@@ -117,6 +117,9 @@ struct DnsTransaction {
         /* The features of the DNS server at time of transaction start */
         DnsServerFeatureLevel current_feature_level;
 
+        /* If we got SERVFAIL back, we retry the lookup, using a lower feature level than we used before. */
+        DnsServerFeatureLevel clamp_feature_level;
+
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction
          * completing. */
