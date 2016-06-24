@@ -108,7 +108,11 @@ $KERNEL_APPEND \
     return 0
 }
 
+# Return 0 if nspawn did run (then you must check the result state/logs for actual
+# success), or 1 if nspawn is not available.
 run_nspawn() {
+    [[ -d /run/systemd/system ]] || return 1
+
     local _nspawn_cmd="../../systemd-nspawn --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND"
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
@@ -1283,11 +1287,6 @@ inst_libdir_file() {
         done
     fi
 }
-
-check_nspawn() {
-    [[ -d /run/systemd/system ]]
-}
-
 
 do_test() {
     if [[ $UID != "0" ]]; then

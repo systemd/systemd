@@ -5,11 +5,11 @@ TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/1981"
 
 . $TEST_BASE_DIR/test-functions
 
+NSPAWN_TIMEOUT=30s
+
 test_run() {
     dwarn "skipping QEMU"
-    if check_nspawn; then
-        NSPAWN_TIMEOUT=30s
-        run_nspawn
+    if run_nspawn; then
         check_result_nspawn || return 1
     else
         dwarn "can't run systemd-nspawn, skipping"
