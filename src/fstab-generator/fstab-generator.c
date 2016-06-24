@@ -570,10 +570,8 @@ static int add_sysroot_usr_mount(void) {
                 return 0;
 
         what = fstab_node_to_udev_node(arg_usr_what);
-        if (!path_is_absolute(what)) {
-                log_debug("Skipping entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
-                return -1;
-        }
+        if (!what)
+                return log_oom();
 
         if (!arg_usr_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
