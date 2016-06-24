@@ -532,10 +532,10 @@ static int add_sysroot_mount(void) {
                          "/sysroot",
                          arg_root_fstype,
                          opts,
-                         is_device_path(what) ? 1 : 0,
-                         false,
-                         false,
-                         false,
+                         is_device_path(what) ? 1 : 0, /* passno */
+                         false,                        /* noauto off */
+                         false,                        /* nofail off */
+                         false,                        /* automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -585,10 +585,10 @@ static int add_sysroot_usr_mount(void) {
                          "/sysroot/usr",
                          arg_usr_fstype,
                          opts,
-                         1,
-                         false,
-                         false,
-                         false,
+                         is_device_path(what) ? 1 : 0, /* passno */
+                         false,                        /* noauto off */
+                         false,                        /* nofail off */
+                         false,                        /* automount off */
                          SPECIAL_INITRD_FS_TARGET,
                          "/proc/cmdline");
 }
