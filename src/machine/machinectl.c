@@ -2375,7 +2375,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
 }
 
 static int clean_images(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t usage, total = 0;
         char fb[FORMAT_BYTES_MAX];
@@ -2384,15 +2384,22 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         unsigned c = 0;
         int r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "CleanPool",
-                        &error,
-                        &reply,
-                        "s", arg_all ? "all" : "hidden");
+                        "CleanPool");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", arg_all ? "all" : "hidden");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* This is a slow operation, hence permit a longer time for completion. */
+        r = sd_bus_call(bus, m, USEC_INFINITY, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Could not clean pool: %s", bus_error_message(&error, r));
 

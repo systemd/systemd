@@ -86,3 +86,5 @@ int open_tmpfile_unlinkable(const char *directory, int flags);
 int open_tmpfile_linkable(const char *target, int flags, char **ret_path);
 
 int link_tmpfile(int fd, const char *path, const char *target);
+
+int read_nul_string(FILE *f, char **ret);
