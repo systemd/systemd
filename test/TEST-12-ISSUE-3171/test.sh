@@ -6,8 +6,11 @@ TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/3171"
 . $TEST_BASE_DIR/test-functions
 
 test_run() {
-    run_nspawn || return 1
-    check_result_nspawn || return 1
+    if run_nspawn; then
+        check_result_nspawn || return 1
+    else
+        dwarn "can't run systemd-nspawn, skipping"
+    fi
     return 0
 }
 

@@ -18,12 +18,16 @@ check_result_qemu() {
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
+    [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     return $ret
 }
 
 test_run() {
-    run_qemu || return 1
-    check_result_qemu || return 1
+    if run_qemu; then
+        check_result_qemu || return 1
+    else
+        dwarn "can't run QEMU, skipping"
+    fi
     return 0
 }
 
