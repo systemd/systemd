@@ -33,8 +33,6 @@ Janitorial Clean-ups:
 
 Features:
 
-* resolved: maybe add a switch to disable any local caching
-
 * ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
 
 * ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc
@@ -46,8 +44,6 @@ Features:
 * ProtectKeyRing= to take keyring calls away
 
 * RestrictNamespaces= or so in services (taking away the ability to create namespaces, with setns, unshare, clone)
-
-* RestrictRealtime= which takes aware ability to create realtime processes
 
 * nspawn: make /proc/sys/net writable?
 
@@ -66,8 +62,6 @@ Features:
 * transient units: don't bother with actually setting unit properties, we
   reload the unit file anyway
 
-* make sure resolved can be restarted without losing pushed-in dns config
-
 * journald: sigbus API via a signal-handler safe function that people may call
   from the SIGBUS handler
 
@@ -78,9 +72,6 @@ Features:
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
 
 * resolved: when routing queries, make sure only look for the *longest* suffix...
-
-* resolved: maybe, after all, implement local listening for DNS packets on port
-  127.0.0.53:53.
 
 * delay activation of logind until somebody logs in, or when /dev/tty0 pulls it
   in or lingering is on (so that containers don't bother with it until PAM is used). also exit-on-idle
@@ -114,8 +105,6 @@ Features:
   http://lists.freedesktop.org/archives/systemd-devel/2015-June/032962.html
 
 * man: document that unless you use StandardError=null the shell >/dev/stderr won't work in shell scripts in services
-
-* install: include generator dirs in unit file search paths
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
@@ -226,6 +215,7 @@ Features:
     names, so that for the container case we can establish the same name
     (maybe "host") for referencing the server, everywhere.
   - allow clients to request DNSSEC for a single lookup even if DNSSEC is off (?)
+  - hook up resolved with machined-based address resolution
 
 * refcounting in sd-resolve is borked
 
