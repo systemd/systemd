@@ -548,22 +548,20 @@ static int add_sysroot_usr_mount(void) {
                 return 0;
 
         if (arg_root_what && !arg_usr_what) {
+                /* Copy over the root device, in case the /usr mount just differs in a mount option (consider btrfs subvolumes) */
                 arg_usr_what = strdup(arg_root_what);
-
                 if (!arg_usr_what)
                         return log_oom();
         }
 
         if (arg_root_fstype && !arg_usr_fstype) {
                 arg_usr_fstype = strdup(arg_root_fstype);
-
                 if (!arg_usr_fstype)
                         return log_oom();
         }
 
         if (arg_root_options && !arg_usr_options) {
                 arg_usr_options = strdup(arg_root_options);
-
                 if (!arg_usr_options)
                         return log_oom();
         }
