@@ -4144,7 +4144,7 @@ test_catalog_SOURCES = \
 
 test_catalog_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
-	-DCATALOG_DIR=\"$(abs_top_srcdir)/catalog\"
+	-DCATALOG_DIR=\"$(abs_top_builddir)/catalog\"
 
 test_catalog_LDADD = \
 	libjournal-core.la
@@ -4343,7 +4343,7 @@ nodist_systemunit_DATA += \
 dist_pkgsysconf_DATA += \
 	src/journal/journald.conf
 
-dist_catalog_DATA = \
+nodist_catalog_DATA = \
 	catalog/systemd.bg.catalog \
 	catalog/systemd.be.catalog \
 	catalog/systemd.be@latin.catalog \
@@ -4355,6 +4355,16 @@ dist_catalog_DATA = \
 	catalog/systemd.zh_CN.catalog \
 	catalog/systemd.zh_TW.catalog \
 	catalog/systemd.catalog
+
+EXTRA_DIST += \
+	$(nodist_catalog_DATA:.catalog=.catalog.in)
+
+# Note that we don't use @@ for replacement markers here, but %%. This is
+# because the catalog uses @@ already for its runtime replacement handling and
+# we don't want to conflict with that.
+catalog/%.catalog: catalog/%.catalog.in
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(SED) -e 's~%SUPPORT_URL%~$(SUPPORT_URL)~' < $< > $@
 
 SOCKETS_TARGET_WANTS += \
 	systemd-journald.socket \

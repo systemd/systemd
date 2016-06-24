@@ -29,7 +29,7 @@
 -- f77379a8490b408bbe5f6940505a777b
 Subject: Запущена служба журналирования
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Процесс, отвечающий за журналирование системных событий, успешно запустился,
 открыл для записи файлы журнала, и готов обрабатывать запросы.
@@ -38,7 +38,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- d93fb3c9c24d451a97cea615ce59c00b
 Subject: Служба журналирования остановлена
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Процесс, отвечающий за журналирование системных событий, завершил работу и
 закрыл все свои файлы.
@@ -47,26 +47,26 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- ec387f577b844b8fa948f33cad9a75e6
 Subject: Место на диске, занятое журналом
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 @JOURNAL_NAME@ (@JOURNAL_PATH@) сейчас занимает @CURRENT_USE_PRETTY@.
 Максимальный разрешенный размер составляет @MAX_USE_PRETTY@.
-Оставляем свободными как минимум @DISK_KEEP_FREE_PRETTY@ (сейчас на диске 
+Оставляем свободными как минимум @DISK_KEEP_FREE_PRETTY@ (сейчас на диске
 свободно @DISK_AVAILABLE_PRETTY@).
 Таким образом, предел использования составляет @LIMIT_PRETTY@, из которых
 @AVAILABLE_PRETTY@ пока свободно.
 
 Ограничения на размер журнала настраиваются при помощи параметров
-SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=, RuntimeMaxUse=, 
+SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=, RuntimeMaxUse=,
 RuntimeKeepFree=, RuntimeMaxFileSize= в файле /etc/systemd/journald.conf.
-Более подробные сведения вы можете получить на справочной странице 
+Более подробные сведения вы можете получить на справочной странице
 journald.conf(5).
 
 # Subject: Messages from a service have been suppressed
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Часть сообщений от службы пропущена
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:journald.conf(5)
 
 Служба отправила слишком много сообщений за короткий промежуток времени.
@@ -84,7 +84,7 @@ journald.conf(5).
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Часть сообщений ядра пропущена
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Часть сообщений, поступивших от ядра, была потеряна, так как служба
 журналирования не успела их обработать.
@@ -93,7 +93,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Процесс @COREDUMP_PID@ (@COREDUMP_COMM@) сбросил дамп памяти
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:core(5)
 
 Процесс @COREDUMP_PID@ (@COREDUMP_COMM@) завершился из-за критической ошибки.
@@ -106,7 +106,7 @@ Documentation: man:core(5)
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: Для пользователя @USER_ID@ создан новый сеанс @SESSION_ID@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Для пользователя @USER_ID@ создан новый сеанс с идентификатором @SESSION_ID@.
@@ -117,7 +117,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- 3354939424b4456d9802ca8333ed424a
 Subject: Сеанс @SESSION_ID@ завершен
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Сеанс с идентификатором @SESSION_ID@ завершился.
@@ -126,7 +126,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- fcbefc5da23d428093f97c82a9290f7b
 Subject: Добавлено новое рабочее место @SEAT_ID@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Новое рабочее место (seat) @SEAT_ID@ полностью настроено и готово к
@@ -136,7 +136,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- e7852bfe46784ed0accde04bc864c2d5
 Subject: Рабочее место @SEAT_ID@ отключено
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Рабочее место (seat) @SEAT_ID@ было отключено.
@@ -145,7 +145,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Переведены системные часы
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Системные часы были переведены. Сейчас они показывают @REALTIME@ микросекунд
 с момента 00:00:00 1 января 1970 года.
@@ -154,7 +154,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Часовой пояс изменен на @TIMEZONE@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Системный часовой пояс был изменен. Новое значение: @TIMEZONE@.
 
@@ -162,7 +162,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- b07a249cd024414a82dd00cd181378ff
 Subject: Запуск системы завершен
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Все системные службы, запуск которых предписан настройками, были запущены.
 Впрочем, это ещё не означает, что система в данный момент ничем не занята,
@@ -179,7 +179,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Система перешла в состояние сна (@SLEEP@)
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Система была переведена в состояние сна (@SLEEP@).
 
@@ -187,7 +187,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 8811e6df2a8e40f58a94cea26f8ebf14
 Subject: Система вышла из состояния сна (@SLEEP@)
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Система была выведена из состояния сна (@SLEEP@).
 
@@ -195,7 +195,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 98268866d1d54a499c4e98921d93bc40
 Subject: Подготовка системы к выключению
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Начат процесс подготовки к выключению компьютера. Останавливаются все системные
 службы, отмонтируются все файловые системы.
@@ -204,7 +204,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: Начинается запуск юнита @UNIT@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Начат процесс запуска юнита @UNIT@.
 
@@ -212,7 +212,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 39f53479d3a045ac8e11786248231fbf
 Subject: Запуск юнита @UNIT@ завершен
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Процесс запуска юнита @UNIT@ был завершен.
 
@@ -222,7 +222,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Начинается остановка юнита @UNIT@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Начат процесс остановки юнита @UNIT@.
 
@@ -230,7 +230,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 9d1aaa27d60140bd96365438aad20286
 Subject: Завершена остановка юнита @UNIT@.
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Процесс остановки юнита @UNIT@ был завершен.
 
@@ -238,7 +238,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- be02cf6855d2428ba40df7e9d022f03d
 Subject: Ошибка юнита @UNIT@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Произошел сбой юнита @UNIT@.
 
@@ -248,7 +248,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- d34d037fff1847e6ae669a370e694725
 Subject: Юнит @UNIT@ начал перечитывать свои настройки
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Юнит @UNIT@ начал процесс перечитывания своей конфигурации.
 
@@ -256,7 +256,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 7b05ebc668384222baa8881179cfda54
 Subject: Юнит @UNIT@ завершил перечитывание своих настроек
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Юнит @UNIT@ завершил процесс перечитывания своей конфигурации.
 
@@ -266,7 +266,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Не удалось запустить процесс @EXECUTABLE@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Сбой: не удалось запустить процесс @EXECUTABLE@.
 
@@ -276,7 +276,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 0027229ca0644181a76c4e92458afa2e
 Subject: Часть сообщений не удалось передать процессу syslog
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Не удалось передать некоторые сообщения демону системного лога (syslog),
 дублирующему работу службы системного журнала. Скорее всего, причина в том, что
@@ -287,7 +287,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 1dee0369c7fc4736b7099b38ecb46ee7
 Subject: Каталог, являющийся точкой монтирования, не пуст
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Каталог @WHERE@, который был указан в качестве точки монтирования (во втором
 столбце файла /etc/fstab, либо в параметре Where= файла конфигурации юнита),
@@ -299,7 +299,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 24d8d4452573402496068381a6312df2
 Subject: Запущена виртуальная машина/контейнер
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Виртуальная машина @NAME@ (идентификатор главного процесса: @LEADER@) запущена и
 готова к работе.
@@ -308,7 +308,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 58432bd3bace477cb514b56381b8a758
 Subject: Остановлена виртуальная машина/контейнер
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Виртуальная машина @NAME@ (идентификатор главного процесса: @LEADER@) выключена.
 
@@ -316,11 +316,11 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 36db2dfa5a9045e1bd4af5f93e1cf057
 Subject: Механизм DNSSEC был отключен, так как DNS-сервер его не поддерживает
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8) resolved.conf(5)
 
 Служба разрешения имен хостов (systemd-resolved.service) определила, что
-указанный в настойках DNS-сервер не поддерживает технологию DNSSEC, и 
+указанный в настойках DNS-сервер не поддерживает технологию DNSSEC, и
 автоматически отключила DNSSEC-проверки.
 
 Данное событие возникает, если в файле resolved.conf указан параметр
@@ -329,7 +329,7 @@ DNSSEC=allow-downgrade, и вышестоящий DNS-сервер не подд
 "DNSSEC downgrade", в ходе которой атакующий хакер блокирует проверки DNSSEC
 путем отправки ложных сообщений от имени DNS-сервера.
 
-Возникновение данного события может свидетельствовать как о том, что ваш 
+Возникновение данного события может свидетельствовать как о том, что ваш
 DNS-сервер не поддерживает DNSSEC, так и о том, что некий хакер успешно провел
 против вас атаку, направленную на блокировку DNSSEC-проверок.
 
@@ -337,7 +337,7 @@ DNS-сервер не поддерживает DNSSEC, так и о том, чт
 -- 1675d7f172174098b1108bf8c7dc8f5d
 Subject: Проверка DNSSEC провалена
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8)
 
 DNS-запрос или отдельная ресурсная запись не прошла проверку DNSSEC.
@@ -347,8 +347,8 @@ DNS-запрос или отдельная ресурсная запись не 
 -- 4d4408cfd0d144859184d1e65d7c8a65
 Subject: Открытый ключ DNSSEC был отозван
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8)
 
-Открытый ключ (trust ahcnor) DNSSEC был отозван. Необходимо настроить новый 
+Открытый ключ (trust ahcnor) DNSSEC был отозван. Необходимо настроить новый
 открытый ключ, либо обновить систему, чтобы получить обновленный открытый ключ.
