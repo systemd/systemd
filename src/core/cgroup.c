@@ -36,8 +36,7 @@
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
-static void cgroup_compat_warn(void)
-{
+static void cgroup_compat_warn(void) {
         static bool cgroup_compat_warned = false;
 
         if (cgroup_compat_warned)
@@ -50,7 +49,7 @@ static void cgroup_compat_warn(void)
 #define log_cgroup_compat(unit, fmt, ...) do {                                  \
                 cgroup_compat_warn();                                           \
                 log_unit_debug(unit, "cgroup-compat: " fmt, ##__VA_ARGS__);     \
-        } while (0)
+        } while (false)
 
 void cgroup_context_init(CGroupContext *c) {
         assert(c);
