@@ -417,8 +417,7 @@ static int parse_fstab(bool initrd) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open %s: %m", fstab_path);
-                return -errno;
+                return log_error_errno(errno, "Failed to open %s: %m", fstab_path);
         }
 
         while ((me = getmntent(f))) {
