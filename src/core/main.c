@@ -1507,13 +1507,14 @@ int main(int argc, char *argv[]) {
                         (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
         }
 
-        /* We expect the environment to be set correctly if run inside a
-         * container. */
-        if (arg_system && detect_container() <= 0) {
-                if (fixup_environment() < 0) {
-                        error_message = "Failed to fix up PID1 environment";
-                        goto finish;
-                }
+        if (arg_system) {
+                /* We expect the environment to be set correctly
+                 * if run inside a container. */
+                if (detect_container() <= 0)
+                        if (fixup_environment() < 0) {
+                                error_message = "Failed to fix up PID1 environment";
+                                goto finish;
+                        }
 
                 /* Try to figure out if we can use colors with the console. No
                  * need to do that for user instances since they never log
