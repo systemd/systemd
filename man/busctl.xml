@@ -119,8 +119,10 @@
           <term><option>--match=<replaceable>MATCH</replaceable></option></term>
 
           <listitem><para>When showing messages being exchanged, show only the
-          subset matching <replaceable>MATCH</replaceable>.</para></listitem>
-          <!-- TODO: link to sd_bus_add_match when it is written? -->
+          subset matching <replaceable>MATCH</replaceable>.
+          See
+          <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+          </para></listitem>
       </varlistentry>
 
       <varlistentry>
