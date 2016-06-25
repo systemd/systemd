@@ -263,9 +263,12 @@ static int patch_fd(int fd, const char *name, const struct stat *st, uid_t shift
                         return -errno;
 
                 /* The Linux kernel alters the mode in some cases of chown(). Let's undo this. */
-                if (name && !S_ISLNK(st->st_mode))
-                        r = fchmodat(fd, name, st->st_mode, 0);
-                else
+                if (name) {
+                        if (!S_ISLNK(st->st_mode))
+                                r = fchmodat(fd, name, st->st_mode, 0);
+                        else /* AT_SYMLINK_NOFOLLOW is not available for fchmodat() */
+                                r = 0;
+                } else
                         r = fchmod(fd, st->st_mode);
                 if (r < 0)
                         return -errno;
