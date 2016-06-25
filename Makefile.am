@@ -3177,16 +3177,7 @@ EXTRA_DIST += \
 	src/libsystemd/sd-bus/DIFFERENCES \
 	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
 
-libsystemd_la_SOURCES = \
-	$(libsystemd_internal_la_SOURCES) \
-	$(libsystemd_journal_internal_la_SOURCES)
-
-nodist_libsystemd_la_SOURCES = \
-	$(nodist_libsystemd_internal_la_SOURCES)
-
-libsystemd_la_CFLAGS = \
-	$(libsystemd_internal_la_CFLAGS) \
-	$(libsystemd_journal_internal_la_CFLAGS)
+libsystemd_la_SOURCES =
 
 libsystemd_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -3194,8 +3185,9 @@ libsystemd_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd/libsystemd.sym
 
 libsystemd_la_LIBADD = \
-	$(libsystemd_internal_la_LIBADD) \
-	$(libsystemd_journal_internal_la_LIBADD)
+	libsystemd-internal.la \
+	libbasic.la \
+	libsystemd-journal-internal.la
 
 libsystemd-install-hook:
 	libname=libsystemd.so && $(move-to-rootlibdir)
