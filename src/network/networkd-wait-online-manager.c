@@ -30,8 +30,6 @@
 #include "util.h"
 
 bool manager_ignore_link(Manager *m, Link *link) {
-        char **ignore;
-
         assert(m);
         assert(link);
 
@@ -44,11 +42,7 @@ bool manager_ignore_link(Manager *m, Link *link) {
                 return true;
 
         /* ignore interfaces we explicitly are asked to ignore */
-        STRV_FOREACH(ignore, m->ignore)
-                if (fnmatch(*ignore, link->ifname, 0) == 0)
-                        return true;
-
-        return false;
+        return strv_fnmatch(m->ignore, link->ifname, 0);
 }
 
 bool manager_all_configured(Manager *m) {
