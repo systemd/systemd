@@ -69,8 +69,10 @@ bool strv_equal(char **a, char **b);
 char **strv_new(const char *x, ...) _sentinel_;
 char **strv_new_ap(const char *x, va_list ap);
 
+#define STRV_IGNORE ((const char *) -1)
+
 static inline const char* STRV_IFNOTNULL(const char *x) {
-        return x ? x : (const char *) -1;
+        return x ? x : STRV_IGNORE;
 }
 
 static inline bool strv_isempty(char * const *l) {
