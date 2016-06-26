@@ -32,6 +32,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
@@ -1523,6 +1524,32 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int image_exists(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetImage",
+                        &error,
+                        NULL,
+                        "s", name);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_IMAGE))
+                        return 0;
+
+                return log_error_errno(r, "Failed to check whether image %s exists: %s", name, bus_error_message(&error, -r));
+        }
+
+        return 1;
+}
+
 static int make_service_name(const char *name, char **ret) {
         _cleanup_free_ char *e = NULL;
         int r;
@@ -1564,6 +1591,14 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                 r = make_service_name(argv[i], &unit);
                 if (r < 0)
                         return r;
+
+                r = image_exists(bus, argv[i]);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_error("Machine image '%s' does not exist.", argv[1]);
+                        return -ENXIO;
+                }
 
                 r = sd_bus_call_method(
                                 bus,
@@ -1631,6 +1666,14 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                 r = make_service_name(argv[i], &unit);
                 if (r < 0)
                         return r;
+
+                r = image_exists(bus, argv[i]);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_error("Machine image '%s' does not exist.", argv[1]);
+                        return -ENXIO;
+                }
 
                 r = sd_bus_message_append(m, "s", unit);
                 if (r < 0)
