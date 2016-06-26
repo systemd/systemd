@@ -27,7 +27,7 @@
 -- f77379a8490b408bbe5f6940505a777b
 Subject: Сэрвіс журналявання запусціўся
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Працэс сістэмнага журналявання запусціўся, адкрыў файлы для
 запісу і гатовы апрацоўваць запыты.
@@ -35,14 +35,14 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- d93fb3c9c24d451a97cea615ce59c00b
 Subject: Сэрвіс журналявання спыніўся
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Працэс сістэмнага журналявання спыніўся і закрыў усе файлы.
 
 -- ec387f577b844b8fa948f33cad9a75e6
 Subject: Дыскавае месца, занятае часопісам
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 @JOURNAL_NAME@ (@JOURNAL_PATH@) цяпер займае @CURRENT_USE_PRETTY@.
 Максімальна дазволены памер складае @MAX_USE_PRETTY@.
@@ -58,7 +58,7 @@ SystemMaxFileSize=, RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize= у
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Паведамленні з сэрвісу адкінуты
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:journald.conf(5)
 
 Сэрвіс адправіў занадта штат паведамленняў за кароткі прамежак часу.
@@ -74,7 +74,7 @@ RateLimitIntervalSec= і RateLimitBurst= у файле /etc/systemd/journald.con
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Паведамленні страчаны
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Паведамленні ядра былі страчаны, так як сістэма журналявання не паспела
 іх апрацаваць.
@@ -82,7 +82,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Працэс @COREDUMP_PID@ (@COREDUMP_COMM@) скінуў дамп памяці
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:core(5)
 
 Працэс @COREDUMP_PID@ (@COREDUMP_COMM@) разбіўся і скінуў дамп памяці.
@@ -93,7 +93,7 @@ Documentation: man:core(5)
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: Новая сесія № @SESSION_ID@ створана для карыстальніка @USER_ID@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Новая сесія з № @SESSION_ID@ створана для карыстальніка @USER_ID@.
@@ -103,7 +103,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- 3354939424b4456d9802ca8333ed424a
 Subject: Сесія № @SESSION_ID@ спынена
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Сесія № @SESSION_ID@ спынена.
@@ -111,7 +111,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- fcbefc5da23d428093f97c82a9290f7b
 Subject: Даступна новае працоўнае месца № @SEAT_ID@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Новае працоўнае месца № @SEAT_ID@ наладжана і даступна для выкарыстання.
@@ -119,7 +119,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- e7852bfe46784ed0accde04bc864c2d5
 Subject: Працоўнае месца № @SEAT_ID@ выдалена
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Працоўнае месца № @SEAT_ID@ выдалена і больш не даступна.
@@ -127,21 +127,21 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Час зменены
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Сістэмны гадзіннік зменены на @REALTIME@ мікрасекунд ад 1 студзеня 1970.
 
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Часавы пояс зменены на @TIMEZONE@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Сістэмны часавы пояс зменены на @TIMEZONE@.
 
 -- b07a249cd024414a82dd00cd181378ff
 Subject: Запуск сістэмы завяршыўся
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Усе сістэмныя сэрвісы, неабходныя для загрузкі сістэмы, паспяхова
 запусціліся. Майце на ўвазе, што гэта не значыць, што машына нічога не
@@ -156,21 +156,21 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Сістэма перайшла ў стан сну @SLEEP@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Цяпер сістэма перайшла у стан сну @SLEEP@.
 
 -- 8811e6df2a8e40f58a94cea26f8ebf14
 Subject: Сістэма выйшла са стана сну @SLEEP@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Цяпер сістэма выйшла са стана сну @SLEEP@.
 
 -- 98268866d1d54a499c4e98921d93bc40
 Subject: Сістэма завяршае работу
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Пачаўся працэс выключэння сістэмы.
 Спыняюцца ўсе сістэмныя сэрвісы і дэмантуюцца файлавыя сістэмы.
@@ -178,14 +178,14 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: Юніт @UNIT@ запускаецца
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Пачаўся працэс запуску юніта @UNIT@.
 
 -- 39f53479d3a045ac8e11786248231fbf
 Subject: Юніт @UNIT@ запусціўся
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Працэс запуску юніта @UNIT@ завершаны.
 
@@ -194,21 +194,21 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Юніт @UNIT@ спыняецца
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Пачаўся працэс спынення юніта @UNIT@.
 
 -- 9d1aaa27d60140bd96365438aad20286
 Subject: Юніт @UNIT@ спынены
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Працэс спынення юніта @UNIT@ завершаны.
 
 -- be02cf6855d2428ba40df7e9d022f03d
 Subject: Збой юніта @UNIT@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Збой юніта @UNIT@.
 
@@ -217,14 +217,14 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- d34d037fff1847e6ae669a370e694725
 Subject: Юніт @UNIT@ перачытвае сваю канфігурацыю
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Юніт @UNIT@ пачаў перачытваць сваю канфігурацыю.
 
 -- 7b05ebc668384222baa8881179cfda54
 Subject: Юніт @UNIT@ перачытаў сваю канфігурацыю
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Юніт @UNIT@ перачытаў сваю канфігурацыю.
 
@@ -233,7 +233,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Працэс @EXECUTABLE@ не можа быць выкананы
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Працэс @EXECUTABLE@ не можа быць выкананы ў выніку збою.
 
@@ -242,7 +242,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 0027229ca0644181a76c4e92458afa2e
 Sibject: Адно ці больш паведамленняў не былі накіраваны ў syslog
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Адно ці больш паведамленняў не былі накіраваны ў syslog сэрвіс, які
 выконваецца паралельна з journald. Звычайна гэта значыць, што
@@ -252,7 +252,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 1dee0369c7fc4736b7099b38ecb46ee7
 Subject: Кропка мантавання не пустая
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Каталог @WHERE@ указаны як кропка мантавання (другое поле ў /etc/fstab ці
 Where= поле ў файле юніта systemd) і не пусты. Гэта не перашкаджае
@@ -262,7 +262,7 @@ Where= поле ў файле юніта systemd) і не пусты. Гэта �
 -- 24d8d4452573402496068381a6312df2
 Subject: Віртуальная машына або кантэйнер запусціўся
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Віртуальная машына @NAME@ з лідарам № @LEADER@ запусцілася і
 гатова для выкарыстання.
@@ -270,14 +270,14 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 -- 58432bd3bace477cb514b56381b8a758
 Subject: Віртуальная машына або кантэйнер спынены
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Віртуальная машына @NAME@ з лідарам № @LEADER@ спынена.
 
 -- 36db2dfa5a9045e1bd4af5f93e1cf057
-Subject: Механізм DNSSEC адключаны, бо сервер не падтымлівае яго 
+Subject: Механізм DNSSEC адключаны, бо сервер не падтымлівае яго
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8) resolved.conf(5)
 
 Сэрвіс вызначэння імён (systemd-resolved.service) вызначыў, што DNS-сервер
@@ -296,7 +296,7 @@ Documentation: man:systemd-resolved.service(8) resolved.conf(5)
 -- 1675d7f172174098b1108bf8c7dc8f5d
 Subject: Збой пры праверцы DNSSEC
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8)
 
 DNS-запыт або рэсурсны запіс не прайшоў праверку DNSSEC.
@@ -305,7 +305,7 @@ DNS-запыт або рэсурсны запіс не прайшоў праве
 -- 4d4408cfd0d144859184d1e65d7c8a65
 Subject: Давераны ключ DNSSEC быў ануляваны
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8)
 
 Давераны ключ DNSSEC быў ануляваны. Неабходна наладзіць новы давераны ключ

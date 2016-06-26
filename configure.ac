@@ -551,6 +551,14 @@ AC_ARG_WITH([certificate-root],
 
 AC_SUBST(CERTIFICATEROOT)
 
+AC_ARG_WITH([support-url],
+        AS_HELP_STRING([--with-support-url=URL],
+                [Specify the supoport URL to show in catalog entries included in systemd]),
+        [SUPPORT_URL="$withval"],
+        [SUPPORT_URL=http://lists.freedesktop.org/mailman/listinfo/systemd-devel])
+
+AC_SUBST(SUPPORT_URL)
+
 # ------------------------------------------------------------------------------
 have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
@@ -1665,6 +1673,7 @@ AC_MSG_RESULT([
         Maximum System UID:                ${SYSTEM_UID_MAX}
         Maximum System GID:                ${SYSTEM_GID_MAX}
         Certificate root:                  ${CERTIFICATEROOT}
+        Support URL:                       ${SUPPORT_URL}
 
         CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}

@@ -27,7 +27,7 @@
 -- f77379a8490b408bbe5f6940505a777b
 Subject: O jornal foi inciado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O processo jornal do sistema foi iniciado, arquivos foram abertos e está
 pronto para processar requisições.
@@ -35,7 +35,7 @@ pronto para processar requisições.
 -- d93fb3c9c24d451a97cea615ce59c00b
 Subject: O jornal foi interrompido
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O processo do jornal do sistema foi desligado e todos os arquivos de jornal
 do sistema foram fechados.
@@ -43,7 +43,7 @@ do sistema foram fechados.
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Mensagens de um serviço foram suprimidas
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:journald.conf(5)
 
 Um serviço registrou no log um número excessivo de mensagens dentro de um
@@ -59,7 +59,7 @@ configurado com RateLimitIntervalSec= e RateLimitBurst= no
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Mensagens do jornal foram perdidas
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Mensagens do kernel foram perdidas pois o sistema do jornal não pôde
 processá-las em velocidade suficiente para a demanda.
@@ -67,7 +67,7 @@ processá-las em velocidade suficiente para a demanda.
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Processo @COREDUMP_PID@ (@COREDUMP_COMM@) despejou núcleo
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: man:core(5)
 
 Processo @COREDUMP_PID@ (@COREDUMP_COMM@) travou e despejou o núcleo.
@@ -78,7 +78,7 @@ deveria ser relatado para seu fabricante como um erro.
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: A nova sessão @SESSION_ID@ foi criada para usuário o @USER_ID@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Uma nova sessão com o ID @SESSION_ID@ foi criada para o usuário @USER_ID@.
@@ -88,7 +88,7 @@ O processo originador da sessão é @LEADER@.
 -- 3354939424b4456d9802ca8333ed424a
 Subject: Sessão @SESSION_ID@ foi terminada
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Um sessão com o ID @SESSION_ID@ foi terminada.
@@ -96,7 +96,7 @@ Um sessão com o ID @SESSION_ID@ foi terminada.
 -- fcbefc5da23d428093f97c82a9290f7b
 Subject: Um novo seat @SEAT_ID@ está disponível
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Um novo seat @SEAT_ID@ foi configurado e está disponível.
@@ -104,7 +104,7 @@ Um novo seat @SEAT_ID@ foi configurado e está disponível.
 -- e7852bfe46784ed0accde04bc864c2d5
 Subject: Seat @SEAT_ID@ foi removido agora
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Um seat @SEAT_ID@ foi removido e não está mais disponível.
@@ -112,7 +112,7 @@ Um seat @SEAT_ID@ foi removido e não está mais disponível.
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Time change
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O relógio do sistema foi alterado para @REALTIME@ microssegundos após 1º de
 janeiro de 1970.
@@ -120,14 +120,14 @@ janeiro de 1970.
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Fuso horário alterado para @TIMEZONE@
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O fuso horário do sistema foi alterado para @TIMEZONE@.
 
 -- b07a249cd024414a82dd00cd181378ff
 Subject: Inicialização do sistema foi concluída
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Todos os serviços do sistema necessários que estão enfileirados para
 executar na inicialização do sistema, foram iniciados com sucesso. Note
@@ -143,21 +143,21 @@ Inicialização do espaço do usuário precisou de @USERSPACE_USEC@ microssegund
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Estado de suspensão do sistema @SLEEP@ iniciado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O sistema entrou agora no estado de suspensão @SLEEP@.
 
 -- 8811e6df2a8e40f58a94cea26f8ebf14
 Subject: Estado de suspensão do sistema @SLEEP@ finalizado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O sistema saiu agora do estado de suspensão @SLEEP@.
 
 -- 98268866d1d54a499c4e98921d93bc40
 Subject: Desligamento do sistema iniciado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Desligamento do sistema foi inicializado. O desligamento se iniciou e todos
 os serviços do sistema foram terminados e todos os sistemas desmontados.
@@ -165,14 +165,14 @@ os serviços do sistema foram terminados e todos os sistemas desmontados.
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: Unidade @UNIT@ sendo iniciado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A unidade @UNIT@ está sendo iniciada.
 
 -- 39f53479d3a045ac8e11786248231fbf
 Subject: Unidade @UNIT@ concluiu a inicialização
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A unidade @UNIT@ concluiu a inicialização.
 
@@ -181,21 +181,21 @@ The start-up result is @RESULT@.
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Unidade @UNIT@ sendo desligado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A unidade @UNIT@ está sendo desligada.
 
 -- 9d1aaa27d60140bd96365438aad20286
 Subject: A unidade @UNIT@ concluiu o desligamento
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A unidade @UNIT@ concluiu o desligamento.
 
 -- be02cf6855d2428ba40df7e9d022f03d
 Subject: A unidade @UNIT@ falhou
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A unidade @UNIT@ falhou.
 
@@ -204,14 +204,14 @@ O resultado é @RESULT@.
 -- d34d037fff1847e6ae669a370e694725
 Subject: Unidade @UNIT@ iniciou recarregamento de sua configuração
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A unidade @UNIT@ iniciou o recarregamento de sua configuração.
 
 -- 7b05ebc668384222baa8881179cfda54
 Subject: Unidade @UNIT@ concluiu recarregamento de sua configuração
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A unidade @UNIT@ concluiu o recarregamento de sua configuração.
 
@@ -220,7 +220,7 @@ O resultado é @RESULT@.
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Processo @EXECUTABLE@ não pôde ser executado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O processo @EXECUTABLE@ não pôde ser executado e falhou.
 
@@ -229,7 +229,7 @@ O número de erro retornado por este processo é @ERRNO@.
 -- 0027229ca0644181a76c4e92458afa2e
 Subject: Uma ou mais mensagens não puderam ser encaminhadas para o syslog
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 Uma ou mais mensagens não puderam ser encaminhadas para o serviço do syslog
 em execução paralela ao journald. Isso normalmente indica que a implementação
@@ -239,7 +239,7 @@ enfileiradas.
 -- 1dee0369c7fc4736b7099b38ecb46ee7
 Subject: Ponto de montagem não está vazio
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 O diretório @WHERE@ está especificado como ponto de montagem (o segundo campo
 no /etc/fstab ou campo Where= no arquivo de unidade do systemd) e não está
@@ -251,7 +251,7 @@ arquivos subjacente para uma localização secundária.
 -- 24d8d4452573402496068381a6312df2
 Subject: Uma máquina virtual ou contêiner foi iniciado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A máquina virtual @NAME@ com seu PID @LEADER@ incial foi iniciada e está
 pronto para ser usad.
@@ -259,6 +259,6 @@ pronto para ser usad.
 -- 58432bd3bace477cb514b56381b8a758
 Subject: Uma máquina virtual ou contêiner foi terminado
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: %SUPPORT_URL%
 
 A máquina virtual @NAME@ com seu PID @LEADER@ incial foi desligada.
