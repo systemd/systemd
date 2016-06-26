@@ -6175,7 +6175,7 @@ static int unit_file_create_copy(
                 if (response != 'y') {
                         log_warning("%s ignored", unit_name);
                         free(tmp_new_path);
-                        return -1;
+                        return -EKEYREJECTED;
                 }
         }
 
@@ -6307,10 +6307,8 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                                 r = unit_file_create_copy(&lp, *name, path, &new_path, &tmp_path);
                         else
                                 r = unit_file_create_new(&lp, *name, ".d/override.conf", &new_path, &tmp_path);
-                } else {
+                } else
                         r = unit_file_create_new(&lp, *name, NULL, &new_path, &tmp_path);
-                }
-
                 if (r < 0)
                         return r;
 

@@ -417,8 +417,7 @@ static int parse_fstab(bool initrd) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error_errno(errno, "Failed to open %s: %m", fstab_path);
-                return -errno;
+                return log_error_errno(errno, "Failed to open %s: %m", fstab_path);
         }
 
         while ((me = getmntent(f))) {
@@ -502,7 +501,7 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
-        if (streq(arg_root_what, "/dev/nfs")) {
+        if (path_equal(arg_root_what, "/dev/nfs")) {
                 /* This is handled by the kernel or the initrd */
                 log_debug("Skipping root directory handling, as /dev/nfs was requested.");
                 return 0;
@@ -532,10 +531,10 @@ static int add_sysroot_mount(void) {
                          "/sysroot",
                          arg_root_fstype,
                          opts,
-                         is_device_path(what) ? 1 : 0,
-                         false,
-                         false,
-                         false,
+                         is_device_path(what) ? 1 : 0, /* passno */
+                         false,                        /* noauto off */
+                         false,                        /* nofail off */
+                         false,                        /* automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -548,22 +547,20 @@ static int add_sysroot_usr_mount(void) {
                 return 0;
 
         if (arg_root_what && !arg_usr_what) {
+                /* Copy over the root device, in case the /usr mount just differs in a mount option (consider btrfs subvolumes) */
                 arg_usr_what = strdup(arg_root_what);
-
                 if (!arg_usr_what)
                         return log_oom();
         }
 
         if (arg_root_fstype && !arg_usr_fstype) {
                 arg_usr_fstype = strdup(arg_root_fstype);
-
                 if (!arg_usr_fstype)
                         return log_oom();
         }
 
         if (arg_root_options && !arg_usr_options) {
                 arg_usr_options = strdup(arg_root_options);
-
                 if (!arg_usr_options)
                         return log_oom();
         }
@@ -572,10 +569,8 @@ static int add_sysroot_usr_mount(void) {
                 return 0;
 
         what = fstab_node_to_udev_node(arg_usr_what);
-        if (!path_is_absolute(what)) {
-                log_debug("Skipping entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
-                return -1;
-        }
+        if (!what)
+                return log_oom();
 
         if (!arg_usr_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
@@ -589,10 +584,10 @@ static int add_sysroot_usr_mount(void) {
                          "/sysroot/usr",
                          arg_usr_fstype,
                          opts,
-                         1,
-                         false,
-                         false,
-                         false,
+                         is_device_path(what) ? 1 : 0, /* passno */
+                         false,                        /* noauto off */
+                         false,                        /* nofail off */
+                         false,                        /* automount off */
                          SPECIAL_INITRD_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -687,10 +682,15 @@ int main(int argc, char *argv[]) {
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
+                int k;
+
                 r = add_sysroot_mount();
-                if (r == 0)
-                        r = add_sysroot_usr_mount();
-        }
+
+                k = add_sysroot_usr_mount();
+                if (k < 0)
+                        r = k;
+        } else
+                r = 0;
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
