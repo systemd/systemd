@@ -834,7 +834,7 @@ bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
         char* const* p;
 
         STRV_FOREACH(p, patterns)
-                if (fnmatch(*p, s, 0) == 0)
+                if (fnmatch(*p, s, flags) == 0)
                         return true;
 
         return false;
