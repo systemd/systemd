@@ -2579,35 +2579,65 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         bool reorder = false;
-        int c, r;
+        int c, r, shell = -1;
 
         assert(argc >= 0);
         assert(argv);
 
         for (;;) {
-                const char * const option_string = "+hp:als:H:M:qn:o:";
+                static const char option_string[] = "-hp:als:H:M:qn:o:";
 
                 c = getopt_long(argc, argv, option_string + reorder, options, NULL);
-                if (c < 0) {
+                if (c < 0)
+                        break;
+
+                switch (c) {
+
+                case 1: /* getopt_long() returns 1 if "-" was the first character of the option string, and a
+                         * non-option argument was discovered. */
+
+                        assert(!reorder);
+
                         /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
                          * for switches after the main verb. However, for "shell" we really don't want that, since we
-                         * want that switches passed after that are passed to the program to execute, and not processed
-                         * by us. To make this possible, we'll first invoke getopt_long() with reordering disabled
-                         * (i.e. with the "+" prefix in the option string), and as soon as we hit the end (i.e. the
-                         * verb) we check if that's "shell". If it is, we exit the loop, since we don't want any
-                         * further options processed. However, if it is anything else, we process the same argument
-                         * again, but this time allow reordering. */
+                         * want that switches specified after the machine name are passed to the program to execute,
+                         * and not processed by us. To make this possible, we'll first invoke getopt_long() with
+                         * reordering disabled (i.e. with the "-" prefix in the option string), looking for the first
+                         * non-option parameter. If it's the verb "shell" we remember its position and continue
+                         * processing options. In this case, as soon as we hit the next non-option argument we found
+                         * the machine name, and stop further processing. If the first non-option argument is any other
+                         * verb than "shell" we switch to normal reordering mode and continue processing arguments
+                         * normally. */
 
-                        if (!reorder && optind < argc && !streq(argv[optind], "shell")) {
+                        if (shell >= 0) {
+                                /* If we already found the "shell" verb on the command line, and now found the next
+                                 * non-option argument, then this is the machine name and we should stop processing
+                                 * further arguments.  */
+                                optind --; /* don't process this argument, go one step back */
+                                goto done;
+                        }
+                        if (streq(optarg, "shell"))
+                                /* Remember the position of the "shell" verb, and continue processing normally. */
+                                shell = optind - 1;
+                        else {
+                                int saved_optind;
+
+                                /* OK, this is some other verb. In this case, turn on reordering again, and continue
+                                 * processing normally. */
                                 reorder = true;
-                                optind--;
-                                continue;
+
+                                /* We changed the option string. getopt_long() only looks at it again if we invoke it
+                                 * at least once with a reset option index. Hence, let's reset the option index here,
+                                 * then invoke getopt_long() again (ignoring what it has to say, after all we most
+                                 * likely already processed it), and the bump the option index so that we read the
+                                 * intended argument again. */
+                                saved_optind = optind;
+                                optind = 0;
+                                (void) getopt_long(argc, argv, option_string + reorder, options, NULL);
+                                optind = saved_optind - 1; /* go one step back, process this argument again */
                         }
 
                         break;
-                }
-
-                switch (c) {
 
                 case 'h':
                         return help(0, NULL, NULL);
@@ -2741,6 +2771,22 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+        }
+
+done:
+        if (shell >= 0) {
+                char *t;
+                int i;
+
+                /* We found the "shell" verb while processing the argument list. Since we turned off reordering of the
+                 * argument list initially let's readjust it now, and move the "shell" verb to the back. */
+
+                optind -= 1; /* place the option index where the "shell" verb will be placed */
+
+                t = argv[shell];
+                for (i = shell; i < optind; i++)
+                        argv[i] = argv[i+1];
+                argv[optind] = t;
         }
 
         return 1;
