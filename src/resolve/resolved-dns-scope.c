@@ -407,6 +407,7 @@ int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *add
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
         DnsSearchDomain *d;
+        DnsServer *dns_server;
 
         assert(s);
         assert(domain);
@@ -446,6 +447,13 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
                 if (dns_name_endswith(domain, d->name) > 0)
                         return DNS_SCOPE_YES;
+
+        /* If the DNS server has route-only domains, don't send other requests
+         * to it. This would be a privacy violation, will most probably fail
+         * anyway, and adds unnecessary load. */
+        dns_server = dns_scope_get_dns_server(s);
+        if (dns_server && dns_server_limited_domains(dns_server))
+                return DNS_SCOPE_NO;
 
         switch (s->protocol) {
 

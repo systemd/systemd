@@ -250,6 +250,38 @@ Domains= ~company''')
             self.assertNotRegex(contents, 'search.*company')
             # our global server should appear
             self.assertIn('nameserver 192.168.5.1\n', contents)
+            # should not have domain-restricted server as global server
+            self.assertNotIn('nameserver 192.168.42.1\n', contents)
+
+    def test_route_only_dns_all_domains(self):
+        with open('/run/systemd/network/myvpn.netdev', 'w') as f:
+            f.write('''[NetDev]
+Name=dummy0
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc''')
+        with open('/run/systemd/network/myvpn.network', 'w') as f:
+            f.write('''[Match]
+Name=dummy0
+[Network]
+Address=192.168.42.100
+DNS=192.168.42.1
+Domains= ~company ~.''')
+        self.addCleanup(os.remove, '/run/systemd/network/myvpn.netdev')
+        self.addCleanup(os.remove, '/run/systemd/network/myvpn.network')
+
+        self.do_test(coldplug=True, ipv6=False,
+                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+
+        with open(RESOLV_CONF) as f:
+            contents = f.read()
+
+        # ~company is not a search domain, only a routing domain
+        self.assertNotRegex(contents, 'search.*company')
+
+        # our global server should appear
+        self.assertIn('nameserver 192.168.5.1\n', contents)
+        # should have company server as global server due to ~.
+        self.assertIn('nameserver 192.168.42.1\n', contents)
 
 
 @unittest.skipUnless(have_dnsmasq, 'dnsmasq not installed')
@@ -260,7 +292,7 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
         super().setUp()
         self.dnsmasq = None
 
-    def create_iface(self, ipv6=False):
+    def create_iface(self, ipv6=False, dnsmasq_opts=None):
         '''Create test interface with DHCP server behind it'''
 
         # add veth pair
@@ -281,6 +313,8 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
             extra_opts = ['--enable-ra', '--dhcp-range=2600::10,2600::20']
         else:
             extra_opts = []
+        if dnsmasq_opts:
+            extra_opts += dnsmasq_opts
         self.dnsmasq = subprocess.Popen(
             ['dnsmasq', '--keep-in-foreground', '--log-queries',
              '--log-facility=' + self.dnsmasq_log, '--conf-file=/dev/null',
@@ -304,6 +338,80 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
 
         with open(self.dnsmasq_log) as f:
             sys.stdout.write('\n\n---- dnsmasq log ----\n%s\n------\n\n' % f.read())
+
+    def test_resolved_domain_restricted_dns(self):
+        '''resolved: domain-restricted DNS servers'''
+
+        # create interface for generic connections; this will map all DNS names
+        # to 192.168.42.1
+        self.create_iface(dnsmasq_opts=['--address=/#/192.168.42.1'])
+        self.writeConfig('/run/systemd/network/general.network', '''\
+[Match]
+Name=%s
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=False''' % self.iface)
+
+        # create second device/dnsmasq for a .company/.lab VPN interface
+        # static IPs for simplicity
+        subprocess.check_call(['ip', 'link', 'add', 'name', 'testvpnclient', 'type',
+                               'veth', 'peer', 'name', 'testvpnrouter'])
+        self.addCleanup(subprocess.call, ['ip', 'link', 'del', 'dev', 'testvpnrouter'])
+        subprocess.check_call(['ip', 'a', 'flush', 'dev', 'testvpnrouter'])
+        subprocess.check_call(['ip', 'a', 'add', '10.241.3.1/24', 'dev', 'testvpnrouter'])
+        subprocess.check_call(['ip', 'link', 'set', 'testvpnrouter', 'up'])
+
+        vpn_dnsmasq_log = os.path.join(self.workdir, 'dnsmasq-vpn.log')
+        vpn_dnsmasq = subprocess.Popen(
+            ['dnsmasq', '--keep-in-foreground', '--log-queries',
+             '--log-facility=' + vpn_dnsmasq_log, '--conf-file=/dev/null',
+             '--dhcp-leasefile=/dev/null', '--bind-interfaces',
+             '--interface=testvpnrouter', '--except-interface=lo',
+             '--address=/math.lab/10.241.3.3', '--address=/cantina.company/10.241.4.4'])
+        self.addCleanup(vpn_dnsmasq.wait)
+        self.addCleanup(vpn_dnsmasq.kill)
+
+        self.writeConfig('/run/systemd/network/vpn.network', '''\
+[Match]
+Name=testvpnclient
+[Network]
+IPv6AcceptRA=False
+Address=10.241.3.2/24
+DNS=10.241.3.1
+Domains= ~company ~lab''')
+
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call([self.networkd_wait_online, '--interface', self.iface,
+                               '--interface=testvpnclient', '--timeout=20'])
+
+        # ensure we start fresh with every test
+        subprocess.check_call(['systemctl', 'restart', 'systemd-resolved'])
+
+        # test vpnclient specific domains; these should *not* be answered by
+        # the general DNS
+        out = subprocess.check_output(['systemd-resolve', 'math.lab'])
+        self.assertIn(b'math.lab: 10.241.3.3', out)
+        out = subprocess.check_output(['systemd-resolve', 'kettle.cantina.company'])
+        self.assertIn(b'kettle.cantina.company: 10.241.4.4', out)
+
+        # test general domains
+        out = subprocess.check_output(['systemd-resolve', 'megasearch.net'])
+        self.assertIn(b'megasearch.net: 192.168.42.1', out)
+
+        with open(self.dnsmasq_log) as f:
+            general_log = f.read()
+        with open(vpn_dnsmasq_log) as f:
+            vpn_log = f.read()
+
+        # VPN domains should only be sent to VPN DNS
+        self.assertRegex(vpn_log, 'query.*math.lab')
+        self.assertRegex(vpn_log, 'query.*cantina.company')
+        self.assertNotIn('lab', general_log)
+        self.assertNotIn('company', general_log)
+
+        # general domains should not be sent to the VPN DNS
+        self.assertRegex(general_log, 'query.*megasearch.net')
+        self.assertNotIn('megasearch.net', vpn_log)
 
 
 class NetworkdClientTest(ClientTestBase, unittest.TestCase):

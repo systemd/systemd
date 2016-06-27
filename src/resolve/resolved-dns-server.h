@@ -128,6 +128,8 @@ bool dns_server_dnssec_supported(DnsServer *server);
 
 void dns_server_warn_downgrade(DnsServer *server);
 
+bool dns_server_limited_domains(DnsServer *server);
+
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, int ifindex);
 
 void dns_server_unlink_all(DnsServer *first);
