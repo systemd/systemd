@@ -685,6 +685,16 @@ static void test_foreach_string(void) {
                 assert_se(streq(x, "zzz"));
 }
 
+static void test_strv_fnmatch(void) {
+        _cleanup_free_ char **v = NULL;
+
+        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a", 0));
+
+        v = strv_new("*\\*", NULL);
+        assert_se(!strv_fnmatch(v, "\\", 0));
+        assert_se(strv_fnmatch(v, "\\", FNM_NOESCAPE));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -750,6 +760,7 @@ int main(int argc, char *argv[]) {
         test_strv_make_nulstr();
 
         test_foreach_string();
+        test_strv_fnmatch();
 
         return 0;
 }
