@@ -139,16 +139,16 @@ char **strv_new_ap(const char *x, va_list ap) {
         va_list aq;
 
         /* As a special trick we ignore all listed strings that equal
-         * (const char*) -1. This is supposed to be used with the
+         * STRV_IGNORE. This is supposed to be used with the
          * STRV_IFNOTNULL() macro to include possibly NULL strings in
          * the string list. */
 
         if (x) {
-                n = x == (const char*) -1 ? 0 : 1;
+                n = x == STRV_IGNORE ? 0 : 1;
 
                 va_copy(aq, ap);
                 while ((s = va_arg(aq, const char*))) {
-                        if (s == (const char*) -1)
+                        if (s == STRV_IGNORE)
                                 continue;
 
                         n++;
@@ -162,7 +162,7 @@ char **strv_new_ap(const char *x, va_list ap) {
                 return NULL;
 
         if (x) {
-                if (x != (const char*) -1) {
+                if (x != STRV_IGNORE) {
                         a[i] = strdup(x);
                         if (!a[i])
                                 goto fail;
@@ -171,7 +171,7 @@ char **strv_new_ap(const char *x, va_list ap) {
 
                 while ((s = va_arg(ap, const char*))) {
 
-                        if (s == (const char*) -1)
+                        if (s == STRV_IGNORE)
                                 continue;
 
                         a[i] = strdup(s);
