@@ -1200,6 +1200,11 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         return 0;
 }
 
+/* filter_route is a tri-state:
+ *   < 0: no filtering
+ *   = 0 or false: return only domains which should be used for searching
+ *   > 0 or true: return only domains which are for routing only
+ */
 int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route) {
         DnsSearchDomain *d;
         Iterator i;

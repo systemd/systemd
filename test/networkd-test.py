@@ -227,6 +227,37 @@ DHCP=%s
     def test_hotplug_dhcp_ip6(self):
         self.do_test(coldplug=False, ipv6=True)
 
+    def test_route_only_dns(self):
+        with open('/run/systemd/network/myvpn.netdev', 'w') as f:
+            f.write('''[NetDev]
+Name=dummy0
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc''')
+        with open('/run/systemd/network/myvpn.network', 'w') as f:
+            f.write('''[Match]
+Name=dummy0
+[Network]
+Address=192.168.42.100
+DNS=192.168.42.1
+Domains= ~company''')
+        self.addCleanup(os.remove, '/run/systemd/network/myvpn.netdev')
+        self.addCleanup(os.remove, '/run/systemd/network/myvpn.network')
+
+        self.do_test(coldplug=True, ipv6=False,
+                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+
+        if os.path.islink('/etc/resolv.conf'):
+            with open('/etc/resolv.conf') as f:
+                contents = f.read()
+
+            # ~company is not a search domain, only a routing domain
+            self.assertNotRegex(contents, 'search.*company')
+
+            # our global server should appear, unless we already have three
+            # (different) servers
+            if contents.count('nameserver ') < 3:
+                self.assertIn('nameserver 192.168.5.1\n', contents)
+
 
 @unittest.skipUnless(have_dnsmasq, 'dnsmasq not installed')
 class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
