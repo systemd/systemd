@@ -1715,20 +1715,31 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         return 0;
 }
 
-static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
+static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si, Set *prevevents) {
         assert(m);
         assert(u);
         assert(si);
+        assert(prevevents);
 
         log_unit_debug(u, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
 
         unit_unwatch_pid(u, si->si_pid);
 
-        if (UNIT_VTABLE(u)->sigchld_event)
-                UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
+        if (UNIT_VTABLE(u)->sigchld_event) {
+                if (!set_get(prevevents, u->id))
+                        UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
+                else
+                        log_debug("%s already issued a sigchld this iteration, skipping.", u->id);
+
+                if (set_put(prevevents, u->id) < 0)
+                        log_oom();
+        }
 }
 
 static int manager_dispatch_sigchld(Manager *m) {
+        Set *prevevents;
+        prevevents = set_new(NULL);
+
         assert(m);
 
         for (;;) {
@@ -1769,13 +1780,13 @@ static int manager_dispatch_sigchld(Manager *m) {
                          * to, it might be multiple... */
                         u1 = manager_get_unit_by_pid_cgroup(m, si.si_pid);
                         if (u1)
-                                invoke_sigchld_event(m, u1, &si);
+                                invoke_sigchld_event(m, u1, &si, prevevents);
                         u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(si.si_pid));
                         if (u2 && u2 != u1)
-                                invoke_sigchld_event(m, u2, &si);
+                                invoke_sigchld_event(m, u2, &si, prevevents);
                         u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(si.si_pid));
                         if (u3 && u3 != u2 && u3 != u1)
-                                invoke_sigchld_event(m, u3, &si);
+                                invoke_sigchld_event(m, u3, &si, prevevents);
                 }
 
                 /* And now, we actually reap the zombie. */
@@ -1787,6 +1798,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 }
         }
 
+        set_free(prevevents);
         return 0;
 }
 
