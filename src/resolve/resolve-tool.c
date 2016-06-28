@@ -1229,8 +1229,8 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                yes_no(link_info.dnssec_supported));
 
         STRV_FOREACH(i, link_info.dns) {
-                printf("          %s %s\n",
-                       i == link_info.dns ? "DNS Server:" : "           ",
+                printf("         %s %s\n",
+                       i == link_info.dns ? "DNS Servers:" : "            ",
                        *i);
         }
 
@@ -1412,8 +1412,8 @@ static int status_global(sd_bus *bus, bool *empty_line) {
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
         STRV_FOREACH(i, global_info.dns) {
-                printf("          %s %s\n",
-                       i == global_info.dns ? "DNS Server:" : "           ",
+                printf("         %s %s\n",
+                       i == global_info.dns ? "DNS Servers:" : "            ",
                        *i);
         }
 
