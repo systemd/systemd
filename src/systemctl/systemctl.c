@@ -5605,6 +5605,46 @@ static int mangle_names(char **original_names, char ***mangled_names) {
         return 0;
 }
 
+static int unit_exists(const char *unit) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL;
+        static const struct bus_properties_map property_map[] = {
+                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)  },
+                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state)},
+                {},
+        };
+        UnitStatusInfo info = {};
+        sd_bus *bus;
+        int r;
+
+        path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return log_oom();
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        &error,
+                        &reply,
+                        "s", "");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
+
+        r = bus_message_map_all_properties(reply, property_map, &info);
+        if (r < 0)
+                return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
+
+        return !streq_ptr(info.load_state, "not-found") || !streq_ptr(info.active_state, "inactive");
+}
+
 static int enable_unit(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = argv[0];
@@ -5665,6 +5705,14 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 bool send_runtime = true, send_force = true, send_preset_mode = false;
                 const char *method;
                 sd_bus *bus;
+
+                if (STR_IN_SET(verb, "mask", "unmask")) {
+                        r = unit_exists(*names);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                log_notice("Unit %s does not exist, proceeding anyway.", *names);
+                }
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
