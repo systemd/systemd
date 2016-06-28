@@ -202,8 +202,9 @@
         notification message has been sent. If this option is used,
         <varname>NotifyAccess=</varname> (see below) should be set to
         open access to the notification socket provided by systemd. If
-        <varname>NotifyAccess=</varname> is not set, it will be
-        implicitly set to <option>main</option>. Note that currently
+        <varname>NotifyAccess=</varname> is missing or set to
+        <option>none</option>, it will be forcibly set to
+        <option>main</option>. Note that currently
         <varname>Type=</varname><option>notify</option> will not work
         if used in combination with
         <varname>PrivateNetwork=</varname><option>yes</option>.</para>
