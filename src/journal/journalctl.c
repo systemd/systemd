@@ -348,6 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_FULL,
                 ARG_NO_TAIL,
                 ARG_NEW_ID128,
+                ARG_THIS_BOOT,
                 ARG_LIST_BOOTS,
                 ARG_USER,
                 ARG_SYSTEM,
@@ -392,9 +393,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "new-id128",      no_argument,       NULL, ARG_NEW_ID128      },
                 { "quiet",          no_argument,       NULL, 'q'                },
                 { "merge",          no_argument,       NULL, 'm'                },
+                { "this-boot",      no_argument,       NULL, ARG_THIS_BOOT      }, /* deprecated */
                 { "boot",           optional_argument, NULL, 'b'                },
                 { "list-boots",     no_argument,       NULL, ARG_LIST_BOOTS     },
-                { "this-boot",      optional_argument, NULL, 'b'                }, /* deprecated */
                 { "dmesg",          no_argument,       NULL, 'k'                },
                 { "system",         no_argument,       NULL, ARG_SYSTEM         },
                 { "user",           no_argument,       NULL, ARG_USER           },
@@ -542,6 +543,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'm':
                         arg_merge = true;
+                        break;
+
+                case ARG_THIS_BOOT:
+                        arg_boot = true;
                         break;
 
                 case 'b':
