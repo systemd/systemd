@@ -4367,7 +4367,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sb)", &path, &ignore)) > 0)
-                                print_prop("EnvironmentFile", "%s (ignore_errors=%s)\n", path, yes_no(ignore));
+                                print_prop("EnvironmentFile", "%s (ignore_errors=%s)", path, yes_no(ignore));
 
                         if (r < 0)
                                 return bus_log_parse_error(r);
