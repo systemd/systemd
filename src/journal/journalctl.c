@@ -1121,7 +1121,7 @@ static int get_boots(
         /* Adjust for the asymmetry that offset 0 is
          * the last (and current) boot, while 1 is considered the
          * (chronological) first boot in the journal. */
-        skip_once = boot_id && sd_id128_is_null(*boot_id) && offset < 0;
+        skip_once = boot_id && sd_id128_is_null(*boot_id) && offset <= 0;
 
         /* Advance to the earliest/latest occurrence of our reference
          * boot ID (taking our lookup direction into account), so that
@@ -1263,7 +1263,12 @@ static int add_boot(sd_journal *j) {
         if (!arg_boot)
                 return 0;
 
-        if (arg_boot_offset == 0 && sd_id128_equal(arg_boot_id, SD_ID128_NULL))
+        /* Take a shortcut and use the current boot_id, which we can do very quickly.
+         * We can do this only when we logs are coming from the current machine,
+         * so take the slow path if log location is specified. */
+        if (arg_boot_offset == 0 && sd_id128_equal(arg_boot_id, SD_ID128_NULL) &&
+            !arg_directory && !arg_file)
+
                 return add_match_this_boot(j, arg_machine);
 
         boot_id = arg_boot_id;
