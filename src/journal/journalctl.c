@@ -868,8 +868,8 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && (arg_file || arg_directory || arg_merge)) {
-                log_error("Using --boot or --list-boots with --file, --directory or --merge is not supported.");
+        if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge) {
+                log_error("Using --boot or --list-boots with --merge is not supported.");
                 return -EINVAL;
         }
 
