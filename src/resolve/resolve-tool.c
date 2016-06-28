@@ -1446,7 +1446,7 @@ static int status_all(sd_bus *bus) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         sd_netlink_message *i;
-        bool empty_line = true;
+        bool empty_line = false;
         int r;
 
         assert(bus);
