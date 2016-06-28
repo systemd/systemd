@@ -68,8 +68,8 @@
       link-local networking).</para></listitem>
 
       <listitem><para>The glibc
-      <citerefentry><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry> API (as defined
-      by <ulink url="https://tools.ietf.org/html/rfc3493">RFC3493</ulink>) and its related resolver functions,
+      <citerefentry><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry> API as defined
+      by <ulink url="https://tools.ietf.org/html/rfc3493">RFC3493</ulink> and its related resolver functions,
       including <citerefentry><refentrytitle>gethostbyname</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
       API is widely supported, including beyond the Linux platform. In its current form it does not expose DNSSEC
       validation status information however, and is synchronous only. This API is backed by the glibc Name Service
