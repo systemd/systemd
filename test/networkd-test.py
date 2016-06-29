@@ -42,6 +42,8 @@ networkd_active = subprocess.call(['systemctl', 'is-active', '--quiet',
                                    'systemd-networkd']) == 0
 have_dnsmasq = shutil.which('dnsmasq')
 
+RESOLV_CONF = '/run/systemd/resolve/resolv.conf'
+
 
 @unittest.skipIf(networkd_active,
                  'networkd is already active')
@@ -104,6 +106,7 @@ class ClientTestBase:
 
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
                 online_timeout=10, dhcp_mode='yes'):
+        subprocess.check_call(['systemctl', 'start', 'systemd-resolved'])
         with open(self.config, 'w') as f:
             f.write('''[Match]
 Name=%s
@@ -179,20 +182,14 @@ DHCP=%s
             self.print_server_log()
             raise
 
-        # verify resolv.conf if it gets dynamically managed
-        if os.path.islink('/etc/resolv.conf'):
-            for timeout in range(50):
-                with open('/etc/resolv.conf') as f:
-                    contents = f.read()
-                if 'nameserver 192.168.5.1\n' in contents:
-                    break
-                # resolv.conf can have at most three nameservers; if we already
-                # have three different ones, that's also okay
-                if contents.count('nameserver ') >= 3:
-                    break
-                time.sleep(0.1)
-            else:
-                self.fail('nameserver 192.168.5.1 not found in /etc/resolv.conf')
+        for timeout in range(50):
+            with open(RESOLV_CONF) as f:
+                contents = f.read()
+            if 'nameserver 192.168.5.1\n' in contents:
+                break
+            time.sleep(0.1)
+        else:
+            self.fail('nameserver 192.168.5.1 not found in ' + RESOLV_CONF)
 
         if not coldplug:
             # check post-down.d hook
@@ -246,17 +243,12 @@ Domains= ~company''')
         self.do_test(coldplug=True, ipv6=False,
                      extra_opts='IPv6AcceptRouterAdvertisements=False')
 
-        if os.path.islink('/etc/resolv.conf'):
-            with open('/etc/resolv.conf') as f:
-                contents = f.read()
-
+        with open(RESOLV_CONF) as f:
+            contents = f.read()
             # ~company is not a search domain, only a routing domain
             self.assertNotRegex(contents, 'search.*company')
-
-            # our global server should appear, unless we already have three
-            # (different) servers
-            if contents.count('nameserver ') < 3:
-                self.assertIn('nameserver 192.168.5.1\n', contents)
+            # our global server should appear
+            self.assertIn('nameserver 192.168.5.1\n', contents)
 
 
 @unittest.skipUnless(have_dnsmasq, 'dnsmasq not installed')
@@ -423,16 +415,15 @@ Domains= one two three four five six seven eight nine ten''')
 
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
-        if os.path.islink('/etc/resolv.conf'):
-            for timeout in range(50):
-                with open('/etc/resolv.conf') as f:
-                    contents = f.read()
-                if 'search one\n' in contents:
-                    break
-                time.sleep(0.1)
-            self.assertIn('search one two three four five six\n'
-                          '# Too many search domains configured, remaining ones ignored.\n',
-                          contents)
+        for timeout in range(50):
+            with open(RESOLV_CONF) as f:
+                contents = f.read()
+            if 'search one\n' in contents:
+                break
+            time.sleep(0.1)
+        self.assertIn('search one two three four five six\n'
+                      '# Too many search domains configured, remaining ones ignored.\n',
+                      contents)
 
     def test_search_domains_too_long(self):
 
@@ -461,16 +452,15 @@ Domains=''')
 
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
-        if os.path.islink('/etc/resolv.conf'):
-            for timeout in range(50):
-                with open('/etc/resolv.conf') as f:
-                    contents = f.read()
-                if 'search one\n' in contents:
-                    break
-                time.sleep(0.1)
-            self.assertIn('search %(p)s0 %(p)s1 %(p)s2 %(p)s3\n'
-                          '# Total length of all search domains is too long, remaining ones ignored.' % {'p': name_prefix},
-                          contents)
+        for timeout in range(50):
+            with open(RESOLV_CONF) as f:
+                contents = f.read()
+            if 'search one\n' in contents:
+                break
+            time.sleep(0.1)
+        self.assertIn('search %(p)s0 %(p)s1 %(p)s2 %(p)s3\n'
+                      '# Total length of all search domains is too long, remaining ones ignored.' % {'p': name_prefix},
+                      contents)
 
 
 if __name__ == '__main__':
