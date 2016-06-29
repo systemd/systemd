@@ -114,7 +114,7 @@ static void test_find_binary(const char *self) {
 
         assert_se(find_binary(self, &p) == 0);
         puts(p);
-        assert_se(endswith(p, "/test-path-util"));
+        assert_se(endswith(p, "/lt-test-path-util"));
         assert_se(path_is_absolute(p));
         free(p);
 
