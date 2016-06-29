@@ -418,12 +418,12 @@ Domains= one two three four five six seven eight nine ten''')
         for timeout in range(50):
             with open(RESOLV_CONF) as f:
                 contents = f.read()
-            if 'search one\n' in contents:
+            if ' one' in contents:
                 break
             time.sleep(0.1)
-        self.assertIn('search one two three four five six\n'
-                      '# Too many search domains configured, remaining ones ignored.\n',
-                      contents)
+        self.assertRegex(contents, 'search .*one two three four')
+        self.assertNotIn('seven\n', contents)
+        self.assertIn('# Too many search domains configured, remaining ones ignored.\n', contents)
 
     def test_search_domains_too_long(self):
 
@@ -455,12 +455,11 @@ Domains=''')
         for timeout in range(50):
             with open(RESOLV_CONF) as f:
                 contents = f.read()
-            if 'search one\n' in contents:
+            if ' one' in contents:
                 break
             time.sleep(0.1)
-        self.assertIn('search %(p)s0 %(p)s1 %(p)s2 %(p)s3\n'
-                      '# Total length of all search domains is too long, remaining ones ignored.' % {'p': name_prefix},
-                      contents)
+        self.assertRegex(contents, 'search .*%(p)s0 %(p)s1 %(p)s2' % {'p': name_prefix})
+        self.assertIn('# Total length of all search domains is too long, remaining ones ignored.', contents)
 
 
 if __name__ == '__main__':
