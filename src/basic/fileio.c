@@ -1354,3 +1354,44 @@ int link_tmpfile(int fd, const char *path, const char *target) {
 
         return 0;
 }
+
+int read_nul_string(FILE *f, char **ret) {
+        _cleanup_free_ char *x = NULL;
+        size_t allocated = 0, n = 0;
+
+        assert(f);
+        assert(ret);
+
+        /* Reads a NUL-terminated string from the specified file. */
+
+        for (;;) {
+                int c;
+
+                if (!GREEDY_REALLOC(x, allocated, n+2))
+                        return -ENOMEM;
+
+                c = fgetc(f);
+                if (c == 0) /* Terminate at NUL byte */
+                        break;
+                if (c == EOF) {
+                        if (ferror(f))
+                                return -errno;
+                        break; /* Terminate at EOF */
+                }
+
+                x[n++] = (char) c;
+        }
+
+        if (x)
+                x[n] = 0;
+        else {
+                x = new0(char, 1);
+                if (!x)
+                        return -ENOMEM;
+        }
+
+        *ret = x;
+        x = NULL;
+
+        return 0;
+}

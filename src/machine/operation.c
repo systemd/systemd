@@ -41,18 +41,33 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                 goto fail;
         }
 
-        if (si->si_status != EXIT_SUCCESS) {
-                if (read(o->errno_fd, &r, sizeof(r)) == sizeof(r))
-                        r = sd_bus_error_set_errnof(&error, r, "%m");
-                else
-                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child failed.");
-
+        if (si->si_status == EXIT_SUCCESS)
+                r = 0;
+        else if (read(o->errno_fd, &r, sizeof(r)) != sizeof(r)) { /* Try to acquire error code for failed operation */
+                r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child failed.");
                 goto fail;
         }
 
-        r = sd_bus_reply_method_return(o->message, NULL);
-        if (r < 0)
-                log_error_errno(r, "Failed to reply to message: %m");
+        if (o->done) {
+                /* A completion routine is set for this operation, call it. */
+                r = o->done(o, r, &error);
+                if (r < 0) {
+                        if (!sd_bus_error_is_set(&error))
+                                sd_bus_error_set_errno(&error, r);
+
+                        goto fail;
+                }
+
+        } else {
+                /* The default default operaton when done is to simply return an error on failure or an empty success
+                 * message on success. */
+                if (r < 0)
+                        goto fail;
+
+                r = sd_bus_reply_method_return(o->message, NULL);
+                if (r < 0)
+                        log_error_errno(r, "Failed to reply to message: %m");
+        }
 
         operation_free(o);
         return 0;
@@ -66,7 +81,7 @@ fail:
         return 0;
 }
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd) {
+int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd, Operation **ret) {
         Operation *o;
         int r;
 
@@ -78,6 +93,8 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
         o = new0(Operation, 1);
         if (!o)
                 return -ENOMEM;
+
+        o->extra_fd = -1;
 
         r = sd_event_add_child(manager->event, &o->event_source, child, WEXITED, operation_done, o);
         if (r < 0) {
@@ -102,6 +119,9 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
 
         /* At this point we took ownership of both the child and the errno file descriptor! */
 
+        if (ret)
+                *ret = o;
+
         return 0;
 }
 
@@ -112,6 +132,7 @@ Operation *operation_free(Operation *o) {
         sd_event_source_unref(o->event_source);
 
         safe_close(o->errno_fd);
+        safe_close(o->extra_fd);
 
         if (o->pid > 1)
                 (void) sigkill_wait(o->pid);

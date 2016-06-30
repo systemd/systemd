@@ -38,10 +38,12 @@ struct Operation {
         pid_t pid;
         sd_bus_message *message;
         int errno_fd;
+        int extra_fd;
         sd_event_source *event_source;
+        int (*done)(Operation *o, int ret, sd_bus_error *error);
         LIST_FIELDS(Operation, operations);
         LIST_FIELDS(Operation, operations_by_machine);
 };
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd);
+int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd, Operation **ret);
 Operation *operation_free(Operation *o);

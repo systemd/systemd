@@ -1200,8 +1200,6 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
         child_fail:
                 (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
-
                 _exit(EXIT_FAILURE);
         }
 
@@ -1209,7 +1207,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Copying might take a while, hence install a watch on the child, and return */
 
-        r = operation_new(m->manager, m, child, message, errno_pipe_fd[0]);
+        r = operation_new(m->manager, m, child, message, errno_pipe_fd[0], NULL);
         if (r < 0) {
                 (void) sigkill_wait(child);
                 return r;
