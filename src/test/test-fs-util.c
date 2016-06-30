@@ -82,10 +82,56 @@ static void test_get_files_in_directory(void) {
         assert_se(get_files_in_directory(".", NULL) >= 0);
 }
 
+static void test_var_tmp(void) {
+        char *tmp_dir = NULL;
+        char *tmpdir_backup = NULL;
+        const char *default_var_tmp = NULL;
+        const char *var_name;
+        bool do_overwrite = true;
+
+        default_var_tmp = "/var/tmp";
+        var_name = "TMPDIR";
+
+        if (getenv(var_name) != NULL) {
+                tmpdir_backup = strdup(getenv(var_name));
+                assert_se(tmpdir_backup != NULL);
+        }
+
+        unsetenv(var_name);
+
+        var_tmp(&tmp_dir);
+        assert_se(!strcmp(tmp_dir, default_var_tmp));
+
+        free(tmp_dir);
+
+        setenv(var_name, "/tmp", do_overwrite);
+        assert_se(!strcmp(getenv(var_name), "/tmp"));
+
+        var_tmp(&tmp_dir);
+        assert_se(!strcmp(tmp_dir, "/tmp"));
+
+        free(tmp_dir);
+
+        setenv(var_name, "/88_does_not_exist_88", do_overwrite);
+        assert_se(!strcmp(getenv(var_name), "/88_does_not_exist_88"));
+
+        var_tmp(&tmp_dir);
+        assert_se(!strcmp(tmp_dir, default_var_tmp));
+
+        free(tmp_dir);
+
+        if (tmpdir_backup != NULL)  {
+                setenv(var_name, tmpdir_backup, do_overwrite);
+                assert_se(!strcmp(getenv(var_name), tmpdir_backup));
+                free(tmpdir_backup);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
         test_get_files_in_directory();
+        test_var_tmp();
 
         return 0;
 }
