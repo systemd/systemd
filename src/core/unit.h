@@ -162,6 +162,9 @@ struct Unit {
          * process SIGCHLD for */
         Set *pids;
 
+        /* Used in sigchld event invocation to avoid repeat events being invoked */
+        uint64_t sigchldgen;
+
         /* Used during GC sweeps */
         unsigned gc_marker;
 
