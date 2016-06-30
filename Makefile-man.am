@@ -338,6 +338,7 @@ MANPAGES_ALIAS += \
 	man/sd_event_default.3 \
 	man/sd_event_dispatch.3 \
 	man/sd_event_get_exit_code.3 \
+	man/sd_event_get_iteration.3 \
 	man/sd_event_get_state.3 \
 	man/sd_event_get_tid.3 \
 	man/sd_event_get_watchdog.3 \
@@ -669,6 +670,7 @@ man/sd_event_child_handler_t.3: man/sd_event_add_child.3
 man/sd_event_default.3: man/sd_event_new.3
 man/sd_event_dispatch.3: man/sd_event_wait.3
 man/sd_event_get_exit_code.3: man/sd_event_exit.3
+man/sd_event_get_iteration.3: man/sd_event_wait.3
 man/sd_event_get_state.3: man/sd_event_wait.3
 man/sd_event_get_tid.3: man/sd_event_new.3
 man/sd_event_get_watchdog.3: man/sd_event_set_watchdog.3
@@ -1316,6 +1318,9 @@ man/sd_event_dispatch.html: man/sd_event_wait.html
 	$(html-alias)
 
 man/sd_event_get_exit_code.html: man/sd_event_exit.html
+	$(html-alias)
+
+man/sd_event_get_iteration.html: man/sd_event_wait.html
 	$(html-alias)
 
 man/sd_event_get_state.html: man/sd_event_wait.html

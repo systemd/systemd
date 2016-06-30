@@ -104,6 +104,7 @@ int sd_event_get_tid(sd_event *e, pid_t *tid);
 int sd_event_get_exit_code(sd_event *e, int *code);
 int sd_event_set_watchdog(sd_event *e, int b);
 int sd_event_get_watchdog(sd_event *e);
+int sd_event_get_iteration(sd_event *e, uint64_t *ret);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);

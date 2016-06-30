@@ -109,8 +109,8 @@ struct sd_event_source {
         int64_t priority;
         unsigned pending_index;
         unsigned prepare_index;
-        unsigned pending_iteration;
-        unsigned prepare_iteration;
+        uint64_t pending_iteration;
+        uint64_t prepare_iteration;
 
         LIST_FIELDS(sd_event_source, sources);
 
@@ -215,7 +215,7 @@ struct sd_event {
 
         pid_t original_pid;
 
-        unsigned iteration;
+        uint64_t iteration;
         triple_timestamp timestamp;
         int state;
 
@@ -2873,4 +2873,12 @@ _public_ int sd_event_get_watchdog(sd_event *e) {
         assert_return(!event_pid_changed(e), -ECHILD);
 
         return e->watchdog;
+}
+
+_public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {
+        assert_return(e, -EINVAL);
+        assert_return(!event_pid_changed(e), -ECHILD);
+
+        *ret = e->iteration;
+        return 0;
 }

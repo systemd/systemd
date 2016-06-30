@@ -495,3 +495,8 @@ global:
         sd_journal_open_directory_fd;
         sd_journal_open_files_fd;
 } LIBSYSTEMD_229;
+
+LIBSYSTEMD_231 {
+global:
+        sd_event_get_iteration;
+} LIBSYSTEMD_230;
