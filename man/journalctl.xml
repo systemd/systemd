@@ -824,7 +824,7 @@
         flushed from <filename>/run/log/journal</filename> into
         <filename>/var/log/journal</filename> once during system
         runtime, and this command exits cleanly without executing any
-        operation if this has already has happened. This command
+        operation if this has already happened. This command
         effectively guarantees that all data is flushed to
         <filename>/var/log/journal</filename> at the time it
         returns.</para></listitem>
