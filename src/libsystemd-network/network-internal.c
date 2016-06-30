@@ -102,16 +102,16 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_type,
                       const char *dev_name) {
 
-        if (match_host && !condition_test(match_host))
+        if (match_host && condition_test(match_host) <= 0)
                 return false;
 
-        if (match_virt && !condition_test(match_virt))
+        if (match_virt && condition_test(match_virt) <= 0)
                 return false;
 
-        if (match_kernel && !condition_test(match_kernel))
+        if (match_kernel && condition_test(match_kernel) <= 0)
                 return false;
 
-        if (match_arch && !condition_test(match_arch))
+        if (match_arch && condition_test(match_arch) <= 0)
                 return false;
 
         if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))

@@ -182,10 +182,11 @@ static int condition_test_architecture(Condition *c) {
 
         if (streq(c->parameter, "native"))
                 b = native_architecture();
-        else
+        else {
                 b = architecture_from_string(c->parameter);
-        if (b < 0)
-                return b;
+                if (b < 0) /* unknown architecture? Then it's definitely not ours */
+                        return false;
+        }
 
         return a == b;
 }

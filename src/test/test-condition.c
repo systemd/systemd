@@ -159,15 +159,15 @@ static void test_condition_test_architecture(void) {
         assert_se(sa);
 
         condition = condition_new(CONDITION_ARCHITECTURE, sa, false, false);
-        assert_se(condition_test(condition));
+        assert_se(condition_test(condition) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_ARCHITECTURE, "garbage value", false, false);
-        assert_se(condition_test(condition) < 0);
+        assert_se(condition_test(condition) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_ARCHITECTURE, sa, false, true);
-        assert_se(!condition_test(condition));
+        assert_se(condition_test(condition) == 0);
         condition_free(condition);
 }
 
