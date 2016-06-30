@@ -826,7 +826,7 @@ int journal_file_verify(
         int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
         unsigned i;
         bool found_last = false;
-        _cleanup_free_ char *tmp_dir;
+        _cleanup_free_ char *tmp_dir = NULL;
 
 #ifdef HAVE_GCRYPT
         uint64_t last_tag = 0;

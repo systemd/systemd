@@ -87,7 +87,7 @@ static void test_var_tmp(void) {
         char *tmpdir_backup = NULL;
         const char *default_var_tmp = NULL;
         const char *var_name;
-        int do_overwrite = true;
+        bool do_overwrite = true;
 
         default_var_tmp = "/var/tmp";
         var_name = "TMPDIR";
