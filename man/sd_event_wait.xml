@@ -47,6 +47,7 @@
     <refname>sd_event_prepare</refname>
     <refname>sd_event_dispatch</refname>
     <refname>sd_event_get_state</refname>
+    <refname>sd_event_get_iteration</refname>
     <refname>SD_EVENT_INITIAL</refname>
     <refname>SD_EVENT_PREPARING</refname>
     <refname>SD_EVENT_ARMED</refname>
@@ -91,6 +92,12 @@
       <funcprototype>
         <funcdef>int <function>sd_event_get_state</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_get_iteration</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -140,12 +147,15 @@
     determine the state the event loop is currently in. It returns one
     of the states described below.</para>
 
-    <para>All four functions take, as the first argument, the event
-    loop object <parameter>event</parameter> that has been created
-    with <function>sd_event_new()</function>. The timeout for
-    <function>sd_event_wait()</function> is specified in
-    <parameter>usec</parameter> in milliseconds.  <constant>(uint64_t)
-    -1</constant> may be used to specify an infinite timeout.</para>
+    <para><function>sd_event_get_iteration()</function> may be used to determine the current iteration of the event
+    loop. It returns an unsigned 64bit integer containing a counter that increases monotonically with each iteration of
+    the event loop, starting with 0. The counter is increased at the time of the
+    <function>sd_event_prepare()</function> invocation.</para>
+
+    <para>All five functions take, as the first argument, the event loop object <parameter>event</parameter> that has
+    been created with <function>sd_event_new()</function>. The timeout for <function>sd_event_wait()</function> is
+    specified in <parameter>usec</parameter> in microseconds.  <constant>(uint64_t) -1</constant> may be used to
+    specify an infinite timeout.</para>
 </refsect1>
 
   <refsect1>
