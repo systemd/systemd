@@ -100,6 +100,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->on_failure_job_mode = JOB_REPLACE;
         u->cgroup_inotify_wd = -1;
         u->job_timeout = USEC_INFINITY;
+        u->sigchldgen = 0;
 
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
