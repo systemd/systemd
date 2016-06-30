@@ -696,17 +696,19 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 static int enumerator_scan_devices_tags(sd_device_enumerator *enumerator) {
         const char *tag;
         Iterator i;
-        int r;
+        int r = 0;
 
         assert(enumerator);
 
         SET_FOREACH(tag, enumerator->match_tag, i) {
-                r = enumerator_scan_devices_tag(enumerator, tag);
-                if (r < 0)
-                        return r;
+                int k;
+
+                k = enumerator_scan_devices_tag(enumerator, tag);
+                if (k < 0)
+                        r = k;
         }
 
-        return 0;
+        return r;
 }
 
 static int parent_add_child(sd_device_enumerator *enumerator, const char *path) {
@@ -838,7 +840,7 @@ static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
 
 int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
         sd_device *device;
-        int r;
+        int r = 0, k;
 
         assert(enumerator);
 
@@ -850,22 +852,22 @@ int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
                 sd_device_unref(device);
 
         if (!set_isempty(enumerator->match_tag)) {
-                r = enumerator_scan_devices_tags(enumerator);
-                if (r < 0)
-                        return r;
+                k = enumerator_scan_devices_tags(enumerator);
+                if (k < 0)
+                        r = k;
         } else if (enumerator->match_parent) {
-                r = enumerator_scan_devices_children(enumerator);
-                if (r < 0)
-                        return r;
+                k = enumerator_scan_devices_children(enumerator);
+                if (k < 0)
+                        r = k;
         } else {
-                r = enumerator_scan_devices_all(enumerator);
-                if (r < 0)
-                        return r;
+                k = enumerator_scan_devices_all(enumerator);
+                if (k < 0)
+                        r = k;
         }
 
         enumerator->scan_uptodate = true;
 
-        return 0;
+        return r;
 }
 
 _public_ sd_device *sd_device_enumerator_get_device_first(sd_device_enumerator *enumerator) {
