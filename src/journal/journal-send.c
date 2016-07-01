@@ -107,6 +107,9 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         memcpy(buffer, "MESSAGE=", 8);
         vsnprintf(buffer+8, sizeof(buffer) - 8, format, ap);
 
+        /* Strip trailing whitespace, keep prefix whitespace. */
+        (void) strstrip(buffer);
+
         zero(iov);
         IOVEC_SET_STRING(iov[0], buffer);
         IOVEC_SET_STRING(iov[1], p);
@@ -157,6 +160,8 @@ _printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int
                 va_end(aq);
 
                 VA_FORMAT_ADVANCE(format, ap);
+
+                (void) strstrip(buffer); /* strip trailing whitespace, keep prefixing whitespace */
 
                 IOVEC_SET_STRING(iov[i++], buffer);
 
@@ -470,6 +475,8 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
 
         memcpy(buffer, "MESSAGE=", 8);
         vsnprintf(buffer+8, sizeof(buffer) - 8, format, ap);
+
+        (void) strstrip(buffer); /* strip trailing whitespace, keep prefixing whitespace */
 
         /* func is initialized from __func__ which is not a macro, but
          * a static const char[], hence cannot easily be prefixed with
