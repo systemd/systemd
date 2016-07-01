@@ -585,9 +585,7 @@ static void resolve_free(sd_resolve *resolve) {
                 (void) pthread_join(resolve->workers[i], NULL);
 
         /* Close all communication channels */
-        for (i = 0; i < _FD_MAX; i++)
-                safe_close(resolve->fds[i]);
-
+        close_many(resolve->fds, _FD_MAX);
         free(resolve);
 }
 
