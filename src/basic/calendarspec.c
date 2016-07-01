@@ -202,7 +202,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         };
 
         int l, x;
-        bool need_colon = false;
+        bool need_comma = false;
 
         assert(f);
         assert(c);
@@ -213,10 +213,10 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
                 if (c->weekdays_bits & (1 << x)) {
 
                         if (l < 0) {
-                                if (need_colon)
+                                if (need_comma)
                                         fputc(',', f);
                                 else
-                                        need_colon = true;
+                                        need_comma = true;
 
                                 fputs(days[x], f);
                                 l = x;
@@ -225,7 +225,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
                 } else if (l >= 0) {
 
                         if (x > l + 1) {
-                                fputc(x > l + 2 ? '-' : ',', f);
+                                fputs(x > l + 2 ? ".." : ",", f);
                                 fputs(days[x-1], f);
                         }
 
@@ -234,7 +234,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         }
 
         if (l >= 0 && x > l + 1) {
-                fputc(x > l + 2 ? '-' : ',', f);
+                fputs(x > l + 2 ? ".." : ",", f);
                 fputs(days[x-1], f);
         }
 }
@@ -359,6 +359,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                         skip = strlen(day_nr[i].name);
 
                         if ((*p)[skip] != '-' &&
+                            (*p)[skip] != '.' &&
                             (*p)[skip] != ',' &&
                             (*p)[skip] != ' ' &&
                             (*p)[skip] != 0)
@@ -396,7 +397,18 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                         return 0;
                 }
 
-                if (**p == '-') {
+                if (**p == '.') {
+                        if (l >= 0)
+                                return -EINVAL;
+
+                        if ((*p)[1] != '.')
+                                return -EINVAL;
+
+                        l = day_nr[i].nr;
+                        *p += 1;
+
+                /* Support ranges with "-" for backwards compatibility */
+                } else if (**p == '-') {
                         if (l >= 0)
                                 return -EINVAL;
 

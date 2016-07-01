@@ -91,12 +91,15 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
 int main(int argc, char* argv[]) {
         CalendarSpec *c;
 
-        test_one("Sat,Thu,Mon-Wed,Sat-Sun", "Mon-Thu,Sat,Sun *-*-* 00:00:00");
+        test_one("Sat,Thu,Mon-Wed,Sat-Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
+        test_one("Sat,Thu,Mon..Wed,Sat..Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
         test_one("Mon,Sun 12-*-* 2,1:23", "Mon,Sun 2012-*-* 01,02:23:00");
         test_one("Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed-Wed,Wed *-1", "Wed *-*-01 00:00:00");
+        test_one("Wed..Wed,Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed, 17:48", "Wed *-*-* 17:48:00");
-        test_one("Wed-Sat,Tue 12-10-15 1:2:3", "Tue-Sat 2012-10-15 01:02:03");
+        test_one("Wed-Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
+        test_one("Wed..Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
         test_one("*-*-7 0:0:0", "*-*-07 00:00:00");
         test_one("10-15", "*-10-15 00:00:00");
         test_one("monday *-12-* 17:00", "Mon *-12-* 17:00:00");

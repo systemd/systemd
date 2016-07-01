@@ -217,8 +217,8 @@
     should consist of one or more English language weekday names,
     either in the abbreviated (Wed) or non-abbreviated (Wednesday)
     form (case does not matter), separated by commas. Specifying two
-    weekdays separated by <literal>-</literal> refers to a range of
-    continuous weekdays. <literal>,</literal> and <literal>-</literal>
+    weekdays separated by <literal>..</literal> refers to a range of
+    continuous weekdays. <literal>,</literal> and <literal>..</literal>
     may be combined freely.</para>
 
     <para>In the date and time specifications, any component may be
@@ -263,12 +263,12 @@
     <para>Examples for valid timestamps and their
     normalized form:</para>
 
-<programlisting>   Sat,Thu,Mon-Wed,Sat-Sun → Mon-Thu,Sat,Sun *-*-* 00:00:00
+<programlisting>   Sat,Thu,Mon..Wed,Sat..Sun → Mon..Thu,Sat,Sun *-*-* 00:00:00
      Mon,Sun 12-*-* 2,1:23 → Mon,Sun 2012-*-* 01,02:23:00
                    Wed *-1 → Wed *-*-01 00:00:00
-           Wed-Wed,Wed *-1 → Wed *-*-01 00:00:00
+           Wed..Wed,Wed *-1 → Wed *-*-01 00:00:00
                 Wed, 17:48 → Wed *-*-* 17:48:00
-Wed-Sat,Tue 12-10-15 1:2:3 → Tue-Sat 2012-10-15 01:02:03
+Wed..Sat,Tue 12-10-15 1:2:3 → Tue..Sat 2012-10-15 01:02:03
                *-*-7 0:0:0 → *-*-07 00:00:00
                      10-15 → *-10-15 00:00:00
        monday *-12-* 17:00 → Mon *-12-* 17:00:00
