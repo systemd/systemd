@@ -489,7 +489,7 @@ static int output_verbose(
                         off = ANSI_NORMAL;
                 }
 
-                if (flags & OUTPUT_SHOW_ALL ||
+                if ((flags & OUTPUT_SHOW_ALL) ||
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
@@ -607,7 +607,7 @@ void json_escape(
         if (!(flags & OUTPUT_SHOW_ALL) && l >= JSON_THRESHOLD)
                 fputs("null", f);
 
-        else if (!utf8_is_printable(p, l)) {
+        else if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(p, l)) {
                 bool not_first = false;
 
                 fputs("[ ", f);
