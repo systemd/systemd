@@ -565,7 +565,6 @@ Features:
     o CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
     o DST changes
   - Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
-  - calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
   - Modulate timer frequency based on battery state
 
 * add libsystemd-password or so to query passwords during boot using the password agent logic
