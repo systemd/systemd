@@ -30,6 +30,7 @@ typedef struct ExecParameters ExecParameters;
 #include <stdio.h>
 #include <sys/capability.h>
 
+#include "cgroup-util.h"
 #include "fdset.h"
 #include "list.h"
 #include "missing.h"
@@ -203,9 +204,6 @@ struct ExecContext {
         bool no_new_privileges_set:1;
 };
 
-#include "cgroup-util.h"
-#include "cgroup.h"
-
 struct ExecParameters {
         char **argv;
         char **environment;
@@ -235,6 +233,8 @@ struct ExecParameters {
         int stdout_fd;
         int stderr_fd;
 };
+
+#include "unit.h"
 
 int exec_spawn(Unit *unit,
                ExecCommand *command,
