@@ -32,6 +32,8 @@
 #include "parse-util.h"
 #include "string-util.h"
 
+/* Longest valid date/time range is 1970..2199 */
+#define MAX_RANGE_LEN   230
 #define BITS_WEEKDAYS   127
 
 static void free_chain(CalendarComponent *c) {
@@ -200,7 +202,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         };
 
         int l, x;
-        bool need_colon = false;
+        bool need_comma = false;
 
         assert(f);
         assert(c);
@@ -211,10 +213,10 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
                 if (c->weekdays_bits & (1 << x)) {
 
                         if (l < 0) {
-                                if (need_colon)
+                                if (need_comma)
                                         fputc(',', f);
                                 else
-                                        need_colon = true;
+                                        need_comma = true;
 
                                 fputs(days[x], f);
                                 l = x;
@@ -223,7 +225,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
                 } else if (l >= 0) {
 
                         if (x > l + 1) {
-                                fputc(x > l + 2 ? '-' : ',', f);
+                                fputs(x > l + 2 ? ".." : ",", f);
                                 fputs(days[x-1], f);
                         }
 
@@ -232,7 +234,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         }
 
         if (l >= 0 && x > l + 1) {
-                fputc(x > l + 2 ? '-' : ',', f);
+                fputs(x > l + 2 ? ".." : ",", f);
                 fputs(days[x-1], f);
         }
 }
@@ -357,6 +359,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                         skip = strlen(day_nr[i].name);
 
                         if ((*p)[skip] != '-' &&
+                            (*p)[skip] != '.' &&
                             (*p)[skip] != ',' &&
                             (*p)[skip] != ' ' &&
                             (*p)[skip] != 0)
@@ -394,7 +397,18 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                         return 0;
                 }
 
-                if (**p == '-') {
+                if (**p == '.') {
+                        if (l >= 0)
+                                return -EINVAL;
+
+                        if ((*p)[1] != '.')
+                                return -EINVAL;
+
+                        l = day_nr[i].nr;
+                        *p += 1;
+
+                /* Support ranges with "-" for backwards compatibility */
+                } else if (**p == '-') {
                         if (l >= 0)
                                 return -EINVAL;
 
@@ -448,8 +462,26 @@ static int parse_component_decimal(const char **p, bool usec, unsigned long *res
         return 0;
 }
 
+static int const_chain(int value, CalendarComponent **c) {
+        CalendarComponent *cc = NULL;
+
+        assert(c);
+
+        cc = new0(CalendarComponent, 1);
+        if (!cc)
+                return -ENOMEM;
+
+        cc->value = value;
+        cc->repeat = 0;
+        cc->next = *c;
+
+        *c = cc;
+
+        return 0;
+}
+
 static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
-        unsigned long value, repeat = 0;
+        unsigned long i, value, range_end, range_inc, repeat = 0;
         CalendarComponent *cc;
         int r;
         const char *e;
@@ -471,6 +503,30 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
 
                 if (repeat == 0)
                         return -ERANGE;
+        } else if (e[0] == '.' && e[1] == '.') {
+                e += 2;
+                r = parse_component_decimal(&e, usec, &range_end);
+                if (r < 0)
+                        return r;
+
+                if (value >= range_end)
+                        return -EINVAL;
+
+                range_inc = usec ? USEC_PER_SEC : 1;
+
+                /* Don't allow impossibly large ranges... */
+                if (range_end - value >= MAX_RANGE_LEN * range_inc)
+                        return -EINVAL;
+
+                /* ...or ranges with only a single element */
+                if (range_end - value < range_inc)
+                        return -EINVAL;
+
+                for (i = value; i <= range_end; i += range_inc) {
+                        r = const_chain(i, c);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (*e != 0 && *e != ' ' && *e != ',' && *e != '-' && *e != ':')
@@ -491,24 +547,6 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
                 *p += 1;
                 return prepend_component(p, usec, c);
         }
-
-        return 0;
-}
-
-static int const_chain(int value, CalendarComponent **c) {
-        CalendarComponent *cc = NULL;
-
-        assert(c);
-
-        cc = new0(CalendarComponent, 1);
-        if (!cc)
-                return -ENOMEM;
-
-        cc->value = value;
-        cc->repeat = 0;
-        cc->next = *c;
-
-        *c = cc;
 
         return 0;
 }

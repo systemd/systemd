@@ -91,12 +91,15 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
 int main(int argc, char* argv[]) {
         CalendarSpec *c;
 
-        test_one("Sat,Thu,Mon-Wed,Sat-Sun", "Mon-Thu,Sat,Sun *-*-* 00:00:00");
+        test_one("Sat,Thu,Mon-Wed,Sat-Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
+        test_one("Sat,Thu,Mon..Wed,Sat..Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
         test_one("Mon,Sun 12-*-* 2,1:23", "Mon,Sun 2012-*-* 01,02:23:00");
         test_one("Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed-Wed,Wed *-1", "Wed *-*-01 00:00:00");
+        test_one("Wed..Wed,Wed *-1", "Wed *-*-01 00:00:00");
         test_one("Wed, 17:48", "Wed *-*-* 17:48:00");
-        test_one("Wed-Sat,Tue 12-10-15 1:2:3", "Tue-Sat 2012-10-15 01:02:03");
+        test_one("Wed-Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
+        test_one("Wed..Sat,Tue 12-10-15 1:2:3", "Tue..Sat 2012-10-15 01:02:03");
         test_one("*-*-7 0:0:0", "*-*-07 00:00:00");
         test_one("10-15", "*-10-15 00:00:00");
         test_one("monday *-12-* 17:00", "Mon *-12-* 17:00:00");
@@ -124,6 +127,10 @@ int main(int argc, char* argv[]) {
         test_one("2016-03-27 03:17:00.4200005", "2016-03-27 03:17:00.420001");
         test_one("2016-03-27 03:17:00/0.42", "2016-03-27 03:17:00/0.420000");
         test_one("2016-03-27 03:17:00/0.42", "2016-03-27 03:17:00/0.420000");
+        test_one("9..11,13:00,30", "*-*-* 09,10,11,13:00,30:00");
+        test_one("1..3-1..3 1..3:1..3", "*-01,02,03-01,02,03 01,02,03:01,02,03:00");
+        test_one("00:00:1.125..2.125", "*-*-* 00:00:01.125000,02.125000");
+        test_one("00:00:1.0..3.8", "*-*-* 00:00:01,02,03");
 
         test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00", "CET", 12345, 1459041420000000);
@@ -146,6 +153,7 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("2000-03-05.23 00:00:00", &c) < 0);
         assert_se(calendar_spec_from_string("2000-03-05 00:00.1:00", &c) < 0);
         assert_se(calendar_spec_from_string("00:00:00/0.00000001", &c) < 0);
+        assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) < 0);
 
         return 0;
 }
