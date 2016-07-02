@@ -506,9 +506,7 @@ int pull_verify(PullJob *main_job,
                 cmd[k++] = "-";
                 cmd[k++] = NULL;
 
-                fd_cloexec(STDIN_FILENO, false);
-                fd_cloexec(STDOUT_FILENO, false);
-                fd_cloexec(STDERR_FILENO, false);
+                stdio_unset_cloexec();
 
                 execvp("gpg2", (char * const *) cmd);
                 execvp("gpg", (char * const *) cmd);
