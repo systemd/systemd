@@ -43,6 +43,21 @@ Features:
 
 * ProtectKeyRing= to take keyring calls away
 
+* PrivateUsers= which maps the all user ids except root and the one specified
+  in User= to nobody
+
+* Add AllocateUser= for allowing dynamic user ids per-service
+
+* Add DataDirectory=, CacheDirectory= and LogDirectory= to match
+  RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
+
+* Add BindDirectory= for allowing arbitrary, private bind mounts for services
+
+* Beef up RootDirectory= to use namespacing/bind mounts as soon as fs
+  namespaces are enabled by the service
+
+* Add RootImage= for mounting a disk image or file as root directory
+
 * RestrictNamespaces= or so in services (taking away the ability to create namespaces, with setns, unshare, clone)
 
 * nspawn: make /proc/sys/net writable?
