@@ -290,10 +290,10 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
 }
 
 static int connect_logger_as(
+                Unit *unit,
                 const ExecContext *context,
                 ExecOutput output,
                 const char *ident,
-                const char *unit_id,
                 int nfd,
                 uid_t uid,
                 gid_t gid) {
@@ -329,7 +329,7 @@ static int connect_logger_as(
                 "%i\n"
                 "%i\n",
                 context->syslog_identifier ? context->syslog_identifier : ident,
-                unit_id,
+                unit->id,
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
                 output == EXEC_OUTPUT_SYSLOG || output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
@@ -544,7 +544,7 @@ static int setup_output(
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                r = connect_logger_as(context, o, ident, unit->id, fileno, uid, gid);
+                r = connect_logger_as(unit, context, o, ident, fileno, uid, gid);
                 if (r < 0) {
                         log_unit_error_errno(unit, r, "Failed to connect %s to the journal socket, ignoring: %m", fileno == STDOUT_FILENO ? "stdout" : "stderr");
                         r = open_null_as(O_WRONLY, fileno);
