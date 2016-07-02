@@ -888,9 +888,7 @@ int make_stdio(int fd) {
 
         /* Explicitly unset O_CLOEXEC, since if fd was < 3, then
          * dup2() was a NOP and the bit hence possibly set. */
-        fd_cloexec(STDIN_FILENO, false);
-        fd_cloexec(STDOUT_FILENO, false);
-        fd_cloexec(STDERR_FILENO, false);
+        stdio_unset_cloexec();
 
         return 0;
 }

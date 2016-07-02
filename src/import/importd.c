@@ -448,9 +448,7 @@ static int transfer_start(Transfer *t) {
                                 safe_close(null_fd);
                 }
 
-                fd_cloexec(STDIN_FILENO, false);
-                fd_cloexec(STDOUT_FILENO, false);
-                fd_cloexec(STDERR_FILENO, false);
+                stdio_unset_cloexec();
 
                 setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1);
                 setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1);
