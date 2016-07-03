@@ -4861,7 +4861,7 @@ test_keymap_util_SOURCES = \
 	src/locale/keymap-util.h
 
 test_keymap_util_LDADD = \
-	libshared.la \
+	libsystemd-shared.la \
 	-ldl
 
 tests += \
