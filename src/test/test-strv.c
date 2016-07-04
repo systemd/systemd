@@ -686,7 +686,7 @@ static void test_foreach_string(void) {
 }
 
 static void test_strv_fnmatch(void) {
-        _cleanup_free_ char **v = NULL;
+        _cleanup_strv_free_ char **v = NULL;
 
         assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a", 0));
 
