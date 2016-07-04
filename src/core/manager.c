@@ -1814,10 +1814,11 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        ssize_t n;
+        ssize_t n, ttl, length = sizeof(struct signalfd_siginfo);
         struct signalfd_siginfo sfsi;
         bool sigchld = false;
         int r;
+        char *buf = (char *) ((void *) &sfsi);
 
         assert(m);
         assert(m->signal_fd == fd);
@@ -1828,17 +1829,19 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         for (;;) {
-                n = read(m->signal_fd, &sfsi, sizeof(sfsi));
-                if (n != sizeof(sfsi)) {
-
-                        if (n >= 0)
-                                return -EIO;
-
-                        if (errno == EINTR || errno == EAGAIN)
+                ttl = 0;
+                do {
+                        n = read(m->signal_fd, buf + ttl, length - ttl);
+                        if (n < 0 && errno == EAGAIN) {
                                 break;
-
-                        return -errno;
-                }
+                        } else if (n < 0 && errno != EINTR) {
+                                log_error_errno(errno, "Failed to read bytes from signal file descriptor (%d): %m", errno); return -errno;
+                        } else if (n == 0) {
+                            log_error("Signal file descriptor received client disconnect, with %ld bytes discarded.", ttl); return -EIO; }
+                        ttl += n; if (ttl < length) log_debug("Signal file descriptor received %ld bytes with %ld remaining for a complete packet.", n, length - ttl);
+                } while (ttl < length);
+                if (n < 0 && errno == EAGAIN) break;
+                log_debug("Signal file descriptor received a complete %ld byte packet.", length);
 
                 log_received_signal(sfsi.ssi_signo == SIGCHLD ||
                                     (sfsi.ssi_signo == SIGTERM && MANAGER_IS_USER(m))
