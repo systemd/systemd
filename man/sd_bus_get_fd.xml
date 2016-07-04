@@ -68,7 +68,7 @@
         project='die-net'><refentrytitle>select</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry
         project='die-net'><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      or similar functions to wait for incmming messages.
+      or similar functions to wait for incoming messages.
     </para>
 
     <para>

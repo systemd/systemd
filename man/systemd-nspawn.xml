@@ -109,9 +109,9 @@
     service in the background. In this mode each container instance runs as its own service instance; a default
     template unit file <filename>systemd-nspawn@.service</filename> is provided to make this easy, taking the container
     name as instance identifier. Note that different default options apply when <command>systemd-nspawn</command> is
-    invoked by the template unit file than interactively on the commnd line. Most importanly the template unit file
+    invoked by the template unit file than interactively on the command line. Most importantly the template unit file
     makes use of the <option>--boot</option> which is not the default in case <command>systemd-nspawn</command> is
-    invoked from the interactive command line. Further differences with the defaults are documented dalong with the
+    invoked from the interactive command line. Further differences with the defaults are documented along with the
     various supported options below.</para>
 
     <para>The <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool may
