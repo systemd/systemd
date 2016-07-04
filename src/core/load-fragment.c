@@ -2981,8 +2981,12 @@ int config_parse_memory_limit(
                 c->memory_high = bytes;
         else if (streq(lvalue, "MemoryMax"))
                 c->memory_max = bytes;
-        else
+        else if (streq(lvalue, "MemorySwapMax"))
+                c->memory_swap_max = bytes;
+        else if (streq(lvalue, "MemoryLimit"))
                 c->memory_limit = bytes;
+        else
+                return -EINVAL;
 
         return 0;
 }

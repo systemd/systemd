@@ -3571,6 +3571,7 @@ typedef struct UnitStatusInfo {
         uint64_t memory_low;
         uint64_t memory_high;
         uint64_t memory_max;
+        uint64_t memory_swap_max;
         uint64_t memory_limit;
         uint64_t cpu_usage_nsec;
         uint64_t tasks_current;
@@ -3883,7 +3884,8 @@ static void print_status_info(
 
                 printf("   Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
 
-                if (i->memory_low > 0 || i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
+                if (i->memory_low > 0 || i->memory_high != CGROUP_LIMIT_MAX ||
+                    i->memory_max != CGROUP_LIMIT_MAX || i->memory_swap_max != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
                         const char *prefix = "";
 
@@ -3898,6 +3900,10 @@ static void print_status_info(
                         }
                         if (i->memory_max != CGROUP_LIMIT_MAX) {
                                 printf("%smax: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_max));
+                                prefix = " ";
+                        }
+                        if (i->memory_swap_max != CGROUP_LIMIT_MAX) {
+                                printf("%sswap max: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_swap_max));
                                 prefix = " ";
                         }
                         if (i->memory_limit != CGROUP_LIMIT_MAX) {
@@ -4140,6 +4146,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->memory_high = u;
                 else if (streq(name, "MemoryMax"))
                         i->memory_max = u;
+                else if (streq(name, "MemorySwapMax"))
+                        i->memory_swap_max = u;
                 else if (streq(name, "MemoryLimit"))
                         i->memory_limit = u;
                 else if (streq(name, "TasksCurrent"))
@@ -4655,6 +4663,7 @@ static int show_one(
                 .memory_current = (uint64_t) -1,
                 .memory_high = CGROUP_LIMIT_MAX,
                 .memory_max = CGROUP_LIMIT_MAX,
+                .memory_swap_max = CGROUP_LIMIT_MAX,
                 .memory_limit = (uint64_t) -1,
                 .cpu_usage_nsec = (uint64_t) -1,
                 .tasks_current = (uint64_t) -1,

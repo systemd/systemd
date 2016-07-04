@@ -101,6 +101,7 @@ struct CGroupContext {
         uint64_t memory_low;
         uint64_t memory_high;
         uint64_t memory_max;
+        uint64_t memory_swap_max;
 
         /* For legacy hierarchies */
         uint64_t cpu_shares;
