@@ -275,10 +275,15 @@ install_systemd() {
     echo LogLevel=debug >> $initdir/etc/systemd/system.conf
 }
 
+get_ldpath() {
+    local _bin="$1"
+    objdump -p "$_bin" 2>/dev/null | awk "/R(UN)?PATH/ { print \"$initdir\" \$2 }" | paste -sd :
+}
+
 install_missing_libraries() {
     # install possible missing libraries
-    for i in $initdir/{sbin,bin}/* $initdir/lib/systemd/*; do
-        inst_libs $i
+    for i in $initdir{,/usr}/{sbin,bin}/* $initdir{,/usr}/lib/systemd/*; do
+        LD_LIBRARY_PATH=$(get_ldpath $i) inst_libs $i
     done
 }
 
