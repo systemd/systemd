@@ -151,7 +151,7 @@ bluetooth:v0030*
  ID_VENDOR_FROM_DATABASE=ST Microelectronics
 
 bluetooth:v0031*
- ID_VENDOR_FROM_DATABASE=Synopsis
+ ID_VENDOR_FROM_DATABASE=Synopsys, Inc.
 
 bluetooth:v0032*
  ID_VENDOR_FROM_DATABASE=Red-M (Communications) Ltd
@@ -868,7 +868,7 @@ bluetooth:v011E*
  ID_VENDOR_FROM_DATABASE=Skoda Auto a.s.
 
 bluetooth:v011F*
- ID_VENDOR_FROM_DATABASE=Volkswagon AG
+ ID_VENDOR_FROM_DATABASE=Volkswagen AG
 
 bluetooth:v0120*
  ID_VENDOR_FROM_DATABASE=Porsche AG
@@ -2648,3 +2648,165 @@ bluetooth:v036F*
 
 bluetooth:v0370*
  ID_VENDOR_FROM_DATABASE=Wazombi Labs OÜ
+
+bluetooth:v0371*
+ ID_VENDOR_FROM_DATABASE=ORBCOMM
+
+bluetooth:v0372*
+ ID_VENDOR_FROM_DATABASE=Nixie Labs, Inc.
+
+bluetooth:v0373*
+ ID_VENDOR_FROM_DATABASE=AppNearMe Ltd
+
+bluetooth:v0374*
+ ID_VENDOR_FROM_DATABASE=Holman Industries
+
+bluetooth:v0375*
+ ID_VENDOR_FROM_DATABASE=Expain AS
+
+bluetooth:v0376*
+ ID_VENDOR_FROM_DATABASE=Electronic Temperature Instruments Ltd
+
+bluetooth:v0377*
+ ID_VENDOR_FROM_DATABASE=Plejd AB
+
+bluetooth:v0378*
+ ID_VENDOR_FROM_DATABASE=Propeller Health
+
+bluetooth:v0379*
+ ID_VENDOR_FROM_DATABASE=Shenzhen iMCO Electronic Technology Co.,Ltd
+
+bluetooth:v037A*
+ ID_VENDOR_FROM_DATABASE=Algoria
+
+bluetooth:v037B*
+ ID_VENDOR_FROM_DATABASE=Apption Labs Inc.
+
+bluetooth:v037C*
+ ID_VENDOR_FROM_DATABASE=Cronologics Corporation
+
+bluetooth:v037D*
+ ID_VENDOR_FROM_DATABASE=MICRODIA Ltd.
+
+bluetooth:v037E*
+ ID_VENDOR_FROM_DATABASE=lulabytes S.L.
+
+bluetooth:v037F*
+ ID_VENDOR_FROM_DATABASE=Nestec S.A.
+
+bluetooth:v0380*
+ ID_VENDOR_FROM_DATABASE=LLC "MEGA-F service"
+
+bluetooth:v0381*
+ ID_VENDOR_FROM_DATABASE=Sharp Corporation
+
+bluetooth:v0382*
+ ID_VENDOR_FROM_DATABASE=Precision Outcomes Ltd
+
+bluetooth:v0383*
+ ID_VENDOR_FROM_DATABASE=Kronos Incorporated
+
+bluetooth:v0384*
+ ID_VENDOR_FROM_DATABASE=OCOSMOS Co., Ltd.
+
+bluetooth:v0385*
+ ID_VENDOR_FROM_DATABASE=Embedded Electronic Solutions Ltd. dba e2Solutions
+
+bluetooth:v0386*
+ ID_VENDOR_FROM_DATABASE=Aterica Inc.
+
+bluetooth:v0387*
+ ID_VENDOR_FROM_DATABASE=BluStor PMC, Inc.
+
+bluetooth:v0388*
+ ID_VENDOR_FROM_DATABASE=Kapsch TrafficCom AB
+
+bluetooth:v0389*
+ ID_VENDOR_FROM_DATABASE=ActiveBlu Corporation
+
+bluetooth:v038A*
+ ID_VENDOR_FROM_DATABASE=Kohler Mira Limited
+
+bluetooth:v038B*
+ ID_VENDOR_FROM_DATABASE=Noke
+
+bluetooth:v038C*
+ ID_VENDOR_FROM_DATABASE=Appion Inc.
+
+bluetooth:v038D*
+ ID_VENDOR_FROM_DATABASE=Resmed Ltd
+
+bluetooth:v038E*
+ ID_VENDOR_FROM_DATABASE=Crownstone B.V.
+
+bluetooth:v038F*
+ ID_VENDOR_FROM_DATABASE=Xiaomi Inc.
+
+bluetooth:v0390*
+ ID_VENDOR_FROM_DATABASE=INFOTECH s.r.o.
+
+bluetooth:v0391*
+ ID_VENDOR_FROM_DATABASE=Thingsquare AB
+
+bluetooth:v0392*
+ ID_VENDOR_FROM_DATABASE=T&D
+
+bluetooth:v0393*
+ ID_VENDOR_FROM_DATABASE=LAVAZZA S.p.A.
+
+bluetooth:v0394*
+ ID_VENDOR_FROM_DATABASE=Netclearance Systems, Inc.
+
+bluetooth:v0395*
+ ID_VENDOR_FROM_DATABASE=SDATAWAY
+
+bluetooth:v0396*
+ ID_VENDOR_FROM_DATABASE=BLOKS GmbH
+
+bluetooth:v0397*
+ ID_VENDOR_FROM_DATABASE=LEGO System A/S
+
+bluetooth:v0398*
+ ID_VENDOR_FROM_DATABASE=Thetatronics Ltd
+
+bluetooth:v0399*
+ ID_VENDOR_FROM_DATABASE=Nikon Corporation
+
+bluetooth:v039A*
+ ID_VENDOR_FROM_DATABASE=NeST
+
+bluetooth:v039B*
+ ID_VENDOR_FROM_DATABASE=South Silicon Valley Microelectronics
+
+bluetooth:v039C*
+ ID_VENDOR_FROM_DATABASE=ALE International
+
+bluetooth:v039D*
+ ID_VENDOR_FROM_DATABASE=CareView Communications, Inc.
+
+bluetooth:v039E*
+ ID_VENDOR_FROM_DATABASE=SchoolBoard Limited
+
+bluetooth:v039F*
+ ID_VENDOR_FROM_DATABASE=Molex Corporation
+
+bluetooth:v03A0*
+ ID_VENDOR_FROM_DATABASE=IVT International Validation & Testing Corporation
+
+bluetooth:v03A1*
+ ID_VENDOR_FROM_DATABASE=Alpine Labs LLC
+
+bluetooth:v03A2*
+ ID_VENDOR_FROM_DATABASE=Candura Instruments
+
+bluetooth:v03A3*
+ ID_VENDOR_FROM_DATABASE=SmartMovt Technology Co., Ltd
+
+bluetooth:v03A4*
+ ID_VENDOR_FROM_DATABASE=Token Zero Ltd
+
+bluetooth:v03A5*
+ ID_VENDOR_FROM_DATABASE=ACE CAD Enterprise Co., Ltd. (ACECAD)
+
+bluetooth:v03A6*
+ ID_VENDOR_FROM_DATABASE=Medela, Inc
