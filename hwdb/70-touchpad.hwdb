@@ -1,0 +1,49 @@
+# This file is part of systemd.
+#
+# Database for touchpad device information that cannot be queried directly.
+#
+# The lookup keys are composed in:
+#   70-touchpad.rules
+#
+# Note: The format of the "touchpad:" prefix match key is a
+# contract between the rules file and the hardware data, it might
+# change in later revisions to support more or better matches, it
+# is not necessarily expected to be a stable ABI.
+#
+# Match string format:
+# touchpad:<subsystem>:v<vid>p<pid>:name:<name>:
+#
+# vid/pid as 4-digit hex lowercase vendor/product
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/71-touchpad-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   udevadm hwdb --update
+#   udevadm trigger /dev/input/eventXX
+# where /dev/input/eventXX is the touchpad in question. If in
+# doubt, simply use /dev/input/event* to reload all input rules.
+#
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info /dev/input/eventXX.
+#
+# Permitted keys:
+#   Specify if a touchpad is a built-in one or external:
+#   ID_INPUT_TOUCHPAD_INTEGRATION=internal|external
+
+touchpad:i8042:*
+touchpad:rmi:*
+ ID_INPUT_TOUCHPAD_INTEGRATION=internal
+
+touchpad:bluetooth:*
+touchpad:usb:*
+ ID_INPUT_TOUCHPAD_INTEGRATION=external
+
+###########################################################
+# Apple
+###########################################################
+touchpad:usb:v05ac*
+ ID_INPUT_TOUCHPAD_INTEGRATION=internal
