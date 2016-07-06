@@ -98,9 +98,6 @@ static void unmount_autofs(Automount *a) {
         if (a->pipe_fd < 0)
                 return;
 
-        automount_send_ready(a, a->tokens, -EHOSTDOWN);
-        automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
-
         a->pipe_event_source = sd_event_source_unref(a->pipe_event_source);
         a->pipe_fd = safe_close(a->pipe_fd);
 
@@ -109,6 +106,9 @@ static void unmount_autofs(Automount *a) {
         if (a->where &&
             (UNIT(a)->manager->exit_code != MANAGER_RELOAD &&
              UNIT(a)->manager->exit_code != MANAGER_REEXECUTE)) {
+                automount_send_ready(a, a->tokens, -EHOSTDOWN);
+                automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
+
                 r = repeat_unmount(a->where, MNT_DETACH);
                 if (r < 0)
                         log_error_errno(r, "Failed to unmount: %m");
