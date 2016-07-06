@@ -755,15 +755,19 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                         cgroup_apply_unified_memory_limit(u, "memory.max", max);
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+                        uint64_t val = c->memory_limit;
 
-                        if (c->memory_limit != CGROUP_LIMIT_MAX)
-                                xsprintf(buf, "%" PRIu64 "\n", c->memory_limit);
-                        else {
-                                xsprintf(buf, "%" PRIu64 "\n", c->memory_max);
+                        if (val == CGROUP_LIMIT_MAX) {
+                                val = c->memory_max;
 
-                                if (c->memory_max != CGROUP_LIMIT_MAX)
-                                        log_cgroup_compat(u, "Applying MemoryMax %" PRIu64 " as MemoryLimit", c->memory_max);
+                                if (val != CGROUP_LIMIT_MAX)
+                                        log_cgroup_compat(u, "Applying MemoryMax %" PRIi64 " as MemoryLimit", c->memory_max);
                         }
+
+                        if (val == CGROUP_LIMIT_MAX)
+                                strncpy(buf, "-1\n", sizeof(buf));
+                        else
+                                xsprintf(buf, "%" PRIu64 "\n", val);
 
                         r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
                         if (r < 0)
