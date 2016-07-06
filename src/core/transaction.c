@@ -591,6 +591,9 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                 HASHMAP_FOREACH(j, m->jobs, i) {
                         assert(j->installed);
 
+                        if (j->unit->ignore_on_isolate)
+                                continue;
+
                         if (hashmap_get(tr->jobs, j->unit))
                                 continue;
 
