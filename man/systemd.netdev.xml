@@ -808,8 +808,7 @@
           <literal>layer2</literal>,
           <literal>layer3+4</literal>,
           <literal>layer2+3</literal>,
-          <literal>encap2+3</literal>,
-          <literal>802.3ad</literal>, and
+          <literal>encap2+3</literal>, and
           <literal>encap3+4</literal>.
           </para>
         </listitem>
