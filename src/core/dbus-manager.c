@@ -781,6 +781,7 @@ static int transient_unit_from_message(
                 return r;
 
         /* Now load the missing bits of the unit we just created */
+        unit_add_to_load_queue(u);
         manager_dispatch_load_queue(m);
 
         *unit = u;
