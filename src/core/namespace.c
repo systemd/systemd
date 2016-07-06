@@ -278,6 +278,7 @@ static int apply_mount(
 
         const char *what;
         int r;
+        struct stat target;
 
         assert(m);
 
@@ -287,12 +288,22 @@ static int apply_mount(
 
                 /* First, get rid of everything that is below if there
                  * is anything... Then, overmount it with an
-                 * inaccessible directory. */
+                 * inaccessible path. */
                 umount_recursive(m->path, 0);
 
-                what = "/run/systemd/inaccessible";
-                break;
+                r = lstat(m->path, &target);
+                if (r != 0) {
+                        if (m->ignore && errno == ENOENT)
+                                return 0;
+                        return -errno;
+                }
 
+                what = mode_to_inaccessible_node(target.st_mode);
+                if (what == NULL) {
+                        log_debug("File type not supported. Note that symlinks are not allowed");
+                        return -ELOOP;
+                }
+                break;
         case READONLY:
         case READWRITE:
                 /* Nothing to mount here, we just later toggle the
@@ -317,12 +328,16 @@ static int apply_mount(
         assert(what);
 
         r = mount(what, m->path, NULL, MS_BIND|MS_REC, NULL);
-        if (r >= 0)
+        if (r >= 0) {
                 log_debug("Successfully mounted %s to %s", what, m->path);
-        else if (m->ignore && errno == ENOENT)
-                return 0;
-
-        return r;
+                return r;
+        }
+        else {
+                if (m->ignore && errno == ENOENT)
+                        return 0;
+                log_debug("Failed mounting %s to %s: %s", what, m->path, strerror(errno));
+                return -errno;
+        }
 }
 
 static int make_read_only(BindMount *m) {

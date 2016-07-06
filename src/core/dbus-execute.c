@@ -1346,12 +1346,12 @@ int bus_exec_context_set_transient_property(
                 if (mode != UNIT_CHECK) {
                         _cleanup_free_ char *joined = NULL;
 
-                        if (streq(name, "ReadWriteDirectories"))
-                                dirs = &c->read_write_dirs;
-                        else if (streq(name, "ReadOnlyDirectories"))
-                                dirs = &c->read_only_dirs;
-                        else /* "InaccessibleDirectories" */
-                                dirs = &c->inaccessible_dirs;
+                        if (STR_IN_SET(name, "ReadWriteDirectories", "ReadWritePaths"))
+                                dirs = &c->read_write_paths;
+                        else if (STR_IN_SET(name, "ReadOnlyDirectories", "ReadOnlyPaths"))
+                                dirs = &c->read_only_paths;
+                        else /* "InaccessiblePaths" */
+                                dirs = &c->inaccessible_paths;
 
                         if (strv_length(l) == 0) {
                                 *dirs = strv_free(*dirs);

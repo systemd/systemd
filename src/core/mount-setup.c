@@ -28,6 +28,7 @@
 #include "cgroup-util.h"
 #include "dev-setup.h"
 #include "efivars.h"
+#include "fs-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
@@ -403,9 +404,16 @@ int mount_setup(bool loaded_policy) {
          * really needs to stay for good, otherwise software that
          * copied sd-daemon.c into their sources will misdetect
          * systemd. */
-        mkdir_label("/run/systemd", 0755);
-        mkdir_label("/run/systemd/system", 0755);
-        mkdir_label("/run/systemd/inaccessible", 0000);
+        (void) mkdir_label("/run/systemd", 0755);
+        (void) mkdir_label("/run/systemd/system", 0755);
+        (void) mkdir_label("/run/systemd/inaccessible", 0000);
+        /* Set up inaccessible items */
+        (void) mknod("/run/systemd/inaccessible/reg", S_IFREG | 0000, 0);
+        (void) mkdir_label("/run/systemd/inaccessible/dir", 0000);
+        (void) mknod("/run/systemd/inaccessible/chr", S_IFCHR | 0000, makedev(0, 0));
+        (void) mknod("/run/systemd/inaccessible/blk", S_IFBLK | 0000, makedev(0, 0));
+        (void) mkfifo("/run/systemd/inaccessible/fifo", 0000);
+        (void) mknod("/run/systemd/inaccessible/sock", S_IFSOCK | 0000, 0);
 
         return 0;
 }

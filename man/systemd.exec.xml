@@ -855,24 +855,26 @@
         <listitem><para>Sets up a new file system namespace for
         executed processes. These options may be used to limit access
         a process might have to the main file system hierarchy. Each
-        setting takes a space-separated list of directory paths relative to
+        setting takes a space-separated list of paths relative to
         the host's root directory (i.e. the system running the service manager).
-        Directories listed in
+        Note that if entries contain symlinks, they are resolved from the host's root directory as well.
+        Entries (files or directories) listed in 
         <varname>ReadWriteDirectories=</varname> are accessible from
         within the namespace with the same access rights as from
-        outside. Directories listed in
+        outside. Entries listed in
         <varname>ReadOnlyDirectories=</varname> are accessible for
         reading only, writing will be refused even if the usual file
-        access controls would permit this. Directories listed in
+        access controls would permit this. Entries listed in
         <varname>InaccessibleDirectories=</varname> will be made
         inaccessible for processes inside the namespace, and may not
         countain any other mountpoints, including those specified by
         <varname>ReadWriteDirectories=</varname> or
         <varname>ReadOnlyDirectories=</varname>.
         Note that restricting access with these options does not extend
-        to submounts of a directory that are created later on. These
+        to submounts of a directory that are created later on.
+        Non-directory paths can be specified as well. These
         options may be specified more than once, in which case all
-        directories listed will have limited access from within the
+        paths listed will have limited access from within the
         namespace. If the empty string is assigned to this option, the
         specific list is reset, and all prior assignments have no
         effect.</para>

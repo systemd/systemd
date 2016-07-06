@@ -49,4 +49,6 @@ union file_handle_union {
         char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
 };
 
+const char* mode_to_inaccessible_node(mode_t mode);
+
 #define FILE_HANDLE_INIT { .handle.handle_bytes = MAX_HANDLE_SZ }
