@@ -334,7 +334,7 @@ static int write_to_console(
                 const char *object,
                 const char *buffer) {
 
-        char location[64], prefix[1 + DECIMAL_STR_MAX(int) + 2];
+        char location[256], prefix[1 + DECIMAL_STR_MAX(int) + 2];
         struct iovec iovec[6] = {};
         unsigned n = 0;
         bool highlight;
@@ -350,7 +350,7 @@ static int write_to_console(
         highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         if (show_location) {
-                xsprintf(location, "(%s:%i) ", file, line);
+                snprintf(location, sizeof(location), "(%s:%i) ", file, line);
                 IOVEC_SET_STRING(iovec[n++], location);
         }
 
