@@ -1858,6 +1858,7 @@ static int exec_child(
                 *exit_status = EXIT_MEMORY;
                 return -ENOMEM;
         }
+        accum_env = strv_env_clean(accum_env);
 
         umask(context->umask);
 
@@ -2165,8 +2166,6 @@ static int exec_child(
                 *exit_status = EXIT_MEMORY;
                 return -ENOMEM;
         }
-
-        accum_env = strv_env_clean(accum_env);
 
         if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *line;
