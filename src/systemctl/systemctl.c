@@ -3455,6 +3455,24 @@ static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i) {
         return 1;
 }
 
+typedef struct UnitCondition {
+        char *name;
+        bool trigger;
+        bool negate;
+        char *param;
+        int tristate;
+
+        LIST_FIELDS(struct UnitCondition, condition);
+} UnitCondition;
+
+static void unit_condition_free(UnitCondition *c) {
+        assert(c);
+
+        free(c->name);
+        free(c->param);
+        free(c);
+}
+
 typedef struct UnitStatusInfo {
         const char *id;
         const char *load_state;
@@ -3501,10 +3519,7 @@ typedef struct UnitStatusInfo {
 
         usec_t condition_timestamp;
         bool condition_result;
-        bool failed_condition_trigger;
-        bool failed_condition_negate;
-        const char *failed_condition;
-        const char *failed_condition_parameter;
+        LIST_HEAD(UnitCondition, condition);
 
         usec_t assert_timestamp;
         bool assert_result;
@@ -3664,19 +3679,32 @@ static void print_status_info(
                 printf("\n");
 
         if (!i->condition_result && i->condition_timestamp > 0) {
+                UnitCondition *c;
+                int n = 0;
+
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
                 printf("Condition: start %scondition failed%s at %s%s%s\n",
                        ansi_highlight_yellow(), ansi_normal(),
                        s2, s1 ? "; " : "", strempty(s1));
-                if (i->failed_condition_trigger)
-                        printf("           none of the trigger conditions were met\n");
-                else if (i->failed_condition)
-                        printf("           %s=%s%s was not met\n",
-                               i->failed_condition,
-                               i->failed_condition_negate ? "!" : "",
-                               i->failed_condition_parameter);
+
+                LIST_FOREACH(condition, c, i->condition) {
+                        if (c->tristate < 0)
+                                n++;
+                }
+
+                LIST_FOREACH(condition, c, i->condition) {
+                        if (c->tristate >= 0)
+                                continue;
+
+                        printf("           %s %s=%s%s%s was not met\n",
+                               --n ? special_glyph(TREE_BRANCH) : special_glyph(TREE_RIGHT),
+                               c->name,
+                               c->trigger ? "|" : "",
+                               c->negate ? "!" : "",
+                               c->param);
+                }
         }
 
         if (!i->assert_result && i->assert_timestamp > 0) {
@@ -4169,13 +4197,32 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
+                                UnitCondition *c;
+
                                 log_debug("%s %d %d %s %d", cond, trigger, negate, param, state);
-                                if (state < 0 && (!trigger || !i->failed_condition)) {
-                                        i->failed_condition = cond;
-                                        i->failed_condition_trigger = trigger;
-                                        i->failed_condition_negate = negate;
-                                        i->failed_condition_parameter = param;
+
+                                c = new0(UnitCondition, 1);
+                                if (!c)
+                                        return log_oom();
+
+                                c->name = strdup(cond);
+                                if (!c->name) {
+                                        free(c);
+                                        return log_oom();
                                 }
+
+                                c->param = strdup(param);
+                                if (!c->param) {
+                                        free(c->name);
+                                        free(c);
+                                        return log_oom();
+                                }
+
+                                c->trigger = trigger;
+                                c->negate = negate;
+                                c->tristate = state;
+
+                                LIST_PREPEND(condition, i->condition, c);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4583,6 +4630,7 @@ static int show_one(
                 .tasks_max = (uint64_t) -1,
         };
         ExecStatusInfo *p;
+        UnitCondition *c;
         int r;
 
         assert(path);
@@ -4700,6 +4748,11 @@ static int show_one(
         strv_free(info.documentation);
         strv_free(info.dropin_paths);
         strv_free(info.listen);
+
+        while ((c = info.condition)) {
+                LIST_REMOVE(condition, info.condition, c);
+                unit_condition_free(c);
+        }
 
         while ((p = info.exec)) {
                 LIST_REMOVE(exec, info.exec, p);
