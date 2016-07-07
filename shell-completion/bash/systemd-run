@@ -84,8 +84,8 @@ _systemd_run() {
                          LimitNICE= LimitRTPRIO= LimitRTTIME= PrivateTmp= PrivateDevices=
                          PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory=
                          TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel=
-                         SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWriteDirectories=
-                         ReadOnlyDirectories= InaccessibleDirectories= EnvironmentFile=
+                         SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWritePaths=
+                         ReadOnlyPaths= InaccessiblePaths= EnvironmentFile=
                          ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment='
 
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

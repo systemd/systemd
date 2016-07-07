@@ -362,9 +362,9 @@ static int make_read_only(BindMount *m) {
 
 int setup_namespace(
                 const char* root_directory,
-                char** read_write_dirs,
-                char** read_only_dirs,
-                char** inaccessible_dirs,
+                char** read_write_paths,
+                char** read_only_paths,
+                char** inaccessible_paths,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 bool private_dev,
@@ -383,9 +383,9 @@ int setup_namespace(
                 return -errno;
 
         n = !!tmp_dir + !!var_tmp_dir +
-                strv_length(read_write_dirs) +
-                strv_length(read_only_dirs) +
-                strv_length(inaccessible_dirs) +
+                strv_length(read_write_paths) +
+                strv_length(read_only_paths) +
+                strv_length(inaccessible_paths) +
                 private_dev +
                 (protect_home != PROTECT_HOME_NO ? 3 : 0) +
                 (protect_system != PROTECT_SYSTEM_NO ? 2 : 0) +
@@ -393,15 +393,15 @@ int setup_namespace(
 
         if (n > 0) {
                 m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
-                r = append_mounts(&m, read_write_dirs, READWRITE);
+                r = append_mounts(&m, read_write_paths, READWRITE);
                 if (r < 0)
                         return r;
 
-                r = append_mounts(&m, read_only_dirs, READONLY);
+                r = append_mounts(&m, read_only_paths, READONLY);
                 if (r < 0)
                         return r;
 
-                r = append_mounts(&m, inaccessible_dirs, INACCESSIBLE);
+                r = append_mounts(&m, inaccessible_paths, INACCESSIBLE);
                 if (r < 0)
                         return r;
 

@@ -40,9 +40,9 @@ typedef enum ProtectSystem {
 } ProtectSystem;
 
 int setup_namespace(const char *chroot,
-                    char **read_write_dirs,
-                    char **read_only_dirs,
-                    char **inaccessible_dirs,
+                    char **read_write_paths,
+                    char **read_only_paths,
+                    char **inaccessible_paths,
                     const char *tmp_dir,
                     const char *var_tmp_dir,
                     bool private_dev,

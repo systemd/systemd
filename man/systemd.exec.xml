@@ -848,9 +848,9 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ReadWriteDirectories=</varname></term>
-        <term><varname>ReadOnlyDirectories=</varname></term>
-        <term><varname>InaccessibleDirectories=</varname></term>
+        <term><varname>ReadWritePaths=</varname></term>
+        <term><varname>ReadOnlyPaths=</varname></term>
+        <term><varname>InaccessiblePaths=</varname></term>
 
         <listitem><para>Sets up a new file system namespace for
         executed processes. These options may be used to limit access
@@ -858,18 +858,18 @@
         setting takes a space-separated list of paths relative to
         the host's root directory (i.e. the system running the service manager).
         Note that if entries contain symlinks, they are resolved from the host's root directory as well.
-        Entries (files or directories) listed in 
-        <varname>ReadWriteDirectories=</varname> are accessible from
+        Entries (files or directories) listed in
+        <varname>ReadWritePaths=</varname> are accessible from
         within the namespace with the same access rights as from
         outside. Entries listed in
-        <varname>ReadOnlyDirectories=</varname> are accessible for
+        <varname>ReadOnlyPaths=</varname> are accessible for
         reading only, writing will be refused even if the usual file
         access controls would permit this. Entries listed in
-        <varname>InaccessibleDirectories=</varname> will be made
+        <varname>InaccessiblePaths=</varname> will be made
         inaccessible for processes inside the namespace, and may not
         countain any other mountpoints, including those specified by
-        <varname>ReadWriteDirectories=</varname> or
-        <varname>ReadOnlyDirectories=</varname>.
+        <varname>ReadWritePaths=</varname> or
+        <varname>ReadOnlyPaths=</varname>.
         Note that restricting access with these options does not extend
         to submounts of a directory that are created later on.
         Non-directory paths can be specified as well. These
@@ -879,9 +879,9 @@
         specific list is reset, and all prior assignments have no
         effect.</para>
         <para>Paths in
-        <varname>ReadOnlyDirectories=</varname>
+        <varname>ReadOnlyPaths=</varname>
         and
-        <varname>InaccessibleDirectories=</varname>
+        <varname>InaccessiblePaths=</varname>
         may be prefixed with
         <literal>-</literal>, in which case
         they will be ignored when they do not
@@ -1036,9 +1036,9 @@
         <varname>PrivateDevices=</varname>,
         <varname>ProtectSystem=</varname>,
         <varname>ProtectHome=</varname>,
-        <varname>ReadOnlyDirectories=</varname>,
-        <varname>InaccessibleDirectories=</varname> and
-        <varname>ReadWriteDirectories=</varname>) require that mount
+        <varname>ReadOnlyPaths=</varname>,
+        <varname>InaccessiblePaths=</varname> and
+        <varname>ReadWritePaths=</varname>) require that mount
         and unmount propagation from the unit's file system namespace
         is disabled, and hence downgrade <option>shared</option> to
         <option>slave</option>. </para></listitem>
