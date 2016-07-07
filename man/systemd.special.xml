@@ -879,6 +879,57 @@
   </refsect1>
 
   <refsect1>
+    <title>Special Passive User Units</title>
+
+    <refsect2>
+      <title>graphical-session.target</title>
+
+      <para>This target is active whenever any graphical session is running. It
+      is used to stop user services which only apply to a graphical (X,
+      Wayland, etc.) session when the session is terminated. Such services
+      should have <literal>PartOf=graphical-session.target</literal> in their
+      <literal>[Unit]</literal> section. A target for a particular session
+      (e. g.  <filename>gnome-session.target</filename>) starts and stops
+      <literal>graphical-session.target</literal> with
+      <literal>BindsTo=graphical-session.target</literal>.</para>
+
+      <para>Which services are started by a session target is determined by the
+      <literal>Wants=</literal> and <literal>Requires=</literal> dependencies.
+      For services that can be enabled independently, symlinks in
+      <literal>.wants/</literal> and <literal>.requires/</literal> should be
+      used, see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Those symlinks should either be shipped in packages, or should be added
+      dynamically after installation, for example using <literal>systemctl add-wants</literal>, see
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      </para>
+
+      <example>
+        <title>Nautilus as part of a GNOME session</title>
+
+        <para><literal>gnome-session.target</literal> pulls in Nautilus as
+        top-level service:</para>
+
+        <programlisting>[Unit]
+Description=User systemd services for GNOME graphical session
+Wants=nautilus.service
+BindsTo=graphical-session.target
+        </programlisting>
+
+        <para><literal>nautilus.service</literal> gets stopped when the session stops:</para>
+
+        <programlisting>[Unit]
+Description=Render the desktop icons with Nautilus
+PartOf=graphical-session.target
+
+[Service]
+...
+        </programlisting>
+      </example>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
     <title>Special Slice Units</title>
 
     <para>There are four <literal>.slice</literal> units which form
