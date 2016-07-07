@@ -835,7 +835,7 @@ static int setup_pam(
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
-        char **e = NULL;
+        char **nv, **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
         int flags = 0;
@@ -870,8 +870,8 @@ static int setup_pam(
                         goto fail;
         }
 
-        STRV_FOREACH(e, *env) {
-                pam_code = pam_putenv(handle, *e);
+        STRV_FOREACH(nv, *env) {
+                pam_code = pam_putenv(handle, *nv);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
