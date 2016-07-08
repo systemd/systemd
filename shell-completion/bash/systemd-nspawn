@@ -60,7 +60,8 @@ _systemd_nspawn() {
                       [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro -M --machine
                              -S --slice --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
                              --personality -i --image --tmpfs --volatile
-                             --network-macvlan --kill-signal --template'
+                             --network-macvlan --kill-signal --template
+                             --notify-ready'
         )
 
         _init_completion || return
@@ -137,6 +138,10 @@ _systemd_nspawn() {
                         ;;
                         --kill-signal)
                                 _signals
+                                return
+                        ;;
+                        --notify-ready)
+                                comps='yes no'
                                 return
                         ;;
                 esac

@@ -46,4 +46,5 @@ _arguments \
     '--keep-unit[Instead of creating a transient scope unit to run the container in, simply register the service or scope unit systemd-nspawn has been invoked in with systemd-machined(8).]' \
     '--personality=[Control the architecture ("personality") reported by uname(2) in the container.]:architecture:(x86 x86-64)' \
     '--volatile=[Run the system in volatile mode.]:volatile:(no yes state)' \
+    "--notify-ready=[Control when the ready notification is sent]:options:(yes no)" \
     '*:: : _normal'
