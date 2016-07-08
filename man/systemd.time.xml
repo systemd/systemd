@@ -226,7 +226,7 @@
     match. Alternatively, each component can be specified as a list of
     values separated by commas. Values may also be suffixed with
     <literal>/</literal> and a repetition value, which indicates that
-    the value and all values plus multiples of the repetition value
+    the value itself and the value plus all multiples of the repetition value
     are matched.  Each component may also contain a range of values
     separated by <literal>..</literal>.</para>
 
