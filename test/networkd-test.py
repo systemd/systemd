@@ -456,6 +456,36 @@ Domains={p}0 {p}1 {p}2 {p}3 {p}4'''.format(p=name_prefix))
         self.assertRegex(contents, 'search .*{p}0 {p}1 {p}2'.format(p=name_prefix))
         self.assertIn('# Total length of all search domains is too long, remaining ones ignored.', contents)
 
+    def test_dropin(self):
+        # we don't use this interface for this test
+        self.if_router = None
+
+        self.writeConfig('/run/systemd/network/test.netdev', '''\
+[NetDev]
+Name=dummy0
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc''')
+        self.writeConfig('/run/systemd/network/test.network', '''\
+[Match]
+Name=dummy0
+[Network]
+Address=192.168.42.100
+DNS=192.168.42.1''')
+        self.writeConfig('/run/systemd/network/test.network.d/dns.conf', '''\
+[Network]
+DNS=127.0.0.1''')
+
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+
+        for timeout in range(50):
+            with open(RESOLV_CONF) as f:
+                contents = f.read()
+            if ' 127.0.0.1' in contents:
+                break
+            time.sleep(0.1)
+        self.assertIn('nameserver 192.168.42.1\n', contents)
+        self.assertIn('nameserver 127.0.0.1\n', contents)
+
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
                                                      verbosity=2))
