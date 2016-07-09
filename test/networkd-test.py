@@ -323,6 +323,7 @@ class NetworkdClientTest(ClientTestBase, unittest.TestCase):
             f.write('''#!/bin/sh -eu
 mkdir -p /run/systemd/network
 mkdir -p /run/systemd/netif
+mkdir -p /etc/systemd/network/test.network.d
 mount -t tmpfs none /run/systemd/network
 mount -t tmpfs none /run/systemd/netif
 [ ! -e /run/dbus ] || mount -t tmpfs none /run/dbus
@@ -461,6 +462,39 @@ Domains=''')
         self.assertRegex(contents, 'search .*%(p)s0 %(p)s1 %(p)s2' % {'p': name_prefix})
         self.assertIn('# Total length of all search domains is too long, remaining ones ignored.', contents)
 
+    def test_dropin(self):
+
+        # we don't use this interface for this test
+        self.if_router = None
+
+        with open('/run/systemd/network/test.netdev', 'w') as f:
+            f.write('''[NetDev]
+Name=dummy0
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc''')
+        with open('/run/systemd/network/test.network', 'w') as f:
+            f.write('''[Match]
+Name=dummy0
+[Network]
+Address=192.168.42.100
+DNS=192.168.42.1''')
+        with open('/etc/systemd/network/test.network.d/dns.conf', 'w') as f:
+            f.write('''[Network]
+DNS=127.0.0.1''')
+        self.addCleanup(os.remove, '/run/systemd/network/test.netdev')
+        self.addCleanup(os.remove, '/run/systemd/network/test.network')
+        self.addCleanup(os.remove, '/run/systemd/network/test.network.d/dns.conf')
+
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+
+        for timeout in range(50):
+            with open(RESOLV_CONF) as f:
+                contents = f.read()
+            if ' 127.0.0.1' in contents:
+                break
+            time.sleep(0.1)
+        self.assertNotIn('192.168.42.1\n', contents)
+        self.assertIn('nameserver 127.0.0.1\n', contents)
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
