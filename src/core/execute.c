@@ -2827,7 +2827,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 bool exec_context_maintains_privileges(ExecContext *c) {
         assert(c);
 
-        /* Returns true if the process forked off would run run under
+        /* Returns true if the process forked off would run under
          * an unchanged UID or as root. */
 
         if (!c->user)

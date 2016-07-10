@@ -249,7 +249,7 @@ subst:
 
                         if (event->program_result == NULL)
                                 break;
-                        /* get part part of the result string */
+                        /* get part of the result string */
                         i = 0;
                         if (attr != NULL)
                                 i = strtoul(attr, &rest, 10);

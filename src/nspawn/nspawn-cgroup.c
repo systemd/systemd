@@ -123,7 +123,7 @@ int create_subcgroup(pid_t pid, bool unified_requested) {
         int unified, r;
         CGroupMask supported;
 
-        /* In the unified hierarchy inner nodes may only only contain
+        /* In the unified hierarchy inner nodes may only contain
          * subgroups, but not processes. Hence, if we running in the
          * unified hierarchy and the container does the same, and we
          * did not create a scope unit for the container move us and

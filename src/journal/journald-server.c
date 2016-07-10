@@ -1607,7 +1607,7 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
                 /* Dispatch one stream notification event */
                 stdout_stream_send_notify(s->stdout_streams_notify_queue);
 
-        /* Leave us enabled if there's still more to to do. */
+        /* Leave us enabled if there's still more to do. */
         if (s->send_watchdog || s->stdout_streams_notify_queue)
                 return 0;
 

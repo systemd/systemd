@@ -373,7 +373,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 delete = NULL;
                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
-                        /* logging for j not k here here to provide consistent narrative */
+                        /* logging for j not k here to provide consistent narrative */
                         log_unit_warning(j->unit,
                                          "Found dependency on %s/%s",
                                          k->unit->id, job_type_to_string(k->type));
@@ -392,7 +392,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                 if (delete) {
                         const char *status;
-                        /* logging for j not k here here to provide consistent narrative */
+                        /* logging for j not k here to provide consistent narrative */
                         log_unit_warning(j->unit,
                                          "Breaking ordering cycle by deleting job %s/%s",
                                          delete->unit->id, job_type_to_string(delete->type));

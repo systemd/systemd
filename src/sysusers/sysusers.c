@@ -1418,7 +1418,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (!IN_SET(action[0], ADD_USER, ADD_GROUP, ADD_MEMBER, ADD_RANGE)) {
-                log_error("[%s:%u] Unknown command command type '%c'.", fname, line, action[0]);
+                log_error("[%s:%u] Unknown command type '%c'.", fname, line, action[0]);
                 return -EBADMSG;
         }
 

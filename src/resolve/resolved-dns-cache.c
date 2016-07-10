@@ -691,7 +691,7 @@ int dns_cache_put(
                 return 0;
 
         /* See https://tools.ietf.org/html/rfc2308, which say that a
-         * matching SOA record in the packet is used to to enable
+         * matching SOA record in the packet is used to enable
          * negative caching. */
         r = dns_answer_find_soa(answer, key, &soa, &flags);
         if (r < 0)

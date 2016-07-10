@@ -1658,7 +1658,7 @@ int manager_setup_cgroup(Manager *m) {
                 /* 3. Install agent */
                 if (unified) {
 
-                        /* In the unified hierarchy we can can get
+                        /* In the unified hierarchy we can get
                          * cgroup empty notifications via inotify. */
 
                         m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);

@@ -3790,7 +3790,7 @@ bool unit_is_pristine(Unit *u) {
         /* Check if the unit already exists or is already around,
          * in a number of different ways. Note that to cater for unit
          * types such as slice, we are generally fine with units that
-         * are marked UNIT_LOADED even even though nothing was
+         * are marked UNIT_LOADED even though nothing was
          * actually loaded, as those unit types don't require a file
          * on disk to validly load. */
 

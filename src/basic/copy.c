@@ -169,7 +169,7 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, bool try_reflink) {
                 /* sendfile accepts at most SSIZE_MAX-offset bytes to copy,
                  * so reduce our maximum by the amount we already copied,
                  * but don't go below our copy buffer size, unless we are
-                 * close the the limit of bytes we are allowed to copy. */
+                 * close the limit of bytes we are allowed to copy. */
                 m = MAX(MIN(COPY_BUFFER_SIZE, max_bytes), m - n);
         }
 

@@ -1642,7 +1642,7 @@ static int dnssec_nsec_in_path(DnsResourceRecord *rr, const char *name) {
         if (r <= 0)
                 return r;
 
-        /* If the name we we are interested in is not a prefix of the common suffix of the NSEC RR's owner and next domain names, then we can't say anything either. */
+        /* If the name we are interested in is not a prefix of the common suffix of the NSEC RR's owner and next domain names, then we can't say anything either. */
         r = dns_name_common_suffix(dns_resource_key_name(rr->key), rr->nsec.next_domain_name, &common_suffix);
         if (r < 0)
                 return r;

@@ -126,7 +126,7 @@ Features:
 * docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
 
 * mounting and unmounting mount points manually with different source
-  devices will result in collected collected on all devices used.
+  devices will result in collected on all devices used.
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030225.html
 
 * add a job mode that will fail if a transaction would mean stopping
@@ -554,7 +554,7 @@ Features:
   - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - better error message if you run systemctl without systemd running
-  - systemctl status output should should include list of triggering units and their status
+  - systemctl status output should include list of triggering units and their status
 
 * unit install:
   - "systemctl mask" should find all names by which a unit is accessible

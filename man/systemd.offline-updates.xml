@@ -93,7 +93,7 @@
 
       <listitem>
         <para>As the first step, the update script should check if the
-        <filename>/system-update</filename> symlink points to the the location used by that update
+        <filename>/system-update</filename> symlink points to the location used by that update
         script. In case it does not exists or points to a different location, the script must exit
         without error. It is possible for multiple update services to be installed, and for multiple
         update scripts to be launched in parallel, and only the one that corresponds to the tool

@@ -303,7 +303,7 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
         if (r == 0) {
-                log_debug("%s is is not a mount point. Nothing to do.", etc_machine_id);
+                log_debug("%s is not a mount point. Nothing to do.", etc_machine_id);
                 return 0;
         }
 

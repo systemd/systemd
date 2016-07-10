@@ -197,7 +197,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                 return -errno;
                         }
                 } else {
-                        /* everything else just just needs to be a directory */
+                        /* everything else just needs to be a directory */
                         if (!is_dir(syspath, false))
                                 return -ENODEV;
                 }

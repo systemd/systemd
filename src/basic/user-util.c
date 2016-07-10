@@ -458,7 +458,7 @@ int take_etc_passwd_lock(const char *root) {
          *
          * Note that shadow-utils also takes per-database locks in
          * addition to lckpwdf(). However, we don't given that they
-         * are redundant as they they invoke lckpwdf() first and keep
+         * are redundant as they invoke lckpwdf() first and keep
          * it during everything they do. The per-database locks are
          * awfully racy, and thus we just won't do them. */
 

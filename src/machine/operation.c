@@ -30,7 +30,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         assert(o);
         assert(si);
 
-        log_debug("Operating " PID_FMT " is now complete with with code=%s status=%i",
+        log_debug("Operating " PID_FMT " is now complete with code=%s status=%i",
                   o->pid,
                   sigchld_code_to_string(si->si_code), si->si_status);
 
@@ -59,7 +59,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                 }
 
         } else {
-                /* The default default operaton when done is to simply return an error on failure or an empty success
+                /* The default operation when done is to simply return an error on failure or an empty success
                  * message on success. */
                 if (r < 0)
                         goto fail;
