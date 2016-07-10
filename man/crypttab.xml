@@ -93,7 +93,7 @@
     field is not present or the password is set to
     <literal>none</literal> or <literal>-</literal>, the password has
     to be manually entered during system boot. Otherwise, the field is
-    interpreted as a absolute path to a file containing the encryption
+    interpreted as an absolute path to a file containing the encryption
     password. For swap encryption, <filename>/dev/urandom</filename>
     or the hardware device <filename>/dev/hw_random</filename> can be
     used as the password file; using <filename>/dev/random</filename>

@@ -151,7 +151,7 @@
     in size — but the library might still return larger data objects.
     That means applications should not rely exclusively on this
     setting to limit the size of the data fields returned, but need to
-    apply a explicit size limit on the returned data as well. This
+    apply an explicit size limit on the returned data as well. This
     threshold defaults to 64K by default. To retrieve the complete
     data fields this threshold should be turned off by setting it to
     0, so that the library always returns the complete data objects.

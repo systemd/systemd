@@ -841,7 +841,7 @@
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
             <para>The DHCPv4 client identifier to use. Either <literal>mac</literal> to use the MAC address of the link
-            or <literal>duid</literal> (the default, see below) to use a RFC4361-compliant Client ID.</para>
+            or <literal>duid</literal> (the default, see below) to use an RFC4361-compliant Client ID.</para>
           </listitem>
         </varlistentry>
 

@@ -124,7 +124,7 @@
           <entry>An IPv4 or IPv6 tunnel over IPv6</entry></row>
 
           <row><entry><varname>ip6gretap</varname></entry>
-          <entry>An Level 2 GRE tunnel over IPv6.</entry></row>
+          <entry>A Level 2 GRE tunnel over IPv6.</entry></row>
 
           <row><entry><varname>ipip</varname></entry>
           <entry>An IPv4 over IPv4 tunnel.</entry></row>
@@ -1142,7 +1142,7 @@ MACAddress=12:34:56:78:9a:bc</programlisting>
     </example>
     <example>
       <title>/etc/systemd/network/25-vrf.netdev</title>
-      <para>Create an VRF interface with table 42.</para>
+      <para>Create a VRF interface with table 42.</para>
       <programlisting>[NetDev]
 Name=vrf-test
 Kind=vrf
