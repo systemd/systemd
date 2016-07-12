@@ -157,7 +157,6 @@ static int switch_root_initramfs(void) {
         return switch_root("/run/initramfs", "/oldroot", false, MS_BIND);
 }
 
-
 int main(int argc, char *argv[]) {
         bool need_umount, need_swapoff, need_loop_detach, need_dm_detach;
         bool in_container, use_watchdog = false;
@@ -203,19 +202,24 @@ int main(int argc, char *argv[]) {
         }
 
         (void) cg_get_root_path(&cgroup);
+        in_container = detect_container() > 0;
 
         use_watchdog = !!getenv("WATCHDOG_USEC");
 
-        /* lock us into memory */
+        /* Lock us into memory */
         mlockall(MCL_CURRENT|MCL_FUTURE);
+
+        /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
+         * slow IO is processed here already and the final process killing spree is not impacted by processes
+         * desperately trying to sync IO to disk within their timeout. */
+        if (!in_container)
+                sync();
 
         log_info("Sending SIGTERM to remaining processes...");
         broadcast_signal(SIGTERM, true, true);
 
         log_info("Sending SIGKILL to remaining processes...");
         broadcast_signal(SIGKILL, true, false);
-
-        in_container = detect_container() > 0;
 
         need_umount = !in_container;
         need_swapoff = !in_container;
@@ -345,10 +349,10 @@ int main(int argc, char *argv[]) {
                           need_loop_detach ? " loop devices," : "",
                           need_dm_detach ? " DM devices," : "");
 
-        /* The kernel will automaticall flush ATA disks and suchlike
-         * on reboot(), but the file systems need to be synce'd
-         * explicitly in advance. So let's do this here, but not
-         * needlessly slow down containers. */
+        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
+         * sync'ed explicitly in advance. So let's do this here, but not needlessly slow down containers. Note that we
+         * sync'ed things already once above, but we did some more work since then which might have caused IO, hence
+         * let's doit once more. */
         if (!in_container)
                 sync();
 
