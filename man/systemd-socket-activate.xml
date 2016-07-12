@@ -142,7 +142,7 @@
         <varname>FileDescriptorName=</varname> in socket unit files, and enables use of
         <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         Multiple entries may be specifies using separate options or by separating names with colons
-        (<literal>:</literal>) in one option. In case more names are given than descriptors, superflous ones willl be
+        (<literal>:</literal>) in one option. In case more names are given than descriptors, superfluous ones willl be
         ignored. In case less names are given than descriptors, the remaining file descriptors will be unnamed.
         </para></listitem>
       </varlistentry>

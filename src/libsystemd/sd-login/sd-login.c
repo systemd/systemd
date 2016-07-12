@@ -124,7 +124,7 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
 
         /* The internal APIs return the empty string for the root
          * cgroup, let's return the "/" in the public APIs instead, as
-         * that's easier and less ambigious for people to grok. */
+         * that's easier and less ambiguous for people to grok. */
         if (isempty(c)) {
                 free(c);
                 c = strdup("/");

@@ -1136,7 +1136,7 @@ int unit_watch_cgroup(Unit *u) {
         /* Only applies to the unified hierarchy */
         r = cg_unified();
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed detect wether the unified hierarchy is used: %m");
+                return log_unit_error_errno(u, r, "Failed detect whether the unified hierarchy is used: %m");
         if (r == 0)
                 return 0;
 

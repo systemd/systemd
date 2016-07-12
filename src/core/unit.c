@@ -1683,7 +1683,7 @@ static void unit_check_unneeded(Unit *u) {
                         if (unit_active_or_pending(other))
                                 return;
 
-        /* If stopping a unit fails continously we might enter a stop
+        /* If stopping a unit fails continuously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
         if (!ratelimit_test(&u->auto_stop_ratelimit)) {
@@ -1728,7 +1728,7 @@ static void unit_check_binds_to(Unit *u) {
         if (!stop)
                 return;
 
-        /* If stopping a unit fails continously we might enter a stop
+        /* If stopping a unit fails continuously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
         if (!ratelimit_test(&u->auto_stop_ratelimit)) {

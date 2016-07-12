@@ -197,7 +197,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
         assert(n);
 
         if (n->raw_size < sizeof(struct ether_header)) {
-                log_lldp("Recieved truncated packet, ignoring.");
+                log_lldp("Received truncated packet, ignoring.");
                 return -EBADMSG;
         }
 
