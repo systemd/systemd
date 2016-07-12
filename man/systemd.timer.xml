@@ -76,7 +76,7 @@
 
     <para>Note that in case the unit to activate is already active at the time the timer elapses it is not restarted,
     but simply left running. There is no concept of spawning new service instances in this case. Due to this, services
-    with <varname>RemainAfterExit=</varname> set (which stay around continously even after the service's main process
+    with <varname>RemainAfterExit=</varname> set (which stay around continuously even after the service's main process
     exited) are usually not suitable for activation via repetitive timers, as they will only be activated once, and
     then stay around forever.</para>
   </refsect1>

@@ -953,7 +953,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
         /* Create a temporary file we can dump information about deleted images into. We use a temporary file for this
          * instead of a pipe or so, since this might grow quit large in theory and we don't want to process this
-         * continously */
+         * continuously */
         result_fd = open_tmpfile_unlinkable("/tmp/", O_RDWR|O_CLOEXEC);
         if (result_fd < 0)
                 return -errno;

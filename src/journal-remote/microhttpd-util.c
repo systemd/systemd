@@ -60,7 +60,7 @@ static int mhd_respond_internal(struct MHD_Connection *connection,
         if (!response)
                 return MHD_NO;
 
-        log_debug("Queing response %u: %s", code, buffer);
+        log_debug("Queueing response %u: %s", code, buffer);
         MHD_add_response_header(response, "Content-Type", "text/plain");
         r = MHD_queue_response(connection, code, response);
         MHD_destroy_response(response);

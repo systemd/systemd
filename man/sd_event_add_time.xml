@@ -123,7 +123,7 @@
     regarding the various types of clocks. The <parameter>usec</parameter> parameter specifies the earliest time, in
     microseconds (µs), relative to the clock's epoch, when the timer shall be triggered. If a time already in the past
     is specified (including <constant>0</constant>), this timer source "fires" immediately and is ready to be
-    dispatched. If the paramater is specified as <constant>UINT64_MAX</constant> the timer event will never elapse,
+    dispatched. If the parameter is specified as <constant>UINT64_MAX</constant> the timer event will never elapse,
     which may be used as an alternative to explicitly disabling a timer event source with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
     <parameter>accuracy</parameter> parameter specifies an additional accuracy value in µs specifying how much the

@@ -473,7 +473,7 @@
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
           and
           <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-          automatically setup the appropiate dependencies to make this happen.
+          automatically setup the appropriate dependencies to make this happen.
           </para>
         </listitem>
       </varlistentry>

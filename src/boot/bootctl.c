@@ -101,7 +101,7 @@ static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t 
         errno = 0;
         r = blkid_do_safeprobe(b);
         if (r == -2) {
-                log_error("File system \"%s\" is ambigious.", p);
+                log_error("File system \"%s\" is ambiguous.", p);
                 return -ENODEV;
         } else if (r == 1) {
                 log_error("File system \"%s\" does not contain a label.", p);

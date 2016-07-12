@@ -81,7 +81,7 @@
     <para>To introspect a local device on a system, a udev device
     object can be created via
     <citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and friends. The device object allows to query current state,
+    and friends. The device object allows one to query current state,
     read and write attributes and lookup properties of the device in
     question.</para>
 

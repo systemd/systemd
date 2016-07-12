@@ -569,7 +569,7 @@ CHANGES WITH 228:
           the service.
 
         * Timer units gained support for a new RemainAfterElapse=
-          setting which takes a boolean argument. It defaults on,
+          setting which takes a boolean argument. It defaults to on,
           exposing behaviour unchanged to previous releases. If set to
           off, timer units are unloaded after they elapsed if they
           cannot elapse again. This is particularly useful for
@@ -760,7 +760,7 @@ CHANGES WITH 227:
         * Support for USB FunctionFS activation has been added. This
           allows implementation of USB gadget services that are
           activated as soon as they are requested, so that they don't
-          have to run continously, similar to classic socket
+          have to run continuously, similar to classic socket
           activation.
 
         * The "systemctl exit" command now optionally takes an
