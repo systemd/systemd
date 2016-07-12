@@ -213,7 +213,7 @@
     in µs.</para>
 
     <para><function>sd_event_source_get_time_accuracy()</function>
-    retrieves the configured accuracy value of a event source
+    retrieves the configured accuracy value of an event source
     created previously with <function>sd_event_add_time()</function>. It
     takes the event source object and a pointer to a variable to store
     the accuracy in. The accuracy is specified in µs.</para>
@@ -224,7 +224,7 @@
     the event source object and accuracy, in µs.</para>
 
     <para><function>sd_event_source_get_time_clock()</function>
-    retrieves the configured clock of a event source created
+    retrieves the configured clock of an event source created
     previously with <function>sd_event_add_time()</function>. It takes
     the event source object and a pointer to a variable to store the
     clock identifier in.</para>

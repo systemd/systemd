@@ -333,7 +333,7 @@
         <listitem><para>Show properties of one or more registered
         virtual machines or containers or the manager itself. If no
         argument is specified, properties of the manager will be
-        shown. If an NAME is specified, properties of this virtual
+        shown. If a NAME is specified, properties of this virtual
         machine or container are shown. By default, empty properties
         are suppressed. Use <option>--all</option> to show those too.
         To select specific properties to show, use
@@ -575,7 +575,7 @@
         <listitem><para>Show properties of one or more registered
         virtual machine or container images, or the manager itself. If
         no argument is specified, properties of the manager will be
-        shown. If an NAME is specified, properties of this virtual
+        shown. If a NAME is specified, properties of this virtual
         machine or container image are shown. By default, empty
         properties are suppressed. Use <option>--all</option> to show
         those too. To select specific properties to show, use
