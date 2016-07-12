@@ -2429,7 +2429,7 @@ static int syscall_filter_parse_one(
                 int id;
 
                 id = seccomp_syscall_resolve_name(t);
-                if (id < 0)  {
+                if (id == __NR_SCMP_ERROR)  {
                         if (warn)
                                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse system call, ignoring: %s", t);
                         return 0;
