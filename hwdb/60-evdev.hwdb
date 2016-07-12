@@ -195,6 +195,11 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T510*
  EVDEV_ABS_35=778:6239:72
  EVDEV_ABS_36=841:5330:100
 
+# Lenovo V360
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrLenovoV360*
+ EVDEV_ABS_00=1243:5927:60
+ EVDEV_ABS_01=902:5330:108
+
 # Lenovo X220 series
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadX220*
  EVDEV_ABS_00=1316:5627:58
