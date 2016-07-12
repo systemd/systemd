@@ -104,7 +104,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          *
          * As last fallback we do traditional fstat() based st_dev
          * comparisons. This is how things were traditionally done,
-         * but unionfs breaks breaks this since it exposes file
+         * but unionfs breaks this since it exposes file
          * systems with a variety of st_dev reported. Also, btrfs
          * subvolumes have different st_dev, even though they aren't
          * real mounts of their own. */

@@ -80,7 +80,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
                 get_process_comm(pid, &comm);
 
                 if (r)
-                        log_notice("Process " PID_FMT " (%s) has been been marked to be excluded from killing. It is "
+                        log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
                                    "running from the root file system, and thus likely to block re-mounting of the "
                                    "root file system to read-only. Please consider moving it into an initrd file "
                                    "system instead.", pid, strna(comm));

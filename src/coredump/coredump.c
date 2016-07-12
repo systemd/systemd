@@ -811,7 +811,7 @@ static int process_socket(int fd) {
                 goto finish;
         }
 
-        /* Make sure we we got all data we really need */
+        /* Make sure we got all data we really need */
         assert(context[CONTEXT_PID]);
         assert(context[CONTEXT_UID]);
         assert(context[CONTEXT_GID]);

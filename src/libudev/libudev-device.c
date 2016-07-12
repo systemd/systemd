@@ -619,7 +619,7 @@ _public_ const char *udev_device_get_syspath(struct udev_device *udev_device)
  *
  * Get the kernel device name in /sys.
  *
- * Returns: the name string of the device device
+ * Returns: the name string of the device
  **/
 _public_ const char *udev_device_get_sysname(struct udev_device *udev_device)
 {

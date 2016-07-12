@@ -1438,7 +1438,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         if (j->toplevel_fd < 0)
                 d = opendir(path);
         else
-                /* Open the specified directory relative to the the toplevel fd. Enforce that the path specified is
+                /* Open the specified directory relative to the toplevel fd. Enforce that the path specified is
                  * relative, by dropping the initial slash */
                 d = xopendirat(j->toplevel_fd, skip_slash(path), 0);
         if (!d) {

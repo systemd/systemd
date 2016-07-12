@@ -88,7 +88,7 @@ static int user_data_dir(char **ret, const char *suffix) {
         assert(suffix);
 
         /* We don't treat /etc/xdg/systemd here as the spec
-         * suggests because we assume that that is a link to
+         * suggests because we assume that is a link to
          * /etc/systemd/ anyway. */
 
         e = getenv("XDG_DATA_HOME");

@@ -2173,7 +2173,7 @@ static int link_set_ipv6_forward(Link *link) {
         if (!link_ipv6_forward_enabled(link))
                 return 0;
 
-        /* On Linux, the IPv6 stack does not not know a per-interface
+        /* On Linux, the IPv6 stack does not know a per-interface
          * packet forwarding setting: either packet forwarding is on
          * for all, or off for all. We hence don't bother with a
          * per-interface setting, but simply propagate the interface

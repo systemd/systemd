@@ -702,7 +702,7 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
                 if (a->items[i].rr->key->class == DNS_CLASS_IN &&
                     ((a->items[i].rr->key->type == DNS_TYPE_A && in_addr_is_link_local(AF_INET, (union in_addr_union*) &a->items[i].rr->a.in_addr) != prefer_link_local) ||
                      (a->items[i].rr->key->type == DNS_TYPE_AAAA && in_addr_is_link_local(AF_INET6, (union in_addr_union*) &a->items[i].rr->aaaa.in6_addr) != prefer_link_local)))
-                        /* Order address records that are are not preferred to the end of the array */
+                        /* Order address records that are not preferred to the end of the array */
                         items[end--] = a->items[i];
                 else
                         /* Order all other records to the beginning of the array */

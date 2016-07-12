@@ -520,7 +520,7 @@ int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for) {
         assert(q);
         assert(auxiliary_for);
 
-        /* Ensure that that the query is not auxiliary yet, and
+        /* Ensure that the query is not auxiliary yet, and
          * nothing else is auxiliary to it either */
         assert(!q->auxiliary_for);
         assert(!q->auxiliary_queries);

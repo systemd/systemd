@@ -876,7 +876,7 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
         if (n == 0)
                 return 0;
 
-        /* Adds the value value n times to l */
+        /* Adds the value n times to l */
 
         k = strv_length(*l);
 

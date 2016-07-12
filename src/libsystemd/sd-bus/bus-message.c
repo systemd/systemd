@@ -181,7 +181,7 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, b
                 if (!np)
                         goto poison;
         } else {
-                /* Initially, the header is allocated as part of of
+                /* Initially, the header is allocated as part of
                  * the sd_bus_message itself, let's replace it by
                  * dynamic data */
 
@@ -2865,7 +2865,7 @@ static int bus_message_close_header(sd_bus_message *m) {
 
         /* The actual user data is finished now, we just complete the
            variant and struct now (at least on gvariant). Remember
-           this position, so that during parsing we know where to to
+           this position, so that during parsing we know where to
            put the outer container end. */
         m->user_body_size = m->body_size;
 
