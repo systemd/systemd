@@ -127,9 +127,9 @@
         <listitem>
           <para>A special target unit covering basic boot-up.</para>
 
-          <para>systemd automatically adds dependencies of the types
-          <varname>Requires=</varname> and <varname>After=</varname>
-          for this target unit to all services (except for those with
+          <para>systemd automatically adds dependency of the type
+          <varname>After=</varname> for this target unit to all
+          services (except for those with
           <varname>DefaultDependencies=no</varname>).</para>
 
           <para>Usually, this should pull-in all local mount points plus
@@ -512,7 +512,8 @@
           shall add <varname>Conflicts=</varname> dependencies to this
           unit for their service unit, which is implicitly done when
           <varname>DefaultDependencies=yes</varname> is set (the
-          default).</para>
+          default) along with <varname>Before=</varname> dependency.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -579,6 +580,11 @@
       <varlistentry>
         <term><filename>sysinit.target</filename></term>
         <listitem>
+          <para>systemd automatically adds dependencies of the types
+          <varname>Requires=</varname> and <varname>After=</varname>
+          for this target unit to all services (except for those with
+          <varname>DefaultDependencies=no</varname>).</para>
+
           <para>This target pulls in the services required for system
           initialization. System services pulled in by this target should
           declare <varname>DefaultDependencies=no</varname> and specify
