@@ -252,7 +252,7 @@ int mac_selinux_generic_access_check(
         audit_info.path = path;
         audit_info.cmdline = cl;
 
-        r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
+        r = selinux_check_access((security_context_t) scon, fcon, tclass, permission, &audit_info);
         if (r < 0)
                 r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
 
