@@ -500,6 +500,7 @@ bool fstype_is_network(const char *fstype) {
                 "gfs2\0"
                 "glusterfs\0"
                 "pvfs2\0" /* OrangeFS */
+                "ocfs2\0"
                 ;
 
         const char *x;
