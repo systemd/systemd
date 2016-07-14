@@ -82,11 +82,20 @@
   <refsect1>
     <title>Automatic Dependencies</title>
 
-    <para>Unless <varname>DefaultDependencies=</varname> in the <literal>[Unit]</literal> section is set to
-    <option>no</option>, target units will implicitly complement all configured dependencies of type
-    <varname>Wants=</varname>, <varname>Requires=</varname> with dependencies of type <varname>After=</varname>, unless
-    an ordering dependency of any kind between the target and the respective other unit is already in place. Note that
-    this behaviour is disabled if either unit has <varname>DefaultDependencies=no</varname>.</para>
+    <para>Unless <varname>DefaultDependencies=</varname> is set to
+    <option>no</option> in either of releated units or an explicit ordering
+    dependency is already defined, target units will implicitly complement all
+    configured dependencies of type <varname>Wants=</varname> or
+    <varname>Requires=</varname> with dependencies of type
+    <varname>After=</varname>. Note that <varname>Wants=</varname> or
+    <varname>Requires=</varname> must be defined in the target unit itself - if
+    you for example define <varname>Wants=</varname>some.target in
+    some.service, the implicit ordering will not be added.</para>
+
+    <para>All target units automatically gain <varname>Conflicts=</varname>
+    dependency against shutdown.target unless <varname>DefaultDependencies=</varname>
+    is set to <option>no</option>.</para>
+
   </refsect1>
 
   <refsect1>
