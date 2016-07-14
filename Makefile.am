@@ -5002,6 +5002,27 @@ manual_tests += \
 	test-nss
 
 # ------------------------------------------------------------------------------
+libnss_systemd_la_SOURCES = \
+	src/nss-systemd/nss-systemd.sym \
+	src/nss-systemd/nss-systemd.c
+
+libnss_systemd_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared \
+	-shrext .so.2 \
+	-Wl,--version-script=$(top_srcdir)/src/nss-systemd/nss-systemd.sym
+
+libnss_systemd_la_LIBADD = \
+	libsystemd-internal.la \
+	libbasic.la
+
+lib_LTLIBRARIES += \
+	libnss_systemd.la
+
+# ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME
 libnss_myhostname_la_SOURCES = \
 	src/nss-myhostname/nss-myhostname.sym \

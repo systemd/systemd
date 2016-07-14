@@ -1670,6 +1670,12 @@ static int exec_child(
 
         if (context->dynamic_user && dcreds) {
 
+                /* Make sure we bypass our own NSS module for any NSS checks */
+                if (putenv((char*) "SYSTEMD_NSS_DYNAMIC_BYPASS=1") != 0) {
+                        *exit_status = EXIT_USER;
+                        return -errno;
+                }
+
                 r = dynamic_creds_realize(dcreds, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;

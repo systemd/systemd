@@ -201,7 +201,7 @@ USERS AND GROUPS:
         "systemd-coredump" system user and group to exist.
 
 NSS:
-        systemd ships with three NSS modules:
+        systemd ships with four glibc NSS modules:
 
         nss-myhostname resolves the local hostname to locally
         configured IP addresses, as well as "localhost" to
@@ -210,15 +210,22 @@ NSS:
         nss-resolve enables DNS resolution via the systemd-resolved
         DNS/LLMNR caching stub resolver "systemd-resolved".
 
-        nss-mymachines enables resolution of all local containers
-        registered with machined to their respective IP addresses.
+        nss-mymachines enables resolution of all local containers registered
+        with machined to their respective IP addresses. It also maps UID/GIDs
+        ranges used by containers to useful names.
 
-        To make use of these NSS modules, please add them to the
-        "hosts: " line in /etc/nsswitch.conf. The "resolve" module
-        should replace the glibc "dns" module in this file.
+        nss-systemd enables resolution of all dynamically allocated service
+        users. (See the DynamicUser= setting in unit files.)
 
-        The three modules should be used in the following order:
+        To make use of these NSS modules, please add them to the "hosts:",
+        "passwd:" and "group:" lines in /etc/nsswitch.conf. The "resolve"
+        module should replace the glibc "dns" module in this file (and don't
+        worry, it chain-loads the "dns" module if it can't talk to resolved).
 
+        The four modules should be used in the following order:
+
+                passwd: compat mymachines systemd
+                group: compat mymachines systemd
                 hosts: files mymachines resolve myhostname
 
 SYSV INIT.D SCRIPTS:
