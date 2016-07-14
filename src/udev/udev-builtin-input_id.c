@@ -210,8 +210,14 @@ static bool test_pointers(struct udev_device *dev,
                 else if (has_joystick_axes_or_buttons)
                         is_joystick = true;
         }
-        if (has_mt_coordinates && (is_direct || has_touch))
-                is_touchscreen = true;
+        if (has_mt_coordinates) {
+                if (stylus_or_pen)
+                        is_tablet = true;
+                else if (finger_but_no_pen && !is_direct)
+                        is_touchpad = true;
+                else if (has_touch || is_direct)
+                        is_touchscreen = true;
+        }
 
         if (has_rel_coordinates && has_mouse_button)
                 is_mouse = true;
