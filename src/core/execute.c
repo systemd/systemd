@@ -3062,7 +3062,7 @@ int exec_runtime_make(ExecRuntime **rt, ExecContext *c, const char *id) {
                 return r;
 
         if (c->private_network && (*rt)->netns_storage_socket[0] < 0) {
-                if (socketpair(AF_UNIX, SOCK_DGRAM, 0, (*rt)->netns_storage_socket) < 0)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, (*rt)->netns_storage_socket) < 0)
                         return -errno;
         }
 
