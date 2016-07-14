@@ -279,7 +279,6 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-
 static int custom_mounts_prepare(void) {
         unsigned i;
         int r;
