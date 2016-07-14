@@ -449,22 +449,24 @@ static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         }
 
         STRV_FOREACH(i, l) {
-                struct {
-                        NDiscDNSSL header;
-                        char domain[strlen(*i)];
-                } s;
+                _cleanup_free_ NDiscDNSSL *s;
                 NDiscDNSSL *x;
 
-                zero(s.header);
-                strcpy(s.domain, *i);
+                s = malloc0(ALIGN(sizeof(NDiscDNSSL)) + strlen(*i) + 1);
+                if (!s) {
+                        log_oom();
+                        return;
+                }
+
+                strcpy(NDISC_DNSSL_DOMAIN(s), *i);
 
                 if (lifetime == 0) {
-                        (void) set_remove(link->ndisc_dnssl, &s);
+                        (void) set_remove(link->ndisc_dnssl, s);
                         link_dirty(link);
                         continue;
                 }
 
-                x = set_get(link->ndisc_dnssl, &s);
+                x = set_get(link->ndisc_dnssl, s);
                 if (x) {
                         x->valid_until = time_now + lifetime * USEC_PER_SEC;
                         continue;
@@ -483,22 +485,15 @@ static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                         return;
                 }
 
-                x = malloc0(ALIGN(sizeof(NDiscDNSSL)) + strlen(*i) + 1);
-                if (!x) {
-                        log_oom();
-                        return;
-                }
+                s->valid_until = time_now + lifetime * USEC_PER_SEC;
 
-                strcpy(NDISC_DNSSL_DOMAIN(x), *i);
-                x->valid_until = time_now + lifetime * USEC_PER_SEC;
-
-                r = set_put(link->ndisc_dnssl, x);
+                r = set_put(link->ndisc_dnssl, s);
                 if (r < 0) {
-                        free(x);
                         log_oom();
                         return;
                 }
 
+                s = NULL;
                 assert(r > 0);
                 link_dirty(link);
         }
