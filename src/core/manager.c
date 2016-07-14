@@ -1004,6 +1004,9 @@ Manager* manager_free(Manager *m) {
 
         bus_done(m);
 
+        dynamic_user_vacuum(m, false);
+        hashmap_free(m->dynamic_users);
+
         hashmap_free(m->units);
         hashmap_free(m->jobs);
         hashmap_free(m->watch_pids1);
@@ -1226,6 +1229,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* Third, fire things up! */
         manager_coldplug(m);
+
+        /* Release any dynamic users no longer referenced */
+        dynamic_user_vacuum(m, true);
 
         if (serialization) {
                 assert(m->n_reloading > 0);
@@ -2403,6 +2409,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
         bus_track_serialize(m->subscribed, f);
 
+        r = dynamic_user_serialize(m, f, fds);
+        if (r < 0)
+                return r;
+
         fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
@@ -2579,7 +2589,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 m->kdbus_fd = fdset_remove(fds, fd);
                         }
 
-                } else {
+                } else if (startswith(l, "dynamic-user="))
+                        dynamic_user_deserialize_one(m, l + 13, fds);
+                else {
                         int k;
 
                         k = bus_track_deserialize_item(&m->deserialized_subscribed, l);
@@ -2660,6 +2672,7 @@ int manager_reload(Manager *m) {
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
         lookup_paths_free(&m->lookup_paths);
+        dynamic_user_vacuum(m, false);
 
         q = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
         if (q < 0 && r >= 0)
@@ -2695,6 +2708,9 @@ int manager_reload(Manager *m) {
 
         /* Third, fire things up! */
         manager_coldplug(m);
+
+        /* Release any dynamic users no longer referenced */
+        dynamic_user_vacuum(m, true);
 
         /* Sync current state of bus names with our set of listening units */
         if (m->api_bus)

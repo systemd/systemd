@@ -143,10 +143,38 @@
         <term><varname>User=</varname></term>
         <term><varname>Group=</varname></term>
 
-        <listitem><para>Sets the Unix user or group that the processes
-        are executed as, respectively. Takes a single user or group
-        name or ID as argument. If no group is set, the default group
-        of the user is chosen. These do not affect commands prefixed with <literal>!</literal>.</para></listitem>
+        <listitem><para>Set the UNIX user or group that the processes are executed as, respectively. Takes a single
+        user or group name, or numeric ID as argument. If no group is set, the default group of the user is used. This
+        setting does not affect commands whose command line is prefixed with <literal>!</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DynamicUser=</varname></term>
+
+        <listitem><para>Takes a boolean parameter. If set, a UNIX user and group pair is allocated dynamically when the
+        unit is started, and released as soon as it is stopped. The user and group will not be added to
+        <filename>/etc/passwd</filename> or <filename>/etc/group</filename>, but are managed transiently during
+        runtime. The <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        glibc NSS module provides integration of these dynamic users/groups into the system's user and group
+        databases. The user and group name to use may be configured via <varname>User=</varname> and
+        <varname>Group=</varname> (see above). If these options are not used and dynamic user/group allocation is
+        enabled for a unit, the name of the dynamic user/group is implicitly derived from the unit name. If the unit
+        name without the type suffix qualifies as valid user name it is used directly, otherwise a name incorporating a
+        hash of it is used. If a statically allocated user or group of the configured name already exists, it is used
+        and no dynamic user/group is allocated. Dynamic users/groups are allocated from the UID/GID range
+        61184…65519. It is recommended to avoid this range for regular system or login users.  At any point in time
+        each UID/GID from this range is only assigned to zero or one dynamically allocated users/groups in
+        use. However, UID/GIDs are recycled after a unit is terminated. Care should be taken that any processes running
+        as part of a unit for which dynamic users/groups are enabled do not leave files or directories owned by these
+        users/groups around, as a different unit might get the same UID/GID assigned later on, and thus gain access to
+        these files or directories. If <varname>DynamicUser=</varname> is enabled, <varname>PrivateTmp=</varname> is
+        implied. This ensures that the lifetime of temporary files created by the executed processes is bound to the
+        runtime of the service, and hence the lifetime of the dynamic user/group. Since <filename>/tmp</filename> and
+        <filename>/var/tmp</filename> are usually the only world-writable directories on a system this ensures that a
+        unit making use of dynamic user/group allocation cannot leave files around after unit termination. Use
+        <varname>RuntimeDirectory=</varname> (see below) in order to assign a writable runtime directory to a service,
+        owned by the dynamic user/group and removed automatically when the unit is terminated. Defaults to
+        off.</para></listitem>
       </varlistentry>
 
       <varlistentry>

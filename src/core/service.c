@@ -322,6 +322,8 @@ static void service_done(Unit *u) {
         s->control_command = NULL;
         s->main_command = NULL;
 
+        dynamic_creds_unref(&s->dynamic_creds);
+
         exit_status_set_free(&s->restart_prevent_status);
         exit_status_set_free(&s->restart_force_status);
         exit_status_set_free(&s->success_status);
@@ -1030,6 +1032,9 @@ static int service_coldplug(Unit *u) {
         if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_start_watchdog(s);
 
+        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
+                (void) unit_setup_dynamic_creds(u);
+
         service_set_state(s, s->deserialized_state);
         return 0;
 }
@@ -1184,6 +1189,10 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
+        r = unit_setup_dynamic_creds(UNIT(s));
+        if (r < 0)
+                return r;
+
         if (pass_fds ||
             s->exec_context.std_input == EXEC_INPUT_SOCKET ||
             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
@@ -1285,6 +1294,7 @@ static int service_spawn(
                        &s->exec_context,
                        &exec_params,
                        s->exec_runtime,
+                       &s->dynamic_creds,
                        &pid);
         if (r < 0)
                 return r;
@@ -1418,8 +1428,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         exec_runtime_destroy(s->exec_runtime);
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
 
-        /* Also, remove the runtime directory in */
+        /* Also, remove the runtime directory */
         exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
+
+        /* Release the user, and destroy it if we are the only remaining owner */
+        dynamic_creds_destroy(&s->dynamic_creds);
 
         /* Try to delete the pid file. At this point it will be
          * out-of-date, and some software might be confused by it, so
@@ -3323,6 +3336,7 @@ const UnitVTable service_vtable = {
         .cgroup_context_offset = offsetof(Service, cgroup_context),
         .kill_context_offset = offsetof(Service, kill_context),
         .exec_runtime_offset = offsetof(Service, exec_runtime),
+        .dynamic_creds_offset = offsetof(Service, dynamic_creds),
 
         .sections =
                 "Unit\0"

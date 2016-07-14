@@ -1197,6 +1197,8 @@ libcore_la_SOURCES = \
 	src/core/load-dropin.h \
 	src/core/execute.c \
 	src/core/execute.h \
+	src/core/dynamic-user.c \
+	src/core/dynamic-user.h \
 	src/core/kill.c \
 	src/core/kill.h \
 	src/core/dbus.c \

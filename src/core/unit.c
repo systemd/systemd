@@ -3224,6 +3224,33 @@ void unit_ref_unset(UnitRef *ref) {
         ref->unit = NULL;
 }
 
+static int user_from_unit_name(Unit *u, char **ret) {
+
+        static const uint8_t hash_key[] = {
+                0x58, 0x1a, 0xaf, 0xe6, 0x28, 0x58, 0x4e, 0x96,
+                0xb4, 0x4e, 0xf5, 0x3b, 0x8c, 0x92, 0x07, 0xec
+        };
+
+        _cleanup_free_ char *n = NULL;
+        int r;
+
+        r = unit_name_to_prefix(u->id, &n);
+        if (r < 0)
+                return r;
+
+        if (valid_user_group_name(n)) {
+                *ret = n;
+                n = NULL;
+                return 0;
+        }
+
+        /* If we can't use the unit name as a user name, then let's hash it and use that */
+        if (asprintf(ret, "_du%016" PRIx64, siphash24(n, strlen(n), hash_key)) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
 int unit_patch_contexts(Unit *u) {
         CGroupContext *cc;
         ExecContext *ec;
@@ -3268,6 +3295,22 @@ int unit_patch_contexts(Unit *u) {
 
                 if (ec->private_devices)
                         ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_MKNOD);
+
+                if (ec->dynamic_user) {
+                        if (!ec->user) {
+                                r = user_from_unit_name(u, &ec->user);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (!ec->group) {
+                                ec->group = strdup(ec->user);
+                                if (!ec->group)
+                                        return -ENOMEM;
+                        }
+
+                        ec->private_tmp = true;
+                }
         }
 
         cc = unit_get_cgroup_context(u);
@@ -3774,6 +3817,26 @@ int unit_setup_exec_runtime(Unit *u) {
         }
 
         return exec_runtime_make(rt, unit_get_exec_context(u), u->id);
+}
+
+int unit_setup_dynamic_creds(Unit *u) {
+        ExecContext *ec;
+        DynamicCreds *dcreds;
+        size_t offset;
+
+        assert(u);
+
+        offset = UNIT_VTABLE(u)->dynamic_creds_offset;
+        assert(offset > 0);
+        dcreds = (DynamicCreds*) ((uint8_t*) u + offset);
+
+        ec = unit_get_exec_context(u);
+        assert(ec);
+
+        if (!ec->dynamic_user)
+                return 0;
+
+        return dynamic_creds_acquire(dcreds, u->manager, ec->user, ec->group);
 }
 
 bool unit_type_supported(UnitType t) {

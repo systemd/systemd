@@ -1526,14 +1526,28 @@ static bool exec_needs_mount_namespace(
         return false;
 }
 
+static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
+        assert(array);
+        assert(n);
+
+        if (!pair)
+                return;
+
+        if (pair[0] >= 0)
+                array[(*n)++] = pair[0];
+        if (pair[1] >= 0)
+                array[(*n)++] = pair[1];
+}
+
 static int close_remaining_fds(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
+                DynamicCreds *dcreds,
                 int socket_fd,
                 int *fds, unsigned n_fds) {
 
         unsigned n_dont_close = 0;
-        int dont_close[n_fds + 7];
+        int dont_close[n_fds + 11];
 
         assert(params);
 
@@ -1551,11 +1565,14 @@ static int close_remaining_fds(
                 n_dont_close += n_fds;
         }
 
-        if (runtime) {
-                if (runtime->netns_storage_socket[0] >= 0)
-                        dont_close[n_dont_close++] = runtime->netns_storage_socket[0];
-                if (runtime->netns_storage_socket[1] >= 0)
-                        dont_close[n_dont_close++] = runtime->netns_storage_socket[1];
+        if (runtime)
+                append_socket_pair(dont_close, &n_dont_close, runtime->netns_storage_socket);
+
+        if (dcreds) {
+                if (dcreds->user)
+                        append_socket_pair(dont_close, &n_dont_close, dcreds->user->storage_socket);
+                if (dcreds->group)
+                        append_socket_pair(dont_close, &n_dont_close, dcreds->group->storage_socket);
         }
 
         return close_all_fds(dont_close, n_dont_close);
@@ -1567,6 +1584,7 @@ static int exec_child(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
+                DynamicCreds *dcreds,
                 char **argv,
                 int socket_fd,
                 int *fds, unsigned n_fds,
@@ -1617,7 +1635,7 @@ static int exec_child(
 
         log_forget_fds();
 
-        r = close_remaining_fds(params, runtime, socket_fd, fds, n_fds);
+        r = close_remaining_fds(params, runtime, dcreds, socket_fd, fds, n_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return r;
@@ -1650,25 +1668,42 @@ static int exec_child(
                 }
         }
 
-        if (context->user) {
-                username = context->user;
-                r = get_user_creds(&username, &uid, &gid, &home, &shell);
+        if (context->dynamic_user && dcreds) {
+
+                r = dynamic_creds_realize(dcreds, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return r;
                 }
-        }
 
-        if (context->group) {
-                const char *g = context->group;
+                if (uid == UID_INVALID || gid == GID_INVALID) {
+                        *exit_status = EXIT_USER;
+                        return -ESRCH;
+                }
 
-                r = get_group_creds(&g, &gid);
-                if (r < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return r;
+                if (dcreds->user)
+                        username = dcreds->user->name;
+
+        } else {
+                if (context->user) {
+                        username = context->user;
+                        r = get_user_creds(&username, &uid, &gid, &home, &shell);
+                        if (r < 0) {
+                                *exit_status = EXIT_USER;
+                                return r;
+                        }
+                }
+
+                if (context->group) {
+                        const char *g = context->group;
+
+                        r = get_group_creds(&g, &gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_GROUP;
+                                return r;
+                        }
                 }
         }
-
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
@@ -2192,6 +2227,7 @@ int exec_spawn(Unit *unit,
                const ExecContext *context,
                const ExecParameters *params,
                ExecRuntime *runtime,
+               DynamicCreds *dcreds,
                pid_t *ret) {
 
         _cleanup_strv_free_ char **files_env = NULL;
@@ -2250,6 +2286,7 @@ int exec_spawn(Unit *unit,
                                context,
                                params,
                                runtime,
+                               dcreds,
                                argv,
                                socket_fd,
                                fds, n_fds,
@@ -2722,6 +2759,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sUser: %s\n", prefix, c->user);
         if (c->group)
                 fprintf(f, "%sGroup: %s\n", prefix, c->group);
+
+        fprintf(f, "%sDynamicUser: %s\n", prefix, yes_no(c->dynamic_user));
 
         if (strv_length(c->supplementary_groups) > 0) {
                 fprintf(f, "%sSupplementaryGroups:", prefix);

@@ -1046,3 +1046,17 @@ int flush_accept(int fd) {
                 close(cfd);
         }
 }
+
+struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length) {
+        struct cmsghdr *cmsg;
+
+        assert(mh);
+
+        CMSG_FOREACH(cmsg, mh)
+                if (cmsg->cmsg_level == level &&
+                    cmsg->cmsg_type == type &&
+                    (length == (socklen_t) -1 || length == cmsg->cmsg_len))
+                        return cmsg;
+
+        return NULL;
+}

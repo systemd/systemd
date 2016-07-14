@@ -693,6 +693,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("AmbientCapabilities", "t", property_get_ambient_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWriteDirectories", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -1061,7 +1062,8 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name,
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork",
-                              "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute", "RestrictRealtime")) {
+                              "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
+                              "RestrictRealtime", "DynamicUser")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1089,6 +1091,8 @@ int bus_exec_context_set_transient_property(
                                 c->memory_deny_write_execute = b;
                         else if (streq(name, "RestrictRealtime"))
                                 c->restrict_realtime = b;
+                        else if (streq(name, "DynamicUser"))
+                                c->dynamic_user = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }
