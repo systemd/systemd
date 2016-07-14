@@ -44,6 +44,7 @@
 #endif
 #include "strv.h"
 #include "syslog-util.h"
+#include "user-util.h"
 #include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
@@ -841,6 +842,9 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
+                if (!isempty(uu) && !valid_user_group_name_or_id(uu))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name: %s", uu);
+
                 if (mode != UNIT_CHECK) {
 
                         if (isempty(uu))
@@ -859,6 +863,9 @@ int bus_exec_context_set_transient_property(
                 r = sd_bus_message_read(message, "s", &gg);
                 if (r < 0)
                         return r;
+
+                if (!isempty(gg) && !valid_user_group_name_or_id(gg))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group name: %s", gg);
 
                 if (mode != UNIT_CHECK) {
 
