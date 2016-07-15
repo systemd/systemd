@@ -87,18 +87,16 @@
       causes all matches before and after to be combined in a
       disjunction (i.e. logical OR).</para>
 
-      <para>As shortcuts for a few types of field/value matches, file
-      paths may be specified. If a file path refers to an executable
-      file, this is equivalent to an <literal>_EXE=</literal> match
-      for the canonicalized binary path. Similarly, if a path refers
-      to a device node then match is added for the kernel name of the
-      device (<literal>_KERNEL_DEVICE=</literal>). Also, matches for the
-      kernel names of all the parent devices are added automatically.
-      Device node paths are not stable across reboots, therefore match
-      for the current boot id (<literal>_BOOT_ID=</literal>) is
-      always added as well. Note that only the log entries for
-      the existing device nodes maybe queried by providing path to
-      the device node.</para>
+      <para>It is also possible to filter the entries by specifying an
+      absolute file path as an argument. The file path may be a file or
+      a symbolic link and the file must exist at the time of the query. If a
+      file path refers to an executable file, this is equivalent to an
+      <literal>_EXE=</literal> match for the canonicalized binary path. If a
+      file path refers to a device node, this is equivalent to a
+      <literal>_KERNEL_DEVICE=</literal> match for the kernel name of the
+      device and of its ancestor devices. Because device node paths are not
+      stable across reboots, specifying a device node path causes the
+      resulting entries to be restricted to those from the current boot.</para>
 
       <para>Additional constraints may be added using options
       <option>--boot</option>, <option>--unit=</option>, etc., to
