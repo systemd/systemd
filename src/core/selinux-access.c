@@ -191,7 +191,7 @@ int mac_selinux_generic_access_check(
         const char *tclass = NULL, *scon = NULL;
         struct audit_info audit_info = {};
         _cleanup_free_ char *cl = NULL;
-        security_context_t fcon = NULL;
+        char *fcon = NULL;
         char **cmdline = NULL;
         int r = 0;
 

@@ -2642,7 +2642,7 @@ static int inner_child(
 
 #ifdef HAVE_SELINUX
         if (arg_selinux_context)
-                if (setexeccon((security_context_t) arg_selinux_context) < 0)
+                if (setexeccon(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
 #endif
 
