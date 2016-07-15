@@ -93,12 +93,8 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
         }
 
         /* wait until key is pressed */
-        if (wait) {
-                if (TextInputEx)
-                        uefi_call_wrapper(BS->WaitForEvent, 3, 1, &TextInputEx->WaitForKeyEx, &index);
-                else
-                        uefi_call_wrapper(BS->WaitForEvent, 3, 1, &ST->ConIn->WaitForKey, &index);
-        }
+        if (wait)
+                uefi_call_wrapper(BS->WaitForEvent, 3, 1, &ST->ConIn->WaitForKey, &index);
 
         if (TextInputEx) {
                 EFI_KEY_DATA keydata;
