@@ -727,7 +727,7 @@ static void dispatch_message_real(
                                 *((char*) mempcpy(stpcpy(x, "_SELINUX_CONTEXT="), label, label_len)) = 0;
                                 IOVEC_SET_STRING(iovec[n++], x);
                         } else {
-                                security_context_t con;
+                                char *con;
 
                                 if (getpidcon(ucred->pid, &con) >= 0) {
                                         x = strjoina("_SELINUX_CONTEXT=", con);

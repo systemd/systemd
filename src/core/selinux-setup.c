@@ -44,7 +44,7 @@ int mac_selinux_setup(bool *loaded_policy) {
 #ifdef HAVE_SELINUX
         int enforce = 0;
         usec_t before_load, after_load;
-        security_context_t con;
+        char *con;
         int r;
         union selinux_callback cb;
         bool initialized = false;
