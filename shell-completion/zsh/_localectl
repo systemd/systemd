@@ -36,8 +36,8 @@ _localectl_set-x11-keymap() {
         local _xorg_lst
         _xorg_lst=${"$($commands[pkg-config] xkeyboard-config --variable=xkb_base)"}
         _file=( ${(ps:\n\!:)"$(<$_xorg_lst/rules/xorg.lst)"} )
-        _layout=( ${${${(M)${(f)_file[1]}:#  *}#  }%% *} )
-        _model=( ${${${(M)${(f)_file[2]}:#  *}#  }%% *} )
+        _layout=( ${${${(M)${(f)_file[2]}:#  *}#  }%% *} )
+        _model=( ${${${(M)${(f)_file[1]}:#  *}#  }%% *} )
         _variant=( ${${${(M)${(f)_file[3]}:#  *}#  }%% *} )
         _options=( ${${${(M)${(f)_file[4]}:#  *}#  }%% *} )
         #_layout=( ${(f)"$( echo $_file[1] | awk '/^  / {print $1}' )"} )
