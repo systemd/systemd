@@ -86,7 +86,22 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     exit 1
 fi
 
-BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
+ismounted() {
+    while read a a a a m a || [ -n "$m" ]; do
+        [ "$m" = "$1" ] && return 0
+    done < /proc/self/mountinfo
+    return 1
+}
+
+if [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
+    BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
+elif [[ -d /boot/efi/loader/entries ]] || [[ -d /boot/efi/$MACHINE_ID ]] \
+         || ismounted /boot/efi; then
+    BOOT_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
+else
+    BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
+fi
+
 ret=0
 
 readarray -t PLUGINS < <(

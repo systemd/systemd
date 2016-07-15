@@ -16,7 +16,8 @@ if ! [[ $MACHINE_ID ]]; then
 fi
 
 BOOT_DIR="/$MACHINE_ID/$KERNEL_VERSION"
-LOADER_ENTRY="/boot/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+BOOT_ROOT=${BOOT_DIR_ABS%$BOOT_DIR}
+LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
 
 if [[ $COMMAND == remove ]]; then
     exec rm -f "$LOADER_ENTRY"
