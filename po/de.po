@@ -8,8 +8,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2015-09-19 12:09+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2016-07-15 13:11+0200\n"
 "PO-Revision-Date: 2015-09-19 20:02+0200\n"
 "Last-Translator: Bernd Homuth <dev@hmt.im>\n"
 "Language-Team: Deutsch <gnome-de@gnome.org>\n"
@@ -258,53 +258,65 @@ msgstr ""
 "Auswertung des Notebookdeckelschalters des Systems zu erlauben."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:19
-msgid "Allow non-logged-in users to run programs"
+#, fuzzy
+msgid "Allow non-logged-in user to run programs"
 msgstr "Nicht angemeldete Benutzer dürfen Programme ausführen"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
+#, fuzzy
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme "
+"ausführen dürfen."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:21
+msgid "Allow non-logged-in users to run programs"
+msgstr "Nicht angemeldete Benutzer dürfen Programme ausführen"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme "
 "ausführen dürfen."
 
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: ../src/login/org.freedesktop.login1.policy.in.h:21
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Allow attaching devices to seats"
 msgstr "Das Anschließen von Geräten an Arbeitsstationen erlauben"
 
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: ../src/login/org.freedesktop.login1.policy.in.h:22
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid "Authentication is required for attaching a device to a seat."
 msgstr ""
 "Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation "
 "notwendig."
 
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: ../src/login/org.freedesktop.login1.policy.in.h:23
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
 msgid "Flush device to seat attachments"
 msgstr "Zurücksetzen der an eine Arbeitsstation angeschlossenen Geräte"
 
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: ../src/login/org.freedesktop.login1.policy.in.h:24
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
 "Authentication is required for resetting how devices are attached to seats."
 msgstr ""
 "Legitimierung ist zum Zurücksetzen notwendig, wie Geräte an eine "
 "Arbeitsstation angeschlossen werden."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:25
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
 msgid "Power off the system"
 msgstr "Das System ausschalten"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:26
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid "Authentication is required for powering off the system."
 msgstr "Legitimierung ist zum Ausschalten des Systems notwendig."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:27
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
 msgid "Power off the system while other users are logged in"
 msgstr "Das System herunter fahren, während andere Benutzer angemeldet sind"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:28
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required for powering off the system while other users are "
 "logged in."
@@ -312,12 +324,12 @@ msgstr ""
 "Legitimierung ist zum Herunterfahren des Systems notwendig, während andere "
 "Benutzer angemeldet sind."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:29
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Power off the system while an application asked to inhibit it"
 msgstr ""
 "Das System ausschalten, während eine Anwendung anfordert es zu unterbinden"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:30
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
 "Authentication is required for powering off the system while an application "
 "asked to inhibit it."
@@ -325,19 +337,19 @@ msgstr ""
 "Legitimierung ist zum Ausschalten des Systems notwendig, während eine "
 "Anwendung anfordert es zu unterbinden."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:31
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
 msgid "Reboot the system"
 msgstr "Das System neu starten"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:32
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid "Authentication is required for rebooting the system."
 msgstr "Legitimierung ist zum Neustart des Systems notwendig."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:33
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while other users are logged in"
 msgstr "Das Systems neu starten, während andere Benutzer angemeldet sind"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:34
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required for rebooting the system while other users are "
 "logged in."
@@ -345,12 +357,12 @@ msgstr ""
 "Legitimierung ist zum Neustart des Systems notwendig, während andere "
 "Benutzer angemeldet sind."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:35
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Reboot the system while an application asked to inhibit it"
 msgstr ""
 "Das System neu starten, während eine Anwendung anfordert es zu unterbinden"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:36
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
@@ -358,21 +370,21 @@ msgstr ""
 "Legitimierung ist zum Neustart des Systems notwendig, während eine Anwendung "
 "anforderte es zu unterbinden."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:37
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
 msgid "Suspend the system"
 msgstr "Das System in Bereitschaft versetzen"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:38
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid "Authentication is required for suspending the system."
 msgstr "Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:39
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while other users are logged in"
 msgstr ""
 "Das System in Bereitschaft versetzen, während andere Benutzer angemeldet "
 "sind."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:40
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required for suspending the system while other users are "
 "logged in."
@@ -380,13 +392,13 @@ msgstr ""
 "Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig, "
 "während andere Benutzer angemeldet sind."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:41
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Suspend the system while an application asked to inhibit it"
 msgstr ""
 "Das System in Bereitschaft versetzen, während eine Anwendung anfordert dies "
 "zu unterbinden"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:42
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
 "Authentication is required for suspending the system while an application "
 "asked to inhibit it."
@@ -394,22 +406,22 @@ msgstr ""
 "Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig, "
 "während eine Anwendung anfordert dies zu unterbinden."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:43
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system"
 msgstr "Den Ruhezustand des Systems aktivieren"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:44
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid "Authentication is required for hibernating the system."
 msgstr ""
 "Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:45
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while other users are logged in"
 msgstr ""
 "Den Ruhezustand des Systems aktivieren, während andere Benutzer angemeldet "
 "sind"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:46
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required for hibernating the system while other users are "
 "logged in."
@@ -417,13 +429,13 @@ msgstr ""
 "Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig, "
 "während andere Benutzer angemeldet sind."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:47
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Hibernate the system while an application asked to inhibit it"
 msgstr ""
 "Das System in den Ruhezustand versetzen, während eine Anwendung wünscht dies "
 "zu verhindern"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:48
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
 "Authentication is required for hibernating the system while an application "
 "asked to inhibit it."
@@ -431,34 +443,34 @@ msgstr ""
 "Legitimierung ist zum Versetzen des System in den Ruhezustand notwendig, "
 "während eine Anwendung wünscht dies zu verhindern."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:49
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Manage active sessions, users and seats"
 msgstr "Aktive Sitzungen, Benutzer und Arbeitsstationen verwalten"
 
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
 "Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und "
 "Arbeitsstationen notwendig."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:51
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Lock or unlock active sessions"
 msgstr "Aktive Sitzungen sperren und entsperren"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Legitimierung ist zum Sperren und Entsperren aktiver Sitzungen notwendig."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:53
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Allow indication to the firmware to boot to setup interface"
 msgstr ""
 "Mitteilungen an die Firmware zum Starten in die Einrichtungsoberfläche "
 "zulassen"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -466,11 +478,11 @@ msgstr ""
 "Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche "
 "notwendig."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:55
+#: ../src/login/org.freedesktop.login1.policy.in.h:57
 msgid "Set a wall message"
 msgstr "Nachricht an alle einstellen"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#: ../src/login/org.freedesktop.login1.policy.in.h:58
 msgid "Authentication is required to set a wall message"
 msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
@@ -593,33 +605,33 @@ msgstr ""
 "Legitimierung ist zum Festlegen, ob Netzwerkzeitabgeich eingeschaltet sein "
 "soll, erforderlich."
 
-#: ../src/core/dbus-unit.c:428
+#: ../src/core/dbus-unit.c:450
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Legitimierung ist zum Starten von »$(unit)« notwendig."
 
-#: ../src/core/dbus-unit.c:429
+#: ../src/core/dbus-unit.c:451
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Legitimierung ist zum Stoppen von »$(unit)« notwendig."
 
-#: ../src/core/dbus-unit.c:430
+#: ../src/core/dbus-unit.c:452
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Legitimierung ist zum erneuten Laden von »$(unit)« notwendig."
 
-#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+#: ../src/core/dbus-unit.c:453 ../src/core/dbus-unit.c:454
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Legitimierung ist zum Neustarten von »$(unit)« notwendig."
 
-#: ../src/core/dbus-unit.c:535
+#: ../src/core/dbus-unit.c:560
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "Legitimierung ist zum Eliminieren von »$(unit)« notwendig."
 
-#: ../src/core/dbus-unit.c:565
+#: ../src/core/dbus-unit.c:590
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« "
 "notwendig"
 
-#: ../src/core/dbus-unit.c:597
+#: ../src/core/dbus-unit.c:622
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."

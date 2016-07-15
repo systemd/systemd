@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-01-11 09:21+0200\n"
+"POT-Creation-Date: 2016-07-15 13:11+0200\n"
 "PO-Revision-Date: 2016-01-11 11:00+0300\n"
 "Last-Translator: Daniel Korostil <ted.korostiled@gmail.com>\n"
 "Language-Team: linux.org.ua\n"
@@ -15,8 +15,8 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
-"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 "X-Generator: Virtaal 0.7.1\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
@@ -241,56 +241,68 @@ msgstr ""
 "системою клавіші перемикання кришки."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:19
-msgid "Allow non-logged-in users to run programs"
+#, fuzzy
+msgid "Allow non-logged-in user to run programs"
 msgstr "Дозволити незареєстрованим користувачам запускати програми"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
-msgid "Authentication is required to run programs as a non-logged-in user."
+#, fuzzy
+msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити незареєстрованим користувачам запускати "
 "програми."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:21
+msgid "Allow non-logged-in users to run programs"
+msgstr "Дозволити незареєстрованим користувачам запускати програми"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"Засвідчення потрібно, щоб дозволити незареєстрованим користувачам запускати "
+"програми."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Allow attaching devices to seats"
 msgstr "Дозволити під'єднання пристроїв до місць"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:22
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid "Authentication is required for attaching a device to a seat."
 msgstr "Засвідчення потрібно, щоб під'єднувати пристрої до місць."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:23
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
 msgid "Flush device to seat attachments"
 msgstr "Очисний пристрій для під'єднань до місця"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:24
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
 "Authentication is required for resetting how devices are attached to seats."
 msgstr "Засвідчення потрібно, щоб перезапустити спосіб під'єднання до місць."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:25
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
 msgid "Power off the system"
 msgstr "Вимкнути систему"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:26
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid "Authentication is required for powering off the system."
 msgstr "Засвідчення потрібно, щоб вимкнути систему."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:27
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
 msgid "Power off the system while other users are logged in"
 msgstr "Вимкнути систему, коли інші користувачі ще в ній"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:28
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required for powering off the system while other users are "
 "logged in."
 msgstr ""
 "Засвідчення потрібно, щоб вимкнути систему, коли інші користувачі в ній."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:29
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Power off the system while an application asked to inhibit it"
 msgstr "Вимкнути систему, коли програми намагаються перешкодити цьому"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:30
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
 "Authentication is required for powering off the system while an application "
 "asked to inhibit it."
@@ -298,30 +310,30 @@ msgstr ""
 "Засвідчення потрібно, щоб вимкнути систему, коли програми намагаються "
 "перешкодити цьому."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:31
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
 msgid "Reboot the system"
 msgstr "Перезавантажити систему"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:32
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid "Authentication is required for rebooting the system."
 msgstr "Для перезавантаження системи необхідна ідентифікація."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:33
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while other users are logged in"
 msgstr "Перезавантажити, якщо інші користувачі в системі"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:34
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required for rebooting the system while other users are "
 "logged in."
 msgstr ""
 "Засвідчення потрібно, щоб перезапустити систему, коли інші користувачі в ній."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:35
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Reboot the system while an application asked to inhibit it"
 msgstr "Перезапустити систему, коли програми намагаються перешкодити цьому"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:36
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
@@ -329,30 +341,30 @@ msgstr ""
 "Засвідчення потрібно, щоб перезапустити систему, коли програми намагаються "
 "перешкодити цьому."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:37
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
 msgid "Suspend the system"
 msgstr "Призупинити систему"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:38
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid "Authentication is required for suspending the system."
 msgstr "Засвідчення потрібно, щоб призупинити систему."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:39
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while other users are logged in"
 msgstr "Призупинити систему, коли інші користувачі в ній"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:40
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required for suspending the system while other users are "
 "logged in."
 msgstr ""
 "Засвідчення потрібно, щоб призупинити систему, коли інші користувачі в ній."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:41
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Suspend the system while an application asked to inhibit it"
 msgstr "Призупинити систему, коли програми намагаються перешкодити цьому"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:42
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
 "Authentication is required for suspending the system while an application "
 "asked to inhibit it."
@@ -360,30 +372,30 @@ msgstr ""
 "Засвідчення потрібно, щоб призупинити систему, коли програми намагаються "
 "перешкодити цьому."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:43
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system"
 msgstr "Приспати систему"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:44
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid "Authentication is required for hibernating the system."
 msgstr "Засвідчення потрібно, щоб приспати систему."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:45
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while other users are logged in"
 msgstr "Приспати систему, коли інші користувачі в ній"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:46
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required for hibernating the system while other users are "
 "logged in."
 msgstr ""
 "Засвідчення потрібно, щоб присипання систему, коли інші користувачі в ній."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:47
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Hibernate the system while an application asked to inhibit it"
 msgstr "Приспати систему, коли програми намагаються перешкодити цьому"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:48
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
 "Authentication is required for hibernating the system while an application "
 "asked to inhibit it."
@@ -391,30 +403,30 @@ msgstr ""
 "Засвідчення потрібно, щоб приспати систему, коли програми намагаються "
 "перешкодити цьому."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:49
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Manage active sessions, users and seats"
 msgstr "Керувати сеансами, користувачами і робочими місцями"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
 "Засвідчення потрібно, щоб керувати сеансами, користувачами і робочими "
 "місцями."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:51
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Lock or unlock active sessions"
 msgstr "Заблокувати або розблокувати сеанси"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr "Засвідчення потрібно, щоб заблокувати або розблокувати сеанси."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:53
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Allow indication to the firmware to boot to setup interface"
 msgstr "Дозволити мікрокоду визначати, чи завантажувати інтерфейс встановлення"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -422,11 +434,11 @@ msgstr ""
 "Засвідчення потрібне, щоб дозволити мікрокоду визначати, чи завантажувати "
 "інтерфейс встановлення."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:55
+#: ../src/login/org.freedesktop.login1.policy.in.h:57
 msgid "Set a wall message"
 msgstr "Вказати повідомлення на стіні"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#: ../src/login/org.freedesktop.login1.policy.in.h:58
 msgid "Authentication is required to set a wall message"
 msgstr "Засвідчення потрібне, щоб вказати повідомлення на стіні"
 
@@ -469,7 +481,8 @@ msgstr "Перейняти псевдо TTY в локальному контей
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:10
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Засвідчення потрібне, щоб перейняти псевдо TTY в локальному контейнері."
+msgstr ""
+"Засвідчення потрібне, щоб перейняти псевдо TTY в локальному контейнері."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:11
 msgid "Acquire a pseudo TTY on the local host"
@@ -540,30 +553,30 @@ msgstr ""
 "Засвідчення потрібно, щоб контролювати, чи синхронізування часу через мережу "
 "запущено."
 
-#: ../src/core/dbus-unit.c:449
+#: ../src/core/dbus-unit.c:450
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Засвідчення потрібно, щоб запустити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:450
+#: ../src/core/dbus-unit.c:451
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Засвідчення потрібно, щоб зупинити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:451
+#: ../src/core/dbus-unit.c:452
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Засвідчення потрібно, щоб перезавантажити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:452 ../src/core/dbus-unit.c:453
+#: ../src/core/dbus-unit.c:453 ../src/core/dbus-unit.c:454
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Засвідчення потрібно, щоб перезапустити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:556
+#: ../src/core/dbus-unit.c:560
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "Засвідчення потрібне, щоб вбити «$(unit)»."
 
-#: ../src/core/dbus-unit.c:586
+#: ../src/core/dbus-unit.c:590
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Засвідчення потрібне, щоб скинути «пошкоджений» стан з «$(unit)»."
 
-#: ../src/core/dbus-unit.c:618
+#: ../src/core/dbus-unit.c:622
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Засвідчення потрібно, щоб вказати властивості на «$(unit)»."
