@@ -29,6 +29,8 @@
 %_sysusersdir @sysusersdir@
 %_sysctldir @sysctldir@
 %_binfmtdir @binfmtdir@
+%_systemdgeneratordir @systemgeneratordir@
+%_systemdusergeneratordir @usergeneratordir@
 
 %systemd_requires \
 Requires(post): systemd \
