@@ -151,6 +151,9 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         sigaddset(&mask, SIGTERM);
         sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
+        /* Callers are expecting to see events as they happen: Line buffering */
+        setlinebuf(stdout);
+
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
                 log_error_errno(errno, "error creating epoll fd: %m");
