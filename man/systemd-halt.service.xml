@@ -57,6 +57,7 @@
     <para><filename>systemd-reboot.service</filename></para>
     <para><filename>systemd-kexec.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-shutdown</filename></para>
+    <para><filename>/usr/lib/systemd/system-shutdown/</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
