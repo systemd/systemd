@@ -1729,7 +1729,10 @@ static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
         unit_unwatch_pid(u, si->si_pid);
 
         if (UNIT_VTABLE(u)->sigchld_event) {
-                if (set_size(u->pids) <= 1 || iteration != u->sigchldgen) {
+                if (set_size(u->pids) <= 1 ||
+                    iteration != u->sigchldgen ||
+                    unit_main_pid(u) == si->si_pid ||
+                    unit_control_pid(u) == si->si_pid) {
                         UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
                         u->sigchldgen = iteration;
                 } else
