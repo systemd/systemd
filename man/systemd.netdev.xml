@@ -651,7 +651,7 @@
           It is used as mark-configured SAD/SPD entry as part of the lookup key (both in data
           and control path) in ip xfrm (framework used to implement IPsec protocol).
           See <ulink url="http://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
-          ip-xfrm - transform configuration</ulink> for details. It is only used for VTI/VTI6
+          ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6
           tunnels.</para>
         </listitem>
       </varlistentry>
