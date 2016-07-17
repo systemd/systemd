@@ -659,9 +659,8 @@ static void test_strv_make_nulstr_one(char **l) {
         assert_se(m == n);
         assert_se(memcmp(b, c, m) == 0);
 
-        NULSTR_FOREACH(s, b) {
+        NULSTR_FOREACH(s, b)
                 assert_se(streq(s, l[i++]));
-        }
         assert_se(i == strv_length(l));
 }
 
