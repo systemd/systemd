@@ -45,7 +45,7 @@
 
 static void test_get_process_comm(pid_t pid) {
         struct stat st;
-        _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL, *cwd = NULL, *root = NULL;
+        _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
         _cleanup_free_ char *env = NULL;
         char path[strlen("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
         pid_t e;

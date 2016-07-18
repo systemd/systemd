@@ -1551,7 +1551,6 @@ static int image_exists(sd_bus *bus, const char *name) {
 }
 
 static int make_service_name(const char *name, char **ret) {
-        _cleanup_free_ char *e = NULL;
         int r;
 
         assert(name);

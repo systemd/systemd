@@ -3125,7 +3125,6 @@ static int setup_uid_map(pid_t pid) {
 }
 
 static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        _cleanup_fdset_free_ FDSet *fds = NULL;
         char buf[NOTIFY_BUFFER_MAX+1];
         char *p = NULL;
         struct iovec iovec = {
