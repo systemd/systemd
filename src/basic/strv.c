@@ -803,9 +803,8 @@ char **strv_reverse(char **l) {
         if (n <= 1)
                 return l;
 
-        for (i = 0; i < n / 2; i++) {
+        for (i = 0; i < n / 2; i++)
                 SWAP_TWO(l[i], l[n-1-i]);
-        }
 
         return l;
 }

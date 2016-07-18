@@ -88,7 +88,7 @@
     configured dependencies of type <varname>Wants=</varname> or
     <varname>Requires=</varname> with dependencies of type
     <varname>After=</varname>. Note that <varname>Wants=</varname> or
-    <varname>Requires=</varname> must be defined in the target unit itself - if
+    <varname>Requires=</varname> must be defined in the target unit itself — if
     you for example define <varname>Wants=</varname>some.target in
     some.service, the implicit ordering will not be added.</para>
 
