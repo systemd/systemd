@@ -342,7 +342,7 @@ int mount_all(const char *dest,
                         if (mount_table[k].fatal)
                                 return log_error_errno(r, "Failed to create directory %s: %m", where);
 
-                        log_warning_errno(r, "Failed to create directory %s: %m", where);
+                        log_debug_errno(r, "Failed to create directory %s: %m", where);
                         continue;
                 }
 
