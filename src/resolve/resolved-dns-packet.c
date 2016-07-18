@@ -720,7 +720,7 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                 goto fail;
 
         /* RDLENGTH */
-        if (edns0_do & !DNS_PACKET_QR(p)) {
+        if (edns0_do && !DNS_PACKET_QR(p)) {
                 /* If DO is on and this is not a reply, also append RFC6975 Algorithm data */
 
                 static const uint8_t rfc6975[] = {
