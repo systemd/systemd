@@ -647,7 +647,9 @@ static void test_strv_extend_n(void) {
 static void test_strv_make_nulstr_one(char **l) {
         _cleanup_free_ char *b = NULL, *c = NULL;
         _cleanup_strv_free_ char **q = NULL;
+        const char *s = NULL;
         size_t n, m;
+        unsigned i = 0;
 
         assert_se(strv_make_nulstr(l, &b, &n) >= 0);
         assert_se(q = strv_parse_nulstr(b, n));
@@ -656,6 +658,11 @@ static void test_strv_make_nulstr_one(char **l) {
         assert_se(strv_make_nulstr(q, &c, &m) >= 0);
         assert_se(m == n);
         assert_se(memcmp(b, c, m) == 0);
+
+        NULSTR_FOREACH(s, b) {
+                assert_se(streq(s, l[i++]));
+        }
+        assert_se(i == strv_length(l));
 }
 
 static void test_strv_make_nulstr(void) {

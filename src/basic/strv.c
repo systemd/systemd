@@ -724,6 +724,11 @@ int strv_make_nulstr(char **l, char **p, size_t *q) {
                 if (!m)
                         return -ENOMEM;
                 n = 0;
+        } else {
+                /* make sure there is a second extra NUL at the end of resulting nulstr */
+                if (!GREEDY_REALLOC(m, n_allocated, n + 1))
+                        return -ENOMEM;
+                m[n] = '\0';
         }
 
         *p = m;
