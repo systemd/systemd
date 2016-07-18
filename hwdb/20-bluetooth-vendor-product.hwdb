@@ -2791,7 +2791,7 @@ bluetooth:v039F*
  ID_VENDOR_FROM_DATABASE=Molex Corporation
 
 bluetooth:v03A0*
- ID_VENDOR_FROM_DATABASE=IVT International Validation & Testing Corporation
+ ID_VENDOR_FROM_DATABASE=IVT Wireless Limited
 
 bluetooth:v03A1*
  ID_VENDOR_FROM_DATABASE=Alpine Labs LLC
@@ -2810,3 +2810,21 @@ bluetooth:v03A5*
 
 bluetooth:v03A6*
  ID_VENDOR_FROM_DATABASE=Medela, Inc
+
+bluetooth:v03A7*
+ ID_VENDOR_FROM_DATABASE=AeroScout
+
+bluetooth:v03A8*
+ ID_VENDOR_FROM_DATABASE=Esrille Inc.
+
+bluetooth:v03A9*
+ ID_VENDOR_FROM_DATABASE=THINKERLY SRL
+
+bluetooth:v03AA*
+ ID_VENDOR_FROM_DATABASE=Exon Sp. z o.o.
+
+bluetooth:v03AB*
+ ID_VENDOR_FROM_DATABASE=Meizu Technology Co., Ltd.
+
+bluetooth:v03AC*
+ ID_VENDOR_FROM_DATABASE=Smablo LTD
