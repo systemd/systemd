@@ -196,7 +196,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
                                 *(k++) = (char) c;
                                 left--;
-                        }  else if (k > r)
+                        } else if (k > r)
                                 space = true;
                 }
 
