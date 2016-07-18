@@ -70,7 +70,7 @@ int config_parse_duid_rawdata(
         for (;;) {
                 int n1, n2, len, r;
                 uint32_t byte;
-                 _cleanup_free_ char *cbyte = NULL;
+                _cleanup_free_ char *cbyte = NULL;
 
                 r = extract_first_word(&rvalue, &cbyte, ":", 0);
                 if (r < 0) {
