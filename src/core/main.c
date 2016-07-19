@@ -1298,6 +1298,11 @@ static int fixup_environment(void) {
         _cleanup_free_ char *term = NULL;
         int r;
 
+        /* We expect the environment to be set correctly
+         * if run inside a container. */
+        if (detect_container() > 0)
+                return 0;
+
         /* When started as PID1, the kernel uses /dev/console
          * for our stdios and uses TERM=linux whatever the
          * backend device used by the console. We try to make
@@ -1314,7 +1319,7 @@ static int fixup_environment(void) {
         if (r == 0) {
                 term = strdup(default_term_for_tty("/dev/console") + 5);
                 if (!term)
-                        return -errno;
+                        return -ENOMEM;
         }
 
         if (setenv("TERM", term, 1) < 0)
@@ -1508,13 +1513,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_system) {
-                /* We expect the environment to be set correctly
-                 * if run inside a container. */
-                if (detect_container() <= 0)
-                        if (fixup_environment() < 0) {
-                                error_message = "Failed to fix up PID1 environment";
-                                goto finish;
-                        }
+                if (fixup_environment() < 0) {
+                        error_message = "Failed to fix up PID1 environment";
+                        goto finish;
+                }
 
                 /* Try to figure out if we can use colors with the console. No
                  * need to do that for user instances since they never log
