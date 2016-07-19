@@ -127,7 +127,7 @@ static bool arg_default_io_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
-static uint64_t arg_default_tasks_max = UINT64_C(512);
+static uint64_t arg_default_tasks_max = UINT64_MAX;
 static sd_id128_t arg_machine_id = {};
 
 noreturn static void freeze_or_reboot(void) {
@@ -1557,6 +1557,8 @@ int main(int argc, char *argv[]) {
         /* Reset all signal handlers. */
         (void) reset_all_signal_handlers();
         (void) ignore_signals(SIGNALS_IGNORE, -1);
+
+        arg_default_tasks_max = system_tasks_max_scale(15U, 100U); /* 15% the system PIDs equals 4915 by default. */
 
         if (parse_config_file() < 0) {
                 error_message = "Failed to parse config file";
