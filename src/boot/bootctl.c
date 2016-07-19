@@ -275,14 +275,16 @@ static int get_file_version(int fd, char **v) {
         assert(v);
 
         if (fstat(fd, &st) < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to stat EFI binary: %m");
 
-        if (st.st_size < 27)
+        if (st.st_size < 27) {
+                *v = NULL;
                 return 0;
+        }
 
         buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
         if (buf == MAP_FAILED)
-                return -errno;
+                return log_error_errno(errno, "Failed to memory map EFI binary: %m");
 
         s = memmem(buf, st.st_size - 8, "#### LoaderInfo: ", 17);
         if (!s)
@@ -304,7 +306,7 @@ static int get_file_version(int fd, char **v) {
         r = 1;
 
 finish:
-        munmap(buf, st.st_size);
+        (void) munmap(buf, st.st_size);
         *v = x;
         return r;
 }
