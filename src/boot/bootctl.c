@@ -1049,7 +1049,7 @@ static int bootctl_main(int argc, char*argv[]) {
                         if (loader_path)
                                 efi_tilt_backslashes(loader_path);
                         r = efi_loader_get_device_part_uuid(&loader_part_uuid);
-                        if (r < 0 && r == -ENOENT)
+                        if (r < 0 && r != -ENOENT)
                                 log_warning_errno(r, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                         printf("System:\n");
