@@ -416,9 +416,10 @@ static int status_variables(void) {
 
         n_options = efi_get_boot_options(&options);
         if (n_options == -ENOENT)
-                return log_error_errno(ENOENT, "Failed to access EFI variables, efivarfs"
+                return log_error_errno(n_options,
+                                       "Failed to access EFI variables, efivarfs"
                                        " needs to be available at /sys/firmware/efi/efivars/.");
-        else if (n_options < 0)
+        if (n_options < 0)
                 return log_error_errno(n_options, "Failed to read EFI boot entries: %m");
 
         n_order = efi_get_boot_order(&order);
@@ -438,11 +439,9 @@ static int status_variables(void) {
 
                 for (j = 0; j < n_order; j++)
                         if (options[i] == order[j])
-                                goto next;
+                                continue;
 
                 print_efi_option(options[i], false);
-        next:
-                continue;
         }
 
         return 0;
@@ -820,8 +819,8 @@ static int install_variables(const char *esp_path,
         if (access(p, F_OK) < 0) {
                 if (errno == ENOENT)
                         return 0;
-                else
-                        return log_error_errno(errno, "Cannot access \"%s\": %m", p);
+
+                return log_error_errno(errno, "Cannot access \"%s\": %m", p);
         }
 
         r = find_slot(uuid, path, &slot);
@@ -941,8 +940,8 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
 
         if (in_order)
                 return remove_from_order(slot);
-        else
-                return 0;
+
+        return 0;
 }
 
 static int install_loader_config(const char *esp_path) {
