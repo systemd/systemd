@@ -26,6 +26,7 @@
 #include <ftw.h>
 #include <getopt.h>
 #include <limits.h>
+#include <linux/magic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,6 +51,7 @@
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
+#include "stat-util.h"
 
 static char *arg_path = NULL;
 static bool arg_touch_variables = true;
@@ -83,7 +85,7 @@ static int verify_esp(
                 return log_error_errno(errno, "Failed to check file system type of \"%s\": %m", p);
         }
 
-        if (sfs.f_type != 0x4d44) {
+        if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
 
                 if (searching)
                         return -EADDRNOTAVAIL;
