@@ -90,13 +90,23 @@
       <para>It is also possible to filter the entries by specifying an
       absolute file path as an argument. The file path may be a file or
       a symbolic link and the file must exist at the time of the query. If a
-      file path refers to an executable file, this is equivalent to an
-      <literal>_EXE=</literal> match for the canonicalized binary path. If a
-      file path refers to a device node, this is equivalent to a
-      <literal>_KERNEL_DEVICE=</literal> match for the kernel name of the
-      device and of its ancestor devices. Because device node paths are not
-      stable across reboots, specifying a device node path causes the
-      resulting entries to be restricted to those from the current boot.</para>
+      file path refers to an executable binary, an <literal>_EXE=</literal>
+      match for the canonicalized binary path is added to the query. If a
+      file path refers to an executable script, a <literal>_COMM=</literal>
+      match for the script name is added to the query. If a file path
+      refers to a device node, <literal>_KERNEL_DEVICE=</literal> matches for
+      the kernel name of the device and for each of its ancestor devices is
+      added to the query. Symbolic links are dereferenced, kernel names are
+      synthesized, and parent devices are identified from the environment at
+      the time of the query. In general, a device node is the best proxy for
+      an actual device, as log entries do not usually contain fields that
+      identify an actual device. For the resulting log entries to be correct
+      for the actual device, the relevant parts of the environment at the time
+      the entry was logged, in particular the actual device corresponding to
+      the device node, must have been the same as those at the time of the
+      query. Because device nodes generally change their corresponding devices
+      across reboots, specifying a device node path causes the resulting
+      entries to be restricted to those from the current boot.</para>
 
       <para>Additional constraints may be added using options
       <option>--boot</option>, <option>--unit=</option>, etc., to
