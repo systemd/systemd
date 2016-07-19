@@ -597,15 +597,6 @@ error:
         return r;
 }
 
-static char* strupper(char *s) {
-        char *p;
-
-        for (p = s; *p; p++)
-                *p = toupper(*p);
-
-        return s;
-}
-
 static int mkdir_one(const char *prefix, const char *suffix) {
         char *p;
 
@@ -654,7 +645,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
                 v = strjoina(esp_path, "/EFI/BOOT/BOOT", name + strlen("systemd-boot"));
-                strupper(strrchr(v, '/') + 1);
+                ascii_strupper(strrchr(v, '/') + 1);
 
                 k = copy_file(p, v, force);
                 if (k < 0 && r == 0)
