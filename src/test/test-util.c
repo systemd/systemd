@@ -308,7 +308,43 @@ static void test_physical_memory_scale(void) {
 
         /* overflow */
         assert_se(physical_memory_scale(UINT64_MAX/4, UINT64_MAX) == UINT64_MAX);
+}
 
+static void test_system_tasks_max(void) {
+        uint64_t t;
+
+        t = system_tasks_max();
+        assert_se(t > 0);
+        assert_se(t < UINT64_MAX);
+
+        log_info("Max tasks: %" PRIu64, t);
+}
+
+static void test_system_tasks_max_scale(void) {
+        uint64_t t;
+
+        t = system_tasks_max();
+
+        assert_se(system_tasks_max_scale(0, 100) == 0);
+        assert_se(system_tasks_max_scale(100, 100) == t);
+
+        assert_se(system_tasks_max_scale(0, 1) == 0);
+        assert_se(system_tasks_max_scale(1, 1) == t);
+        assert_se(system_tasks_max_scale(2, 1) == 2*t);
+
+        assert_se(system_tasks_max_scale(0, 2) == 0);
+        assert_se(system_tasks_max_scale(1, 2) == t/2);
+        assert_se(system_tasks_max_scale(2, 2) == t);
+        assert_se(system_tasks_max_scale(3, 2) == (3*t)/2);
+        assert_se(system_tasks_max_scale(4, 2) == t*2);
+
+        assert_se(system_tasks_max_scale(0, UINT32_MAX) == 0);
+        assert_se(system_tasks_max_scale((UINT32_MAX-1)/2, UINT32_MAX-1) == t/2);
+        assert_se(system_tasks_max_scale(UINT32_MAX, UINT32_MAX) == t);
+
+        /* overflow */
+
+        assert_se(system_tasks_max_scale(UINT64_MAX/4, UINT64_MAX) == UINT64_MAX);
 }
 
 int main(int argc, char *argv[]) {
@@ -327,6 +363,8 @@ int main(int argc, char *argv[]) {
         test_raw_clone();
         test_physical_memory();
         test_physical_memory_scale();
+        test_system_tasks_max();
+        test_system_tasks_max_scale();
 
         return 0;
 }

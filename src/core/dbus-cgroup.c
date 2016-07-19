@@ -1060,6 +1060,8 @@ int bus_cgroup_set_property(
                 r = sd_bus_message_read(message, "t", &limit);
                 if (r < 0)
                         return r;
+                if (limit <= 0)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is too small", name);
 
                 if (mode != UNIT_CHECK) {
                         c->tasks_max = limit;
@@ -1069,6 +1071,26 @@ int bus_cgroup_set_property(
                                 unit_write_drop_in_private(u, mode, name, "TasksMax=infinity");
                         else
                                 unit_write_drop_in_private_format(u, mode, name, "TasksMax=%" PRIu64, limit);
+                }
+
+                return 1;
+        } else if (streq(name, "TasksMaxScale")) {
+                uint64_t limit;
+                uint32_t raw;
+
+                r = sd_bus_message_read(message, "u", &raw);
+                if (r < 0)
+                        return r;
+
+                limit = system_tasks_max_scale(raw, UINT32_MAX);
+                if (limit <= 0 || limit >= UINT64_MAX)
+                        return sd_bus_error_set_errnof(error, EINVAL, "%s= is out of range", name);
+
+                if (mode != UNIT_CHECK) {
+                        c->tasks_max = limit;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
+                        unit_write_drop_in_private_format(u, mode, name, "TasksMax=%" PRIu32 "%%",
+                                                          (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX)));
                 }
 
                 return 1;

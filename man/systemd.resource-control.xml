@@ -327,15 +327,12 @@
         <term><varname>TasksMax=<replaceable>N</replaceable></varname></term>
 
         <listitem>
-          <para>Specify the maximum number of tasks that may be
-          created in the unit. This ensures that the number of tasks
-          accounted for the unit (see above) stays below a specific
-          limit. If assigned the special value
-          <literal>infinity</literal>, no tasks limit is applied. This
-          controls the <literal>pids.max</literal> control group
-          attribute. For details about this control group attribute,
-          see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v1/pids.txt">pids.txt</ulink>.</para>
+          <para>Specify the maximum number of tasks that may be created in the unit. This ensures that the number of
+          tasks accounted for the unit (see above) stays below a specific limit. This either takes an absolute number
+          of tasks or a percentage value that is taken relative to the configured maximum number of tasks on the
+          system.  If assigned the special value <literal>infinity</literal>, no tasks limit is applied. This controls
+          the <literal>pids.max</literal> control group attribute. For details about this control group attribute, see
+          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/pids.txt">pids.txt</ulink>.</para>
 
           <para>Implies <literal>TasksAccounting=true</literal>. The
           system default for this setting may be controlled with

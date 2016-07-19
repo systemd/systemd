@@ -2861,9 +2861,18 @@ int config_parse_tasks_max(
                 return 0;
         }
 
-        r = safe_atou64(rvalue, &u);
-        if (r < 0 || u < 1) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Maximum tasks value '%s' invalid. Ignoring.", rvalue);
+        r = parse_percent(rvalue);
+        if (r < 0) {
+                r = safe_atou64(rvalue, &u);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Maximum tasks value '%s' invalid. Ignoring.", rvalue);
+                        return 0;
+                }
+        } else
+                u = system_tasks_max_scale(r, 100U);
+
+        if (u <= 0 || u >= UINT64_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Maximum tasks value '%s' out of range. Ignoring.", rvalue);
                 return 0;
         }
 
