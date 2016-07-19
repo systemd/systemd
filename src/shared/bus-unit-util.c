@@ -132,10 +132,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 char *n;
 
                                 /* When this is a percentage we'll convert this into a relative value in the range
-                                 * 0…UINT32_MAX and pass it in the MemoryLowByPhysicalMemory property (and related
+                                 * 0…UINT32_MAX and pass it in the MemoryLowScale property (and related
                                  * ones). This way the physical memory size can be determined server-side */
 
-                                n = strjoina(field, "ByPhysicalMemory");
+                                n = strjoina(field, "Scale");
                                 r = sd_bus_message_append(m, "sv", n, "u", (uint32_t) (((uint64_t) UINT32_MAX * r) / 100U));
                                 goto finish;
 
