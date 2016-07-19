@@ -945,36 +945,28 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
 }
 
 static int install_loader_config(const char *esp_path) {
-        char *p;
-        char line[64];
-        char *machine = NULL;
-        _cleanup_fclose_ FILE *f = NULL, *g = NULL;
 
-        f = fopen("/etc/machine-id", "re");
-        if (!f)
-                return errno == ENOENT ? 0 : -errno;
+        _cleanup_fclose_ FILE *f = NULL;
+        char machine_string[SD_ID128_STRING_MAX];
+        sd_id128_t machine_id;
+        const char *p;
+        int r;
 
-        if (fgets(line, sizeof(line), f) != NULL) {
-                char *s;
-
-                s = strchr(line, '\n');
-                if (s)
-                        s[0] = '\0';
-                if (strlen(line) == 32)
-                        machine = line;
-        }
-
-        if (!machine)
-                return -ESRCH;
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine did: %m");
 
         p = strjoina(esp_path, "/loader/loader.conf");
-        g = fopen(p, "wxe");
-        if (g) {
-                fprintf(g, "#timeout 3\n");
-                fprintf(g, "default %s-*\n", machine);
-                if (ferror(g))
-                        return log_error_errno(EIO, "Failed to write \"%s\": %m", p);
-        }
+        f = fopen(p, "wxe");
+        if (!f)
+                return log_error_errno(errno, "Failed to open loader.conf for writing: %m");
+
+        fprintf(f, "#timeout 3\n");
+        fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write \"%s\": %m", p);
 
         return 0;
 }
