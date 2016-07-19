@@ -60,7 +60,10 @@
     <title>Description</title>
 
     <para><command>localectl</command> may be used to query and change
-    the system locale and keyboard layout settings.</para>
+    the system locale and keyboard layout settings. It communicates with
+    <citerefentry><refentrytitle>systemd-localed</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    to modify files such as <filename>/etc/locale.conf</filename> and
+    <filename>/etc/vconsole.conf</filename>.</para>
 
     <para>The system locale controls the language settings of system
     services and of the UI before the user logs in, such as the
@@ -72,9 +75,14 @@
     such as the display manager, as well as the default for users
     after login.</para>
 
-    <para>Use
+    <para>Note that the changes performed using this tool might require
+    the initramfs to be rebuilt to take effect during early system boot.
+    The initramfs is not rebuilt automatically by <filename>localectl</filename>.
+    </para>
+
+    <para>Note that
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to initialize the system locale for mounted (but not booted)
+    may be used to initialize the system locale for mounted (but not booted)
     system images.</para>
   </refsect1>
 
@@ -214,7 +222,8 @@
       </ulink>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mkinitrd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
