@@ -86,10 +86,15 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     exit 1
 fi
 
-if [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
+if [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
+    BOOT_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
+elif [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
     BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
-elif [[ -d /boot/efi/loader/entries ]] || [[ -d /boot/efi/$MACHINE_ID ]] \
-         || mountpoint -q /boot/efi; then
+elif [[ -d /boot/efi/loader/entries ]] || [[ -d /boot/efi/$MACHINE_ID ]]; then
+    BOOT_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
+elif mountpoint -q /efi; then
+    BOOT_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
+elif mountpoint -q /boot/efi; then
     BOOT_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
 else
     BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
