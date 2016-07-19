@@ -1507,9 +1507,9 @@ static bool exec_needs_mount_namespace(
         assert(context);
         assert(params);
 
-        if (!strv_isempty(context->read_write_dirs) ||
-            !strv_isempty(context->read_only_dirs) ||
-            !strv_isempty(context->inaccessible_dirs))
+        if (!strv_isempty(context->read_write_paths) ||
+            !strv_isempty(context->read_only_paths) ||
+            !strv_isempty(context->inaccessible_paths))
                 return true;
 
         if (context->mount_flags != 0)
@@ -1933,9 +1933,9 @@ static int exec_child(
 
                 r = setup_namespace(
                                 params->apply_chroot ? context->root_directory : NULL,
-                                context->read_write_dirs,
-                                context->read_only_dirs,
-                                context->inaccessible_dirs,
+                                context->read_write_paths,
+                                context->read_only_paths,
+                                context->inaccessible_paths,
                                 tmp,
                                 var,
                                 context->private_devices,
@@ -2324,9 +2324,9 @@ void exec_context_done(ExecContext *c) {
 
         c->pam_name = mfree(c->pam_name);
 
-        c->read_only_dirs = strv_free(c->read_only_dirs);
-        c->read_write_dirs = strv_free(c->read_write_dirs);
-        c->inaccessible_dirs = strv_free(c->inaccessible_dirs);
+        c->read_only_paths = strv_free(c->read_only_paths);
+        c->read_write_paths = strv_free(c->read_write_paths);
+        c->inaccessible_paths = strv_free(c->inaccessible_paths);
 
         if (c->cpuset)
                 CPU_FREE(c->cpuset);
@@ -2732,21 +2732,21 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->pam_name)
                 fprintf(f, "%sPAMName: %s\n", prefix, c->pam_name);
 
-        if (strv_length(c->read_write_dirs) > 0) {
-                fprintf(f, "%sReadWriteDirs:", prefix);
-                strv_fprintf(f, c->read_write_dirs);
+        if (strv_length(c->read_write_paths) > 0) {
+                fprintf(f, "%sReadWritePaths:", prefix);
+                strv_fprintf(f, c->read_write_paths);
                 fputs("\n", f);
         }
 
-        if (strv_length(c->read_only_dirs) > 0) {
-                fprintf(f, "%sReadOnlyDirs:", prefix);
-                strv_fprintf(f, c->read_only_dirs);
+        if (strv_length(c->read_only_paths) > 0) {
+                fprintf(f, "%sReadOnlyPaths:", prefix);
+                strv_fprintf(f, c->read_only_paths);
                 fputs("\n", f);
         }
 
-        if (strv_length(c->inaccessible_dirs) > 0) {
-                fprintf(f, "%sInaccessibleDirs:", prefix);
-                strv_fprintf(f, c->inaccessible_dirs);
+        if (strv_length(c->inaccessible_paths) > 0) {
+                fprintf(f, "%sInaccessiblePaths:", prefix);
+                strv_fprintf(f, c->inaccessible_paths);
                 fputs("\n", f);
         }
 

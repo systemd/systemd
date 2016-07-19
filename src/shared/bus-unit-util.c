@@ -453,7 +453,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "i", oa);
-        } else if (STR_IN_SET(field, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories")) {
+        } else if (STR_IN_SET(field, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
+                              "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths")) {
                 const char *p;
 
                 r = sd_bus_message_open_container(m, 'v', "as");

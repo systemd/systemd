@@ -278,6 +278,7 @@ static int apply_mount(
 
         const char *what;
         int r;
+        struct stat target;
 
         assert(m);
 
@@ -287,12 +288,22 @@ static int apply_mount(
 
                 /* First, get rid of everything that is below if there
                  * is anything... Then, overmount it with an
-                 * inaccessible directory. */
+                 * inaccessible path. */
                 umount_recursive(m->path, 0);
 
-                what = "/run/systemd/inaccessible";
-                break;
+                r = lstat(m->path, &target);
+                if (r != 0) {
+                        if (m->ignore && errno == ENOENT)
+                                return 0;
+                        return -errno;
+                }
 
+                what = mode_to_inaccessible_node(target.st_mode);
+                if (what == NULL) {
+                        log_debug("File type not supported. Note that symlinks are not allowed");
+                        return -ELOOP;
+                }
+                break;
         case READONLY:
         case READWRITE:
                 /* Nothing to mount here, we just later toggle the
@@ -317,12 +328,16 @@ static int apply_mount(
         assert(what);
 
         r = mount(what, m->path, NULL, MS_BIND|MS_REC, NULL);
-        if (r >= 0)
+        if (r >= 0) {
                 log_debug("Successfully mounted %s to %s", what, m->path);
-        else if (m->ignore && errno == ENOENT)
-                return 0;
-
-        return r;
+                return r;
+        }
+        else {
+                if (m->ignore && errno == ENOENT)
+                        return 0;
+                log_debug("Failed mounting %s to %s: %s", what, m->path, strerror(errno));
+                return -errno;
+        }
 }
 
 static int make_read_only(BindMount *m) {
@@ -347,9 +362,9 @@ static int make_read_only(BindMount *m) {
 
 int setup_namespace(
                 const char* root_directory,
-                char** read_write_dirs,
-                char** read_only_dirs,
-                char** inaccessible_dirs,
+                char** read_write_paths,
+                char** read_only_paths,
+                char** inaccessible_paths,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 bool private_dev,
@@ -368,9 +383,9 @@ int setup_namespace(
                 return -errno;
 
         n = !!tmp_dir + !!var_tmp_dir +
-                strv_length(read_write_dirs) +
-                strv_length(read_only_dirs) +
-                strv_length(inaccessible_dirs) +
+                strv_length(read_write_paths) +
+                strv_length(read_only_paths) +
+                strv_length(inaccessible_paths) +
                 private_dev +
                 (protect_home != PROTECT_HOME_NO ? 3 : 0) +
                 (protect_system != PROTECT_SYSTEM_NO ? 2 : 0) +
@@ -378,15 +393,15 @@ int setup_namespace(
 
         if (n > 0) {
                 m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
-                r = append_mounts(&m, read_write_dirs, READWRITE);
+                r = append_mounts(&m, read_write_paths, READWRITE);
                 if (r < 0)
                         return r;
 
-                r = append_mounts(&m, read_only_dirs, READONLY);
+                r = append_mounts(&m, read_only_paths, READONLY);
                 if (r < 0)
                         return r;
 
-                r = append_mounts(&m, inaccessible_dirs, INACCESSIBLE);
+                r = append_mounts(&m, inaccessible_paths, INACCESSIBLE);
                 if (r < 0)
                         return r;
 

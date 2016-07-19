@@ -532,3 +532,21 @@ int repeat_unmount(const char *path, int flags) {
                 done = true;
         }
 }
+
+const char* mode_to_inaccessible_node(mode_t mode) {
+        switch(mode & S_IFMT) {
+                case S_IFREG:
+                        return "/run/systemd/inaccessible/reg";
+                case S_IFDIR:
+                        return "/run/systemd/inaccessible/dir";
+                case S_IFCHR:
+                        return "/run/systemd/inaccessible/chr";
+                case S_IFBLK:
+                        return "/run/systemd/inaccessible/blk";
+                case S_IFIFO:
+                        return "/run/systemd/inaccessible/fifo";
+                case S_IFSOCK:
+                        return "/run/systemd/inaccessible/sock";
+        }
+        return NULL;
+}

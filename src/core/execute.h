@@ -152,7 +152,7 @@ struct ExecContext {
         bool smack_process_label_ignore;
         char *smack_process_label;
 
-        char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
+        char **read_write_paths, **read_only_paths, **inaccessible_paths;
         unsigned long mount_flags;
 
         uint64_t capability_bounding_set;
