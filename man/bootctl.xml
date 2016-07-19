@@ -101,8 +101,10 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <varlistentry>
-        <term><option>--path</option></term>
-        <listitem><para>Path to the EFI system partition. The default is /boot.</para></listitem>
+        <term><option>--path=</option></term>
+        <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi</filename>,
+        <filename>/boot</filename>, and <filename>/boot/efi</filename> are checked in turn.  It is recommended to mount
+        the ESP to <filename>/boot</filename>, if possible.</para></listitem>
       </varlistentry>
 
       <varlistentry>
