@@ -453,33 +453,37 @@ static int add_boot(const char *what) {
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         const char *fstype = NULL, *uuid = NULL;
         sd_id128_t id, type_id;
+        const char *esp;
         int r;
 
         assert(what);
 
         if (!is_efi_boot()) {
-                log_debug("Not an EFI boot, ignoring /boot.");
+                log_debug("Not an EFI boot, ignoring the ESP.");
                 return 0;
         }
 
         if (in_initrd()) {
-                log_debug("In initrd, ignoring /boot.");
+                log_debug("In initrd, ignoring the ESP.");
                 return 0;
         }
 
         if (detect_container() > 0) {
-                log_debug("In a container, ignoring /boot.");
+                log_debug("In a container, ignoring the ESP.");
                 return 0;
         }
+
+        /* If /efi exists we'll use that. Otherwise we'll use /boot, as that's usually the better choice */
+        esp = access("/efi/", F_OK) >= 0 ? "/efi" : "/boot";
 
         /* We create an .automount which is not overridden by the .mount from the fstab generator. */
-        if (fstab_is_mount_point("/boot")) {
-                log_debug("/boot specified in fstab, ignoring.");
+        if (fstab_is_mount_point(esp)) {
+                log_debug("%s specified in fstab, ignoring.", esp);
                 return 0;
         }
 
-        if (path_is_busy("/boot")) {
-                log_debug("/boot already populated, ignoring.");
+        if (path_is_busy(esp)) {
+                log_debug("%s already populated, ignoring.", esp);
                 return 0;
         }
 
@@ -488,7 +492,6 @@ static int add_boot(const char *what) {
                 log_debug("EFI loader partition unknown.");
                 return 0;
         }
-
         if (r < 0) {
                 log_error_errno(r, "Failed to read ESP partition UUID: %m");
                 return r;
@@ -514,35 +517,35 @@ static int add_boot(const char *what) {
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (!streq_ptr(fstype, "vfat")) {
-                log_debug("Partition for /boot is not a FAT filesystem, ignoring.");
+                log_debug("Partition for %s is not a FAT filesystem, ignoring.", esp);
                 return 0;
         }
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &uuid, NULL);
         if (r != 0) {
-                log_debug_errno(errno, "Partition for /boot does not have a UUID, ignoring.");
+                log_debug_errno(errno, "Partition for %s does not have a UUID, ignoring.", esp);
                 return 0;
         }
 
         if (sd_id128_from_string(uuid, &type_id) < 0) {
-                log_debug("Partition for /boot does not have a valid UUID, ignoring.");
+                log_debug("Partition for %s does not have a valid UUID, ignoring.", esp);
                 return 0;
         }
 
         if (!sd_id128_equal(type_id, id)) {
-                log_debug("Partition for /boot does not appear to be the partition we are booted from.");
+                log_debug("Partition for %s does not appear to be the partition we are booted from.", esp);
                 return 0;
         }
 
         r = add_automount("boot",
-                       what,
-                       "/boot",
-                       "vfat",
-                       true,
-                       "umask=0077",
-                       "EFI System Partition Automount",
-                       120 * USEC_PER_SEC);
+                          what,
+                          esp,
+                          "vfat",
+                          true,
+                          "umask=0077",
+                          "EFI System Partition Automount",
+                          120 * USEC_PER_SEC);
 
         return r;
 }
