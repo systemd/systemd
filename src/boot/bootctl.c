@@ -46,6 +46,9 @@
 #include "string-util.h"
 #include "util.h"
 
+static const char *arg_path = "/boot";
+static bool arg_touch_variables = true;
+
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
         struct statfs sfs;
         struct stat st, st2;
@@ -930,9 +933,6 @@ static int help(void) {
         return 0;
 }
 
-static const char *arg_path = "/boot";
-static bool arg_touch_variables = true;
-
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_PATH = 0x100,
@@ -1036,12 +1036,10 @@ static int bootctl_main(int argc, char*argv[]) {
                 return r;
 
         switch (arg_action) {
+
         case ACTION_STATUS: {
-                _cleanup_free_ char *fw_type = NULL;
-                _cleanup_free_ char *fw_info = NULL;
-                _cleanup_free_ char *loader = NULL;
-                _cleanup_free_ char *loader_path = NULL;
-                sd_id128_t loader_part_uuid = {};
+                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
+                sd_id128_t loader_part_uuid = SD_ID128_NULL;
 
                 if (is_efi_boot()) {
                         read_loader_efi_var("LoaderFirmwareType", &fw_type);
