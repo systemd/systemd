@@ -106,7 +106,8 @@
     but no such restrictions are enforced. Note that log messages written using this function are generally not
     expected to end in a new-line character. However, as all trailing whitespace (including spaces, new-lines,
     tabulators and carriage returns) are automatically stripped from the logged string, it is acceptable to specify one
-    (or more). Leading whitespace (as well as inner whitespace) is left unmodified however.</para>
+    (or more). Empty lines (after trailing whitespace removal) are suppressed. On non-empty lines, leading whitespace
+    (as well as inner whitespace) is left unmodified. </para>
 
     <para><function>sd_journal_printv()</function> is similar to
     <function>sd_journal_print()</function> but takes a variable
