@@ -628,11 +628,11 @@ static const char *efi_subdirs[] = {
 };
 
 static int create_dirs(const char *esp_path) {
+        const char **i;
         int r;
-        unsigned i;
 
-        for (i = 0; i < ELEMENTSOF(efi_subdirs); i++) {
-                r = mkdir_one(esp_path, efi_subdirs[i]);
+        STRV_FOREACH(i, efi_subdirs) {
+                r = mkdir_one(esp_path, *i);
                 if (r < 0)
                         return r;
         }
@@ -836,7 +836,7 @@ static int install_variables(const char *esp_path,
                                        "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?" :
                                        "Failed to determine current boot order: %m");
 
-        if (first || r == false) {
+        if (first || r == 0) {
                 r = efi_add_boot_option(slot, "Linux Boot Manager",
                                         part, pstart, psize,
                                         uuid, path);
