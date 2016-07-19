@@ -315,12 +315,11 @@
       <varlistentry>
         <term><varname>UserTasksMax=</varname></term>
 
-        <listitem><para>Sets the maximum number of OS tasks each user
-        may run concurrently. This controls the
-        <varname>TasksMax=</varname> setting of the per-user slice
-        unit, see
+        <listitem><para>Sets the maximum number of OS tasks each user may run concurrently. This controls the
+        <varname>TasksMax=</varname> setting of the per-user slice unit, see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. Defaults to 12288 (12K).</para></listitem>
+        for details. Defaults to 33%, which equals 10813 with the kernel's defaults on the host, but might be smaller
+        in OS containers.</para></listitem>
       </varlistentry>
 
       <varlistentry>
