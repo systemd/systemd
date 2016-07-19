@@ -47,16 +47,16 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>status</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> status</command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>update</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> update</command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>install</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> install</command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>remove</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> remove</command>
     </cmdsynopsis>
   </refsynopsisdiv>
 
