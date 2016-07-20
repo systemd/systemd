@@ -36,6 +36,7 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
 typedef enum KillOperation {
         KILL_TERMINATE,
+        KILL_TERMINATE_AND_LOG,
         KILL_KILL,
         KILL_ABORT,
         _KILL_OPERATION_MAX,

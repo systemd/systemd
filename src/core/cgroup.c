@@ -1705,7 +1705,7 @@ int manager_setup_cgroup(Manager *m) {
 
                 /* also, move all other userspace processes remaining
                  * in the root cgroup into that scope. */
-                r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, false);
+                r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
                 if (r < 0)
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 

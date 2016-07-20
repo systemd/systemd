@@ -1674,7 +1674,7 @@ static void service_kill_control_processes(Service *s) {
                 return;
 
         p = strjoina(UNIT(s)->cgroup_path, "/control");
-        cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, true, true, true, NULL);
+        cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, CGROUP_SIGCONT|CGROUP_IGNORE_SELF|CGROUP_REMOVE, NULL, NULL, NULL);
 }
 
 static void service_enter_start(Service *s) {

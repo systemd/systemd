@@ -3144,7 +3144,7 @@ int unit_kill_common(
                 if (!pid_set)
                         return -ENOMEM;
 
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, false, false, pid_set);
+                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, 0, pid_set, NULL, NULL);
                 if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                         r = q;
                 else
@@ -3512,6 +3512,43 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
+static void log_kill(pid_t pid, int sig, void *userdata) {
+        _cleanup_free_ char *comm = NULL;
+
+        (void) get_process_comm(pid, &comm);
+
+        /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
+           only, like for example systemd's own PAM stub process. */
+        if (comm && comm[0] == '(')
+                return;
+
+        log_unit_notice(userdata,
+                        "Killing process " PID_FMT " (%s) with signal SIG%s.",
+                        pid,
+                        strna(comm),
+                        signal_to_string(sig));
+}
+
+static int operation_to_signal(KillContext *c, KillOperation k) {
+        assert(c);
+
+        switch (k) {
+
+        case KILL_TERMINATE:
+        case KILL_TERMINATE_AND_LOG:
+                return c->kill_signal;
+
+        case KILL_KILL:
+                return SIGKILL;
+
+        case KILL_ABORT:
+                return SIGABRT;
+
+        default:
+                assert_not_reached("KillOperation unknown");
+        }
+}
+
 int unit_kill_context(
                 Unit *u,
                 KillContext *c,
@@ -3520,58 +3557,63 @@ int unit_kill_context(
                 pid_t control_pid,
                 bool main_pid_alien) {
 
-        bool wait_for_exit = false;
+        bool wait_for_exit = false, send_sighup;
+        cg_kill_log_func_t log_func;
         int sig, r;
 
         assert(u);
         assert(c);
 
+        /* Kill the processes belonging to this unit, in preparation for shutting the unit down. Returns > 0 if we
+         * killed something worth waiting for, 0 otherwise. */
+
         if (c->kill_mode == KILL_NONE)
                 return 0;
 
-        switch (k) {
-        case KILL_KILL:
-                sig = SIGKILL;
-                break;
-        case KILL_ABORT:
-                sig = SIGABRT;
-                break;
-        case KILL_TERMINATE:
-                sig = c->kill_signal;
-                break;
-        default:
-                assert_not_reached("KillOperation unknown");
-        }
+        sig = operation_to_signal(c, k);
+
+        send_sighup =
+                c->send_sighup &&
+                IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
+                sig != SIGHUP;
+
+        log_func =
+                k != KILL_TERMINATE ||
+                IN_SET(sig, SIGKILL, SIGABRT) ? log_kill : NULL;
 
         if (main_pid > 0) {
-                r = kill_and_sigcont(main_pid, sig);
+                if (log_func)
+                        log_func(main_pid, sig, u);
 
+                r = kill_and_sigcont(main_pid, sig);
                 if (r < 0 && r != -ESRCH) {
                         _cleanup_free_ char *comm = NULL;
-                        get_process_comm(main_pid, &comm);
+                        (void) get_process_comm(main_pid, &comm);
 
                         log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid, strna(comm));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
 
-                        if (c->send_sighup && k == KILL_TERMINATE)
+                        if (r != -ESRCH && send_sighup)
                                 (void) kill(main_pid, SIGHUP);
                 }
         }
 
         if (control_pid > 0) {
-                r = kill_and_sigcont(control_pid, sig);
+                if (log_func)
+                        log_func(control_pid, sig, u);
 
+                r = kill_and_sigcont(control_pid, sig);
                 if (r < 0 && r != -ESRCH) {
                         _cleanup_free_ char *comm = NULL;
-                        get_process_comm(control_pid, &comm);
+                        (void) get_process_comm(control_pid, &comm);
 
                         log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid, strna(comm));
                 } else {
                         wait_for_exit = true;
 
-                        if (c->send_sighup && k == KILL_TERMINATE)
+                        if (r != -ESRCH && send_sighup)
                                 (void) kill(control_pid, SIGHUP);
                 }
         }
@@ -3585,7 +3627,11 @@ int unit_kill_context(
                 if (!pid_set)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, k != KILL_TERMINATE, false, pid_set);
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
+                                      sig,
+                                      CGROUP_SIGCONT|CGROUP_IGNORE_SELF,
+                                      pid_set,
+                                      log_func, u);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", u->cgroup_path);
@@ -3610,14 +3656,18 @@ int unit_kill_context(
                              (detect_container() == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 
-                        if (c->send_sighup && k != KILL_KILL) {
+                        if (send_sighup) {
                                 set_free(pid_set);
 
                                 pid_set = unit_pid_set(main_pid, control_pid);
                                 if (!pid_set)
                                         return -ENOMEM;
 
-                                cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, SIGHUP, false, true, false, pid_set);
+                                cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
+                                                  SIGHUP,
+                                                  CGROUP_IGNORE_SELF,
+                                                  pid_set,
+                                                  NULL, NULL);
                         }
                 }
         }

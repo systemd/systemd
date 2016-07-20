@@ -197,7 +197,15 @@ int cg_rmdir(const char *controller, const char *path) {
         return 0;
 }
 
-int cg_kill(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, Set *s) {
+int cg_kill(
+                const char *controller,
+                const char *path,
+                int sig,
+                CGroupFlags flags,
+                Set *s,
+                cg_kill_log_func_t log_kill,
+                void *userdata) {
+
         _cleanup_set_free_ Set *allocated_set = NULL;
         bool done = false;
         int r, ret = 0;
@@ -232,11 +240,14 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
 
-                        if (ignore_self && pid == my_pid)
+                        if ((flags & CGROUP_IGNORE_SELF) && pid == my_pid)
                                 continue;
 
                         if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
                                 continue;
+
+                        if (log_kill)
+                                log_kill(pid, sig, userdata);
 
                         /* If we haven't killed this process yet, kill
                          * it */
@@ -244,7 +255,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
                                 if (ret >= 0 && errno != ESRCH)
                                         ret = -errno;
                         } else {
-                                if (sigcont && sig != SIGKILL)
+                                if (flags & CGROUP_SIGCONT)
                                         (void) kill(pid, SIGCONT);
 
                                 if (ret == 0)
@@ -278,7 +289,15 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
         return ret;
 }
 
-int cg_kill_recursive(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, bool rem, Set *s) {
+int cg_kill_recursive(
+                const char *controller,
+                const char *path,
+                int sig,
+                CGroupFlags flags,
+                Set *s,
+                cg_kill_log_func_t log_kill,
+                void *userdata) {
+
         _cleanup_set_free_ Set *allocated_set = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r, ret;
@@ -293,7 +312,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
                         return -ENOMEM;
         }
 
-        ret = cg_kill(controller, path, sig, sigcont, ignore_self, s);
+        ret = cg_kill(controller, path, sig, flags, s, log_kill, userdata);
 
         r = cg_enumerate_subgroups(controller, path, &d);
         if (r < 0) {
@@ -311,15 +330,14 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
                 if (!p)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(controller, p, sig, sigcont, ignore_self, rem, s);
+                r = cg_kill_recursive(controller, p, sig, flags, s, log_kill, userdata);
                 if (r != 0 && ret >= 0)
                         ret = r;
         }
-
         if (ret >= 0 && r < 0)
                 ret = r;
 
-        if (rem) {
+        if (flags & CGROUP_REMOVE) {
                 r = cg_rmdir(controller, path);
                 if (r < 0 && ret >= 0 && r != -ENOENT && r != -EBUSY)
                         return r;
@@ -328,7 +346,13 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
         return ret;
 }
 
-int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self) {
+int cg_migrate(
+                const char *cfrom,
+                const char *pfrom,
+                const char *cto,
+                const char *pto,
+                CGroupFlags flags) {
+
         bool done = false;
         _cleanup_set_free_ Set *s = NULL;
         int r, ret = 0;
@@ -363,7 +387,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
                         /* This might do weird stuff if we aren't a
                          * single-threaded program. However, we
                          * luckily know we are not */
-                        if (ignore_self && pid == my_pid)
+                        if ((flags & CGROUP_IGNORE_SELF) && pid == my_pid)
                                 continue;
 
                         if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
@@ -411,8 +435,7 @@ int cg_migrate_recursive(
                 const char *pfrom,
                 const char *cto,
                 const char *pto,
-                bool ignore_self,
-                bool rem) {
+                CGroupFlags flags) {
 
         _cleanup_closedir_ DIR *d = NULL;
         int r, ret = 0;
@@ -423,7 +446,7 @@ int cg_migrate_recursive(
         assert(cto);
         assert(pto);
 
-        ret = cg_migrate(cfrom, pfrom, cto, pto, ignore_self);
+        ret = cg_migrate(cfrom, pfrom, cto, pto, flags);
 
         r = cg_enumerate_subgroups(cfrom, pfrom, &d);
         if (r < 0) {
@@ -441,7 +464,7 @@ int cg_migrate_recursive(
                 if (!p)
                         return -ENOMEM;
 
-                r = cg_migrate_recursive(cfrom, p, cto, pto, ignore_self, rem);
+                r = cg_migrate_recursive(cfrom, p, cto, pto, flags);
                 if (r != 0 && ret >= 0)
                         ret = r;
         }
@@ -449,7 +472,7 @@ int cg_migrate_recursive(
         if (r < 0 && ret >= 0)
                 ret = r;
 
-        if (rem) {
+        if (flags & CGROUP_REMOVE) {
                 r = cg_rmdir(cfrom, pfrom);
                 if (r < 0 && ret >= 0 && r != -ENOENT && r != -EBUSY)
                         return r;
@@ -463,8 +486,7 @@ int cg_migrate_recursive_fallback(
                 const char *pfrom,
                 const char *cto,
                 const char *pto,
-                bool ignore_self,
-                bool rem) {
+                CGroupFlags flags) {
 
         int r;
 
@@ -473,7 +495,7 @@ int cg_migrate_recursive_fallback(
         assert(cto);
         assert(pto);
 
-        r = cg_migrate_recursive(cfrom, pfrom, cto, pto, ignore_self, rem);
+        r = cg_migrate_recursive(cfrom, pfrom, cto, pto, flags);
         if (r < 0) {
                 char prefix[strlen(pto) + 1];
 
@@ -482,7 +504,7 @@ int cg_migrate_recursive_fallback(
                 PATH_FOREACH_PREFIX(prefix, pto) {
                         int q;
 
-                        q = cg_migrate_recursive(cfrom, pfrom, cto, prefix, ignore_self, rem);
+                        q = cg_migrate_recursive(cfrom, pfrom, cto, prefix, flags);
                         if (q >= 0)
                                 return q;
                 }
@@ -1955,7 +1977,7 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
         int r = 0, unified;
 
         if (!path_equal(from, to))  {
-                r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, false, true);
+                r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, CGROUP_REMOVE);
                 if (r < 0)
                         return r;
         }
@@ -1979,7 +2001,7 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
                 if (!p)
                         p = to;
 
-                (void) cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, cgroup_controller_to_string(c), p, false, false);
+                (void) cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, cgroup_controller_to_string(c), p, 0);
         }
 
         return 0;

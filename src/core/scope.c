@@ -240,7 +240,7 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
 
         /* If we have a controller set let's ask the controller nicely
          * to terminate the scope, instead of us going directly into
-         * SIGTERM beserk mode */
+         * SIGTERM berserk mode */
         if (state == SCOPE_STOP_SIGTERM)
                 skip_signal = bus_scope_send_request_stop(s) > 0;
 

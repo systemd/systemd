@@ -135,12 +135,20 @@ int cg_read_event(const char *controller, const char *path, const char *event,
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
 int cg_read_subgroup(DIR *d, char **fn);
 
-int cg_kill(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, Set *s);
-int cg_kill_recursive(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, bool remove, Set *s);
+typedef enum CGroupFlags {
+        CGROUP_SIGCONT     = 1,
+        CGROUP_IGNORE_SELF = 2,
+        CGROUP_REMOVE      = 4,
+} CGroupFlags;
 
-int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self);
-int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool remove);
-int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool rem);
+typedef void (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
+
+int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
+int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
+
+int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags);
+int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags);
+int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags);
 
 int cg_split_spec(const char *spec, char **controller, char **path);
 int cg_mangle_path(const char *path, char **result);
