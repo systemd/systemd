@@ -87,18 +87,26 @@
       causes all matches before and after to be combined in a
       disjunction (i.e. logical OR).</para>
 
-      <para>As shortcuts for a few types of field/value matches, file
-      paths may be specified. If a file path refers to an executable
-      file, this is equivalent to an <literal>_EXE=</literal> match
-      for the canonicalized binary path. Similarly, if a path refers
-      to a device node then match is added for the kernel name of the
-      device (<literal>_KERNEL_DEVICE=</literal>). Also, matches for the
-      kernel names of all the parent devices are added automatically.
-      Device node paths are not stable across reboots, therefore match
-      for the current boot id (<literal>_BOOT_ID=</literal>) is
-      always added as well. Note that only the log entries for
-      the existing device nodes maybe queried by providing path to
-      the device node.</para>
+      <para>It is also possible to filter the entries by specifying an
+      absolute file path as an argument. The file path may be a file or
+      a symbolic link and the file must exist at the time of the query. If a
+      file path refers to an executable binary, an <literal>_EXE=</literal>
+      match for the canonicalized binary path is added to the query. If a
+      file path refers to an executable script, a <literal>_COMM=</literal>
+      match for the script name is added to the query. If a file path
+      refers to a device node, <literal>_KERNEL_DEVICE=</literal> matches for
+      the kernel name of the device and for each of its ancestor devices is
+      added to the query. Symbolic links are dereferenced, kernel names are
+      synthesized, and parent devices are identified from the environment at
+      the time of the query. In general, a device node is the best proxy for
+      an actual device, as log entries do not usually contain fields that
+      identify an actual device. For the resulting log entries to be correct
+      for the actual device, the relevant parts of the environment at the time
+      the entry was logged, in particular the actual device corresponding to
+      the device node, must have been the same as those at the time of the
+      query. Because device nodes generally change their corresponding devices
+      across reboots, specifying a device node path causes the resulting
+      entries to be restricted to those from the current boot.</para>
 
       <para>Additional constraints may be added using options
       <option>--boot</option>, <option>--unit=</option>, etc., to
