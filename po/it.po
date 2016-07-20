@@ -1,14 +1,14 @@
 # Italian translations for systemd package
 # Traduzione in italiano per il pacchetto systemd
 # This file is distributed under the same license as the systemd package.
-# Daniele Medri <dmedri@gmail.com>, 2013-2015.
+# Daniele Medri <dmedri@gmail.com>, 2013-2016.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-05-07 04:45+0200\n"
-"PO-Revision-Date: 2016-05-07 04:55+0200\n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
+"POT-Creation-Date: 2016-07-15 13:11+0200\n"
+"PO-Revision-Date: 2016-07-20 10:54+0200\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian\n"
 "Language: it\n"
@@ -63,7 +63,7 @@ msgstr ""
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
 msgid "Reload the systemd state"
-msgstr "Riavvia lo stato di systemd"
+msgstr "Ricarica lo stato di systemd"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
 msgid "Authentication is required to reload the systemd state."
@@ -292,7 +292,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:27
 msgid "Power off the system"
-msgstr "Spegni il sistema (power off)"
+msgstr "Spegni il sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid "Authentication is required for powering off the system."
@@ -300,7 +300,7 @@ msgstr "Autenticazione richiesta per spegnere il sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
 msgid "Power off the system while other users are logged in"
-msgstr "Spegni il sistema (power off) mentre altri utenti sono connessi"
+msgstr "Spegni il sistema mentre altri utenti sono connessi"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
@@ -312,9 +312,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Power off the system while an application asked to inhibit it"
-msgstr ""
-"Spegni il sistema (power off) mentre un'applicazione chiede di inibirne "
-"l'azione"
+msgstr "Spegni il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
@@ -326,7 +324,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
 msgid "Reboot the system"
-msgstr "Riavvia il sistema (reboot)"
+msgstr "Riavvia il sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid "Authentication is required for rebooting the system."
@@ -334,7 +332,7 @@ msgstr "Autenticazione richiesta per riavviare il sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while other users are logged in"
-msgstr "Riavvia il sistema (reboot) mentre altri utenti sono connessi"
+msgstr "Riavvia il sistema mentre altri utenti sono connessi"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
@@ -346,9 +344,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Reboot the system while an application asked to inhibit it"
-msgstr ""
-"Riavvia il sistema (reboot) mentre un'applicazione chiede di inibirne "
-"l'azione"
+msgstr "Riavvia il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
@@ -360,7 +356,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
 msgid "Suspend the system"
-msgstr "Sospendi il sistema (suspend)"
+msgstr "Sospendi il sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid "Authentication is required for suspending the system."
@@ -368,7 +364,7 @@ msgstr "Autenticazione richiesta per sospendere il sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while other users are logged in"
-msgstr "Sospendi il sistema (suspend) mentre altri utenti sono connessi"
+msgstr "Sospendi il sistema mentre altri utenti sono connessi"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
@@ -380,9 +376,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Suspend the system while an application asked to inhibit it"
-msgstr ""
-"Sospendi il sistema (suspend) mentre un'applicazione chiede di inibirne "
-"l'azione"
+msgstr "Sospendi il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
@@ -394,7 +388,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system"
-msgstr "Iberna il sistema (hibernate)"
+msgstr "Iberna il sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid "Authentication is required for hibernating the system."
@@ -402,7 +396,7 @@ msgstr "Autenticazione richiesta per ibernare il sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while other users are logged in"
-msgstr "Iberna il sistema (hibernate) mentre altri utenti sono connessi"
+msgstr "Iberna il sistema mentre altri utenti sono connessi"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
@@ -414,9 +408,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Hibernate the system while an application asked to inhibit it"
-msgstr ""
-"Iberna il sistema (hibernate) mentre un'applicazione chiede di inibirne "
-"l'azione"
+msgstr "Iberna il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
@@ -448,8 +440,7 @@ msgstr "Autenticazione richiesta per bloccare o sbloccare le sessioni attive."
 #: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Allow indication to the firmware to boot to setup interface"
 msgstr ""
-"Permette indicazioni per il firmware per avviare l'interfaccia di "
-"configurazione"
+"Permette indicazioni al firmware per avviare l'interfaccia di configurazione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:56
 msgid ""
