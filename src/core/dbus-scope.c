@@ -225,5 +225,5 @@ int bus_scope_send_request_stop(Scope *s) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send_to(UNIT(s)->manager->api_bus, m, /* s->controller */ NULL, NULL);
+        return sd_bus_send_to(UNIT(s)->manager->api_bus, m, s->controller, NULL);
 }
