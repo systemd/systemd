@@ -6,19 +6,19 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2015-10-03 18:14+0200\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2016-07-15 13:11+0200\n"
 "PO-Revision-Date: 2015-10-03 21:01+0200\n"
+"Last-Translator: Марко М. Костић (Marko M. Kostić) <marko.m.kostic@gmail."
+"com>\n"
 "Language-Team: \n"
+"Language: sr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 1.8.4\n"
-"Last-Translator: Марко М. Костић (Marko M. Kostić) <marko.m.kostic@gmail."
-"com>\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
-"Language: sr\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -254,47 +254,59 @@ msgstr ""
 "систему да уради било шта приликом заклапања екрана."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:19
-msgid "Allow non-logged-in users to run programs"
+#, fuzzy
+msgid "Allow non-logged-in user to run programs"
 msgstr "Дозволите непријављеним корисницима да покрећу програме"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
-msgid "Authentication is required to run programs as a non-logged-in user."
+#, fuzzy
+msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Потребно је да се идентификујете да бисте покретали програме као непријављен "
 "корисник."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:21
+msgid "Allow non-logged-in users to run programs"
+msgstr "Дозволите непријављеним корисницима да покрећу програме"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"Потребно је да се идентификујете да бисте покретали програме као непријављен "
+"корисник."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Allow attaching devices to seats"
 msgstr "Дозволите качење уређаја на седишта"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:22
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid "Authentication is required for attaching a device to a seat."
 msgstr "Потребно је да се идентификујете да бисте  закачили уређај на седиште."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:23
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
 msgid "Flush device to seat attachments"
 msgstr "Испери уређај да би уседиштио закачено"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:24
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
 "Authentication is required for resetting how devices are attached to seats."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново подесили како се уређаји "
 "каче на седишта."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:25
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
 msgid "Power off the system"
 msgstr "Искључите систем"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:26
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid "Authentication is required for powering off the system."
 msgstr "Потребно је да се идентификујете да бисте искључили систем."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:27
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
 msgid "Power off the system while other users are logged in"
 msgstr "Искључите систем док су други корисници пријављени"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:28
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required for powering off the system while other users are "
 "logged in."
@@ -302,11 +314,11 @@ msgstr ""
 "Потребно је да се идентификујете да бисте искључили систем док су други "
 "корисници пријављени."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:29
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Power off the system while an application asked to inhibit it"
 msgstr "Искључите систем иако је програм затражио да се спречи гашење"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:30
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
 "Authentication is required for powering off the system while an application "
 "asked to inhibit it."
@@ -314,19 +326,19 @@ msgstr ""
 "Потребно је да се идентификујете да бисте искључили систем иако је програм "
 "затражио да се спречи гашење система."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:31
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
 msgid "Reboot the system"
 msgstr "Поново покрените систем"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:32
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid "Authentication is required for rebooting the system."
 msgstr "Потребно је да се идентификујете да бисте поново покренули систем."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:33
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while other users are logged in"
 msgstr "Поново покрените систем док су други корисници пријављени"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:34
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required for rebooting the system while other users are "
 "logged in."
@@ -334,11 +346,11 @@ msgstr ""
 "Потребно је да се идентификујете да бисте поново покренули систем док су "
 "други корисници пријављени."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:35
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Reboot the system while an application asked to inhibit it"
 msgstr "Поново покрените систем иако је програм затражио да се спречи гашење"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:36
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
@@ -346,19 +358,19 @@ msgstr ""
 "Потребно је да се идентификујете да бисте поново покренули систем иако је "
 "програм затражио да се спречи гашење система."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:37
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
 msgid "Suspend the system"
 msgstr "Обуставите систем"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:38
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid "Authentication is required for suspending the system."
 msgstr "Потребно је да се идентификујете да бисте обуставили систем."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:39
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while other users are logged in"
 msgstr "Обуставите систем док су други корисници пријављени"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:40
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required for suspending the system while other users are "
 "logged in."
@@ -366,11 +378,11 @@ msgstr ""
 "Потребно је да се идентификујете да бисте обуставили систем док су други "
 "корисници пријављени."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:41
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Suspend the system while an application asked to inhibit it"
 msgstr "Обуставите систем иако је програм затражио да се спречи обустава"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:42
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
 "Authentication is required for suspending the system while an application "
 "asked to inhibit it."
@@ -378,19 +390,19 @@ msgstr ""
 "Потребно је да се идентификујете да бисте обуставили систем иако је програм "
 "затражио да се спречи обустава система."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:43
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system"
 msgstr "Успавајте систем"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:44
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid "Authentication is required for hibernating the system."
 msgstr "Потребно је да се идентификујете да бисте успавали систем."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:45
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while other users are logged in"
 msgstr "Успавајте систем док су други корисници пријављени"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:46
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required for hibernating the system while other users are "
 "logged in."
@@ -398,11 +410,11 @@ msgstr ""
 "Потребно је да се идентификујете да бисте успавали систем док су други "
 "корисници пријављени."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:47
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Hibernate the system while an application asked to inhibit it"
 msgstr "Успавајте систем иако је програм затражио да се спречи спавање"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:48
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
 "Authentication is required for hibernating the system while an application "
 "asked to inhibit it."
@@ -410,32 +422,32 @@ msgstr ""
 "Потребно је да се идентификујете да бисте успавали систем иако је програм "
 "затражио да се спречи успављивање система."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:49
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Manage active sessions, users and seats"
 msgstr "Управљајте покренутим сесијама, корисницима и седиштима"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
 "Потребно је да се идентификујете да бисте управљали покренутим сесијама, "
 "корисницима и седиштима."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:51
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Lock or unlock active sessions"
 msgstr "Закључајте или откључајте покренуте сесије"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Потребно је да се идентификујете да бисте закључавали или откључавали "
 "покренуте сесије."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:53
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Allow indication to the firmware to boot to setup interface"
 msgstr "Напомените фирмверу да се подигне у режим подешавања интерфејса"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -443,11 +455,11 @@ msgstr ""
 "Потребно је да се идентификујете да бисте напоменули фирмверу да се подигне "
 "у режиму подешавања интерфејса."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:55
+#: ../src/login/org.freedesktop.login1.policy.in.h:57
 msgid "Set a wall message"
 msgstr "Поставите зидну поруку"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#: ../src/login/org.freedesktop.login1.policy.in.h:58
 msgid "Authentication is required to set a wall message"
 msgstr "Потребно је да се идентификујете да бисте поставили зидну поруку"
 
@@ -574,33 +586,33 @@ msgstr ""
 "Потребно је да се идентификујете да бисте подесили да ли се време усклађује "
 "са мреже."
 
-#: ../src/core/dbus-unit.c:428
+#: ../src/core/dbus-unit.c:450
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте покренули „$(unit)“."
 
-#: ../src/core/dbus-unit.c:429
+#: ../src/core/dbus-unit.c:451
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте зауставили „$(unit)“."
 
-#: ../src/core/dbus-unit.c:430
+#: ../src/core/dbus-unit.c:452
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте поново учитали „$(unit)“."
 
-#: ../src/core/dbus-unit.c:431 ../src/core/dbus-unit.c:432
+#: ../src/core/dbus-unit.c:453 ../src/core/dbus-unit.c:454
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте поново покренули „$(unit)“."
 
-#: ../src/core/dbus-unit.c:535
+#: ../src/core/dbus-unit.c:560
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте убили „$(unit)“."
 
-#: ../src/core/dbus-unit.c:565
+#: ../src/core/dbus-unit.c:590
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново поставили „неуспешно“ стање "
 "за „$(unit)“."
 
-#: ../src/core/dbus-unit.c:597
+#: ../src/core/dbus-unit.c:622
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили својства за „$(unit)“."
