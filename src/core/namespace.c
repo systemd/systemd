@@ -291,16 +291,15 @@ static int apply_mount(
                  * inaccessible path. */
                 umount_recursive(m->path, 0);
 
-                r = lstat(m->path, &target);
-                if (r != 0) {
+                if (lstat(m->path, &target) < 0) {
                         if (m->ignore && errno == ENOENT)
                                 return 0;
                         return -errno;
                 }
 
                 what = mode_to_inaccessible_node(target.st_mode);
-                if (what == NULL) {
-                        log_debug("File type not supported. Note that symlinks are not allowed");
+                if (!what) {
+                        log_debug("File type not supported for inaccessible mounts. Note that symlinks are not allowed");
                         return -ELOOP;
                 }
                 break;
@@ -331,12 +330,10 @@ static int apply_mount(
         if (r >= 0) {
                 log_debug("Successfully mounted %s to %s", what, m->path);
                 return r;
-        }
-        else {
+        } else {
                 if (m->ignore && errno == ENOENT)
                         return 0;
-                log_debug("Failed mounting %s to %s: %s", what, m->path, strerror(errno));
-                return -errno;
+                return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, m->path);
         }
 }
 
