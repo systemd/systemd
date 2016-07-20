@@ -35,6 +35,8 @@ DeviceAllow=/dev/tty rwm
 DeviceAllow=/dev/net/tun rwm
 DeviceAllow=/dev/pts/ptmx rw
 DeviceAllow=char-pts rw
+DeviceAllow=/run/systemd/inaccessible/chr rwm
+DeviceAllow=/run/systemd/inaccessible/blk rwm
 
 # nspawn itself needs access to /dev/loop-control and /dev/loop, to
 # implement the --image= option. Add these here, too.
