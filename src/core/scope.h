@@ -43,6 +43,7 @@ struct Scope {
         usec_t timeout_stop_usec;
 
         char *controller;
+        bool was_abandoned;
 
         sd_event_source *timer_event_source;
 };
