@@ -350,7 +350,8 @@ static int make_read_only(BindMount *m) {
         else if (IN_SET(m->mode, READWRITE, PRIVATE_TMP, PRIVATE_VAR_TMP, PRIVATE_DEV)) {
                 r = bind_remount_recursive(m->path, false);
                 if (r == 0 && m->mode == PRIVATE_DEV) /* can be readonly but the submounts can't*/
-                        r = mount(NULL, m->path, NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL);
+                        if (mount(NULL, m->path, NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
+                                r = -errno;
         } else
                 r = 0;
 
