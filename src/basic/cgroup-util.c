@@ -213,6 +213,11 @@ int cg_kill(
 
         assert(sig >= 0);
 
+         /* Don't send SIGCONT twice. Also, SIGKILL always works even when process is suspended, hence don't send
+          * SIGCONT on SIGKILL. */
+        if (IN_SET(sig, SIGCONT, SIGKILL))
+                flags &= ~CGROUP_SIGCONT;
+
         /* This goes through the tasks list and kills them all. This
          * is repeated until no further processes are added to the
          * tasks list, to properly handle forking processes */
