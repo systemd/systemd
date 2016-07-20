@@ -15,6 +15,7 @@ Following these guidelines makes it easier for us to process your issue, and ens
 
 * Make sure to post PRs only relative to a very recent git master.
 * Follow our [Coding Style](https://raw.githubusercontent.com/systemd/systemd/master/CODING_STYLE) when contributing code. This is a requirement for all code we merge.
+* Please make sure to test your change before submitting the PR. See [HACKING](https://raw.githubusercontent.com/systemd/systemd/master/HACKING) for details how to do this.
 * Make sure to run "make check" locally, before posting your PR. We use a CI system, meaning we don't even look at your PR, if the build and tests don't pass.
 * If you need to update the code in an existing PR, force-push into the same branch, overriding old commits with new versions.
 * After you have pushed a new version, try to remove the `reviewed/needs-rework` label. Also add a comment about the new version (no notification is sent just for the commits, so it's easy to miss the update without an explicit comment).
