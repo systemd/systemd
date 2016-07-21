@@ -184,10 +184,10 @@
     to such a parent device. On failure, <constant>NULL</constant>
     is returned.</para>
 
-    <para>On success, <function>udev_device_get_is_initialized()</function>
-    returns either <constant>1</constant> or <constant>0</constant>,
-    depending on whether the passed device is initialized or not. On
-    failure, a negative error code is returned.</para>
+    <para>On success, <function>udev_device_get_is_initialized()</function> returns either <constant>1</constant> or
+    <constant>0</constant>, depending on whether the passed device has already been initialized by udev or not. On
+    failure, a negative error code is returned. Note that devices for which no udev rules are defined are never
+    reported initialized.</para>
   </refsect1>
 
   <refsect1>
