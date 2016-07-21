@@ -797,7 +797,7 @@ static int remove_boot_efi(const char *esp_path) {
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (!startswith_no_case(de->d_name, "Boot"))
+                if (!startswith_no_case(de->d_name, "boot"))
                         continue;
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
