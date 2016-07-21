@@ -64,7 +64,6 @@
 #include "id128-util.h"
 #include "log.h"
 #include "loopback-setup.h"
-#include "machine-id-setup.h"
 #include "machine-image.h"
 #include "macro.h"
 #include "missing.h"
@@ -595,9 +594,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_UUID:
                         r = sd_id128_from_string(optarg, &arg_uuid);
-                        if (r < 0) {
-                                log_error("Invalid UUID: %s", optarg);
-                                return r;
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid UUID: %s", optarg);
+
+                        if (sd_id128_is_null(arg_uuid)) {
+                                log_error("Machine UUID may not be all zeroes.");
+                                return -EINVAL;
                         }
 
                         arg_settings_mask |= SETTING_MACHINE_ID;
@@ -2219,37 +2221,38 @@ static int mount_device(const char *what, const char *where, const char *directo
 #endif
 }
 
-static int machine_id_read(const char *directory, sd_id128_t *ret) {
+static int setup_machine_id(const char *directory) {
         const char *etc_machine_id;
         sd_id128_t id;
         int r;
 
+        /* If the UUID in the container is already set, then that's what counts, and we use. If it isn't set, and the
+         * caller passed --uuid=, then we'll pass it in the $container_uuid env var to PID 1 of the container. The
+         * assumption is that PID 1 will then write it to /etc/machine-id to make it persistent. If --uuid= is not
+         * passed we generate a random UUID, and pass it via $container_uuid. In effect this means that /etc/machine-id
+         * in the container and our idea of the container UUID will always be in sync (at least if PID 1 in the
+         * container behaves nicely). */
+
         etc_machine_id = prefix_roota(directory, "/etc/machine-id");
 
         r = id128_read(etc_machine_id, ID128_PLAIN, &id);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (!IN_SET(r, -ENOENT, -ENOMEDIUM)) /* If the file is missing or empty, we don't mind */
+                        return log_error_errno(r, "Failed to read machine ID from container image: %m");
 
-        if (sd_id128_is_null(id))
-                return -EINVAL;
+                if (sd_id128_is_null(arg_uuid)) {
+                        r = sd_id128_randomize(&arg_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire randomized machine UUID: %m");
+                }
+        } else {
+                if (sd_id128_is_null(id)) {
+                        log_error("Machine ID in container image is zero, refusing.");
+                        return -EINVAL;
+                }
 
-        *ret = id;
-        return 0;
-}
-
-static int setup_machine_id(const char *directory) {
-        int r;
-
-        /* Try to set up the machine ID, if it isn't set up yet. Use a transient one, if necessary. Use the the UUID we
-         * were configured for if possible for initialization. */
-        r = machine_id_setup(directory, arg_uuid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to setup machine ID: %m");
-
-        /* Read back what was actually set. */
-        r = machine_id_read(directory, &arg_uuid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read machine ID: %m");
+                arg_uuid = id;
+        }
 
         return 0;
 }

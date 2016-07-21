@@ -3075,9 +3075,7 @@ systemd_nspawn_SOURCES = \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
-	src/core/loopback-setup.h \
-	src/core/machine-id-setup.c \
-	src/core/machine-id-setup.h
+	src/core/loopback-setup.h
 
 nodist_systemd_nspawn_SOURCES = \
 	src/nspawn/nspawn-gperf.c
