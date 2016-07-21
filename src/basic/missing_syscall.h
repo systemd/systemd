@@ -279,6 +279,8 @@ static inline key_serial_t request_key(const char *type, const char *description
 #      define __NR_copy_file_range 391
 #    elif defined __aarch64__
 #      define __NR_copy_file_range 285
+#    elif defined __powerpc__
+#      define __NR_copy_file_range 379
 #    else
 #      warning "__NR_copy_file_range not defined for your architecture"
 #    endif
