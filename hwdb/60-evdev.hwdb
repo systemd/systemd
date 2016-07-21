@@ -219,6 +219,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*X230*
  EVDEV_ABS_01=::100
  EVDEV_ABS_36=::100
 
+# Lenovo Y700-14ISK
+evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapadY700-14ISK*
+ EVDEV_ABS_00=::27
+ EVDEV_ABS_01=::29
+ EVDEV_ABS_35=::27
+ EVDEV_ABS_36=::29
+
 #########################################
 # Samsung
 #########################################
