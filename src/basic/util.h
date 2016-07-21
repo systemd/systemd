@@ -176,8 +176,6 @@ static inline unsigned log2u_round_up(unsigned x) {
         return log2u(x - 1) + 1;
 }
 
-bool id128_is_valid(const char *s) _pure_;
-
 int container_get_leader(const char *machine, pid_t *pid);
 
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);

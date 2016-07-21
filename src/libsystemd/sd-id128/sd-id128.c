@@ -25,6 +25,7 @@
 
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "macro.h"
 #include "random-util.h"
@@ -93,6 +94,41 @@ _public_ int sd_id128_from_string(const char s[], sd_id128_t *ret) {
         return 0;
 }
 
+_public_ int sd_id128_get_machine(sd_id128_t *ret) {
+        static thread_local sd_id128_t saved_machine_id = {};
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        if (sd_id128_is_null(saved_machine_id)) {
+                r = id128_read("/etc/machine-id", ID128_PLAIN, &saved_machine_id);
+                if (r < 0)
+                        return r;
+
+                if (sd_id128_is_null(saved_machine_id))
+                        return -EINVAL;
+        }
+
+        *ret = saved_machine_id;
+        return 0;
+}
+
+_public_ int sd_id128_get_boot(sd_id128_t *ret) {
+        static thread_local sd_id128_t saved_boot_id = {};
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        if (sd_id128_is_null(saved_boot_id)) {
+                r = id128_read("/proc/sys/kernel/random/boot_id", ID128_UUID, &saved_boot_id);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = saved_boot_id;
+        return 0;
+}
+
 static sd_id128_t make_v4_uuid(sd_id128_t id) {
         /* Stolen from generate_random_uuid() of drivers/char/random.c
          * in the kernel sources */
@@ -104,106 +140,6 @@ static sd_id128_t make_v4_uuid(sd_id128_t id) {
         id.bytes[8] = (id.bytes[8] & 0x3F) | 0x80;
 
         return id;
-}
-
-_public_ int sd_id128_get_machine(sd_id128_t *ret) {
-        static thread_local sd_id128_t saved_machine_id;
-        static thread_local bool saved_machine_id_valid = false;
-        _cleanup_close_ int fd = -1;
-        char buf[33];
-        unsigned j;
-        sd_id128_t t;
-        int r;
-
-        assert_return(ret, -EINVAL);
-
-        if (saved_machine_id_valid) {
-                *ret = saved_machine_id;
-                return 0;
-        }
-
-        fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return -errno;
-
-        r = loop_read_exact(fd, buf, 33, false);
-        if (r < 0)
-                return r;
-        if (buf[32] !='\n')
-                return -EIO;
-
-        for (j = 0; j < 16; j++) {
-                int a, b;
-
-                a = unhexchar(buf[j*2]);
-                b = unhexchar(buf[j*2+1]);
-
-                if (a < 0 || b < 0)
-                        return -EIO;
-
-                t.bytes[j] = a << 4 | b;
-        }
-
-        saved_machine_id = t;
-        saved_machine_id_valid = true;
-
-        *ret = t;
-        return 0;
-}
-
-_public_ int sd_id128_get_boot(sd_id128_t *ret) {
-        static thread_local sd_id128_t saved_boot_id;
-        static thread_local bool saved_boot_id_valid = false;
-        _cleanup_close_ int fd = -1;
-        char buf[36];
-        unsigned j;
-        sd_id128_t t;
-        char *p;
-        int r;
-
-        assert_return(ret, -EINVAL);
-
-        if (saved_boot_id_valid) {
-                *ret = saved_boot_id;
-                return 0;
-        }
-
-        fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return -errno;
-
-        r = loop_read_exact(fd, buf, 36, false);
-        if (r < 0)
-                return r;
-
-        for (j = 0, p = buf; j < 16; j++) {
-                int a, b;
-
-                if (p >= buf + 35)
-                        return -EIO;
-
-                if (*p == '-') {
-                        p++;
-                        if (p >= buf + 35)
-                                return -EIO;
-                }
-
-                a = unhexchar(p[0]);
-                b = unhexchar(p[1]);
-
-                if (a < 0 || b < 0)
-                        return -EIO;
-
-                t.bytes[j] = a << 4 | b;
-
-                p += 2;
-        }
-
-        saved_boot_id = t;
-        saved_boot_id_valid = true;
-
-        *ret = t;
-        return 0;
 }
 
 _public_ int sd_id128_randomize(sd_id128_t *ret) {
