@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -35,6 +36,7 @@
 #include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -43,6 +45,8 @@
 #include "util.h"
 #include "virt.h"
 
+#define MAX_CONSOLES 63
+
 static bool is_vconsole(int fd) {
         unsigned char data[1];
 
@@ -50,57 +54,76 @@ static bool is_vconsole(int fd) {
         return ioctl(fd, TIOCLINUX, data) >= 0;
 }
 
-static int disable_utf8(int fd) {
-        int r = 0, k;
+static bool is_settable(int n, int *fd) {
+        char vcname[strlen("/dev/vcs") + DECIMAL_STR_MAX(int)];
+        int fdt, r, curr_mode;
 
-        if (ioctl(fd, KDSKBMODE, K_XLATE) < 0)
-                r = -errno;
+        /* skip non-allocated ttys */
+        xsprintf(vcname, "/dev/vcs%i", n);
+        if (access(vcname, F_OK) < 0)
+                return false;
 
-        k = loop_write(fd, "\033%@", 3, false);
-        if (k < 0)
-                r = k;
+        /* try to open terminal */
+        xsprintf(vcname, "/dev/tty%i", n);
+        fdt = open_terminal(vcname, O_RDWR|O_CLOEXEC);
+        if (fdt < 0)
+                return false;
 
-        k = write_string_file("/sys/module/vt/parameters/default_utf8", "0", 0);
-        if (k < 0)
-                r = k;
-
-        if (r < 0)
-                log_warning_errno(r, "Failed to disable UTF-8: %m");
-
-        return r;
-}
-
-static int enable_utf8(int fd) {
-        int r = 0, k;
-        long current = 0;
-
-        if (ioctl(fd, KDGKBMODE, &current) < 0 || current == K_XLATE) {
-                /*
-                 * Change the current keyboard to unicode, unless it
-                 * is currently in raw or off mode anyway. We
-                 * shouldn't interfere with X11's processing of the
-                 * key events.
-                 *
-                 * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
-                 *
-                 */
-
-                if (ioctl(fd, KDSKBMODE, K_UNICODE) < 0)
-                        r = -errno;
+        r = ioctl(fdt, KDGKBMODE, &curr_mode);
+        /*
+         * Make sure we only adjust consoles in K_XLATE or K_UNICODE mode.
+         * Oterwise we would (likely) interfere with X11's processing of the
+         * key events.
+         *
+         * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
+         */
+        if (r || (curr_mode != K_XLATE && curr_mode != K_UNICODE)) {
+                close(fdt);
+                return false;
         }
 
-        k = loop_write(fd, "\033%G", 3, false);
-        if (k < 0)
-                r = k;
+        *fd = fdt;
+        return true;
+}
 
-        k = write_string_file("/sys/module/vt/parameters/default_utf8", "1", 0);
-        if (k < 0)
-                r = k;
+static int toggle_utf8_default(bool utf8) {
+        int r;
 
+        r = write_string_file("/sys/module/vt/parameters/default_utf8", utf8 ? "1" : "0", 0);
         if (r < 0)
-                log_warning_errno(r, "Failed to enable UTF-8: %m");
+                log_warning_errno(r, "Failed to %s sysfs UTF-8 flag: %m", utf8 ? "enable" : "disable");
+        return r == 0;
+}
 
-        return r;
+static int toggle_utf8(int fd, bool utf8) {
+        struct termios tc;
+        int r;
+
+        r = ioctl(fd, KDSKBMODE, utf8 ? K_UNICODE : K_XLATE);
+        if (r < 0) {
+                r = -errno;
+                log_warning_errno(r, "Failed to %s UTF-8 kbdmode: %m", utf8 ? "enable" : "disable");
+                return r;
+        }
+
+        r = loop_write(fd, utf8 ? "\033%G" : "\033%@", 3, false);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to %s UTF-8 term processing: %m", utf8 ? "enable" : "disable");
+                return r;
+        }
+
+        r = tcgetattr(fd, &tc);
+        if (r == 0) {
+                if (utf8)
+                        tc.c_iflag |= IUTF8;
+                else
+                        tc.c_iflag &= ~IUTF8;
+                r = tcsetattr(fd, TCSANOW, &tc);
+        }
+        if (r < 0)
+                log_warning_errno(r, "Failed to %s stty iutf8 flag: %m", utf8 ? "enable" : "disable");
+
+        return r == 0;
 }
 
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
@@ -142,13 +165,13 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         return r == 0;
 }
 
-static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
+static int font_load(const char *vc, const char *font, const char *map, const char *unimap, pid_t *dpid) {
         const char *args[9];
-        int i = 0, r;
+        int i = 0;
         pid_t pid;
 
-        /* An empty font means kernel font */
-        if (isempty(font))
+        /* Note: any of the elements can be loaded independently */
+        if (isempty(font) && isempty(map) && isempty(unimap))
                 return 1;
 
         args[i++] = KBD_SETFONT;
@@ -175,95 +198,31 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
 
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
-        }
-
-        r = wait_for_terminate_and_warn(KBD_SETFONT, pid, true);
-        if (r < 0)
-                return r;
-
-        return r == 0;
+        } else
+                *dpid = pid;
+        return 1;
 }
 
-/*
- * A newly allocated VT uses the font from the active VT. Here
- * we update all possibly already allocated VTs with the configured
- * font. It also allows to restart systemd-vconsole-setup.service,
- * to apply a new font to all VTs.
- */
-static void font_copy_to_all_vcs(int fd) {
-        struct vt_stat vcs = {};
-        unsigned char map8[E_TABSZ];
-        unsigned short map16[E_TABSZ];
-        struct unimapdesc unimapd;
-        _cleanup_free_ struct unipair* unipairs = NULL;
-        int i, r;
+static int font_load_wait_all(int vc_max, pid_t *wait_tab) {
+        int i, r = 0;
 
-        unipairs = new(struct unipair, USHRT_MAX);
-        if (!unipairs) {
-                log_oom();
-                return;
+        for (i = 0 ; i < vc_max ; i++) {
+                if (wait_tab[i] > 0)
+                        r |= wait_for_terminate_and_warn(KBD_SETFONT, wait_tab[i], true);
         }
 
-        /* get active, and 16 bit mask of used VT numbers */
-        r = ioctl(fd, VT_GETSTATE, &vcs);
-        if (r < 0) {
-                log_debug_errno(errno, "VT_GETSTATE failed, ignoring: %m");
-                return;
-        }
-
-        for (i = 1; i <= 15; i++) {
-                char vcname[strlen("/dev/vcs") + DECIMAL_STR_MAX(int)];
-                _cleanup_close_ int vcfd = -1;
-                struct console_font_op cfo = {};
-
-                if (i == vcs.v_active)
-                        continue;
-
-                /* skip non-allocated ttys */
-                xsprintf(vcname, "/dev/vcs%i", i);
-                if (access(vcname, F_OK) < 0)
-                        continue;
-
-                xsprintf(vcname, "/dev/tty%i", i);
-                vcfd = open_terminal(vcname, O_RDWR|O_CLOEXEC);
-                if (vcfd < 0)
-                        continue;
-
-                /* copy font from active VT, where the font was uploaded to */
-                cfo.op = KD_FONT_OP_COPY;
-                cfo.height = vcs.v_active-1; /* tty1 == index 0 */
-                (void) ioctl(vcfd, KDFONTOP, &cfo);
-
-                /* copy map of 8bit chars */
-                if (ioctl(fd, GIO_SCRNMAP, map8) >= 0)
-                        (void) ioctl(vcfd, PIO_SCRNMAP, map8);
-
-                /* copy map of 8bit chars -> 16bit Unicode values */
-                if (ioctl(fd, GIO_UNISCRNMAP, map16) >= 0)
-                        (void) ioctl(vcfd, PIO_UNISCRNMAP, map16);
-
-                /* copy unicode translation table */
-                /* unimapd is a ushort count and a pointer to an
-                   array of struct unipair { ushort, ushort } */
-                unimapd.entries  = unipairs;
-                unimapd.entry_ct = USHRT_MAX;
-                if (ioctl(fd, GIO_UNIMAP, &unimapd) >= 0) {
-                        struct unimapinit adv = { 0, 0, 0 };
-
-                        (void) ioctl(vcfd, PIO_UNIMAPCLR, &adv);
-                        (void) ioctl(vcfd, PIO_UNIMAP, &unimapd);
-                }
-        }
+        return r == 0;
 }
 
 int main(int argc, char **argv) {
         const char *vc;
         _cleanup_free_ char
-                *vc_keymap = NULL, *vc_keymap_toggle = NULL,
+                *vc_cnt = NULL, *vc_keymap = NULL, *vc_keymap_toggle = NULL,
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
-        bool utf8, font_copy = false, font_ok, keyboard_ok;
-        int r = EXIT_FAILURE;
+        pid_t wait_tab[MAX_CONSOLES] = { 0 };
+        bool utf8, single = false, console_changed = false, ok = true;
+        int i, vc_max, r = EXIT_FAILURE;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -271,12 +230,11 @@ int main(int argc, char **argv) {
 
         umask(0022);
 
-        if (argv[1])
+        if (argv[1]) {
                 vc = argv[1];
-        else {
+                single = true;
+        } else
                 vc = "/dev/tty0";
-                font_copy = true;
-        }
 
         fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
         if (fd < 0) {
@@ -292,6 +250,7 @@ int main(int argc, char **argv) {
         utf8 = is_locale_utf8();
 
         r = parse_env_file("/etc/vconsole.conf", NEWLINE,
+                           "VC_MAX", &vc_cnt,
                            "KEYMAP", &vc_keymap,
                            "KEYMAP_TOGGLE", &vc_keymap_toggle,
                            "FONT", &vc_font,
@@ -305,6 +264,7 @@ int main(int argc, char **argv) {
         /* Let the kernel command line override /etc/vconsole.conf */
         if (detect_container() <= 0) {
                 r = parse_env_file("/proc/cmdline", WHITESPACE,
+                                   "vconsole.vc.max", &vc_cnt,
                                    "vconsole.keymap", &vc_keymap,
                                    "vconsole.keymap.toggle", &vc_keymap_toggle,
                                    "vconsole.font", &vc_font,
@@ -316,17 +276,47 @@ int main(int argc, char **argv) {
                         log_warning_errno(r, "Failed to read /proc/cmdline: %m");
         }
 
-        if (utf8)
-                (void) enable_utf8(fd);
-        else
-                (void) disable_utf8(fd);
+        /* Sanitize vc_cnt */
+        if (vc_cnt == NULL)
+                vc_max = 12;
+        else {
+                r = safe_atoi(vc_cnt, &vc_max);
+                if (r || vc_max < 1 || vc_max > MAX_CONSOLES) {
+                        log_error("Invalid value for VC_MAX (vconsole.vc.max), it should be between 1 and " STRINGIFY(MAX_CONSOLES));
+                        return EXIT_FAILURE;
+                }
+        }
 
-        font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) > 0;
-        keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) > 0;
+        /*
+         * First do per-console tasks;
+         * if no console is changed don't do global changes afterwards
+         */
+        if (single) {
+                ok = ok && toggle_utf8(fd, utf8) > 0;
+                ok = ok && font_load(vc, vc_font, vc_font_map, vc_font_unimap, &wait_tab[0]) > 0;
+                vc_max = 1;
+                console_changed = true;
+        } else
+                for (i = 1; i <= vc_max; i++) {
+                        char vci[strlen("/dev/tty") + DECIMAL_STR_MAX(int)];
+                        int fdi;
 
-        /* Only copy the font when we executed setfont successfully */
-        if (font_copy && font_ok)
-                (void) font_copy_to_all_vcs(fd);
+                        if (!is_settable(i, &fdi))
+                                continue;
+                        xsprintf(vci, "/dev/tty%i", i);
 
-        return font_ok && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+                        ok = ok && toggle_utf8(fdi, utf8) > 0;
+                        ok = ok && font_load(vci, vc_font, vc_font_map, vc_font_unimap, &wait_tab[i-1]) > 0;
+                        close(fdi);
+                        console_changed = true;
+                }
+
+        if (console_changed) {
+                ok = ok && font_load_wait_all(vc_max, wait_tab) > 0;
+                /* proceed with global stuff */
+                ok = ok && toggle_utf8_default(utf8) > 0;
+                ok = ok && keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) > 0;
+        }
+
+        return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
