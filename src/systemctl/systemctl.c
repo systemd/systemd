@@ -3809,7 +3809,7 @@ static void print_status_info(
                 printf("    Tasks: %" PRIu64, i->tasks_current);
 
                 if (i->tasks_max != (uint64_t) -1)
-                        printf(" (limit: %" PRIi64 ")\n", i->tasks_max);
+                        printf(" (limit: %" PRIu64 ")\n", i->tasks_max);
                 else
                         printf("\n");
         }
