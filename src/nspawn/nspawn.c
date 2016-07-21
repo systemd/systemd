@@ -1267,20 +1267,9 @@ static int setup_resolv_conf(const char *dest) {
         return 0;
 }
 
-static char* id128_format_as_uuid(sd_id128_t id, char s[37]) {
-        assert(s);
-
-        snprintf(s, 37,
-                 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                 SD_ID128_FORMAT_VAL(id));
-
-        return s;
-}
-
 static int setup_boot_id(const char *dest) {
         sd_id128_t rnd = SD_ID128_NULL;
         const char *from, *to;
-        char as_uuid[37];
         int r;
 
         if (arg_share_system)
@@ -1296,9 +1285,7 @@ static int setup_boot_id(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        id128_format_as_uuid(rnd, as_uuid);
-
-        r = write_string_file(from, as_uuid, WRITE_STRING_FILE_CREATE);
+        r = id128_write(from, ID128_UUID, rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
@@ -2232,34 +2219,37 @@ static int mount_device(const char *what, const char *where, const char *directo
 #endif
 }
 
-static int setup_machine_id(const char *directory) {
-        const char *etc_machine_id, *t;
-        _cleanup_free_ char *s = NULL;
+static int machine_id_read(const char *directory, sd_id128_t *ret) {
+        const char *etc_machine_id;
+        sd_id128_t id;
         int r;
 
         etc_machine_id = prefix_roota(directory, "/etc/machine-id");
 
-        r = read_one_line_file(etc_machine_id, &s);
+        r = id128_read(etc_machine_id, ID128_PLAIN, &id);
         if (r < 0)
-                return log_error_errno(r, "Failed to read machine ID from %s: %m", etc_machine_id);
+                return r;
 
-        t = strstrip(s);
+        if (sd_id128_is_null(id))
+                return -EINVAL;
 
-        if (!isempty(t)) {
-                r = sd_id128_from_string(t, &arg_uuid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse machine ID from %s: %m", etc_machine_id);
-        } else {
-                if (sd_id128_is_null(arg_uuid)) {
-                        r = sd_id128_randomize(&arg_uuid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate random machine ID: %m");
-                }
-        }
+        *ret = id;
+        return 0;
+}
 
+static int setup_machine_id(const char *directory) {
+        int r;
+
+        /* Try to set up the machine ID, if it isn't set up yet. Use a transient one, if necessary. Use the the UUID we
+         * were configured for if possible for initialization. */
         r = machine_id_setup(directory, arg_uuid);
         if (r < 0)
                 return log_error_errno(r, "Failed to setup machine ID: %m");
+
+        /* Read back what was actually set. */
+        r = machine_id_read(directory, &arg_uuid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read machine ID: %m");
 
         return 0;
 }
@@ -2666,7 +2656,7 @@ static int inner_child(
 
         assert(!sd_id128_is_null(arg_uuid));
 
-        if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_format_as_uuid(arg_uuid, as_uuid)) < 0)
+        if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_to_uuid_string(arg_uuid, as_uuid)) < 0)
                 return log_oom();
 
         if (fdset_size(fds) > 0) {
