@@ -69,6 +69,8 @@ Features:
 * expose the "privileged" flag of ExecCommand on the bus, and open it up to
   transient units
 
+* allow attaching additional journald log fields to cgroups
+
 * rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the
   kernel doesn't support linkat() that replaces existing files, currently)
 
