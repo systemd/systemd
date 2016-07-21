@@ -112,7 +112,7 @@ int register_machine(
                  * systemd-nspawn@.service, to keep the device
                  * policies in sync regardless if we are run with or
                  * without the --keep-unit switch. */
-                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 9,
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 11,
                                           /* Allow the container to
                                            * access and create the API
                                            * device nodes, so that
@@ -132,7 +132,11 @@ int register_machine(
                                            * container to ever create
                                            * these device nodes. */
                                           "/dev/pts/ptmx", "rw",
-                                          "char-pts", "rw");
+                                          "char-pts", "rw",
+                                          /* Allow /run/systemd/inaccessible/{chr,blk}
+                                           * devices inside the container */
+                                          "/run/systemd/inaccessible/chr", "rwm",
+                                          "/run/systemd/inaccessible/blk", "rwm");
                 if (r < 0)
                         return bus_log_create_error(r);
 
