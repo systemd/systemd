@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -52,6 +53,18 @@ static void unsetenv_all(bool unset_environment) {
         unsetenv("LISTEN_PID");
         unsetenv("LISTEN_FDS");
         unsetenv("LISTEN_FDNAMES");
+}
+
+static int get_max_fd(void) {
+        struct rlimit r;
+
+        if (getrlimit(RLIMIT_NOFILE, &r) < 0)
+                return INT_MAX;
+
+        if (r.rlim_max == RLIM_INFINITY)
+                return INT_MAX;
+
+        return (int)r.rlim_max;
 }
 
 _public_ int sd_listen_fds(int unset_environment) {
@@ -86,12 +99,12 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
 
         assert_cc(SD_LISTEN_FDS_START < INT_MAX);
-        if (n <= 0 || n > INT_MAX - SD_LISTEN_FDS_START) {
+        if (n <= 0 || n > get_max_fd() - SD_LISTEN_FDS_START) {
                 r = -EINVAL;
                 goto finish;
         }
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = fd_cloexec(fd, true);
                 if (r < 0)
                         goto finish;
