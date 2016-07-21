@@ -74,13 +74,11 @@
     lowercase hexadecimal digits and be terminated by a
     <constant>NUL</constant> byte.</para>
 
-    <para><function>sd_id128_from_string()</function> implements the
-    reverse operation: it takes a 33 character string with 32
-    hexadecimal digits (either lowercase or uppercase, terminated by
-    <constant>NUL</constant>) and parses them back into a 128-bit ID
-    returned in <parameter>ret</parameter>. Alternatively, this call
-    can also parse a 37-character string with a 128-bit ID formatted
-    as RFC UUID.</para>
+    <para><function>sd_id128_from_string()</function> implements the reverse operation: it takes a 33 character string
+    with 32 hexadecimal digits (either lowercase or uppercase, terminated by <constant>NUL</constant>) and parses them
+    back into a 128-bit ID returned in <parameter>ret</parameter>. Alternatively, this call can also parse a
+    37-character string with a 128-bit ID formatted as RFC UUID. If <parameter>ret</parameter> is passed as NULL the
+    function will validate the passed ID string, but not actually return it in parsed form.</para>
 
     <para>For more information about the <literal>sd_id128_t</literal>
     type see

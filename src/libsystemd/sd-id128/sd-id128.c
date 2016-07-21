@@ -52,7 +52,6 @@ _public_ int sd_id128_from_string(const char s[], sd_id128_t *ret) {
         bool is_guid = false;
 
         assert_return(s, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         for (n = 0, i = 0; n < 16;) {
                 int a, b;
@@ -90,7 +89,8 @@ _public_ int sd_id128_from_string(const char s[], sd_id128_t *ret) {
         if (s[i] != 0)
                 return -EINVAL;
 
-        *ret = t;
+        if (ret)
+                *ret = t;
         return 0;
 }
 
