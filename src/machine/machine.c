@@ -181,7 +181,7 @@ int machine_save(Machine *m) {
                 fprintf(f, "ROOT=%s\n", escaped);
         }
 
-        if (!sd_id128_equal(m->id, SD_ID128_NULL))
+        if (!sd_id128_is_null(m->id))
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
         if (m->leader != 0)

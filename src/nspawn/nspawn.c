@@ -1277,8 +1277,8 @@ static char* id128_format_as_uuid(sd_id128_t id, char s[37]) {
 }
 
 static int setup_boot_id(const char *dest) {
+        sd_id128_t rnd = SD_ID128_NULL;
         const char *from, *to;
-        sd_id128_t rnd = {};
         char as_uuid[37];
         int r;
 
@@ -1304,9 +1304,9 @@ static int setup_boot_id(const char *dest) {
         if (mount(from, to, NULL, MS_BIND, NULL) < 0)
                 r = log_error_errno(errno, "Failed to bind mount boot id: %m");
         else if (mount(NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL) < 0)
-                log_warning_errno(errno, "Failed to make boot id read-only: %m");
+                log_warning_errno(errno, "Failed to make boot id read-only, ignoring: %m");
 
-        unlink(from);
+        (void) unlink(from);
         return r;
 }
 
@@ -2232,9 +2232,9 @@ static int mount_device(const char *what, const char *where, const char *directo
 }
 
 static int setup_machine_id(const char *directory) {
-        int r;
         const char *etc_machine_id, *t;
         _cleanup_free_ char *s = NULL;
+        int r;
 
         etc_machine_id = prefix_roota(directory, "/etc/machine-id");
 
@@ -2663,7 +2663,7 @@ static int inner_child(
             (asprintf((char**)(envp + n_env++), "LOGNAME=%s", arg_user ? arg_user : "root") < 0))
                 return log_oom();
 
-        assert(!sd_id128_equal(arg_uuid, SD_ID128_NULL));
+        assert(!sd_id128_is_null(arg_uuid));
 
         if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_format_as_uuid(arg_uuid, as_uuid)) < 0)
                 return log_oom();

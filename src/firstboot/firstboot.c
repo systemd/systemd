@@ -427,7 +427,7 @@ static int process_machine_id(void) {
         if (laccess(etc_machine_id, F_OK) >= 0)
                 return 0;
 
-        if (sd_id128_equal(arg_machine_id, SD_ID128_NULL))
+        if (sd_id128_is_null(arg_machine_id))
                 return 0;
 
         mkdir_parents(etc_machine_id, 0755);

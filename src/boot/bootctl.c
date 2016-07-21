@@ -311,7 +311,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
                 return r;
 
         /* print only configured entries with partition information */
-        if (!path || sd_id128_equal(partition, SD_ID128_NULL))
+        if (!path || sd_id128_is_null(partition))
                 return 0;
 
         efi_tilt_backslashes(path);
@@ -1072,7 +1072,7 @@ static int bootctl_main(int argc, char*argv[]) {
 
                         printf("Loader:\n");
                         printf("      Product: %s\n", strna(loader));
-                        if (!sd_id128_equal(loader_part_uuid, SD_ID128_NULL))
+                        if (!sd_id128_is_null(loader_part_uuid))
                                 printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                                        SD_ID128_FORMAT_VAL(loader_part_uuid));
                         else

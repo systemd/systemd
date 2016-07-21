@@ -528,7 +528,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 
         fputs(strna(i->name), stdout);
 
-        if (!sd_id128_equal(i->id, SD_ID128_NULL))
+        if (!sd_id128_is_null(i->id))
                 printf("(" SD_ID128_FORMAT_STR ")\n", SD_ID128_FORMAT_VAL(i->id));
         else
                 putchar('\n');
