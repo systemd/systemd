@@ -11,8 +11,8 @@ mkfs.vfat -F32 ${LOOP}p1
 mkdir -p mnt
 mount ${LOOP}p1 mnt
 
-mkdir -p mnt/EFI/{Boot,systemd}
-cp systemd-bootx64.efi mnt/EFI/Boot/bootx64.efi
+mkdir -p mnt/EFI/{BOOT,systemd}
+cp systemd-bootx64.efi mnt/EFI/BOOT/BOOTX64.efi
 
 [ -e /boot/shellx64.efi ] && cp /boot/shellx64.efi mnt/
 
