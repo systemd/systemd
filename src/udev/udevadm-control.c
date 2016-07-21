@@ -35,6 +35,7 @@ static void print_help(void) {
                "  -R --reload              Reload rules and databases\n"
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
+               "  -c --show-children-max   Show currently set maxinum for number of children\n"
                "     --timeout=SECONDS     Maximum time to block for a reply\n"
                , program_invocation_short_name);
 }
@@ -54,6 +55,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                 { "property",         required_argument, NULL, 'p' },
                 { "env",              required_argument, NULL, 'p' }, /* alias for -p */
                 { "children-max",     required_argument, NULL, 'm' },
+                { "show-children-max",no_argument,       NULL, 'c' },
                 { "timeout",          required_argument, NULL, 't' },
                 { "help",             no_argument,       NULL, 'h' },
                 {}
@@ -68,7 +70,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
         if (uctrl == NULL)
                 return 2;
 
-        while ((c = getopt_long(argc, argv, "el:sSRp:m:h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "cel:sSRp:m:h", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
                         if (udev_ctrl_send_exit(uctrl, timeout) < 0)
@@ -146,6 +148,15 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                 case 'h':
                         print_help();
                         rc = 0;
+                        break;
+                case 'c':
+                        rc = udev_ctrl_send_show_children_max(uctrl, timeout);
+                        if (rc < 0)
+                                rc = 2;
+                        else {
+                                printf("children_max=%d\n", rc);
+                                rc = 0;
+                        }
                         break;
                 }
 

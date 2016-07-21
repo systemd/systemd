@@ -126,6 +126,7 @@ int udev_ctrl_send_ping(struct udev_ctrl *uctrl, int timeout);
 int udev_ctrl_send_exit(struct udev_ctrl *uctrl, int timeout);
 int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout);
 int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, int timeout);
+int udev_ctrl_send_show_children_max(struct udev_ctrl *uctrl, int timeout);
 struct udev_ctrl_connection;
 struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl);
 struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connection *conn);
@@ -141,6 +142,7 @@ int udev_ctrl_get_ping(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_exit(struct udev_ctrl_msg *ctrl_msg);
 const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_show_children_max(struct udev_ctrl_msg *ctrl_msg);
 
 /* built-in commands */
 enum udev_builtin_cmd {
@@ -214,3 +216,5 @@ extern const struct udevadm_cmd udevadm_monitor;
 extern const struct udevadm_cmd udevadm_hwdb;
 extern const struct udevadm_cmd udevadm_test;
 extern const struct udevadm_cmd udevadm_test_builtin;
+
+extern unsigned arg_children_max;

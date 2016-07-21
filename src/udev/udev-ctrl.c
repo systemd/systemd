@@ -22,10 +22,13 @@
 #include "fd-util.h"
 #include "formats-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "udev.h"
 
 /* wire protocol magic must match */
 #define UDEV_CTRL_MAGIC                                0xdead1dea
+
+unsigned arg_children_max;
 
 enum udev_ctrl_msg_type {
         UDEV_CTRL_UNKNOWN,
@@ -35,6 +38,7 @@ enum udev_ctrl_msg_type {
         UDEV_CTRL_RELOAD,
         UDEV_CTRL_SET_ENV,
         UDEV_CTRL_SET_CHILDREN_MAX,
+        UDEV_CTRL_SHOW_CHILDREN_MAX,
         UDEV_CTRL_PING,
         UDEV_CTRL_EXIT,
 };
@@ -273,17 +277,46 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
                         if (errno == EINTR)
                                 continue;
                         err = -errno;
-                        break;
+                        goto out;
                 }
 
                 if (r > 0 && pfd[0].revents & POLLERR) {
                         err = -EIO;
+                        goto out;
+                }
+
+                if (r == 0) {
+                        err = -ETIMEDOUT;
+                        goto out;
+                }
+
+                break;
+        }
+
+        if (type == UDEV_CTRL_SHOW_CHILDREN_MAX) {
+                int r;
+                struct udev_ctrl_msg_wire m = {};
+
+                for (;;) {
+                        r = recv(uctrl->sock, &m, sizeof(m), MSG_DONTWAIT);
+                        if (r < 0) {
+                                if (errno == EINTR)
+                                        continue;
+
+                                err = -errno;
+                                goto out;
+                        }
                         break;
                 }
 
-                if (r == 0)
-                        err = -ETIMEDOUT;
-                break;
+                if (m.magic != UDEV_CTRL_MAGIC ||
+                    m.type != UDEV_CTRL_SHOW_CHILDREN_MAX ||
+                    !streq("udev-" VERSION, m.version)) {
+                        err = -EIO;
+                        goto out;
+                }
+
+                err = m.intval;
         }
 out:
         return err;
@@ -311,6 +344,10 @@ int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout
 
 int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, int timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL, timeout);
+}
+
+int udev_ctrl_send_show_children_max(struct udev_ctrl *uctrl, int timeout) {
+        return ctrl_send(uctrl, UDEV_CTRL_SHOW_CHILDREN_MAX, 0, NULL, timeout);
 }
 
 int udev_ctrl_send_ping(struct udev_ctrl *uctrl, int timeout) {
@@ -446,6 +483,23 @@ const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg) {
 int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg) {
         if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_CHILDREN_MAX)
                 return ctrl_msg->ctrl_msg_wire.intval;
+        return -1;
+}
+
+int udev_ctrl_get_show_children_max(struct udev_ctrl_msg *ctrl_msg) {
+        struct udev_ctrl_msg_wire ret_msg = {};
+
+        if (ctrl_msg->ctrl_msg_wire.type != UDEV_CTRL_SHOW_CHILDREN_MAX)
+                return -1;
+
+        strcpy(ret_msg.version, "udev-" VERSION);
+        ret_msg.magic = UDEV_CTRL_MAGIC;
+        ret_msg.type = UDEV_CTRL_SHOW_CHILDREN_MAX;
+        ret_msg.intval = arg_children_max;
+
+        if (send(ctrl_msg->conn->sock, &ret_msg, sizeof(ret_msg), 0) < 0)
+                return arg_children_max;
+
         return -1;
 }
 

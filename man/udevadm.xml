@@ -440,6 +440,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>-c</option></term>
+          <term><option>--show-children-max</option></term>
+          <listitem>
+            <para>Show the maximum number of events, systemd-udevd will handle at the
+            same time.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--timeout=</option><replaceable>seconds</replaceable></term>
           <listitem>
             <para>The maximum number of seconds to wait for a reply from systemd-udevd.</para>
