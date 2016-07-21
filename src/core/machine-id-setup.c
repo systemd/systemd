@@ -295,8 +295,12 @@ int machine_id_setup(const char *root, sd_id128_t machine_id) {
 int machine_id_commit(const char *root) {
         _cleanup_close_ int fd = -1, initial_mntns_fd = -1;
         const char *etc_machine_id;
-        char id[34]; /* 32 + \n + \0 */
+        sd_id128_t id;
         int r;
+
+        /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount is removed
+         * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
+         * original mount namespace, thus revealing the file that was just created. */
 
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
 
@@ -313,10 +317,6 @@ int machine_id_commit(const char *root) {
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
 
-        r = read_machine_id(fd, id);
-        if (r < 0)
-                return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
-
         r = fd_is_temporary_fs(fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
@@ -324,6 +324,10 @@ int machine_id_commit(const char *root) {
                 log_error("%s is not on a temporary file system.", etc_machine_id);
                 return -EROFS;
         }
+
+        r = id128_read_fd(fd, ID128_PLAIN, &id);
+        if (r < 0)
+                return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
 
         fd = safe_close(fd);
 
@@ -343,15 +347,9 @@ int machine_id_commit(const char *root) {
                 return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
 
         /* Update a persistent version of etc_machine_id */
-        fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
-        if (fd < 0)
-                return log_error_errno(errno, "Cannot open for writing %s. This is mandatory to get a persistent machine-id: %m", etc_machine_id);
-
-        r = write_machine_id(fd, id);
+        r = id128_write(etc_machine_id, ID128_PLAIN, id, true);
         if (r < 0)
-                return log_error_errno(r, "Cannot write %s: %m", etc_machine_id);
-
-        fd = safe_close(fd);
+                return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
         r = namespace_enter(-1, initial_mntns_fd, -1, -1, -1);

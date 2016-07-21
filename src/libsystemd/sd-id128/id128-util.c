@@ -18,6 +18,7 @@
 ***/
 
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "fd-util.h"
 #include "hexdecoct.h"
@@ -140,9 +141,10 @@ int id128_read(const char *p, Id128Format f, sd_id128_t *ret) {
         return id128_read_fd(fd, f, ret);
 }
 
-int id128_write_fd(int fd, Id128Format f, sd_id128_t id) {
+int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
         char buffer[36 + 2];
         size_t sz;
+        int r;
 
         assert(fd >= 0);
         assert(f < _ID128_FORMAT_MAX);
@@ -157,15 +159,24 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id) {
                 sz = 37;
         }
 
-        return loop_write(fd, buffer, sz, false);
+        r = loop_write(fd, buffer, sz, false);
+        if (r < 0)
+                return r;
+
+        if (do_sync) {
+                if (fsync(fd) < 0)
+                        return -errno;
+        }
+
+        return r;
 }
 
-int id128_write(const char *p, Id128Format f, sd_id128_t id) {
+int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync) {
         _cleanup_close_ int fd = -1;
 
         fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
         if (fd < 0)
                 return -errno;
 
-        return id128_write_fd(fd, f, id);
+        return id128_write_fd(fd, f, id, do_sync);
 }
