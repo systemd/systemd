@@ -291,14 +291,16 @@ static int parse_crash_chvt(const char *value) {
 }
 
 static int set_machine_id(const char *m) {
+        sd_id128_t t;
         assert(m);
 
-        if (sd_id128_from_string(m, &arg_machine_id) < 0)
+        if (sd_id128_from_string(m, &t) < 0)
                 return -EINVAL;
 
-        if (sd_id128_is_null(arg_machine_id))
+        if (sd_id128_is_null(t))
                 return -EINVAL;
 
+        arg_machine_id = t;
         return 0;
 }
 
