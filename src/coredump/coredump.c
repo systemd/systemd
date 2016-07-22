@@ -840,6 +840,7 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
         _cleanup_close_ int fd = -1;
         size_t i;
         int r;
+        size_t iovec_retry_len;
 
         assert(iovec || n_iovec <= 0);
         assert(input_fd >= 0);
@@ -855,7 +856,15 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
                 ssize_t n;
                 assert(iovec[i].iov_len > 0);
 
+                iovec_retry_len = iovec[i].iov_len;
                 n = send(fd, iovec[i].iov_base, iovec[i].iov_len, MSG_NOSIGNAL);
+
+                while (errno == EMSGSIZE) {
+                        errno = 0;
+                        iovec_retry_len /= 2;
+                        n = send(fd, iovec[i].iov_base, iovec_retry_len, MSG_NOSIGNAL);
+                }
+
                 if (n < 0)
                         return log_error_errno(errno, "Failed to send coredump datagram: %m");
         }
