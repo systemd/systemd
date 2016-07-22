@@ -73,11 +73,9 @@
     since it fully virtualizes the file system hierarchy, as well as the process tree, the various IPC subsystems and
     the host and domain name.</para>
 
-    <para>Like <citerefentry
-    project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> the
-    <command>systemd-nspawn</command> command may be invoked on any directory tree containing an operating system tree,
+    <para><command>systemd-nspawn</command> may be invoked on any directory tree containing an operating system tree,
     using the <option>--directory=</option> command line option. By using the <option>--machine=</option> option an OS
-    tree is automatically searched in a couple of locations, most importantly in
+    tree is automatically searched for in a couple of locations, most importantly in
     <filename>/var/lib/machines</filename>, the suggested directory to place container images installed on the
     system.</para>
 
@@ -935,8 +933,8 @@
         <literal>tmpfs</literal> instance, and
         <filename>/usr</filename> from the OS tree is mounted into it
         in read-only mode (the system thus starts up with read-only OS
-        resources, but pristine state and configuration, any changes
-        to the either are lost on shutdown). When the mode parameter
+        image, but pristine state and configuration, any changes
+        are lost on shutdown). When the mode parameter
         is specified as <option>state</option>, the OS tree is
         mounted read-only, but <filename>/var</filename> is mounted as
         a <literal>tmpfs</literal> instance into it (the system thus
