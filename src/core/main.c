@@ -1719,7 +1719,7 @@ int main(int argc, char *argv[]) {
                         status_welcome();
 
                 hostname_setup();
-                machine_id_setup(NULL, arg_machine_id);
+                machine_id_setup(NULL, arg_machine_id, NULL);
                 loopback_setup();
                 bump_unix_max_dgram_qlen();
 
