@@ -2823,8 +2823,8 @@ int config_parse_memory_limit(
                 } else
                         bytes = physical_memory_scale(r, 100U);
 
-                if (bytes < 1) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Memory limit '%s' too small. Ignoring.", rvalue);
+                if (bytes <= 0 || bytes >= UINT64_MAX) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Memory limit '%s' out of range. Ignoring.", rvalue);
                         return 0;
                 }
         }
