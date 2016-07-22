@@ -137,7 +137,7 @@ enum nss_status _nss_##module##_getpwnam_r(             \
                 struct passwd *pwd,                     \
                 char *buffer, size_t buflen,            \
                 int *errnop) _public_;                  \
-enum nss_status _nss_mymachines_getpwuid_r(             \
+enum nss_status _nss_##module##_getpwuid_r(             \
                 uid_t uid,                              \
                 struct passwd *pwd,                     \
                 char *buffer, size_t buflen,            \

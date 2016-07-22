@@ -708,6 +708,7 @@ int config_parse_strv(const char *unit,
                       void *userdata) {
 
         char ***sv = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -721,18 +722,19 @@ int config_parse_strv(const char *unit,
                  * we actually fill in a real empty array here rather
                  * than NULL, since some code wants to know if
                  * something was set at all... */
-                empty = strv_new(NULL, NULL);
+                empty = new0(char*, 1);
                 if (!empty)
                         return log_oom();
 
                 strv_free(*sv);
                 *sv = empty;
+
                 return 0;
         }
 
         for (;;) {
                 char *word = NULL;
-                int r;
+
                 r = extract_first_word(&rvalue, &word, WHITESPACE, EXTRACT_QUOTES|EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         break;

@@ -642,7 +642,7 @@ int setup_netns(int netns_storage_socket[2]) {
         }
 
 fail:
-        lockf(netns_storage_socket[0], F_ULOCK, 0);
+        (void) lockf(netns_storage_socket[0], F_ULOCK, 0);
         return r;
 }
 

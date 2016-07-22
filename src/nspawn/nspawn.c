@@ -101,9 +101,11 @@
 #include "util.h"
 
 /* Note that devpts's gid= parameter parses GIDs as signed values, hence we stay away from the upper half of the 32bit
- * UID range here */
+ * UID range here. We leave a bit of room at the lower end and a lot of room at the upper end, so that other subsystems
+ * may have their own allocation ranges too. */
 #define UID_SHIFT_PICK_MIN ((uid_t) UINT32_C(0x00080000))
 #define UID_SHIFT_PICK_MAX ((uid_t) UINT32_C(0x6FFF0000))
+
 /* nspawn is listening on the socket at the path in the constant nspawn_notify_socket_path
  * nspawn_notify_socket_path is relative to the container
  * the init process in the container pid can send messages to nspawn following the sd_notify(3) protocol */
@@ -276,7 +278,6 @@ static void help(void) {
                "                            accepted values: yes and no\n"
                , program_invocation_short_name);
 }
-
 
 static int custom_mounts_prepare(void) {
         unsigned i;
