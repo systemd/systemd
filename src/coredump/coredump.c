@@ -852,12 +852,42 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
                 return log_error_errno(errno, "Failed to connect to coredump service: %m");
 
         for (i = 0; i < n_iovec; i++) {
-                ssize_t n;
-                assert(iovec[i].iov_len > 0);
+                struct msghdr mh = {
+                        .msg_iov = (struct iovec*) iovec + i,
+                        .msg_iovlen = 1,
+                };
+                struct iovec copy[2];
 
-                n = send(fd, iovec[i].iov_base, iovec[i].iov_len, MSG_NOSIGNAL);
-                if (n < 0)
+                for (;;) {
+                        if (sendmsg(fd, &mh, MSG_NOSIGNAL) >= 0)
+                                break;
+
+                        if (errno == EMSGSIZE && mh.msg_iov[0].iov_len > 0) {
+                                /* This field didn't fit? That's a pity. Given that this is just metadata,
+                                 * let's truncate the field at half, and try again. We append three dots, in
+                                 * order to show that this is truncated. */
+
+                                if (mh.msg_iov != copy) {
+                                        /* We don't want to modify the caller's iovec, hence let's create our
+                                         * own array, consisting of two new iovecs, where the first is a
+                                         * (truncated) copy of what we want to send, and the second one
+                                         * contains the trailing dots. */
+                                        copy[0] = iovec[i];
+                                        copy[1] = (struct iovec) {
+                                                .iov_base = (char[]) { '.', '.', '.' },
+                                                .iov_len = 3,
+                                        };
+
+                                        mh.msg_iov = copy;
+                                        mh.msg_iovlen = 2;
+                                }
+
+                                copy[0].iov_len /= 2; /* halve it, and try again */
+                                continue;
+                        }
+
                         return log_error_errno(errno, "Failed to send coredump datagram: %m");
+                }
         }
 
         r = send_one_fd(fd, input_fd, 0);
