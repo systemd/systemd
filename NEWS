@@ -2,23 +2,207 @@ systemd System and Service Manager
 
 CHANGES WITH 231:
 
-        * When using systemd's default tmp.mount for /tmp, this will now be
-          mounted with the "nosuid" and "nodev" options. This avoids
-          privilege escalation attacks that put traps and exploits into /tmp.
-          However, this might cause some problems if you e. g. put container
+        * In service units the various ExecXYZ= settings have been extended
+          with an additional special character as first argument of the
+          assigned value: if the character '!' is used the specified command
+          line it will be run with full privileges, regardless of User=,
+          Group=, CapabilityBoundingSet= and similar options. The effect is
+          similar to the existing PermissionsStartOnly= option, but allows
+          configuration of this concept for each executed command line
+          independently.
+
+        * Services may now alter the service watchdog timeout at runtime by
+          sending a WATCHDOG_USEC= message via sd_notify().
+
+        * MemoryLimit= and related unit settings now optionally take percentage
+          specifications. The percentage is taken relative to the amount of
+          physical memory in the system (or in case of containers, the assigned
+          amount of memory). This allows scaling service resources neatly with
+          the amount of RAM available on the system. Similar, systemd-logind's
+          RuntimeDirectorySize= option now also optionally takes percentage
+          values.
+
+        * In similar fashion TasksMax= takes percentage values now, too. The
+          value is taken relative to the configured maximum number of processes
+          on the system. The per-service task maximum has been changed to 15%
+          using this functionality. (Effectively this is an increase of 512 →
+          4915 for service units, given the kernel's default pid_max setting.)
+
+        * Calendar time specifications in .timer units now understand a ".."
+          syntax for time ranges. Example: "4..7:10" may now be used for
+          defining a timer that is triggered at 4:10am, 5:10am, 6:10am and
+          7:10am every day.
+
+        * The InaccessableDirectories=, ReadOnlyDirectories= and
+          ReadWriteDirectories= unit file settings have been renamed to
+          InaccessablePaths=, ReadOnlyPaths= and ReadWritePaths= and may now be
+          applied to all kinds of file nodes, and not just directories, with
+          the exception of symlinks. Specifically these settings may now be
+          used on block and character device nodes, UNIX sockets and FIFOS as
+          well as regular files. The old names of these settings remain
+          available for compatibility.
+
+        * systemd will now log about all service processes it kills forcibly
+          (using SIGKILL) because they remained after the clean shutdown phase
+          of the service completed. This should help identifying services that
+          shut down uncleanly. Moreover if KillUserProcesses= is enabled in
+          systemd-logind's configuration a similar log message is generated for
+          processes killed at the end of each session due to this setting.
+
+        * systemd will now set the $JOURNAL_STREAM environment variable for all
+          services whose stdout/stderr are connected to the Journal (which
+          effectively means by default: all services). The variable contains
+          the device and inode number of the file descriptor used for
+          stdout/stderr. This may be used by invoked programs to detect whether
+          their stdout/stderr is connected to the Journal, in which case they
+          can switch over to direct Journal communication, thus being able to
+          pass extended, structured metadata along with their log messages. As
+          one example, this is now used by glib's logging primitives.
+
+        * When using systemd's default tmp.mount unit for /tmp, the mount point
+          will now be established with the "nosuid" and "nodev" options. This
+          avoids privilege escalation attacks that put traps and exploits into
+          /tmp.  However, this might cause problems if you e. g. put container
           images or overlays into /tmp; if you need this, override tmp.mount's
           "Options=" with a drop-in, or mount /tmp from /etc/fstab with your
           desired options.
 
-        * systemd-resolved gained a new "Cache=" option in resolved.conf.
-          Local caching makes DNS poisoning attacks slightly easier and allows
-          a local user to detect whether any other user on the same machine has
-          recently visited a given DNS name (privacy). If that is a concern,
-          you can disable local caching with this option at the cost of slower
-          DNS resolution (which is particularly expensive with DNSSEC). The
-          default continues to be "yes" (i. e.  caching is enabled).
+        * systemd now supports the "memory" cgroup controller also on
+          cgroupsv2.
 
-        Contributions from: ...
+        * The systemd-cgtop tool now optionally takes a control group path as
+          command line argument. If specified, the control group list shown is
+          limited to subgroups of that group.
+
+        * The SystemCallFilter= unit file setting gained support for
+          pre-defined, named system call filter sets. For example
+          SystemCallFilter=@clock is now an effective way to make all clock
+          changing-related system calls unavailanle to a service. A number of
+          similar pre-defined groups are defined. Writing system call filters
+          for system services is simplified substantially with this new
+          concept. Accordingly, all of systemd's own, long-running services now
+          enable system call filtering based on this, by default.
+
+        * A new service setting MemoryDenyWriteExecute= has been added, taking
+          a boolean value. If turned on, a service may no longer create memory
+          mappings that are writable and executable at the same time. This
+          enhances security for services where this is enabled as it becomes
+          harder to dynamically write and then execute memory in exploited
+          service processes. This option has been enabled for all of systemd's
+          own long-running services.
+
+        * A new RestrictRealtime= service setting has been added, taking a
+          boolean argument. If set the service's processes may no longer
+          acquire realtime scheduling. This improves security as realtime
+          scheduling may otherwise be used to easily freeze the system.
+
+        * systemd-nspawn gained a new switch --notify-ready= taking a boolean
+          value. This may be used for requesting that the system manager inside
+          of the container reports start-up completion to nspawn which then
+          propagates this notification further to the service manager
+          supervising nspawn itself. A related option NotifyReady= in .nspawn
+          files has been added too. This functionality allows ordering of the
+          start-up of multiple containers using the usual systemd ordering
+          primitives.
+
+        * machinectl gained a new command "stop" that is an alias for
+          "terminate".
+
+        * systemd-resolved gained support for contacting DNS servers on
+          link-local IPv6 addresses.
+
+        * If systemd-resolved receives the SIGUSR2 signal it will now flush all
+          its caches. A method call for requesting the same operation has been
+          added to the bus API too, and is made available via "systemd-resolve
+          --flush-caches".
+
+        * systemd-resolved gained a new --status switch. If passed a brief
+          summary of the used DNS configuration with per-interface information
+          is shown.
+
+        * resolved.conf gained a new Cache= boolean option, defaulting to
+          on. If turned off local DNS caching is disabled. This comes with a
+          performance penalty in particular when DNSSEC is enabled. Note that
+          resolved disables its internaly caching implicitly anyway, when the
+          configured DNS server is on a host-local IP address such as ::1 or
+          127.0.0.1, thus automatically avoiding double local caching.
+
+        * systemd-resolved now listens on the local IP address 127.0.0.53:53
+          for DNS requests. This improves compatibility with local programs
+          that do not use the libc NSS or systemd-resolved's bus APIs for name
+          resolution. This minimal DNS service is only available to local
+          programs and does not implement the full DNS protocol, but enough to
+          cover local DNS clients. A new, static resolv.conf file, listing just
+          this DNS server is now shipped in /usr/lib/systemd/resolv.conf. It is
+          now recommended to make /etc/resolv.conf a symlink to this file in
+          order to route all DNS lookups to systemd-resolved, regardless if
+          done via NSS, the bus API or raw DNS packets. Note that this local
+          DNS service is not as fully featured as the libc NSS or
+          systemd-resolved's bus APIs. For example, as unicast DNS cannot be
+          used to deliver link-local address information (as this implies
+          sending a local interface index along), LLMNR/mDNS support via this
+          interface is severely restricted. It is thus strongly recommended for
+          all applications to use the libc NSS API or native systemd-resolved
+          bus API instead.
+
+        * systemd-networkd's bridge support learned a new setting
+          VLANFiltering= for controlling VLAN filtering. Moreover a new section
+          in .network files has been added for configuring VLAN bridging in
+          more detail: VLAN=, EgressUntagged=, PVID= in [BridgeVLAN].
+
+        * systemd-networkd's IPv6 Router Advertisement code now makes use of
+          the DNSSL and RDNSS options. This means IPv6 DNS configuration may
+          now be acquired without relying on DHCPv6. Two new options
+          UseDomains= and UseDNS= have been added to configure this behaviour.
+
+        * systemd-networkd's IPv6AcceptRouterAdvertisements= option has been
+          renamed IPv6AcceptRA=, without altering its behaviour. The old
+          setting name remains available for compatibility reasons.
+
+        * The systemd-networkd VTI/VTI6 tunneling support gained new options
+          Key=, InputKey= and OutputKey=.
+
+        * systemd-networkd gained support for VRF ("Virtual Routing Function")
+          interface configuration.
+
+        * "systemctl edit" may now be used to create new unit files by
+          specifying the --force switch.
+
+        * sd-event gained a new function sd_event_get_iteration() for
+          requesting the current iteration counter of the event loop. It starts
+          at zero and is increased by one with each event loop iteration.
+
+        * Configuration for "mkosi" is now part of the systemd
+          repository. mkosi is a tool to easily build legacy-free OS images,
+          and is available on github: https://github.com/systemd/mkosi. If
+          "mkosi" is invoked in the build tree a new raw OS image is generated
+          incorporating the systemd sources currently being worked on and a
+          clean, fresh distribution installation. The generated OS image may be
+          booted up with "systemd-nspawn -b -i", qemu-kvm or on any physcial
+          UEFI PC. This functionality is particularly useful to easily test
+          local changes made to systemd in a pristine, defined environment. See
+          HACKING for details.
+
+        Contributions from: 0xAX, Alessandro Puccetti, Alessio Igor Bogani,
+        Alexander Kuleshov, Alexander Kurtz, Alex Gaynor, Andika Triwidada,
+        Andreas Pokorny, Andreas Rammhold, Andrew Jeddeloh, Ansgar Burchardt,
+        Atrotors, Benjamin Drung, Brian Boylston, Christian Hesse, Christian
+        Rebischke, Daniele Medri, Daniel Mack, Dave Reisner, David Herrmann,
+        David Michael, Djalal Harouni, Doug Christman, Douglas Christman, Elias
+        Probst, Evgeny Vereshchagin, Federico Mena Quintero, Felipe Sateler,
+        Franck Bui, Harald Hoyer, Ian Lee, Ivan Shapovalov, Jakub Wilk, Jan
+        Janssen, Jean-Sébastien Bour, John Paul Adrian Glaubitz, Jouke
+        Witteveen, Kai Ruhnau, kpengboy, Kyle Walker, Lénaïc Huard, Lennart
+        Poettering, Luca Bruno, Lukas Lösche, Lukáš Nykrýn, mahkoh, Marcel
+        Holtmann, Martin Pitt, Marty Plummer, Matthieu Codron, Max Prokhorov,
+        Michael Biebl, Michael Karcher, michaelolbrich, Michał Bartoszkiewicz,
+        Michal Sekletar, Michal Soltys, Minkyung, Muhammet Kara, mulkieran,
+        Otto Wallenius, Pablo Lezaeta Reyes, Peter Hutterer, Ronny Chevalier,
+        Rusty Bird, Stef Walter, Susant Sahani, Tejun Heo, Thomas Blume, Thomas
+        Haller, Thomas Hindoe Paaboel Andersen, Thomas H. P. Andersen, Tobias
+        Jungel, Tom Gundersen, Tom Yan, Topi Miettinen, Torstein Husebø,
+        Valentin Vidić, Viktar Vaŭčkievič, Weng Xuetian, Werner Fink, Zbigniew
+        Jędrzejewski-Szmek
 
         — Somewhere, 2016-XX-XX
 
