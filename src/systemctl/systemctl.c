@@ -3033,6 +3033,9 @@ static int logind_check_inhibitors(enum action a) {
         if (!on_tty())
                 return 0;
 
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return 0;
+
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
