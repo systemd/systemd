@@ -920,6 +920,9 @@ static int process_special_crash(const char *context[], int input_fd) {
 
         log_notice("Detected coredump of the journal daemon or PID 1, diverted to %s.", filename);
 
+        log_notice("Due to the special circumstances, coredump collection will now be turned off.");
+        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+
         return 0;
 }
 
