@@ -38,6 +38,12 @@ Requires(preun): systemd \
 Requires(postun): systemd \
 %{nil}
 
+%systemd_ordering \
+OrderWithRequires(post): systemd \
+OrderWithRequires(preun): systemd \
+OrderWithRequires(postun): systemd \
+%{nil}
+
 %systemd_post() \
 if [ $1 -eq 1 ] ; then \
         # Initial installation \
