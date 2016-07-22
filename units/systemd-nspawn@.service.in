@@ -25,18 +25,9 @@ TasksMax=16384
 # Enforce a strict device policy, similar to the one nspawn configures
 # when it allocates its own scope unit. Make sure to keep these
 # policies in sync if you change them!
-DevicePolicy=strict
-DeviceAllow=/dev/null rwm
-DeviceAllow=/dev/zero rwm
-DeviceAllow=/dev/full rwm
-DeviceAllow=/dev/random rwm
-DeviceAllow=/dev/urandom rwm
-DeviceAllow=/dev/tty rwm
+DevicePolicy=closed
 DeviceAllow=/dev/net/tun rwm
-DeviceAllow=/dev/pts/ptmx rw
 DeviceAllow=char-pts rw
-DeviceAllow=/run/systemd/inaccessible/chr rwm
-DeviceAllow=/run/systemd/inaccessible/blk rwm
 
 # nspawn itself needs access to /dev/loop-control and /dev/loop, to
 # implement the --image= option. Add these here, too.

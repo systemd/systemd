@@ -104,7 +104,7 @@ int register_machine(
                                 return bus_log_create_error(r);
                 }
 
-                r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
+                r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "closed");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -112,31 +112,20 @@ int register_machine(
                  * systemd-nspawn@.service, to keep the device
                  * policies in sync regardless if we are run with or
                  * without the --keep-unit switch. */
-                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 11,
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 2,
                                           /* Allow the container to
                                            * access and create the API
                                            * device nodes, so that
                                            * PrivateDevices= in the
                                            * container can work
                                            * fine */
-                                          "/dev/null", "rwm",
-                                          "/dev/zero", "rwm",
-                                          "/dev/full", "rwm",
-                                          "/dev/random", "rwm",
-                                          "/dev/urandom", "rwm",
-                                          "/dev/tty", "rwm",
                                           "/dev/net/tun", "rwm",
                                           /* Allow the container
                                            * access to ptys. However,
                                            * do not permit the
                                            * container to ever create
                                            * these device nodes. */
-                                          "/dev/pts/ptmx", "rw",
-                                          "char-pts", "rw",
-                                          /* Allow /run/systemd/inaccessible/{chr,blk}
-                                           * devices inside the container */
-                                          "/run/systemd/inaccessible/chr", "rwm",
-                                          "/run/systemd/inaccessible/blk", "rwm");
+                                          "char-pts", "rw");
                 if (r < 0)
                         return bus_log_create_error(r);
 
