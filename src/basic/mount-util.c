@@ -534,15 +534,22 @@ int repeat_unmount(const char *path, int flags) {
 }
 
 const char* mode_to_inaccessible_node(mode_t mode) {
+        /* This function maps a node type to the correspondent inaccessible node type.
+         * Character and block inaccessible devices may not be created (because major=0 and minor=0),
+         * in such case we map character and block devices to the inaccessible node type socket. */
         switch(mode & S_IFMT) {
                 case S_IFREG:
                         return "/run/systemd/inaccessible/reg";
                 case S_IFDIR:
                         return "/run/systemd/inaccessible/dir";
                 case S_IFCHR:
-                        return "/run/systemd/inaccessible/chr";
+                        if (access("/run/systemd/inaccessible/chr", F_OK) == 0)
+                                return "/run/systemd/inaccessible/chr";
+                        return "/run/systemd/inaccessible/sock";
                 case S_IFBLK:
-                        return "/run/systemd/inaccessible/blk";
+                        if (access("/run/systemd/inaccessible/blk", F_OK) == 0)
+                                return "/run/systemd/inaccessible/blk";
+                        return "/run/systemd/inaccessible/sock";
                 case S_IFIFO:
                         return "/run/systemd/inaccessible/fifo";
                 case S_IFSOCK:
