@@ -1256,7 +1256,7 @@ static int on_post(sd_event_source *s, void *userdata) {
                                         return r;
                         } else if (manager->cgroup)
                                 /* cleanup possible left-over processes in our cgroup */
-                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, false, true, NULL);
+                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
                 }
         }
 

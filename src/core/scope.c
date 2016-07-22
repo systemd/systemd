@@ -240,7 +240,7 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
 
         /* If we have a controller set let's ask the controller nicely
          * to terminate the scope, instead of us going directly into
-         * SIGTERM beserk mode */
+         * SIGTERM berserk mode */
         if (state == SCOPE_STOP_SIGTERM)
                 skip_signal = bus_scope_send_request_stop(s) > 0;
 
@@ -248,7 +248,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                 r = unit_kill_context(
                                 UNIT(s),
                                 &s->kill_context,
-                                state != SCOPE_STOP_SIGTERM ? KILL_KILL : KILL_TERMINATE,
+                                state != SCOPE_STOP_SIGTERM ? KILL_KILL :
+                                s->was_abandoned            ? KILL_TERMINATE_AND_LOG :
+                                                              KILL_TERMINATE,
                                 -1, -1, false);
                 if (r < 0)
                         goto fail;
@@ -369,6 +371,7 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", scope_state_to_string(s->state));
+        unit_serialize_item(u, f, "was-abandoned", yes_no(s->was_abandoned));
         return 0;
 }
 
@@ -389,6 +392,14 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                 else
                         s->deserialized_state = state;
 
+        } else if (streq(key, "was-abandoned")) {
+                int k;
+
+                k = parse_boolean(value);
+                if (k < 0)
+                        log_unit_debug(u, "Failed to parse boolean value: %s", value);
+                else
+                        s->was_abandoned = k;
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
@@ -474,6 +485,7 @@ int scope_abandon(Scope *s) {
         if (!IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED))
                 return -ESTALE;
 
+        s->was_abandoned = true;
         s->controller = mfree(s->controller);
 
         /* The client is no longer watching the remaining processes,

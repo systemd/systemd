@@ -603,7 +603,6 @@ int session_start(Session *s) {
 
 static int session_stop_scope(Session *s, bool force) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job = NULL;
         int r;
 
         assert(s);
@@ -611,22 +610,25 @@ static int session_stop_scope(Session *s, bool force) {
         if (!s->scope)
                 return 0;
 
+        /* Let's always abandon the scope first. This tells systemd that we are not interested anymore, and everything
+         * that is left in in the scope is "left-over". Informing systemd about this has the benefit that it will log
+         * when killing any processes left after this point. */
+        r = manager_abandon_scope(s->manager, s->scope, &error);
+        if (r < 0)
+                log_warning_errno(r, "Failed to abandon session scope, ignoring: %s", bus_error_message(&error, r));
+
+        /* Optionally, let's kill everything that's left now. */
         if (force || manager_shall_kill(s->manager, s->user->name)) {
+                char *job = NULL;
+
                 r = manager_stop_unit(s->manager, s->scope, &error, &job);
-                if (r < 0) {
-                        log_error("Failed to stop session scope: %s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stop session scope: %s", bus_error_message(&error, r));
 
                 free(s->scope_job);
                 s->scope_job = job;
-        } else {
-                r = manager_abandon_scope(s->manager, s->scope, &error);
-                if (r < 0) {
-                        log_error("Failed to abandon session scope: %s", bus_error_message(&error, r));
-                        return r;
-                }
-        }
+        } else
+                s->scope_job = mfree(s->scope_job);
 
         return 0;
 }
