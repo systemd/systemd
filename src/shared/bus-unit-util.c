@@ -132,10 +132,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 char *n;
 
                                 /* When this is a percentage we'll convert this into a relative value in the range
-                                 * 0…UINT32_MAX and pass it in the MemoryLowByPhysicalMemory property (and related
+                                 * 0…UINT32_MAX and pass it in the MemoryLowScale property (and related
                                  * ones). This way the physical memory size can be determined server-side */
 
-                                n = strjoina(field, "ByPhysicalMemory");
+                                n = strjoina(field, "Scale");
                                 r = sd_bus_message_append(m, "sv", n, "u", (uint32_t) (((uint64_t) UINT32_MAX * r) / 100U));
                                 goto finish;
 
@@ -147,6 +147,26 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "sv", field, "t", bytes);
+                goto finish;
+        } else if (streq(field, "TasksMax")) {
+                uint64_t t;
+
+                if (isempty(eq) || streq(eq, "infinity"))
+                        t = (uint64_t) -1;
+                else {
+                        r = parse_percent(eq);
+                        if (r >= 0) {
+                                r = sd_bus_message_append(m, "sv", "TasksMaxScale", "u", (uint32_t) (((uint64_t) UINT32_MAX * r) / 100U));
+                                goto finish;
+                        } else {
+                                r = safe_atou64(eq, &t);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse maximum tasks specification %s", assignment);
+                        }
+
+                }
+
+                r = sd_bus_message_append(m, "sv", "TasksMax", "t", t);
                 goto finish;
         }
 
@@ -190,21 +210,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return log_error_errno(r, "Failed to parse boolean assignment %s.", assignment);
 
                 r = sd_bus_message_append(m, "v", "b", r);
-
-        } else if (streq(field, "TasksMax")) {
-                uint64_t n;
-
-                if (isempty(eq) || streq(eq, "infinity"))
-                        n = (uint64_t) -1;
-                else {
-                        r = safe_atou64(eq, &n);
-                        if (r < 0) {
-                                log_error("Failed to parse maximum tasks specification %s", assignment);
-                                return -EINVAL;
-                        }
-                }
-
-                r = sd_bus_message_append(m, "v", "t", n);
 
         } else if (STR_IN_SET(field, "CPUShares", "StartupCPUShares")) {
                 uint64_t u;

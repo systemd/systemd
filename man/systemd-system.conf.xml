@@ -325,12 +325,11 @@
       <varlistentry>
         <term><varname>DefaultTasksMax=</varname></term>
 
-        <listitem><para>Configure the default value for the per-unit
-        <varname>TasksMax=</varname> setting. See
+        <listitem><para>Configure the default value for the per-unit <varname>TasksMax=</varname> setting. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting applies to all unit types that
-        support resource control settings, with the exception of slice
-        units. Defaults to 512.</para></listitem>
+        for details. This setting applies to all unit types that support resource control settings, with the exception
+        of slice units. Defaults to 15%, which equals 4915 with the kernel's defaults on the host, but might be smaller
+        in OS containers.</para></listitem>
       </varlistentry>
 
       <varlistentry>

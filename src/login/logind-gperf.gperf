@@ -36,4 +36,4 @@ Login.RuntimeDirectorySize,        config_parse_tmpfs_size,    0, offsetof(Manag
 Login.RemoveIPC,                   config_parse_bool,          0, offsetof(Manager, remove_ipc)
 Login.InhibitorsMax,               config_parse_uint64,        0, offsetof(Manager, inhibitors_max)
 Login.SessionsMax,                 config_parse_uint64,        0, offsetof(Manager, sessions_max)
-Login.UserTasksMax,                config_parse_uint64,        0, offsetof(Manager, user_tasks_max)
+Login.UserTasksMax,                config_parse_user_tasks_max,0, offsetof(Manager, user_tasks_max)
