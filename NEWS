@@ -172,6 +172,28 @@ CHANGES WITH 231:
           requesting the current iteration counter of the event loop. It starts
           at zero and is increased by one with each event loop iteration.
 
+        * A new rpm macro %systemd_ordering is provided by the macros.systemd
+          file. It can be used in lieu of %systemd_requires in packages which
+          don't use any systemd functionality and are intended to be installed
+          in minimal containers without systemd present. This macro provides
+          ordering dependecies to ensure that if the package is installed in
+          the same rpm transaction as systemd, systemd will be installed before
+          the scriptlets for the package are executed, allowing unit presets
+          to be handled.
+
+          New macros %_systemdgeneratordir and %_systemdusergeneratordir have
+          been added to simplify packaging of generators.
+
+        * The os-release file gained VERSION_CODENAME field for the
+          distribution nickname (e.g. VERSION_CODENAME=woody).
+
+        * New udev property UDEV_DISABLE_PERSISTENT_STORAGE_RULES_FLAG=1
+          can be set to disable parsing of metadata and the creation
+          of persistent symlinks for that device.
+
+        * The change to tag framebuffer devices (/dev/fb*) with "uaccess"
+          to make them available to logged in users has been reverted.
+
         * Configuration for "mkosi" is now part of the systemd
           repository. mkosi is a tool to easily build legacy-free OS images,
           and is available on github: https://github.com/systemd/mkosi. If
