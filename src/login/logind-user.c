@@ -311,8 +311,7 @@ int user_load(User *u) {
                 if (r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to read %s: %m", u->state_file);
-                return r;
+                return log_error_errno(r, "Failed to read %s: %m", u->state_file);
         }
 
         if (display)

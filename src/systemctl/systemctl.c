@@ -5537,10 +5537,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                 }
 
                 j = wait_for_terminate(pid, &status);
-                if (j < 0) {
-                        log_error_errno(j, "Failed to wait for child: %m");
-                        return j;
-                }
+                if (j < 0)
+                        return log_error_errno(j, "Failed to wait for child: %m");
 
                 if (status.si_code == CLD_EXITED) {
                         if (streq(verb, "is-enabled")) {

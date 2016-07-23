@@ -489,10 +489,8 @@ static int add_boot(const char *what) {
                 return 0;
         }
 
-        if (r < 0) {
-                log_error_errno(r, "Failed to read ESP partition UUID: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read ESP partition UUID: %m");
 
         errno = 0;
         b = blkid_new_probe_from_filename(what);

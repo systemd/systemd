@@ -119,10 +119,8 @@ static int seccomp_add_default_syscall_filter(scmp_filter_ctx ctx,
                 r = seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), blacklist[i].syscall_num, 0);
                 if (r == -EFAULT)
                         continue; /* unknown syscall */
-                if (r < 0) {
-                        log_error_errno(r, "Failed to block syscall: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to block syscall: %m");
         }
 
         return 0;

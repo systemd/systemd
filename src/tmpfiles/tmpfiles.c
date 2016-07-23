@@ -1575,13 +1575,12 @@ static int clean_item_instance(Item *i, const char* instance) {
 
         d = opendir_nomod(instance);
         if (!d) {
-                if (errno == ENOENT || errno == ENOTDIR) {
+                if (IN_SET(errno, ENOENT, ENOTDIR)) {
                         log_debug_errno(errno, "Directory \"%s\": %m", instance);
                         return 0;
                 }
 
-                log_error_errno(errno, "Failed to open directory %s: %m", instance);
-                return -errno;
+                return log_error_errno(errno, "Failed to open directory %s: %m", instance);
         }
 
         if (fstat(dirfd(d), &s) < 0)

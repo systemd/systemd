@@ -157,10 +157,8 @@ static int fix_acl(int fd, uid_t uid) {
 
         if (acl_create_entry(&acl, &entry) < 0 ||
             acl_set_tag_type(entry, ACL_USER) < 0 ||
-            acl_set_qualifier(entry, &uid) < 0) {
-                log_error_errno(errno, "Failed to patch ACL: %m");
-                return -errno;
-        }
+            acl_set_qualifier(entry, &uid) < 0)
+                return log_error_errno(errno, "Failed to patch ACL: %m");
 
         if (acl_get_permset(entry, &permset) < 0 ||
             acl_add_perm(permset, ACL_READ) < 0)
