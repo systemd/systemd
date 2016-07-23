@@ -3553,7 +3553,7 @@ int main(int argc, char *argv[]) {
                         }
                         if (r < 0) {
                                 log_error_errno(r, "Failed to lock %s: %m", arg_directory);
-                                return r;
+                                goto finish;
                         }
 
                         if (arg_template) {
