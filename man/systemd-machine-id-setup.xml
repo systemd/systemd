@@ -151,6 +151,12 @@
         early boot service.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--print</option></term>
+
+        <listitem><para>Print the machine ID generated or commited after the operation is complete.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

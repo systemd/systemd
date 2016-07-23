@@ -221,7 +221,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                 peer.bytes[i/2] = ((uint8_t) x << 4 | (uint8_t) y);
         }
 
-        if (!sd_id128_equal(b->server_id, SD_ID128_NULL) &&
+        if (!sd_id128_is_null(b->server_id) &&
             !sd_id128_equal(b->server_id, peer))
                 return -EPERM;
 

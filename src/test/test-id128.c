@@ -26,6 +26,7 @@
 #include "macro.h"
 #include "string-util.h"
 #include "util.h"
+#include "id128-util.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
@@ -33,7 +34,7 @@
 
 int main(int argc, char *argv[]) {
         sd_id128_t id, id2;
-        char t[33];
+        char t[33], q[37];
         _cleanup_free_ char *b = NULL;
 
         assert_se(sd_id128_randomize(&id) == 0);
@@ -56,6 +57,17 @@ int main(int argc, char *argv[]) {
         assert_se(asprintf(&b, SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(ID128_WALDI)) == 32);
         printf("waldi2: %s\n", b);
         assert_se(streq(t, b));
+
+        printf("waldi3: %s\n", id128_to_uuid_string(ID128_WALDI, q));
+        assert_se(streq(q, UUID_WALDI));
+
+        b = mfree(b);
+        assert_se(asprintf(&b, ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(ID128_WALDI)) == 36);
+        printf("waldi4: %s\n", b);
+        assert_se(streq(q, b));
+
+        assert_se(sd_id128_from_string(STR_WALDI, &id) >= 0);
+        assert_se(sd_id128_equal(id, ID128_WALDI));
 
         assert_se(sd_id128_from_string(UUID_WALDI, &id) >= 0);
         assert_se(sd_id128_equal(id, ID128_WALDI));

@@ -29,6 +29,7 @@
 
 static char *arg_root = NULL;
 static bool arg_commit = false;
+static bool arg_print = false;
 
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
@@ -37,6 +38,7 @@ static void help(void) {
                "     --version          Show package version\n"
                "     --root=ROOT        Filesystem root\n"
                "     --commit           Commit transient ID\n"
+               "     --print            Print used machine ID\n"
                , program_invocation_short_name);
 }
 
@@ -46,6 +48,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
                 ARG_COMMIT,
+                ARG_PRINT,
         };
 
         static const struct option options[] = {
@@ -53,6 +56,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "root",      required_argument, NULL, ARG_ROOT      },
                 { "commit",    no_argument,       NULL, ARG_COMMIT    },
+                { "print",     no_argument,       NULL, ARG_PRINT     },
                 {}
         };
 
@@ -82,6 +86,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_commit = true;
                         break;
 
+                case ARG_PRINT:
+                        arg_print = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -98,6 +106,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        char buf[SD_ID128_STRING_MAX];
+        sd_id128_t id;
         int r;
 
         log_parse_environment();
@@ -107,10 +117,24 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (arg_commit)
+        if (arg_commit) {
                 r = machine_id_commit(arg_root);
-        else
-                r = machine_id_setup(arg_root, SD_ID128_NULL);
+                if (r < 0)
+                        goto finish;
+
+                r = sd_id128_get_machine(&id);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read machine ID back: %m");
+                        goto finish;
+                }
+        } else {
+                r = machine_id_setup(arg_root, SD_ID128_NULL, &id);
+                if (r < 0)
+                        goto finish;
+        }
+
+        if (arg_print)
+                puts(sd_id128_to_string(id, buf));
 
 finish:
         free(arg_root);

@@ -877,7 +877,7 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         assert_cc(6 == LOG_INFO);
         IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
 
-        if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
+        if (!sd_id128_is_null(message_id)) {
                 snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
                 IOVEC_SET_STRING(iovec[n++], mid);
         }

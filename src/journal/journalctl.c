@@ -1266,7 +1266,7 @@ static int add_boot(sd_journal *j) {
         /* Take a shortcut and use the current boot_id, which we can do very quickly.
          * We can do this only when we logs are coming from the current machine,
          * so take the slow path if log location is specified. */
-        if (arg_boot_offset == 0 && sd_id128_equal(arg_boot_id, SD_ID128_NULL) &&
+        if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
             !arg_directory && !arg_file)
 
                 return add_match_this_boot(j, arg_machine);

@@ -61,9 +61,9 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "log.h"
 #include "loopback-setup.h"
-#include "machine-id-setup.h"
 #include "machine-image.h"
 #include "macro.h"
 #include "missing.h"
@@ -76,10 +76,10 @@
 #include "nspawn-network.h"
 #include "nspawn-patch-uid.h"
 #include "nspawn-register.h"
+#include "nspawn-seccomp.h"
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
-#include "nspawn-seccomp.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -594,9 +594,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_UUID:
                         r = sd_id128_from_string(optarg, &arg_uuid);
-                        if (r < 0) {
-                                log_error("Invalid UUID: %s", optarg);
-                                return r;
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid UUID: %s", optarg);
+
+                        if (sd_id128_is_null(arg_uuid)) {
+                                log_error("Machine UUID may not be all zeroes.");
+                                return -EINVAL;
                         }
 
                         arg_settings_mask |= SETTING_MACHINE_ID;
@@ -1266,20 +1269,9 @@ static int setup_resolv_conf(const char *dest) {
         return 0;
 }
 
-static char* id128_format_as_uuid(sd_id128_t id, char s[37]) {
-        assert(s);
-
-        snprintf(s, 37,
-                 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                 SD_ID128_FORMAT_VAL(id));
-
-        return s;
-}
-
 static int setup_boot_id(const char *dest) {
+        sd_id128_t rnd = SD_ID128_NULL;
         const char *from, *to;
-        sd_id128_t rnd = {};
-        char as_uuid[37];
         int r;
 
         if (arg_share_system)
@@ -1295,18 +1287,16 @@ static int setup_boot_id(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        id128_format_as_uuid(rnd, as_uuid);
-
-        r = write_string_file(from, as_uuid, WRITE_STRING_FILE_CREATE);
+        r = id128_write(from, ID128_UUID, rnd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
         if (mount(from, to, NULL, MS_BIND, NULL) < 0)
                 r = log_error_errno(errno, "Failed to bind mount boot id: %m");
         else if (mount(NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL) < 0)
-                log_warning_errno(errno, "Failed to make boot id read-only: %m");
+                log_warning_errno(errno, "Failed to make boot id read-only, ignoring: %m");
 
-        unlink(from);
+        (void) unlink(from);
         return r;
 }
 
@@ -2232,33 +2222,37 @@ static int mount_device(const char *what, const char *where, const char *directo
 }
 
 static int setup_machine_id(const char *directory) {
+        const char *etc_machine_id;
+        sd_id128_t id;
         int r;
-        const char *etc_machine_id, *t;
-        _cleanup_free_ char *s = NULL;
+
+        /* If the UUID in the container is already set, then that's what counts, and we use. If it isn't set, and the
+         * caller passed --uuid=, then we'll pass it in the $container_uuid env var to PID 1 of the container. The
+         * assumption is that PID 1 will then write it to /etc/machine-id to make it persistent. If --uuid= is not
+         * passed we generate a random UUID, and pass it via $container_uuid. In effect this means that /etc/machine-id
+         * in the container and our idea of the container UUID will always be in sync (at least if PID 1 in the
+         * container behaves nicely). */
 
         etc_machine_id = prefix_roota(directory, "/etc/machine-id");
 
-        r = read_one_line_file(etc_machine_id, &s);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read machine ID from %s: %m", etc_machine_id);
+        r = id128_read(etc_machine_id, ID128_PLAIN, &id);
+        if (r < 0) {
+                if (!IN_SET(r, -ENOENT, -ENOMEDIUM)) /* If the file is missing or empty, we don't mind */
+                        return log_error_errno(r, "Failed to read machine ID from container image: %m");
 
-        t = strstrip(s);
-
-        if (!isempty(t)) {
-                r = sd_id128_from_string(t, &arg_uuid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse machine ID from %s: %m", etc_machine_id);
-        } else {
                 if (sd_id128_is_null(arg_uuid)) {
                         r = sd_id128_randomize(&arg_uuid);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to generate random machine ID: %m");
+                                return log_error_errno(r, "Failed to acquire randomized machine UUID: %m");
                 }
-        }
+        } else {
+                if (sd_id128_is_null(id)) {
+                        log_error("Machine ID in container image is zero, refusing.");
+                        return -EINVAL;
+                }
 
-        r = machine_id_setup(directory, arg_uuid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to setup machine ID: %m");
+                arg_uuid = id;
+        }
 
         return 0;
 }
@@ -2663,9 +2657,9 @@ static int inner_child(
             (asprintf((char**)(envp + n_env++), "LOGNAME=%s", arg_user ? arg_user : "root") < 0))
                 return log_oom();
 
-        assert(!sd_id128_equal(arg_uuid, SD_ID128_NULL));
+        assert(!sd_id128_is_null(arg_uuid));
 
-        if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_format_as_uuid(arg_uuid, as_uuid)) < 0)
+        if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_to_uuid_string(arg_uuid, as_uuid)) < 0)
                 return log_oom();
 
         if (fdset_size(fds) > 0) {

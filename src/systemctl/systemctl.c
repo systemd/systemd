@@ -3764,7 +3764,7 @@ static void print_status_info(
 
                         if (i->running) {
                                 _cleanup_free_ char *comm = NULL;
-                                get_process_comm(i->main_pid, &comm);
+                                (void) get_process_comm(i->main_pid, &comm);
                                 if (comm)
                                         printf(" (%s)", comm);
                         } else if (i->exit_code > 0) {
@@ -3783,17 +3783,19 @@ static void print_status_info(
                                         printf("signal=%s", signal_to_string(i->exit_status));
                                 printf(")");
                         }
-
-                        if (i->control_pid > 0)
-                                printf(";");
                 }
 
                 if (i->control_pid > 0) {
                         _cleanup_free_ char *c = NULL;
 
-                        printf(" %8s: "PID_FMT, i->main_pid ? "" : " Control", i->control_pid);
+                        if (i->main_pid > 0)
+                                fputs("; Control PID: ", stdout);
+                        else
+                                fputs("Cntrl PID: ", stdout); /* if first in column, abbreviated so it fits alignment */
 
-                        get_process_comm(i->control_pid, &c);
+                        printf(PID_FMT, i->control_pid);
+
+                        (void) get_process_comm(i->control_pid, &c);
                         if (c)
                                 printf(" (%s)", c);
                 }
@@ -3810,7 +3812,7 @@ static void print_status_info(
                 printf("    Tasks: %" PRIu64, i->tasks_current);
 
                 if (i->tasks_max != (uint64_t) -1)
-                        printf(" (limit: %" PRIi64 ")\n", i->tasks_max);
+                        printf(" (limit: %" PRIu64 ")\n", i->tasks_max);
                 else
                         printf("\n");
         }
