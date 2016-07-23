@@ -90,7 +90,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
                         else if (r > 0) {
-                                log_error_errno(EEXIST, "Image '%s' already exists.", local);
+                                log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
                         }
                 }
@@ -185,7 +185,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
                         else if (r > 0) {
-                                log_error_errno(EEXIST, "Image '%s' already exists.", local);
+                                log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
                         }
                 }
