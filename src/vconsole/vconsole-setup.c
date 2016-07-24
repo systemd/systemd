@@ -83,17 +83,19 @@ static bool is_settable(int fd) {
         return r == 0 && IN_SET(curr_mode, K_XLATE, K_UNICODE);
 }
 
-static int toggle_utf8(int fd, bool utf8) {
+static int toggle_utf8(const char *name, int fd, bool utf8) {
         int r;
         struct termios tc = {};
 
+        assert(name);
+
         r = ioctl(fd, KDSKBMODE, utf8 ? K_UNICODE : K_XLATE);
         if (r < 0)
-                return log_warning_errno(errno, "Failed to %s UTF-8 kbdmode: %m", utf8 ? "enable" : "disable");
+                return log_warning_errno(errno, "Failed to %s UTF-8 kbdmode on %s: %m", enable_disable(utf8), name);
 
         r = loop_write(fd, utf8 ? "\033%G" : "\033%@", 3, false);
         if (r < 0)
-                return log_warning_errno(r, "Failed to %s UTF-8 term processing: %m", utf8 ? "enable" : "disable");
+                return log_warning_errno(r, "Failed to %s UTF-8 term processing on %s: %m", enable_disable(utf8), name);
 
         r = tcgetattr(fd, &tc);
         if (r >= 0) {
@@ -104,8 +106,9 @@ static int toggle_utf8(int fd, bool utf8) {
                 r = tcsetattr(fd, TCSANOW, &tc);
         }
         if (r < 0)
-                return log_warning_errno(errno, "Failed to %s iutf8 flag: %m", utf8 ? "enable" : "disable");
+                return log_warning_errno(errno, "Failed to %s iutf8 flag on %s: %m", enable_disable(utf8), name);
 
+        log_debug("UTF-8 kbdmode %sd on %s", enable_disable(utf8), name);
         return 0;
 }
 
@@ -114,8 +117,10 @@ static int toggle_utf8_sysfs(bool utf8) {
 
         r = write_string_file("/sys/module/vt/parameters/default_utf8", one_zero(utf8), 0);
         if (r < 0)
-                log_warning_errno(r, "Failed to %s sysfs UTF-8 flag: %m", utf8 ? "enable" : "disable");
-        return r;
+                return log_warning_errno(r, "Failed to %s sysfs UTF-8 flag: %m", enable_disable(utf8));
+
+        log_debug("Sysfs UTF-8 flag %sd", enable_disable(utf8));
+        return 0;
 }
 
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
@@ -266,7 +271,7 @@ static void setup_remaining_vcs(int fd, bool utf8) {
                 if (!is_settable(fd_d))
                         continue;
 
-                toggle_utf8(fd_d, utf8);
+                toggle_utf8(ttyname, fd_d, utf8);
 
                 if (cfo.op != KD_FONT_OP_SET)
                         continue;
@@ -281,13 +286,18 @@ static void setup_remaining_vcs(int fd, bool utf8) {
                 /* unimapd is a ushort count and a pointer to an
                    array of struct unipair { ushort, ushort } */
                 r = ioctl(fd_d, PIO_UNIMAPCLR, &adv);
-                if (r < 0)
+                if (r < 0) {
                         log_warning_errno(errno, "PIO_UNIMAPCLR failed, unimaps might be incorrect for tty%i: %m", i);
-                else {
-                        r = ioctl(fd_d, PIO_UNIMAP, &unimapd);
-                        if (r < 0)
-                                log_warning_errno(errno, "PIO_UNIMAP failed, unimaps might be incorrect for tty%i: %m", i);
+                        continue;
                 }
+
+                r = ioctl(fd_d, PIO_UNIMAP, &unimapd);
+                if (r < 0) {
+                        log_warning_errno(errno, "PIO_UNIMAP failed, unimaps might be incorrect for tty%i: %m", i);
+                        continue;
+                }
+
+                log_debug("Font and unimap successfully copied to %s", ttyname);
         }
 }
 
@@ -366,7 +376,7 @@ int main(int argc, char **argv) {
         }
 
         toggle_utf8_sysfs(utf8);
-        toggle_utf8(fd, utf8);
+        toggle_utf8(vc, fd, utf8);
         font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) == 0;
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) == 0;
 
@@ -374,7 +384,7 @@ int main(int argc, char **argv) {
                 if (font_ok)
                         setup_remaining_vcs(fd, utf8);
                 else
-                        log_warning("Setting source virtual console failed, ignoring remaining ones.");
+                        log_warning("Setting source virtual console failed, ignoring remaining ones");
         }
 
         return font_ok && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
