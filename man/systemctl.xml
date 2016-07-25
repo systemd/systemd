@@ -973,70 +973,62 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>list-unit-files <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List unit files installed in the file system and their enablement state
-            (as reported by <command>is-enabled</command>). If one or more
-            <replaceable>PATTERN</replaceable>s are specified, only units whose filename
-            (just the last component of the path) matches one of them are shown.</para>
+            <para>List unit files installed on the system, in combination with their enablement state (as reported by
+            <command>is-enabled</command>). If one or more <replaceable>PATTERN</replaceable>s are specified, only unit
+            files whose name matches one of them are shown (patterns matching unit file system paths are not
+            supported).</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><command>enable <replaceable>NAME</replaceable>...</command></term>
+          <term><command>enable <replaceable>PATH</replaceable>...</command></term>
 
           <listitem>
-            <para>Enable one or more unit files or unit file instances,
-            as specified on the command line. This will create a number
-            of symlinks as encoded in the <literal>[Install]</literal>
-            sections of the unit files. After the symlinks have been
-            created, the systemd configuration is reloaded (in a way that
-            is equivalent to <command>daemon-reload</command>) to ensure
-            the changes are taken into account immediately. Note that
-            this does <emphasis>not</emphasis> have the effect of also
-            starting any of the units being enabled. If this
-            is desired, either <option>--now</option> should be used
-            together with this command, or an additional <command>start</command>
-            command must be invoked for the unit. Also note that, in case of
-            instance enablement, symlinks named the same as instances
-            are created in the install location, however they all point to the
-            same template unit file.</para>
+            <para>Enable one or more units or unit instances. This will create a set of symlinks, as encoded in the
+            <literal>[Install]</literal> sections of the indicated unit files. After the symlinks have been created,
+            the system manager configuration is reloaded (in a way equivalent to <command>daemon-reload</command>), in
+            order to ensure the changes are taken into account immediately. Note that this does
+            <emphasis>not</emphasis> have the effect of also starting any of the units being enabled. If this is
+            desired, combine this command with the <option>--now</option> switch, or invoke <command>start</command>
+            with appropriate arguments later. Note that in case of unit instance enablement (i.e. enablement of units of
+            the form <filename>foo@bar.service</filename>), symlinks named the same as instances are created in the
+            unit configuration diectory, however they point to the single template unit file they are instantiated
+            from.</para>
 
-            <para>This command will print the actions executed. This
-            output may be suppressed by passing <option>--quiet</option>.
+            <para>This command expects either valid unit names (in which case appropriate unit files for these names
+            are automatically searched in the various unit file directories), or absolute paths to unit files (in which
+            case these files are read directly). If a specified unit file is located outside of the unit file
+            directories searched automatically, an additional symlink is created, linking it into the unit
+            configuration path, thus ensuring it is automatically found when requested by commands such as
+            <command>start</command>.</para>
+
+            <para>This command will print the file system operations executed. This output may be suppressed by passing
+            <option>--quiet</option>.
             </para>
 
-            <para>Note that this operation creates only the suggested
-            symlinks for the units. While this command is the
-            recommended way to manipulate the unit configuration
-            directory, the administrator is free to make additional
-            changes manually by placing or removing symlinks in the
-            directory. This is particularly useful to create
-            configurations that deviate from the suggested default
-            installation. In this case, the administrator must make sure
-            to invoke <command>daemon-reload</command> manually as
-            necessary to ensure the changes are taken into account.
+            <para>Note that this operation creates only the symlinks suggested in the <literal>[Install]</literal>
+            section of the unit files. While this command is the recommended way to manipulate the unit configuration
+            directory, the administrator is free to make additional changes manually by placing or removing symlinks
+            below this directory. This is particularly useful to create configurations that deviate from the suggested
+            default installation. In this case, the administrator must make sure to invoke
+            <command>daemon-reload</command> manually as necessary, in order to ensure the changes are taken into
+            account.
             </para>
 
-            <para>Enabling units should not be confused with starting
-            (activating) units, as done by the <command>start</command>
-            command. Enabling and starting units is orthogonal: units
-            may be enabled without being started and started without
-            being enabled. Enabling simply hooks the unit into various
-            suggested places (for example, so that the unit is
-            automatically started on boot or when a particular kind of
-            hardware is plugged in). Starting actually spawns the daemon
-            process (in case of service units), or binds the socket (in
-            case of socket units), and so on.</para>
+            <para>Enabling units should not be confused with starting (activating) units, as done by the
+            <command>start</command> command. Enabling and starting units is orthogonal: units may be enabled without
+            being started and started without being enabled. Enabling simply hooks the unit into various suggested
+            places (for example, so that the unit is automatically started on boot or when a particular kind of
+            hardware is plugged in). Starting actually spawns the daemon process (in case of service units), or binds
+            the socket (in case of socket units), and so on.</para>
 
-            <para>Depending on whether <option>--system</option>,
-            <option>--user</option>, <option>--runtime</option>,
-            or <option>--global</option> is specified, this enables the unit
-            for the system, for the calling user only, for only this boot of
-            the system, or for all future logins of all users, or only this
-            boot.  Note that in the last case, no systemd daemon
-            configuration is reloaded.</para>
+            <para>Depending on whether <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
+            or <option>--global</option> is specified, this enables the unit for the system, for the calling user only,
+            for only this boot of the system, or for all future logins of all users, or only this boot.  Note that in
+            the last case, no systemd daemon configuration is reloaded.</para>
 
-            <para>Using <command>enable</command> on masked units
-            results in an error.</para>
+            <para>Using <command>enable</command> on masked units is not supported and results in an error.</para>
           </listitem>
         </varlistentry>
 
@@ -1044,28 +1036,31 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>disable <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
-            <para>Disables one or more units. This removes all symlinks
-            to the specified unit files from the unit configuration
-            directory, and hence undoes the changes made by
-            <command>enable</command>. Note however that this removes
-            all symlinks to the unit files (i.e. including manual
-            additions), not just those actually created by
-            <command>enable</command>. This call implicitly reloads the
-            systemd daemon configuration after completing the disabling
-            of the units. Note that this command does not implicitly
-            stop the units that are being disabled. If this is desired, either
-            <option>--now</option> should be used together with this command, or
-            an additional <command>stop</command> command should be executed
-            afterwards.</para>
+            <para>Disables one or more units. This removes all symlinks to the unit files backing the specified units
+            from the unit configuration directory, and hence undoes any changes made by <command>enable</command> or
+            <command>link</command>. Note that this removes <emphasis>all</emphasis> symlinks to matching unit files,
+            including manually created symlinks, and not just those actually created by <command>enable</command> or
+            <command>link</command>. Note that while <command>disable</command> undoes the effect of
+            <command>enable</command>, the two commands are otherwise not symmetric, as <command>disable</command> may
+            remove more symlinks than a prior <command>enable</command> invocation of the same unit created.</para>
 
-            <para>This command will print the actions executed. This
-            output may be suppressed by passing <option>--quiet</option>.
+            <para>This command expects valid unit names only, it does not accept paths to unit files.</para>
+
+            <para>In addition to the units specified as arguments, all units are disabled that are listed in the
+            <varname>Also=</varname> setting contained in the <literal>[Install]</literal> section of any of the unit
+            files being operated on.</para>
+
+            <para>This command implicitly reloads the system manager configuration after completing the operation. Note
+            that this command does not implicitly stop the units that are being disabled. If this is desired, either
+            combine this command with the <option>--now</option> switch, or invoke the <command>stop</command> command
+            with appropriate arguments later.</para>
+
+            <para>This command will print information about the file system operations (symlink removals)
+            executed. This output may be suppressed by passing <option>--quiet</option>.
             </para>
 
-            <para>This command honors <option>--system</option>,
-            <option>--user</option>, <option>--runtime</option> and
-            <option>--global</option> in a similar way as
-            <command>enable</command>.</para>
+            <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>
+            and <option>--global</option> in a similar way as <command>enable</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -1073,12 +1068,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>reenable <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
-            <para>Reenable one or more unit files, as specified on the
-            command line. This is a combination of
-            <command>disable</command> and <command>enable</command> and
-            is useful to reset the symlinks a unit is enabled with to
-            the defaults configured in the <literal>[Install]</literal>
-            section of the unit file.</para>
+            <para>Reenable one or more units, as specified on the command line. This is a combination of
+            <command>disable</command> and <command>enable</command> and is useful to reset the symlinks a unit file is
+            enabled with to the defaults configured in its <literal>[Install]</literal> section. This commands expects
+            a unit uname only, it does not accept paths to unit files.</para>
           </listitem>
         </varlistentry>
 
@@ -1209,16 +1202,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>mask <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
-            <para>Mask one or more unit files, as specified on the
-            command line. This will link these units to
-            <filename>/dev/null</filename>, making it impossible to
-            start them. This is a stronger version of
-            <command>disable</command>, since it prohibits all kinds of
-            activation of the unit, including enablement and manual
-            activation. Use this option with care. This honors the
-            <option>--runtime</option> option to only mask temporarily
-            until the next reboot of the system. The <option>--now</option>
-            option can be used to ensure that the units are also stopped.</para>
+            <para>Mask one or more units, as specified on the command line. This will link these unit files to
+            <filename>/dev/null</filename>, making it impossible to start them. This is a stronger version of
+            <command>disable</command>, since it prohibits all kinds of activation of the unit, including enablement
+            and manual activation. Use this option with care. This honors the <option>--runtime</option> option to only
+            mask temporarily until the next reboot of the system. The <option>--now</option> option may be used to
+            ensure that the units are also stopped. This command expects valid unit names only, it does not accept unit
+            file paths.</para>
           </listitem>
         </varlistentry>
 
@@ -1226,23 +1216,20 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>unmask <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
-            <para>Unmask one or more unit files, as specified on the
-            command line. This will undo the effect of
-            <command>mask</command>.</para>
+            <para>Unmask one or more unit files, as specified on the command line. This will undo the effect of
+            <command>mask</command>. This command expects valid unit names only, it does not accept unit file
+            paths.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><command>link <replaceable>FILENAME</replaceable>...</command></term>
+          <term><command>link <replaceable>PATH</replaceable>...</command></term>
 
           <listitem>
-            <para>Link a unit file that is not in the unit file search
-            paths into the unit file search path. This requires an
-            absolute path to a unit file. The effect of this can be
-            undone with <command>disable</command>. The effect of this
-            command is that a unit file is available for
-            <command>start</command> and other commands although it
-            is not installed directly in the unit search path.</para>
+            <para>Link a unit file that is not in the unit file search paths into the unit file search path. This
+            command expects an absolute path to a unit file. The effect of this may be undone with
+            <command>disable</command>. The effect of this command is that a unit file is made available for commands
+            such as <command>start</command>, even though it is not installed directly in the unit search path.</para>
           </listitem>
         </varlistentry>
 

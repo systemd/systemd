@@ -6533,7 +6533,7 @@ static void systemctl_help(void) {
                "                                  unit is required or wanted\n\n"
                "Unit File Commands:\n"
                "  list-unit-files [PATTERN...]    List installed unit files\n"
-               "  enable NAME...                  Enable one or more unit files\n"
+               "  enable [NAME...|PATH...]        Enable one or more unit files\n"
                "  disable NAME...                 Disable one or more unit files\n"
                "  reenable NAME...                Reenable one or more unit files\n"
                "  preset NAME...                  Enable/disable one or more unit files\n"
