@@ -1259,7 +1259,8 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
         char *p;
         int fd;
 
-        assert(directory);
+        if (!directory)
+                directory = "/tmp";
 
         /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
 
