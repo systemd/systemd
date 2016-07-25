@@ -224,6 +224,21 @@ static void release_busses(void) {
                 busses[w] = sd_bus_flush_close_unref(busses[w]);
 }
 
+static int map_string_no_copy(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        char *s;
+        const char **p = userdata;
+        int r;
+
+        r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &s);
+        if (r < 0)
+                return r;
+
+        if (!isempty(s))
+                *p = s;
+
+        return 0;
+}
+
 static void ask_password_agent_open_if_enabled(void) {
 
         /* Open the password agent as a child process if necessary */
@@ -1820,12 +1835,12 @@ static const struct bus_properties_map machine_info_property_map[] = {
 };
 
 static void machine_info_clear(struct machine_info *info) {
-        if (info) {
-                free(info->name);
-                free(info->state);
-                free(info->control_group);
-                zero(*info);
-        }
+        assert(info);
+
+        free(info->name);
+        free(info->state);
+        free(info->control_group);
+        zero(*info);
 }
 
 static void free_machines_list(struct machine_info *machine_infos, int n) {
@@ -3469,12 +3484,15 @@ typedef struct UnitCondition {
 } UnitCondition;
 
 static void unit_condition_free(UnitCondition *c) {
-        assert(c);
+        if (!c)
+                return;
 
         free(c->name);
         free(c->param);
         free(c);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitCondition*, unit_condition_free);
 
 typedef struct UnitStatusInfo {
         const char *id;
@@ -3560,6 +3578,25 @@ typedef struct UnitStatusInfo {
 
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
+
+static void unit_status_info_free(UnitStatusInfo *info) {
+        ExecStatusInfo *p;
+        UnitCondition *c;
+
+        strv_free(info->documentation);
+        strv_free(info->dropin_paths);
+        strv_free(info->listen);
+
+        while ((c = info->conditions)) {
+                LIST_REMOVE(conditions, info->conditions, c);
+                unit_condition_free(c);
+        }
+
+        while ((p = info->exec)) {
+                LIST_REMOVE(exec, info->exec, p);
+                exec_status_info_free(p);
+        }
+}
 
 static void print_status_info(
                 sd_bus *bus,
@@ -4198,7 +4235,7 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
-                                UnitCondition *c;
+                                _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
 
                                 log_debug("%s trigger=%d negate=%d %s →%d", cond, trigger, negate, param, state);
 
@@ -4207,23 +4244,16 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                         return log_oom();
 
                                 c->name = strdup(cond);
-                                if (!c->name) {
-                                        free(c);
-                                        return log_oom();
-                                }
-
                                 c->param = strdup(param);
-                                if (!c->param) {
-                                        free(c->name);
-                                        free(c);
+                                if (!c->name || !c->param)
                                         return log_oom();
-                                }
 
                                 c->trigger = trigger;
                                 c->negate = negate;
                                 c->tristate = state;
 
                                 LIST_PREPEND(conditions, i->conditions, c);
+                                c = NULL;
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4613,15 +4643,15 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)   },
-                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
+                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)   },
+                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state) },
                 {}
         };
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_set_free_ Set *found_properties = NULL;
-        UnitStatusInfo info = {
+        _cleanup_(unit_status_info_free) UnitStatusInfo info = {
                 .memory_current = (uint64_t) -1,
                 .memory_high = CGROUP_LIMIT_MAX,
                 .memory_max = CGROUP_LIMIT_MAX,
@@ -4630,8 +4660,6 @@ static int show_one(
                 .tasks_current = (uint64_t) -1,
                 .tasks_max = (uint64_t) -1,
         };
-        ExecStatusInfo *p;
-        UnitCondition *c;
         int r;
 
         assert(path);
@@ -4725,16 +4753,15 @@ static int show_one(
                 return bus_log_parse_error(r);
 
         r = 0;
-
         if (show_properties) {
                 char **pp;
 
-                STRV_FOREACH(pp, arg_properties) {
+                STRV_FOREACH(pp, arg_properties)
                         if (!set_contains(found_properties, *pp)) {
                                 log_warning("Property %s does not exist.", *pp);
                                 r = -ENXIO;
                         }
-                }
+
         } else if (streq(verb, "help"))
                 show_unit_help(&info);
         else if (streq(verb, "status")) {
@@ -4744,20 +4771,6 @@ static int show_one(
                         r = EXIT_PROGRAM_NOT_RUNNING;
                 else
                         r = EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
-        }
-
-        strv_free(info.documentation);
-        strv_free(info.dropin_paths);
-        strv_free(info.listen);
-
-        while ((c = info.conditions)) {
-                LIST_REMOVE(conditions, info.conditions, c);
-                unit_condition_free(c);
-        }
-
-        while ((p = info.exec)) {
-                LIST_REMOVE(exec, info.exec, p);
-                exec_status_info_free(p);
         }
 
         return r;
@@ -5662,8 +5675,8 @@ static int unit_exists(const char *unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)  },
-                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state)},
+                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)  },
+                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state)},
                 {},
         };
         UnitStatusInfo info = {};
