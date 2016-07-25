@@ -80,10 +80,10 @@
 
       <listitem><para>Additionally, <command>systemd-resolved</command> provides a local DNS stub listener on IP
       address 127.0.0.53 on the local loopback interface. Programs issuing DNS requests directly, bypassing any local
-      API may be directed to this stub, in order to connect them <command>systemd-resolved</command>. Note however that
-      it is strongly recommended that local programs use the glibc NSS or bus APIs instead (as described above), as
-      various network resolution concepts (such as link-local addressing, or LLMNR Unicode domains) cannot be mapped to
-      the unicast DNS protocol.</para></listitem>
+      API may be directed to this stub, in order to connect them to <command>systemd-resolved</command>. Note however
+      that it is strongly recommended that local programs use the glibc NSS or bus APIs instead (as described above),
+      as various network resolution concepts (such as link-local addressing, or LLMNR Unicode domains) cannot be mapped
+      to the unicast DNS protocol.</para></listitem>
     </itemizedlist>
 
     <para>The DNS servers contacted are determined from the global settings in
