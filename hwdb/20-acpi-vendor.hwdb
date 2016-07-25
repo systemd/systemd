@@ -42,6 +42,9 @@ acpi:BOSC*:
 acpi:BRCM*:
  ID_VENDOR_FROM_DATABASE=Broadcom Corporation
 
+acpi:CORE*:
+ ID_VENDOR_FROM_DATABASE=CoreOS, Inc
+
 acpi:CPLM*:
  ID_VENDOR_FROM_DATABASE=Capella Microsystems Inc.
 
@@ -2520,6 +2523,9 @@ acpi:FOK*:
 acpi:FOS*:
  ID_VENDOR_FROM_DATABASE=Foss Tecator
 
+acpi:FOV*:
+ ID_VENDOR_FROM_DATABASE=FOVE INC
+
 acpi:FOX*:
  ID_VENDOR_FROM_DATABASE=HON HAI PRECISON IND.CO.,LTD.
 
@@ -3038,6 +3044,9 @@ acpi:HTX*:
 
 acpi:HUB*:
  ID_VENDOR_FROM_DATABASE=GAI-Tronics, A Hubbell Company
+
+acpi:HUK*:
+ ID_VENDOR_FROM_DATABASE=Hoffmann + Krippner GmbH
 
 acpi:HUM*:
  ID_VENDOR_FROM_DATABASE=IMP Electronics Ltd.
@@ -4101,6 +4110,9 @@ acpi:MDC*:
 acpi:MDD*:
  ID_VENDOR_FROM_DATABASE=MODIS
 
+acpi:MDF*:
+ ID_VENDOR_FROM_DATABASE=MILDEF AB
+
 acpi:MDG*:
  ID_VENDOR_FROM_DATABASE=Madge Networks
 
@@ -4613,6 +4625,9 @@ acpi:NEC*:
 
 acpi:NEO*:
  ID_VENDOR_FROM_DATABASE=NEO TELECOM CO.,LTD.
+
+acpi:NES*:
+ ID_VENDOR_FROM_DATABASE=INNES
 
 acpi:NET*:
  ID_VENDOR_FROM_DATABASE=Mettler Toledo
