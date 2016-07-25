@@ -129,21 +129,22 @@
       <varlistentry>
         <term><varname>SplitMode=</varname></term>
 
-        <listitem><para>Controls whether to split up journal files per
-        user. One of <literal>uid</literal>, <literal>login</literal>
-        and <literal>none</literal>. If <literal>uid</literal>, all
-        users will get each their own journal files regardless of
-        whether they possess a login session or not, however system
-        users will log into the system journal. If
-        <literal>login</literal>, actually logged-in users will get
-        each their own journal files, but users without login session
-        and system users will log into the system journal. If
-        <literal>none</literal>, journal files are not split up by
-        user and all messages are instead stored in the single system
-        journal. Note that splitting up journal files by user is only
-        available for journals stored persistently. If journals are
-        stored on volatile storage (see above), only a single journal
-        file for all user IDs is kept. Defaults to
+        <listitem><para>Controls whether to split up journal files per user. Split-up journal files are primarily
+        useful for access control: on UNIX/Linux access control is managed per file, and the journal daemon will assign
+        users read access to their journal files. This setting takes one of <literal>uid</literal>,
+        <literal>login</literal> or <literal>none</literal>. If <literal>uid</literal>, all regular users will get each
+        their own journal files regardless of whether their processes possess login sessions or not, however system
+        users will log into the system journal. If <literal>login</literal>, actually logged-in users will get each
+        their own journal files, but users without login session and system users will log into the system
+        journal. Note that in this mode, user code running outside of any login session will log into the system log
+        instead of the split-out user logs. Most importantly, this means that information about core dumps of user
+        processes collected via the
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry> subsystem
+        will end up in the system logs instead of the user logs, and thus not be accessible to the owning users. If
+        <literal>none</literal>, journal files are not split up by user and all messages are instead stored in the
+        single system journal. In this mode unprivileged users generally do not have access to their own log data. Note
+        that splitting up journal files by user is only available for journals stored persistently. If journals are
+        stored on volatile storage (see above), only a single journal file for all user IDs is kept. Defaults to
         <literal>uid</literal>.</para></listitem>
       </varlistentry>
 
