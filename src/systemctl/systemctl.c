@@ -3457,12 +3457,12 @@ static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i) {
 
 typedef struct UnitCondition {
         char *name;
+        char *param;
         bool trigger;
         bool negate;
-        char *param;
         int tristate;
 
-        LIST_FIELDS(struct UnitCondition, condition);
+        LIST_FIELDS(struct UnitCondition, conditions);
 } UnitCondition;
 
 static void unit_condition_free(UnitCondition *c) {
@@ -3519,7 +3519,7 @@ typedef struct UnitStatusInfo {
 
         usec_t condition_timestamp;
         bool condition_result;
-        LIST_HEAD(UnitCondition, condition);
+        LIST_HEAD(UnitCondition, conditions);
 
         usec_t assert_timestamp;
         bool assert_result;
@@ -3689,22 +3689,18 @@ static void print_status_info(
                        ansi_highlight_yellow(), ansi_normal(),
                        s2, s1 ? "; " : "", strempty(s1));
 
-                LIST_FOREACH(condition, c, i->condition) {
+                LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
                                 n++;
-                }
 
-                LIST_FOREACH(condition, c, i->condition) {
-                        if (c->tristate >= 0)
-                                continue;
-
-                        printf("           %s %s=%s%s%s was not met\n",
-                               --n ? special_glyph(TREE_BRANCH) : special_glyph(TREE_RIGHT),
-                               c->name,
-                               c->trigger ? "|" : "",
-                               c->negate ? "!" : "",
-                               c->param);
-                }
+                LIST_FOREACH(conditions, c, i->conditions)
+                        if (c->tristate < 0)
+                                printf("           %s %s=%s%s%s was not met\n",
+                                       --n ? special_glyph(TREE_BRANCH) : special_glyph(TREE_RIGHT),
+                                       c->name,
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->param);
         }
 
         if (!i->assert_result && i->assert_timestamp > 0) {
@@ -4199,7 +4195,7 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
                                 UnitCondition *c;
 
-                                log_debug("%s %d %d %s %d", cond, trigger, negate, param, state);
+                                log_debug("%s trigger=%d negate=%d %s →%d", cond, trigger, negate, param, state);
 
                                 c = new0(UnitCondition, 1);
                                 if (!c)
@@ -4222,7 +4218,7 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                 c->negate = negate;
                                 c->tristate = state;
 
-                                LIST_PREPEND(condition, i->condition, c);
+                                LIST_PREPEND(conditions, i->conditions, c);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4749,8 +4745,8 @@ static int show_one(
         strv_free(info.dropin_paths);
         strv_free(info.listen);
 
-        while ((c = info.condition)) {
-                LIST_REMOVE(condition, info.condition, c);
+        while ((c = info.conditions)) {
+                LIST_REMOVE(conditions, info.conditions, c);
                 unit_condition_free(c);
         }
 
