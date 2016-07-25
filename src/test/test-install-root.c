@@ -301,7 +301,12 @@ static void test_linked_units(const char *root) {
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("linked3.service"), false, &changes, &n_changes) == -ELOOP);
+        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, false, root, STRV_MAKE("linked3.service"), false, &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == UNIT_FILE_SYMLINK);
+        assert_se(startswith(changes[0].path, root));
+        assert_se(endswith(changes[0].path, "linked3.service"));
+        assert_se(streq(changes[0].source, "/opt/linked3.service"));
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 }

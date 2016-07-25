@@ -2215,7 +2215,7 @@ int unit_file_enable(
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(f, files) {
-                r = install_info_discover(scope, &c, &paths, *f, SEARCH_LOAD, &i);
+                r = install_info_discover(scope, &c, &paths, *f, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
                 if (r < 0)
                         return r;
                 r = install_info_may_process(i, &paths, changes, n_changes);
