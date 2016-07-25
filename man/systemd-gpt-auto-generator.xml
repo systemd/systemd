@@ -137,6 +137,11 @@
             <entry>Swap</entry>
             <entry>All swap partitions located on the disk the root partition is located on are enabled.</entry>
           </row>
+          <row>
+            <entry>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</entry>
+            <entry>EFI System Partition (ESP)</entry>
+            <entry>The first ESP located on the disk the root partition is located on is mounted to <filename>/boot</filename> or <filename>/efi</filename>, see below.</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
@@ -150,16 +155,14 @@
     <filename>/etc/crypttab</filename> with a different device mapper
     device name.</para>
 
-    <para>Mount and automount units for the EFI System Partition (ESP),
-    mounting it to <filename>/boot</filename>, are generated on EFI
-    systems where the boot loader communicates the used ESP to the operating
-    system. Since this generator creates an automount unit, the mount will
-    only be activated on-demand, when accessed. On systems where
-    <filename>/boot</filename> is an explicitly configured mount
-    (for example, listed in
-    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-    or where the <filename>/boot</filename> mount point is non-empty, no
-    mount units are generated.</para>
+    <para>Mount and automount units for the EFI System Partition (ESP) are generated on EFI systems. The ESP is mounted
+    to <filename>/boot</filename>, unless a mount point directory <filename>/efi</filename> exists, in which case it is
+    mounted there. Since this generator creates an automount unit, the mount will only be activated on-demand, when
+    accessed. On systems where <filename>/boot</filename> (or <filename>/efi</filename> if it exists) is an explicitly
+    configured mount (for example, listed in <citerefentry
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or where the
+    <filename>/boot</filename> (or <filename>/efi</filename>) mount point is non-empty, no mount units are
+    generated.</para>
 
     <para>When using this generator in conjunction with btrfs file
     systems, make sure to set the correct default subvolumes on them,

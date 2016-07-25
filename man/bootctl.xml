@@ -47,16 +47,16 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>status</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> status</command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>update</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> update</command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>install</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> install</command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>remove</command>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> remove</command>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -71,19 +71,14 @@
     currently installed versions of the boot loader binaries and
     all current EFI boot variables.</para>
 
-    <para><command>bootctl update</command> updates all installed
-    versions of systemd-boot, if the current version is newer than the
-    version installed in the EFI system partition. This also includes
-    the EFI default/fallback loader at /EFI/BOOT/BOOT*.EFI. A
-    systemd-boot entry in the EFI boot variables is created if there
-    is no current entry. The created entry will be added to the end of
-    the boot order list.</para>
+    <para><command>bootctl update</command> updates all installed versions of systemd-boot, if the current version is
+    newer than the version installed in the EFI system partition. This also includes the EFI default/fallback loader at
+    <filename>/EFI/BOOT/BOOT*.EFI</filename>. A systemd-boot entry in the EFI boot variables is created if there is no
+    current entry. The created entry will be added to the end of the boot order list.</para>
 
-    <para><command>bootctl install</command> installs systemd-boot into
-    the EFI system partition. A copy of systemd-boot will be stored as
-    the EFI default/fallback loader at /EFI/BOOT/BOOT*.EFI. A systemd-boot
-    entry in the EFI boot variables is created and added to the top
-    of the boot order list.</para>
+    <para><command>bootctl install</command> installs systemd-boot into the EFI system partition. A copy of
+    systemd-boot will be stored as the EFI default/fallback loader at <filename>/EFI/BOOT/BOOT*.EFI</filename>. A
+    systemd-boot entry in the EFI boot variables is created and added to the top of the boot order list.</para>
 
     <para><command>bootctl remove</command> removes all installed
     versions of systemd-boot from the EFI system partition, and removes
@@ -101,8 +96,10 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <varlistentry>
-        <term><option>--path</option></term>
-        <listitem><para>Path to the EFI system partition. The default is /boot.</para></listitem>
+        <term><option>--path=</option></term>
+        <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi</filename>,
+        <filename>/boot</filename>, and <filename>/boot/efi</filename> are checked in turn.  It is recommended to mount
+        the ESP to <filename>/boot</filename>, if possible.</para></listitem>
       </varlistentry>
 
       <varlistentry>

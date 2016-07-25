@@ -323,6 +323,14 @@ char ascii_tolower(char x) {
         return x;
 }
 
+char ascii_toupper(char x) {
+
+        if (x >= 'a' && x <= 'z')
+                return x - 'a' + 'A';
+
+        return x;
+}
+
 char *ascii_strlower(char *t) {
         char *p;
 
@@ -330,6 +338,17 @@ char *ascii_strlower(char *t) {
 
         for (p = t; *p; p++)
                 *p = ascii_tolower(*p);
+
+        return t;
+}
+
+char *ascii_strupper(char *t) {
+        char *p;
+
+        assert(t);
+
+        for (p = t; *p; p++)
+                *p = ascii_toupper(*p);
 
         return t;
 }

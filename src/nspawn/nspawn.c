@@ -1794,17 +1794,18 @@ static int dissect_image(
                 char **root_device, bool *root_device_rw,
                 char **home_device, bool *home_device_rw,
                 char **srv_device, bool *srv_device_rw,
+                char **esp_device,
                 bool *secondary) {
 
 #ifdef HAVE_BLKID
-        int home_nr = -1, srv_nr = -1;
+        int home_nr = -1, srv_nr = -1, esp_nr = -1;
 #ifdef GPT_ROOT_NATIVE
         int root_nr = -1;
 #endif
 #ifdef GPT_ROOT_SECONDARY
         int secondary_root_nr = -1;
 #endif
-        _cleanup_free_ char *home = NULL, *root = NULL, *secondary_root = NULL, *srv = NULL, *generic = NULL;
+        _cleanup_free_ char *home = NULL, *root = NULL, *secondary_root = NULL, *srv = NULL, *esp = NULL, *generic = NULL;
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
@@ -1822,6 +1823,7 @@ static int dissect_image(
         assert(root_device);
         assert(home_device);
         assert(srv_device);
+        assert(esp_device);
         assert(secondary);
         assert(arg_image);
 
@@ -2035,6 +2037,16 @@ static int dissect_image(
                                 r = free_and_strdup(&srv, node);
                                 if (r < 0)
                                         return log_oom();
+                        } else if (sd_id128_equal(type_id, GPT_ESP)) {
+
+                                if (esp && nr >= esp_nr)
+                                        continue;
+
+                                esp_nr = nr;
+
+                                r = free_and_strdup(&esp, node);
+                                if (r < 0)
+                                        return log_oom();
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
@@ -2150,6 +2162,11 @@ static int dissect_image(
                 srv = NULL;
 
                 *srv_device_rw = srv_rw;
+        }
+
+        if (esp) {
+                *esp_device = esp;
+                esp = NULL;
         }
 
         return 0;
@@ -2284,7 +2301,8 @@ static int mount_devices(
                 const char *where,
                 const char *root_device, bool root_device_rw,
                 const char *home_device, bool home_device_rw,
-                const char *srv_device, bool srv_device_rw) {
+                const char *srv_device, bool srv_device_rw,
+                const char *esp_device) {
         int r;
 
         assert(where);
@@ -2305,6 +2323,27 @@ static int mount_devices(
                 r = mount_device(srv_device, arg_directory, "/srv", srv_device_rw);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mount server data directory: %m");
+        }
+
+        if (esp_device) {
+                const char *mp, *x;
+
+                /* Mount the ESP to /efi if it exists and is empty. If it doesn't exist, use /boot instead. */
+
+                mp = "/efi";
+                x = strjoina(arg_directory, mp);
+                r = dir_is_empty(x);
+                if (r == -ENOENT) {
+                        mp = "/boot";
+                        x = strjoina(arg_directory, mp);
+                        r = dir_is_empty(x);
+                }
+
+                if (r > 0) {
+                        r = mount_device(esp_device, arg_directory, mp, true);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to  mount ESP: %m");
+                }
         }
 
         return 0;
@@ -2795,6 +2834,7 @@ static int outer_child(
                 const char *root_device, bool root_device_rw,
                 const char *home_device, bool home_device_rw,
                 const char *srv_device, bool srv_device_rw,
+                const char *esp_device,
                 bool interactive,
                 bool secondary,
                 int pid_socket,
@@ -2856,7 +2896,8 @@ static int outer_child(
         r = mount_devices(directory,
                           root_device, root_device_rw,
                           home_device, home_device_rw,
-                          srv_device, srv_device_rw);
+                          srv_device, srv_device_rw,
+                          esp_device);
         if (r < 0)
                 return r;
 
@@ -3461,7 +3502,7 @@ static int load_settings(void) {
 
 int main(int argc, char *argv[]) {
 
-        _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *console = NULL;
+        _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *esp_device = NULL, *console = NULL;
         bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
         _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -3643,6 +3684,7 @@ int main(int argc, char *argv[]) {
                                   &root_device, &root_device_rw,
                                   &home_device, &home_device_rw,
                                   &srv_device, &srv_device_rw,
+                                  &esp_device,
                                   &secondary);
                 if (r < 0)
                         goto finish;
@@ -3817,6 +3859,7 @@ int main(int argc, char *argv[]) {
                                         root_device, root_device_rw,
                                         home_device, home_device_rw,
                                         srv_device, srv_device_rw,
+                                        esp_device,
                                         interactive,
                                         secondary,
                                         pid_socket_pair[1],
