@@ -216,27 +216,27 @@ CHANGES WITH 231:
           local changes made to systemd in a pristine, defined environment. See
           HACKING for details.
 
-        Contributions from: Alessandro Puccetti, Alessio Igor Bogani, Alexander
-        Kuleshov, Alexander Kurtz, Alex Gaynor, Andika Triwidada, Andreas
-        Pokorny, Andreas Rammhold, Andrew Jeddeloh, Ansgar Burchardt, Atrotors,
-        Benjamin Drung, Brian Boylston, Christian Hesse, Christian Rebischke,
-        Daniele Medri, Daniel Mack, Dave Reisner, David Herrmann, David
-        Michael, Djalal Harouni, Douglas Christman, Elias Probst, Evgeny
-        Vereshchagin, Federico Mena Quintero, Felipe Sateler, Franck Bui,
-        Harald Hoyer, Ian Lee, Ivan Shapovalov, Jakub Wilk, Jan Janssen,
-        Jean-Sébastien Bour, John Paul Adrian Glaubitz, Jouke Witteveen, Kai
-        Ruhnau, kpengboy, Kyle Walker, Lénaïc Huard, Lennart Poettering, Luca
-        Bruno, Lukas Lösche, Lukáš Nykrýn, mahkoh, Marcel Holtmann, Martin
-        Pitt, Marty Plummer, Matthieu Codron, Max Prokhorov, Michael Biebl,
-        Michael Karcher, Michael Olbrich, Michał Bartoszkiewicz, Michal
-        Sekletar, Michal Soltys, Minkyung, Muhammet Kara, mulkieran, Otto
-        Wallenius, Pablo Lezaeta Reyes, Peter Hutterer, Ronny Chevalier, Rusty
-        Bird, Stef Walter, Susant Sahani, Tejun Heo, Thomas Blume, Thomas
+        Contributions from: Alban Crequy, Alessandro Puccetti, Alessio Igor
+        Bogani, Alexander Kuleshov, Alexander Kurtz, Alex Gaynor, Andika
+        Triwidada, Andreas Pokorny, Andreas Rammhold, Andrew Jeddeloh, Ansgar
+        Burchardt, Atrotors, Benjamin Drung, Brian Boylston, Christian Hesse,
+        Christian Rebischke, Daniele Medri, Daniel Mack, Dave Reisner, David
+        Herrmann, David Michael, Djalal Harouni, Douglas Christman, Elias
+        Probst, Evgeny Vereshchagin, Federico Mena Quintero, Felipe Sateler,
+        Franck Bui, Harald Hoyer, Ian Lee, Ivan Shapovalov, Jakub Wilk, Jan
+        Janssen, Jean-Sébastien Bour, John Paul Adrian Glaubitz, Jouke
+        Witteveen, Kai Ruhnau, kpengboy, Kyle Walker, Lénaïc Huard, Lennart
+        Poettering, Luca Bruno, Lukas Lösche, Lukáš Nykrýn, mahkoh, Marcel
+        Holtmann, Martin Pitt, Marty Plummer, Matthieu Codron, Max Prokhorov,
+        Michael Biebl, Michael Karcher, Michael Olbrich, Michał Bartoszkiewicz,
+        Michal Sekletar, Michal Soltys, Minkyung, Muhammet Kara, mulkieran,
+        Otto Wallenius, Pablo Lezaeta Reyes, Peter Hutterer, Ronny Chevalier,
+        Rusty Bird, Stef Walter, Susant Sahani, Tejun Heo, Thomas Blume, Thomas
         Haller, Thomas H. P. Andersen, Tobias Jungel, Tom Gundersen, Tom Yan,
         Topi Miettinen, Torstein Husebø, Valentin Vidić, Viktar Vaŭčkievič,
-        Weng Xuetian, Werner Fink, Zbigniew Jędrzejewski-Szmek
+        WaLyong Cho, Weng Xuetian, Werner Fink, Zbigniew Jędrzejewski-Szmek
 
-        — Somewhere, 2016-XX-XX
+        — Berlin, 2016-07-25
 
 CHANGES WITH 230:
 
