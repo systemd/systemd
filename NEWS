@@ -191,8 +191,19 @@ CHANGES WITH 231:
           can be set to disable parsing of metadata and the creation
           of persistent symlinks for that device.
 
-        * The change to tag framebuffer devices (/dev/fb*) with "uaccess"
-          to make them available to logged in users has been reverted.
+        * The v230 change to tag framebuffer devices (/dev/fb*) with "uaccess"
+          to make them available to logged-in users has been reverted.
+
+        * Much of the common code of the various systemd components is now
+          built into an internal shared library libsystemd-shared-231.so
+          (incorporating the systemd version number in the name, to be updated
+          with future releases) that the components link to. This should
+          decrease systemd footprint both in memory during runtime and on
+          disk. Note that the shared library is not for public use, and is
+          neither API not ABI stable, but is likely to change with every new
+          released version. Packagers need to make sure that any package built
+          from the systemd sources has a strict versioned dependency on the
+          right package for this shared library.
 
         * Configuration for "mkosi" is now part of the systemd
           repository. mkosi is a tool to easily build legacy-free OS images,
