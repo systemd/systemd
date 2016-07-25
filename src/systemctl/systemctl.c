@@ -1835,12 +1835,12 @@ static const struct bus_properties_map machine_info_property_map[] = {
 };
 
 static void machine_info_clear(struct machine_info *info) {
-        if (info) {
-                free(info->name);
-                free(info->state);
-                free(info->control_group);
-                zero(*info);
-        }
+        assert(info);
+
+        free(info->name);
+        free(info->state);
+        free(info->control_group);
+        zero(*info);
 }
 
 static void free_machines_list(struct machine_info *machine_infos, int n) {
