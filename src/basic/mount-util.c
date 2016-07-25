@@ -448,21 +448,21 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (r < 0)
                                 return r;
 
-                        /* Try to reuse the original flag set, but
-                         * don't care for errors, in case of
-                         * obstructed mounts */
+                        /* Deal with mount points that are obstructed by a
+                         * later mount */
+                        r = path_is_mount_point(x, 0);
+                        if (r == -ENOENT || r == 0)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        /* Try to reuse the original flag set */
                         orig_flags = 0;
                         (void) get_mount_flags(x, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, x, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0) {
-
-                                /* Deal with mount points that are
-                                 * obstructed by a later mount */
-
-                                if (errno != ENOENT)
-                                        return -errno;
-                        }
+                        if (mount(NULL, x, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
+                                return -errno;
 
                 }
         }
