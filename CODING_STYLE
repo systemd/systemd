@@ -408,7 +408,7 @@
   want to call it "big endian" right-away.
 
 - You might wonder what kind of common code belongs in src/shared/ and what
-  belongs in src/util/. The split is like this: anything that uses public APIs
+  belongs in src/basic/. The split is like this: anything that uses public APIs
   we expose (i.e. any of the sd-bus, sd-login, sd-id128, ... APIs) must be
   located in src/shared/. All stuff that only uses external libraries from
   other projects (such as glibc's APIs), or APIs from src/basic/ itself should
@@ -418,11 +418,11 @@
   src/basic/      → may be used by all code in the tree
                   → may not use any code outside of src/basic/
 
-  src/shared/     → may be used by all code in the tree, except for code in src/basic/
-                  → may not use any code outside of src/basic/, src/shared/, src/libsystemd/
-
   src/libsystemd/ → may be used by all code in the tree, except for code in src/basic/
-                  → may not use any code outside of src/basic/, src/shared/, src/libsystemd/
+                  → may not use any code outside of src/basic/, src/libsystemd/
+
+  src/shared/     → may be used by all code in the tree, except for code in src/basic/, src/libsystemd/
+                  → may not use any code outside of src/basic/, src/libsystemd/, src/shared/
 
 - Our focus is on the GNU libc (glibc), not any other libcs. If other libcs are
   incompatible with glibc it's on them. However, if there are equivalent POSIX
