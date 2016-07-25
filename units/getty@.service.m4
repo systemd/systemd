@@ -20,6 +20,12 @@ After=rc-local.service
 Before=getty.target
 IgnoreOnIsolate=yes
 
+# IgnoreOnIsolate causes issues with sulogin, if someone isolates
+# rescue.target or starts rescue.service from multi-user.target or
+# graphical.target.
+Conflicts=rescue.service
+Before=rescue.service
+
 # On systems without virtual consoles, don't start any getty. Note
 # that serial gettys are covered by serial-getty@.service, not this
 # unit.
