@@ -918,9 +918,6 @@ static int process_special_crash(const char *context[], int input_fd) {
 
         log_notice("Detected coredump of the journal daemon or PID 1, diverted to %s.", filename);
 
-        log_notice("Due to the special circumstances, coredump collection will now be turned off.");
-        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
-
         return 0;
 }
 
@@ -979,6 +976,12 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_EXE] = exe;
 
         if (cg_pid_get_unit(pid, &t) >= 0) {
+
+                /* If this is PID 1 disable coredump collection, we'll unlikely be able to process it later on. */
+                if (streq(t, SPECIAL_INIT_SCOPE)) {
+                        log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
+                        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+                }
 
                 /* Let's avoid dead-locks when processing journald and init crashes, as socket activation and logging
                  * are unlikely to work then. */
