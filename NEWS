@@ -201,9 +201,9 @@ CHANGES WITH 231:
           decrease systemd footprint both in memory during runtime and on
           disk. Note that the shared library is not for public use, and is
           neither API not ABI stable, but is likely to change with every new
-          released version. Packagers need to make sure that any package built
-          from the systemd sources has a strict versioned dependency on the
-          right package for this shared library.
+          released update. Packagers need to make sure that binaries
+          linking to libsystemd-shared.so are updated in step with the
+          library.
 
         * Configuration for "mkosi" is now part of the systemd
           repository. mkosi is a tool to easily build legacy-free OS images,
