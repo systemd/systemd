@@ -146,7 +146,7 @@
         <listitem><para>Sets the Unix user or group that the processes
         are executed as, respectively. Takes a single user or group
         name or ID as argument. If no group is set, the default group
-        of the user is chosen. These do not affect commands prefixed with <literal>!</literal>.</para></listitem>
+        of the user is chosen. These do not affect commands prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -161,7 +161,7 @@
         this one will have no effect. In any way, this option does not
         override, but extends the list of supplementary groups
         configured in the system group database for the
-        user. This does not affect commands prefixed with <literal>!</literal>.</para></listitem>
+        user. This does not affect commands prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -796,7 +796,7 @@
         empty string is assigned to this option, the bounding set is reset to the empty capability set, and all prior
         settings have no effect.  If set to <literal>~</literal> (without any further argument), the bounding set is
         reset to the full set of available capabilities, also undoing any previous settings. This does not affect
-        commands prefixed with <literal>!</literal>.</para></listitem>
+        commands prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -826,7 +826,7 @@
         Note that in this case option <constant>keep-caps</constant> is
         automatically added to <varname>SecureBits=</varname> to retain the
         capabilities over the user change. <varname>AmbientCapabilities=</varname> does not affect
-        commands prefixed with <literal>!</literal>.</para></listitem>
+        commands prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -842,7 +842,7 @@
         <option>noroot-locked</option>.
         This option may appear more than once, in which case the secure
         bits are ORed. If the empty string is assigned to this option,
-        the bits are reset to 0. This does not affect commands prefixed with <literal>!</literal>.
+        the bits are reset to 0. This does not affect commands prefixed with <literal>+</literal>.
         See <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
@@ -1101,7 +1101,7 @@
         domain transition. However, the policy still needs to
         authorize the transition. This directive is ignored if SELinux
         is disabled. If prefixed by <literal>-</literal>, all errors
-        will be ignored. This does not affect commands prefixed with <literal>!</literal>.
+        will be ignored. This does not affect commands prefixed with <literal>+</literal>.
         See <citerefentry project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
@@ -1114,7 +1114,7 @@
         Profiles must already be loaded in the kernel, or the unit
         will fail. This result in a non operation if AppArmor is not
         enabled. If prefixed by <literal>-</literal>, all errors will
-        be ignored. This does not affect commands prefixed with <literal>!</literal>.</para></listitem>
+        be ignored. This does not affect commands prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1134,7 +1134,7 @@
         <para>The value may be prefixed by <literal>-</literal>, in
         which case all errors will be ignored. An empty value may be
         specified to unset previous assignments. This does not affect
-        commands prefixed with <literal>!</literal>.</para>
+        commands prefixed with <literal>+</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -1185,7 +1185,7 @@
         listed explicitly. This option may be specified more than once,
         in which case the filter masks are merged. If the empty string
         is assigned, the filter is reset, all prior assignments will
-        have no effect. This does not affect commands prefixed with <literal>!</literal>.</para>
+        have no effect. This does not affect commands prefixed with <literal>+</literal>.</para>
 
         <para>If you specify both types of this option (i.e.
         whitelisting and blacklisting), the first encountered will
@@ -1354,7 +1354,7 @@
         family should be included in the configured whitelist as it is
         frequently used for local communication, including for
         <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        logging. This does not affect commands prefixed with <literal>!</literal>.</para></listitem>
+        logging. This does not affect commands prefixed with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -620,7 +620,7 @@ int config_parse_exec(
                                 ignore = true;
                         else if (*f == '@' && !separate_argv0)
                                 separate_argv0 = true;
-                        else if (*f == '!' && !privileged)
+                        else if (*f == '+' && !privileged)
                                 privileged = true;
                         else
                                 break;
