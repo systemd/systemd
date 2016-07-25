@@ -3561,6 +3561,25 @@ typedef struct UnitStatusInfo {
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
 
+static void unit_status_info_free(UnitStatusInfo *info) {
+        ExecStatusInfo *p;
+        UnitCondition *c;
+
+        strv_free(info->documentation);
+        strv_free(info->dropin_paths);
+        strv_free(info->listen);
+
+        while ((c = info->conditions)) {
+                LIST_REMOVE(conditions, info->conditions, c);
+                unit_condition_free(c);
+        }
+
+        while ((p = info->exec)) {
+                LIST_REMOVE(exec, info->exec, p);
+                exec_status_info_free(p);
+        }
+}
+
 static void print_status_info(
                 sd_bus *bus,
                 UnitStatusInfo *i,
@@ -4621,7 +4640,7 @@ static int show_one(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_set_free_ Set *found_properties = NULL;
-        UnitStatusInfo info = {
+        _cleanup_(unit_status_info_free) UnitStatusInfo info = {
                 .memory_current = (uint64_t) -1,
                 .memory_high = CGROUP_LIMIT_MAX,
                 .memory_max = CGROUP_LIMIT_MAX,
@@ -4630,8 +4649,6 @@ static int show_one(
                 .tasks_current = (uint64_t) -1,
                 .tasks_max = (uint64_t) -1,
         };
-        ExecStatusInfo *p;
-        UnitCondition *c;
         int r;
 
         assert(path);
@@ -4725,16 +4742,15 @@ static int show_one(
                 return bus_log_parse_error(r);
 
         r = 0;
-
         if (show_properties) {
                 char **pp;
 
-                STRV_FOREACH(pp, arg_properties) {
+                STRV_FOREACH(pp, arg_properties)
                         if (!set_contains(found_properties, *pp)) {
                                 log_warning("Property %s does not exist.", *pp);
                                 r = -ENXIO;
                         }
-                }
+
         } else if (streq(verb, "help"))
                 show_unit_help(&info);
         else if (streq(verb, "status")) {
@@ -4744,20 +4760,6 @@ static int show_one(
                         r = EXIT_PROGRAM_NOT_RUNNING;
                 else
                         r = EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
-        }
-
-        strv_free(info.documentation);
-        strv_free(info.dropin_paths);
-        strv_free(info.listen);
-
-        while ((c = info.conditions)) {
-                LIST_REMOVE(conditions, info.conditions, c);
-                unit_condition_free(c);
-        }
-
-        while ((p = info.exec)) {
-                LIST_REMOVE(exec, info.exec, p);
-                exec_status_info_free(p);
         }
 
         return r;
