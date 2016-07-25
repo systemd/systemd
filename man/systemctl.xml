@@ -996,12 +996,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             unit configuration diectory, however they point to the single template unit file they are instantiated
             from.</para>
 
-            <para>This command expects either valid unit names (in which case appropriate unit files for these names
-            are automatically searched in the various unit file directories), or absolute paths to unit files (in which
-            case these files are read directly). If a specified unit file is located outside of the unit file
-            directories searched automatically, an additional symlink is created, linking it into the unit
-            configuration path, thus ensuring it is automatically found when requested by commands such as
-            <command>start</command>.</para>
+            <para>This command expects either valid unit names (in which case various unit file directories are
+            automatically searched for unit files with appropriate names), or absolute paths to unit files (in which
+            case these files are read directly). If a specified unit file is located outside of the usual unit file
+            directories, an additional symlink is created, linking it into the unit configuration path, thus ensuring
+            it is found when requested by commands such as <command>start</command>.</para>
 
             <para>This command will print the file system operations executed. This output may be suppressed by passing
             <option>--quiet</option>.
