@@ -205,12 +205,12 @@ CHANGES WITH 231:
           local changes made to systemd in a pristine, defined environment. See
           HACKING for details.
 
-        Contributions from: Alessandro Puccetti, Alessio Igor Bogani,
-        Alexander Kuleshov, Alexander Kurtz, Alex Gaynor, Andika Triwidada,
-        Andreas Pokorny, Andreas Rammhold, Andrew Jeddeloh, Ansgar Burchardt,
-        Atrotors, Benjamin Drung, Brian Boylston, Christian Hesse, Christian
-        Rebischke, Daniele Medri, Daniel Mack, Dave Reisner, David Herrmann,
-        David Michael, Djalal Harouni, Doug Christman, Elias Probst, Evgeny
+        Contributions from: Alessandro Puccetti, Alessio Igor Bogani, Alexander
+        Kuleshov, Alexander Kurtz, Alex Gaynor, Andika Triwidada, Andreas
+        Pokorny, Andreas Rammhold, Andrew Jeddeloh, Ansgar Burchardt, Atrotors,
+        Benjamin Drung, Brian Boylston, Christian Hesse, Christian Rebischke,
+        Daniele Medri, Daniel Mack, Dave Reisner, David Herrmann, David
+        Michael, Djalal Harouni, Douglas Christman, Elias Probst, Evgeny
         Vereshchagin, Federico Mena Quintero, Felipe Sateler, Franck Bui,
         Harald Hoyer, Ian Lee, Ivan Shapovalov, Jakub Wilk, Jan Janssen,
         Jean-Sébastien Bour, John Paul Adrian Glaubitz, Jouke Witteveen, Kai
