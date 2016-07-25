@@ -3484,12 +3484,15 @@ typedef struct UnitCondition {
 } UnitCondition;
 
 static void unit_condition_free(UnitCondition *c) {
-        assert(c);
+        if (!c)
+                return;
 
         free(c->name);
         free(c->param);
         free(c);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitCondition*, unit_condition_free);
 
 typedef struct UnitStatusInfo {
         const char *id;
@@ -4232,7 +4235,7 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
-                                UnitCondition *c;
+                                _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
 
                                 log_debug("%s trigger=%d negate=%d %s →%d", cond, trigger, negate, param, state);
 
@@ -4241,23 +4244,16 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                         return log_oom();
 
                                 c->name = strdup(cond);
-                                if (!c->name) {
-                                        free(c);
-                                        return log_oom();
-                                }
-
                                 c->param = strdup(param);
-                                if (!c->param) {
-                                        free(c->name);
-                                        free(c);
+                                if (!c->name || !c->param)
                                         return log_oom();
-                                }
 
                                 c->trigger = trigger;
                                 c->negate = negate;
                                 c->tristate = state;
 
                                 LIST_PREPEND(conditions, i->conditions, c);
+                                c = NULL;
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
