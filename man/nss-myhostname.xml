@@ -106,8 +106,8 @@
     <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
     <command>nss-myhostname</command> correctly:</para>
 
-<programlisting>passwd:         compat mymachines
-group:          compat mymachines
+<programlisting>passwd:         compat mymachines systemd
+group:          compat mymachines systemd
 shadow:         compat
 
 hosts:          files mymachines resolve <command>myhostname</command>
@@ -138,6 +138,7 @@ netgroup:       nis</programlisting>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

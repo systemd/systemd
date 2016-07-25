@@ -44,6 +44,7 @@
 #endif
 #include "strv.h"
 #include "syslog-util.h"
+#include "user-util.h"
 #include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
@@ -693,6 +694,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("AmbientCapabilities", "t", property_get_ambient_capabilities, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWriteDirectories", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -840,6 +842,9 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
+                if (!isempty(uu) && !valid_user_group_name_or_id(uu))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name: %s", uu);
+
                 if (mode != UNIT_CHECK) {
 
                         if (isempty(uu))
@@ -858,6 +863,9 @@ int bus_exec_context_set_transient_property(
                 r = sd_bus_message_read(message, "s", &gg);
                 if (r < 0)
                         return r;
+
+                if (!isempty(gg) && !valid_user_group_name_or_id(gg))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group name: %s", gg);
 
                 if (mode != UNIT_CHECK) {
 
@@ -1061,7 +1069,8 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name,
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork",
-                              "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute", "RestrictRealtime")) {
+                              "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
+                              "RestrictRealtime", "DynamicUser")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1089,6 +1098,8 @@ int bus_exec_context_set_transient_property(
                                 c->memory_deny_write_execute = b;
                         else if (streq(name, "RestrictRealtime"))
                                 c->restrict_realtime = b;
+                        else if (streq(name, "DynamicUser"))
+                                c->dynamic_user = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }

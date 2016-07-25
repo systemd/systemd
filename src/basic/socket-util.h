@@ -142,6 +142,8 @@ int flush_accept(int fd);
 #define CMSG_FOREACH(cmsg, mh)                                          \
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 
+struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
+
 /* Covers only file system and abstract AF_UNIX socket addresses, but not unnamed socket addresses. */
 #define SOCKADDR_UN_LEN(sa)                                             \
         ({                                                              \

@@ -298,6 +298,9 @@ struct Manager {
         /* Used for processing polkit authorization responses */
         Hashmap *polkit_registry;
 
+        /* Dynamic users/groups, indexed by their name */
+        Hashmap *dynamic_users;
+
         /* When the user hits C-A-D more than 7 times per 2s, reboot immediately... */
         RateLimit ctrl_alt_del_ratelimit;
 

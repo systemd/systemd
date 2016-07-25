@@ -68,3 +68,8 @@ int take_etc_passwd_lock(const char *root);
 static inline bool userns_supported(void) {
         return access("/proc/self/uid_map", F_OK) >= 0;
 }
+
+bool valid_user_group_name(const char *u);
+bool valid_user_group_name_or_id(const char *u);
+bool valid_gecos(const char *d);
+bool valid_home(const char *p);

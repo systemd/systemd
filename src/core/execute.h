@@ -92,6 +92,8 @@ struct ExecRuntime {
         char *tmp_dir;
         char *var_tmp_dir;
 
+        /* An AF_UNIX socket pair, that contains a datagram containing a file descriptor referring to the network
+         * namespace. */
         int netns_storage_socket[2];
 };
 
@@ -174,6 +176,8 @@ struct ExecContext {
 
         bool no_new_privileges;
 
+        bool dynamic_user;
+
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
          * /usr/bin/mount it is run in the same process group as us so
@@ -235,12 +239,14 @@ struct ExecParameters {
 };
 
 #include "unit.h"
+#include "dynamic-user.h"
 
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
                const ExecParameters *exec_params,
                ExecRuntime *runtime,
+               DynamicCreds *dynamic_creds,
                pid_t *ret);
 
 void exec_command_done(ExecCommand *c);

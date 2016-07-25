@@ -245,6 +245,8 @@ static void mount_done(Unit *u) {
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
+        dynamic_creds_unref(&m->dynamic_creds);
+
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_unref(m->timer_event_source);
@@ -648,6 +650,9 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
+        if (!IN_SET(new_state, MOUNT_DEAD, MOUNT_FAILED))
+                (void) unit_setup_dynamic_creds(u);
+
         mount_set_state(m, new_state);
         return 0;
 }
@@ -716,6 +721,10 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
+        r = unit_setup_dynamic_creds(UNIT(m));
+        if (r < 0)
+                return r;
+
         r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
         if (r < 0)
                 return r;
@@ -732,6 +741,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                        &m->exec_context,
                        &exec_params,
                        m->exec_runtime,
+                       &m->dynamic_creds,
                        &pid);
         if (r < 0)
                 return r;
@@ -752,12 +762,14 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         if (f != MOUNT_SUCCESS)
                 m->result = f;
 
+        mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
+
         exec_runtime_destroy(m->exec_runtime);
         m->exec_runtime = exec_runtime_unref(m->exec_runtime);
 
         exec_context_destroy_runtime_directory(&m->exec_context, manager_get_runtime_prefix(UNIT(m)->manager));
 
-        mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
+        dynamic_creds_destroy(&m->dynamic_creds);
 }
 
 static void mount_enter_mounted(Mount *m, MountResult f) {
@@ -1817,6 +1829,7 @@ const UnitVTable mount_vtable = {
         .cgroup_context_offset = offsetof(Mount, cgroup_context),
         .kill_context_offset = offsetof(Mount, kill_context),
         .exec_runtime_offset = offsetof(Mount, exec_runtime),
+        .dynamic_creds_offset = offsetof(Mount, dynamic_creds),
 
         .sections =
                 "Unit\0"

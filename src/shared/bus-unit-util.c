@@ -199,11 +199,12 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 r = sd_bus_message_append(m, "sv", sn, "t", l.rlim_cur);
 
         } else if (STR_IN_SET(field,
-                       "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting", "TasksAccounting",
-                       "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
-                       "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
-                       "PrivateTmp", "PrivateDevices", "PrivateNetwork", "NoNewPrivileges",
-                       "SyslogLevelPrefix", "Delegate", "RemainAfterElapse", "MemoryDenyWriteExecute")) {
+                              "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting", "TasksAccounting",
+                              "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
+                              "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
+                              "PrivateTmp", "PrivateDevices", "PrivateNetwork", "NoNewPrivileges",
+                              "SyslogLevelPrefix", "Delegate", "RemainAfterElapse", "MemoryDenyWriteExecute",
+                              "RestrictRealtime", "DynamicUser")) {
 
                 r = parse_boolean(eq);
                 if (r < 0)

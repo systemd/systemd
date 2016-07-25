@@ -33,6 +33,29 @@ Janitorial Clean-ups:
 
 Features:
 
+* RemoveIPC= in unit files for removing POSIX/SysV IPC objects
+
+* Set SERVICE_RESULT= as env var while running ExecStop=
+
+* Introduce ProtectSystem=strict for making the entire OS hierarchy read-only
+  except for a select few
+
+* nspawn: start UID allocation loop from hash of container name
+
+* in the DynamicUser=1 nss module, also map "nobody" and "root" statically
+
+* pid1: log about all processes we kill with with SIGKILL or in abandoned scopes, as this should normally not happen
+
+* nspawn: support that /proc, /sys/, /dev are pre-mounted
+
+* nspawn: mount esp, so that bootctl can work
+
+* define gpt header bits to select volatility mode
+
+* nspawn: mount loopback filesystems with "discard"
+
+* Make TasksMax= take percentages, taken relative to the pids_max sysctl and pids.max cgroup limit
+
 * ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
 
 * ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc
@@ -46,7 +69,7 @@ Features:
 * PrivateUsers= which maps the all user ids except root and the one specified
   in User= to nobody
 
-* Add AllocateUser= for allowing dynamic user ids per-service
+* ProtectControlGroups= which mounts all of /sys/fs/cgroup read-only
 
 * Add DataDirectory=, CacheDirectory= and LogDirectory= to match
   RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
@@ -59,8 +82,6 @@ Features:
 * Add RootImage= for mounting a disk image or file as root directory
 
 * RestrictNamespaces= or so in services (taking away the ability to create namespaces, with setns, unshare, clone)
-
-* nspawn: make /proc/sys/net writable?
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
