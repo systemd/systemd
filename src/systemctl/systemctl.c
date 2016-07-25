@@ -224,6 +224,21 @@ static void release_busses(void) {
                 busses[w] = sd_bus_flush_close_unref(busses[w]);
 }
 
+static int map_string_no_copy(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        char *s;
+        const char **p = userdata;
+        int r;
+
+        r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &s);
+        if (r < 0)
+                return r;
+
+        if (!isempty(s))
+                *p = s;
+
+        return 0;
+}
+
 static void ask_password_agent_open_if_enabled(void) {
 
         /* Open the password agent as a child process if necessary */
@@ -4632,8 +4647,8 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)   },
-                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
+                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)   },
+                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state) },
                 {}
         };
 
@@ -5664,8 +5679,8 @@ static int unit_exists(const char *unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)  },
-                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state)},
+                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)  },
+                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state)},
                 {},
         };
         UnitStatusInfo info = {};
