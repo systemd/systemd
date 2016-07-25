@@ -4,7 +4,7 @@ CHANGES WITH 231:
 
         * In service units the various ExecXYZ= settings have been extended
           with an additional special character as first argument of the
-          assigned value: if the character '!' is used the specified command
+          assigned value: if the character '+' is used the specified command
           line it will be run with full privileges, regardless of User=,
           Group=, CapabilityBoundingSet= and similar options. The effect is
           similar to the existing PermissionsStartOnly= option, but allows
