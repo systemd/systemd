@@ -916,11 +916,12 @@ int mount_cgroups(
                 const char *dest,
                 bool unified_requested,
                 bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+                const char *selinux_apifs_context,
+                bool use_cgns) {
 
         if (unified_requested)
                 return mount_unified_cgroups(dest);
-        else if (cg_ns_supported())
+        else if (use_cgns && cg_ns_supported())
                 return mount_legacy_cgns_supported(userns, uid_shift, uid_range, selinux_apifs_context);
 
         return mount_legacy_cgns_unsupported(dest, userns, uid_shift, uid_range, selinux_apifs_context);

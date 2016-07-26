@@ -194,6 +194,7 @@ static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
 static const char *arg_container_service_name = "systemd-nspawn";
 static bool arg_notify_ready = false;
+static bool arg_use_cgns = true;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -1103,6 +1104,12 @@ static int parse_argv(int argc, char *argv[]) {
         e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
         if (e)
                 arg_container_service_name = e;
+
+        r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");
+        if (r < 0)
+                arg_use_cgns = cg_ns_supported();
+        else
+                arg_use_cgns = r;
 
         return 1;
 }
@@ -2628,7 +2635,7 @@ static int inner_child(
                 return -ESRCH;
         }
 
-        if (cg_ns_supported()) {
+        if (arg_use_cgns && cg_ns_supported()) {
                 r = unshare(CLONE_NEWCGROUP);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare cgroup namespace");
@@ -2638,7 +2645,8 @@ static int inner_child(
                                 arg_userns_mode != USER_NAMESPACE_NO,
                                 arg_uid_shift,
                                 arg_uid_range,
-                                arg_selinux_apifs_context);
+                                arg_selinux_apifs_context,
+                                arg_use_cgns);
                 if (r < 0)
                         return r;
         } else {
@@ -3029,14 +3037,15 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (!cg_ns_supported()) {
+        if (!arg_use_cgns || !cg_ns_supported()) {
                 r = mount_cgroups(
                                 directory,
                                 arg_unified_cgroup_hierarchy,
                                 arg_userns_mode != USER_NAMESPACE_NO,
                                 arg_uid_shift,
                                 arg_uid_range,
-                                arg_selinux_apifs_context);
+                                arg_selinux_apifs_context,
+                                arg_use_cgns);
                 if (r < 0)
                         return r;
         }
