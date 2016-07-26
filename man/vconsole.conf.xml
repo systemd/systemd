@@ -55,8 +55,11 @@
 
     <para>The <filename>/etc/vconsole.conf</filename> file configures
     the virtual console, i.e. keyboard mapping and console font. It is
-    applied at boot by
-    <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    applied at boot by udev using <filename>90-vconsole.rules</filename> file.
+    You can safely mask this file if you want to avoid this kind of initialization.
+    There is also <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    provided that you can conveniently use at any time to [re]initialize consoles.
+    </para>
 
     <para>The basic file format of the
     <filename>vconsole.conf</filename> is a newline-separated list of
@@ -68,10 +71,10 @@
 
     <para>Note that the kernel command line options
     <varname>vconsole.keymap=</varname>,
-    <varname>vconsole.keymap.toggle=</varname>,
+    <varname>vconsole.keymap_toggle=</varname>,
     <varname>vconsole.font=</varname>,
-    <varname>vconsole.font.map=</varname>,
-    <varname>vconsole.font.unimap=</varname> may be used
+    <varname>vconsole.font_map=</varname>,
+    <varname>vconsole.font_unimap=</varname> may be used
     to override the console settings at boot.</para>
 
     <para>Depending on the operating system other configuration files
