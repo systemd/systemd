@@ -351,8 +351,12 @@ int main(int argc, char **argv) {
         if (detect_container() <= 0) {
                 r = parse_env_file("/proc/cmdline", WHITESPACE,
                                    "vconsole.keymap", &vc_keymap,
-                                   "vconsole.keymap.toggle", &vc_keymap_toggle,
+                                   "vconsole.keymap_toggle", &vc_keymap_toggle,
                                    "vconsole.font", &vc_font,
+                                   "vconsole.font_map", &vc_font_map,
+                                   "vconsole.font_unimap", &vc_font_unimap,
+                                   /* compatibility with obsolete multiple-dot scheme */
+                                   "vconsole.keymap.toggle", &vc_keymap_toggle,
                                    "vconsole.font.map", &vc_font_map,
                                    "vconsole.font.unimap", &vc_font_unimap,
                                    NULL);
