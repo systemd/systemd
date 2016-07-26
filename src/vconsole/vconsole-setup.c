@@ -209,7 +209,7 @@ static void font_copy_to_all_vcs(int fd) {
                 return;
         }
 
-        for (i = 1; i <= 15; i++) {
+        for (i = 1; i <= 63; i++) {
                 char vcname[strlen("/dev/vcs") + DECIMAL_STR_MAX(int)];
                 _cleanup_close_ int vcfd = -1;
                 struct console_font_op cfo = {};
