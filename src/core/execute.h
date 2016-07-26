@@ -208,6 +208,17 @@ struct ExecContext {
         bool no_new_privileges_set:1;
 };
 
+typedef enum ExecFlags {
+        EXEC_CONFIRM_SPAWN     = 1U << 0,
+        EXEC_APPLY_PERMISSIONS = 1U << 1,
+        EXEC_APPLY_CHROOT      = 1U << 2,
+        EXEC_APPLY_TTY_STDIN   = 1U << 3,
+
+        /* The following are not usec by execute.c, but by consumers internally */
+        EXEC_PASS_FDS          = 1U << 4,
+        EXEC_IS_CONTROL        = 1U << 5,
+} ExecFlags;
+
 struct ExecParameters {
         char **argv;
         char **environment;
@@ -216,11 +227,7 @@ struct ExecParameters {
         char **fd_names;
         unsigned n_fds;
 
-        bool apply_permissions:1;
-        bool apply_chroot:1;
-        bool apply_tty_stdin:1;
-
-        bool confirm_spawn:1;
+        ExecFlags flags;
         bool selinux_context_net:1;
 
         bool cgroup_delegate:1;

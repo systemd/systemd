@@ -427,7 +427,7 @@ static int setup_input(
                 return STDIN_FILENO;
         }
 
-        i = fixup_input(context->std_input, socket_fd, params->apply_tty_stdin);
+        i = fixup_input(context->std_input, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
 
         switch (i) {
 
@@ -502,7 +502,7 @@ static int setup_output(
                 return STDERR_FILENO;
         }
 
-        i = fixup_input(context->std_input, socket_fd, params->apply_tty_stdin);
+        i = fixup_input(context->std_input, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
         if (fileno == STDERR_FILENO) {
@@ -1675,7 +1675,7 @@ static int exec_child(
 
         exec_context_tty_reset(context, params);
 
-        if (params->confirm_spawn) {
+        if (params->flags & EXEC_CONFIRM_SPAWN) {
                 char response;
 
                 r = ask_for_confirmation(&response, argv);
@@ -1940,7 +1940,7 @@ static int exec_child(
 
         umask(context->umask);
 
-        if (params->apply_permissions && !command->privileged) {
+        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
                 r = enforce_groups(context, username, gid);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
@@ -2010,7 +2010,7 @@ static int exec_child(
                 }
 
                 r = setup_namespace(
-                                params->apply_chroot ? context->root_directory : NULL,
+                                (params->flags & EXEC_APPLY_CHROOT) ? context->root_directory : NULL,
                                 context->read_write_paths,
                                 context->read_only_paths,
                                 context->inaccessible_paths,
@@ -2041,7 +2041,7 @@ static int exec_child(
         else
                 wd = "/";
 
-        if (params->apply_chroot) {
+        if (params->flags & EXEC_APPLY_CHROOT) {
                 if (!needs_mount_namespace && context->root_directory)
                         if (chroot(context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
@@ -2065,7 +2065,12 @@ static int exec_child(
         }
 
 #ifdef HAVE_SELINUX
-        if (params->apply_permissions && mac_selinux_use() && params->selinux_context_net && socket_fd >= 0 && !command->privileged) {
+        if ((params->flags & EXEC_APPLY_PERMISSIONS) &&
+            mac_selinux_use() &&
+            params->selinux_context_net &&
+            socket_fd >= 0 &&
+            !command->privileged) {
+
                 r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
                 if (r < 0) {
                         *exit_status = EXIT_SELINUX_CONTEXT;
@@ -2090,7 +2095,7 @@ static int exec_child(
                 return r;
         }
 
-        if (params->apply_permissions && !command->privileged) {
+        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
 
                 bool use_address_families = context->address_families_whitelist ||
                         !set_isempty(context->address_families);
