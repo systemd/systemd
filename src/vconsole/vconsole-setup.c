@@ -2,6 +2,7 @@
   This file is part of systemd.
 
   Copyright 2010 Kay Sievers
+  Copyright 2016 Michal Soltys <soltys@ziu.info>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
