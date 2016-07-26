@@ -5670,6 +5670,29 @@ static int mangle_names(char **original_names, char ***mangled_names) {
         return 0;
 }
 
+static int normalize_names(char **names, bool warn_if_path) {
+        char **u;
+        bool was_path = false;
+
+        STRV_FOREACH(u, names) {
+                int r;
+
+                if (!is_path(*u))
+                        continue;
+
+                r = free_and_strdup(u, basename(*u));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to normalize unit file path: %m");
+
+                was_path = true;
+        }
+
+        if (warn_if_path && was_path)
+                log_warning("Warning: Can't execute disable on the unit file path. Proceeding with the unit name.");
+
+        return 0;
+}
+
 static int unit_exists(const char *unit) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -5735,6 +5758,12 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 if (arg_no_reload || install_client_side())
                         return 0;
                 return daemon_reload(argc, argv, userdata);
+        }
+
+        if (streq(verb, "disable")) {
+                r = normalize_names(names, true);
+                if (r < 0)
+                        return r;
         }
 
         if (install_client_side()) {
