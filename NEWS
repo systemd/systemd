@@ -1,5 +1,12 @@
 systemd System and Service Manager
 
+CHANGES WITH 232 in spe
+
+        * Journald's SplitMode=login setting has been deprecated. It has been
+          removed from documentation, and it's use is discouraged. In a future
+          release it will be completely removed, and made equivalent to current
+          default of SplitMode=uid.
+
 CHANGES WITH 231:
 
         * In service units the various ExecXYZ= settings have been extended
