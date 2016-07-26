@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -50,56 +51,38 @@ static bool is_vconsole(int fd) {
         return ioctl(fd, TIOCLINUX, data) >= 0;
 }
 
-static int disable_utf8(int fd) {
-        int r = 0, k;
+static int toggle_utf8(int fd, bool utf8) {
+        int r;
+        struct termios tc = {};
 
-        if (ioctl(fd, KDSKBMODE, K_XLATE) < 0)
-                r = -errno;
-
-        k = loop_write(fd, "\033%@", 3, false);
-        if (k < 0)
-                r = k;
-
-        k = write_string_file("/sys/module/vt/parameters/default_utf8", "0", 0);
-        if (k < 0)
-                r = k;
-
+        r = ioctl(fd, KDSKBMODE, utf8 ? K_UNICODE : K_XLATE);
         if (r < 0)
-                log_warning_errno(r, "Failed to disable UTF-8: %m");
+                return log_warning_errno(errno, "Failed to %s UTF-8 kbdmode: %m", utf8 ? "enable" : "disable");
 
-        return r;
+        r = loop_write(fd, utf8 ? "\033%G" : "\033%@", 3, false);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to %s UTF-8 term processing: %m", utf8 ? "enable" : "disable");
+
+        r = tcgetattr(fd, &tc);
+        if (r >= 0) {
+                if (utf8)
+                        tc.c_iflag |= IUTF8;
+                else
+                        tc.c_iflag &= ~IUTF8;
+                r = tcsetattr(fd, TCSANOW, &tc);
+        }
+        if (r < 0)
+                return log_warning_errno(errno, "Failed to %s iutf8 flag: %m", utf8 ? "enable" : "disable");
+
+        return 0;
 }
 
-static int enable_utf8(int fd) {
-        int r = 0, k;
-        long current = 0;
+static int toggle_utf8_sysfs(bool utf8) {
+        int r;
 
-        if (ioctl(fd, KDGKBMODE, &current) < 0 || current == K_XLATE) {
-                /*
-                 * Change the current keyboard to unicode, unless it
-                 * is currently in raw or off mode anyway. We
-                 * shouldn't interfere with X11's processing of the
-                 * key events.
-                 *
-                 * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
-                 *
-                 */
-
-                if (ioctl(fd, KDSKBMODE, K_UNICODE) < 0)
-                        r = -errno;
-        }
-
-        k = loop_write(fd, "\033%G", 3, false);
-        if (k < 0)
-                r = k;
-
-        k = write_string_file("/sys/module/vt/parameters/default_utf8", "1", 0);
-        if (k < 0)
-                r = k;
-
+        r = write_string_file("/sys/module/vt/parameters/default_utf8", one_zero(utf8), 0);
         if (r < 0)
-                log_warning_errno(r, "Failed to enable UTF-8: %m");
-
+                log_warning_errno(r, "Failed to %s sysfs UTF-8 flag: %m", utf8 ? "enable" : "disable");
         return r;
 }
 
@@ -306,10 +289,8 @@ int main(int argc, char **argv) {
                         log_warning_errno(r, "Failed to read /proc/cmdline: %m");
         }
 
-        if (utf8)
-                (void) enable_utf8(fd);
-        else
-                (void) disable_utf8(fd);
+        toggle_utf8_sysfs(utf8);
+        toggle_utf8(fd, utf8);
 
         font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) > 0;
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) > 0;
