@@ -2258,10 +2258,12 @@ int unit_file_disable(
         config_path = runtime ? paths.runtime_config : paths.persistent_config;
 
         STRV_FOREACH(i, files) {
-                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
-                        return -EINVAL;
 
-                r = install_info_add(&c, *i, NULL, NULL);
+                if (!is_path(*i))
+                        r = install_info_add(&c, *i, NULL, NULL);
+                else
+                        r = install_info_add(&c, NULL, *i, NULL);
+
                 if (r < 0)
                         return r;
         }
