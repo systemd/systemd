@@ -51,6 +51,37 @@ static bool is_vconsole(int fd) {
         return ioctl(fd, TIOCLINUX, data) >= 0;
 }
 
+static bool is_allocated(unsigned int idx) {
+        char vcname[strlen("/dev/vcs") + DECIMAL_STR_MAX(int)];
+
+        xsprintf(vcname, "/dev/vcs%i", idx);
+        return access(vcname, F_OK) == 0;
+}
+
+static bool is_allocated_byfd(int fd) {
+        struct vt_stat vcs = {};
+
+        if (ioctl(fd, VT_GETSTATE, &vcs) < 0) {
+                log_warning_errno(errno, "VT_GETSTATE failed: %m");
+                return false;
+        }
+        return is_allocated(vcs.v_active);
+}
+
+static bool is_settable(int fd) {
+        int r, curr_mode;
+
+        r = ioctl(fd, KDGKBMODE, &curr_mode);
+        /*
+         * Make sure we only adjust consoles in K_XLATE or K_UNICODE mode.
+         * Oterwise we would (likely) interfere with X11's processing of the
+         * key events.
+         *
+         * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
+         */
+        return r == 0 && IN_SET(curr_mode, K_XLATE, K_UNICODE);
+}
+
 static int toggle_utf8(int fd, bool utf8) {
         int r;
         struct termios tc = {};
@@ -259,6 +290,16 @@ int main(int argc, char **argv) {
 
         if (!is_vconsole(fd)) {
                 log_error("Device %s is not a virtual console.", vc);
+                return EXIT_FAILURE;
+        }
+
+        if (!is_allocated_byfd(fd)) {
+                log_error("Virtual console %s is not allocated.", vc);
+                return EXIT_FAILURE;
+        }
+
+        if (!is_settable(fd)) {
+                log_error("Virtual console %s is not in K_XLATE or K_UNICODE.", vc);
                 return EXIT_FAILURE;
         }
 
