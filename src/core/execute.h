@@ -214,7 +214,7 @@ typedef enum ExecFlags {
         EXEC_APPLY_CHROOT      = 1U << 2,
         EXEC_APPLY_TTY_STDIN   = 1U << 3,
 
-        /* The following are not usec by execute.c, but by consumers internally */
+        /* The following are not used by execute.c, but by consumers internally */
         EXEC_PASS_FDS          = 1U << 4,
         EXEC_IS_CONTROL        = 1U << 5,
 } ExecFlags;

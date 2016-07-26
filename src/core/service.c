@@ -1174,6 +1174,14 @@ static int service_spawn(
         assert(c);
         assert(_pid);
 
+        if (flags & EXEC_IS_CONTROL) {
+                /* If this is a control process, mask the permissions/chroot application if this is requested. */
+                if (s->permissions_start_only)
+                        exec_params.flags &= ~EXEC_APPLY_PERMISSIONS;
+                if (s->root_directory_start_only)
+                        exec_params.flags &= ~EXEC_APPLY_CHROOT;
+        }
+
         (void) unit_realize_cgroup(UNIT(s));
         if (s->reset_cpu_usage) {
                 (void) unit_reset_cpu_usage(UNIT(s));
@@ -1459,9 +1467,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  (s->permissions_start_only ? 0 : EXEC_APPLY_PERMISSIONS) |
-                                  (s->root_directory_start_only ? 0 : EXEC_APPLY_CHROOT) |
-                                  EXEC_APPLY_TTY_STDIN | EXEC_IS_CONTROL,
+                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1572,9 +1578,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  (s->permissions_start_only ? 0 : EXEC_APPLY_PERMISSIONS) |
-                                  (s->root_directory_start_only ? 0 : EXEC_APPLY_CHROOT) |
-                                  EXEC_IS_CONTROL,
+                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1651,9 +1655,7 @@ static void service_enter_start_post(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  (s->permissions_start_only ? 0 : EXEC_APPLY_PERMISSIONS)|
-                                  (s->root_directory_start_only ? 0 : EXEC_APPLY_CHROOT)|
-                                  EXEC_IS_CONTROL,
+                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1782,9 +1784,7 @@ static void service_enter_start_pre(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  (s->permissions_start_only ? 0 : EXEC_APPLY_PERMISSIONS) |
-                                  (s->root_directory_start_only ? 0: EXEC_APPLY_CHROOT) |
-                                  EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN,
+                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1859,9 +1859,7 @@ static void service_enter_reload(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  (s->permissions_start_only ? 0 : EXEC_APPLY_PERMISSIONS) |
-                                  (s->root_directory_start_only ? 0 : EXEC_APPLY_CHROOT) |
-                                  EXEC_IS_CONTROL,
+                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1899,10 +1897,8 @@ static void service_run_next_control(Service *s) {
         r = service_spawn(s,
                           s->control_command,
                           timeout,
-                          (s->permissions_start_only ? 0 : EXEC_APPLY_PERMISSIONS) |
-                          (s->root_directory_start_only ? 0 : EXEC_APPLY_CHROOT) |
-                          (IN_SET(s->control_command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_STOP_POST) ? EXEC_APPLY_TTY_STDIN : 0)|
-                          EXEC_IS_CONTROL,
+                          EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|
+                          (IN_SET(s->control_command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_STOP_POST) ? EXEC_APPLY_TTY_STDIN : 0),
                           &s->control_pid);
         if (r < 0)
                 goto fail;
