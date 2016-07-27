@@ -211,9 +211,12 @@ AS_CASE([$CC], [*clang*],
                -Wno-gnu-variable-sized-type-not-at-end \
         ])])
 
+AC_ARG_ENABLE([lto], [AS_HELP_STRING([--disable-lto], [disable -flto])],
+                     [], [enable_lto=yes])
 AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
-        [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
-               -flto])],
+        [AS_IF([test "x$enable_lto" = "xyes"],
+               [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [-flto])],
+               [AC_MSG_RESULT([disabling -flto as requested])])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
