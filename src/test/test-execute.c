@@ -33,6 +33,7 @@
 #include "test-helper.h"
 #include "unit.h"
 #include "util.h"
+#include "virt.h"
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -111,6 +112,10 @@ static void test_exec_privatetmp(Manager *m) {
 }
 
 static void test_exec_privatedevices(Manager *m) {
+        if (detect_container() > 0) {
+                log_notice("testing in container, skipping private device tests");
+                return;
+        }
         test(m, "exec-privatedevices-yes.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
 }
