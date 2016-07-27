@@ -553,7 +553,6 @@ static int manager_default_environment(Manager *m) {
         return 0;
 }
 
-
 int manager_new(UnitFileScope scope, bool test_run, Manager **_m) {
         Manager *m;
         int r;
