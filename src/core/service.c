@@ -1216,7 +1216,7 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 6);
+        our_env = new0(char*, 9);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1261,6 +1261,24 @@ static int service_spawn(
                         if (asprintf(&t, "REMOTE_PORT=%u", port) < 0)
                                 return -ENOMEM;
                         our_env[n_env++] = t;
+                }
+        }
+
+        if (flags & EXEC_SETENV_RESULT) {
+                if (asprintf(our_env + n_env++, "SERVICE_RESULT=%s", service_result_to_string(s->result)) < 0)
+                        return -ENOMEM;
+
+                if (s->main_exec_status.pid > 0 &&
+                    dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
+                        if (asprintf(our_env + n_env++, "EXIT_CODE=%s", sigchld_code_to_string(s->main_exec_status.code)) < 0)
+                                return -ENOMEM;
+
+                        if (s->main_exec_status.code == CLD_EXITED)
+                                r = asprintf(our_env + n_env++, "EXIT_STATUS=%i", s->main_exec_status.status);
+                        else
+                                r = asprintf(our_env + n_env++, "EXIT_STATUS=%s", signal_to_string(s->main_exec_status.status));
+                        if (r < 0)
+                                return -ENOMEM;
                 }
         }
 
@@ -1467,7 +1485,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL,
+                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1578,7 +1596,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
+                                  EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1898,7 +1916,8 @@ static void service_run_next_control(Service *s) {
                           s->control_command,
                           timeout,
                           EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|
-                          (IN_SET(s->control_command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_STOP_POST) ? EXEC_APPLY_TTY_STDIN : 0),
+                          (IN_SET(s->control_command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_STOP_POST) ? EXEC_APPLY_TTY_STDIN : 0)|
+                          (IN_SET(s->control_command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST) ? EXEC_SETENV_RESULT : 0),
                           &s->control_pid);
         if (r < 0)
                 goto fail;
