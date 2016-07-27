@@ -675,7 +675,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sOptions: %s\n"
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
-                "%sDirectoryMode: %04o\n",
+                "%sDirectoryMode: %04o\n"
+                "%sLazyUnmount: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
@@ -684,7 +685,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p ? strna(p->options) : "n/a",
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
-                prefix, m->directory_mode);
+                prefix, m->directory_mode,
+                prefix, yes_no(m->lazy_unmount));
 
         if (m->control_pid > 0)
                 fprintf(f,
@@ -844,6 +846,8 @@ static void mount_enter_unmounting(Mount *m) {
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
         r = exec_command_set(m->control_command, UMOUNT_PATH, m->where, NULL);
+        if (r >= 0 && m->lazy_unmount)
+                r = exec_command_append(m->control_command, "-l", NULL);
         if (r < 0)
                 goto fail;
 
