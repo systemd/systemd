@@ -2969,12 +2969,12 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
                 "%sPID: "PID_FMT"\n",
                 prefix, s->pid);
 
-        if (s->start_timestamp.realtime > 0)
+        if (dual_timestamp_is_set(&s->start_timestamp))
                 fprintf(f,
                         "%sStart Timestamp: %s\n",
                         prefix, format_timestamp(buf, sizeof(buf), s->start_timestamp.realtime));
 
-        if (s->exit_timestamp.realtime > 0)
+        if (dual_timestamp_is_set(&s->exit_timestamp))
                 fprintf(f,
                         "%sExit Timestamp: %s\n"
                         "%sExit Code: %s\n"
