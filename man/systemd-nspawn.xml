@@ -274,8 +274,7 @@
         signals. It is recommended to use this mode to invoke arbitrary commands in containers, unless they have been
         modified to run correctly as PID 1. Or in other words: this switch should be used for pretty much all commands,
         except when the command refers to an init or shell implementation, as these are generally capable of running
-        correctly as PID 1. This option may not be combined with <option>--boot</option> or
-        <option>--share-system</option>.</para>
+        correctly as PID 1. This option may not be combined with <option>--boot</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -285,8 +284,7 @@
 
         <listitem><para>Automatically search for an init binary and invoke it as PID 1, instead of a shell or a user
         supplied program. If this option is used, arguments specified on the command line are used as arguments for the
-        init binary. This option may not be combined with <option>--as-pid2</option> or
-        <option>--share-system</option>.</para>
+        init binary. This option may not be combined with <option>--as-pid2</option>.</para>
 
         <para>The following table explains the different modes of invocation and relationship to
         <option>--as-pid2</option> (see above):</para>
@@ -847,23 +845,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--share-system</option></term>
-
-        <listitem><para>Allows the container to share certain system
-        facilities with the host. More specifically, this turns off
-        PID namespacing, UTS namespacing and IPC namespacing, and thus
-        allows the guest to see and interact more easily with
-        processes outside of the container. Note that using this
-        option makes it impossible to start up a full Operating System
-        in the container, as an init system cannot operate in this
-        mode. It is only useful to run specific programs or
-        applications this way, without involving an init system in the
-        container. This option implies <option>--register=no</option>.
-        This option may not be combined with
-        <option>--boot</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--register=</option></term>
 
         <listitem><para>Controls whether the container is registered
@@ -877,9 +858,7 @@
         and shown by tools such as
         <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         If the container does not run an init system, it is
-        recommended to set this option to <literal>no</literal>. Note
-        that <option>--share-system</option> implies
-        <option>--register=no</option>. </para></listitem>
+        recommended to set this option to <literal>no</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

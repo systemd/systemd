@@ -269,7 +269,6 @@ static void help(void) {
                "     --overlay-ro=PATH[:PATH...]:PATH\n"
                "                            Similar, but creates a read-only overlay mount\n"
                "  -E --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
-               "     --share-system         Share system namespaces with host\n"
                "     --register=BOOLEAN     Register container as machine\n"
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
                "                            the service unit nspawn is running in\n"
@@ -405,7 +404,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "selinux-context",       required_argument, NULL, 'Z'                   },
                 { "selinux-apifs-context", required_argument, NULL, 'L'                   },
                 { "quiet",                 no_argument,       NULL, 'q'                   },
-                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      },
+                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      }, /* not documented */
                 { "register",              required_argument, NULL, ARG_REGISTER          },
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
@@ -814,6 +813,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SHARE_SYSTEM:
+                        /* We don't officially support this anymore, except for compat reasons. People should use the
+                         * $SYSTEMD_NSPAWN_SHARE_SYSTEM environment variable instead. */
                         arg_share_system = true;
                         break;
 
@@ -1018,6 +1019,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
+        if (getenv_bool("SYSTEMD_NSPAWN_SHARE_SYSTEM") > 0)
+                arg_share_system = true;
+
         if (arg_share_system)
                 arg_register = false;
 
@@ -1025,7 +1029,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_userns_chown = true;
 
         if (arg_start_mode != START_PID1 && arg_share_system) {
-                log_error("--boot and --share-system may not be combined.");
+                log_error("--boot and SYSTEMD_NSPAWN_SHARE_SYSTEM=1 may not be combined.");
                 return -EINVAL;
         }
 
