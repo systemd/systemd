@@ -1724,6 +1724,17 @@ static int exec_child(
                                 *exit_status = EXIT_USER;
                                 return r;
                         }
+
+                        /* Don't set $HOME or $SHELL if they are are not particularly enlightening anyway. */
+                        if (isempty(home) || path_equal(home, "/"))
+                                home = NULL;
+
+                        if (isempty(shell) || PATH_IN_SET(shell,
+                                                          "/bin/nologin",
+                                                          "/sbin/nologin",
+                                                          "/usr/bin/nologin",
+                                                          "/usr/sbin/nologin"))
+                                shell = NULL;
                 }
 
                 if (context->group) {
