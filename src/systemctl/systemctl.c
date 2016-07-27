@@ -5566,10 +5566,12 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!found_sysv)
                         continue;
 
-                if (found_native)
-                        log_info("Synchronizing state of %s with SysV service script with %s.", name, argv[0]);
-                else
-                        log_info("%s is not a native service, redirecting to systemd-sysv-install.", name);
+                if (!arg_quiet) {
+                        if (found_native)
+                                log_info("Synchronizing state of %s with SysV service script with %s.", name, argv[0]);
+                        else
+                                log_info("%s is not a native service, redirecting to systemd-sysv-install.", name);
+                }
 
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
