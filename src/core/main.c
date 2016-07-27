@@ -1318,7 +1318,7 @@ static int fixup_environment(void) {
                 return r;
 
         if (r == 0) {
-                term = strdup(default_term_for_tty("/dev/console") + 5);
+                term = strdup(default_term_for_tty("/dev/console"));
                 if (!term)
                         return -ENOMEM;
         }

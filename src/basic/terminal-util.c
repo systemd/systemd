@@ -785,7 +785,7 @@ bool tty_is_vc_resolve(const char *tty) {
 }
 
 const char *default_term_for_tty(const char *tty) {
-        return tty && tty_is_vc_resolve(tty) ? "TERM=linux" : "TERM=vt220";
+        return tty && tty_is_vc_resolve(tty) ? "linux" : "vt220";
 }
 
 int fd_columns(int fd) {
