@@ -64,6 +64,7 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
                 "Documentation=man:systemd-fsck-root.service(8)\n"
                 "Description=File System Check on %2$s\n"
                 "DefaultDependencies=no\n"
+                "ConditionPathExists=%2$s\n"
                 "BindsTo=%3$s\n"
                 "After=initrd-root-device.target local-fs-pre.target\n"
                 "Before=shutdown.target\n"
