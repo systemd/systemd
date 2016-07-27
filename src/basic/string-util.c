@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "alloc-util.h"
 #include "gunicode.h"
@@ -822,24 +823,19 @@ int free_and_strdup(char **p, const char *s) {
         return 1;
 }
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
+/*
+ * Pointer to memset is volatile so that compiler must de-reference
+ * the pointer and can't assume that it points to any function in
+ * particular (such as memset, which it then might further "optimize")
+ * This approach is inspired by openssl's crypto/mem_clr.c.
+ */
+typedef void *(*memset_t)(void *,int,size_t);
+
+static volatile memset_t memset_func = memset;
 
 void* memory_erase(void *p, size_t l) {
-        volatile uint8_t* x = (volatile uint8_t*) p;
-
-        /* This basically does what memset() does, but hopefully isn't
-         * optimized away by the compiler. One of those days, when
-         * glibc learns memset_s() we should replace this call by
-         * memset_s(), but until then this has to do. */
-
-        for (; l > 0; l--)
-                *(x++) = 'x';
-
-        return p;
+        return memset_func(p, 'x', l);
 }
-
-#pragma GCC pop_options
 
 char* string_erase(char *x) {
 
