@@ -217,8 +217,7 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
                         if (errno == ENOENT)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to stat() POSIX shared memory segment %s: %m", de->d_name);
-                        ret = -errno;
+                        ret = log_warning_errno(errno, "Failed to stat() POSIX shared memory segment %s: %m", de->d_name);
                         continue;
                 }
 
@@ -230,10 +229,8 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
 
                         kid = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW|O_NOATIME);
                         if (!kid) {
-                                if (errno != ENOENT) {
-                                        log_warning_errno(errno, "Failed to enter shared memory directory %s: %m", de->d_name);
-                                        ret = -errno;
-                                }
+                                if (errno != ENOENT)
+                                        ret = log_warning_errno(errno, "Failed to enter shared memory directory %s: %m", de->d_name);
                         } else {
                                 r = clean_posix_shm_internal(kid, uid);
                                 if (r < 0)
@@ -245,8 +242,7 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                log_warning_errno(errno, "Failed to remove POSIX shared memory directory %s: %m", de->d_name);
-                                ret = -errno;
+                                ret = log_warning_errno(errno, "Failed to remove POSIX shared memory directory %s: %m", de->d_name);
                         }
                 } else {
 
@@ -255,8 +251,7 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                log_warning_errno(errno, "Failed to remove POSIX shared memory segment %s: %m", de->d_name);
-                                ret = -errno;
+                                ret = log_warning_errno(errno, "Failed to remove POSIX shared memory segment %s: %m", de->d_name);
                         }
                 }
         }
@@ -264,8 +259,7 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
         return ret;
 
 fail:
-        log_warning_errno(errno, "Failed to read /dev/shm: %m");
-        return -errno;
+        return log_warning_errno(errno, "Failed to read /dev/shm: %m");
 }
 
 static int clean_posix_shm(uid_t uid) {
