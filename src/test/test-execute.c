@@ -91,6 +91,16 @@ static void test_exec_personality(Manager *m) {
 #elif defined(__s390__)
         test(m, "exec-personality-s390.service", 0, CLD_EXITED);
 
+#elif defined(__powerpc64__)
+#  if __BYTE_ORDER == __BIG_ENDIAN
+        test(m, "exec-personality-ppc64.service", 0, CLD_EXITED);
+#  else
+        test(m, "exec-personality-ppc64le.service", 0, CLD_EXITED);
+#  endif
+
+#elif defined(__aarch64__)
+        test(m, "exec-personality-aarch64.service", 0, CLD_EXITED);
+
 #elif defined(__i386__)
         test(m, "exec-personality-x86.service", 0, CLD_EXITED);
 #endif
