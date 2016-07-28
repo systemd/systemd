@@ -207,7 +207,7 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
 
         assert(dir);
 
-        FOREACH_DIRENT(de, dir, goto fail) {
+        FOREACH_DIRENT_ALL(de, dir, goto fail) {
                 struct stat st;
 
                 if (STR_IN_SET(de->d_name, "..", "."))
@@ -295,7 +295,7 @@ static int clean_posix_mq(uid_t uid) {
                 return log_warning_errno(errno, "Failed to open /dev/mqueue: %m");
         }
 
-        FOREACH_DIRENT(de, dir, goto fail) {
+        FOREACH_DIRENT_ALL(de, dir, goto fail) {
                 struct stat st;
                 char fn[1+strlen(de->d_name)+1];
 
