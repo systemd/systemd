@@ -195,8 +195,6 @@ struct Unit {
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
 
-        uint32_t cgroup_netclass_id;
-
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
 
