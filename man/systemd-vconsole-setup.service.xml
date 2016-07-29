@@ -63,41 +63,7 @@
 
     <para>See
     <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for information about the configuration files understood by this
-    service.</para>
-
-
-  </refsect1>
-
-  <refsect1>
-    <title>Kernel Command Line</title>
-
-    <para>A few configuration parameters from
-    <filename>vconsole.conf</filename> may be overridden on the kernel
-    command line:</para>
-
-    <variablelist class='kernel-commandline-options'>
-      <varlistentry>
-        <term><varname>vconsole.keymap=</varname></term>
-        <term><varname>vconsole.keymap.toggle=</varname></term>
-
-        <listitem><para>Overrides the key mapping table for the
-        keyboard and the second toggle keymap.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-
-        <term><varname>vconsole.font=</varname></term>
-        <term><varname>vconsole.font.map=</varname></term>
-        <term><varname>vconsole.font.unimap=</varname></term>
-
-        <listitem><para>Configures the console font, the console map,
-        and the unicode font map.</para></listitem>
-      </varlistentry>
-    </variablelist>
-
-    <para>See
-    <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for information about these settings.</para>
+    for information about the configuration files and kernel command line options understood by this program.</para>
   </refsect1>
 
   <refsect1>
