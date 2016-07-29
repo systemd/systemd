@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for Personality=ppc64
+
+[Service]
+ExecStart=/bin/sh -c 'echo $(uname -m); exit $(test $(uname -m) = "ppc64" -o $(uname -m) = "ppc64le")'
+Type=oneshot
+Personality=ppc64
