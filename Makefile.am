@@ -68,6 +68,7 @@ catalogstatedir=$(systemdstatedir)/catalog
 xinitrcdir=$(sysconfdir)/X11/xinit/xinitrc.d
 
 # Our own, non-special dirs
+environmentdir=$(prefix)/lib/environment.d
 pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
 userpresetdir=$(prefix)/lib/systemd/user-preset
@@ -308,6 +309,10 @@ endef
 install-directories-hook:
 	$(MKDIR_P) $(addprefix $(DESTDIR),$(INSTALL_DIRS))
 
+install-environment-conf-hook: install-directories-hook
+	$(AM_V_LN)$(LN_S) --relative -f $(DESTDIR)$(sysconfdir)/environment \
+		$(DESTDIR)$(environmentdir)/99-environment.conf
+
 install-aliases-hook:
 	set -- $(SYSTEM_UNIT_ALIASES) && \
 		dir=$(systemunitdir) && $(install-aliases)
@@ -340,6 +345,7 @@ install-touch-usr-hook:
 INSTALL_EXEC_HOOKS += \
 	install-target-wants-hook \
 	install-directories-hook \
+	install-environment-conf-hook \
 	install-aliases-hook \
 	install-touch-usr-hook
 
@@ -6491,6 +6497,7 @@ INSTALL_DIRS += \
 endif
 
 INSTALL_DIRS += \
+	$(environmentdir) \
 	$(prefix)/lib/modules-load.d \
 	$(sysconfdir)/modules-load.d \
 	$(prefix)/lib/systemd/network \
