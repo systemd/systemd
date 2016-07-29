@@ -11,6 +11,7 @@ MANPAGES += \
 	man/bootup.7 \
 	man/busctl.1 \
 	man/daemon.7 \
+	man/environment.d.5 \
 	man/file-hierarchy.7 \
 	man/halt.8 \
 	man/hostname.5 \
@@ -2586,6 +2587,7 @@ EXTRA_DIST += \
 	man/crypttab.xml \
 	man/daemon.xml \
 	man/dnssec-trust-anchors.d.xml \
+	man/environment.d.xml \
 	man/file-hierarchy.xml \
 	man/halt.xml \
 	man/hostname.xml \

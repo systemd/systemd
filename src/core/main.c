@@ -45,6 +45,7 @@
 #include "bus-util.h"
 #include "capability-util.h"
 #include "clock-util.h"
+#include "conf-files.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "dbus-manager.h"
@@ -75,6 +76,7 @@
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "sd-path.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -748,6 +750,34 @@ static void manager_set_defaults(Manager *m) {
 
         manager_set_default_rlimits(m, arg_default_rlimit);
         manager_environment_add(m, NULL, arg_default_environment);
+}
+
+static void manager_load_environment(Manager *m) {
+        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *c = NULL;
+        int r;
+
+        if (arg_system)
+                return;
+
+        dirs = strv_split_nulstr(CONF_PATHS_NULSTR("environment.d"));
+        if (!dirs)
+                return;
+
+        r = sd_path_home(SD_PATH_USER_CONFIGURATION, "environment.d", &c);
+        if (r < 0)
+                return;
+
+        r = strv_extend_front(&dirs, c);
+        if (r < 0)
+                return;
+
+        r = conf_files_list_strv(&files, ".conf", NULL, (const char **) dirs);
+        if (r < 0)
+                return;
+
+        manager_environment_add_files(m, (const char **) files);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1798,6 +1828,7 @@ int main(int argc, char *argv[]) {
         m->security_finish_timestamp = security_finish_timestamp;
 
         manager_set_defaults(m);
+        manager_load_environment(m);
         manager_set_show_status(m, arg_show_status);
         manager_set_first_boot(m, empty_etc);
 
@@ -1908,6 +1939,7 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to parse config file.");
 
                         manager_set_defaults(m);
+                        manager_load_environment(m);
 
                         r = manager_reload(m);
                         if (r < 0)

@@ -3055,6 +3055,41 @@ int manager_environment_add(Manager *m, char **minus, char **plus) {
         return 0;
 }
 
+int manager_environment_add_files(Manager *m, const char * const *fnames) {
+        const char * const *i;
+        char **l;
+
+        l = strv_copy(m->environment);
+
+        if (!l)
+                goto fail;
+
+        STRV_FOREACH(i, fnames) {
+                _cleanup_strv_free_ char **k = NULL;
+                int r;
+
+                r = merge_env_file(NULL, *i, NULL, (const char **) l, MERGE_ENV_FILE_EXPAND, &k);
+                if (r == -ENOMEM)
+                        goto fail;
+                else if (r < 0)
+                        continue;
+
+                strv_free(l);
+                l = k;
+                k = NULL;
+        }
+
+        strv_free(m->environment);
+        m->environment = l;
+
+        manager_clean_environment(m);
+        strv_sort(m->environment);
+
+        return 0;
+fail:
+        return -ENOMEM;
+}
+
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         int i;
 

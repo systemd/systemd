@@ -7,6 +7,8 @@
 
 # See tmpfiles.d(5) for details
 
+d /run/environment.d 0755 root root -
+
 d /run/user 0755 root root -
 F! /run/utmp 0664 root utmp -
 

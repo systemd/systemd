@@ -348,6 +348,7 @@ void manager_clear_jobs(Manager *m);
 unsigned manager_dispatch_load_queue(Manager *m);
 
 int manager_environment_add(Manager *m, char **minus, char **plus);
+int manager_environment_add_files(Manager *m, const char * const *fnames);
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
 int manager_loop(Manager *m);
