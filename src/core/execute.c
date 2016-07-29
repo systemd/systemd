@@ -1862,7 +1862,7 @@ static int exec_child(
                         return r;
                 }
 
-                if (uid == UID_INVALID || gid == GID_INVALID) {
+                if (!uid_is_valid(uid) || !gid_is_valid(gid)) {
                         *exit_status = EXIT_USER;
                         return -ESRCH;
                 }
