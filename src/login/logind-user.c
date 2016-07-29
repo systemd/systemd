@@ -893,7 +893,7 @@ int config_parse_user_tasks_max(
 
         /* First, try to parse as percentage */
         r = parse_percent(rvalue);
-        if (r > 0 && r < 100)
+        if (r >= 0)
                 k = system_tasks_max_scale(r, 100U);
         else {
 
