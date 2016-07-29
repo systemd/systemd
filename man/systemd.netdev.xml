@@ -329,7 +329,7 @@
           <term><varname>AgeingTimeSec=</varname></term>
           <listitem>
             <para>This specifies the number of seconds a MAC Address will be kept in
-            the forwaring database after having a packet received from this MAC Address.</para>
+            the forwarding database after having a packet received from this MAC Address.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
