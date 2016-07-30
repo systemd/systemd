@@ -185,7 +185,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         qsort_safe(machines, n_machines, sizeof(MachineInfo), compare_machine_info);
 
-        if (arg_legend)
+        if (arg_legend && n_machines > 0)
                 printf("%-*s %-*s %-*s\n",
                        (int) max_name, "MACHINE",
                        (int) max_class, "CLASS",
@@ -197,8 +197,10 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                        (int) max_class, machines[j].class,
                        (int) max_service, machines[j].service);
 
-        if (arg_legend)
+        if (arg_legend && n_machines > 0)
                 printf("\n%zu machines listed.\n", n_machines);
+        else
+                printf("No machines.\n");
 
         return 0;
 }
@@ -305,7 +307,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
         qsort_safe(images, n_images, sizeof(ImageInfo), compare_image_info);
 
-        if (arg_legend)
+        if (arg_legend && n_images > 0)
                 printf("%-*s %-*s %-3s %-*s %-*s %-*s\n",
                        (int) max_name, "NAME",
                        (int) max_type, "TYPE",
@@ -326,8 +328,10 @@ static int list_images(int argc, char *argv[], void *userdata) {
                        (int) max_mtime, strna(format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime)));
         }
 
-        if (arg_legend)
+        if (arg_legend && n_images > 0)
                 printf("\n%zu images listed.\n", n_images);
+        else
+                printf("No images.\n");
 
         return 0;
 }
@@ -2314,7 +2318,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
 
         qsort_safe(transfers, n_transfers, sizeof(TransferInfo), compare_transfer_info);
 
-        if (arg_legend)
+        if (arg_legend && n_transfers > 0)
                 printf("%-*s %-*s %-*s %-*s %-*s\n",
                        (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), "ID",
                        (int) 7, "PERCENT",
@@ -2330,8 +2334,10 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                        (int) max_local, transfers[j].local,
                        (int) max_remote, transfers[j].remote);
 
-        if (arg_legend)
+        if (arg_legend && n_transfers > 0)
                 printf("\n%zu transfers listed.\n", n_transfers);
+        else
+                printf("No transfers.\n");
 
         return 0;
 }
