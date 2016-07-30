@@ -92,8 +92,7 @@ static enum {
         ACTION_HELP,
         ACTION_VERSION,
         ACTION_TEST,
-        ACTION_DUMP_CONFIGURATION_ITEMS,
-        ACTION_DONE
+        ACTION_DUMP_CONFIGURATION_ITEMS
 } arg_action = ACTION_RUN;
 static char *arg_default_unit = NULL;
 static bool arg_system = false;
@@ -1616,9 +1615,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
-                retval = EXIT_SUCCESS;
-                goto finish;
-        } else if (arg_action == ACTION_DONE) {
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
