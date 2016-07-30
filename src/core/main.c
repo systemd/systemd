@@ -1615,6 +1615,7 @@ int main(int argc, char *argv[]) {
                 retval = version();
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
+                pager_open(arg_no_pager, false);
                 unit_dump_config_items(stdout);
                 retval = EXIT_SUCCESS;
                 goto finish;
