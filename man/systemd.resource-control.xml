@@ -127,6 +127,13 @@
     settings of a unit for a given resource type are for the other hierarchy type, the settings are translated and
     applied. If there are any valid settings for the hierarchy in use, all translations are disabled for the resource
     type. Mixing the two types of settings on a unit can lead to confusing results.</para>
+
+    <para>Legacy control group hierarchy (see <ulink
+    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>), also called cgroup-v1,
+    doesn't allow safe delegation of controllers to unprivileged processes. If the system use legacy control group
+    hierarchy, resource control is disabled for systemd user instance, see
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
