@@ -99,9 +99,10 @@
   <refsect1>
     <title>Unified and Legacy Control Group Hierarchies</title>
 
-    <para>The unified control group hierarchy is the new version of kernel control group interface. Depending on the
-    resource type, there are differences in resource control capabilities.  Also, because of interface changes, some
-    resource types have a separate set of options on the unified hierarchy.</para>
+    <para>The unified control group hierarchy is the new version of kernel control group interface, see <ulink
+    url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>. Depending on the resource type,
+    there are differences in resource control capabilities.  Also, because of interface changes, some resource types
+    have separate set of options on the unified hierarchy.</para>
 
     <para>
       <variablelist>
