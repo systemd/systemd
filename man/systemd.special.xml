@@ -927,6 +927,19 @@ PartOf=graphical-session.target
         </programlisting>
       </example>
     </refsect2>
+
+    <refsect2>
+      <title>graphical-session-pre.target</title>
+
+      <para>This target contains services which set up the environment or
+      global configuration of a graphical session, such as SSH/GPG agents
+      (which need to export an environment variable into all desktop processes)
+      or migration of obsolete d-conf keys after an OS upgrade (which needs to
+      happen before starting any process that might use them). This target must
+      be started before starting a graphical session
+      like <filename>gnome-session.target</filename>.</para>
+    </refsect2>
+
   </refsect1>
 
   <refsect1>
