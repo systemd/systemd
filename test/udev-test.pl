@@ -1535,11 +1535,18 @@ if (!($<==0)) {
         exit($EXIT_TEST_SKIP);
 }
 
+# skip the test when running in a chroot
+system("systemd-detect-virt", "-r", "-q");
+if ($? >> 8 == 0) {
+        print "Running in a chroot, skipping the test.\n";
+        exit($EXIT_TEST_SKIP);
+}
+
 # skip the test when running in a container
 system("systemd-detect-virt", "-c", "-q");
 if ($? >> 8 == 0) {
-    print "Running in a container, skipping the test.\n";
-    exit($EXIT_TEST_SKIP);
+        print "Running in a container, skipping the test.\n";
+        exit($EXIT_TEST_SKIP);
 }
 
 udev_setup();
