@@ -204,7 +204,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers", "NoNewPrivileges",
                               "SyslogLevelPrefix", "Delegate", "RemainAfterElapse", "MemoryDenyWriteExecute",
-                              "RestrictRealtime", "DynamicUser")) {
+                              "RestrictRealtime", "DynamicUser", "RemoveIPC")) {
 
                 r = parse_boolean(eq);
                 if (r < 0)

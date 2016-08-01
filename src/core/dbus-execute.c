@@ -695,6 +695,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RemoveIPC", "b", bus_property_get_bool, offsetof(ExecContext, remove_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWriteDirectories", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -1071,7 +1072,7 @@ int bus_exec_context_set_transient_property(
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
-                              "RestrictRealtime", "DynamicUser")) {
+                              "RestrictRealtime", "DynamicUser", "RemoveIPC")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1103,6 +1104,8 @@ int bus_exec_context_set_transient_property(
                                 c->restrict_realtime = b;
                         else if (streq(name, "DynamicUser"))
                                 c->dynamic_user = b;
+                        else if (streq(name, "RemoveIPC"))
+                                c->remove_ipc = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }

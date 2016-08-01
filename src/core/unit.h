@@ -180,6 +180,10 @@ struct Unit {
         /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
         RateLimit auto_stop_ratelimit;
 
+        /* Reference to a specific UID/GID */
+        uid_t ref_uid;
+        gid_t ref_gid;
+
         /* Cached unit file state and preset */
         UnitFileState unit_file_state;
         int unit_file_preset;
@@ -371,8 +375,7 @@ struct UnitVTable {
         /* Called whenever a process of this unit sends us a message */
         void (*notify_message)(Unit *u, pid_t pid, char **tags, FDSet *fds);
 
-        /* Called whenever a name this Unit registered for comes or
-         * goes away. */
+        /* Called whenever a name this Unit registered for comes or goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
 
         /* Called for each property that is being set */
@@ -620,6 +623,17 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_symlink(Unit *u, const char* where);
 
 int unit_start_limit_test(Unit *u);
+
+void unit_unref_uid(Unit *u, bool destroy_now);
+int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);
+
+void unit_unref_gid(Unit *u, bool destroy_now);
+int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc);
+
+int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid);
+void unit_unref_uid_gid(Unit *u, bool destroy_now);
+
+void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

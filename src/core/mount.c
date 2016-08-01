@@ -769,6 +769,8 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 
         exec_context_destroy_runtime_directory(&m->exec_context, manager_get_runtime_prefix(UNIT(m)->manager));
 
+        unit_unref_uid_gid(UNIT(m), true);
+
         dynamic_creds_destroy(&m->dynamic_creds);
 }
 
