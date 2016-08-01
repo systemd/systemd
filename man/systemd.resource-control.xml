@@ -99,9 +99,10 @@
   <refsect1>
     <title>Unified and Legacy Control Group Hierarchies</title>
 
-    <para>The unified control group hierarchy is the new version of kernel control group interface. Depending on the
-    resource type, there are differences in resource control capabilities.  Also, because of interface changes, some
-    resource types have a separate set of options on the unified hierarchy.</para>
+    <para>The unified control group hierarchy is the new version of kernel control group interface, see <ulink
+    url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>. Depending on the resource type,
+    there are differences in resource control capabilities.  Also, because of interface changes, some resource types
+    have separate set of options on the unified hierarchy.</para>
 
     <para>
       <variablelist>
@@ -126,6 +127,13 @@
     settings of a unit for a given resource type are for the other hierarchy type, the settings are translated and
     applied. If there are any valid settings for the hierarchy in use, all translations are disabled for the resource
     type. Mixing the two types of settings on a unit can lead to confusing results.</para>
+
+    <para>Legacy control group hierarchy (see <ulink
+    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>), also called cgroup-v1,
+    doesn't allow safe delegation of controllers to unprivileged processes. If the system uses the legacy control group
+    hierarchy, resource control is disabled for systemd user instance, see
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
