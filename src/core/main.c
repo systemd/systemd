@@ -1414,11 +1414,11 @@ int main(int argc, char *argv[]) {
                         if (mac_selinux_setup(&loaded_policy) < 0) {
                                 error_message = "Failed to load SELinux policy";
                                 goto finish;
-                        } else if (ima_setup() < 0) {
-                                error_message = "Failed to load IMA policy";
-                                goto finish;
                         } else if (mac_smack_setup(&loaded_policy) < 0) {
                                 error_message = "Failed to load SMACK policy";
+                                goto finish;
+                        } else if (ima_setup() < 0) {
+                                error_message = "Failed to load IMA policy";
                                 goto finish;
                         }
                         dual_timestamp_get(&security_finish_timestamp);
