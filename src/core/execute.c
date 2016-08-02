@@ -91,6 +91,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "special.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1384,6 +1385,7 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 }
 
 static int build_environment(
+                Unit *u,
                 const ExecContext *c,
                 const ExecParameters *p,
                 unsigned n_fds,
@@ -1401,7 +1403,7 @@ static int build_environment(
         assert(c);
         assert(ret);
 
-        our_env = new0(char*, 12);
+        our_env = new0(char*, 13);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1432,6 +1434,16 @@ static int build_environment(
                 our_env[n_env++] = x;
 
                 if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec) < 0)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+        }
+
+        /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use D-Bus look up dynamic
+         * users via PID 1, possibly dead-locking the dbus daemon. This way it will not use D-Bus to resolve names, but
+         * check the database directly. */
+        if (unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
+                x = strdup("SYSTEMD_NSS_BYPASS_BUS=1");
+                if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
@@ -2100,6 +2112,7 @@ static int exec_child(
         }
 
         r = build_environment(
+                        unit,
                         context,
                         params,
                         n_fds,
