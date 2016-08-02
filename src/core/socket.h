@@ -20,6 +20,7 @@
 ***/
 
 typedef struct Socket Socket;
+typedef struct SocketPeer SocketPeer;
 
 #include "mount.h"
 #include "service.h"
@@ -79,9 +80,12 @@ struct Socket {
 
         LIST_HEAD(SocketPort, ports);
 
+        Hashmap *peers_by_address;
+
         unsigned n_accepted;
         unsigned n_connections;
         unsigned max_connections;
+        unsigned max_connections_per_source;
 
         unsigned backlog;
         unsigned keep_alive_cnt;
@@ -163,6 +167,18 @@ struct Socket {
 
         RateLimit trigger_limit;
 };
+
+struct SocketPeer {
+        unsigned n_ref;
+
+        Socket *socket;
+        union sockaddr_union peer;
+};
+
+SocketPeer *socket_peer_ref(SocketPeer *p);
+SocketPeer *socket_peer_unref(SocketPeer *p);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer*, socket_peer_unref);
 
 /* Called from the service code when collecting fds */
 int socket_collect_fds(Socket *s, int **fds);

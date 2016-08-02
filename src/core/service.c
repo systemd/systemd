@@ -342,6 +342,7 @@ static void service_done(Unit *u) {
         s->bus_name_owner = mfree(s->bus_name_owner);
 
         service_close_socket_fd(s);
+        s->peer = socket_peer_unref(s->peer);
 
         unit_ref_unset(&s->accept_socket);
 
