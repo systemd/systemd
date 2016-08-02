@@ -574,7 +574,8 @@ dist_userunit_DATA = \
 	units/user/basic.target \
 	units/user/default.target \
 	units/user/exit.target \
-	units/user/graphical-session.target
+	units/user/graphical-session.target \
+	units/user/graphical-session-pre.target
 
 nodist_userunit_DATA = \
 	units/user/systemd-exit.service
