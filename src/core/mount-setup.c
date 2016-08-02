@@ -356,7 +356,26 @@ static int nftw_cb(
 };
 #endif
 
-int mount_setup(bool loaded_policy) {
+static void nspawn_incoming_setup(bool root_propagation_shared) {
+        if (detect_container() <= 0)
+                return;
+
+        if (!root_propagation_shared)
+                return;
+
+        /* systemd-nspawn sets up an "incoming" directory in
+         * setup_propagate(). It must not be a shared mount, otherwise
+         * mounts cannot be moved (MS_MOVE).
+         *
+         * If "incoming" is not a mountpoint, we were just not started
+         * by nspawn, so it's not an error. */
+        if (path_is_mount_point("/run/systemd/nspawn/incoming", 0) > 0) {
+                if (mount(NULL, "/run/systemd/nspawn/incoming",  NULL, MS_SLAVE, NULL) < 0)
+                        log_warning_errno(errno, "Failed to set up the incoming directory as slave: %m");
+        }
+}
+
+int mount_setup(bool loaded_policy, bool root_propagation_shared) {
         int r = 0;
 
         r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy);
@@ -396,10 +415,14 @@ int mount_setup(bool loaded_policy) {
          * it makes more sense to have a default of "shared" so that
          * nspawn and the container tools work out of the box. If
          * specific setups need other settings they can reset the
-         * propagation mode to private if needed. */
-        if (detect_container() <= 0)
+         * propagation mode to private if needed.
+         * In containers, it has to be requested explicitely with
+         * --root-propagation-shared */
+        if (detect_container() <= 0 || root_propagation_shared)
                 if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
                         log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
+
+        nspawn_incoming_setup(root_propagation_shared);
 
         /* Create a few directories we always want around, Note that
          * sd_booted() checks for /run/systemd/system, so this mkdir

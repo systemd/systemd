@@ -131,6 +131,7 @@ static bool arg_default_memory_accounting = false;
 static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_MAX;
 static sd_id128_t arg_machine_id = {};
+static bool arg_root_propagation_shared = false;
 
 noreturn static void freeze_or_reboot(void) {
 
@@ -774,7 +775,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SWITCHED_ROOT,
                 ARG_DEFAULT_STD_OUTPUT,
                 ARG_DEFAULT_STD_ERROR,
-                ARG_MACHINE_ID
+                ARG_MACHINE_ID,
+                ARG_ROOT_PROPAGATION_SHARED
         };
 
         static const struct option options[] = {
@@ -801,6 +803,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
                 { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
+                { "root-propagation-shared",  no_argument,       NULL, ARG_ROOT_PROPAGATION_SHARED  },
                 {}
         };
 
@@ -1001,6 +1004,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
                         break;
+
+                case ARG_ROOT_PROPAGATION_SHARED:
+                        arg_root_propagation_shared = true;
+                        break;
+
 
                 case 'h':
                         arg_action = ACTION_HELP;
@@ -1555,7 +1563,7 @@ int main(int argc, char *argv[]) {
                 if (!skip_setup)
                         kmod_setup();
 
-                r = mount_setup(loaded_policy);
+                r = mount_setup(loaded_policy, arg_root_propagation_shared);
                 if (r < 0) {
                         error_message = "Failed to mount API filesystems";
                         goto finish;
