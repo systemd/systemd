@@ -302,6 +302,17 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
 
         if (c->utc)
                 fputs(" UTC", f);
+        else if (IN_SET(c->dst, 0, 1)) {
+
+                /* If daylight saving is explicitly on or off, let's show the used timezone. */
+
+                tzset();
+
+                if (!isempty(tzname[c->dst])) {
+                        fputc(' ', f);
+                        fputs(tzname[c->dst], f);
+                }
+        }
 
         r = fflush_and_check(f);
         if (r < 0) {
@@ -747,9 +758,9 @@ fail:
 }
 
 int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
+        const char *utc;
         CalendarSpec *c;
         int r;
-        const char *utc;
 
         assert(p);
         assert(spec);
@@ -760,11 +771,39 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         c = new0(CalendarSpec, 1);
         if (!c)
                 return -ENOMEM;
+        c->dst = -1;
 
         utc = endswith_no_case(p, " UTC");
         if (utc) {
                 c->utc = true;
                 p = strndupa(p, utc - p);
+        } else {
+                const char *e = NULL;
+                int j;
+
+                tzset();
+
+                /* Check if the local timezone was specified? */
+                for (j = 0; j <= 1; j++) {
+                        if (isempty(tzname[j]))
+                                continue;
+
+                        e = endswith_no_case(p, tzname[j]);
+                        if(!e)
+                                continue;
+                        if (e == p)
+                                continue;
+                        if (e[-1] != ' ')
+                                continue;
+
+                        break;
+                }
+
+                /* Found one of the two timezones specified? */
+                if (IN_SET(j, 0, 1)) {
+                        p = strndupa(p, e - p - 1);
+                        c->dst = j;
+                }
         }
 
         if (strcaseeq(p, "minutely")) {
@@ -1017,7 +1056,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         for (;;) {
                 /* Normalize the current date */
                 (void) mktime_or_timegm(&c, spec->utc);
-                c.tm_isdst = -1;
+                c.tm_isdst = spec->dst;
 
                 c.tm_year += 1900;
                 r = find_matching_component(spec->year, &c.tm_year);

@@ -37,6 +37,7 @@ typedef struct CalendarComponent {
 typedef struct CalendarSpec {
         int weekdays_bits;
         bool utc;
+        int dst;
 
         CalendarComponent *year;
         CalendarComponent *month;
