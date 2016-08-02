@@ -558,6 +558,90 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         return 0;
 }
 
+static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
+        const char *p;
+        struct stat stbuf;
+        _cleanup_close_ int proc_ns_dir_fd;
+
+        p = procfs_file_alloca(pid, "ns");
+
+        proc_ns_dir_fd = open(p, O_DIRECTORY);
+        if (proc_ns_dir_fd < 0)
+                return -errno;
+
+        if (fstatat(proc_ns_dir_fd, namespace, &stbuf, /* flags */0) != 0)
+                return -errno;
+
+        *ns = stbuf.st_ino;
+        return 0;
+}
+
+/* Find the first process in the parent hierarchy which has different mount
+ * namespace and call it the pid's container parent. */
+static int get_process_container_parent_pid(pid_t pid, pid_t *container_pid) {
+        pid_t cpid = pid, ppid = 0;
+        ino_t proc_mntns;
+        int r = 0;
+
+        r = get_process_ns(pid, "mnt", &proc_mntns);
+        if (r != 0)
+                return r;
+
+        while (1) {
+                ino_t parent_mntns;
+
+                r = get_process_ppid(cpid, &ppid);
+                if (r != 0)
+                        return r;
+
+                r = get_process_ns(ppid, "mnt", &parent_mntns);
+                if (r != 0)
+                        return r;
+
+                if (proc_mntns != parent_mntns)
+                        break;
+
+                if (ppid == 1)
+                        return -ENOENT;
+
+                cpid = ppid;
+        }
+
+        *container_pid = ppid;
+        return 0;
+}
+
+/* Returns 0 on success.
+ * Returns a negative number on errors.
+ * Returns a positive number if there is not a process we can call the pid's
+ * container parent (the pid's process isn't 'containerized').
+ */
+static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
+        int r = 0;
+        pid_t container_pid;
+        const char *proc_root_path;
+        struct stat root_stat, proc_root_stat;
+
+        /* To compare inodes of / and /proc/[pid]/root */
+        if (stat("/", &root_stat) < 0)
+                return -errno;
+
+        proc_root_path = procfs_file_alloca(pid, "root");
+        if (stat(proc_root_path, &proc_root_stat) < 0)
+                return -errno;
+
+        /* The process uses system root. */
+        if (proc_root_stat.st_ino == root_stat.st_ino)
+                return 1;
+
+        r = get_process_container_parent_pid(pid, &container_pid);
+        if (r != 0)
+                return r;
+
+        r = get_process_cmdline(container_pid, 0, false, cmdline);
+        return r;
+}
+
 static int change_uid_gid(const char *context[]) {
         uid_t uid;
         gid_t gid;
@@ -933,11 +1017,12 @@ static int process_kernel(int argc, char* argv[]) {
         /* The larger ones we allocate on the heap */
         _cleanup_free_ char
                 *core_owner_uid = NULL, *core_open_fds = NULL, *core_proc_status = NULL,
-                *core_proc_maps = NULL, *core_proc_limits = NULL, *core_proc_cgroup = NULL, *core_environ = NULL;
+                *core_proc_maps = NULL, *core_proc_limits = NULL, *core_proc_cgroup = NULL, *core_environ = NULL,
+                *core_proc_mountinfo = NULL, *core_container_cmdline = NULL;
 
         _cleanup_free_ char *exe = NULL, *comm = NULL;
         const char *context[_CONTEXT_MAX];
-        struct iovec iovec[25];
+        struct iovec iovec[27];
         size_t n_iovec = 0;
         uid_t owner_uid;
         const char *p;
@@ -1110,6 +1195,15 @@ static int process_kernel(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[n_iovec++], core_proc_cgroup);
         }
 
+        p = procfs_file_alloca(pid, "mountinfo");
+        if (read_full_file(p, &t, NULL) >=0) {
+                core_proc_mountinfo = strappend("COREDUMP_PROC_MOUNTINFO=", t);
+                free(t);
+
+                if (core_proc_mountinfo)
+                        IOVEC_SET_STRING(iovec[n_iovec++], core_proc_mountinfo);
+        }
+
         if (get_process_cwd(pid, &t) >= 0) {
                 core_cwd = strjoina("COREDUMP_CWD=", t);
                 free(t);
@@ -1119,9 +1213,24 @@ static int process_kernel(int argc, char* argv[]) {
 
         if (get_process_root(pid, &t) >= 0) {
                 core_root = strjoina("COREDUMP_ROOT=", t);
-                free(t);
 
                 IOVEC_SET_STRING(iovec[n_iovec++], core_root);
+
+                /* If the process' root is "/", then there is a chance it has
+                 * mounted own root and hence being containerized. */
+                if (strcmp(t, "/") == 0) {
+                        free(t);
+
+                        if (get_process_container_parent_cmdline(pid, &t) == 0) {
+                                core_container_cmdline = strappend("COREDUMP_CONTAINER_CMDLINE=", t);
+                                free(t);
+
+                                if (core_container_cmdline)
+                                    IOVEC_SET_STRING(iovec[n_iovec++], core_container_cmdline);
+                        }
+                }
+                else
+                        free(t);
         }
 
         if (get_process_environ(pid, &t) >= 0) {
