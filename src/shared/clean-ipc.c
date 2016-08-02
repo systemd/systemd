@@ -101,7 +101,8 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to remove SysV shared memory segment %i: %m",
                                                 shmid);
-                }
+                } else
+                        log_debug("Removed SysV shared memory segment %i.", shmid);
         }
 
         return ret;
@@ -152,7 +153,8 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to remove SysV semaphores object %i: %m",
                                                 semid);
-                }
+                } else
+                        log_debug("Removed SysV semaphore %i.", semid);
         }
 
         return ret;
@@ -204,7 +206,8 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to remove SysV message queue %i: %m",
                                                 msgid);
-                }
+                } else
+                        log_debug("Removed SysV message queue %i.", msgid);
         }
 
         return ret;
@@ -255,7 +258,8 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid) {
                                         continue;
 
                                 ret = log_warning_errno(errno, "Failed to remove POSIX shared memory directory %s: %m", de->d_name);
-                        }
+                        } else
+                                log_debug("Removed POSIX shared memory directory %s", de->d_name);
                 } else {
 
                         if (unlinkat(dirfd(dir), de->d_name, 0) < 0) {
@@ -264,7 +268,8 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid) {
                                         continue;
 
                                 ret = log_warning_errno(errno, "Failed to remove POSIX shared memory segment %s: %m", de->d_name);
-                        }
+                        } else
+                                log_debug("Removed POSIX shared memory segment %s", de->d_name);
                 }
         }
 
@@ -331,7 +336,8 @@ static int clean_posix_mq(uid_t uid, gid_t gid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to unlink POSIX message queue %s: %m",
                                                 fn);
-                }
+                } else
+                        log_debug("Removed POSIX message queue %s", fn);
         }
 
         return ret;
