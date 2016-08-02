@@ -152,6 +152,7 @@ struct Service {
 
         pid_t main_pid, control_pid;
         int socket_fd;
+        SocketPeer *peer;
         bool socket_fd_selinux_context_net;
 
         bool permissions_start_only;

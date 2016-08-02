@@ -443,6 +443,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MaxConnectionsPerSource=</varname></term>
+        <listitem><para>The maximum number of connections for a service per source IP address.
+        This is is very similar to the <varname>MaxConnections=</varname> directive
+        above. Disabled by default.</para>
+        </listitem>
+      </varlistentry>
+
+       <varlistentry>
         <term><varname>KeepAlive=</varname></term>
         <listitem><para>Takes a boolean argument. If true, the TCP/IP
         stack will send a keep alive message after 2h (depending on
