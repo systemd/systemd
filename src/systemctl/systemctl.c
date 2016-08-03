@@ -4767,7 +4767,7 @@ static int show_one(
         else if (streq(verb, "status")) {
                 print_status_info(bus, &info, ellipsized);
 
-                if (info.active_state && STR_IN_SET(info.active_state, "inactive", "failed"))
+                if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
                         r = EXIT_PROGRAM_NOT_RUNNING;
                 else
                         r = EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
