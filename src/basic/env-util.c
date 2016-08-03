@@ -462,7 +462,7 @@ char *strv_env_get_n(char **l, const char *name, size_t k) {
         if (k <= 0)
                 return NULL;
 
-        STRV_FOREACH(i, l)
+        STRV_FOREACH_BACKWARDS(i, l)
                 if (strneq(*i, name, k) &&
                     (*i)[k] == '=')
                         return *i + k + 1;

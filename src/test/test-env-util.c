@@ -45,6 +45,16 @@ static void test_strv_env_delete(void) {
         assert_se(strv_length(d) == 2);
 }
 
+static void test_strv_env_get(void) {
+        char **l;
+
+        l = STRV_MAKE("ONE_OR_TWO=1", "THREE=3", "ONE_OR_TWO=2", "FOUR=4");
+
+        assert_se(streq(strv_env_get(l, "ONE_OR_TWO"), "2"));
+        assert_se(streq(strv_env_get(l, "THREE"), "3"));
+        assert_se(streq(strv_env_get(l, "FOUR"), "4"));
+}
+
 static void test_strv_env_unset(void) {
         _cleanup_strv_free_ char **l = NULL;
 
@@ -211,6 +221,7 @@ static void test_env_assignment_is_valid(void) {
 
 int main(int argc, char *argv[]) {
         test_strv_env_delete();
+        test_strv_env_get();
         test_strv_env_unset();
         test_strv_env_set();
         test_strv_env_merge();
