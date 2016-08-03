@@ -1320,7 +1320,7 @@ static int setup_boot_id(const char *dest) {
         if (mount(from, to, NULL, MS_BIND, NULL) < 0)
                 r = log_error_errno(errno, "Failed to bind mount boot id: %m");
         else if (mount(NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL) < 0)
-                log_warning_errno(errno, "Failed to make boot id read-only, ignoring: %m");
+                r = log_error_errno(errno, "Failed to make boot id read-only: %m");
 
         (void) unlink(from);
         return r;
