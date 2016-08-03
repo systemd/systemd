@@ -21,6 +21,8 @@
 #include <seccomp.h>
 #include <stddef.h>
 
+#include "alloc-util.h"
+#include "fileio.h"
 #include "macro.h"
 #include "seccomp-util.h"
 #include "string-util.h"
@@ -87,6 +89,14 @@ int seccomp_add_secondary_archs(scmp_filter_ctx *c) {
 
         return 0;
 
+}
+
+bool is_seccomp_available(void) {
+        _cleanup_free_ char* field = NULL;
+        static int cached_enabled = -1;
+        if (cached_enabled < 0)
+                cached_enabled = get_proc_field("/proc/self/status", "Seccomp", "\n", &field) == 0;
+        return cached_enabled;
 }
 
 const SystemCallFilterSet syscall_filter_sets[] = {

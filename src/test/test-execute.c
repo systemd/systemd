@@ -30,6 +30,9 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
 #include "test-helper.h"
 #include "unit.h"
 #include "util.h"
@@ -132,21 +135,27 @@ static void test_exec_privatedevices(Manager *m) {
 
 static void test_exec_systemcallfilter(Manager *m) {
 #ifdef HAVE_SECCOMP
+        if (!is_seccomp_available())
+                return;
         test(m, "exec-systemcallfilter-not-failing.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-not-failing2.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-failing.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
+
 #endif
 }
 
 static void test_exec_systemcallerrornumber(Manager *m) {
 #ifdef HAVE_SECCOMP
-        test(m, "exec-systemcallerrornumber.service", 1, CLD_EXITED);
+        if (is_seccomp_available())
+                test(m, "exec-systemcallerrornumber.service", 1, CLD_EXITED);
 #endif
 }
 
 static void test_exec_systemcall_system_mode_with_user(Manager *m) {
 #ifdef HAVE_SECCOMP
+        if (!is_seccomp_available())
+                return;
         if (getpwnam("nobody"))
                 test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
         else if (getpwnam("nfsnobody"))

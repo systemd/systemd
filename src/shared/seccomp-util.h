@@ -27,6 +27,8 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret);
 
 int seccomp_add_secondary_archs(scmp_filter_ctx *c);
 
+bool is_seccomp_available(void);
+
 typedef struct SystemCallFilterSet {
         const char *set_name;
         const char *value;
