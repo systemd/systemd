@@ -61,6 +61,10 @@ static inline const char* one_zero(bool b) {
         return b ? "1" : "0";
 }
 
+static inline const char* enable_disable(bool b) {
+        return b ? "enable" : "disable";
+}
+
 void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);
 
 bool plymouth_running(void);

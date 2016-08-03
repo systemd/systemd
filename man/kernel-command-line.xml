@@ -224,15 +224,14 @@
 
       <varlistentry>
         <term><varname>vconsole.keymap=</varname></term>
-        <term><varname>vconsole.keymap.toggle=</varname></term>
+        <term><varname>vconsole.keymap_toggle=</varname></term>
         <term><varname>vconsole.font=</varname></term>
-        <term><varname>vconsole.font.map=</varname></term>
-        <term><varname>vconsole.font.unimap=</varname></term>
+        <term><varname>vconsole.font_map=</varname></term>
+        <term><varname>vconsole.font_unimap=</varname></term>
 
         <listitem>
-          <para>Parameters understood by the virtual console setup
-          logic. For details, see
-          <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          <para>Parameters understood by the virtual console setup logic. For details, see
+          <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 

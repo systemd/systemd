@@ -637,7 +637,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 return r;
 
         c->use_ntp = enabled;
-        log_info("Set NTP to %s", enabled ? "enabled" : "disabled");
+        log_info("Set NTP to %sd", enable_disable(enabled));
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
 
