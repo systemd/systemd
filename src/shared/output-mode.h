@@ -23,6 +23,7 @@
 
 typedef enum OutputMode {
         OUTPUT_SHORT,
+        OUTPUT_SHORT_FULL,
         OUTPUT_SHORT_ISO,
         OUTPUT_SHORT_PRECISE,
         OUTPUT_SHORT_MONOTONIC,

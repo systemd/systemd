@@ -1,5 +1,5 @@
 #autoload
 
 local -a _output_opts
-_output_opts=(short short-iso short-precise short-monotonic verbose export json json-pretty json-sse cat)
+_output_opts=(short short-full short-iso short-precise short-monotonic short-unix verbose export json json-pretty json-sse cat)
 _describe -t output 'output mode' _output_opts || compadd "$@"

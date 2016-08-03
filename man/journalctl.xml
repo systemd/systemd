@@ -250,6 +250,18 @@
 
             <varlistentry>
               <term>
+                <option>short-full</option>
+              </term>
+              <listitem>
+                <para>is very similar, but shows timestamps in the format the <option>--since=</option> and
+                <option>--until=</option> options accept. Unlike the timestamp information shown in
+                <option>short</option> output mode this mode includes weekday, year and timezone information in the
+                output, and is locale-independent.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term>
                 <option>short-iso</option>
               </term>
               <listitem>
@@ -572,24 +584,17 @@
         <term><option>-U</option></term>
         <term><option>--until=</option></term>
 
-        <listitem><para>Start showing entries on or newer than the
-        specified date, or on or older than the specified date,
-        respectively. Date specifications should be of the format
-        <literal>2012-10-30 18:17:16</literal>.  If the time part is
-        omitted, <literal>00:00:00</literal> is assumed.  If only the
-        seconds component is omitted, <literal>:00</literal> is
-        assumed. If the date component is omitted, the current day is
-        assumed. Alternatively the strings
-        <literal>yesterday</literal>, <literal>today</literal>,
-        <literal>tomorrow</literal> are understood, which refer to
-        00:00:00 of the day before the current day, the current day,
-        or the day after the current day,
-        respectively. <literal>now</literal> refers to the current
-        time. Finally, relative times may be specified, prefixed with
-        <literal>-</literal> or <literal>+</literal>, referring to
-        times before or after the current time, respectively. For complete
-        time and date specification, see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        <listitem><para>Start showing entries on or newer than the specified date, or on or older than the specified
+        date, respectively. Date specifications should be of the format <literal>2012-10-30 18:17:16</literal>.  If the
+        time part is omitted, <literal>00:00:00</literal> is assumed.  If only the seconds component is omitted,
+        <literal>:00</literal> is assumed. If the date component is omitted, the current day is assumed. Alternatively
+        the strings <literal>yesterday</literal>, <literal>today</literal>, <literal>tomorrow</literal> are understood,
+        which refer to 00:00:00 of the day before the current day, the current day, or the day after the current day,
+        respectively. <literal>now</literal> refers to the current time. Finally, relative times may be specified,
+        prefixed with <literal>-</literal> or <literal>+</literal>, referring to times before or after the current
+        time, respectively. For complete time and date specification, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Note that
+        <option>--output=short-full</option> prints timestamps that follow precisely this format.
         </para>
         </listitem>
       </varlistentry>

@@ -145,7 +145,7 @@ _systemctl () {
                                 comps='full enable-only disable-only'
                         ;;
                         --output|-o)
-                                comps='short short-iso short-precise short-monotonic verbose export json
+                                comps='short short-full short-iso short-precise short-monotonic short-unix verbose export json
                                        json-pretty json-sse cat'
                         ;;
                         --machine|-M)
