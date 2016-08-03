@@ -66,10 +66,9 @@ Features:
 
 * ProtectKeyRing= to take keyring calls away
 
-* PrivateUsers= which maps the all user ids except root and the one specified
-  in User= to nobody
-
 * ProtectControlGroups= which mounts all of /sys/fs/cgroup read-only
+
+* RemoveKeyRing= to remove all keyring entries of the specified user
 
 * Add DataDirectory=, CacheDirectory= and LogDirectory= to match
   RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
@@ -89,6 +88,11 @@ Features:
 
 * expose the "privileged" flag of ExecCommand on the bus, and open it up to
   transient units
+
+* in nss-systemd, if we run inside of RootDirectory= with PrivateUsers= set,
+  find a way to map the User=/Group= of the service to the right name. This way
+  a user/group for a service only has to exist on the host for the right
+  mapping to work.
 
 * allow attaching additional journald log fields to cgroups
 
