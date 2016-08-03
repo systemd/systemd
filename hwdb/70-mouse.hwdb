@@ -44,8 +44,16 @@
 #   udevadm info /dev/input/eventXX.
 #
 # Allowed properties are:
+#    ID_INPUT_TRACKBALL
 #    MOUSE_DPI
 #    MOUSE_WHEEL_CLICK_ANGLE
+#
+#########################################
+#         ID_INPUT_TRACKBALL            #
+#########################################
+#
+# Specified *in additition* to ID_INPUT_MOUSE if the device is a trackball.
+# Removing ID_INPUT_MOUSE will break backwards compatibility.
 #
 #########################################
 #               MOUSE_DPI               #
@@ -100,6 +108,14 @@
 #
 # Sort by brand, type (usb, bluetooth), DPI, frequency.
 # For mice with switchable resolution, sort by the starred entry.
+
+##########################################
+# Generic
+##########################################
+mouse:*:name:*Trackball*:
+mouse:*:name:*trackball*:
+mouse:*:name:*TrackBall*:
+ ID_INPUT_TRACKBALL=1
 
 ##########################################
 # Apple
@@ -231,6 +247,7 @@ mouse:usb:v04b3p310c:name:USB Optical Mouse:
 # Logitech M570 trackball
 mouse:usb:v046dp1028:name:Logitech M570:
  MOUSE_DPI=540@167
+ ID_INPUT_TRACKBALL=1
 
 # Logitech USB-PS/2 M-BZ96C
 mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
