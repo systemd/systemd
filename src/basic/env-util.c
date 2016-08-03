@@ -413,6 +413,7 @@ fail:
 
 char *strv_env_get_n(char **l, const char *name, size_t k) {
         char **i;
+        char *c = NULL;
 
         assert(name);
 
@@ -422,9 +423,9 @@ char *strv_env_get_n(char **l, const char *name, size_t k) {
         STRV_FOREACH(i, l)
                 if (strneq(*i, name, k) &&
                     (*i)[k] == '=')
-                        return *i + k + 1;
+                        c = *i + k + 1;
 
-        return NULL;
+        return c;
 }
 
 char *strv_env_get(char **l, const char *name) {
