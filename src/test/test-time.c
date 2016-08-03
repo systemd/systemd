@@ -19,6 +19,7 @@
 
 #include "strv.h"
 #include "time-util.h"
+#include "random-util.h"
 
 static void test_parse_sec(void) {
         usec_t u;
@@ -201,6 +202,48 @@ static void test_usec_sub(void) {
         assert_se(usec_sub(USEC_INFINITY, 5) == USEC_INFINITY);
 }
 
+static void test_format_timestamp(void) {
+        unsigned i;
+
+        for (i = 0; i < 100; i++) {
+                char buf[MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
+                usec_t x, y;
+
+                random_bytes(&x, sizeof(x));
+                x = x % (2147483600 * USEC_PER_SEC) + 1;
+
+                assert_se(format_timestamp(buf, sizeof(buf), x));
+                log_info("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+
+                assert_se(format_timestamp_utc(buf, sizeof(buf), x));
+                log_info("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+
+                assert_se(format_timestamp_us(buf, sizeof(buf), x));
+                log_info("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(x == y);
+
+                assert_se(format_timestamp_us_utc(buf, sizeof(buf), x));
+                log_info("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(x == y);
+
+                assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+                log_info("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+
+                /* The two calls above will run with a slightly different local time. Make sure we are in the same
+                 * range however, but give enough leeway that this is unlikely to explode. And of course,
+                 * format_timestamp_relative() scales the accuracy with the distance from the current time up to one
+                 * month, cover for that too. */
+                assert_se(y > x ? y - x : x - y <= USEC_PER_MONTH + USEC_PER_DAY);
+        }
+}
+
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
@@ -214,6 +257,7 @@ int main(int argc, char *argv[]) {
         test_get_timezones();
         test_usec_add();
         test_usec_sub();
+        test_format_timestamp();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);

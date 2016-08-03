@@ -88,6 +88,27 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
         tzset();
 }
 
+static void test_timestamp(void) {
+        char buf[FORMAT_TIMESTAMP_MAX];
+        _cleanup_free_ char *t = NULL;
+        CalendarSpec *c;
+        usec_t x, y;
+
+        /* Ensure that a timestamp is also a valid calendar specification. Convert forth and back */
+
+        x = now(CLOCK_REALTIME);
+
+        assert_se(format_timestamp_us(buf, sizeof(buf), x));
+        printf("%s\n", buf);
+        assert_se(calendar_spec_from_string(buf, &c) >= 0);
+        assert_se(calendar_spec_to_string(c, &t) >= 0);
+        calendar_spec_free(c);
+        printf("%s\n", t);
+
+        assert_se(parse_timestamp(t, &y) >= 0);
+        assert_se(y == x);
+}
+
 int main(int argc, char* argv[]) {
         CalendarSpec *c;
 
@@ -154,6 +175,8 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("2000-03-05 00:00.1:00", &c) < 0);
         assert_se(calendar_spec_from_string("00:00:00/0.00000001", &c) < 0);
         assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) < 0);
+
+        test_timestamp();
 
         return 0;
 }
