@@ -65,7 +65,7 @@ _journalctl() {
                                 compopt -o filenames
                         ;;
                         --output|-o)
-                                comps='short short-iso short-precise short-monotonic verbose export json json-pretty json-sse cat'
+                                comps='short short-full short-iso short-precise short-monotonic short-unix verbose export json json-pretty json-sse cat'
                         ;;
                         --field|-F)
                                 comps=$(journalctl --fields | sort 2>/dev/null)
