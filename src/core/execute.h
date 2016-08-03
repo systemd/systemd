@@ -171,6 +171,7 @@ struct ExecContext {
         bool private_tmp;
         bool private_network;
         bool private_devices;
+        bool private_users;
         ProtectSystem protect_system;
         ProtectHome protect_home;
 
