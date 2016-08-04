@@ -342,8 +342,6 @@ mouse:usb:v046dp402d:name:Logitech M560:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
  MOUSE_DPI=1000@125
 
-# Logitech V220 Cordless Optical Mouse
-mouse:usb:v046dpc51b:name:Logitech USB Receiver:
 # Logitech Performance MX
 mouse:usb:v046dp101a:name:Logitech Performance MX:
 # Logitech MX Master
