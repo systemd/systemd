@@ -493,6 +493,11 @@ static void test_parse_percent(void) {
         assert_se(parse_percent("1%%") == -EINVAL);
 }
 
+static void test_parse_percent_unbounded(void) {
+        assert_se(parse_percent_unbounded("101%") == 101);
+        assert_se(parse_percent_unbounded("400%") == 400);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -507,6 +512,7 @@ int main(int argc, char *argv[]) {
         test_safe_atoi16();
         test_safe_atod();
         test_parse_percent();
+        test_parse_percent_unbounded();
 
         return 0;
 }
