@@ -1810,7 +1810,7 @@ fail:
 static void socket_enter_dead(Socket *s, SocketResult f) {
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
@@ -1829,7 +1829,7 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
         int r;
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_unwatch_control_pid(s);
@@ -1857,7 +1857,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
 
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         r = unit_kill_context(
@@ -1901,7 +1901,7 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         int r;
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_unwatch_control_pid(s);
@@ -2822,7 +2822,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                       "Control process exited, code=%s status=%i",
                       sigchld_code_to_string(code), status);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         if (s->control_command &&

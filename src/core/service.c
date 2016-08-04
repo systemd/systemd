@@ -1423,7 +1423,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         int r;
         assert(s);
 
-        if (f != SERVICE_SUCCESS)
+        if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
@@ -1472,7 +1472,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
         int r;
         assert(s);
 
-        if (f != SERVICE_SUCCESS)
+        if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         service_unwatch_control_pid(s);
@@ -1525,7 +1525,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 
         assert(s);
 
-        if (f != SERVICE_SUCCESS)
+        if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         unit_watch_all_pids(UNIT(s));
@@ -1583,7 +1583,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
 
         assert(s);
 
-        if (f != SERVICE_SUCCESS)
+        if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         service_unwatch_control_pid(s);
@@ -1635,7 +1635,7 @@ static bool service_good(Service *s) {
 static void service_enter_running(Service *s, ServiceResult f) {
         assert(s);
 
-        if (f != SERVICE_SUCCESS)
+        if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         service_unwatch_control_pid(s);
@@ -2609,7 +2609,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                            "EXIT_STATUS=%i", status,
                            NULL);
 
-                if (f != SERVICE_SUCCESS)
+                if (s->result == SERVICE_SUCCESS)
                         s->result = f;
 
                 if (s->main_command &&
@@ -2690,7 +2690,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                               "Control process exited, code=%s status=%i",
                               sigchld_code_to_string(code), status);
 
-                if (f != SERVICE_SUCCESS)
+                if (s->result == SERVICE_SUCCESS)
                         s->result = f;
 
                 /* Immediately get rid of the cgroup, so that the

@@ -673,7 +673,7 @@ fail:
 static void swap_enter_dead(Swap *s, SwapResult f) {
         assert(s);
 
-        if (f != SWAP_SUCCESS)
+        if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
@@ -689,7 +689,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 static void swap_enter_active(Swap *s, SwapResult f) {
         assert(s);
 
-        if (f != SWAP_SUCCESS)
+        if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
         swap_set_state(s, SWAP_ACTIVE);
@@ -700,7 +700,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
 
         assert(s);
 
-        if (f != SWAP_SUCCESS)
+        if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
         r = unit_kill_context(
@@ -997,7 +997,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        if (f != SWAP_SUCCESS)
+        if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
         if (s->control_command) {
