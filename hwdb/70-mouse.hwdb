@@ -342,8 +342,6 @@ mouse:usb:v046dp402d:name:Logitech M560:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
  MOUSE_DPI=1000@125
 
-# Logitech V220 Cordless Optical Mouse
-mouse:usb:v046dpc51b:name:Logitech USB Receiver:
 # Logitech Performance MX
 mouse:usb:v046dp101a:name:Logitech Performance MX:
 # Logitech MX Master
@@ -372,11 +370,6 @@ mouse:usb:v046dpc062:name:Logitech USB Laser Mouse:
 mouse:usb:v046dp4027:name:Logitech T620:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4027:
  MOUSE_DPI=1200@250
-
-# Logitech LX8 Cordless Laser Mouse
-mouse:usb:v046dpc51b:name:Logitech USB Receiver:
- MOUSE_DPI=1300@125
- MOUSE_WHEEL_CLICK_ANGLE=15
 
 # Logitech ZoneTouch Mouse T400
 mouse:usb:v046dp4026:name:Logitech T400:
