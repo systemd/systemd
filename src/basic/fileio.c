@@ -30,6 +30,7 @@
 
 #include "alloc-util.h"
 #include "ctype.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -763,6 +764,62 @@ int load_env_file_pairs(FILE *f, const char *fname, const char *newline, char **
         }
 
         *rl = m;
+        return 0;
+}
+
+typedef struct {
+        char **in;
+        char **out;
+        MergeEnvFileFlags flags;
+} MergeEnvFileInfo;
+
+static int merge_env_file_push(
+                const char *filename, unsigned line,
+                const char *key, char *value,
+                void *userdata,
+                int *n_pushed) {
+        MergeEnvFileInfo *d = userdata;
+
+        if (!(d->flags & MERGE_ENV_FILE_OVERWRITE) && strv_env_get(d->in, key))
+                return 0;
+
+        if (d->flags & MERGE_ENV_FILE_EXPAND) {
+                char *expanded_value = replace_env(value, d->out);
+                free(value);
+                value = expanded_value;
+        }
+
+        return load_env_file_push(filename, line, key, value, &d->out, n_pushed);
+}
+
+int merge_env_file(
+                FILE *f,
+                const char *fname,
+                const char *newline,
+                const char * const * env,
+                MergeEnvFileFlags flags,
+                char ***rl) {
+        MergeEnvFileInfo d = { .in = (char **) env, .out = NULL, .flags = flags };
+        int r;
+
+        if (!newline)
+                newline = NEWLINE;
+
+        if (!strv_isempty(d.in)) {
+                d.out = strv_copy(d.in);
+                if (!d.out)
+                        return -ENOMEM;
+        }
+
+        r = parse_env_file_internal(f, fname, newline, merge_env_file_push, &d, NULL);
+        if (r < 0) {
+                strv_free(d.out);
+                return r;
+        }
+
+        strv_env_clean(d.out);
+        *rl = d.out;
+
         return 0;
 }
 
