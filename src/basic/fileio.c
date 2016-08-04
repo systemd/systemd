@@ -762,6 +762,34 @@ int load_env_file_pairs(FILE *f, const char *fname, const char *newline, char **
         return 0;
 }
 
+static int merge_env_file_push(
+                const char *filename, unsigned line,
+                const char *key, char *value,
+                void *userdata,
+                int *n_pushed) {
+
+        char ***env = userdata;
+        char *expanded_value;
+
+        assert(env);
+
+        expanded_value = replace_env(value, *env, REPLACE_ENV_USE_ENVIRONMENT);
+        if (!expanded_value)
+                return -ENOMEM;
+
+        free_and_replace(value, expanded_value);
+
+        return load_env_file_push(filename, line, key, value, env, n_pushed);
+}
+
+int merge_env_file(
+                char ***env,
+                FILE *f,
+                const char *fname) {
+
+        return parse_env_file_internal(f, fname, NEWLINE, merge_env_file_push, env, NULL);
+}
+
 static void write_env_var(FILE *f, const char *v) {
         const char *p;
 

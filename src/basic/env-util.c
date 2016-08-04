@@ -454,7 +454,7 @@ fail:
         return NULL;
 }
 
-char *strv_env_get_n(char **l, const char *name, size_t k) {
+char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
         char **i;
 
         assert(name);
@@ -467,13 +467,20 @@ char *strv_env_get_n(char **l, const char *name, size_t k) {
                     (*i)[k] == '=')
                         return *i + k + 1;
 
+        if (flags & REPLACE_ENV_USE_ENVIRONMENT) {
+                const char *t;
+
+                t = strndupa(name, k);
+                return getenv(t);
+        };
+
         return NULL;
 }
 
 char *strv_env_get(char **l, const char *name) {
         assert(name);
 
-        return strv_env_get_n(l, name, strlen(name));
+        return strv_env_get_n(l, name, strlen(name), 0);
 }
 
 char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
@@ -512,7 +519,7 @@ char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
         return e;
 }
 
-char *replace_env(const char *format, char **env) {
+char *replace_env(const char *format, char **env, unsigned flags) {
         enum {
                 WORD,
                 CURLY,
@@ -563,7 +570,7 @@ char *replace_env(const char *format, char **env) {
                         if (*e == '}') {
                                 const char *t;
 
-                                t = strv_env_get_n(env, word+2, e-word-2);
+                                t = strv_env_get_n(env, word+2, e-word-2, flags);
 
                                 k = strappend(r, t);
                                 if (!k)
@@ -643,7 +650,7 @@ char **replace_env_argv(char **argv, char **env) {
                 }
 
                 /* If ${FOO} appears as part of a word, replace it by the variable as-is */
-                ret[k] = replace_env(*i, env);
+                ret[k] = replace_env(*i, env, 0);
                 if (!ret[k]) {
                         strv_free(ret);
                         return NULL;

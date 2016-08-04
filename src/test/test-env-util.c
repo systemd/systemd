@@ -112,6 +112,36 @@ static void test_strv_env_merge(void) {
         assert_se(strv_length(r) == 5);
 }
 
+static void test_env_strv_get_n(void) {
+        const char *_env[] = {
+                "FOO=NO NO NO",
+                "FOO=BAR BAR",
+                "BAR=waldo",
+                "PATH=unset",
+                NULL
+        };
+        char **env = (char**) _env;
+
+        assert_se(streq(strv_env_get_n(env, "FOO__", 3, 0), "BAR BAR"));
+        assert_se(streq(strv_env_get_n(env, "FOO__", 3, REPLACE_ENV_USE_ENVIRONMENT), "BAR BAR"));
+        assert_se(streq(strv_env_get_n(env, "FOO", 3, 0), "BAR BAR"));
+        assert_se(streq(strv_env_get_n(env, "FOO", 3, REPLACE_ENV_USE_ENVIRONMENT), "BAR BAR"));
+
+        assert_se(streq(strv_env_get_n(env, "PATH__", 4, 0), "unset"));
+        assert_se(streq(strv_env_get_n(env, "PATH", 4, 0), "unset"));
+        assert_se(streq(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT), "unset"));
+        assert_se(streq(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT), "unset"));
+
+        env[3] = NULL; /* kill our $PATH */
+
+        assert_se(!strv_env_get_n(env, "PATH__", 4, 0));
+        assert_se(!strv_env_get_n(env, "PATH", 4, 0));
+        assert_se(streq(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT),
+                        getenv("PATH")));
+        assert_se(streq(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT),
+                        getenv("PATH")));
+}
+
 static void test_replace_env_arg(void) {
         const char *env[] = {
                 "FOO=BAR BAR",
@@ -225,6 +255,7 @@ int main(int argc, char *argv[]) {
         test_strv_env_unset();
         test_strv_env_set();
         test_strv_env_merge();
+        test_env_strv_get_n();
         test_replace_env_arg();
         test_env_clean();
         test_env_name_is_valid();

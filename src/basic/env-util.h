@@ -29,7 +29,11 @@ bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);
 bool env_assignment_is_valid(const char *e);
 
-char *replace_env(const char *format, char **env);
+enum {
+        REPLACE_ENV_USE_ENVIRONMENT = 1u,
+};
+
+char *replace_env(const char *format, char **env, unsigned flags);
 char **replace_env_argv(char **argv, char **env);
 
 bool strv_env_is_valid(char **e);
@@ -47,7 +51,7 @@ char **strv_env_unset(char **l, const char *p); /* In place ... */
 char **strv_env_unset_many(char **l, ...) _sentinel_;
 int strv_env_replace(char ***l, char *p); /* In place ... */
 
-char *strv_env_get_n(char **l, const char *name, size_t k) _pure_;
+char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
 
 int getenv_bool(const char *p);
