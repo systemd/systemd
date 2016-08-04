@@ -19,9 +19,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#ifdef HAVE_GNUTLS
-#include <gnutls/gnutls.h>
-#endif
 #include <microhttpd.h>
 #include <stdlib.h>
 #include <string.h>
