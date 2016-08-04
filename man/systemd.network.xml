@@ -212,6 +212,17 @@
           below 1280 (the minimum MTU for IPv6) it will automatically be increased to this value.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>ARP=</varname></term>
+        <listitem>
+          <para> A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
+          for this interface. Defaults to unset, which means that the kernel default will be used.</para>
+          <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
+          interfaces atop a single lower-level physical interface, which will then only serve as a
+          link/"bridge" device aggregating traffic to the same physical link and not participate in
+          the network otherwise.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
