@@ -484,6 +484,7 @@ static int mount_add_default_dependencies(Mount *m) {
 
 static int mount_verify(Mount *m) {
         _cleanup_free_ char *e = NULL;
+        MountParameters *p;
         int r;
 
         assert(m);
@@ -508,7 +509,8 @@ static int mount_verify(Mount *m) {
                 return -EINVAL;
         }
 
-        if (UNIT(m)->fragment_path && !m->parameters_fragment.what) {
+        p = get_mount_parameters_fragment(m);
+        if (p && !p->what) {
                 log_unit_error(UNIT(m), "What= setting is missing. Refusing.");
                 return -EBADMSG;
         }
@@ -862,11 +864,6 @@ fail:
         mount_enter_mounted(m, MOUNT_FAILURE_RESOURCES);
 }
 
-static int mount_get_opts(Mount *m, char **ret) {
-        return fstab_filter_options(m->parameters_fragment.options,
-                                    "nofail\0" "noauto\0" "auto\0", NULL, NULL, ret);
-}
-
 static void mount_enter_mounting(Mount *m) {
         int r;
         MountParameters *p;
@@ -889,19 +886,18 @@ static void mount_enter_mounting(Mount *m) {
         if (p && mount_is_bind(p))
                 (void) mkdir_p_label(p->what, m->directory_mode);
 
-        if (m->from_fragment) {
+        if (p) {
                 _cleanup_free_ char *opts = NULL;
 
-                r = mount_get_opts(m, &opts);
+                r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
                 if (r < 0)
                         goto fail;
 
-                r = exec_command_set(m->control_command, MOUNT_PATH,
-                                     m->parameters_fragment.what, m->where, NULL);
+                r = exec_command_set(m->control_command, MOUNT_PATH, p->what, m->where, NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
-                if (r >= 0 && m->parameters_fragment.fstype)
-                        r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
+                if (r >= 0 && p->fstype)
+                        r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
                 if (r >= 0 && !isempty(opts))
                         r = exec_command_append(m->control_command, "-o", opts, NULL);
         } else
@@ -927,27 +923,29 @@ fail:
 
 static void mount_enter_remounting(Mount *m) {
         int r;
+        MountParameters *p;
 
         assert(m);
 
         m->control_command_id = MOUNT_EXEC_REMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
 
-        if (m->from_fragment) {
+        p = get_mount_parameters_fragment(m);
+        if (p) {
                 const char *o;
 
-                if (m->parameters_fragment.options)
-                        o = strjoina("remount,", m->parameters_fragment.options);
+                if (p->options)
+                        o = strjoina("remount,", p->options);
                 else
                         o = "remount";
 
                 r = exec_command_set(m->control_command, MOUNT_PATH,
-                                     m->parameters_fragment.what, m->where,
+                                     p->what, m->where,
                                      "-o", o, NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
-                if (r >= 0 && m->parameters_fragment.fstype)
-                        r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
+                if (r >= 0 && p->fstype)
+                        r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
         } else
                 r = -ENOENT;
 
