@@ -2314,6 +2314,35 @@ static int link_drop_foreign_config(Link *link) {
         return 0;
 }
 
+static int link_drop_config(Link *link) {
+        Address *address;
+        Route *route;
+        Iterator i;
+        int r;
+
+        SET_FOREACH(address, link->addresses, i) {
+                /* we consider IPv6LL addresses to be managed by the kernel */
+                if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
+                        continue;
+
+                r = address_remove(address, link, link_address_remove_handler);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(route, link->routes, i) {
+                /* do not touch routes managed by the kernel */
+                if (route->protocol == RTPROT_KERNEL)
+                        continue;
+
+                r = route_remove(route, link, link_route_remove_handler);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int link_update_lldp(Link *link) {
         int r;
 
@@ -2859,6 +2888,14 @@ static int link_carrier_lost(Link *link) {
                 link_enter_failed(link);
                 return r;
         }
+
+        r = link_drop_config(link);
+        if (r < 0)
+                return r;
+
+        r = link_drop_foreign_config(link);
+        if (r < 0)
+                return r;
 
         r = link_handle_bound_by_list(link);
         if (r < 0)
