@@ -239,6 +239,9 @@ static ssize_t request_reader_entries(
                 m->size = (uint64_t) sz;
         }
 
+        if (m->tmp == NULL && m->follow)
+                return 0;
+
         if (fseeko(m->tmp, pos, SEEK_SET) < 0) {
                 log_error_errno(errno, "Failed to seek to position: %m");
                 return MHD_CONTENT_READER_END_WITH_ERROR;
