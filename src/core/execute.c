@@ -219,12 +219,36 @@ static void exec_context_tty_reset(const ExecContext *context, const ExecParamet
                 (void) vt_disallocate(path);
 }
 
+static bool is_terminal_input(ExecInput i) {
+        return IN_SET(i,
+                      EXEC_INPUT_TTY,
+                      EXEC_INPUT_TTY_FORCE,
+                      EXEC_INPUT_TTY_FAIL);
+}
+
 static bool is_terminal_output(ExecOutput o) {
-        return
-                o == EXEC_OUTPUT_TTY ||
-                o == EXEC_OUTPUT_SYSLOG_AND_CONSOLE ||
-                o == EXEC_OUTPUT_KMSG_AND_CONSOLE ||
-                o == EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
+        return IN_SET(o,
+                      EXEC_OUTPUT_TTY,
+                      EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
+}
+
+static bool exec_context_needs_term(const ExecContext *c) {
+        assert(c);
+
+        /* Return true if the execution context suggests we should set $TERM to something useful. */
+
+        if (is_terminal_input(c->std_input))
+                return true;
+
+        if (is_terminal_output(c->std_output))
+                return true;
+
+        if (is_terminal_output(c->std_error))
+                return true;
+
+        return !!c->tty_path;
 }
 
 static int open_null_as(int flags, int nfd) {
@@ -361,13 +385,6 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
                 r = nfd;
 
         return r;
-}
-
-static bool is_terminal_input(ExecInput i) {
-        return
-                i == EXEC_INPUT_TTY ||
-                i == EXEC_INPUT_TTY_FORCE ||
-                i == EXEC_INPUT_TTY_FAIL;
 }
 
 static int fixup_input(ExecInput std_input, int socket_fd, bool apply_tty_stdin) {
@@ -1444,12 +1461,21 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (is_terminal_input(c->std_input) ||
-            c->std_output == EXEC_OUTPUT_TTY ||
-            c->std_error == EXEC_OUTPUT_TTY ||
-            c->tty_path) {
+        if (exec_context_needs_term(c)) {
+                const char *tty_path, *term = NULL;
 
-                x = strdup(default_term_for_tty(exec_context_tty_path(c)));
+                tty_path = exec_context_tty_path(c);
+
+                /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try to inherit
+                 * the $TERM set for PID 1. This is useful for containers so that the $TERM the container manager
+                 * passes to PID 1 ends up all the way in the console login shown. */
+
+                if (path_equal(tty_path, "/dev/console") && getppid() == 1)
+                        term = getenv("TERM");
+                if (!term)
+                        term = default_term_for_tty(tty_path);
+
+                x = strappend("TERM=", term);
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
@@ -1698,6 +1724,17 @@ static int exec_child(
                                 *exit_status = EXIT_USER;
                                 return r;
                         }
+
+                        /* Don't set $HOME or $SHELL if they are are not particularly enlightening anyway. */
+                        if (isempty(home) || path_equal(home, "/"))
+                                home = NULL;
+
+                        if (isempty(shell) || PATH_IN_SET(shell,
+                                                          "/bin/nologin",
+                                                          "/sbin/nologin",
+                                                          "/usr/bin/nologin",
+                                                          "/usr/sbin/nologin"))
+                                shell = NULL;
                 }
 
                 if (context->group) {

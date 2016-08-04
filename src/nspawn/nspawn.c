@@ -269,7 +269,6 @@ static void help(void) {
                "     --overlay-ro=PATH[:PATH...]:PATH\n"
                "                            Similar, but creates a read-only overlay mount\n"
                "  -E --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
-               "     --share-system         Share system namespaces with host\n"
                "     --register=BOOLEAN     Register container as machine\n"
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
                "                            the service unit nspawn is running in\n"
@@ -405,7 +404,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "selinux-context",       required_argument, NULL, 'Z'                   },
                 { "selinux-apifs-context", required_argument, NULL, 'L'                   },
                 { "quiet",                 no_argument,       NULL, 'q'                   },
-                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      },
+                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      }, /* not documented */
                 { "register",              required_argument, NULL, ARG_REGISTER          },
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
@@ -814,6 +813,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SHARE_SYSTEM:
+                        /* We don't officially support this anymore, except for compat reasons. People should use the
+                         * $SYSTEMD_NSPAWN_SHARE_SYSTEM environment variable instead. */
                         arg_share_system = true;
                         break;
 
@@ -1018,6 +1019,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
+        if (getenv_bool("SYSTEMD_NSPAWN_SHARE_SYSTEM") > 0)
+                arg_share_system = true;
+
         if (arg_share_system)
                 arg_register = false;
 
@@ -1025,7 +1029,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_userns_chown = true;
 
         if (arg_start_mode != START_PID1 && arg_share_system) {
-                log_error("--boot and --share-system may not be combined.");
+                log_error("--boot and SYSTEMD_NSPAWN_SHARE_SYSTEM=1 may not be combined.");
                 return -EINVAL;
         }
 
@@ -1254,24 +1258,39 @@ static int setup_resolv_conf(const char *dest) {
         /* Fix resolv.conf, if possible */
         where = prefix_roota(dest, "/etc/resolv.conf");
 
+        if (access("/usr/lib/systemd/resolv.conf", F_OK) >= 0) {
+                /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
+                 * container, so that the container can use the host's resolver. Given that network namespacing is
+                 * disabled it's only natural of the container also uses the host's resolver. It also has the big
+                 * advantage that the container will be able to follow the host's DNS server configuration changes
+                 * transparently. */
+
+                if (mount("/usr/lib/systemd/resolv.conf", where, NULL, MS_BIND, NULL) < 0)
+                        log_warning_errno(errno, "Failed to mount /etc/resolv.conf in the container, ignoring: %m");
+                else {
+                        if (mount(NULL, where, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL) < 0)
+                                return log_error_errno(errno, "Failed to remount /etc/resolv.conf read-only: %m");
+
+                        return 0;
+                }
+        }
+
+        /* If that didn't work, let's copy the file */
         r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644, 0);
         if (r < 0) {
-                /* If the file already exists as symlink, let's
-                 * suppress the warning, under the assumption that
-                 * resolved or something similar runs inside and the
-                 * symlink points there.
+                /* If the file already exists as symlink, let's suppress the warning, under the assumption that
+                 * resolved or something similar runs inside and the symlink points there.
                  *
-                 * If the disk image is read-only, there's also no
-                 * point in complaining.
+                 * If the disk image is read-only, there's also no point in complaining.
                  */
                 log_full_errno(IN_SET(r, -ELOOP, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to copy /etc/resolv.conf to %s: %m", where);
+                               "Failed to copy /etc/resolv.conf to %s, ignoring: %m", where);
                 return 0;
         }
 
         r = userns_lchown(where, 0, 0);
         if (r < 0)
-                log_warning_errno(r, "Failed to chown /etc/resolv.conf: %m");
+                log_warning_errno(r, "Failed to chown /etc/resolv.conf, ignoring: %m");
 
         return 0;
 }
@@ -1301,7 +1320,7 @@ static int setup_boot_id(const char *dest) {
         if (mount(from, to, NULL, MS_BIND, NULL) < 0)
                 r = log_error_errno(errno, "Failed to bind mount boot id: %m");
         else if (mount(NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL) < 0)
-                log_warning_errno(errno, "Failed to make boot id read-only, ignoring: %m");
+                r = log_error_errno(errno, "Failed to make boot id read-only: %m");
 
         (void) unlink(from);
         return r;
