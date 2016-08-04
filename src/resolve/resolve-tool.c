@@ -1542,7 +1542,7 @@ static void help(void) {
                "%1$s [OPTIONS...] --statistics\n"
                "%1$s [OPTIONS...] --reset-statistics\n"
                "\n"
-               "Resolve domain names, IPv4 and IPv6 addresses, DNS resource records, and services.\n\n"
+               "Resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "     --no-pager             Do not pipe output into a pager\n"

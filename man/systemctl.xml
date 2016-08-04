@@ -156,6 +156,10 @@
 
           <para>To list all units installed in the file system, use the
           <command>list-unit-files</command> command instead.</para>
+
+          <para>When listing units with <command>list-dependencies</command>, recursively show
+          dependencies of all dependent units (by default only dependencies of target units are
+          shown).</para>
         </listitem>
       </varlistentry>
 
