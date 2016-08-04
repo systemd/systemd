@@ -29,6 +29,9 @@ int main(int argc, char *argv[]) {
         void *addr = NULL;
         uint8_t *p;
 
+#ifdef __SANITIZE_ADDRESS__
+        return EXIT_TEST_SKIP;
+#endif
         sigbus_install();
 
         assert_se(sigbus_pop(&addr) == 0);
