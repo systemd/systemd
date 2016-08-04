@@ -533,7 +533,7 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         return 0;
 }
 
-int parse_percent(const char *p) {
+int parse_percent_unbounded(const char *p) {
         const char *pc, *n;
         unsigned v;
         int r;
@@ -546,8 +546,15 @@ int parse_percent(const char *p) {
         r = safe_atou(n, &v);
         if (r < 0)
                 return r;
+
+        return (int) v;
+}
+
+int parse_percent(const char *p) {
+        int v = parse_percent_unbounded(p);
+
         if (v > 100)
                 return -ERANGE;
 
-        return (int) v;
+        return v;
 }
