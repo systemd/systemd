@@ -2060,7 +2060,8 @@ static int link_joined(Link *link) {
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
         }
 
-        if (link->network->bridge || streq_ptr("bridge", link->kind)) {
+        if (link->network->use_br_vlan &&
+            (link->network->bridge || streq_ptr("bridge", link->kind))) {
                 r = link_set_bridge_vlan(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge vlan: %m");
