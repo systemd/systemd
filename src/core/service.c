@@ -1743,7 +1743,7 @@ static void service_enter_start(Service *s) {
         r = service_spawn(s,
                           c,
                           timeout,
-                          EXEC_PASS_FDS|EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                          EXEC_PASS_FDS|EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG,
                           &pid);
         if (r < 0)
                 goto fail;
@@ -1955,7 +1955,7 @@ static void service_run_next_main(Service *s) {
         r = service_spawn(s,
                           s->main_command,
                           s->timeout_start_usec,
-                          EXEC_PASS_FDS|EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                          EXEC_PASS_FDS|EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG,
                           &pid);
         if (r < 0)
                 goto fail;

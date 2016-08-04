@@ -1425,7 +1425,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (p->watchdog_usec > 0) {
+        if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0) {
                 if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;

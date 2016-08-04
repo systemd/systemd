@@ -218,6 +218,7 @@ typedef enum ExecFlags {
         EXEC_PASS_FDS          = 1U << 4,
         EXEC_IS_CONTROL        = 1U << 5,
         EXEC_SETENV_RESULT     = 1U << 6,
+        EXEC_SET_WATCHDOG      = 1U << 7,
 } ExecFlags;
 
 struct ExecParameters {
