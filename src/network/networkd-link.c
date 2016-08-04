@@ -1357,7 +1357,7 @@ static int link_set_flags(Link *link) {
 
         if (link->network->arp >= 0) {
                 ifi_change |= IFF_NOARP;
-                ifi_flags |= IFF_NOARP;
+                ifi_flags |= link->network->arp ? 0 : IFF_NOARP;
         }
 
         r = sd_rtnl_message_link_set_flags(req, ifi_flags, ifi_change);
