@@ -106,4 +106,5 @@ int safe_atod(const char *s, double *ret_d);
 
 int parse_fractional_part_u(const char **s, size_t digits, unsigned *res);
 
+int parse_percent_unbounded(const char *p);
 int parse_percent(const char *p);

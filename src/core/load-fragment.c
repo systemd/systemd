@@ -2903,7 +2903,7 @@ int config_parse_cpu_quota(
                 return 0;
         }
 
-        r = parse_percent(rvalue);
+        r = parse_percent_unbounded(rvalue);
         if (r <= 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "CPU quota '%s' invalid. Ignoring.", rvalue);
                 return 0;

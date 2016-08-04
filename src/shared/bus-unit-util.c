@@ -84,7 +84,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "sv", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
                 else {
-                        r = parse_percent(eq);
+                        r = parse_percent_unbounded(eq);
                         if (r <= 0) {
                                 log_error_errno(r, "CPU quota '%s' invalid.", eq);
                                 return -EINVAL;
