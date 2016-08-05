@@ -121,6 +121,7 @@ MANPAGES += \
 	man/systemd-journald.service.8 \
 	man/systemd-machine-id-commit.service.8 \
 	man/systemd-machine-id-setup.1 \
+	man/systemd-mount.1 \
 	man/systemd-notify.1 \
 	man/systemd-nspawn.1 \
 	man/systemd-path.1 \
@@ -2651,6 +2652,7 @@ EXTRA_DIST += \
 	man/systemd-machine-id-setup.xml \
 	man/systemd-machined.service.xml \
 	man/systemd-modules-load.service.xml \
+	man/systemd-mount.xml \
 	man/systemd-networkd-wait-online.service.xml \
 	man/systemd-networkd.service.xml \
 	man/systemd-notify.xml \

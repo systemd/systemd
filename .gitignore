@@ -89,6 +89,7 @@
 /systemd-machine-id-setup
 /systemd-machined
 /systemd-modules-load
+/systemd-mount
 /systemd-networkd
 /systemd-networkd-wait-online
 /systemd-notify

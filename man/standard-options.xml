@@ -28,6 +28,12 @@
     </listitem>
   </varlistentry>
 
+  <varlistentry id='no-ask-password'>
+    <term><option>--no-ask-password</option></term>
+
+    <listitem><para>Do not query the user for authentication for privileged operations.</para></listitem>
+  </varlistentry>
+
   <varlistentry id='no-legend'>
     <term><option>--no-legend</option></term>
 

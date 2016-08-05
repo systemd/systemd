@@ -1,0 +1,295 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2016 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-mount"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-mount</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-mount</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-mount</refname>
+    <refpurpose>Establish a mount or auto-mount point transiently</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-mount</command>
+      <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+      <arg choice="plain"><replaceable>WHAT</replaceable></arg>
+      <arg choice="opt"><replaceable>WHERE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-mount</command>
+      <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+      <arg choice="plain"><option>--list</option></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-mount</command> may be used to create and start a transient <filename>.mount</filename> or
+    <filename>.automount</filename> unit of the file system <replaceable>WHAT</replaceable> on the mount point
+    <replaceable>WHERE</replaceable>.</para>
+
+    <para>In many ways, <command>systemd-mount</command> is similar to the lower-level
+    <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> command, however instead
+    of executing the mount operation directly and immediately, <command>systemd-mount</command> schedules it through
+    the service manager job queue, so that it may pull in further dependencies (such as parent mounts, or a file system
+    checker to execute a priori), and may make use of the auto-mounting logic.</para>
+
+    <para>The command takes either one or two arguments. If only one argument is specified it should refer to a block
+    device containing a file system (e.g. <literal>/dev/sdb1</literal>), which is then probed for a label and other
+    metadata, and is mounted to a directory whose name is generated from the label. In this mode the block device must
+    exist at the time of invocation of the command, so that it may be probed. If the device is found to be a removable
+    block device (e.g. a USB stick) an automount point instead of a regular mount point is created (i.e. the
+    <option>--automount=</option> option is implied, see below).</para>
+
+    <para>If two arguments are specified the first indicates the mount source (the <replaceable>WHAT</replaceable>) and
+    the second indicates the path to mount it on (the <replaceable>WHERE</replaceable>). In this mode no probing of the
+    source is attempted, and a backing device node doesn't have to exist yet. However, if this mode is combined with
+    <option>--discover</option>, device node probing for additional metadata is enabled, and – much like in the
+    single-argument case discussed above – the specified device has to exist at the time of invocation of the
+    command.</para>
+
+    <para>Use the <option>--list</option> command to show a terse table of all local, known block devices with file
+    systems that may be mounted with this command.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem>
+          <para>Do not synchronously wait for the requested operation to finish. If this is not specified, the job will
+          be verified, enqueued and <command>systemd-mount</command> will wait until the mount or automount unit's
+          start-up is completed. By passing this argument, it is only verified and enqueued.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager"/>
+      <xi:include href="standard-options.xml" xpointer="no-ask-password"/>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--discover</option></term>
+
+        <listitem><para>Enable probing of the mount source. This switch is implied if a single argument is specified on
+        the command line. If passed, additional metadata is read from the device to enhance the unit to create. For
+        example, a descriptive string for the transient units is generated from the file system label and device
+        model. Moreover if a removable block device (e.g. USB stick) is detected an automount unit instead of a regular
+        mount unit is created, with a short idle time-out, in order to ensure the file-system is placed in a clean
+        state quickly after each access.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--type=</option></term>
+        <term><option>-t</option></term>
+
+        <listitem><para>Specifies the file system type to mount (e.g. <literal>vfat</literal>, <literal>ext4</literal>,
+        …). If omitted (or set to <literal>auto</literal>) the file system is determined automatically.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--options=</option></term>
+        <term><option>-o</option></term>
+
+        <listitem><para>Additional mount options for the mount point.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fsck=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to on. Controls whether to run a file system check
+        immediately before the mount operation. In the automount case (see <option>--automount=</option> below) the
+        check will be run the moment the first access to the device is made, which might slightly delay the
+        access.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--description=</option></term>
+
+        <listitem><para>Provide a description for the mount or automount unit. See <varname>Description=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--property=</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>Sets a unit property for the mount unit that is created. This takes an assignment in the same
+        format as <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>set-property</command> command.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--automount=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to create an automount point or a regular mount
+        point. If true an automount point is created that is backed by the actual file system at the time of first
+        access. If false a plain mount point is created that is backed by the actual file system immediately. Automount
+        points have the benefit that the file system stays unmounted and hence in clean state until it is first
+        accessed. In automount mode the <option>--timeout-idle-sec=</option> switch (see below) may be used to ensure
+        the mount point is unmounted automatically after the last access and an idle period passed.</para>
+
+        <para>If this switch is not specified it defaults to false. If not specified and <option>--discover</option> is
+        used (or only a single argument passed, which implies <option>--discover</option>, see above), and the file
+        system block device is detected to be removable, it is set to true, in order to increase the chance that the
+        file system is in a fully clean state if the device is unplugged abruptly.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-A</option></term>
+
+        <listitem><para>Equivalent to <option>--automount=yes</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timeout-idle-sec=</option></term>
+
+        <listitem><para>Takes a time value that controls the idle timeout in automount mode. If set to
+        <literal>infinity</literal> (the default) no automatic unmounts are done. Otherwise the file system backing the
+        automount point is detached after the last access and the idle timeout passed. See
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details on
+        the time syntax supported. This option has no effect if only a regular mount is established, and automounting
+        is not used.</para>
+
+        <para>Note that if <option>--discover</option> is used (or only a single argument passed, which implies
+        <option>--discover</option>, see above), and the file system block device is detected to be removable,
+        <option>--timeout-idle-sec=1s</option> is implied.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--automount-property=</option></term>
+
+        <listitem><para>Similar to <option>--property=</option>, but applies additional properties to the automount
+        unit created, instead of the mount unit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-device=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to off. This option only has an effect in automount mode,
+        and controls whether the automount unit shall be bound to the backing device's lifetime. If enabled, the
+        automount point will be removed automatically when the backing device vanishes. If disabled the automount point
+        stays around, and subsequent accesses will block until backing device is replugged. This option has no effect
+        in case of non-device mounts, such as network or virtual file system mounts.</para>
+
+        <para>Note that if <option>--discover</option> is used (or only a single argument passed, which implies
+        <option>--discover</option>, see above), and the file system block device is detected to be removable, this
+        option is implied.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list</option></term>
+
+        <listitem><para>Instead of establishing a mount or automount point, print a terse list of block devices
+        containing file systems that may be mounted with <literal>systemd-mount</literal>, along with useful metadata
+        such as labels, etc.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure
+    code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>The udev Database</title>
+
+    <para>If <option>--discover</option> is used, <command>systemd-mount</command> honours a couple of additional udev
+    properties of block devices:</para>
+
+    <variablelist class='udev-directives'>
+      <varlistentry>
+        <term><varname>SYSTEMD_MOUNT_OPTIONS=</varname></term>
+
+        <listitem><para>The mount options to use, if <option>--options=</option> is not used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SYSTEMD_MOUNT_WHERE=</varname></term>
+
+        <listitem><para>The file system path to place the mount point at, instead of the automatically generated
+        one.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
