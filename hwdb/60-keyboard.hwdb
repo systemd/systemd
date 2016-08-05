@@ -482,8 +482,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:pvr*
  KEYBOARD_KEY_43=volumedown
  KEYBOARD_KEY_44=volumeup
  KEYBOARD_KEY_db=search # Same position as caps lock key on most keyboards
-# KEYBOARD_KEY_3e=fullscreen, no defined key sym
-
+ # KEYBOARD_KEY_3e=fullscreen, no defined key sym
 
 # HP EliteBook 725 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:pvr*
