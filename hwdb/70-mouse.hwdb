@@ -297,7 +297,7 @@ mouse:usb:v046dpc049:name:Logitech USB Gaming Mouse:
 mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
  MOUSE_DPI=400@500 *800@500 2000@500
 
- # Logitech G9
+# Logitech G9
 mouse:usb:v046dpc048:name:Logitech G9 Laser Mouse:
  MOUSE_DPI=400@1000 800@1000 *1600@1000
 
