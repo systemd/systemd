@@ -80,7 +80,7 @@ struct Socket {
 
         LIST_HEAD(SocketPort, ports);
 
-        Hashmap *peers_by_address;
+        Set *peers_by_address;
 
         unsigned n_accepted;
         unsigned n_connections;
@@ -168,15 +168,9 @@ struct Socket {
         RateLimit trigger_limit;
 };
 
-struct SocketPeer {
-        unsigned n_ref;
-
-        Socket *socket;
-        union sockaddr_union peer;
-};
-
 SocketPeer *socket_peer_ref(SocketPeer *p);
 SocketPeer *socket_peer_unref(SocketPeer *p);
+int socket_acquire_peer(Socket *s, int fd, SocketPeer **p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer*, socket_peer_unref);
 

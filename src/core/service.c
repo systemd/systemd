@@ -761,6 +761,11 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->bus_name,
                         prefix, yes_no(s->bus_name_good));
 
+        if (UNIT_ISSET(s->accept_socket))
+                fprintf(f,
+                        "%sAccept Socket: %s\n",
+                        prefix, UNIT_DEREF(s->accept_socket)->id);
+
         kill_context_dump(&s->kill_context, f, prefix);
         exec_context_dump(&s->exec_context, f, prefix);
 
@@ -1035,6 +1040,20 @@ static int service_coldplug(Unit *u) {
 
         if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
                 (void) unit_setup_dynamic_creds(u);
+
+        if (UNIT_ISSET(s->accept_socket)) {
+                Socket* socket = SOCKET(UNIT_DEREF(s->accept_socket));
+
+                if (socket->max_connections_per_source > 0) {
+                        SocketPeer *peer;
+
+                        /* Make a best-effort attempt at bumping the connection count */
+                        if (socket_acquire_peer(socket, s->socket_fd, &peer) > 0) {
+                                socket_peer_unref(s->peer);
+                                s->peer = peer;
+                        }
+                }
+        }
 
         service_set_state(s, s->deserialized_state);
         return 0;
@@ -2130,6 +2149,12 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        if (UNIT_ISSET(s->accept_socket)) {
+                r = unit_serialize_item(u, f, "accept-socket", UNIT_DEREF(s->accept_socket)->id);
+                if (r < 0)
+                        return r;
+        }
+
         r = unit_serialize_item_fd(u, f, fds, "socket-fd", s->socket_fd);
         if (r < 0)
                 return r;
@@ -2260,6 +2285,17 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->control_command_id = id;
                         s->control_command = s->exec_command[id];
                 }
+        } else if (streq(key, "accept-socket")) {
+                Unit *socket;
+
+                r = manager_load_unit(u->manager, value, NULL, NULL, &socket);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to load accept-socket unit: %s", value);
+                else {
+                        unit_ref_set(&s->accept_socket, socket);
+                        SOCKET(socket)->n_connections++;
+                }
+
         } else if (streq(key, "socket-fd")) {
                 int fd;
 
