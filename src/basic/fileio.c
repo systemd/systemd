@@ -217,7 +217,7 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
 }
 
 int read_full_stream(FILE *f, char **contents, size_t *size) {
-        size_t n, l;
+        size_t n, l, st_size = 0;
         _cleanup_free_ char *buf = NULL;
         struct stat st;
 
@@ -239,7 +239,7 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                  * files from /proc which generally report a file size
                  * of 0 */
                 if (st.st_size > 0)
-                        n = st.st_size;
+                        n = st_size = st.st_size;
         }
 
         l = 0;
@@ -259,7 +259,14 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                 if (ferror(f))
                         return -errno;
 
-                if (feof(f))
+                /* stdio will only set EOF after attempting to read past the
+                 * end of the file.  In the common regular file case where
+                 * know, allocate, and read the file's exact size, EOF isn't
+                 * found yet.  Do our own check against size here to avoid
+                 * doubling the buffer just for fread() to read nothing and
+                 * find eof on the next iteration.
+                 */
+                if (feof(f) || (st_size > 0 && st_size == l))
                         break;
 
                 /* We aren't expecting fread() to return a short read outside
