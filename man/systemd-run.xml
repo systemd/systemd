@@ -45,7 +45,7 @@
 
   <refnamediv>
     <refname>systemd-run</refname>
-    <refpurpose>Run programs in transient scope or service or timer units</refpurpose>
+    <refpurpose>Run programs in transient scope units, service units, or timer-scheduled service units</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
