@@ -2454,6 +2454,11 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
+static void socket_port_take_fd(SocketPort *p, FDSet *fds, int fd) {
+        safe_close(p->fd);
+        p->fd = fdset_remove(fds, fd);
+}
+
 static int socket_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Socket *s = SOCKET(u);
 
@@ -2508,18 +2513,13 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse fifo value: %s", value);
-                else {
-
+                else
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_FIFO &&
-                                    path_equal_or_files_same(p->path, value+skip))
+                                    path_equal_or_files_same(p->path, value+skip)) {
+                                        socket_port_take_fd(p, fds, fd);
                                         break;
-
-                        if (p) {
-                                safe_close(p->fd);
-                                p->fd = fdset_remove(fds, fd);
-                        }
-                }
+                                }
 
         } else if (streq(key, "special")) {
                 int fd, skip = 0;
@@ -2527,18 +2527,13 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse special value: %s", value);
-                else {
-
+                else
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_SPECIAL &&
-                                    path_equal_or_files_same(p->path, value+skip))
+                                    path_equal_or_files_same(p->path, value+skip)) {
+                                        socket_port_take_fd(p, fds, fd);
                                         break;
-
-                        if (p) {
-                                safe_close(p->fd);
-                                p->fd = fdset_remove(fds, fd);
-                        }
-                }
+                                }
 
         } else if (streq(key, "mqueue")) {
                 int fd, skip = 0;
@@ -2546,18 +2541,13 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse mqueue value: %s", value);
-                else {
-
+                else
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_MQUEUE &&
-                                    streq(p->path, value+skip))
+                                    streq(p->path, value+skip)) {
+                                        socket_port_take_fd(p, fds, fd);
                                         break;
-
-                        if (p) {
-                                safe_close(p->fd);
-                                p->fd = fdset_remove(fds, fd);
-                        }
-                }
+                                }
 
         } else if (streq(key, "socket")) {
                 int fd, type, skip = 0;
@@ -2565,16 +2555,12 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 if (sscanf(value, "%i %i %n", &fd, &type, &skip) < 2 || fd < 0 || type < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
-                else {
+                else
                         LIST_FOREACH(port, p, s->ports)
-                                if (socket_address_is(&p->address, value+skip, type))
+                                if (socket_address_is(&p->address, value+skip, type)) {
+                                        socket_port_take_fd(p, fds, fd);
                                         break;
-
-                        if (p) {
-                                safe_close(p->fd);
-                                p->fd = fdset_remove(fds, fd);
-                        }
-                }
+                                }
 
         } else if (streq(key, "netlink")) {
                 int fd, skip = 0;
@@ -2582,17 +2568,12 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
-                else {
-
+                else
                         LIST_FOREACH(port, p, s->ports)
-                                if (socket_address_is_netlink(&p->address, value+skip))
+                                if (socket_address_is_netlink(&p->address, value+skip)) {
+                                        socket_port_take_fd(p, fds, fd);
                                         break;
-
-                        if (p) {
-                                safe_close(p->fd);
-                                p->fd = fdset_remove(fds, fd);
-                        }
-                }
+                                }
 
         } else if (streq(key, "ffs")) {
                 int fd, skip = 0;
@@ -2600,18 +2581,13 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse ffs value: %s", value);
-                else {
-
+                else
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_USB_FUNCTION &&
-                                    path_equal_or_files_same(p->path, value+skip))
+                                    path_equal_or_files_same(p->path, value+skip)) {
+                                        socket_port_take_fd(p, fds, fd);
                                         break;
-
-                        if (p) {
-                                safe_close(p->fd);
-                                p->fd = fdset_remove(fds, fd);
-                        }
-                }
+                                }
 
         } else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
