@@ -168,13 +168,6 @@ struct Socket {
         RateLimit trigger_limit;
 };
 
-struct SocketPeer {
-        unsigned n_ref;
-
-        Socket *socket;
-        union sockaddr_union peer;
-};
-
 SocketPeer *socket_peer_ref(SocketPeer *p);
 SocketPeer *socket_peer_unref(SocketPeer *p);
 
