@@ -580,7 +580,7 @@ SocketPeer *socket_peer_unref(SocketPeer *p) {
         return mfree(p);
 }
 
-static int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
+int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;
         SocketPeer sa = {}, *i;
         socklen_t salen = sizeof(sa.peer);
@@ -2396,9 +2396,7 @@ static int socket_stop(Unit *u) {
 
 static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         Socket *s = SOCKET(u);
-        SocketPeer *k;
         SocketPort *p;
-        Iterator i;
         int r;
 
         assert(u);
@@ -2447,16 +2445,6 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         assert(p->type == SOCKET_FIFO);
                         unit_serialize_item_format(u, f, "fifo", "%i %s", copy, p->path);
                 }
-        }
-
-        SET_FOREACH(k, s->peers_by_address, i) {
-                _cleanup_free_ char *t = NULL;
-
-                r = sockaddr_pretty(&k->peer.sa, FAMILY_ADDRESS_SIZE(k->peer.sa.sa_family), true, true, &t);
-                if (r < 0)
-                        return r;
-
-                unit_serialize_item_format(u, f, "peer", "%u %s", k->n_ref, t);
         }
 
         return 0;
@@ -2574,7 +2562,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (sscanf(value, "%i %i %n", &fd, &type, &skip) < 2 || fd < 0 || type < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
                 else {
-
                         LIST_FOREACH(port, p, s->ports)
                                 if (socket_address_is(&p->address, value+skip, type))
                                         break;
@@ -2622,33 +2609,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         }
                 }
 
-        } else if (streq(key, "peer")) {
-                _cleanup_(socket_peer_unrefp) SocketPeer *p;
-                int n_ref, skip = 0;
-                SocketAddress a;
-                int r;
-
-                if (sscanf(value, "%u %n", &n_ref, &skip) < 1 || n_ref < 1)
-                        log_unit_debug(u, "Failed to parse socket peer value: %s", value);
-                else {
-                        r = socket_address_parse(&a, value+skip);
-                        if (r < 0)
-                                return r;
-
-                        p = socket_peer_new();
-                        if (!p)
-                                return log_oom();
-
-                        p->n_ref = n_ref;
-                        memcpy(&p->peer, &a.sockaddr, sizeof(a.sockaddr));
-                        p->socket = s;
-
-                        r = set_put(s->peers_by_address, p);
-                        if (r < 0)
-                                return r;
-
-                        p = NULL;
-                }
         } else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 

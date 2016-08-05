@@ -1041,6 +1041,20 @@ static int service_coldplug(Unit *u) {
         if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
                 (void) unit_setup_dynamic_creds(u);
 
+        if (UNIT_ISSET(s->accept_socket)) {
+                Socket* socket = SOCKET(UNIT_DEREF(s->accept_socket));
+
+                if (socket->max_connections_per_source > 0) {
+                        SocketPeer *peer;
+
+                        /* Make a best-effort attempt at bumping the connection count */
+                        if (socket_acquire_peer(socket, s->socket_fd, &peer) > 0) {
+                                socket_peer_unref(s->peer);
+                                s->peer = peer;
+                        }
+                }
+        }
+
         service_set_state(s, s->deserialized_state);
         return 0;
 }

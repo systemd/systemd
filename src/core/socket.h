@@ -170,6 +170,7 @@ struct Socket {
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
 SocketPeer *socket_peer_unref(SocketPeer *p);
+int socket_acquire_peer(Socket *s, int fd, SocketPeer **p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer*, socket_peer_unref);
 
