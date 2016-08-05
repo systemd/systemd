@@ -108,6 +108,12 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_VLAN_FILTERING attribute: %m");
         }
 
+        if (b->stp >= 0) {
+                r = sd_netlink_message_append_u32(req, IFLA_BR_STP_STATE, b->stp);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_STP_STATE attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
@@ -135,6 +141,7 @@ static void bridge_init(NetDev *n) {
         b->mcast_querier = -1;
         b->mcast_snooping = -1;
         b->vlan_filtering = -1;
+        b->stp = -1;
 }
 
 const NetDevVTable bridge_vtable = {

@@ -106,4 +106,5 @@ Bridge.ForwardDelaySec,      config_parse_sec,                   0,             
 Bridge.MulticastQuerier,     config_parse_tristate,              0,                             offsetof(Bridge, mcast_querier)
 Bridge.MulticastSnooping,    config_parse_tristate,              0,                             offsetof(Bridge, mcast_snooping)
 Bridge.VLANFiltering,        config_parse_tristate,              0,                             offsetof(Bridge, vlan_filtering)
+Bridge.STP,                  config_parse_tristate,              0,                             offsetof(Bridge, stp)
 VRF.TableId,                 config_parse_uint32,                0,                             offsetof(Vrf, table_id)
