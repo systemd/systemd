@@ -366,15 +366,13 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
         } else if (streq(field, "Nice")) {
-                int32_t i;
+                int n;
 
-                r = safe_atoi32(eq, &i);
-                if (r < 0) {
-                        log_error("Failed to parse %s value %s.", field, eq);
-                        return -EINVAL;
-                }
+                r = parse_nice(eq, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse nice value: %s", eq);
 
-                r = sd_bus_message_append(m, "v", "i", i);
+                r = sd_bus_message_append(m, "v", "i", (int32_t) n);
 
         } else if (STR_IN_SET(field, "Environment", "PassEnvironment")) {
                 const char *p;

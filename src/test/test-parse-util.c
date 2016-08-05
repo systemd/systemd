@@ -498,6 +498,34 @@ static void test_parse_percent_unbounded(void) {
         assert_se(parse_percent_unbounded("400%") == 400);
 }
 
+static void test_parse_nice(void) {
+        int n;
+
+        assert_se(parse_nice("0", &n) >= 0 && n == 0);
+        assert_se(parse_nice("+0", &n) >= 0 && n == 0);
+        assert_se(parse_nice("-1", &n) >= 0 && n == -1);
+        assert_se(parse_nice("-2", &n) >= 0 && n == -2);
+        assert_se(parse_nice("1", &n) >= 0 && n == 1);
+        assert_se(parse_nice("2", &n) >= 0 && n == 2);
+        assert_se(parse_nice("+1", &n) >= 0 && n == 1);
+        assert_se(parse_nice("+2", &n) >= 0 && n == 2);
+        assert_se(parse_nice("-20", &n) >= 0 && n == -20);
+        assert_se(parse_nice("19", &n) >= 0 && n == 19);
+        assert_se(parse_nice("+19", &n) >= 0 && n == 19);
+
+
+        assert_se(parse_nice("", &n) == -EINVAL);
+        assert_se(parse_nice("-", &n) == -EINVAL);
+        assert_se(parse_nice("+", &n) == -EINVAL);
+        assert_se(parse_nice("xx", &n) == -EINVAL);
+        assert_se(parse_nice("-50", &n) == -ERANGE);
+        assert_se(parse_nice("50", &n) == -ERANGE);
+        assert_se(parse_nice("+50", &n) == -ERANGE);
+        assert_se(parse_nice("-21", &n) == -ERANGE);
+        assert_se(parse_nice("20", &n) == -ERANGE);
+        assert_se(parse_nice("+20", &n) == -ERANGE);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -513,6 +541,7 @@ int main(int argc, char *argv[]) {
         test_safe_atod();
         test_parse_percent();
         test_parse_percent_unbounded();
+        test_parse_nice();
 
         return 0;
 }

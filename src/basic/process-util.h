@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/resource.h>
 
 #include "formats-util.h"
 #include "macro.h"
@@ -103,3 +104,7 @@ int sched_policy_from_string(const char *s);
 void valgrind_summary_hack(void);
 
 int pid_compare_func(const void *a, const void *b);
+
+static inline bool nice_is_valid(int n) {
+        return n >= PRIO_MIN && n < PRIO_MAX;
+}
