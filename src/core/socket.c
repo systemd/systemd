@@ -2187,7 +2187,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
-                        log_unit_warning(UNIT(s), "Too many incoming connections (%u), refusing connection attempt.",
+                        log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.",
                                          s->n_connections);
                         safe_close(cfd);
                         return;
@@ -2199,9 +2199,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                                 safe_close(cfd);
                                 return;
                         } else if (r > 0 && p->n_ref > s->max_connections_per_source) {
+                                _cleanup_free_ char *t = NULL;
+
+                                sockaddr_pretty(&p->peer.sa, FAMILY_ADDRESS_SIZE(p->peer.sa.sa_family), true, false, &t);
+
                                 log_unit_warning(UNIT(s),
-                                                 "Too many incoming connections (%u) from source, refusing connection attempt.",
-                                                 p->n_ref);
+                                                 "Too many incoming connections (%u) from source %s, dropping connection.",
+                                                 p->n_ref, strnull(t));
                                 safe_close(cfd);
                                 return;
                         }
