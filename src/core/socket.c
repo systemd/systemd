@@ -151,10 +151,10 @@ static void socket_done(Unit *u) {
 
         socket_free_ports(s);
 
-        while ((p = hashmap_steal_first(s->peers_by_address)))
+        while ((p = set_steal_first(s->peers_by_address)))
                 p->socket = NULL;
 
-        s->peers_by_address = hashmap_free(s->peers_by_address);
+        s->peers_by_address = set_free(s->peers_by_address);
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
@@ -519,7 +519,7 @@ static int socket_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        r = hashmap_ensure_allocated(&s->peers_by_address, &peer_address_hash_ops);
+        r = set_ensure_allocated(&s->peers_by_address, &peer_address_hash_ops);
         if (r < 0)
                 return r;
 
@@ -2366,7 +2366,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
-        HASHMAP_FOREACH(k, s->peers_by_address, i) {
+        SET_FOREACH(k, s->peers_by_address, i) {
                 _cleanup_free_ char *t = NULL;
 
                 r = sockaddr_pretty(&k->peer.sa, FAMILY_ADDRESS_SIZE(k->peer.sa.sa_family), true, true, &t);
@@ -2560,7 +2560,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         memcpy(&p->peer, &a.sockaddr, sizeof(a.sockaddr));
                         p->socket = s;
 
-                        r = hashmap_put(s->peers_by_address, p, p);
+                        r = set_put(s->peers_by_address, p);
                         if (r < 0)
                                 return r;
 
@@ -2696,7 +2696,7 @@ SocketPeer *socket_peer_unref(SocketPeer *p) {
                 return NULL;
 
         if (p->socket)
-                (void) hashmap_remove(p->socket->peers_by_address, p);
+                set_remove(p->socket->peers_by_address, p);
 
         free(p);
 
@@ -2716,7 +2716,7 @@ int socket_find_peer(Socket *s, int fd, SocketPeer **p) {
         if (r < 0)
                 return log_error_errno(errno, "getpeername failed: %m");
 
-        i = hashmap_get(s->peers_by_address, &sa);
+        i = set_get(s->peers_by_address, &sa);
         if (i) {
                 *p = i;
                 return 1;
@@ -2729,7 +2729,7 @@ int socket_find_peer(Socket *s, int fd, SocketPeer **p) {
         memcpy(&remote->peer, &sa.peer, sizeof(union sockaddr_union));
         remote->socket = s;
 
-        r = hashmap_put(s->peers_by_address, remote, remote);
+        r = set_put(s->peers_by_address, remote);
         if (r < 0)
                 return r;
 

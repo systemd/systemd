@@ -80,7 +80,7 @@ struct Socket {
 
         LIST_HEAD(SocketPort, ports);
 
-        Hashmap *peers_by_address;
+        Set *peers_by_address;
 
         unsigned n_accepted;
         unsigned n_connections;
