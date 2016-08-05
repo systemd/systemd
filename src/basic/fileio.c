@@ -271,7 +271,7 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                 if (n >= READ_FULL_BYTES_MAX)
                         return -E2BIG;
 
-                n = MAX(n * 2, READ_FULL_BYTES_MAX);
+                n = MIN(n * 2, READ_FULL_BYTES_MAX);
         }
 
         buf[l] = 0;
