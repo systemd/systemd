@@ -935,7 +935,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (n < PRIO_MIN || n >= PRIO_MAX)
+                if (!nice_is_valid(n))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Nice value out of range");
 
                 if (mode != UNIT_CHECK) {

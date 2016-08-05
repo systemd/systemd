@@ -257,11 +257,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NICE:
-                        r = safe_atoi(optarg, &arg_nice);
-                        if (r < 0 || arg_nice < PRIO_MIN || arg_nice >= PRIO_MAX) {
-                                log_error("Failed to parse nice value");
-                                return -EINVAL;
-                        }
+                        r = parse_nice(optarg, &arg_nice);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse nice value: %s", optarg);
 
                         arg_nice_set = true;
                         break;
