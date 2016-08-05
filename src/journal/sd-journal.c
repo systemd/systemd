@@ -2290,6 +2290,8 @@ _public_ int sd_journal_get_fd(sd_journal *j) {
          * inotify */
         if (j->no_new_files)
                 r = add_current_paths(j);
+        else if (j->flags & SD_JOURNAL_OS_ROOT)
+                r = add_search_paths(j);
         else if (j->toplevel_fd >= 0)
                 r = add_root_directory(j, NULL, false);
         else if (j->path)
