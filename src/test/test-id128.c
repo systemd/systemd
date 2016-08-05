@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
         assert_se(ftruncate(fd, 0) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(write(fd, id128_to_uuid_string(id, t), 36) == 36);
+        assert_se(write(fd, id128_to_uuid_string(id, q), 36) == 36);
 
         assert_se(lseek(fd, 0, SEEK_SET) == 0);
         assert_se(id128_read_fd(fd, ID128_PLAIN, &id2) == -EINVAL);
