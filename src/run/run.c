@@ -410,18 +410,15 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
-        char **i;
         int r;
 
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, properties) {
-                r = bus_append_unit_property_assignment(m, *i);
-                if (r < 0)
-                        return r;
-        }
+        r = bus_append_unit_property_assignment_many(m, properties);
+        if (r < 0)
+                return r;
 
         return 0;
 }

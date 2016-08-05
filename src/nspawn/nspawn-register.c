@@ -68,7 +68,6 @@ int register_machine(
                                 local_ifindex > 0 ? 1 : 0, local_ifindex);
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-                char **i;
                 unsigned j;
 
                 r = sd_bus_message_new_method_call(
@@ -157,11 +156,9 @@ int register_machine(
                                 return bus_log_create_error(r);
                 }
 
-                STRV_FOREACH(i, properties) {
-                        r = bus_append_unit_property_assignment(m, *i);
-                        if (r < 0)
-                                return r;
-                }
+                r = bus_append_unit_property_assignment_many(m, properties);
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
