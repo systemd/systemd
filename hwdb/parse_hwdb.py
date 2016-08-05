@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 #
 #  This file is part of systemd.
@@ -17,9 +18,11 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-import string
 import functools
+import glob
+import string
+import sys
+import os
 
 try:
     from pyparsing import (Word, White, Literal, ParserElement, Regex,
@@ -29,7 +32,8 @@ try:
                            stringEnd, pythonStyleComment,
                            ParseBaseException)
 except ImportError:
-    sys.exit('pyparsing is not available')
+    print('pyparsing is not available')
+    sys.exit(77)
 
 try:
     from evdev.ecodes import ecodes
@@ -168,7 +172,9 @@ def print_summary(fname, groups):
           ))
 
 if __name__ == '__main__':
-    for fname in sys.argv[1:]:
+    args = sys.argv[1:] or glob.glob(os.path.dirname(sys.argv[0]) + '/[67]0-*.hwdb')
+
+    for fname in args:
         groups = parse(fname)
         print_summary(fname, groups)
         check_match_uniqueness(groups)
