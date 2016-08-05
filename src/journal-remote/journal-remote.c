@@ -27,10 +27,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#ifdef HAVE_GNUTLS
-#include <gnutls/gnutls.h>
-#endif
-
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
