@@ -1602,6 +1602,43 @@
         functions) if their standard output or standard error output is connected to the journal anyway, thus enabling
         delivery of structured metadata along with logged messages.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SERVICE_RESULT</varname></term>
+
+        <listitem><para>Only defined for the service unit type, this environment variable is passed to all
+        <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes, and encodes the service
+        "result". Currently, the following values are defined: <literal>timeout</literal> (in case of an operation
+        timeout), <literal>exit-code</literal> (if a service process exited with a non-zero exit code; see
+        <varname>$EXIT_STATUS</varname> below for the actual exit status returned), <literal>signal</literal> (if a
+        service process was terminated abnormally by a signal; see <varname>$EXIT_STATUS</varname> below for the actual
+        signal used for the termination), <literal>core-dump</literal> (if a service process terminated abnormally and
+        dumped core), <literal>watchdog</literal> (if the watchdog keep-alive ping was enabled for the service but it
+        missed the deadline), or <literal>resources</literal> (a catch-all condition in case a system operation
+        failed).</para>
+
+        <para>This environment variable is useful to monitor failure or successful termination of a service. Even
+        though this variable is available in both <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>, it
+        is usually a better choice to place monitoring tools in the latter, as the former is only invoked for services
+        that managed to start up correctly, and the latter covers both services that failed during their start-up and
+        those which failed during their runtime.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$EXIT_CODE</varname></term>
+        <term><varname>$EXIT_STATUS</varname></term>
+
+        <listitem><para>Only defined for the service unit type, these environment variables are passed to all
+        <varname>ExecStop=</varname>, <varname>ExecStopPost=</varname> processes and contain exit status/code
+        information of the main process of the service. For the precise definition of the exit code and status, see
+        <citerefentry><refentrytitle>wait</refentrytitle><manvolnum>2</manvolnum></citerefentry>. <varname>$EXIT_CODE</varname>
+        is one of <literal>exited</literal>, <literal>killed</literal>,
+        <literal>dumped</literal>. <varname>$EXIT_STATUS</varname> contains the numeric exit code formatted as string
+        if <varname>$EXIT_CODE</varname> is <literal>exited</literal>, and the signal name in all other cases. Note
+        that these environment variables are only set if the service manager succeeded to start and identify the main
+        process of the service.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>Additional variables may be configured by the following

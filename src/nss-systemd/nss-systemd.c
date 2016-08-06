@@ -26,8 +26,51 @@
 #include "macro.h"
 #include "nss-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "user-util.h"
 #include "util.h"
+
+#ifndef NOBODY_USER_NAME
+#define NOBODY_USER_NAME "nobody"
+#endif
+
+#ifndef NOBODY_GROUP_NAME
+#define NOBODY_GROUP_NAME "nobody"
+#endif
+
+static const struct passwd root_passwd = {
+        .pw_name = (char*) "root",
+        .pw_passwd = (char*) "x", /* see shadow file */
+        .pw_uid = 0,
+        .pw_gid = 0,
+        .pw_gecos = (char*) "Super User",
+        .pw_dir = (char*) "/root",
+        .pw_shell = (char*) "/bin/sh",
+};
+
+static const struct passwd nobody_passwd = {
+        .pw_name = (char*) NOBODY_USER_NAME,
+        .pw_passwd = (char*) "*", /* locked */
+        .pw_uid = 65534,
+        .pw_gid = 65534,
+        .pw_gecos = (char*) "User Nobody",
+        .pw_dir = (char*) "/",
+        .pw_shell = (char*) "/sbin/nologin",
+};
+
+static const struct group root_group = {
+        .gr_name = (char*) "root",
+        .gr_gid = 0,
+        .gr_passwd = (char*) "x", /* see shadow file */
+        .gr_mem = (char*[]) { NULL },
+};
+
+static const struct group nobody_group = {
+        .gr_name = (char*) NOBODY_GROUP_NAME,
+        .gr_gid = 65534,
+        .gr_passwd = (char*) "*", /* locked */
+        .gr_mem = (char*[]) { NULL },
+};
 
 NSS_GETPW_PROTOTYPES(systemd);
 NSS_GETGR_PROTOTYPES(systemd);
@@ -49,6 +92,23 @@ enum nss_status _nss_systemd_getpwnam_r(
 
         assert(name);
         assert(pwd);
+
+        if (!valid_user_group_name(name)) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
+        if (streq(name, root_passwd.pw_name)) {
+                *pwd = root_passwd;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
+        }
+        if (streq(name, nobody_passwd.pw_name)) {
+                *pwd = nobody_passwd;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
+        }
 
         /* Make sure that we don't go in circles when allocating a dynamic UID by checking our own database */
         if (getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
@@ -124,6 +184,18 @@ enum nss_status _nss_systemd_getpwuid_r(
         if (!uid_is_valid(uid)) {
                 r = -EINVAL;
                 goto fail;
+        }
+
+        /* Synthesize data for the root user and for nobody in case they are missing from /etc/passwd */
+        if (uid == root_passwd.pw_uid) {
+                *pwd = root_passwd;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
+        }
+        if (uid == nobody_passwd.pw_uid) {
+                *pwd = nobody_passwd;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
         }
 
         if (uid <= SYSTEM_UID_MAX)
@@ -202,6 +274,23 @@ enum nss_status _nss_systemd_getgrnam_r(
         assert(name);
         assert(gr);
 
+        if (!valid_user_group_name(name)) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        /* Synthesize records for root and nobody, in case they are missing form /etc/group */
+        if (streq(name, root_group.gr_name)) {
+                *gr = root_group;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
+        }
+        if (streq(name, nobody_group.gr_name)) {
+                *gr = nobody_group;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
+        }
+
         if (getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
@@ -273,6 +362,18 @@ enum nss_status _nss_systemd_getgrgid_r(
         if (!gid_is_valid(gid)) {
                 r = -EINVAL;
                 goto fail;
+        }
+
+        /* Synthesize records for root and nobody, in case they are missing from /etc/group */
+        if (gid == root_group.gr_gid) {
+                *gr = root_group;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
+        }
+        if (gid == nobody_group.gr_gid) {
+                *gr = nobody_group;
+                *errnop = 0;
+                return NSS_STATUS_SUCCESS;
         }
 
         if (gid <= SYSTEM_GID_MAX)

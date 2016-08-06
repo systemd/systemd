@@ -556,11 +556,29 @@ AC_SUBST(CERTIFICATEROOT)
 
 AC_ARG_WITH([support-url],
         AS_HELP_STRING([--with-support-url=URL],
-                [Specify the supoport URL to show in catalog entries included in systemd]),
+                [Specify the support URL to show in catalog entries included in systemd]),
         [SUPPORT_URL="$withval"],
         [SUPPORT_URL=http://lists.freedesktop.org/mailman/listinfo/systemd-devel])
 
 AC_SUBST(SUPPORT_URL)
+
+AC_ARG_WITH([nobody-user],
+        AS_HELP_STRING([--with-nobody-user=NAME],
+                [Specify the name of the nobody user (the one with UID 65534)]),
+        [NOBODY_USER_NAME="$withval"],
+        [NOBODY_USER_NAME=nobody])
+
+AC_SUBST(NOBODY_USER_NAME)
+AC_DEFINE_UNQUOTED(NOBODY_USER_NAME, ["$NOBODY_USER_NAME"], [The name of the nobody user (the one with UID 65534)])
+
+AC_ARG_WITH([nobody-group],
+        AS_HELP_STRING([--with-nobody-group=NAME],
+                [Specify the name of the nobody group (the one with GID 65534)]),
+        [NOBODY_GROUP_NAME="$withval"],
+        [NOBODY_GROUP_NAME=nobody])
+
+AC_SUBST(NOBODY_GROUP_NAME)
+AC_DEFINE_UNQUOTED(NOBODY_GROUP_NAME, ["$NOBODY_GROUP_NAME"], [The name of the nobody group (the one with GID 65534)])
 
 # ------------------------------------------------------------------------------
 have_xz=no
@@ -1677,6 +1695,8 @@ AC_MSG_RESULT([
         Maximum System GID:                ${SYSTEM_GID_MAX}
         Certificate root:                  ${CERTIFICATEROOT}
         Support URL:                       ${SUPPORT_URL}
+        Nobody User Name:                  ${NOBODY_USER_NAME}
+        Nobody Group Name:                 ${NOBODY_GROUP_NAME}
 
         CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}

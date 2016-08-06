@@ -35,26 +35,16 @@ Features:
 
 * RemoveIPC= in unit files for removing POSIX/SysV IPC objects
 
-* Set SERVICE_RESULT= as env var while running ExecStop=
-
 * Introduce ProtectSystem=strict for making the entire OS hierarchy read-only
   except for a select few
 
 * nspawn: start UID allocation loop from hash of container name
 
-* in the DynamicUser=1 nss module, also map "nobody" and "root" statically
-
-* pid1: log about all processes we kill with with SIGKILL or in abandoned scopes, as this should normally not happen
-
 * nspawn: support that /proc, /sys/, /dev are pre-mounted
-
-* nspawn: mount esp, so that bootctl can work
 
 * define gpt header bits to select volatility mode
 
 * nspawn: mount loopback filesystems with "discard"
-
-* Make TasksMax= take percentages, taken relative to the pids_max sysctl and pids.max cgroup limit
 
 * ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
 

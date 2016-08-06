@@ -83,47 +83,35 @@ static void test_get_files_in_directory(void) {
 }
 
 static void test_var_tmp(void) {
-        char *tmp_dir = NULL;
-        char *tmpdir_backup = NULL;
-        const char *default_var_tmp = NULL;
-        const char *var_name;
-        bool do_overwrite = true;
+        _cleanup_free_ char *tmpdir_backup = NULL;
+        const char *tmp_dir = NULL, *t;
 
-        default_var_tmp = "/var/tmp";
-        var_name = "TMPDIR";
-
-        if (getenv(var_name) != NULL) {
-                tmpdir_backup = strdup(getenv(var_name));
-                assert_se(tmpdir_backup != NULL);
+        t = getenv("TMPDIR");
+        if (t) {
+                tmpdir_backup = strdup(t);
+                assert_se(tmpdir_backup);
         }
 
-        unsetenv(var_name);
+        assert(unsetenv("TMPDIR") >= 0);
 
-        var_tmp(&tmp_dir);
-        assert_se(!strcmp(tmp_dir, default_var_tmp));
+        assert_se(var_tmp_dir(&tmp_dir) >= 0);
+        assert_se(streq(tmp_dir, "/var/tmp"));
 
-        free(tmp_dir);
+        assert_se(setenv("TMPDIR", "/tmp", true) >= 0);
+        assert_se(streq(getenv("TMPDIR"), "/tmp"));
 
-        setenv(var_name, "/tmp", do_overwrite);
-        assert_se(!strcmp(getenv(var_name), "/tmp"));
+        assert_se(var_tmp_dir(&tmp_dir) >= 0);
+        assert_se(streq(tmp_dir, "/tmp"));
 
-        var_tmp(&tmp_dir);
-        assert_se(!strcmp(tmp_dir, "/tmp"));
+        assert_se(setenv("TMPDIR", "/88_does_not_exist_88", true) >= 0);
+        assert_se(streq(getenv("TMPDIR"), "/88_does_not_exist_88"));
 
-        free(tmp_dir);
+        assert_se(var_tmp_dir(&tmp_dir) >= 0);
+        assert_se(streq(tmp_dir, "/var/tmp"));
 
-        setenv(var_name, "/88_does_not_exist_88", do_overwrite);
-        assert_se(!strcmp(getenv(var_name), "/88_does_not_exist_88"));
-
-        var_tmp(&tmp_dir);
-        assert_se(!strcmp(tmp_dir, default_var_tmp));
-
-        free(tmp_dir);
-
-        if (tmpdir_backup != NULL)  {
-                setenv(var_name, tmpdir_backup, do_overwrite);
-                assert_se(!strcmp(getenv(var_name), tmpdir_backup));
-                free(tmpdir_backup);
+        if (tmpdir_backup)  {
+                assert_se(setenv("TMPDIR", tmpdir_backup, true) >= 0);
+                assert_se(streq(getenv("TMPDIR"), tmpdir_backup));
         }
 }
 

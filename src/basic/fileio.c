@@ -1168,8 +1168,8 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
         char *t, *x;
         uint64_t u;
         unsigned i;
+        int r;
 
-        assert(p);
         assert(ret);
 
         /* Turns this:
@@ -1177,6 +1177,12 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
          * Into this:
          *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
          */
+
+        if (!p) {
+                r = tmp_dir(&p);
+                if (r < 0)
+                        return r;
+        }
 
         if (!extra)
                 extra = "";
@@ -1264,10 +1270,13 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
 
 int open_tmpfile_unlinkable(const char *directory, int flags) {
         char *p;
-        int fd;
+        int fd, r;
 
-        if (!directory)
-                directory = "/tmp";
+        if (!directory) {
+                r = tmp_dir(&directory);
+                if (r < 0)
+                        return r;
+        }
 
         /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
 

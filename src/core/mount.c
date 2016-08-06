@@ -701,12 +701,10 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
         ExecParameters exec_params = {
-                .apply_permissions = true,
-                .apply_chroot      = true,
-                .apply_tty_stdin   = true,
-                .stdin_fd          = -1,
-                .stdout_fd         = -1,
-                .stderr_fd         = -1,
+                .flags      = EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .stdin_fd   = -1,
+                .stdout_fd  = -1,
+                .stderr_fd  = -1,
         };
 
         assert(m);
@@ -732,7 +730,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                 return r;
 
         exec_params.environment = UNIT(m)->manager->environment;
-        exec_params.confirm_spawn = UNIT(m)->manager->confirm_spawn;
+        exec_params.flags |= UNIT(m)->manager->confirm_spawn ? EXEC_CONFIRM_SPAWN : 0;
         exec_params.cgroup_supported = UNIT(m)->manager->cgroup_supported;
         exec_params.cgroup_path = UNIT(m)->cgroup_path;
         exec_params.cgroup_delegate = m->cgroup_context.delegate;
@@ -761,7 +759,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 static void mount_enter_dead(Mount *m, MountResult f) {
         assert(m);
 
-        if (f != MOUNT_SUCCESS)
+        if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
@@ -777,7 +775,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 static void mount_enter_mounted(Mount *m, MountResult f) {
         assert(m);
 
-        if (f != MOUNT_SUCCESS)
+        if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         mount_set_state(m, MOUNT_MOUNTED);
@@ -788,7 +786,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
 
         assert(m);
 
-        if (f != MOUNT_SUCCESS)
+        if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         r = unit_kill_context(
@@ -1160,7 +1158,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        if (f != MOUNT_SUCCESS)
+        if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         if (m->control_command) {

@@ -1749,12 +1749,10 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
         ExecParameters exec_params = {
-                .apply_permissions = true,
-                .apply_chroot      = true,
-                .apply_tty_stdin   = true,
-                .stdin_fd          = -1,
-                .stdout_fd         = -1,
-                .stderr_fd         = -1,
+                .flags      = EXEC_APPLY_PERMISSIONS|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .stdin_fd   = -1,
+                .stdout_fd  = -1,
+                .stderr_fd  = -1,
         };
 
         assert(s);
@@ -1785,7 +1783,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         exec_params.argv = argv;
         exec_params.environment = UNIT(s)->manager->environment;
-        exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
+        exec_params.flags |= UNIT(s)->manager->confirm_spawn ? EXEC_CONFIRM_SPAWN : 0;
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = UNIT(s)->cgroup_path;
         exec_params.cgroup_delegate = s->cgroup_context.delegate;
@@ -1897,7 +1895,7 @@ fail:
 static void socket_enter_dead(Socket *s, SocketResult f) {
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
@@ -1916,7 +1914,7 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
         int r;
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_unwatch_control_pid(s);
@@ -1944,7 +1942,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
 
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         r = unit_kill_context(
@@ -1988,7 +1986,7 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         int r;
         assert(s);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_unwatch_control_pid(s);
@@ -2770,7 +2768,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                       "Control process exited, code=%s status=%i",
                       sigchld_code_to_string(code), status);
 
-        if (f != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         if (s->control_command &&

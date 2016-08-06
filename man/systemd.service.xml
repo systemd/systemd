@@ -429,7 +429,13 @@
         service failed to start up correctly. Commands configured with this setting need to be able to operate even if
         the service failed starting up half-way and left incompletely initialized data around. As the service's
         processes have been terminated already when the commands specified with this setting are executed they should
-        not attempt to communicate with them.</para></listitem>
+        not attempt to communicate with them.</para>
+
+        <para>Note that all commands that are configured with this setting are invoked with the result code of the
+        service, as well as the main process' exit code and status, set in the <varname>$SERVICE_RESULT</varname>,
+        <varname>$EXIT_CODE</varname> and <varname>$EXIT_STATUS</varname> environment variables, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>

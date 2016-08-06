@@ -61,6 +61,10 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details on
     this option.</para>
 
+    <para>This module also ensures that the root and nobody users and groups (i.e. the users/groups with the UIDs/GIDs
+    0 and 65534) remain resolvable at all times, even if they aren't listed in <filename>/etc/passwd</filename> or
+    <filename>/etc/group</filename>, or if these files are missing.</para>
+
     <para>To activate the NSS module, add <literal>systemd</literal> to the lines starting with
     <literal>passwd:</literal> and <literal>group:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
