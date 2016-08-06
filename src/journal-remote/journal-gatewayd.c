@@ -48,6 +48,7 @@
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
+static char *arg_directory = NULL;
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -118,7 +119,10 @@ static int open_journal(RequestMeta *m) {
         if (m->journal)
                 return 0;
 
-        return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
+        if (arg_directory)
+                return sd_journal_open_directory(&m->journal, arg_directory, 0);
+        else
+                return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
 }
 
 static int request_meta_ensure_tmp(RequestMeta *m) {
@@ -881,7 +885,8 @@ static void help(void) {
                "     --version        Show package version\n"
                "     --cert=CERT.PEM  Server certificate in PEM format\n"
                "     --key=KEY.PEM    Server key in PEM format\n"
-               "     --trust=CERT.PEM Certificat authority certificate in PEM format\n",
+               "     --trust=CERT.PEM Certificat authority certificate in PEM format\n"
+               "  -D --directory=PATH Serve journal files in directory\n",
                program_invocation_short_name);
 }
 
@@ -896,11 +901,12 @@ static int parse_argv(int argc, char *argv[]) {
         int r, c;
 
         static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "key",     required_argument, NULL, ARG_KEY     },
-                { "cert",    required_argument, NULL, ARG_CERT    },
-                { "trust",   required_argument, NULL, ARG_TRUST   },
+                { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "key",       required_argument, NULL, ARG_KEY       },
+                { "cert",      required_argument, NULL, ARG_CERT      },
+                { "trust",     required_argument, NULL, ARG_TRUST     },
+                { "directory", required_argument, NULL, 'D' },
                 {}
         };
 
@@ -954,6 +960,9 @@ static int parse_argv(int argc, char *argv[]) {
 #else
                         log_error("Option --trust is not available.");
 #endif
+                case 'D':
+                        arg_directory = optarg;
+                        break;
 
                 case '?':
                         return -EINVAL;
