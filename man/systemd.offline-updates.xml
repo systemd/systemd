@@ -77,7 +77,7 @@
 
       <listitem>
         <para>Very early in the new boot
-        <citerefentry><refentrytitle>systemd-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         checks whether <filename>/system-update</filename> exists. If so, it (temporarily and for
         this boot only) redirects (i.e. symlinks) <filename>default.target</filename> to
         <filename>system-update.target</filename>, a special target that is pulls in the base system
@@ -162,7 +162,7 @@
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/SystemUpdates/">Implementing Offline System Updates</ulink>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='mankier'><refentrytitle>dnf.plugin.system-upgrade</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
