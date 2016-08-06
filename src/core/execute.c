@@ -25,6 +25,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/capability.h>
+#include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -1552,6 +1553,159 @@ static bool exec_needs_mount_namespace(
         return false;
 }
 
+static int setup_private_users(uid_t uid, gid_t gid) {
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        _cleanup_close_pair_ int errno_pipe[2] = { -1, -1 };
+        _cleanup_close_ int unshare_ready_fd = -1;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        uint64_t c = 1;
+        siginfo_t si;
+        ssize_t n;
+        int r;
+
+        /* Set up a user namespace and map root to root, the selected UID/GID to itself, and everything else to
+         * nobody. In order to be able to write this mapping we need CAP_SETUID in the original user namespace, which
+         * we however lack after opening the user namespace. To work around this we fork() a temporary child process,
+         * which waits for the parent to create the new user namespace while staying in the original namespace. The
+         * child then writes the UID mapping, under full privileges. The parent waits for the child to finish and
+         * continues execution normally. */
+
+        if (uid != 0 && uid_is_valid(uid))
+                asprintf(&uid_map,
+                         "0 0 1\n"                      /* Map root → root */
+                         UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
+                         uid, uid);                     /* The case where the above is the same */
+        else
+                uid_map = strdup("0 0 1\n");
+        if (!uid_map)
+                return -ENOMEM;
+
+        if (gid != 0 && gid_is_valid(gid))
+                asprintf(&gid_map,
+                         "0 0 1\n"                      /* Map root → root */
+                         GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
+                         gid, gid);
+        else
+                gid_map = strdup("0 0 1\n");            /* The case where the above is the same */
+        if (!gid_map)
+                return -ENOMEM;
+
+        /* Create a communication channel so that the parent can tell the child when it finished creating the user
+         * namespace. */
+        unshare_ready_fd = eventfd(0, EFD_CLOEXEC);
+        if (unshare_ready_fd < 0)
+                return -errno;
+
+        /* Create a communication channel so that the child can tell the parent a proper error code in case it
+         * failed. */
+        if (pipe2(errno_pipe, O_CLOEXEC) < 0)
+                return -errno;
+
+        pid = fork();
+        if (pid < 0)
+                return -errno;
+
+        if (pid == 0) {
+                _cleanup_close_ int fd = -1;
+                const char *a;
+                pid_t ppid;
+
+                /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
+                 * here, after the parent opened its own user namespace. */
+
+                ppid = getppid();
+                errno_pipe[0] = safe_close(errno_pipe[0]);
+
+                /* Wait until the parent unshared the user namespace */
+                if (read(unshare_ready_fd, &c, sizeof(c)) < 0) {
+                        r = -errno;
+                        goto child_fail;
+                }
+
+                /* Disable the setgroups() system call in the child user namespace, for good. */
+                a = procfs_file_alloca(ppid, "setgroups");
+                fd = open(a, O_WRONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        if (errno != ENOENT) {
+                                r = -errno;
+                                goto child_fail;
+                        }
+
+                        /* If the file is missing the kernel is too old, let's continue anyway. */
+                } else {
+                        if (write(fd, "deny\n", 5) < 0) {
+                                r = -errno;
+                                goto child_fail;
+                        }
+
+                        fd = safe_close(fd);
+                }
+
+                /* First write the GID map */
+                a = procfs_file_alloca(ppid, "gid_map");
+                fd = open(a, O_WRONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        r = -errno;
+                        goto child_fail;
+                }
+                if (write(fd, gid_map, strlen(gid_map)) < 0) {
+                        r = -errno;
+                        goto child_fail;
+                }
+                fd = safe_close(fd);
+
+                /* The write the UID map */
+                a = procfs_file_alloca(ppid, "uid_map");
+                fd = open(a, O_WRONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        r = -errno;
+                        goto child_fail;
+                }
+                if (write(fd, uid_map, strlen(uid_map)) < 0) {
+                        r = -errno;
+                        goto child_fail;
+                }
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(errno_pipe[1], &r, sizeof(r));
+                _exit(EXIT_FAILURE);
+        }
+
+        errno_pipe[1] = safe_close(errno_pipe[1]);
+
+        if (unshare(CLONE_NEWUSER) < 0)
+                return -errno;
+
+        /* Let the child know that the namespace is ready now */
+        if (write(unshare_ready_fd, &c, sizeof(c)) < 0)
+                return -errno;
+
+        /* Try to read an error code from the child */
+        n = read(errno_pipe[0], &r, sizeof(r));
+        if (n < 0)
+                return -errno;
+        if (n == sizeof(r)) { /* an error code was sent to us */
+                if (r < 0)
+                        return r;
+                return -EIO;
+        }
+        if (n != 0) /* on success we should have read 0 bytes */
+                return -EIO;
+
+        r = wait_for_terminate(pid, &si);
+        if (r < 0)
+                return r;
+        pid = 0;
+
+        /* If something strange happened with the child, let's consider this fatal, too */
+        if (si.si_code != CLD_EXITED || si.si_status != 0)
+                return -EIO;
+
+        return 0;
+}
+
 static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
         assert(array);
         assert(n);
@@ -2078,6 +2232,14 @@ static int exec_child(
                 }
         }
 #endif
+
+        if ((params->flags & EXEC_APPLY_PERMISSIONS) && context->private_users) {
+                r = setup_private_users(uid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return r;
+                }
+        }
 
         /* We repeat the fd closing here, to make sure that
          * nothing is leaked from the PAM modules. Note that
@@ -2640,8 +2802,9 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
-                "%sPrivateNetwork: %s\n"
                 "%sPrivateDevices: %s\n"
+                "%sPrivateNetwork: %s\n"
+                "%sPrivateUsers: %s\n"
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
@@ -2652,8 +2815,9 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, c->root_directory ? c->root_directory : "/",
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
-                prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_devices),
+                prefix, yes_no(c->private_network),
+                prefix, yes_no(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
                 prefix, yes_no(c->ignore_sigpipe),

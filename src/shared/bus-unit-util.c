@@ -202,7 +202,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting", "TasksAccounting",
                               "SendSIGHUP", "SendSIGKILL", "WakeSystem", "DefaultDependencies",
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "RemainAfterExit",
-                              "PrivateTmp", "PrivateDevices", "PrivateNetwork", "NoNewPrivileges",
+                              "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers", "NoNewPrivileges",
                               "SyslogLevelPrefix", "Delegate", "RemainAfterElapse", "MemoryDenyWriteExecute",
                               "RestrictRealtime", "DynamicUser")) {
 
