@@ -68,12 +68,12 @@
       link-local networking).</para></listitem>
 
       <listitem><para>The glibc
-      <citerefentry><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry> API as defined
+      <citerefentry project='man-pages'><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry> API as defined
       by <ulink url="https://tools.ietf.org/html/rfc3493">RFC3493</ulink> and its related resolver functions,
-      including <citerefentry><refentrytitle>gethostbyname</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+      including <citerefentry project='man-pages'><refentrytitle>gethostbyname</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
       API is widely supported, including beyond the Linux platform. In its current form it does not expose DNSSEC
       validation status information however, and is synchronous only. This API is backed by the glibc Name Service
-      Switch (<citerefentry><refentrytitle>nss</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Usage of the
+      Switch (<citerefentry project='man-pages'><refentrytitle>nss</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Usage of the
       glibc NSS module <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       is required in order to allow glibc's NSS resolver functions to resolve host names via
       <command>systemd-resolved</command>.</para></listitem>
@@ -164,7 +164,7 @@
     <title><filename>/etc/resolv.conf</filename></title>
 
     <para>Three modes of handling <filename>/etc/resolv.conf</filename> (see
-    <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>) are
+    <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>) are
     supported:</para>
 
     <itemizedlist>

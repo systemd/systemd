@@ -160,7 +160,7 @@
     for details about the conversion.</para>
 
     <para>The NFS mount option <option>bg</option> for NFS background mounts
-    as documented in <citerefentry><refentrytitle>nfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    as documented in <citerefentry project='man-pages'><refentrytitle>nfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     is not supported in <filename>/etc/fstab</filename> entries. The systemd mount option <option>nofail</option>
     provides similar functionality and should be used instead.</para>
 
