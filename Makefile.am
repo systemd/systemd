@@ -3872,7 +3872,8 @@ TESTS += \
 
 if HAVE_PYTHON
 TESTS += \
-	test/rule-syntax-check.py
+	test/rule-syntax-check.py \
+	hwdb/parse_hwdb.py
 
 if HAVE_SYSV_COMPAT
 TESTS += \
@@ -3924,7 +3925,8 @@ EXTRA_DIST += \
 	test/udev-test.pl \
 	test/rule-syntax-check.py \
 	test/sysv-generator-test.py \
-	test/mocks/fsck
+	test/mocks/fsck \
+	hwdb/parse_hwdb.py
 
 # ------------------------------------------------------------------------------
 ata_id_SOURCES = \

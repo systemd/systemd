@@ -297,7 +297,7 @@ mouse:usb:v046dpc049:name:Logitech USB Gaming Mouse:
 mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
  MOUSE_DPI=400@500 *800@500 2000@500
 
- # Logitech G9
+# Logitech G9
 mouse:usb:v046dpc048:name:Logitech G9 Laser Mouse:
  MOUSE_DPI=400@1000 800@1000 *1600@1000
 
@@ -342,8 +342,6 @@ mouse:usb:v046dp402d:name:Logitech M560:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
  MOUSE_DPI=1000@125
 
-# Logitech V220 Cordless Optical Mouse
-mouse:usb:v046dpc51b:name:Logitech USB Receiver:
 # Logitech Performance MX
 mouse:usb:v046dp101a:name:Logitech Performance MX:
 # Logitech MX Master

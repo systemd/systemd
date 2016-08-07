@@ -213,7 +213,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*
  KEYBOARD_KEY_8a=suspend                                # Fn+F1 hibernate
  KEYBOARD_KEY_8b=switchvideomode                        # Fn+F8 CRT/LCD (high keycode: "displaytoggle")
  KEYBOARD_KEY_8c=unknown                                # Fn+Right Auto Brightness
- KEYBOARD_KEY_8F=switchvideomode                        # Fn+F7 aspect ratio
+ KEYBOARD_KEY_8f=switchvideomode                        # Fn+F7 aspect ratio
  KEYBOARD_KEY_90=previoussong                           # Front panel previous song
  KEYBOARD_KEY_91=prog1                                  # Wi-Fi Catcher (Dell-specific)
  KEYBOARD_KEY_92=media                                  # MediaDirect button (house icon)
@@ -482,8 +482,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:pvr*
  KEYBOARD_KEY_43=volumedown
  KEYBOARD_KEY_44=volumeup
  KEYBOARD_KEY_db=search # Same position as caps lock key on most keyboards
-# KEYBOARD_KEY_3e=fullscreen, no defined key sym
-
+ # KEYBOARD_KEY_3e=fullscreen, no defined key sym
 
 # HP EliteBook 725 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:pvr*
@@ -694,7 +693,7 @@ evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90003=finance                             # Finance
  KEYBOARD_KEY_90004=prog1                               # My Sites
  KEYBOARD_KEY_90005=prog2                               # Community
- KEYBOARD_KEY_C0183=media                               # Media
+ KEYBOARD_KEY_c0183=media                               # Media
 
 # Cordless Desktop S510
 evdev:input:b0003v046DpC50C*
@@ -763,18 +762,18 @@ evdev:input:b0003v046DpC309*
   KEYBOARD_KEY_90002=camera       # webcam
   KEYBOARD_KEY_90003=prog1        # iTouch
   KEYBOARD_KEY_90004=shop         # Shopping
-  KEYBOARD_KEY_C0201=new          # New (F1)
-  KEYBOARD_KEY_C0289=reply        # Reply mail (F2)
-  KEYBOARD_KEY_C028B=forwardmail  # Forward mail (F3)
-  KEYBOARD_KEY_C028C=send         # Send (F4)
-  KEYBOARD_KEY_C021A=undo         # Undo (F5).
-  KEYBOARD_KEY_C0279=redo         # Redo (F6).
-  KEYBOARD_KEY_C0208=print        # Print (F7)
-  KEYBOARD_KEY_C0207=save         # Save (F8)
-  KEYBOARD_KEY_C0194=file         # My Computer (F9)
-  KEYBOARD_KEY_C01A7=documents    # My Documents (F10)
-  KEYBOARD_KEY_C01B6=images       # My Pictures (F11) ??
-  KEYBOARD_KEY_C01B7=sound        # My Music (F12) ??
+  KEYBOARD_KEY_c0201=new          # New (F1)
+  KEYBOARD_KEY_c0289=reply        # Reply mail (F2)
+  KEYBOARD_KEY_c028b=forwardmail  # Forward mail (F3)
+  KEYBOARD_KEY_c028c=send         # Send (F4)
+  KEYBOARD_KEY_c021a=undo         # Undo (F5).
+  KEYBOARD_KEY_c0279=redo         # Redo (F6).
+  KEYBOARD_KEY_c0208=print        # Print (F7)
+  KEYBOARD_KEY_c0207=save         # Save (F8)
+  KEYBOARD_KEY_c0194=file         # My Computer (F9)
+  KEYBOARD_KEY_c01a7=documents    # My Documents (F10)
+  KEYBOARD_KEY_c01b6=images       # My Pictures (F11) ??
+  KEYBOARD_KEY_c01b7=sound        # My Music (F12) ??
 
 
 ###########################################################
@@ -897,7 +896,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
  KEYBOARD_KEY_c2=f8
  KEYBOARD_KEY_c3=f9
  KEYBOARD_KEY_c4=f10
- KEYBOARD_KEY_c7=f11
+ # KEYBOARD_KEY_c7=f11 # FIXME!
  KEYBOARD_KEY_d8=f12
  KEYBOARD_KEY_f7=f13
  KEYBOARD_KEY_f6=f14
@@ -917,7 +916,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
  KEYBOARD_KEY_c9=pageup
  KEYBOARD_KEY_d1=pagedown
  KEYBOARD_KEY_c7=home
- KEYBOARD_KEY_cF=end
+ KEYBOARD_KEY_cf=end
  KEYBOARD_KEY_73=hp
  KEYBOARD_KEY_7e=hp
  KEYBOARD_KEY_db=leftmeta                               # left grab
