@@ -1651,9 +1651,68 @@
         <literal>dumped</literal>. <varname>$EXIT_STATUS</varname> contains the numeric exit code formatted as string
         if <varname>$EXIT_CODE</varname> is <literal>exited</literal>, and the signal name in all other cases. Note
         that these environment variables are only set if the service manager succeeded to start and identify the main
-        process of the service.</para></listitem>
-      </varlistentry>
+        process of the service.</para>
 
+        <table>
+          <title>Summary of possible service result variable values</title>
+          <tgroup cols='3'>
+            <colspec colname='result' />
+            <colspec colname='status' />
+            <colspec colname='code' />
+            <thead>
+              <row>
+                <entry><varname>$SERVICE_RESULT</varname></entry>
+                <entry><varname>$EXIT_STATUS</varname></entry>
+                <entry><varname>$EXIT_CODE</varname></entry>
+              </row>
+            </thead>
+
+            <tbody>
+              <row>
+                <entry valign="top"><literal>exit-code</literal></entry>
+                <entry valign="top"><literal>exited</literal></entry>
+                <entry><literal>0</literal><sbr/><literal>1</literal><sbr/><literal>2</literal><sbr/><literal
+                >3</literal><sbr/>…<sbr/><literal>255</literal></entry>
+              </row>
+
+              <row>
+                <entry valign="top"><literal>signal</literal></entry>
+                <entry valign="top"><literal>killed</literal></entry>
+                <entry><literal>HUP</literal><sbr/><literal>INT</literal><sbr/><literal>KILL</literal><sbr/>…</entry>
+              </row>
+
+              <row>
+                <entry valign="top"><literal>core-dump</literal></entry>
+                <entry valign="top"><literal>dumped</literal></entry>
+                <entry><literal>ABRT</literal><sbr/><literal>SEGV</literal><sbr/><literal>QUIT</literal><sbr/>…</entry>
+              </row>
+
+              <row>
+                <entry morerows="2" valign="top"><literal>watchdog</literal></entry>
+                <entry><literal>dumped</literal></entry>
+                <entry><literal>ABRT</literal></entry>
+              </row>
+              <row>
+                <entry><literal>killed</literal></entry>
+                <entry><literal>TERM</literal><sbr/><literal>KILL</literal></entry>
+              </row>
+              <row>
+                <entry><literal>exited</literal></entry>
+                <entry><literal>0</literal><sbr/><literal>1</literal><sbr/><literal>2</literal><sbr/><literal
+                >3</literal><sbr/>…<sbr/><literal>255</literal></entry>
+              </row>
+
+              <row>
+                <entry><literal>resources</literal></entry>
+                <entry>any of the above</entry>
+                <entry>any of the above</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Additional variables may be configured by the following
@@ -1688,5 +1747,6 @@
         <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       </para>
   </refsect1>
+
 
 </refentry>
