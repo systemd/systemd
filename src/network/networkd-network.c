@@ -395,10 +395,8 @@ int network_apply(Manager *manager, Network *network, Link *link) {
         if (!strv_isempty(network->dns) ||
             !strv_isempty(network->ntp) ||
             !strv_isempty(network->search_domains) ||
-            !strv_isempty(network->route_domains)) {
-                manager_dirty(manager);
+            !strv_isempty(network->route_domains))
                 link_dirty(link);
-        }
 
         return 0;
 }
