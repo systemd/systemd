@@ -797,6 +797,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro*7000*:pvr*
 # Medion
 ###########################################################
 
+# Akoya
+evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnAkoya*:pvr*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+ KEYBOARD_KEY_19=!p
+ KEYBOARD_KEY_df=sleep
+ 
 # FID2060
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDION*:pn*FID2060*:pvr*
  KEYBOARD_KEY_6b=channeldown                            # Thottle Down
