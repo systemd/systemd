@@ -120,7 +120,7 @@
 
         <para>The DUID value specified here overrides the DUID that systemd-networkd generates using the machine-id
         from the <filename>/etc/machine-id</filename> file. To configure DUID per-network, see
-        <citerefentry><refentrytitle>systemd.network </refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         The configured DHCP DUID should conform to the specification in
         <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
         <ulink url="http://tools.ietf.org/html/rfc6355">RFC 6355</ulink>. To configure IAID, see

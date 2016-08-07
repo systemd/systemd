@@ -626,7 +626,7 @@
     <example>
       <title>Create directories with specific mode and ownership</title>
       <para>
-      <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       needs two directories created at boot with specific modes and ownership:</para>
 
       <programlisting># /usr/lib/tmpfiles.d/screen.conf
@@ -652,7 +652,7 @@ t /run/cups - - - - security.SMACK64=printing user.attr-with-spaces="foo bar"
     <example>
       <title>Create a directory and prevent its contents from cleanup</title>
       <para>
-      <citerefentry><refentrytitle>abrt</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>abrt</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       needs a directory created at boot with specific mode and ownership and its content
       should be preserved from the automatic cleanup applied to the contents of
       <filename>/var/tmp</filename>:</para>

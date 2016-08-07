@@ -223,7 +223,7 @@
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>mkinitrd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='die-net'><refentrytitle>mkinitrd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
