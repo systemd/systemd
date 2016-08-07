@@ -2851,6 +2851,34 @@ int config_parse_unit_slice(
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
 
+int config_parse_cpu_weight(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *weight = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = cg_weight_parse(rvalue, weight);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "CPU weight '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 int config_parse_cpu_shares(
                 const char *unit,
                 const char *filename,
@@ -4191,6 +4219,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_address_families,      "FAMILIES" },
 #endif
                 { config_parse_cpu_shares,            "SHARES" },
+                { config_parse_cpu_weight,            "WEIGHT" },
                 { config_parse_memory_limit,          "LIMIT" },
                 { config_parse_device_allow,          "DEVICE" },
                 { config_parse_device_policy,         "POLICY" },

@@ -57,9 +57,12 @@ void cgroup_context_init(CGroupContext *c) {
         /* Initialize everything to the kernel defaults, assuming the
          * structure is preinitialized to 0 */
 
+        c->cpu_weight = CGROUP_WEIGHT_INVALID;
+        c->startup_cpu_weight = CGROUP_WEIGHT_INVALID;
+        c->cpu_quota_per_sec_usec = USEC_INFINITY;
+
         c->cpu_shares = CGROUP_CPU_SHARES_INVALID;
         c->startup_cpu_shares = CGROUP_CPU_SHARES_INVALID;
-        c->cpu_quota_per_sec_usec = USEC_INFINITY;
 
         c->memory_high = CGROUP_LIMIT_MAX;
         c->memory_max = CGROUP_LIMIT_MAX;
@@ -158,6 +161,8 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
                 "%sTasksAccounting=%s\n"
+                "%sCPUWeight=%" PRIu64 "\n"
+                "%sStartupCPUWeight=%" PRIu64 "\n"
                 "%sCPUShares=%" PRIu64 "\n"
                 "%sStartupCPUShares=%" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec=%s\n"
@@ -177,6 +182,8 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
+                prefix, c->cpu_weight,
+                prefix, c->startup_cpu_weight,
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
                 prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
@@ -382,6 +389,95 @@ fail:
         return -errno;
 }
 
+static bool cgroup_context_has_cpu_weight(CGroupContext *c) {
+        return c->cpu_weight != CGROUP_WEIGHT_INVALID ||
+                c->startup_cpu_weight != CGROUP_WEIGHT_INVALID;
+}
+
+static bool cgroup_context_has_cpu_shares(CGroupContext *c) {
+        return c->cpu_shares != CGROUP_CPU_SHARES_INVALID ||
+                c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID;
+}
+
+static uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state) {
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+            c->startup_cpu_weight != CGROUP_WEIGHT_INVALID)
+                return c->startup_cpu_weight;
+        else if (c->cpu_weight != CGROUP_WEIGHT_INVALID)
+                return c->cpu_weight;
+        else
+                return CGROUP_WEIGHT_DEFAULT;
+}
+
+static uint64_t cgroup_context_cpu_shares(CGroupContext *c, ManagerState state) {
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+            c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID)
+                return c->startup_cpu_shares;
+        else if (c->cpu_shares != CGROUP_CPU_SHARES_INVALID)
+                return c->cpu_shares;
+        else
+                return CGROUP_CPU_SHARES_DEFAULT;
+}
+
+static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t quota) {
+        char buf[MAX(DECIMAL_STR_MAX(uint64_t) + 1, (DECIMAL_STR_MAX(usec_t) + 1) * 2)];
+        int r;
+
+        xsprintf(buf, "%" PRIu64 "\n", weight);
+        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.weight", buf);
+        if (r < 0)
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set cpu.weight: %m");
+
+        if (quota != USEC_INFINITY)
+                xsprintf(buf, USEC_FMT " " USEC_FMT "\n",
+                         quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC, CGROUP_CPU_QUOTA_PERIOD_USEC);
+        else
+                xsprintf(buf, "max " USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
+
+        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.max", buf);
+
+        if (r < 0)
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set cpu.max: %m");
+}
+
+static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t quota) {
+        char buf[MAX(DECIMAL_STR_MAX(uint64_t), DECIMAL_STR_MAX(usec_t)) + 1];
+        int r;
+
+        xsprintf(buf, "%" PRIu64 "\n", shares);
+        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.shares", buf);
+        if (r < 0)
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set cpu.shares: %m");
+
+        xsprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
+        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_period_us", buf);
+        if (r < 0)
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set cpu.cfs_period_us: %m");
+
+        if (quota != USEC_INFINITY) {
+                xsprintf(buf, USEC_FMT "\n", quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
+                r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", buf);
+        } else
+                r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", "-1");
+        if (r < 0)
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set cpu.cfs_quota_us: %m");
+}
+
+static uint64_t cgroup_cpu_shares_to_weight(uint64_t shares) {
+        return CLAMP(shares * CGROUP_WEIGHT_DEFAULT / CGROUP_CPU_SHARES_DEFAULT,
+                     CGROUP_WEIGHT_MIN, CGROUP_WEIGHT_MAX);
+}
+
+static uint64_t cgroup_cpu_weight_to_shares(uint64_t weight) {
+        return CLAMP(weight * CGROUP_CPU_SHARES_DEFAULT / CGROUP_WEIGHT_DEFAULT,
+                     CGROUP_CPU_SHARES_MIN, CGROUP_CPU_SHARES_MAX);
+}
+
 static bool cgroup_context_has_io_config(CGroupContext *c) {
         return c->io_accounting ||
                 c->io_weight != CGROUP_WEIGHT_INVALID ||
@@ -566,30 +662,42 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
          * and missing cgroups, i.e. EROFS and ENOENT. */
 
         if ((mask & CGROUP_MASK_CPU) && !is_root) {
-                char buf[MAX(DECIMAL_STR_MAX(uint64_t), DECIMAL_STR_MAX(usec_t)) + 1];
+                bool has_weight = cgroup_context_has_cpu_weight(c);
+                bool has_shares = cgroup_context_has_cpu_shares(c);
 
-                sprintf(buf, "%" PRIu64 "\n",
-                        IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID ? c->startup_cpu_shares :
-                        c->cpu_shares != CGROUP_CPU_SHARES_INVALID ? c->cpu_shares : CGROUP_CPU_SHARES_DEFAULT);
-                r = cg_set_attribute("cpu", path, "cpu.shares", buf);
-                if (r < 0)
-                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to set cpu.shares: %m");
+                if (cg_unified() > 0) {
+                        uint64_t weight;
 
-                sprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
-                r = cg_set_attribute("cpu", path, "cpu.cfs_period_us", buf);
-                if (r < 0)
-                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to set cpu.cfs_period_us: %m");
+                        if (has_weight)
+                                weight = cgroup_context_cpu_weight(c, state);
+                        else if (has_shares) {
+                                uint64_t shares = cgroup_context_cpu_shares(c, state);
 
-                if (c->cpu_quota_per_sec_usec != USEC_INFINITY) {
-                        sprintf(buf, USEC_FMT "\n", c->cpu_quota_per_sec_usec * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
-                        r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", buf);
-                } else
-                        r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", "-1");
-                if (r < 0)
-                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to set cpu.cfs_quota_us: %m");
+                                weight = cgroup_cpu_shares_to_weight(shares);
+
+                                log_cgroup_compat(u, "Applying [Startup]CpuShares %" PRIu64 " as [Startup]CpuWeight %" PRIu64 " on %s",
+                                                  shares, weight, path);
+                        } else
+                                weight = CGROUP_WEIGHT_DEFAULT;
+
+                        cgroup_apply_unified_cpu_config(u, weight, c->cpu_quota_per_sec_usec);
+                } else {
+                        uint64_t shares;
+
+                        if (has_shares)
+                                shares = cgroup_context_cpu_shares(c, state);
+                        else if (has_weight) {
+                                uint64_t weight = cgroup_context_cpu_weight(c, state);
+
+                                shares = cgroup_cpu_weight_to_shares(weight);
+
+                                log_cgroup_compat(u, "Applying [Startup]CpuWeight %" PRIu64 " as [Startup]CpuShares %" PRIu64 " on %s",
+                                                  weight, shares, path);
+                        } else
+                                shares = CGROUP_CPU_SHARES_DEFAULT;
+
+                        cgroup_apply_legacy_cpu_config(u, shares, c->cpu_quota_per_sec_usec);
+                }
         }
 
         if (mask & CGROUP_MASK_IO) {
@@ -864,8 +972,8 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         /* Figure out which controllers we need */
 
         if (c->cpu_accounting ||
-            c->cpu_shares != CGROUP_CPU_SHARES_INVALID ||
-            c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID ||
+            cgroup_context_has_cpu_weight(c) ||
+            cgroup_context_has_cpu_shares(c) ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPUACCT | CGROUP_MASK_CPU;
 
@@ -1890,18 +1998,37 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
-        if ((u->cgroup_realized_mask & CGROUP_MASK_CPUACCT) == 0)
-                return -ENODATA;
+        if (cg_unified() > 0) {
+                const char *keys[] = { "usage_usec", NULL };
+                _cleanup_free_ char *val = NULL;
+                uint64_t us;
 
-        r = cg_get_attribute("cpuacct", u->cgroup_path, "cpuacct.usage", &v);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
+                if ((u->cgroup_realized_mask & CGROUP_MASK_CPU) == 0)
+                        return -ENODATA;
 
-        r = safe_atou64(v, &ns);
-        if (r < 0)
-                return r;
+                r = cg_get_keyed_attribute("cpu", u->cgroup_path, "cpu.stat", keys, &val);
+                if (r < 0)
+                        return r;
+
+                r = safe_atou64(val, &us);
+                if (r < 0)
+                        return r;
+
+                ns = us * NSEC_PER_USEC;
+        } else {
+                if ((u->cgroup_realized_mask & CGROUP_MASK_CPUACCT) == 0)
+                        return -ENODATA;
+
+                r = cg_get_attribute("cpuacct", u->cgroup_path, "cpuacct.usage", &v);
+                if (r == -ENOENT)
+                        return -ENODATA;
+                if (r < 0)
+                        return r;
+
+                r = safe_atou64(v, &ns);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = ns;
         return 0;
@@ -1915,8 +2042,8 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
         if (r < 0)
                 return r;
 
-        if (ns > u->cpuacct_usage_base)
-                ns -= u->cpuacct_usage_base;
+        if (ns > u->cpu_usage_base)
+                ns -= u->cpu_usage_base;
         else
                 ns = 0;
 
@@ -1932,11 +2059,11 @@ int unit_reset_cpu_usage(Unit *u) {
 
         r = unit_get_cpu_usage_raw(u, &ns);
         if (r < 0) {
-                u->cpuacct_usage_base = 0;
+                u->cpu_usage_base = 0;
                 return r;
         }
 
-        u->cpuacct_usage_base = ns;
+        u->cpu_usage_base = ns;
         return 0;
 }
 

@@ -169,6 +169,7 @@ int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
 
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
+int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, const char **keys, char **values);
 
 int cg_set_group_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
 int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);

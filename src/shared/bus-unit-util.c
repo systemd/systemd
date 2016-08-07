@@ -212,6 +212,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_append(m, "v", "b", r);
 
+        } else if (STR_IN_SET(field, "CPUWeight", "StartupCPUWeight")) {
+                uint64_t u;
+
+                r = cg_weight_parse(eq, &u);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", u);
+
         } else if (STR_IN_SET(field, "CPUShares", "StartupCPUShares")) {
                 uint64_t u;
 

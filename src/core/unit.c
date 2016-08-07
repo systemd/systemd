@@ -2608,7 +2608,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item(u, f, "assert-result", yes_no(u->assert_result));
 
         unit_serialize_item(u, f, "transient", yes_no(u->transient));
-        unit_serialize_item_format(u, f, "cpuacct-usage-base", "%" PRIu64, u->cpuacct_usage_base);
+        unit_serialize_item_format(u, f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
 
         if (u->cgroup_path)
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
@@ -2824,9 +2824,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         continue;
 
-                } else if (streq(l, "cpuacct-usage-base")) {
+                } else if (streq(l, "cpu-usage-base") || streq(l, "cpuacct-usage-base")) {
 
-                        r = safe_atou64(v, &u->cpuacct_usage_base);
+                        r = safe_atou64(v, &u->cpu_usage_base);
                         if (r < 0)
                                 log_unit_debug(u, "Failed to parse CPU usage %s, ignoring.", v);
 
