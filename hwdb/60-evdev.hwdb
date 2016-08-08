@@ -76,9 +76,9 @@ evdev:input:b0003v05ACp0254*
  EVDEV_ABS_36=::92
 
 # MacbookPro10,1 (unibody, June 2012)
-evdev:input:b0003v05ACp0259*
-evdev:input:b0003v05ACp025A*
-evdev:input:b0003v05ACp025B*
+evdev:input:b0003v05ACp0262*
+evdev:input:b0003v05ACp0263*
+evdev:input:b0003v05ACp0264*
 # MacbookPro10,2 (unibody, October 2012)
 evdev:input:b0003v05ACp0259*
 evdev:input:b0003v05ACp025A*
