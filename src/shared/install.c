@@ -777,7 +777,7 @@ static int find_symlinks(
         assert(config_path);
         assert(same_name_link);
 
-        fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC);
         if (fd < 0) {
                 if (IN_SET(errno, ENOENT, ENOTDIR, EACCES))
                         return 0;
