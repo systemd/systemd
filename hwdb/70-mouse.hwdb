@@ -500,3 +500,11 @@ mouse:usb:v1038p1369:name:SteelSeries Sensei Raw Gaming Mouse:
 # Trust illuminated mouse gxt 152
 mouse:usb:v145fp01ac:name:HID-compliant Mouse Trust Gaming Mouse:
  MOUSE_DPI=*800@528 1200@537 1600@536 2400@521
+
+ ##########################################
+ # Zelotes
+ ##########################################
+
+# Zelotes 5500 DPI 7 Button USB Wired Gaming Mouse
+mouse:usb:v1d57pad17:*
+ MOUSE_DPI=1000@500 1600@500 2400@500 3200@500 5500@500 *1000@1000 1600@1000 2400@1000 3200@1000 5500@1000
