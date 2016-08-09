@@ -885,7 +885,7 @@ static void help(void) {
                "     --version        Show package version\n"
                "     --cert=CERT.PEM  Server certificate in PEM format\n"
                "     --key=KEY.PEM    Server key in PEM format\n"
-               "     --trust=CERT.PEM Certificat authority certificate in PEM format\n"
+               "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
                "  -D --directory=PATH Serve journal files in directory\n",
                program_invocation_short_name);
 }
