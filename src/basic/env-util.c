@@ -563,7 +563,7 @@ char *replace_env(const char *format, char **env) {
                         if (*e == '}') {
                                 const char *t;
 
-                                t = strempty(strv_env_get_n(env, word+2, e-word-2));
+                                t = strv_env_get_n(env, word+2, e-word-2);
 
                                 k = strappend(r, t);
                                 if (!k)
