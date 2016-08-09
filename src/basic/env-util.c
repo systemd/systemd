@@ -474,12 +474,16 @@ char *replace_env_n(const char *format, size_t n, char **env) {
         enum {
                 WORD,
                 CURLY,
-                VARIABLE
+                VARIABLE,
+                TEST,
+                DEFAULT_VALUE,
+                ALTERNATE_VALUE
         } state = WORD;
 
-        const char *e, *word = format;
+        const char *e, *test_value, *word = format;
         char *r = NULL, *k;
-        size_t i;
+        size_t i, len;
+        int nest = 0;
 
         assert(format);
 
@@ -503,7 +507,7 @@ char *replace_env_n(const char *format, size_t n, char **env) {
 
                                 word = e-1;
                                 state = VARIABLE;
-
+                                nest++;
                         } else if (*e == '$') {
                                 k = strnappend(r, word, e-word);
                                 if (!k)
@@ -523,6 +527,54 @@ char *replace_env_n(const char *format, size_t n, char **env) {
                                 const char *t;
 
                                 t = strv_env_get_n(env, word+2, e-word-2);
+
+                                k = strappend(r, t);
+                                if (!k)
+                                        goto fail;
+
+                                free(r);
+                                r = k;
+
+                                word = e+1;
+                                state = WORD;
+                        } else if (*e == ':') {
+                                len = e-word-2;
+                                state = TEST;
+                        }
+                        break;
+
+                case TEST:
+                        if (*e == '-')
+                                state = DEFAULT_VALUE;
+                        else if (*e == '+')
+                                state = ALTERNATE_VALUE;
+                        else
+                                goto fail;
+
+                        test_value = e+1;
+                        break;
+
+                case DEFAULT_VALUE:
+                case ALTERNATE_VALUE:
+                        if (*e == '{') {
+                                nest++;
+                                break;
+                        }
+
+                        if (*e != '}')
+                                break;
+
+                        nest--;
+                        if (nest == 0 || !memchr(e+1, '}', n-i)) {
+                                const char *t;
+                                _cleanup_free_ char *v = NULL;
+
+                                t = strv_env_get_n(env, word+2, len);
+
+                                if (t && state == ALTERNATE_VALUE)
+                                        t = v = replace_env_n(test_value, e-test_value, env);
+                                else if (!t && state == DEFAULT_VALUE)
+                                        t = v = replace_env_n(test_value, e-test_value, env);
 
                                 k = strappend(r, t);
                                 if (!k)

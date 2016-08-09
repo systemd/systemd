@@ -945,6 +945,12 @@
     own, on the command line, in which case it will be replaced by the
     value of the environment variable including all whitespace it
     contains, resulting in a single argument. Use
+    <literal>${FOO:-DEFAULT_VALUE}</literal> to expand in the same way
+    as <literal>${FOO}</literal> unless the expansion would be empty,
+    in which case it expands to <literal>DEFAULT_VALUE</literal>. Use
+    <literal>${FOO:+ALTERNATE_VALUE}</literal> to expand to
+    <literal>ALTERNATE_VALUE</literal> as long as <literal>${FOO}</literal>
+    would have expanded to a non-empty value. Use
     <literal>$FOO</literal> as a separate word on the command line, in
     which case it will be replaced by the value of the environment
     variable split at whitespace, resulting in zero or more arguments.
@@ -954,11 +960,12 @@
     <para>Example:</para>
 
     <programlisting>Environment="ONE=one" 'TWO=two two'
-ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+ExecStart=/bin/echo $ONE $TWO ${TWO} ${THREE:-${ONE}} ${ONE:+three}</programlisting>
 
-    <para>This will execute <command>/bin/echo</command> with four
+    <para>This will execute <command>/bin/echo</command> with five
     arguments: <literal>one</literal>, <literal>two</literal>,
-    <literal>two</literal>, and <literal>two two</literal>.</para>
+    <literal>two</literal>, <literal>two two</literal>, <literal>one</literal>,
+    and <literal>three</literal>.</para>
 
     <para>Example:</para>
     <programlisting>Environment=ONE='one' "TWO='two two' too" THREE=
