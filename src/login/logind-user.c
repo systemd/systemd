@@ -26,6 +26,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 #include "clean-ipc.h"
 #include "conf-parser.h"
 #include "escape.h"
@@ -891,7 +892,17 @@ int config_parse_user_tasks_max(
         assert(rvalue);
         assert(data);
 
-        /* First, try to parse as percentage */
+        if (isempty(rvalue)) {
+                *m = system_tasks_max_scale(DEFAULT_USER_TASKS_MAX_PERCENTAGE, 100U);
+                return 0;
+        }
+
+        if (streq(rvalue, "infinity")) {
+                *m = CGROUP_LIMIT_MAX;
+                return 0;
+        }
+
+        /* Try to parse as percentage */
         r = parse_percent(rvalue);
         if (r >= 0)
                 k = system_tasks_max_scale(r, 100U);

@@ -2971,30 +2971,36 @@ int config_parse_tasks_max(
                 void *data,
                 void *userdata) {
 
-        uint64_t *tasks_max = data, u;
+        uint64_t *tasks_max = data, v;
+        Unit *u = userdata;
         int r;
 
-        if (isempty(rvalue) || streq(rvalue, "infinity")) {
-                *tasks_max = (uint64_t) -1;
+        if (isempty(rvalue)) {
+                *tasks_max = u->manager->default_tasks_max;
+                return 0;
+        }
+
+        if (streq(rvalue, "infinity")) {
+                *tasks_max = CGROUP_LIMIT_MAX;
                 return 0;
         }
 
         r = parse_percent(rvalue);
         if (r < 0) {
-                r = safe_atou64(rvalue, &u);
+                r = safe_atou64(rvalue, &v);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Maximum tasks value '%s' invalid. Ignoring.", rvalue);
                         return 0;
                 }
         } else
-                u = system_tasks_max_scale(r, 100U);
+                v = system_tasks_max_scale(r, 100U);
 
-        if (u <= 0 || u >= UINT64_MAX) {
+        if (v <= 0 || v >= UINT64_MAX) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Maximum tasks value '%s' out of range. Ignoring.", rvalue);
                 return 0;
         }
 
-        *tasks_max = u;
+        *tasks_max = v;
         return 0;
 }
 
