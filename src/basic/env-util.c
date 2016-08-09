@@ -519,7 +519,7 @@ char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
         return e;
 }
 
-char *replace_env(const char *format, char **env, unsigned flags) {
+char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
         enum {
                 WORD,
                 CURLY,
@@ -530,10 +530,11 @@ char *replace_env(const char *format, char **env, unsigned flags) {
         const char *e, *word = format;
         char *k;
         _cleanup_free_ char *r = NULL;
+        size_t i;
 
         assert(format);
 
-        for (e = format; *e; e ++) {
+        for (e = format, i = 0; *e && i < n; e ++, i ++) {
 
                 switch (state) {
 
@@ -614,6 +615,7 @@ char *replace_env(const char *format, char **env, unsigned flags) {
                                 r = k;
 
                                 word = e--;
+                                i--;
                                 state = WORD;
                         }
                         break;
