@@ -32,6 +32,7 @@ bool env_assignment_is_valid(const char *e);
 enum {
         REPLACE_ENV_USE_ENVIRONMENT = 1u,
         REPLACE_ENV_ALLOW_BRACELESS = 2u,
+        REPLACE_ENV_ALLOW_EXTENDED  = 4u,
 };
 
 char *replace_env_n(const char *format, size_t n, char **env, unsigned flags);

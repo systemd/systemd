@@ -784,7 +784,9 @@ static int merge_env_file_push(
         }
 
         expanded_value = replace_env(value, *env,
-                                     REPLACE_ENV_USE_ENVIRONMENT|REPLACE_ENV_ALLOW_BRACELESS);
+                                     REPLACE_ENV_USE_ENVIRONMENT|
+                                     REPLACE_ENV_ALLOW_BRACELESS|
+                                     REPLACE_ENV_ALLOW_EXTENDED);
         if (!expanded_value)
                 return -ENOMEM;
 
@@ -799,7 +801,7 @@ int merge_env_file(
                 const char *fname) {
 
         /* NOTE: this function supports braceful and braceless variable expansions,
-         * unlike other exported parsing functions.
+         * plus "extended" substitutions, unlike other exported parsing functions.
          */
 
         return parse_env_file_internal(f, fname, NEWLINE, merge_env_file_push, env, NULL);

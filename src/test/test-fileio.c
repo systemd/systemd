@@ -229,6 +229,10 @@ static void test_merge_env_file(void) {
                                 "twentytwo=2${one}\n"
                                 "xxx_minus_three=$xxx - 3\n"
                                 "xxx=0x$one$one$one\n"
+                                "yyy=${one:-fallback}\n"
+                                "zzz=${one:+replacement}\n"
+                                "zzzz=${foobar:-${nothing}}\n"
+                                "zzzzz=${nothing:+${nothing}}\n"
                                 , false);
         assert(r >= 0);
 
@@ -245,7 +249,11 @@ static void test_merge_env_file(void) {
         assert_se(streq(a[3], "twentytwo=22"));
         assert_se(streq(a[4], "xxx=0x222"));
         assert_se(streq(a[5], "xxx_minus_three= - 3"));
-        assert_se(a[6] == NULL);
+        assert_se(streq(a[6], "yyy=2"));
+        assert_se(streq(a[7], "zzz=replacement"));
+        assert_se(streq(a[8], "zzzz="));
+        assert_se(streq(a[9], "zzzzz="));
+        assert_se(a[10] == NULL);
 
         r = merge_env_file(&a, NULL, t);
         assert_se(r >= 0);
@@ -260,7 +268,11 @@ static void test_merge_env_file(void) {
         assert_se(streq(a[3], "twentytwo=22"));
         assert_se(streq(a[4], "xxx=0x222"));
         assert_se(streq(a[5], "xxx_minus_three=0x222 - 3"));
-        assert_se(a[6] == NULL);
+        assert_se(streq(a[6], "yyy=2"));
+        assert_se(streq(a[7], "zzz=replacement"));
+        assert_se(streq(a[8], "zzzz="));
+        assert_se(streq(a[9], "zzzzz="));
+        assert_se(a[10] == NULL);
 }
 
 static void test_merge_env_file_invalid(void) {
