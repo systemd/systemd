@@ -186,6 +186,7 @@ struct Network {
         unsigned n_static_addresses;
         unsigned n_static_routes;
         unsigned n_static_fdb_entries;
+        unsigned max_static_routes;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
