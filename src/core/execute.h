@@ -174,6 +174,7 @@ struct ExecContext {
         bool private_users;
         ProtectSystem protect_system;
         ProtectHome protect_home;
+        bool use_root_file_system_namespace;
 
         bool no_new_privileges;
 

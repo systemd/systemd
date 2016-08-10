@@ -3833,6 +3833,25 @@ int config_parse_protect_system(
         return 0;
 }
 
+static bool verify_mount_ns_config(const ExecContext* context) {
+    assert(context);
+
+    if (!context->use_root_file_system_namespace)
+            return true;
+
+    if (context->private_tmp ||
+        context->private_devices ||
+        context->protect_system != PROTECT_SYSTEM_NO ||
+        context->protect_home != PROTECT_HOME_NO ||
+        context->mount_flags != 0 ||
+        !strv_isempty(context->read_write_paths) ||
+        !strv_isempty(context->read_only_paths) ||
+        !strv_isempty(context->inaccessible_paths))
+            return false;
+
+    return true;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -4061,6 +4080,16 @@ static int load_from_path(Unit *u, const char *path) {
                                  false, true, false, u);
                 if (r < 0)
                         return r;
+
+
+                if (UNIT_HAS_EXEC_CONTEXT(u) &&
+                    !verify_mount_ns_config(unit_get_exec_context(u))) {
+                        log_unit_warning(u, "In unit %s, option UseRootFileSystemNamespace=true is incompatible with "
+                                            "file system namespace related options: PrivateTmp, PrivateDevices, "
+                                            "ProtectSystem, ProtectHome, ReadOnlyPaths, InaccessiblePaths and   "
+                                            "ReadWritePaths", u->id);
+                        return -EINVAL;
+                }
         }
 
         free(u->fragment_path);

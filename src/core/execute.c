@@ -2221,7 +2221,9 @@ static int exec_child(
                 }
         }
 
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+        needs_mount_namespace =
+                !context->use_root_file_system_namespace &&
+                exec_needs_mount_namespace(context, params, runtime);
 
         if (needs_mount_namespace) {
                 char *tmp = NULL, *var = NULL;
