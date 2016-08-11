@@ -23,7 +23,7 @@ _list_fields() {
 _journal_none() {
     local -a _commands _files _jrnl_none
     # Setting use-cache will slow this down considerably
-    _commands=( ${"$(_call_program commands "$service" -F _EXE 2>/dev/null)"} )
+    _commands=( ${"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
     _jrnl_none='yes'
     _alternative : \
         'files:/dev files:_files -W /dev -P /dev/' \
@@ -51,6 +51,8 @@ _journal_boots() {
     "bootid:boot ids:compadd -a _bootid"
 }
 
+local -a _modes; _modes=("--user" "--system")
+local _sys_service_mgr=${${words:*_modes}[(R)(${(j.|.)_modes})]:---system}
 _arguments -s \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
