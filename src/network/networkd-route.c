@@ -29,7 +29,6 @@
 #include "util.h"
 
 #define ROUTES_PER_LINK_MAX 2048U
-#define STATIC_ROUTES_PER_NETWORK_MAX 1024U
 
 int route_new(Route **ret) {
         _cleanup_route_free_ Route *route = NULL;
@@ -67,7 +66,7 @@ int route_new_static(Network *network, unsigned section, Route **ret) {
                 }
         }
 
-        if (network->n_static_routes >= STATIC_ROUTES_PER_NETWORK_MAX)
+        if (network->n_static_routes >= network->max_static_routes)
                 return -E2BIG;
 
         r = route_new(&route);

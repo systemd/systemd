@@ -36,6 +36,8 @@
 #include "string-util.h"
 #include "util.h"
 
+#define STATIC_ROUTES_PER_NETWORK_MAX 1024U
+
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
@@ -136,6 +138,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->proxy_arp = -1;
         network->arp = -1;
         network->ipv6_accept_ra_use_dns = true;
+        network->max_static_routes = STATIC_ROUTES_PER_NETWORK_MAX;
 
         r = config_parse(NULL, filename, file,
                          "Match\0"

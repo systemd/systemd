@@ -486,6 +486,12 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>MaxRoutes=</varname></term>
+          <listitem>
+          <para>Sets the maximum routes allowed per network.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>IPForward=</varname></term>
           <listitem><para>Configures IP packet forwarding for the
           system. If enabled, incoming packets on any network
