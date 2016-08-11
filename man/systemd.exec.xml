@@ -1669,6 +1669,18 @@
 
             <tbody>
               <row>
+                <entry morerows="1" valign="top"><literal>timeout</literal></entry>
+                <entry valign="top"><literal>killed</literal></entry>
+                <entry><literal>TERM</literal><sbr/><literal>KILL</literal></entry>
+              </row>
+
+              <row>
+                <entry valign="top"><literal>exited</literal></entry>
+                <entry><literal>0</literal><sbr/><literal>1</literal><sbr/><literal>2</literal><sbr/><literal
+                >3</literal><sbr/>…<sbr/><literal>255</literal></entry>
+              </row>
+
+              <row>
                 <entry valign="top"><literal>exit-code</literal></entry>
                 <entry valign="top"><literal>exited</literal></entry>
                 <entry><literal>0</literal><sbr/><literal>1</literal><sbr/><literal>2</literal><sbr/><literal
@@ -1706,6 +1718,10 @@
                 <entry><literal>resources</literal></entry>
                 <entry>any of the above</entry>
                 <entry>any of the above</entry>
+              </row>
+
+              <row>
+                <entry namest="results" nameend="code">Note: the process may be also terminated by a signal not sent by systemd. In particular the process may send an arbitrary signal to itself in a handler for any of the non-maskable signals. Nevertheless, in the <literal>timeout</literal> and <literal>watchdog</literal> rows above only the signals that systemd sends have been included.</entry>
               </row>
             </tbody>
           </tgroup>
