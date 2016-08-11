@@ -77,15 +77,15 @@
 
 # Latitude D620
 evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeD620*:pvr*
-  POINTINGSTICK_CONST_ACCEL=0.5
+ POINTINGSTICK_CONST_ACCEL=0.5
 
 # Latitude E6320
 evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320*:pvr*
-  POINTINGSTICK_CONST_ACCEL=2.0
+ POINTINGSTICK_CONST_ACCEL=2.0
 
 # Latitude E6400
 evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:pvr*
-  POINTINGSTICK_CONST_ACCEL=1.5
+ POINTINGSTICK_CONST_ACCEL=1.5
 
 #########################################
 # Lenovo
@@ -108,13 +108,13 @@ evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??60
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd:*
 # Lenovo Thinkpad X1 Carbon 4th gen
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon4th:*
-  POINTINGSTICK_SENSITIVITY=200
-  POINTINGSTICK_CONST_ACCEL=1.0
+ POINTINGSTICK_SENSITIVITY=200
+ POINTINGSTICK_CONST_ACCEL=1.0
 
 # Lenovo Thinkpad X200s / X201s
 # Note these come with 2 revisions of keyboard, with the trackpoints having a
 # different sensitivity in the different revisions. 1.25 is a bit slow for the
 # least sensitive revision, but it is better to be a bit slow than too fast.
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?s:*
-  POINTINGSTICK_SENSITIVITY=200
-  POINTINGSTICK_CONST_ACCEL=1.25
+ POINTINGSTICK_SENSITIVITY=200
+ POINTINGSTICK_CONST_ACCEL=1.25
