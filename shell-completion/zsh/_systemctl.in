@@ -126,7 +126,7 @@ _filter_units_by_property() {
   local property=$1 value=$2 ; shift ; shift
   local -a units ; units=($*)
   local props
-  for props in ${(ps:\n\n:)"$(_call_program units "$service show --no-pager --property="Id,$property" -- ${units} 2>/dev/null")"}; do
+  for props in ${(ps:\n\n:)"$(_call_program units "$service $_sys_service_mgr show --no-pager --property="Id,$property" -- ${units} 2>/dev/null")"}; do
     props=(${(f)props})
     if [[ "${props[2]}" = "$property=$value" ]]; then
       echo -E - " ${props[1]#Id=}"
