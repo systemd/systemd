@@ -620,7 +620,7 @@ static int remove_marked_symlinks(
 
         fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return errno == ENOENT ? 0 : -errno;
 
         do {
                 int q, cfd;
