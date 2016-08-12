@@ -351,8 +351,10 @@ _job_modes() {
     _values -s , "${_modes[@]}"
 }
 
+# Build arguments for "systemctl" to be used in completion.
 local -a _modes; _modes=("--user" "--system")
-local _sys_service_mgr=${${words:*_modes}[(R)(${(j.|.)_modes})]:---system}
+# Use the last mode (they are exclusive and the last one is used).
+local _sys_service_mgr=${${words:*_modes}[(R)(${(j.|.)_modes})]}
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
