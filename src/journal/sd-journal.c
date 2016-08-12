@@ -1812,7 +1812,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
 
         assert_return(ret, -EINVAL);
         assert_return(path, -EINVAL);
-        assert_return((flags & ~SD_JOURNAL_OS_ROOT) == 0, -EINVAL);
+        assert_return((flags & ~(SD_JOURNAL_OS_ROOT|SD_JOURNAL_SYSTEM|SD_JOURNAL_CURRENT_USER)) == 0, -EINVAL);
 
         j = journal_new(flags, path);
         if (!j)
