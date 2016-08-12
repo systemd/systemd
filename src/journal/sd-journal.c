@@ -1719,9 +1719,16 @@ static sd_journal *journal_new(int flags, const char *path) {
         j->data_threshold = DEFAULT_DATA_THRESHOLD;
 
         if (path) {
-                j->path = strdup(path);
-                if (!j->path)
+                char *t;
+
+                t = strdup(path);
+                if (!t)
                         goto fail;
+
+                if (flags & SD_JOURNAL_OS_ROOT)
+                        j->prefix = t;
+                else
+                        j->path = t;
         }
 
         j->files = ordered_hashmap_new(&string_hash_ops);
@@ -1795,12 +1802,9 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         if (!streq_ptr(class, "container"))
                 return -EIO;
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, root);
         if (!j)
                 return -ENOMEM;
-
-        j->prefix = root;
-        root = NULL;
 
         r = add_search_paths(j);
         if (r < 0)
