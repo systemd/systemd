@@ -33,7 +33,7 @@ _journal_none() {
 
 _journal_fields() {
     local -a _fields cmd
-    cmd=("journalctl" "-F ${@[-1]}" "2>/dev/null" )
+    cmd=("journalctl $_sys_service_mgr" "-F ${@[-1]}" "2>/dev/null" )
     _fields=$(_call_program fields $cmd[@])
     _fields=${_fields//'\'/'\\'}
     _fields=${_fields//':'/'\:'}
@@ -51,8 +51,22 @@ _journal_boots() {
     "bootid:boot ids:compadd -a _bootid"
 }
 
-local -a _modes; _modes=("--user" "--system")
-local _sys_service_mgr=${${words:*_modes}[(R)(${(j.|.)_modes})]:---system}
+# Build arguments for "journalctl" to be used in completion.
+# Use both --user and --system modes, they are not exclusive.
+local -a _modes; _modes=(--user --system)
+local -a _modes_with_arg; _modes_with_arg=(--directory -D --file -M --machine)
+typeset -a _sys_service_mgr
+local w i=0 n=$#words
+while (( i++ < n )); do
+    w=$words[$i]
+    if (( $_modes[(I)$w] )); then
+        _sys_service_mgr+=($w)
+    else
+        if (( ${_modes_with_arg[(I)$w]} )); then
+            _sys_service_mgr+=($w ${words[((++i))]})
+        fi
+    fi
+done
 _arguments -s \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
