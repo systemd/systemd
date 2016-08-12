@@ -1815,7 +1815,8 @@ fail:
 }
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
-        SD_JOURNAL_OS_ROOT
+        (SD_JOURNAL_OS_ROOT |                           \
+         SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
         sd_journal *j;
@@ -1873,7 +1874,8 @@ fail:
 }
 
 #define OPEN_DIRECTORY_FD_ALLOWED_FLAGS         \
-        SD_JOURNAL_OS_ROOT
+        (SD_JOURNAL_OS_ROOT |                           \
+         SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         sd_journal *j;

@@ -129,10 +129,13 @@
 
     <para><function>sd_journal_open_directory()</function> is similar to <function>sd_journal_open()</function> but
     takes an absolute directory path as argument. All journal files in this directory will be opened and interleaved
-    automatically. This call also takes a flags argument. The only flags parameter accepted by this call is
-    <constant>SD_JOURNAL_OS_ROOT</constant>. If specified, the journal files are searched below the usual
-    <filename>/var/log/journal</filename> and <filename>/run/log/journal</filename> relative to the specified path,
-    instead of directly beneath it.</para>
+    automatically. This call also takes a flags argument. The flags parameters accepted by this call are
+    <constant>SD_JOURNAL_OS_ROOT</constant>, <constant>SD_JOURNAL_SYSTEM</constant>, and
+    <constant>SD_JOURNAL_CURRENT_USER</constant>. If <constant>SD_JOURNAL_OS_ROOT</constant> is specified, journal
+    files are searched for below the usual <filename>/var/log/journal</filename> and
+    <filename>/run/log/journal</filename> relative to the specified path, instead of directly beneath it.
+    The other two flags limit which files are opened, the same as for <function>sd_journal_open()</function>.
+    </para>
 
     <para><function>sd_journal_open_directory_fd()</function> is similar to
     <function>sd_journal_open_directory()</function>, but takes a file descriptor referencing a directory in the file
