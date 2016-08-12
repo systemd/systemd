@@ -310,7 +310,7 @@ static void help(void) {
                "  -m --merge               Show entries from all available journals\n"
                "  -D --directory=PATH      Show journal files from directory\n"
                "     --file=PATH           Show journal file\n"
-               "     --root=ROOT           Operate on catalog files below a root directory\n"
+               "     --root=ROOT           Operate on files below a root directory\n"
 #ifdef HAVE_GCRYPT
                "     --interval=TIME       Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY      Specify FSS verification key\n"
@@ -848,8 +848,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
-        if (!!arg_directory + !!arg_file + !!arg_machine > 1) {
-                log_error("Please specify either -D/--directory= or --file= or -M/--machine=, not more than one.");
+        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root > 1) {
+                log_error("Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root.");
                 return -EINVAL;
         }
 
@@ -1267,7 +1267,7 @@ static int add_boot(sd_journal *j) {
          * We can do this only when we logs are coming from the current machine,
          * so take the slow path if log location is specified. */
         if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
-            !arg_directory && !arg_file)
+            !arg_directory && !arg_file && !arg_root)
 
                 return add_match_this_boot(j, arg_machine);
 
@@ -2161,6 +2161,8 @@ int main(int argc, char *argv[]) {
 
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
+        else if (arg_root)
+                r = sd_journal_open_directory(&j, arg_root, arg_journal_type | SD_JOURNAL_OS_ROOT);
         else if (arg_file_stdin) {
                 int ifd = STDIN_FILENO;
                 r = sd_journal_open_files_fd(&j, &ifd, 1, 0);
