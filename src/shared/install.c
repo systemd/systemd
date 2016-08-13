@@ -903,6 +903,10 @@ static int install_info_may_process(
         return 0;
 }
 
+/**
+ * Adds a new UnitFileInstallInfo entry under name in the InstallContext.will_process
+ * hashmap, or retrieves the existing one if already present.
+ */
 static int install_info_add(
                 InstallContext *c,
                 const char *name,
@@ -1334,9 +1338,8 @@ static int install_info_follow(
 }
 
 /**
- * Search for the unit file. If the unit name is a symlink,
- * follow the symlink to the target, maybe more than once.
- * Propagate the instance name if present.
+ * Search for the unit file. If the unit name is a symlink, follow the symlink to the
+ * target, maybe more than once. Propagate the instance name if present.
  */
 static int install_info_traverse(
                 UnitFileScope scope,
@@ -1421,6 +1424,10 @@ static int install_info_traverse(
         return 0;
 }
 
+/**
+ * Call install_info_add() with name_or_path as the path (if name_or_path starts with "/")
+ * or the name (otherwise). root_dir is prepended to the path.
+ */
 static int install_info_add_auto(
                 InstallContext *c,
                 const LookupPaths *paths,
@@ -2685,7 +2692,6 @@ static int preset_prepare_one(
                 InstallContext *plus,
                 InstallContext *minus,
                 LookupPaths *paths,
-                UnitFilePresetMode mode,
                 const char *name,
                 Presets presets,
                 UnitFileChange **changes,
@@ -2748,7 +2754,7 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(i, files) {
-                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i, presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &paths, *i, presets, changes, n_changes);
                 if (r < 0)
                         return r;
         }
@@ -2809,7 +2815,7 @@ int unit_file_preset_all(
                                 continue;
 
                         /* we don't pass changes[] in, because we want to handle errors on our own */
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name, presets, NULL, 0);
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, presets, NULL, 0);
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);
