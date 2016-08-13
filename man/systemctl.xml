@@ -1092,7 +1092,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             enabled and disabled, or only enabled, or only disabled.</para>
 
             <para>If the unit carries no install information, it will be silently ignored
-            by this command.</para>
+            by this command. <replaceable>NAME</replaceable> must be the real unit name,
+            any alias names are ignored silently.</para>
 
             <para>For more information on the preset policy format, see
             <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
