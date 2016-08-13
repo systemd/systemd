@@ -13,6 +13,7 @@ RequiresMountsFor=@RANDOM_SEED@
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target
+ConditionVirtualization=!container
 
 [Service]
 Type=oneshot
