@@ -634,6 +634,10 @@ EXTRA_DIST += \
 	units/rc-local.service.in \
 	units/halt-local.service.in
 
+GENERAL_ALIASES += \
+	$(systemunitdir)/reboot.target $(pkgsysconfdir)/system/ctrl-alt-del.target \
+	$(systemunitdir)/machines.target $(pkgsysconfdir)/system/multi-user.target.wants/machines.target
+
 # automake is broken and can't handle files with a dash in front
 # http://debbugs.gnu.org/cgi/bugreport.cgi?bug=14728#8
 units-install-hook:
