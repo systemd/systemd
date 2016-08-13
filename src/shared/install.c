@@ -1974,7 +1974,6 @@ int unit_file_revert(
                 unsigned *n_changes) {
 
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        /* _cleanup_(install_context_done) InstallContext c = {}; */
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_strv_free_ char **todo = NULL;
         size_t n_todo = 0, n_allocated = 0;
@@ -2697,12 +2696,20 @@ static int preset_prepare_one(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
+        _cleanup_(install_context_done) InstallContext tmp = {};
         UnitFileInstallInfo *i;
         int r;
 
-        if (install_info_find(plus, name) ||
-            install_info_find(minus, name))
+        if (install_info_find(plus, name) || install_info_find(minus, name))
                 return 0;
+
+        r = install_info_discover(scope, &tmp, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+        if (r < 0)
+                return r;
+        if (!streq(name, i->name)) {
+                log_debug("Skipping %s because is an alias for %s", name, i->name);
+                return 0;
+        }
 
         r = query_presets(name, presets);
         if (r < 0)
