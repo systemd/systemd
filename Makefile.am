@@ -575,7 +575,16 @@ dist_userunit_DATA = \
 	units/user/default.target \
 	units/user/exit.target \
 	units/user/graphical-session.target \
-	units/user/graphical-session-pre.target
+	units/user/graphical-session-pre.target \
+	units/user/bluetooth.target \
+	units/user/busnames.target \
+	units/user/paths.target \
+	units/user/printer.target \
+	units/user/shutdown.target \
+	units/user/smartcard.target \
+	units/user/sockets.target \
+	units/user/sound.target \
+	units/user/timers.target
 
 nodist_userunit_DATA = \
 	units/user/systemd-exit.service
@@ -6295,19 +6304,6 @@ SYSTEM_UNIT_ALIASES += \
 	graphical.target default.target \
 	reboot.target ctrl-alt-del.target \
 	getty@.service autovt@.service
-
-USER_UNIT_ALIASES += \
-	$(systemunitdir)/shutdown.target shutdown.target \
-	$(systemunitdir)/sockets.target sockets.target \
-	$(systemunitdir)/timers.target timers.target \
-	$(systemunitdir)/paths.target paths.target \
-	$(systemunitdir)/bluetooth.target bluetooth.target \
-	$(systemunitdir)/printer.target printer.target \
-	$(systemunitdir)/sound.target sound.target \
-	$(systemunitdir)/smartcard.target smartcard.target
-
-USER_UNIT_ALIASES += \
-	$(systemunitdir)/busnames.target busnames.target
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/remote-fs.target $(pkgsysconfdir)/system/multi-user.target.wants/remote-fs.target \
