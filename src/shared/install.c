@@ -393,6 +393,21 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 log_error_errno(r, "Failed to %s: %m.", verb);
 }
 
+/**
+ * Checks if two paths or symlinks from wd are the same, when root is the root of the filesystem.
+ * wc should be the full path in the host file system.
+ */
+static bool chroot_symlinks_same(const char *root, const char *wd, const char *a, const char *b) {
+        assert(path_is_absolute(wd));
+
+        /* This will give incorrect results if the paths are relative and go outside
+         * of the chroot. False negatives are possible. */
+
+        a = strjoina(path_is_absolute(a) ? root : wd, "/", a);
+        b = strjoina(path_is_absolute(b) ? root : wd, "/", b);
+        return path_equal_or_files_same(a, b);
+}
+
 static int create_symlink(
                 const LookupPaths *paths,
                 const char *old_path,
@@ -401,7 +416,7 @@ static int create_symlink(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        _cleanup_free_ char *dest = NULL;
+        _cleanup_free_ char *dest = NULL, *dirname = NULL;
         const char *rp;
         int r;
 
@@ -442,7 +457,11 @@ static int create_symlink(
                 return r;
         }
 
-        if (path_equal(dest, old_path))
+        dirname = dirname_malloc(new_path);
+        if (!dirname)
+                return -ENOMEM;
+
+        if (chroot_symlinks_same(paths->root_dir, dirname, dest, old_path))
                 return 1;
 
         if (!force) {
