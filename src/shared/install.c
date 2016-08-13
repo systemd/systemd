@@ -394,6 +394,7 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
 }
 
 static int create_symlink(
+                const LookupPaths *paths,
                 const char *old_path,
                 const char *new_path,
                 bool force,
@@ -401,10 +402,15 @@ static int create_symlink(
                 unsigned *n_changes) {
 
         _cleanup_free_ char *dest = NULL;
+        const char *rp;
         int r;
 
         assert(old_path);
         assert(new_path);
+
+        rp = skip_root(paths, old_path);
+        if (rp)
+                old_path = rp;
 
         /* Actually create a symlink, and remember that we did. Is
          * smart enough to check if there's already a valid symlink in
@@ -1486,7 +1492,6 @@ static int install_info_symlink_alias(
 
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
-                const char *rp;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
@@ -1496,9 +1501,7 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
-                rp = skip_root(paths, i->path);
-
-                q = create_symlink(rp ?: i->path, alias_path, force, changes, n_changes);
+                q = create_symlink(paths, i->path, alias_path, force, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1542,7 +1545,6 @@ static int install_info_symlink_wants(
 
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
-                const char *rp;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
@@ -1557,9 +1559,7 @@ static int install_info_symlink_wants(
                 if (!path)
                         return -ENOMEM;
 
-                rp = skip_root(paths, i->path);
-
-                q = create_symlink(rp ?: i->path, path, true, changes, n_changes);
+                q = create_symlink(paths, i->path, path, true, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1576,7 +1576,6 @@ static int install_info_symlink_link(
                 unsigned *n_changes) {
 
         _cleanup_free_ char *path = NULL;
-        const char *rp;
         int r;
 
         assert(i);
@@ -1594,9 +1593,7 @@ static int install_info_symlink_link(
         if (!path)
                 return -ENOMEM;
 
-        rp = skip_root(paths, i->path);
-
-        return create_symlink(rp ?: i->path, path, force, changes, n_changes);
+        return create_symlink(paths, i->path, path, force, changes, n_changes);
 }
 
 static int install_info_apply(
@@ -1772,7 +1769,7 @@ int unit_file_mask(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink("/dev/null", path, force, changes, n_changes);
+                q = create_symlink(&paths, "/dev/null", path, force, changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -1932,14 +1929,12 @@ int unit_file_link(
         r = 0;
         STRV_FOREACH(i, todo) {
                 _cleanup_free_ char *new_path = NULL;
-                const char *old_path;
 
-                old_path = skip_root(&paths, *i);
                 new_path = path_make_absolute(basename(*i), config_path);
                 if (!new_path)
                         return -ENOMEM;
 
-                q = create_symlink(old_path ?: *i, new_path, force, changes, n_changes);
+                q = create_symlink(&paths, *i, new_path, force, changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -2318,7 +2313,7 @@ int unit_file_set_default(
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
         UnitFileInstallInfo *i;
-        const char *new_path, *old_path;
+        const char *new_path;
         int r;
 
         assert(scope >= 0);
@@ -2341,10 +2336,8 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        old_path = skip_root(&paths, i->path);
         new_path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
-
-        return create_symlink(old_path ?: i->path, new_path, force, changes, n_changes);
+        return create_symlink(&paths, i->path, new_path, force, changes, n_changes);
 }
 
 int unit_file_get_default(
