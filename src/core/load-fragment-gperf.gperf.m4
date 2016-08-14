@@ -122,6 +122,8 @@ $1.KillSignal,                   config_parse_signal,                0,         
 m4_define(`CGROUP_CONTEXT_CONFIG_ITEMS',
 `$1.Slice,                       config_parse_unit_slice,            0,                             0
 $1.CPUAccounting,                config_parse_bool,                  0,                             offsetof($1, cgroup_context.cpu_accounting)
+$1.CPUWeight,                    config_parse_cpu_weight,            0,                             offsetof($1, cgroup_context.cpu_weight)
+$1.StartupCPUWeight,             config_parse_cpu_weight,            0,                             offsetof($1, cgroup_context.startup_cpu_weight)
 $1.CPUShares,                    config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context.cpu_shares)
 $1.StartupCPUShares,             config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context.startup_cpu_shares)
 $1.CPUQuota,                     config_parse_cpu_quota,             0,                             offsetof($1, cgroup_context)

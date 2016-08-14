@@ -106,13 +106,21 @@
 
     <para>
       <variablelist>
+
         <varlistentry>
-          <term><option>IO</option></term>
+          <term><option>CPU</option></term>
           <listitem>
-            <para><varname>IO</varname> prefixed settings are superset of and replace <varname>BlockIO</varname>
-            prefixed ones. On unified hierarchy, IO resource control also applies to buffered writes.</para>
+            <para>Due to the lack of consensus in the kernel community, the CPU controller support on the unified
+            cgroup hierarchy requires out-of-tree kernel patches. See <ulink
+            url="https://git.kernel.org/cgit/linux/kernel/git/tj/cgroup.git/tree/Documentation/cgroup-v2-cpu.txt?h=cgroup-v2-cpu">cgroup-v2-cpu.txt</ulink>.</para>
+
+            <para><varname>CPUWeight=</varname> and <varname>StartupCPUWeight=</varname> replace
+            <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>, respectively.</para>
+
+            <para>The <literal>cpuacct</literal> controller does not exist separately on the unified hierarchy.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><option>Memory</option></term>
           <listitem>
@@ -120,6 +128,15 @@
             and <varname>MemoryHigh=</varname> are effective only on unified hierarchy.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>IO</option></term>
+          <listitem>
+            <para><varname>IO</varname> prefixed settings are superset of and replace <varname>BlockIO</varname>
+            prefixed ones. On unified hierarchy, IO resource control also applies to buffered writes.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </para>
 
@@ -160,30 +177,49 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUWeight=<replaceable>weight</replaceable></varname></term>
+        <term><varname>StartupCPUWeight=<replaceable>weight</replaceable></varname></term>
+
+        <listitem>
+          <para>Assign the specified CPU time weight to the processes executed, if the unified control group hierarchy
+          is used on the system. These options take an integer value and control the <literal>cpu.weight</literal>
+          control group attribute. The allowed range is 1 to 10000. Defaults to 100. For details about this control
+          group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and <ulink
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
+          The available CPU time is split up among all units within one slice relative to their CPU time weight.</para>
+
+          <para>While <varname>StartupCPUWeight=</varname> only applies to the startup phase of the system,
+          <varname>CPUWeight=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup phase. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
+          boot-up differently than during normal runtime.</para>
+
+          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+
+          <para>These settings are supported only if the unified control group hierarchy is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CPUShares=<replaceable>weight</replaceable></varname></term>
         <term><varname>StartupCPUShares=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Assign the specified CPU time share weight to the
-          processes executed. These options take an integer value and
-          control the <literal>cpu.shares</literal> control group
-          attribute. The allowed range is 2 to 262144. Defaults to
-          1024. For details about this control group attribute, see
-          <ulink
+          <para>Assign the specified CPU time share weight to the processes executed. These options take an integer
+          value and control the <literal>cpu.shares</literal> control group attribute. The allowed range is 2 to
+          262144. Defaults to 1024. For details about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
-          The available CPU time is split up among all units within
-          one slice relative to their CPU time share weight.</para>
+          The available CPU time is split up among all units within one slice relative to their CPU time share
+          weight.</para>
 
-          <para>While <varname>StartupCPUShares=</varname> only
-          applies to the startup phase of the system,
-          <varname>CPUShares=</varname> applies to normal runtime of
-          the system, and if the former is not set also to the startup
-          phase. Using <varname>StartupCPUShares=</varname> allows
-          prioritizing specific services at boot-up differently than
-          during normal runtime.</para>
+          <para>While <varname>StartupCPUShares=</varname> only applies to the startup phase of the system,
+          <varname>CPUShares=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup phase. Using <varname>StartupCPUShares=</varname> allows prioritizing specific services at
+          boot-up differently than during normal runtime.</para>
 
-          <para>These options imply
-          <literal>CPUAccounting=true</literal>.</para>
+          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+
+          <para>These settings are supported only if the legacy control group hierarchy is used.</para>
         </listitem>
       </varlistentry>
 
@@ -191,22 +227,20 @@
         <term><varname>CPUQuota=</varname></term>
 
         <listitem>
-          <para>Assign the specified CPU time quota to the processes
-          executed. Takes a percentage value, suffixed with "%". The
-          percentage specifies how much CPU time the unit shall get at
-          maximum, relative to the total CPU time available on one
-          CPU. Use values &gt; 100% for allotting CPU time on more than
-          one CPU. This controls the
-          <literal>cpu.cfs_quota_us</literal> control group
-          attribute. For details about this control group attribute,
-          see <ulink
+          <para>Assign the specified CPU time quota to the processes executed. Takes a percentage value, suffixed with
+          "%". The percentage specifies how much CPU time the unit shall get at maximum, relative to the total CPU time
+          available on one CPU. Use values &gt; 100% for allotting CPU time on more than one CPU. This controls the
+          <literal>cpu.max</literal> attribute on the unified control group hierarchy and
+          <literal>cpu.cfs_quota_us</literal> on legacy. For details about these control group attributes, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
 
-          <para>Example: <varname>CPUQuota=20%</varname> ensures that
-          the executed processes will never get more than 20% CPU time
-          on one CPU.</para>
+          <para>Example: <varname>CPUQuota=20%</varname> ensures that the executed processes will never get more than
+          20% CPU time on one CPU.</para>
 
           <para>Implies <literal>CPUAccounting=true</literal>.</para>
+
+          <para>This setting is supported on both unified and legacy control group hierarchies.</para>
         </listitem>
       </varlistentry>
 

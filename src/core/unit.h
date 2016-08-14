@@ -184,8 +184,8 @@ struct Unit {
         UnitFileState unit_file_state;
         int unit_file_preset;
 
-        /* Where the cpuacct.usage cgroup counter was at the time the unit was started */
-        nsec_t cpuacct_usage_base;
+        /* Where the cpu.stat or cpuacct.usage was at the time the unit was started */
+        nsec_t cpu_usage_base;
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
