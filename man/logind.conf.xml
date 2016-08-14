@@ -211,7 +211,7 @@
         <term><varname>HandleLidSwitch=</varname></term>
         <term><varname>HandleLidSwitchDocked=</varname></term>
 
-        <listitem><para>Controls whether logind shall handle the
+        <listitem><para>Controls how logind shall handle the
         system power and sleep keys and the lid switch to trigger
         actions such as system power-off or suspend. Can be one of
         <literal>ignore</literal>,
@@ -240,7 +240,16 @@
         docking station, or if more than one display is connected, the
         action specified by <varname>HandleLidSwitchDocked=</varname>
         occurs; otherwise the <varname>HandleLidSwitch=</varname>
-        action occurs.</para></listitem>
+        action occurs.</para>
+
+        <para>A different application may disable logind's handling of system power and
+        sleep keys and the lid switch by taking a low-level inhibitor lock
+        ("handle-power-key", "handle-suspend-key", "handle-hibernate-key",
+        "handle-lid-switch"). This is most commonly used by graphical desktop environments
+        to take over suspend and hibernation handling, and to use their own configuration
+        mechanisms. If a low-level inhibitor lock is taken, logind will not take any
+        action when that key or switch is triggered and the <varname>Handle*=</varname>
+        settings are irrelevant.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -249,21 +258,22 @@
         <term><varname>HibernateKeyIgnoreInhibited=</varname></term>
         <term><varname>LidSwitchIgnoreInhibited=</varname></term>
 
-        <listitem><para>Controls whether actions triggered by the
-        power and sleep keys and the lid switch are subject to
-        inhibitor locks. These settings take boolean arguments. If
-        <literal>no</literal>, the inhibitor locks taken by
-        applications in order to block the requested operation are
-        respected. If <literal>yes</literal>, the requested operation
-        is executed in any case.
+        <listitem><para>Controls whether actions that <command>systemd-logind</command>
+        takes when the power and sleep keys and the lid switch are triggered are subject
+        to high-level inhibitor locks ("shutdown", "sleep", "idle"). Low level inhibitor
+        locks ("handle-*-key"), are always honoured, irrespective of this setting.</para>
+
+        <para>These settings take boolean arguments. If <literal>no</literal>, the
+        inhibitor locks taken by applications are respected. If <literal>yes</literal>,
+        "shutdown", "sleep", and "idle" inhibitor locks are ignored.
         <varname>PowerKeyIgnoreInhibited=</varname>,
-        <varname>SuspendKeyIgnoreInhibited=</varname> and
-        <varname>HibernateKeyIgnoreInhibited=</varname> default to
-        <literal>no</literal>.
-        <varname>LidSwitchIgnoreInhibited=</varname> defaults to
-        <literal>yes</literal>. This means that the lid switch does
-        not respect suspend blockers by default, but the power and
-        sleep keys do. </para></listitem>
+        <varname>SuspendKeyIgnoreInhibited=</varname>, and
+        <varname>HibernateKeyIgnoreInhibited=</varname> default to <literal>no</literal>.
+        <varname>LidSwitchIgnoreInhibited=</varname> defaults to <literal>yes</literal>.
+        This means that when <command>systemd-logind</command> is handling events by
+        itself (no low level inhibitor locks are taken by another application), the lid
+        switch does not respect suspend blockers by default, but the power and sleep keys
+        do.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -61,7 +61,7 @@
     <title>Description</title>
 
     <para><command>systemd-inhibit</command> may be used to execute a
-    program with a shutdown, sleep or idle inhibitor lock taken. The
+    program with a shutdown, sleep, or idle inhibitor lock taken. The
     lock will be acquired before the specified command line is
     executed and released afterwards.</para>
 

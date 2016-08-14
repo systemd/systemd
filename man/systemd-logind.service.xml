@@ -84,7 +84,7 @@
       management</para></listitem>
     </itemizedlist>
 
-    <para>User sessions are registered in logind via the
+    <para>User sessions are registered with logind via the
     <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     PAM module.</para>
 
