@@ -1220,9 +1220,9 @@ AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_efi=no
-AC_ARG_ENABLE(efi, AS_HELP_STRING([--disable-efi], [disable EFI support]))
+AC_ARG_ENABLE(efi, AS_HELP_STRING([--disable-efi], [disable systemd-boot and bootctl (EFI support)]))
 if test "x$enable_efi" != "xno"; then
-        AC_DEFINE(ENABLE_EFI, 1, [Define if EFI support is to be enabled])
+        AC_DEFINE(ENABLE_EFI, 1, [Define if systemd-boot and bootctl are to be enabled])
         have_efi=yes
 fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
