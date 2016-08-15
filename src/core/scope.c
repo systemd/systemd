@@ -441,7 +441,7 @@ static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         /* If the PID set is empty now, then let's finish this off
            (On unified we use proper notifications) */
-        if (cg_unified() <= 0 && set_isempty(u->pids))
+        if (cg_all_unified() <= 0 && set_isempty(u->pids))
                 scope_notify_cgroup_empty_event(u);
 }
 

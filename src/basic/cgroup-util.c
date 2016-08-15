@@ -623,7 +623,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (!cg_controller_is_valid(controller))
                 return -EINVAL;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
 
@@ -651,7 +651,7 @@ static int controller_is_accessible(const char *controller) {
         if (!cg_controller_is_valid(controller))
                 return -EINVAL;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified > 0) {
@@ -869,7 +869,7 @@ int cg_set_task_access(
         if (r < 0)
                 return r;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified)
@@ -893,7 +893,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         assert(path);
         assert(pid >= 0);
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified == 0) {
@@ -969,7 +969,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         assert(agent);
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified) /* doesn't apply to unified hierarchy */
@@ -1020,7 +1020,7 @@ int cg_uninstall_release_agent(const char *controller) {
         _cleanup_free_ char *fs = NULL;
         int r, unified;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified) /* Doesn't apply to unified hierarchy */
@@ -1076,7 +1076,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
         if (controller && (isempty(path) || path_equal(path, "/")))
                 return false;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
 
@@ -1962,7 +1962,7 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
                 return r;
 
         /* If we are in the unified hierarchy, we are done now */
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified > 0)
@@ -1992,7 +1992,7 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
         if (r < 0)
                 return r;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified > 0)
@@ -2044,7 +2044,7 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
                         return r;
         }
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified > 0)
@@ -2077,7 +2077,7 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
         if (r < 0)
                 return r;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified > 0)
@@ -2103,7 +2103,7 @@ int cg_mask_supported(CGroupMask *ret) {
          * includes controllers we can make sense of and that are
          * actually accessible. */
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (unified > 0) {
@@ -2226,7 +2226,7 @@ int cg_kernel_controllers(Set *controllers) {
 
 static thread_local int unified_cache = -1;
 
-int cg_unified(void) {
+int cg_all_unified(void) {
         struct statfs fs;
 
         /* Checks if we support the unified hierarchy. Returns an
@@ -2264,7 +2264,7 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
         if (supported == 0)
                 return 0;
 
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified < 0)
                 return unified;
         if (!unified) /* on the legacy hiearchy there's no joining of controllers defined */
@@ -2303,7 +2303,7 @@ bool cg_is_unified_wanted(void) {
 
         /* If the hierarchy is already mounted, then follow whatever
          * was chosen for it. */
-        unified = cg_unified();
+        unified = cg_all_unified();
         if (unified >= 0)
                 return unified;
 

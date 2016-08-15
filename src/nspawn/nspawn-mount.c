@@ -721,7 +721,7 @@ static int mount_legacy_cgns_supported(
                         return log_error_errno(errno, "Failed to mount /sys/fs/cgroup: %m");
         }
 
-        if (cg_unified() > 0)
+        if (cg_all_unified() > 0)
                 goto skip_controllers;
 
         controllers = set_new(&string_hash_ops);
@@ -813,7 +813,7 @@ static int mount_legacy_cgns_unsupported(
                         return log_error_errno(errno, "Failed to mount /sys/fs/cgroup: %m");
         }
 
-        if (cg_unified() > 0)
+        if (cg_all_unified() > 0)
                 goto skip_controllers;
 
         controllers = set_new(&string_hash_ops);

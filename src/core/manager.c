@@ -766,7 +766,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        if (cg_unified() > 0) /* We don't need this anymore on the unified hierarchy */
+        if (cg_all_unified() > 0) /* We don't need this anymore on the unified hierarchy */
                 return 0;
 
         if (m->cgroups_agent_fd < 0) {

@@ -225,7 +225,7 @@ int cg_kernel_controllers(Set *controllers);
 
 bool cg_ns_supported(void);
 
-int cg_unified(void);
+int cg_all_unified(void);
 void cg_unified_flush(void);
 
 bool cg_is_unified_wanted(void);

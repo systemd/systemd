@@ -332,7 +332,7 @@ static int detect_unified_cgroup_hierarchy(void) {
         }
 
         /* Otherwise inherit the default from the host system */
-        r = cg_unified();
+        r = cg_all_unified();
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
 
