@@ -869,7 +869,7 @@ int cg_set_task_access(
         if (r < 0)
                 return r;
 
-        unified = cg_all_unified();
+        unified = cg_unified(controller);
         if (unified < 0)
                 return unified;
         if (unified)
@@ -893,18 +893,17 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         assert(path);
         assert(pid >= 0);
 
-        unified = cg_all_unified();
+        if (controller) {
+                if (!cg_controller_is_valid(controller))
+                        return -EINVAL;
+        } else
+                controller = SYSTEMD_CGROUP_CONTROLLER;
+
+        unified = cg_unified(controller);
         if (unified < 0)
                 return unified;
-        if (unified == 0) {
-                if (controller) {
-                        if (!cg_controller_is_valid(controller))
-                                return -EINVAL;
-                } else
-                        controller = SYSTEMD_CGROUP_CONTROLLER;
-
+        if (unified == 0)
                 cs = strlen(controller);
-        }
 
         fs = procfs_file_alloca(pid, "cgroup");
         f = fopen(fs, "re");
@@ -969,7 +968,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         assert(agent);
 
-        unified = cg_all_unified();
+        unified = cg_unified(controller);
         if (unified < 0)
                 return unified;
         if (unified) /* doesn't apply to unified hierarchy */
@@ -1020,7 +1019,7 @@ int cg_uninstall_release_agent(const char *controller) {
         _cleanup_free_ char *fs = NULL;
         int r, unified;
 
-        unified = cg_all_unified();
+        unified = cg_unified(controller);
         if (unified < 0)
                 return unified;
         if (unified) /* Doesn't apply to unified hierarchy */
@@ -1076,7 +1075,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
         if (controller && (isempty(path) || path_equal(path, "/")))
                 return false;
 
-        unified = cg_all_unified();
+        unified = cg_unified(controller);
         if (unified < 0)
                 return unified;
 
@@ -2224,9 +2223,10 @@ int cg_kernel_controllers(Set *controllers) {
         return 0;
 }
 
-static thread_local int unified_cache = -1;
+static thread_local CGroupUnified unified_cache = CGROUP_UNIFIED_UNKNOWN;
 
-int cg_all_unified(void) {
+static int cg_update_unified(void) {
+
         struct statfs fs;
 
         /* Checks if we support the unified hierarchy. Returns an
@@ -2234,24 +2234,47 @@ int cg_all_unified(void) {
          * have any other trouble determining if the unified hierarchy
          * is supported. */
 
-        if (unified_cache >= 0)
-                return unified_cache;
+        if (unified_cache >= CGROUP_UNIFIED_NONE)
+                return 0;
 
         if (statfs("/sys/fs/cgroup/", &fs) < 0)
                 return -errno;
 
         if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC))
-                unified_cache = true;
-        else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC))
-                unified_cache = false;
-        else
+                unified_cache = CGROUP_UNIFIED_ALL;
+        else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC)) {
+                if (statfs("/sys/fs/cgroup/systemd/", &fs) < 0)
+                        return -errno;
+
+                unified_cache = F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC) ?
+                        CGROUP_UNIFIED_SYSTEMD : CGROUP_UNIFIED_NONE;
+        } else
                 return -ENOMEDIUM;
 
-        return unified_cache;
+        return 0;
+}
+
+int cg_unified(const char *controller) {
+
+        int r;
+
+        r = cg_update_unified();
+        if (r < 0)
+                return r;
+
+        if (streq_ptr(controller, SYSTEMD_CGROUP_CONTROLLER))
+                return unified_cache >= CGROUP_UNIFIED_SYSTEMD;
+        else
+                return unified_cache >= CGROUP_UNIFIED_ALL;
+}
+
+int cg_all_unified(void) {
+
+        return cg_unified(NULL);
 }
 
 void cg_unified_flush(void) {
-        unified_cache = -1;
+        unified_cache = CGROUP_UNIFIED_UNKNOWN;
 }
 
 int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
@@ -2331,6 +2354,50 @@ bool cg_is_unified_wanted(void) {
 
 bool cg_is_legacy_wanted(void) {
         return !cg_is_unified_wanted();
+}
+
+bool cg_is_unified_systemd_controller_wanted(void) {
+        static thread_local int wanted = -1;
+        int r, unified;
+
+        /* If the unified hierarchy is requested in full, no need to
+         * bother with this. */
+        if (cg_is_unified_wanted())
+                return 0;
+
+        /* If the hierarchy is already mounted, then follow whatever
+         * was chosen for it. */
+        unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+        if (unified >= 0)
+                return unified;
+
+        /* Otherwise, let's see what the kernel command line has to
+         * say. Since checking that is expensive, let's cache the
+         * result. */
+        if (wanted >= 0)
+                return wanted;
+
+        r = get_proc_cmdline_key("systemd.legacy_systemd_cgroup_controller", NULL);
+        if (r > 0) {
+                wanted = false;
+        } else {
+                _cleanup_free_ char *value = NULL;
+
+                r = get_proc_cmdline_key("systemd.legacy_systemd_cgroup_controller=", &value);
+                if (r < 0)
+                        return true;
+
+                if (r == 0)
+                        wanted = true;
+                else
+                        wanted = parse_boolean(value) <= 0;
+        }
+
+        return wanted;
+}
+
+bool cg_is_legacy_systemd_controller_wanted(void) {
+        return cg_is_legacy_wanted() && !cg_is_unified_systemd_controller_wanted();
 }
 
 int cg_weight_parse(const char *s, uint64_t *ret) {

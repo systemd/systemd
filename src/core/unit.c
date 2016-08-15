@@ -3695,7 +3695,7 @@ int unit_kill_context(
                          * there we get proper events. Hence rely on
                          * them.*/
 
-                        if  (cg_all_unified() > 0 ||
+                        if  (cg_unified(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
                              (detect_container() == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 

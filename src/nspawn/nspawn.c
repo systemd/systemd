@@ -188,7 +188,7 @@ static UserNamespaceMode arg_userns_mode = USER_NAMESPACE_NO;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static bool arg_userns_chown = false;
 static int arg_kill_signal = 0;
-static bool arg_unified_cgroup_hierarchy = false;
+static CGroupUnified arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_UNKNOWN;
 static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
@@ -318,7 +318,14 @@ static int custom_mounts_prepare(void) {
 
 static int detect_unified_cgroup_hierarchy(void) {
         const char *e;
-        int r;
+        int r, all_unified, systemd_unified;
+
+        all_unified = cg_all_unified();
+        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+
+        if (all_unified < 0 || systemd_unified < 0)
+                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
+                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
 
         /* Allow the user to control whether the unified hierarchy is used */
         e = getenv("UNIFIED_CGROUP_HIERARCHY");
@@ -326,17 +333,22 @@ static int detect_unified_cgroup_hierarchy(void) {
                 r = parse_boolean(e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $UNIFIED_CGROUP_HIERARCHY.");
+                if (r > 0)
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
+                else
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
 
-                arg_unified_cgroup_hierarchy = r;
                 return 0;
         }
 
         /* Otherwise inherit the default from the host system */
-        r = cg_all_unified();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+        if (all_unified > 0)
+                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
+        else if (systemd_unified > 0)
+                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
+        else
+                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
 
-        arg_unified_cgroup_hierarchy = r;
         return 0;
 }
 
