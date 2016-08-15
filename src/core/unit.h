@@ -108,6 +108,10 @@ struct Unit {
         /* The slot used for watching NameOwnerChanged signals */
         sd_bus_slot *match_bus_slot;
 
+        /* References to this unit from clients */
+        sd_bus_track *bus_track;
+        char **deserialized_refs;
+
         /* Job timeout and action to take */
         usec_t job_timeout;
         FailureAction job_timeout_action;
@@ -247,6 +251,9 @@ struct Unit {
 
         /* Did we already invoke unit_coldplug() for this unit? */
         bool coldplugged:1;
+
+        /* For transient units: whether to add a bus track reference after creating the unit */
+        bool bus_track_add:1;
 };
 
 struct UnitStatusMessageFormats {

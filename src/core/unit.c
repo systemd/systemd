@@ -329,6 +329,9 @@ bool unit_check_gc(Unit *u) {
         if (u->refs)
                 return true;
 
+        if (sd_bus_track_count(u->bus_track) > 0)
+                return true;
+
         if (UNIT_VTABLE(u)->check_gc)
                 if (UNIT_VTABLE(u)->check_gc(u))
                         return true;
@@ -508,6 +511,9 @@ void unit_free(Unit *u) {
         unit_done(u);
 
         sd_bus_slot_unref(u->match_bus_slot);
+
+        sd_bus_track_unref(u->bus_track);
+        u->deserialized_refs = strv_free(u->deserialized_refs);
 
         unit_free_requires_mounts_for(u);
 
@@ -897,6 +903,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
         int r;
+        const char *n;
 
         assert(u);
         assert(u->type >= 0);
@@ -1038,6 +1045,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         else if (u->load_state == UNIT_ERROR)
                 fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror(-u->load_error));
 
+        for (n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
+                fprintf(f, "%s\tBus Ref: %s\n", prefix, n);
 
         if (u->job)
                 job_dump(u->job, f, prefix2);
@@ -2622,15 +2631,17 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (gid_is_valid(u->ref_gid))
                 unit_serialize_item_format(u, f, "ref-gid", GID_FMT, u->ref_gid);
 
+        bus_track_serialize(u->bus_track, f, "ref");
+
         if (serialize_jobs) {
                 if (u->job) {
                         fprintf(f, "job\n");
-                        job_serialize(u->job, f, fds);
+                        job_serialize(u->job, f);
                 }
 
                 if (u->nop_job) {
                         fprintf(f, "job\n");
-                        job_serialize(u->nop_job, f, fds);
+                        job_serialize(u->nop_job, f);
                 }
         }
 
@@ -2760,7 +2771,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 if (!j)
                                         return log_oom();
 
-                                r = job_deserialize(j, f, fds);
+                                r = job_deserialize(j, f);
                                 if (r < 0) {
                                         job_free(j);
                                         return r;
@@ -2880,6 +2891,12 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         else
                                 unit_ref_uid_gid(u, UID_INVALID, gid);
 
+                } else if (streq(l, "ref")) {
+
+                        r = strv_extend(&u->deserialized_refs, v);
+                        if (r < 0)
+                                log_oom();
+
                         continue;
                 }
 
@@ -2955,7 +2972,8 @@ int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep
 }
 
 int unit_coldplug(Unit *u) {
-        int r = 0, q = 0;
+        int r = 0, q;
+        char **i;
 
         assert(u);
 
@@ -2966,18 +2984,26 @@ int unit_coldplug(Unit *u) {
 
         u->coldplugged = true;
 
-        if (UNIT_VTABLE(u)->coldplug)
-                r = UNIT_VTABLE(u)->coldplug(u);
+        STRV_FOREACH(i, u->deserialized_refs) {
+                q = bus_unit_track_add_name(u, *i);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
+        u->deserialized_refs = strv_free(u->deserialized_refs);
 
-        if (u->job)
+        if (UNIT_VTABLE(u)->coldplug) {
+                q = UNIT_VTABLE(u)->coldplug(u);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
+
+        if (u->job) {
                 q = job_coldplug(u->job);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
 
-        if (r < 0)
-                return r;
-        if (q < 0)
-                return q;
-
-        return 0;
+        return r;
 }
 
 static bool fragment_mtime_newer(const char *path, usec_t mtime) {

@@ -41,6 +41,7 @@
 #define BUS_ERROR_SHUTTING_DOWN "org.freedesktop.systemd1.ShuttingDown"
 #define BUS_ERROR_SCOPE_NOT_RUNNING "org.freedesktop.systemd1.ScopeNotRunning"
 #define BUS_ERROR_NO_SUCH_DYNAMIC_USER "org.freedesktop.systemd1.NoSuchDynamicUser"
+#define BUS_ERROR_NOT_REFERENCED "org.freedesktop.systemd1.NotReferenced"
 
 #define BUS_ERROR_NO_SUCH_MACHINE "org.freedesktop.machine1.NoSuchMachine"
 #define BUS_ERROR_NO_SUCH_IMAGE "org.freedesktop.machine1.NoSuchImage"
