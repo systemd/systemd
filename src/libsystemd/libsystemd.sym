@@ -500,3 +500,11 @@ LIBSYSTEMD_231 {
 global:
         sd_event_get_iteration;
 } LIBSYSTEMD_230;
+
+LIBSYSTEMD_232 {
+global:
+        sd_bus_track_set_recursive;
+        sd_bus_track_get_recursive;
+        sd_bus_track_count_name;
+        sd_bus_track_count_sender;
+} LIBSYSTEMD_231;
