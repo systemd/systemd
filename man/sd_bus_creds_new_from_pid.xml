@@ -66,12 +66,12 @@
 
       <funcprototype>
         <funcdef>uint64_t <function>sd_bus_creds_get_mask</function></funcdef>
-        <paramdef>const sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>uint64_t <function>sd_bus_creds_get_augmented_mask</function></funcdef>
-        <paramdef>const sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
