@@ -33,7 +33,13 @@ Janitorial Clean-ups:
 
 Features:
 
-* RemoveIPC= in unit files for removing POSIX/SysV IPC objects
+* introduce an "invocation ID" for units, that is randomly generated, and
+  identifies each runtime-cycle of a unit. It should be set freshly each time
+  we traverse inactive → activating/active, and should be the primary key to
+  map offline data (stored in the journal) with online bus objects. Let's pass
+  this as $SYSTEMD_INVOCATION_ID to services, as well as set this as xattr on
+  the cgroup of a services. The former is accessible without privileges, the
+  latter ensures the ID cannot be faked.
 
 * Introduce ProtectSystem=strict for making the entire OS hierarchy read-only
   except for a select few
@@ -58,6 +64,8 @@ Features:
 
 * ProtectControlGroups= which mounts all of /sys/fs/cgroup read-only
 
+* ProtectKernelTunables= which mounts /sys and /proc/sys read-only
+
 * RemoveKeyRing= to remove all keyring entries of the specified user
 
 * Add DataDirectory=, CacheDirectory= and LogDirectory= to match
@@ -76,6 +84,9 @@ Features:
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
 
+* mount: automatically search for "main" partition of an image has multiple
+  partitions
+
 * expose the "privileged" flag of ExecCommand on the bus, and open it up to
   transient units
 
@@ -85,6 +96,12 @@ Features:
   mapping to work.
 
 * allow attaching additional journald log fields to cgroups
+
+* add bus API for creating unit files in /etc, reusing the code for transient units
+
+* add bus API to remove unit files from /etc
+
+* add bus API to retrieve current unit file contents (i.e. implement "systemctl cat" on the bus only)
 
 * rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the
   kernel doesn't support linkat() that replaces existing files, currently)
@@ -111,8 +128,6 @@ Features:
 * cache sd_event_now() result from before the first iteration...
 
 * add systemctl stop --job-mode=triggering that follows TRIGGERED_BY deps and adds them to the same transaction
-
-* Maybe add a way how users can "pin" units into memory, so that they are not subject to automatic GC?
 
 * PID1: find a way how we can reload unit file configuration for
   specific units only, without reloading the whole of systemd
