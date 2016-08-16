@@ -96,10 +96,10 @@ _arguments -s \
     {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \
-    {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
-    {-D+,--directory=}'[Show journal files from directory]:directories:_directories' \
-    '--file=[Operate on specified journal files]:file:_files' \
-    '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+    '(--directory -D -M --machine --root --file)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '(--directory -D -M --machine --root --file)'{-D+,--directory=}'[Show journal files from directory]:directories:_directories' \
+    '(--directory -D -M --machine --root --file)''--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+    '(--directory -D -M --machine --root)--file=[Operate on specified journal files]:file:_files' \
     '--new-id128[Generate a new 128 Bit ID]' \
     '--header[Show journal header information]' \
     '--disk-usage[Show total disk usage]' \
