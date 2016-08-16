@@ -322,7 +322,8 @@ int route_add(
         } else
                 return r;
 
-        *ret = route;
+        if (ret)
+                *ret = route;
 
         return 0;
 }
