@@ -267,6 +267,82 @@ static int open_journal(
         return r;
 }
 
+static int system_journal_open(Server *s, bool flush_requested) {
+        const char *fn;
+        int r = 0;
+
+        if (!s->system_journal &&
+            (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
+            (flush_requested
+             || access("/run/systemd/journal/flushed", F_OK) >= 0)) {
+
+                /* If in auto mode: first try to create the machine
+                 * path, but not the prefix.
+                 *
+                 * If in persistent mode: create /var/log/journal and
+                 * the machine path */
+
+                if (s->storage == STORAGE_PERSISTENT)
+                        (void) mkdir_p("/var/log/journal/", 0755);
+
+                fn = strjoina("/var/log/journal/", SERVER_MACHINE_ID(s));
+                (void) mkdir(fn, 0755);
+
+                fn = strjoina(fn, "/system.journal");
+                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_metrics, &s->system_journal);
+                if (r >= 0) {
+                        server_add_acls(s->system_journal, 0);
+                        (void) determine_space_for(s, &s->system_metrics, "/var/log/journal/", "System journal", true, true, NULL, NULL);
+                } else if (r < 0) {
+                        if (r != -ENOENT && r != -EROFS)
+                                log_warning_errno(r, "Failed to open system journal: %m");
+
+                        r = 0;
+                }
+        }
+
+        if (!s->runtime_journal &&
+            (s->storage != STORAGE_NONE)) {
+
+                fn = strjoina("/run/log/journal/", SERVER_MACHINE_ID(s), "/system.journal");
+
+                if (s->system_journal) {
+
+                        /* Try to open the runtime journal, but only
+                         * if it already exists, so that we can flush
+                         * it into the system journal */
+
+                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_metrics, &s->runtime_journal);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        log_warning_errno(r, "Failed to open runtime journal: %m");
+
+                                r = 0;
+                        }
+
+                } else {
+
+                        /* OK, we really need the runtime journal, so create
+                         * it if necessary. */
+
+                        (void) mkdir("/run/log", 0755);
+                        (void) mkdir("/run/log/journal", 0755);
+                        (void) mkdir_parents(fn, 0750);
+
+                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_metrics, &s->runtime_journal);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open runtime journal: %m");
+                }
+
+                if (s->runtime_journal) {
+                        server_add_acls(s->runtime_journal, 0);
+                        (void) determine_space_for(s, &s->runtime_metrics, "/run/log/journal/", "Runtime journal", true, true, NULL, NULL);
+                }
+        }
+
+        return r;
+}
+
 static JournalFile* find_journal(Server *s, uid_t uid) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -274,6 +350,17 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         sd_id128_t machine;
 
         assert(s);
+
+        /* A rotate that fails to create the new journal (ENOSPC) leaves the
+         * rotated journal as NULL.  Unless we revisit opening, even after
+         * space is made available we'll continue to return NULL indefinitely.
+         *
+         * system_journal_open() is a noop if the journals are already open, so
+         * we can just call it here to recover from failed rotates (or anything
+         * else that's left the journals as NULL).
+         *
+         * Fixes https://github.com/systemd/systemd/issues/3968 */
+        (void) system_journal_open(s, false);
 
         /* We split up user logs only on /var, not on /run. If the
          * runtime file is open, we write to it exclusively, in order
@@ -977,83 +1064,6 @@ void server_dispatch_message(
 
 finish:
         dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, priority, object_pid);
-}
-
-
-static int system_journal_open(Server *s, bool flush_requested) {
-        const char *fn;
-        int r = 0;
-
-        if (!s->system_journal &&
-            (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
-            (flush_requested
-             || access("/run/systemd/journal/flushed", F_OK) >= 0)) {
-
-                /* If in auto mode: first try to create the machine
-                 * path, but not the prefix.
-                 *
-                 * If in persistent mode: create /var/log/journal and
-                 * the machine path */
-
-                if (s->storage == STORAGE_PERSISTENT)
-                        (void) mkdir_p("/var/log/journal/", 0755);
-
-                fn = strjoina("/var/log/journal/", SERVER_MACHINE_ID(s));
-                (void) mkdir(fn, 0755);
-
-                fn = strjoina(fn, "/system.journal");
-                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_metrics, &s->system_journal);
-                if (r >= 0) {
-                        server_add_acls(s->system_journal, 0);
-                        (void) determine_space_for(s, &s->system_metrics, "/var/log/journal/", "System journal", true, true, NULL, NULL);
-                } else if (r < 0) {
-                        if (r != -ENOENT && r != -EROFS)
-                                log_warning_errno(r, "Failed to open system journal: %m");
-
-                        r = 0;
-                }
-        }
-
-        if (!s->runtime_journal &&
-            (s->storage != STORAGE_NONE)) {
-
-                fn = strjoina("/run/log/journal/", SERVER_MACHINE_ID(s), "/system.journal");
-
-                if (s->system_journal) {
-
-                        /* Try to open the runtime journal, but only
-                         * if it already exists, so that we can flush
-                         * it into the system journal */
-
-                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_metrics, &s->runtime_journal);
-                        if (r < 0) {
-                                if (r != -ENOENT)
-                                        log_warning_errno(r, "Failed to open runtime journal: %m");
-
-                                r = 0;
-                        }
-
-                } else {
-
-                        /* OK, we really need the runtime journal, so create
-                         * it if necessary. */
-
-                        (void) mkdir("/run/log", 0755);
-                        (void) mkdir("/run/log/journal", 0755);
-                        (void) mkdir_parents(fn, 0750);
-
-                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_metrics, &s->runtime_journal);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to open runtime journal: %m");
-                }
-
-                if (s->runtime_journal) {
-                        server_add_acls(s->runtime_journal, 0);
-                        (void) determine_space_for(s, &s->runtime_metrics, "/run/log/journal/", "Runtime journal", true, true, NULL, NULL);
-                }
-        }
-
-        return r;
 }
 
 int server_flush_to_var(Server *s) {
