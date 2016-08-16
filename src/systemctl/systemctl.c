@@ -364,6 +364,10 @@ static int compare_unit_info(const void *a, const void *b) {
 static bool output_show_unit(const UnitInfo *u, char **patterns) {
         assert(u);
 
+        if (!streq_ptr(u->load_state, "loaded") &&
+            !strv_contains(arg_states, u->load_state))
+                return false;
+
         if (!strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
                 return false;
 
