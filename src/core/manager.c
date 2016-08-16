@@ -1427,6 +1427,11 @@ int manager_load_unit_prepare(
                 return r;
         }
 
+        if (t == UNIT_DEVICE) {
+                ret->refuse_manual_start = true;
+                ret->refuse_manual_stop = true;
+        }
+
         unit_add_to_load_queue(ret);
         unit_add_to_dbus_queue(ret);
         unit_add_to_gc_queue(ret);
