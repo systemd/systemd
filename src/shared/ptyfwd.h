@@ -37,12 +37,18 @@ typedef enum PTYForwardFlags {
         PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 4,
 } PTYForwardFlags;
 
+typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void*userdata);
+
 int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **f);
 PTYForward *pty_forward_free(PTYForward *f);
 
 int pty_forward_get_last_char(PTYForward *f, char *ch);
 
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup);
-int pty_forward_get_ignore_vhangup(PTYForward *f);
+bool pty_forward_get_ignore_vhangup(PTYForward *f);
+
+bool pty_forward_is_done(PTYForward *f);
+
+void pty_forward_set_handler(PTYForward *f, PTYForwardHandler handler, void *userdata);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);
