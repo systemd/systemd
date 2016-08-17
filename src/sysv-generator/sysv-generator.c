@@ -247,7 +247,7 @@ static char *sysv_translate_name(const char *name) {
         return res;
 }
 
-static int sysv_translate_facility(const char *name, const char *filename, char **ret) {
+static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name, char **ret) {
 
         /* We silently ignore the $ prefix here. According to the LSB
          * spec it simply indicates whether something is a
@@ -266,14 +266,17 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "time",                 SPECIAL_TIME_SYNC_TARGET,
         };
 
+        const char *filename;
         char *filename_no_sh, *e, *m;
         const char *n;
         unsigned i;
         int r;
 
         assert(name);
-        assert(filename);
+        assert(s);
         assert(ret);
+
+        filename = basename(s->path);
 
         n = *name == '$' ? name + 1 : name;
 
@@ -299,7 +302,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         if (*name == '$')  {
                 r = unit_name_build(n, NULL, ".target", ret);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to build name: %m");
+                        return log_error_errno(r, "[%s:%u] Could not build name for facility %s: %m", s->path, line, name);
 
                 return r;
         }
@@ -337,11 +340,11 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
 
                 r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse word from provides string: %m");
+                        return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
                         break;
 
-                r = sysv_translate_facility(word, basename(s->path), &m);
+                r = sysv_translate_facility(s, line, word, &m);
                 if (r <= 0) /* continue on error */
                         continue;
 
@@ -403,11 +406,11 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
 
                 r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse word from provides string: %m");
+                        return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
                         break;
 
-                r = sysv_translate_facility(word, basename(s->path), &m);
+                r = sysv_translate_facility(s, line, word, &m);
                 if (r <= 0) /* continue on error */
                         continue;
 
