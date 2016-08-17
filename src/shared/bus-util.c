@@ -1059,29 +1059,27 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
                 break;
         }
 
+        case SD_BUS_TYPE_INT32:
         case SD_BUS_TYPE_UINT32: {
-                uint32_t u;
-                uint32_t *p = userdata;
+                uint32_t u, *p = userdata;
 
                 r = sd_bus_message_read_basic(m, type, &u);
                 if (r < 0)
                         break;
 
                 *p = u;
-
                 break;
         }
 
+        case SD_BUS_TYPE_INT64:
         case SD_BUS_TYPE_UINT64: {
-                uint64_t t;
-                uint64_t *p = userdata;
+                uint64_t t, *p = userdata;
 
                 r = sd_bus_message_read_basic(m, type, &t);
                 if (r < 0)
                         break;
 
                 *p = t;
-
                 break;
         }
 
