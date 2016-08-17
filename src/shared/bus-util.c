@@ -1016,19 +1016,19 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
                 return r;
 
         switch (type) {
+
         case SD_BUS_TYPE_STRING: {
-                const char *s;
                 char **p = userdata;
+                const char *s;
 
                 r = sd_bus_message_read_basic(m, type, &s);
                 if (r < 0)
-                        break;
+                        return r;
 
                 if (isempty(s))
                         s = NULL;
 
-                r = free_and_strdup(p, s);
-                break;
+                return free_and_strdup(p, s);
         }
 
         case SD_BUS_TYPE_ARRAY: {
@@ -1037,13 +1037,12 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 
                 r = bus_message_read_strv_extend(m, &l);
                 if (r < 0)
-                        break;
+                        return r;
 
                 strv_free(*p);
                 *p = l;
                 l = NULL;
-
-                break;
+                return 0;
         }
 
         case SD_BUS_TYPE_BOOLEAN: {
@@ -1052,11 +1051,10 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 
                 r = sd_bus_message_read_basic(m, type, &b);
                 if (r < 0)
-                        break;
+                        return r;
 
                 *p = b;
-
-                break;
+                return 0;
         }
 
         case SD_BUS_TYPE_INT32:
@@ -1065,10 +1063,10 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 
                 r = sd_bus_message_read_basic(m, type, &u);
                 if (r < 0)
-                        break;
+                        return r;
 
                 *p = u;
-                break;
+                return 0;
         }
 
         case SD_BUS_TYPE_INT64:
@@ -1077,30 +1075,24 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 
                 r = sd_bus_message_read_basic(m, type, &t);
                 if (r < 0)
-                        break;
+                        return r;
 
                 *p = t;
-                break;
+                return 0;
         }
 
         case SD_BUS_TYPE_DOUBLE: {
-                double d;
-                double *p = userdata;
+                double d, *p = userdata;
 
                 r = sd_bus_message_read_basic(m, type, &d);
                 if (r < 0)
-                        break;
+                        return r;
 
                 *p = d;
+                return 0;
+        }}
 
-                break;
-        }
-
-        default:
-                break;
-        }
-
-        return r;
+        return -EOPNOTSUPP;
 }
 
 int bus_message_map_all_properties(
