@@ -659,10 +659,12 @@
         <term><option>--root=<replaceable>ROOT</replaceable></option></term>
 
         <listitem><para>Takes a directory path as an argument. If
-        specified, journalctl will operate on catalog file hierarchy
+        specified, journalctl will operate on journal directories and catalog file hierarchy
         underneath the specified directory instead of the root
         directory (e.g. <option>--update-catalog</option> will create
-        <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>).
+        <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>,
+        and journal files under <filename><replaceable>ROOT</replaceable>/run/journal</filename>
+        or <filename><replaceable>ROOT</replaceable>/var/log/journal</filename> will be displayed).
         </para></listitem>
       </varlistentry>
 
