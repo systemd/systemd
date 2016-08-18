@@ -25,6 +25,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "env-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
@@ -434,6 +435,12 @@ enum nss_status _nss_mymachines_getpwnam_r(
         if (!machine_name_is_valid(machine))
                 goto not_found;
 
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0)
+                /* Make sure we can't deadlock if we are invoked by dbus-daemon. This way, it won't be able to resolve
+                 * these UIDs, but that should be unproblematic as containers should never be able to connect to a bus
+                 * running on the host. */
+                goto not_found;
+
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 goto fail;
@@ -512,6 +519,9 @@ enum nss_status _nss_mymachines_getpwuid_r(
 
         /* We consider all uids < 65536 host uids */
         if (uid < HOST_UID_LIMIT)
+                goto not_found;
+
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0)
                 goto not_found;
 
         r = sd_bus_open_system(&bus);
@@ -605,6 +615,9 @@ enum nss_status _nss_mymachines_getgrnam_r(
         if (!machine_name_is_valid(machine))
                 goto not_found;
 
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0)
+                goto not_found;
+
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 goto fail;
@@ -680,6 +693,9 @@ enum nss_status _nss_mymachines_getgrgid_r(
 
         /* We consider all gids < 65536 host gids */
         if (gid < HOST_GID_LIMIT)
+                goto not_found;
+
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0)
                 goto not_found;
 
         r = sd_bus_open_system(&bus);
