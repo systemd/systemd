@@ -1686,6 +1686,17 @@ static int install_context_apply(
                 if (r < 0)
                         return r;
 
+                /* We can attempt to process a masked unit when a different unit
+                 * that we were processing specifies it in DefaultInstance= or Also=. */
+                if (i->type == UNIT_FILE_TYPE_MASKED) {
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path, NULL);
+                        if (r >= 0)
+                                /* Assume that some *could* have been enabled here, avoid
+                                 * "empty [Install] section" warning. */
+                                r += 1;
+                        continue;
+                }
+
                 if (i->type != UNIT_FILE_TYPE_REGULAR)
                         continue;
 
