@@ -102,6 +102,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->job_timeout = USEC_INFINITY;
         u->ref_uid = UID_INVALID;
         u->ref_gid = GID_INVALID;
+        u->cpu_usage_last = NSEC_INFINITY;
 
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
@@ -2620,7 +2621,10 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item(u, f, "assert-result", yes_no(u->assert_result));
 
         unit_serialize_item(u, f, "transient", yes_no(u->transient));
+
         unit_serialize_item_format(u, f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
+        if (u->cpu_usage_last != NSEC_INFINITY)
+                unit_serialize_item_format(u, f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
 
         if (u->cgroup_path)
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
@@ -2843,11 +2847,19 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         continue;
 
-                } else if (streq(l, "cpu-usage-base") || streq(l, "cpuacct-usage-base")) {
+                } else if (STR_IN_SET(l, "cpu-usage-base", "cpuacct-usage-base")) {
 
                         r = safe_atou64(v, &u->cpu_usage_base);
                         if (r < 0)
-                                log_unit_debug(u, "Failed to parse CPU usage %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse CPU usage base %s, ignoring.", v);
+
+                        continue;
+
+                } else if (streq(l, "cpu-usage-last")) {
+
+                        r = safe_atou64(v, &u->cpu_usage_last);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to read CPU usage last %s, ignoring.", v);
 
                         continue;
 

@@ -194,6 +194,7 @@ struct Unit {
 
         /* Where the cpu.stat or cpuacct.usage was at the time the unit was started */
         nsec_t cpu_usage_base;
+        nsec_t cpu_usage_last; /* the most recently read value */
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
