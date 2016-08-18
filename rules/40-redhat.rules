@@ -11,6 +11,7 @@ ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/sys
 
 # load SCSI generic (sg) driver
 SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe -bv sg"
+SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_target", TEST!="[module/sg]", RUN+="/sbin/modprobe -bv sg"
 
 # Rule for prandom character device node permissions
 KERNEL=="prandom", MODE="0644"
