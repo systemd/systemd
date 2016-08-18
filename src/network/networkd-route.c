@@ -41,7 +41,7 @@ int route_new(Route **ret) {
         route->family = AF_UNSPEC;
         route->scope = RT_SCOPE_UNIVERSE;
         route->protocol = RTPROT_UNSPEC;
-        route->table = RT_TABLE_DEFAULT;
+        route->table = RT_TABLE_MAIN;
         route->lifetime = USEC_INFINITY;
 
         *ret = route;
@@ -549,14 +549,12 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
 
-        if (route->table != RT_TABLE_DEFAULT) {
-
+        if (route->table != RT_TABLE_MAIN) {
                 if (route->table < 256) {
                         r = sd_rtnl_message_route_set_table(req, route->table);
                         if (r < 0)
                                 return log_error_errno(r, "Could not set route table: %m");
                 } else {
-
                         r = sd_rtnl_message_route_set_table(req, RT_TABLE_UNSPEC);
                         if (r < 0)
                                 return log_error_errno(r, "Could not set route table: %m");
