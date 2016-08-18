@@ -163,7 +163,6 @@ char* hostname_cleanup(char *s) {
                         *(d++) = *p;
                         dot = false;
                 }
-
         }
 
         if (dot && d > s)

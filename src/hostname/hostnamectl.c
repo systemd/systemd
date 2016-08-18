@@ -251,7 +251,7 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
 
 static int set_hostname(sd_bus *bus, char **args, unsigned n) {
         _cleanup_free_ char *h = NULL;
-        char *hostname = args[1];
+        const char *hostname = args[1];
         int r;
 
         assert(args);
@@ -263,27 +263,29 @@ static int set_hostname(sd_bus *bus, char **args, unsigned n) {
         if (arg_pretty) {
                 const char *p;
 
-                /* If the passed hostname is already valid, then
-                 * assume the user doesn't know anything about pretty
-                 * hostnames, so let's unset the pretty hostname, and
-                 * just set the passed hostname as static/dynamic
+                /* If the passed hostname is already valid, then assume the user doesn't know anything about pretty
+                 * hostnames, so let's unset the pretty hostname, and just set the passed hostname as static/dynamic
                  * hostname. */
-
-                if (arg_static && hostname_is_valid(hostname, true)) {
-                        p = "";
-                        /* maybe get rid of trailing dot */
-                        hostname = hostname_cleanup(hostname);
-                } else {
-                        p = h = strdup(hostname);
-                        if (!p)
-                                return log_oom();
-
-                        hostname_cleanup(hostname);
-                }
+                if (arg_static && hostname_is_valid(hostname, true))
+                        p = ""; /* No pretty hostname (as it is redundant), just a static one */
+                else
+                        p = hostname; /* Use the passed name as pretty hostname */
 
                 r = set_simple_string(bus, "SetPrettyHostname", p);
                 if (r < 0)
                         return r;
+
+                /* Now that we set the pretty hostname, let's clean up the parameter and use that as static
+                 * hostname. If the hostname was already valid as static hostname, this will only chop off the trailing
+                 * dot if there is one. If it was not valid, then it will be made fully valid by truncating, dropping
+                 * multiple dots, and and dropping weird chars. Note that we clean the name up only if we also are
+                 * supposed to set the pretty name. If the pretty name is not being set we assume the user knows what
+                 * he does and pass the name as-is. */
+                h = strdup(hostname);
+                if (!h)
+                        return log_oom();
+
+                hostname = hostname_cleanup(h); /* Use the cleaned up name as static hostname */
         }
 
         if (arg_static) {
