@@ -441,19 +441,13 @@ static int route_expire_callback(sd_netlink *rtnl, sd_netlink_message *m, void *
         assert(m);
         assert(link);
         assert(link->ifname);
-        assert(link->link_messages > 0);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        link->link_messages--;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, r, "could not remove route: %m");
-
-        if (link->link_messages == 0)
-                log_link_debug(link, "route removed");
 
         return 1;
 }
@@ -467,11 +461,8 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         r = route_remove(route, route->link, route_expire_callback);
         if (r < 0)
                 log_warning_errno(r, "Could not remove route: %m");
-        else {
-                /* route may not be exist in kernel. If we fail still remove it */
-                route->link->link_messages++;
+        else
                 route_free(route);
-        }
 
         return 1;
 }
