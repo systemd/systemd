@@ -31,14 +31,8 @@
 #include "user-util.h"
 #include "fileio.h"
 
-/* Let's pick a UIDs within the 16bit range, so that we are compatible with containers using 16bit user namespacing. At
- * least on Fedora normal users are allocated until UID 60000, hence do not allocate from below this. Also stay away
- * from the upper end of the range as that is often used for overflow/nobody users. */
-#define UID_PICK_MIN ((uid_t) UINT32_C(0x0000EF00))
-#define UID_PICK_MAX ((uid_t) UINT32_C(0x0000FFEF))
-
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
-#define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (UID_PICK_MAX - UID_PICK_MIN + 1)) + UID_PICK_MIN)
+#define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
 
 static DynamicUser* dynamic_user_free(DynamicUser *d) {
         if (!d)
@@ -154,7 +148,7 @@ static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
 
         char path1[strlen("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
         const char *path2;
-        int r = 0;
+        int r = 0, k;
 
         /* Add direct additional symlinks for direct lookups of dynamic UIDs and their names by userspace code. The
          * only reason we have this is because dbus-daemon cannot use D-Bus for resolving users and groups (since it
@@ -164,23 +158,26 @@ static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
          * on them and as those may be taken by any user with read access we can't make them world-readable. */
 
         xsprintf(path1, "/run/systemd/dynamic-uid/direct:" UID_FMT, uid);
-        if (unlink(path1) < 0) {
-                if (errno != ENOENT)
-                        r = -errno;
-        }
-        if (b) {
-                if (symlink(name, path1) < 0)
-                        r = -errno;
+        if (unlink(path1) < 0 && errno != ENOENT)
+                r = -errno;
+
+        if (b && symlink(name, path1) < 0) {
+                k = log_warning_errno(errno, "Failed to symlink \"%s\": %m", path1);
+                if (r == 0)
+                        r = k;
         }
 
         path2 = strjoina("/run/systemd/dynamic-uid/direct:", name);
-        if (unlink(path2) < 0) {
-                if (errno != ENOENT)
-                        r = -errno;
+        if (unlink(path2) < 0 && errno != ENOENT) {
+                k = -errno;
+                if (r == 0)
+                        r = k;
         }
-        if (b) {
-                if (symlink(path1 + strlen("/run/systemd/dynamic-uid/direct:"), path2) < 0)
-                        r = -errno;
+
+        if (b && symlink(path1 + strlen("/run/systemd/dynamic-uid/direct:"), path2) < 0) {
+                k = log_warning_errno(errno,  "Failed to symlink \"%s\": %m", path2);
+                if (r == 0)
+                        r = k;
         }
 
         return r;
@@ -211,7 +208,7 @@ static int pick_uid(const char *name, uid_t *ret_uid) {
                 if (--n_tries <= 0) /* Give up retrying eventually */
                         return -EBUSY;
 
-                if (candidate < UID_PICK_MIN || candidate > UID_PICK_MAX)
+                if (!uid_is_dynamic(candidate))
                         goto next;
 
                 xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, candidate);
@@ -673,11 +670,8 @@ int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret) {
         assert(m);
         assert(ret);
 
-        /* A friendly way to translate a dynamic user's UID into a his name. */
-
-        if (uid < UID_PICK_MIN)
-                return -ESRCH;
-        if (uid > UID_PICK_MAX)
+        /* A friendly way to translate a dynamic user's UID into a name. */
+        if (!uid_is_dynamic(uid))
                 return -ESRCH;
 
         xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, uid);
