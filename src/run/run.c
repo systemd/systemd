@@ -83,9 +83,7 @@ static void polkit_agent_open_if_enabled(void) {
 
 static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
-               "Run the specified command in a transient scope or service or timer\n"
-               "unit. If a timer option is specified and the unit specified with\n"
-               "the --unit option exists, the command can be omitted.\n\n"
+               "Run the specified command in a transient scope or service.\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-ask-password            Do not prompt for password\n"
@@ -94,7 +92,7 @@ static void help(void) {
                "  -M --machine=CONTAINER          Operate on local container\n"
                "     --scope                      Run this as scope rather than service\n"
                "     --unit=UNIT                  Run under the specified unit name\n"
-               "  -p --property=NAME=VALUE        Set unit property\n"
+               "  -p --property=NAME=VALUE        Set service or scope unit property\n"
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
                "     --no-block                   Do not wait until operation finished\n"
@@ -107,15 +105,15 @@ static void help(void) {
                "  -E --setenv=NAME=VALUE          Set environment\n"
                "  -t --pty                        Run service on pseudo tty\n"
                "  -q --quiet                      Suppress information messages during runtime\n\n"
-               "Timer options:\n\n"
+               "Timer options:\n"
                "     --on-active=SECONDS          Run after SECONDS delay\n"
                "     --on-boot=SECONDS            Run SECONDS after machine was booted up\n"
                "     --on-startup=SECONDS         Run SECONDS after systemd activation\n"
                "     --on-unit-active=SECONDS     Run SECONDS after the last activation\n"
                "     --on-unit-inactive=SECONDS   Run SECONDS after the last deactivation\n"
                "     --on-calendar=SPEC           Realtime timer\n"
-               "     --timer-property=NAME=VALUE  Set timer unit property\n",
-               program_invocation_short_name);
+               "     --timer-property=NAME=VALUE  Set timer unit property\n"
+               , program_invocation_short_name);
 }
 
 static bool with_timer(void) {
@@ -178,7 +176,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR      },
                 { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY   },
                 { "no-block",          no_argument,       NULL, ARG_NO_BLOCK         },
-                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD  },
                 {},
         };
 
@@ -195,12 +193,12 @@ static int parse_argv(int argc, char *argv[]) {
                         help();
                         return 0;
 
+                case ARG_VERSION:
+                        return version();
+
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
-
-                case ARG_VERSION:
-                        return version();
 
                 case ARG_USER:
                         arg_user = true;
@@ -410,18 +408,15 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
-        char **i;
         int r;
 
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, properties) {
-                r = bus_append_unit_property_assignment(m, *i);
-                if (r < 0)
-                        return r;
-        }
+        r = bus_append_unit_property_assignment_many(m, properties);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -1144,7 +1139,7 @@ static int start_transient_timer(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (argv[0]) {
+        if (!strv_isempty(argv)) {
                 r = sd_bus_message_open_container(m, 'r', "sa(sv)");
                 if (r < 0)
                         return bus_log_create_error(r);

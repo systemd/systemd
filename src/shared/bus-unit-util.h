@@ -41,6 +41,7 @@ typedef struct UnitInfo {
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment);
+int bus_append_unit_property_assignment_many(sd_bus_message *m, char **l);
 
 typedef struct BusWaitForJobs BusWaitForJobs;
 

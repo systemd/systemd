@@ -568,6 +568,21 @@ finish:
         return 0;
 }
 
+int bus_append_unit_property_assignment_many(sd_bus_message *m, char **l) {
+        char **i;
+        int r;
+
+        assert(m);
+
+        STRV_FOREACH(i, l) {
+                r = bus_append_unit_property_assignment(m, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 typedef struct BusWaitForJobs {
         sd_bus *bus;
         Set *jobs;

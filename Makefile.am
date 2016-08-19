@@ -384,6 +384,7 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze \
 	systemd-run \
+	systemd-mount \
 	systemd-stdio-bridge \
 	systemd-path
 
@@ -3143,6 +3144,13 @@ systemd_run_SOURCES = \
 	src/run/run.c
 
 systemd_run_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_mount_SOURCES = \
+	src/mount/mount-tool.c
+
+systemd_mount_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------

@@ -5093,7 +5093,6 @@ static int set_property(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL;
         sd_bus *bus;
-        char **i;
         int r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
@@ -5124,11 +5123,9 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(i, strv_skip(argv, 2)) {
-                r = bus_append_unit_property_assignment(m, *i);
-                if (r < 0)
-                        return r;
-        }
+        r = bus_append_unit_property_assignment_many(m, strv_skip(argv, 2));
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
