@@ -346,12 +346,7 @@ int open_terminal(const char *name, int mode) {
         }
 
         r = isatty(fd);
-        if (r < 0) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        if (!r) {
+        if (r == 0) {
                 safe_close(fd);
                 return -ENOTTY;
         }
