@@ -71,10 +71,9 @@
     set, and is valid (something other than localhost), then the
     transient hostname is not used.</para>
 
-    <para>Note that the pretty hostname has little restrictions on the
-    characters used, while the static and transient hostnames are
-    limited to the usually accepted characters of Internet domain
-    names.</para>
+    <para>Note that the pretty hostname has little restrictions on the characters and length used, while the static and
+    transient hostnames are limited to the usually accepted characters of Internet domain names, and 64 characters at
+    maximum (the latter being a Linux limitation).</para>
 
     <para>The static hostname is stored in
     <filename>/etc/hostname</filename>, see
