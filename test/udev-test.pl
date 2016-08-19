@@ -37,7 +37,7 @@ my $EXIT_TEST_SKIP      = 77;
 
 my $rules_10k_tags      = "";
 for (my $i = 1; $i <= 10000; ++$i) {
-    $rules_10k_tags .= 'KERNEL=="sda", TAG+="test' . $i . "\"\n";
+        $rules_10k_tags .= 'KERNEL=="sda", TAG+="test' . $i . "\"\n";
 }
 
 my @tests = (
@@ -1596,6 +1596,6 @@ system("umount", "$udev_tmpfs");
 rmdir($udev_tmpfs);
 
 if ($error > 0) {
-    exit(1);
+        exit(1);
 }
 exit(0);
