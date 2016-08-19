@@ -41,7 +41,7 @@ int route_new(Route **ret) {
         route->family = AF_UNSPEC;
         route->scope = RT_SCOPE_UNIVERSE;
         route->protocol = RTPROT_UNSPEC;
-        route->table = RT_TABLE_DEFAULT;
+        route->table = RT_TABLE_MAIN;
         route->lifetime = USEC_INFINITY;
 
         *ret = route;
@@ -322,7 +322,8 @@ int route_add(
         } else
                 return r;
 
-        *ret = route;
+        if (ret)
+                *ret = route;
 
         return 0;
 }
@@ -440,19 +441,13 @@ static int route_expire_callback(sd_netlink *rtnl, sd_netlink_message *m, void *
         assert(m);
         assert(link);
         assert(link->ifname);
-        assert(link->link_messages > 0);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
-        link->link_messages--;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, r, "could not remove route: %m");
-
-        if (link->link_messages == 0)
-                log_link_debug(link, "route removed");
 
         return 1;
 }
@@ -466,11 +461,8 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         r = route_remove(route, route->link, route_expire_callback);
         if (r < 0)
                 log_warning_errno(r, "Could not remove route: %m");
-        else {
-                /* route may not be exist in kernel. If we fail still remove it */
-                route->link->link_messages++;
+        else
                 route_free(route);
-        }
 
         return 1;
 }
@@ -557,14 +549,12 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
 
-        if (route->table != RT_TABLE_DEFAULT) {
-
+        if (route->table != RT_TABLE_MAIN) {
                 if (route->table < 256) {
                         r = sd_rtnl_message_route_set_table(req, route->table);
                         if (r < 0)
                                 return log_error_errno(r, "Could not set route table: %m");
                 } else {
-
                         r = sd_rtnl_message_route_set_table(req, RT_TABLE_UNSPEC);
                         if (r < 0)
                                 return log_error_errno(r, "Could not set route table: %m");
