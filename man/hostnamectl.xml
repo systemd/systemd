@@ -138,22 +138,14 @@
       <varlistentry>
         <term><command>set-hostname <replaceable>NAME</replaceable></command></term>
 
-        <listitem><para>Set the system hostname to
-        <replaceable>NAME</replaceable>. By default, this will alter
-        the pretty, the static, and the transient hostname alike;
-        however, if one or more of <option>--static</option>,
-        <option>--transient</option>, <option>--pretty</option> are
-        used, only the selected hostnames are changed. If the pretty
-        hostname is being set, and static or transient are being set
-        as well, the specified hostname will be simplified in regards
-        to the character set used before the latter are updated. This
-        is done by replacing spaces with <literal>-</literal> and
-        removing special characters. This ensures that the pretty and
-        the static hostname are always closely related while still
-        following the validity rules of the specific name. This
-        simplification of the hostname string is not done if only the
-        transient and/or static host names are set, and the pretty
-        host name is left untouched.</para>
+        <listitem><para>Set the system hostname to <replaceable>NAME</replaceable>. By default, this will alter the
+        pretty, the static, and the transient hostname alike; however, if one or more of <option>--static</option>,
+        <option>--transient</option>, <option>--pretty</option> are used, only the selected hostnames are changed. If
+        the pretty hostname is being set, and static or transient are being set as well, the specified hostname will be
+        simplified in regards to the character set used before the latter are updated. This is done by removing special
+        characters and spaces. This ensures that the pretty and the static hostname are always closely related while
+        still following the validity rules of the specific name. This simplification of the hostname string is not done
+        if only the transient and/or static host names are set, and the pretty host name is left untouched.</para>
 
         <para>Pass the empty string <literal></literal> as the
         hostname to reset the selected hostnames to their default
