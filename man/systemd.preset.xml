@@ -98,6 +98,10 @@
     Empty lines and lines whose first non-whitespace character is # or
     ; are ignored.</para>
 
+    <para>Presets must refer to the "real" unit file, and not to any aliases. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of unit aliasing.</para>
+
     <para>Two different directives are understood:
     <literal>enable</literal> may be used to enable units by default,
     <literal>disable</literal> to disable units by default.</para>

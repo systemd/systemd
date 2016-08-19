@@ -393,18 +393,39 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 log_error_errno(r, "Failed to %s: %m.", verb);
 }
 
+/**
+ * Checks if two paths or symlinks from wd are the same, when root is the root of the filesystem.
+ * wc should be the full path in the host file system.
+ */
+static bool chroot_symlinks_same(const char *root, const char *wd, const char *a, const char *b) {
+        assert(path_is_absolute(wd));
+
+        /* This will give incorrect results if the paths are relative and go outside
+         * of the chroot. False negatives are possible. */
+
+        a = strjoina(path_is_absolute(a) ? root : wd, "/", a);
+        b = strjoina(path_is_absolute(b) ? root : wd, "/", b);
+        return path_equal_or_files_same(a, b);
+}
+
 static int create_symlink(
+                const LookupPaths *paths,
                 const char *old_path,
                 const char *new_path,
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        _cleanup_free_ char *dest = NULL;
+        _cleanup_free_ char *dest = NULL, *dirname = NULL;
+        const char *rp;
         int r;
 
         assert(old_path);
         assert(new_path);
+
+        rp = skip_root(paths, old_path);
+        if (rp)
+                old_path = rp;
 
         /* Actually create a symlink, and remember that we did. Is
          * smart enough to check if there's already a valid symlink in
@@ -436,7 +457,11 @@ static int create_symlink(
                 return r;
         }
 
-        if (path_equal(dest, old_path))
+        dirname = dirname_malloc(new_path);
+        if (!dirname)
+                return -ENOMEM;
+
+        if (chroot_symlinks_same(paths->root_dir, dirname, dest, old_path))
                 return 1;
 
         if (!force) {
@@ -620,7 +645,7 @@ static int remove_marked_symlinks(
 
         fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return errno == ENOENT ? 0 : -errno;
 
         do {
                 int q, cfd;
@@ -903,6 +928,10 @@ static int install_info_may_process(
         return 0;
 }
 
+/**
+ * Adds a new UnitFileInstallInfo entry under name in the InstallContext.will_process
+ * hashmap, or retrieves the existing one if already present.
+ */
 static int install_info_add(
                 InstallContext *c,
                 const char *name,
@@ -1334,9 +1363,8 @@ static int install_info_follow(
 }
 
 /**
- * Search for the unit file. If the unit name is a symlink,
- * follow the symlink to the target, maybe more than once.
- * Propagate the instance name if present.
+ * Search for the unit file. If the unit name is a symlink, follow the symlink to the
+ * target, maybe more than once. Propagate the instance name if present.
  */
 static int install_info_traverse(
                 UnitFileScope scope,
@@ -1421,6 +1449,10 @@ static int install_info_traverse(
         return 0;
 }
 
+/**
+ * Call install_info_add() with name_or_path as the path (if name_or_path starts with "/")
+ * or the name (otherwise). root_dir is prepended to the path.
+ */
 static int install_info_add_auto(
                 InstallContext *c,
                 const LookupPaths *paths,
@@ -1479,7 +1511,6 @@ static int install_info_symlink_alias(
 
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
-                const char *rp;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
@@ -1489,9 +1520,7 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
-                rp = skip_root(paths, i->path);
-
-                q = create_symlink(rp ?: i->path, alias_path, force, changes, n_changes);
+                q = create_symlink(paths, i->path, alias_path, force, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1535,7 +1564,6 @@ static int install_info_symlink_wants(
 
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
-                const char *rp;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
@@ -1550,9 +1578,7 @@ static int install_info_symlink_wants(
                 if (!path)
                         return -ENOMEM;
 
-                rp = skip_root(paths, i->path);
-
-                q = create_symlink(rp ?: i->path, path, true, changes, n_changes);
+                q = create_symlink(paths, i->path, path, true, changes, n_changes);
                 if (r == 0)
                         r = q;
         }
@@ -1569,7 +1595,6 @@ static int install_info_symlink_link(
                 unsigned *n_changes) {
 
         _cleanup_free_ char *path = NULL;
-        const char *rp;
         int r;
 
         assert(i);
@@ -1587,9 +1612,7 @@ static int install_info_symlink_link(
         if (!path)
                 return -ENOMEM;
 
-        rp = skip_root(paths, i->path);
-
-        return create_symlink(rp ?: i->path, path, force, changes, n_changes);
+        return create_symlink(paths, i->path, path, force, changes, n_changes);
 }
 
 static int install_info_apply(
@@ -1662,6 +1685,17 @@ static int install_context_apply(
                 r = install_info_traverse(scope, c, paths, i, flags, NULL);
                 if (r < 0)
                         return r;
+
+                /* We can attempt to process a masked unit when a different unit
+                 * that we were processing specifies it in DefaultInstance= or Also=. */
+                if (i->type == UNIT_FILE_TYPE_MASKED) {
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path, NULL);
+                        if (r >= 0)
+                                /* Assume that some *could* have been enabled here, avoid
+                                 * "empty [Install] section" warning. */
+                                r += 1;
+                        continue;
+                }
 
                 if (i->type != UNIT_FILE_TYPE_REGULAR)
                         continue;
@@ -1765,7 +1799,7 @@ int unit_file_mask(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink("/dev/null", path, force, changes, n_changes);
+                q = create_symlink(&paths, "/dev/null", path, force, changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -1925,14 +1959,12 @@ int unit_file_link(
         r = 0;
         STRV_FOREACH(i, todo) {
                 _cleanup_free_ char *new_path = NULL;
-                const char *old_path;
 
-                old_path = skip_root(&paths, *i);
                 new_path = path_make_absolute(basename(*i), config_path);
                 if (!new_path)
                         return -ENOMEM;
 
-                q = create_symlink(old_path ?: *i, new_path, force, changes, n_changes);
+                q = create_symlink(&paths, *i, new_path, force, changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -1967,7 +1999,6 @@ int unit_file_revert(
                 unsigned *n_changes) {
 
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        /* _cleanup_(install_context_done) InstallContext c = {}; */
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_strv_free_ char **todo = NULL;
         size_t n_todo = 0, n_allocated = 0;
@@ -2312,7 +2343,7 @@ int unit_file_set_default(
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
         UnitFileInstallInfo *i;
-        const char *new_path, *old_path;
+        const char *new_path;
         int r;
 
         assert(scope >= 0);
@@ -2335,10 +2366,8 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        old_path = skip_root(&paths, i->path);
         new_path = strjoina(paths.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
-
-        return create_symlink(old_path ?: i->path, new_path, force, changes, n_changes);
+        return create_symlink(&paths, i->path, new_path, force, changes, n_changes);
 }
 
 int unit_file_get_default(
@@ -2685,18 +2714,25 @@ static int preset_prepare_one(
                 InstallContext *plus,
                 InstallContext *minus,
                 LookupPaths *paths,
-                UnitFilePresetMode mode,
                 const char *name,
                 Presets presets,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
+        _cleanup_(install_context_done) InstallContext tmp = {};
         UnitFileInstallInfo *i;
         int r;
 
-        if (install_info_find(plus, name) ||
-            install_info_find(minus, name))
+        if (install_info_find(plus, name) || install_info_find(minus, name))
                 return 0;
+
+        r = install_info_discover(scope, &tmp, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i);
+        if (r < 0)
+                return r;
+        if (!streq(name, i->name)) {
+                log_debug("Skipping %s because is an alias for %s", name, i->name);
+                return 0;
+        }
 
         r = query_presets(name, presets);
         if (r < 0)
@@ -2748,7 +2784,7 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(i, files) {
-                r = preset_prepare_one(scope, &plus, &minus, &paths, mode, *i, presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &paths, *i, presets, changes, n_changes);
                 if (r < 0)
                         return r;
         }
@@ -2809,7 +2845,7 @@ int unit_file_preset_all(
                                 continue;
 
                         /* we don't pass changes[] in, because we want to handle errors on our own */
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, mode, de->d_name, presets, NULL, 0);
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, presets, NULL, 0);
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);

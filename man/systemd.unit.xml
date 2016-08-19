@@ -144,21 +144,31 @@
     <option>false</option> and <option>off</option> are
     equivalent.</para>
 
-    <para>Time span values encoded in unit files can be written in
-    various formats. A stand-alone number specifies a time in seconds.
-    If suffixed with a time unit, the unit is honored. A concatenation
-    of multiple values with units is supported, in which case the
-    values are added up. Example: "50" refers to 50 seconds; "2min
-    200ms" refers to 2 minutes plus 200 milliseconds, i.e. 120200ms.
-    The following time units are understood: s, min, h, d, w, ms, us.
-    For details see
+    <para>Time span values encoded in unit files can be written in various formats. A stand-alone number specifies a
+    time in seconds.  If suffixed with a time unit, the unit is honored. A concatenation of multiple values with units
+    is supported, in which case the values are added up. Example: <literal>50</literal> refers to 50 seconds;
+    <literal>2min 200ms</literal> refers to 2 minutes and 200 milliseconds, i.e. 120200 ms.  The following time units
+    are understood: <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
+    <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
     <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-    <para>Empty lines and lines starting with # or ; are
-    ignored. This may be used for commenting. Lines ending
-    in a backslash are concatenated with the following
-    line while reading and the backslash is replaced by a
-    space character. This may be used to wrap long lines.</para>
+    <para>Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are ignored. This may be
+    used for commenting. Lines ending in a backslash are concatenated with the following line while reading and the
+    backslash is replaced by a space character. This may be used to wrap long lines.</para>
+
+    <para>Units can be aliased (have an alternative name), by creating a symlink from the new name to the existing name
+    in one of the unit search paths. For example, <filename>systemd-networkd.service</filename> has the alias
+    <filename>dbus-org.freedesktop.network1.service</filename>, created during installation as the symlink
+    <filename>/usr/lib/systemd/system/dbus-org.freedesktop.network1.service</filename>. In addition, unit files may
+    specify aliases through the <varname>Alias=</varname> directive in the [Install] section; those aliases are only
+    effective when the unit is enabled. When the unit is enabled, symlinks will be created for those names, and removed
+    when the unit is disabled. For example, <filename>reboot.target</filename> specifies
+    <varname>Alias=ctrl-alt-del.target</varname>, so when enabled it will be invoked whenever CTRL+ALT+DEL is
+    pressed. Alias names may be used in commands like <command>enable</command>, <command>disable</command>,
+    <command>start</command>, <command>stop</command>, <command>status</command>, …, and in unit dependency directives
+    <varname>Wants=</varname>, <varname>Requires=</varname>, <varname>Before=</varname>, <varname>After=</varname>, …,
+    with the limitation that aliases specified through <varname>Alias=</varname> are only effective when the unit is
+    enabled. Aliases cannot be used with the <command>preset</command> command.</para>
 
     <para>Along with a unit file <filename>foo.service</filename>, the
     directory <filename>foo.service.wants/</filename> may exist. All
