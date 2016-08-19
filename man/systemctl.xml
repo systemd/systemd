@@ -1680,20 +1680,15 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>switch-root <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></command></term>
 
           <listitem>
-            <para>Switches to a different root directory and executes a
-            new system manager process below it. This is intended for
-            usage in initial RAM disks ("initrd"), and will transition
-            from the initrd's system manager process (a.k.a. "init"
-            process) to the main system manager process. This call takes two
-            arguments: the directory that is to become the new root directory, and
-            the path to the new system manager binary below it to
-            execute as PID 1. If the latter is omitted or the empty
-            string, a systemd binary will automatically be searched for
-            and used as init. If the system manager path is omitted or
-            equal to the empty string, the state of the initrd's system
-            manager process is passed to the main system manager, which
-            allows later introspection of the state of the services
-            involved in the initrd boot.</para>
+            <para>Switches to a different root directory and executes a new system manager process below it. This is
+            intended for usage in initial RAM disks ("initrd"), and will transition from the initrd's system manager
+            process (a.k.a. "init" process) to the main system manager process which is loaded from the actual host
+            volume. This call takes two arguments: the directory that is to become the new root directory, and the path
+            to the new system manager binary below it to execute as PID 1. If the latter is omitted or the empty
+            string, a systemd binary will automatically be searched for and used as init. If the system manager path is
+            omitted, equal to the empty string or identical to the path to the systemd binary, the state of the
+            initrd's system manager process is passed to the main system manager, which allows later introspection of
+            the state of the services involved in the initrd boot phase.</para>
           </listitem>
         </varlistentry>
 
