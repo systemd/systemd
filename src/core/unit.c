@@ -114,7 +114,7 @@ bool unit_has_name(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        return !!set_get(u->names, (char*) name);
+        return set_contains(u->names, (char*) name);
 }
 
 static void unit_init(Unit *u) {
