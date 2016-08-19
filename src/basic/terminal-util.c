@@ -39,6 +39,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1212,11 +1213,11 @@ bool colors_enabled(void) {
         static int enabled = -1;
 
         if (_unlikely_(enabled < 0)) {
-                const char *colors;
+                int val;
 
-                colors = getenv("SYSTEMD_COLORS");
-                if (colors)
-                        enabled = parse_boolean(colors) != 0;
+                val = getenv_bool("SYSTEMD_COLORS");
+                if (val >= 0)
+                        enabled = val;
                 else if (getpid() == 1)
                         /* PID1 outputs to the console without holding it open all the time */
                         enabled = !getenv_terminal_is_dumb();

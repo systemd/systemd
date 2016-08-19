@@ -837,8 +837,10 @@
       <varlistentry>
         <term><varname>$SYSTEMD_COLORS</varname></term>
 
-        <listitem><para>Controls whether colorized output should be generated.
-        </para></listitem>
+        <listitem><para>The value must be a boolean. Controls whether colorized output should be
+        generated. This can be specified to override the decision that <command>systemd</command>
+        makes based on <varname>$TERM</varname> and what the console is connected to.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -849,7 +851,7 @@
         <listitem><para>Set by systemd for supervised processes during
         socket-based activation. See
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for more information. </para></listitem>
+        for more information.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -858,7 +860,7 @@
         <listitem><para>Set by systemd for supervised processes for
         status and start-up completion notification. See
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for more information. </para></listitem>
+        for more information.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
