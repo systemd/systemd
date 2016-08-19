@@ -1905,6 +1905,8 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
 
+        unit_unref_uid_gid(UNIT(s), true);
+
         dynamic_creds_destroy(&s->dynamic_creds);
 }
 

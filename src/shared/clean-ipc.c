@@ -41,8 +41,20 @@
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
-static int clean_sysvipc_shm(uid_t delete_uid) {
+static bool match_uid_gid(uid_t subject_uid, gid_t subject_gid, uid_t delete_uid, gid_t delete_gid) {
+
+        if (uid_is_valid(delete_uid) && subject_uid == delete_uid)
+                return true;
+
+        if (gid_is_valid(delete_gid) && subject_gid == delete_gid)
+                return true;
+
+        return false;
+}
+
+static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         bool first = true;
@@ -77,7 +89,7 @@ static int clean_sysvipc_shm(uid_t delete_uid) {
                 if (n_attached > 0)
                         continue;
 
-                if (uid != delete_uid)
+                if (!match_uid_gid(uid, gid, delete_uid, delete_gid))
                         continue;
 
                 if (shmctl(shmid, IPC_RMID, NULL) < 0) {
@@ -89,7 +101,8 @@ static int clean_sysvipc_shm(uid_t delete_uid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to remove SysV shared memory segment %i: %m",
                                                 shmid);
-                }
+                } else
+                        log_debug("Removed SysV shared memory segment %i.", shmid);
         }
 
         return ret;
@@ -98,7 +111,7 @@ fail:
         return log_warning_errno(errno, "Failed to read /proc/sysvipc/shm: %m");
 }
 
-static int clean_sysvipc_sem(uid_t delete_uid) {
+static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         bool first = true;
@@ -128,7 +141,7 @@ static int clean_sysvipc_sem(uid_t delete_uid) {
                            &semid, &uid, &gid, &cuid, &cgid) != 5)
                         continue;
 
-                if (uid != delete_uid)
+                if (!match_uid_gid(uid, gid, delete_uid, delete_gid))
                         continue;
 
                 if (semctl(semid, 0, IPC_RMID) < 0) {
@@ -140,7 +153,8 @@ static int clean_sysvipc_sem(uid_t delete_uid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to remove SysV semaphores object %i: %m",
                                                 semid);
-                }
+                } else
+                        log_debug("Removed SysV semaphore %i.", semid);
         }
 
         return ret;
@@ -149,7 +163,7 @@ fail:
         return log_warning_errno(errno, "Failed to read /proc/sysvipc/sem: %m");
 }
 
-static int clean_sysvipc_msg(uid_t delete_uid) {
+static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         bool first = true;
@@ -180,7 +194,7 @@ static int clean_sysvipc_msg(uid_t delete_uid) {
                            &msgid, &cpid, &lpid, &uid, &gid, &cuid, &cgid) != 7)
                         continue;
 
-                if (uid != delete_uid)
+                if (!match_uid_gid(uid, gid, delete_uid, delete_gid))
                         continue;
 
                 if (msgctl(msgid, IPC_RMID, NULL) < 0) {
@@ -192,7 +206,8 @@ static int clean_sysvipc_msg(uid_t delete_uid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to remove SysV message queue %i: %m",
                                                 msgid);
-                }
+                } else
+                        log_debug("Removed SysV message queue %i.", msgid);
         }
 
         return ret;
@@ -201,13 +216,13 @@ fail:
         return log_warning_errno(errno, "Failed to read /proc/sysvipc/msg: %m");
 }
 
-static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
+static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid) {
         struct dirent *de;
         int ret = 0, r;
 
         assert(dir);
 
-        FOREACH_DIRENT(de, dir, goto fail) {
+        FOREACH_DIRENT_ALL(de, dir, goto fail) {
                 struct stat st;
 
                 if (STR_IN_SET(de->d_name, "..", "."))
@@ -217,12 +232,11 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
                         if (errno == ENOENT)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to stat() POSIX shared memory segment %s: %m", de->d_name);
-                        ret = -errno;
+                        ret = log_warning_errno(errno, "Failed to stat() POSIX shared memory segment %s: %m", de->d_name);
                         continue;
                 }
 
-                if (st.st_uid != uid)
+                if (!match_uid_gid(st.st_uid, st.st_gid, uid, gid))
                         continue;
 
                 if (S_ISDIR(st.st_mode)) {
@@ -230,12 +244,10 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
 
                         kid = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW|O_NOATIME);
                         if (!kid) {
-                                if (errno != ENOENT) {
-                                        log_warning_errno(errno, "Failed to enter shared memory directory %s: %m", de->d_name);
-                                        ret = -errno;
-                                }
+                                if (errno != ENOENT)
+                                        ret = log_warning_errno(errno, "Failed to enter shared memory directory %s: %m", de->d_name);
                         } else {
-                                r = clean_posix_shm_internal(kid, uid);
+                                r = clean_posix_shm_internal(kid, uid, gid);
                                 if (r < 0)
                                         ret = r;
                         }
@@ -245,9 +257,9 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                log_warning_errno(errno, "Failed to remove POSIX shared memory directory %s: %m", de->d_name);
-                                ret = -errno;
-                        }
+                                ret = log_warning_errno(errno, "Failed to remove POSIX shared memory directory %s: %m", de->d_name);
+                        } else
+                                log_debug("Removed POSIX shared memory directory %s", de->d_name);
                 } else {
 
                         if (unlinkat(dirfd(dir), de->d_name, 0) < 0) {
@@ -255,20 +267,19 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                log_warning_errno(errno, "Failed to remove POSIX shared memory segment %s: %m", de->d_name);
-                                ret = -errno;
-                        }
+                                ret = log_warning_errno(errno, "Failed to remove POSIX shared memory segment %s: %m", de->d_name);
+                        } else
+                                log_debug("Removed POSIX shared memory segment %s", de->d_name);
                 }
         }
 
         return ret;
 
 fail:
-        log_warning_errno(errno, "Failed to read /dev/shm: %m");
-        return -errno;
+        return log_warning_errno(errno, "Failed to read /dev/shm: %m");
 }
 
-static int clean_posix_shm(uid_t uid) {
+static int clean_posix_shm(uid_t uid, gid_t gid) {
         _cleanup_closedir_ DIR *dir = NULL;
 
         dir = opendir("/dev/shm");
@@ -279,10 +290,10 @@ static int clean_posix_shm(uid_t uid) {
                 return log_warning_errno(errno, "Failed to open /dev/shm: %m");
         }
 
-        return clean_posix_shm_internal(dir, uid);
+        return clean_posix_shm_internal(dir, uid, gid);
 }
 
-static int clean_posix_mq(uid_t uid) {
+static int clean_posix_mq(uid_t uid, gid_t gid) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *de;
         int ret = 0;
@@ -295,7 +306,7 @@ static int clean_posix_mq(uid_t uid) {
                 return log_warning_errno(errno, "Failed to open /dev/mqueue: %m");
         }
 
-        FOREACH_DIRENT(de, dir, goto fail) {
+        FOREACH_DIRENT_ALL(de, dir, goto fail) {
                 struct stat st;
                 char fn[1+strlen(de->d_name)+1];
 
@@ -312,7 +323,7 @@ static int clean_posix_mq(uid_t uid) {
                         continue;
                 }
 
-                if (st.st_uid != uid)
+                if (!match_uid_gid(st.st_uid, st.st_gid, uid, gid))
                         continue;
 
                 fn[0] = '/';
@@ -325,7 +336,8 @@ static int clean_posix_mq(uid_t uid) {
                         ret = log_warning_errno(errno,
                                                 "Failed to unlink POSIX message queue %s: %m",
                                                 fn);
-                }
+                } else
+                        log_debug("Removed POSIX message queue %s", fn);
         }
 
         return ret;
@@ -334,32 +346,44 @@ fail:
         return log_warning_errno(errno, "Failed to read /dev/mqueue: %m");
 }
 
-int clean_ipc(uid_t uid) {
+int clean_ipc(uid_t uid, gid_t gid) {
         int ret = 0, r;
 
-        /* Refuse to clean IPC of the root and system users */
-        if (uid <= SYSTEM_UID_MAX)
+        /* Anything to do? */
+        if (!uid_is_valid(uid) && !gid_is_valid(gid))
                 return 0;
 
-        r = clean_sysvipc_shm(uid);
+        /* Refuse to clean IPC of the root user */
+        if (uid == 0 && gid == 0)
+                return 0;
+
+        r = clean_sysvipc_shm(uid, gid);
         if (r < 0)
                 ret = r;
 
-        r = clean_sysvipc_sem(uid);
+        r = clean_sysvipc_sem(uid, gid);
         if (r < 0)
                 ret = r;
 
-        r = clean_sysvipc_msg(uid);
+        r = clean_sysvipc_msg(uid, gid);
         if (r < 0)
                 ret = r;
 
-        r = clean_posix_shm(uid);
+        r = clean_posix_shm(uid, gid);
         if (r < 0)
                 ret = r;
 
-        r = clean_posix_mq(uid);
+        r = clean_posix_mq(uid, gid);
         if (r < 0)
                 ret = r;
 
         return ret;
+}
+
+int clean_ipc_by_uid(uid_t uid) {
+        return clean_ipc(uid, GID_INVALID);
+}
+
+int clean_ipc_by_gid(gid_t gid) {
+        return clean_ipc(UID_INVALID, gid);
 }

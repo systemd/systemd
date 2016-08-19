@@ -160,14 +160,14 @@
         use. However, UID/GIDs are recycled after a unit is terminated. Care should be taken that any processes running
         as part of a unit for which dynamic users/groups are enabled do not leave files or directories owned by these
         users/groups around, as a different unit might get the same UID/GID assigned later on, and thus gain access to
-        these files or directories. If <varname>DynamicUser=</varname> is enabled, <varname>PrivateTmp=</varname> is
-        implied. This ensures that the lifetime of temporary files created by the executed processes is bound to the
-        runtime of the service, and hence the lifetime of the dynamic user/group. Since <filename>/tmp</filename> and
-        <filename>/var/tmp</filename> are usually the only world-writable directories on a system this ensures that a
-        unit making use of dynamic user/group allocation cannot leave files around after unit termination. Use
-        <varname>RuntimeDirectory=</varname> (see below) in order to assign a writable runtime directory to a service,
-        owned by the dynamic user/group and removed automatically when the unit is terminated. Defaults to
-        off.</para></listitem>
+        these files or directories. If <varname>DynamicUser=</varname> is enabled, <varname>RemoveIPC=</varname> and
+        <varname>PrivateTmp=</varname> are implied. This ensures that the lifetime of IPC objects and temporary files
+        created by the executed processes is bound to the runtime of the service, and hence the lifetime of the dynamic
+        user/group. Since <filename>/tmp</filename> and <filename>/var/tmp</filename> are usually the only
+        world-writable directories on a system this ensures that a unit making use of dynamic user/group allocation
+        cannot leave files around after unit termination. Use <varname>RuntimeDirectory=</varname> (see below) in order
+        to assign a writable runtime directory to a service, owned by the dynamic user/group and removed automatically
+        when the unit is terminated. Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -183,6 +183,18 @@
         override, but extends the list of supplementary groups
         configured in the system group database for the
         user. This does not affect commands prefixed with <literal>+</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RemoveIPC=</varname></term>
+
+        <listitem><para>Takes a boolean parameter. If set, all System V and POSIX IPC objects owned by the user and
+        group the processes of this unit are run as are removed when the unit is stopped. This setting only has an
+        effect if at least one of <varname>User=</varname>, <varname>Group=</varname> and
+        <varname>DynamicUser=</varname> are used. It has no effect on IPC objects owned by the root user. Specifically,
+        this removes System V semaphores, as well as System V and POSIX shared memory segments and message queues. If
+        multiple units use the same user or group the IPC objects are removed when the last of these units is
+        stopped. This setting is implied if <varname>DynamicUser=</varname> is set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -920,27 +932,19 @@
       <varlistentry>
         <term><varname>PrivateTmp=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a
-        new file system namespace for the executed processes and
-        mounts private <filename>/tmp</filename> and
-        <filename>/var/tmp</filename> directories inside it that is
-        not shared by processes outside of the namespace. This is
-        useful to secure access to temporary files of the process, but
-        makes sharing between processes via <filename>/tmp</filename>
-        or <filename>/var/tmp</filename> impossible. If this is
-        enabled, all temporary files created by a service in these
-        directories will be removed after the service is stopped.
-        Defaults to false. It is possible to run two or more units
-        within the same private <filename>/tmp</filename> and
-        <filename>/var/tmp</filename> namespace by using the
+        <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the executed
+        processes and mounts private <filename>/tmp</filename> and <filename>/var/tmp</filename> directories inside it
+        that is not shared by processes outside of the namespace. This is useful to secure access to temporary files of
+        the process, but makes sharing between processes via <filename>/tmp</filename> or <filename>/var/tmp</filename>
+        impossible. If this is enabled, all temporary files created by a service in these directories will be removed
+        after the service is stopped.  Defaults to false. It is possible to run two or more units within the same
+        private <filename>/tmp</filename> and <filename>/var/tmp</filename> namespace by using the
         <varname>JoinsNamespaceOf=</varname> directive, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. Note that using this setting will disconnect
-        propagation of mounts from the service to the host
-        (propagation in the opposite direction continues to work).
-        This means that this setting may not be used for services
-        which shall be able to install mount points in the main mount
-        namespace.</para></listitem>
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. Note that using this setting will disconnect propagation of mounts from the service to the host
+        (propagation in the opposite direction continues to work).  This means that this setting may not be used for
+        services which shall be able to install mount points in the main mount namespace. This setting is implied if
+        <varname>DynamicUser=</varname> is set.</para></listitem>
       </varlistentry>
 
       <varlistentry>

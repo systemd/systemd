@@ -32,5 +32,5 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        return clean_ipc(uid) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return clean_ipc_by_uid(uid) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -21,11 +21,14 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "env-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "nss-util.h"
 #include "signal-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "user-util.h"
 #include "util.h"
@@ -75,15 +78,50 @@ static const struct group nobody_group = {
 NSS_GETPW_PROTOTYPES(systemd);
 NSS_GETGR_PROTOTYPES(systemd);
 
+static int direct_lookup_name(const char *name, uid_t *ret) {
+        _cleanup_free_ char *s = NULL;
+        const char *path;
+        int r;
+
+        assert(name);
+
+        /* Normally, we go via the bus to resolve names. That has the benefit that it is available from any mount
+         * namespace and subject to proper authentication. However, there's one problem: if our module is called from
+         * dbus-daemon itself we really can't use D-Bus to communicate. In this case, resort to a client-side hack,
+         * and look for the dynamic names directly. This is pretty ugly, but breaks the cyclic dependency. */
+
+        path = strjoina("/run/systemd/dynamic-uid/direct:", name);
+        r = readlink_malloc(path, &s);
+        if (r < 0)
+                return r;
+
+        return parse_uid(s, ret);
+}
+
+static int direct_lookup_uid(uid_t uid, char **ret) {
+        char path[strlen("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1], *s;
+        int r;
+
+        xsprintf(path, "/run/systemd/dynamic-uid/direct:" UID_FMT, uid);
+
+        r = readlink_malloc(path, &s);
+        if (r < 0)
+                return r;
+        if (!valid_user_group_name(s)) { /* extra safety check */
+                free(s);
+                return -EINVAL;
+        }
+
+        *ret = s;
+        return 0;
+}
+
 enum nss_status _nss_systemd_getpwnam_r(
                 const char *name,
                 struct passwd *pwd,
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint32_t translated;
         size_t l;
         int r;
@@ -114,29 +152,44 @@ enum nss_status _nss_systemd_getpwnam_r(
         if (getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0) {
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "LookupDynamicUserByName",
-                               &error,
-                               &reply,
-                               "s",
-                               name);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                /* Access the dynamic UID allocation directly if we are called from dbus-daemon, see above. */
+                r = direct_lookup_name(name, (uid_t*) &translated);
+                if (r == -ENOENT)
                         goto not_found;
+                if (r < 0)
+                        goto fail;
 
-                goto fail;
+        } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "LookupDynamicUserByName",
+                                       &error,
+                                       &reply,
+                                       "s",
+                                       name);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                                goto not_found;
+
+                        goto fail;
+                }
+
+                r = sd_bus_message_read(reply, "u", &translated);
+                if (r < 0)
+                        goto fail;
         }
-
-        r = sd_bus_message_read(reply, "u", &translated);
-        if (r < 0)
-                goto fail;
 
         l = strlen(name);
         if (buflen < l+1) {
@@ -175,6 +228,7 @@ enum nss_status _nss_systemd_getpwuid_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *direct = NULL;
         const char *translated;
         size_t l;
         int r;
@@ -204,29 +258,41 @@ enum nss_status _nss_systemd_getpwuid_r(
         if (getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0) {
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "LookupDynamicUserByUID",
-                               &error,
-                               &reply,
-                               "u",
-                               (uint32_t) uid);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                r = direct_lookup_uid(uid, &direct);
+                if (r == -ENOENT)
                         goto not_found;
+                if (r < 0)
+                        goto fail;
 
-                goto fail;
+                translated = direct;
+
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "LookupDynamicUserByUID",
+                                       &error,
+                                       &reply,
+                                       "u",
+                                       (uint32_t) uid);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                                goto not_found;
+
+                        goto fail;
+                }
+
+                r = sd_bus_message_read(reply, "s", &translated);
+                if (r < 0)
+                        goto fail;
         }
-
-        r = sd_bus_message_read(reply, "s", &translated);
-        if (r < 0)
-                goto fail;
 
         l = strlen(translated) + 1;
         if (buflen < l) {
@@ -262,9 +328,6 @@ enum nss_status _nss_systemd_getgrnam_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint32_t translated;
         size_t l;
         int r;
@@ -294,29 +357,44 @@ enum nss_status _nss_systemd_getgrnam_r(
         if (getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0) {
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "LookupDynamicUserByName",
-                               &error,
-                               &reply,
-                               "s",
-                               name);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                /* Access the dynamic GID allocation directly if we are called from dbus-daemon, see above. */
+                r = direct_lookup_name(name, (uid_t*) &translated);
+                if (r == -ENOENT)
                         goto not_found;
+                if (r < 0)
+                        goto fail;
+        } else {
 
-                goto fail;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "LookupDynamicUserByName",
+                                       &error,
+                                       &reply,
+                                       "s",
+                                       name);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                                goto not_found;
+
+                        goto fail;
+                }
+
+                r = sd_bus_message_read(reply, "u", &translated);
+                if (r < 0)
+                        goto fail;
         }
-
-        r = sd_bus_message_read(reply, "u", &translated);
-        if (r < 0)
-                goto fail;
 
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
@@ -353,6 +431,7 @@ enum nss_status _nss_systemd_getgrgid_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *direct = NULL;
         const char *translated;
         size_t l;
         int r;
@@ -382,29 +461,40 @@ enum nss_status _nss_systemd_getgrgid_r(
         if (getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 goto not_found;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
+        if (getenv_bool("SYSTEMD_NSS_BYPASS_BUS") > 0) {
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "LookupDynamicUserByUID",
-                               &error,
-                               &reply,
-                               "u",
-                               (uint32_t) gid);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                r = direct_lookup_uid(gid, &direct);
+                if (r == -ENOENT)
                         goto not_found;
+                if (r < 0)
+                        goto fail;
 
-                goto fail;
+                translated = direct;
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "LookupDynamicUserByUID",
+                                       &error,
+                                       &reply,
+                                       "u",
+                                       (uint32_t) gid);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
+                                goto not_found;
+
+                        goto fail;
+                }
+
+                r = sd_bus_message_read(reply, "s", &translated);
+                if (r < 0)
+                        goto fail;
         }
-
-        r = sd_bus_message_read(reply, "s", &translated);
-        if (r < 0)
-                goto fail;
 
         l = sizeof(char*) + strlen(translated) + 1;
         if (buflen < l) {

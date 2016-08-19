@@ -1471,6 +1471,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         /* Also, remove the runtime directory */
         exec_context_destroy_runtime_directory(&s->exec_context, manager_get_runtime_prefix(UNIT(s)->manager));
 
+        /* Get rid of the IPC bits of the user */
+        unit_unref_uid_gid(UNIT(s), true);
+
         /* Release the user, and destroy it if we are the only remaining owner */
         dynamic_creds_destroy(&s->dynamic_creds);
 

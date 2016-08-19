@@ -100,7 +100,8 @@ Unit *unit_new(Manager *m, size_t size) {
         u->on_failure_job_mode = JOB_REPLACE;
         u->cgroup_inotify_wd = -1;
         u->job_timeout = USEC_INFINITY;
-        u->sigchldgen = 0;
+        u->ref_uid = UID_INVALID;
+        u->ref_gid = GID_INVALID;
 
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
@@ -549,6 +550,8 @@ void unit_free(Unit *u) {
                 LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
 
         unit_release_cgroup(u);
+
+        unit_unref_uid_gid(u, false);
 
         (void) manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
@@ -2614,6 +2617,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
 
+        if (uid_is_valid(u->ref_uid))
+                unit_serialize_item_format(u, f, "ref-uid", UID_FMT, u->ref_uid);
+        if (gid_is_valid(u->ref_gid))
+                unit_serialize_item_format(u, f, "ref-gid", GID_FMT, u->ref_gid);
+
         if (serialize_jobs) {
                 if (u->job) {
                         fprintf(f, "job\n");
@@ -2849,6 +2857,28 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse cgroup-realized bool %s, ignoring.", v);
                         else
                                 u->cgroup_realized = b;
+
+                        continue;
+
+                } else if (streq(l, "ref-uid")) {
+                        uid_t uid;
+
+                        r = parse_uid(v, &uid);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse referenced UID %s, ignoring.", v);
+                        else
+                                unit_ref_uid_gid(u, uid, GID_INVALID);
+
+                        continue;
+
+                } else if (streq(l, "ref-gid")) {
+                        gid_t gid;
+
+                        r = parse_gid(v, &gid);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse referenced GID %s, ignoring.", v);
+                        else
+                                unit_ref_uid_gid(u, UID_INVALID, gid);
 
                         continue;
                 }
@@ -3310,6 +3340,7 @@ int unit_patch_contexts(Unit *u) {
                         }
 
                         ec->private_tmp = true;
+                        ec->remove_ipc = true;
                 }
         }
 
@@ -3931,4 +3962,145 @@ pid_t unit_main_pid(Unit *u) {
                 return UNIT_VTABLE(u)->main_pid(u);
 
         return 0;
+}
+
+static void unit_unref_uid_internal(
+                Unit *u,
+                uid_t *ref_uid,
+                bool destroy_now,
+                void (*_manager_unref_uid)(Manager *m, uid_t uid, bool destroy_now)) {
+
+        assert(u);
+        assert(ref_uid);
+        assert(_manager_unref_uid);
+
+        /* Generic implementation of both unit_unref_uid() and unit_unref_gid(), under the assumption that uid_t and
+         * gid_t are actually the same time, with the same validity rules.
+         *
+         * Drops a reference to UID/GID from a unit. */
+
+        assert_cc(sizeof(uid_t) == sizeof(gid_t));
+        assert_cc(UID_INVALID == (uid_t) GID_INVALID);
+
+        if (!uid_is_valid(*ref_uid))
+                return;
+
+        _manager_unref_uid(u->manager, *ref_uid, destroy_now);
+        *ref_uid = UID_INVALID;
+}
+
+void unit_unref_uid(Unit *u, bool destroy_now) {
+        unit_unref_uid_internal(u, &u->ref_uid, destroy_now, manager_unref_uid);
+}
+
+void unit_unref_gid(Unit *u, bool destroy_now) {
+        unit_unref_uid_internal(u, (uid_t*) &u->ref_gid, destroy_now, manager_unref_gid);
+}
+
+static int unit_ref_uid_internal(
+                Unit *u,
+                uid_t *ref_uid,
+                uid_t uid,
+                bool clean_ipc,
+                int (*_manager_ref_uid)(Manager *m, uid_t uid, bool clean_ipc)) {
+
+        int r;
+
+        assert(u);
+        assert(ref_uid);
+        assert(uid_is_valid(uid));
+        assert(_manager_ref_uid);
+
+        /* Generic implementation of both unit_ref_uid() and unit_ref_guid(), under the assumption that uid_t and gid_t
+         * are actually the same type, and have the same validity rules.
+         *
+         * Adds a reference on a specific UID/GID to this unit. Each unit referencing the same UID/GID maintains a
+         * reference so that we can destroy the UID/GID's IPC resources as soon as this is requested and the counter
+         * drops to zero. */
+
+        assert_cc(sizeof(uid_t) == sizeof(gid_t));
+        assert_cc(UID_INVALID == (uid_t) GID_INVALID);
+
+        if (*ref_uid == uid)
+                return 0;
+
+        if (uid_is_valid(*ref_uid)) /* Already set? */
+                return -EBUSY;
+
+        r = _manager_ref_uid(u->manager, uid, clean_ipc);
+        if (r < 0)
+                return r;
+
+        *ref_uid = uid;
+        return 1;
+}
+
+int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc) {
+        return unit_ref_uid_internal(u, &u->ref_uid, uid, clean_ipc, manager_ref_uid);
+}
+
+int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc) {
+        return unit_ref_uid_internal(u, (uid_t*) &u->ref_gid, (uid_t) gid, clean_ipc, manager_ref_gid);
+}
+
+static int unit_ref_uid_gid_internal(Unit *u, uid_t uid, gid_t gid, bool clean_ipc) {
+        int r = 0, q = 0;
+
+        assert(u);
+
+        /* Reference both a UID and a GID in one go. Either references both, or neither. */
+
+        if (uid_is_valid(uid)) {
+                r = unit_ref_uid(u, uid, clean_ipc);
+                if (r < 0)
+                        return r;
+        }
+
+        if (gid_is_valid(gid)) {
+                q = unit_ref_gid(u, gid, clean_ipc);
+                if (q < 0) {
+                        if (r > 0)
+                                unit_unref_uid(u, false);
+
+                        return q;
+                }
+        }
+
+        return r > 0 || q > 0;
+}
+
+int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid) {
+        ExecContext *c;
+        int r;
+
+        assert(u);
+
+        c = unit_get_exec_context(u);
+
+        r = unit_ref_uid_gid_internal(u, uid, gid, c ? c->remove_ipc : false);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Couldn't add UID/GID reference to unit, proceeding without: %m");
+
+        return r;
+}
+
+void unit_unref_uid_gid(Unit *u, bool destroy_now) {
+        assert(u);
+
+        unit_unref_uid(u, destroy_now);
+        unit_unref_gid(u, destroy_now);
+}
+
+void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid) {
+        int r;
+
+        assert(u);
+
+        /* This is invoked whenever one of the forked off processes let's us know the UID/GID its user name/group names
+         * resolved to. We keep track of which UID/GID is currently assigned in order to be able to destroy its IPC
+         * objects when no service references the UID/GID anymore. */
+
+        r = unit_ref_uid_gid(u, uid, gid);
+        if (r > 0)
+                bus_unit_send_change_signal(u);
 }

@@ -178,6 +178,7 @@ struct ExecContext {
         bool no_new_privileges;
 
         bool dynamic_user;
+        bool remove_ipc;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn

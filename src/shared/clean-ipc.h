@@ -21,4 +21,6 @@
 
 #include <sys/types.h>
 
-int clean_ipc(uid_t uid);
+int clean_ipc(uid_t uid, gid_t gid);
+int clean_ipc_by_uid(uid_t uid);
+int clean_ipc_by_gid(gid_t gid);

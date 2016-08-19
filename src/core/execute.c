@@ -91,6 +91,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "special.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1384,6 +1385,7 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 }
 
 static int build_environment(
+                Unit *u,
                 const ExecContext *c,
                 const ExecParameters *p,
                 unsigned n_fds,
@@ -1401,7 +1403,7 @@ static int build_environment(
         assert(c);
         assert(ret);
 
-        our_env = new0(char*, 12);
+        our_env = new0(char*, 13);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1432,6 +1434,16 @@ static int build_environment(
                 our_env[n_env++] = x;
 
                 if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec) < 0)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+        }
+
+        /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use D-Bus look up dynamic
+         * users via PID 1, possibly dead-locking the dbus daemon. This way it will not use D-Bus to resolve names, but
+         * check the database directly. */
+        if (unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
+                x = strdup("SYSTEMD_NSS_BYPASS_BUS=1");
+                if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
         }
@@ -1723,11 +1735,12 @@ static int close_remaining_fds(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
                 DynamicCreds *dcreds,
+                int user_lookup_fd,
                 int socket_fd,
                 int *fds, unsigned n_fds) {
 
         unsigned n_dont_close = 0;
-        int dont_close[n_fds + 11];
+        int dont_close[n_fds + 12];
 
         assert(params);
 
@@ -1755,7 +1768,38 @@ static int close_remaining_fds(
                         append_socket_pair(dont_close, &n_dont_close, dcreds->group->storage_socket);
         }
 
+        if (user_lookup_fd >= 0)
+                dont_close[n_dont_close++] = user_lookup_fd;
+
         return close_all_fds(dont_close, n_dont_close);
+}
+
+static int send_user_lookup(
+                Unit *unit,
+                int user_lookup_fd,
+                uid_t uid,
+                gid_t gid) {
+
+        assert(unit);
+
+        /* Send the resolved UID/GID to PID 1 after we learnt it. We send a single datagram, containing the UID/GID
+         * data as well as the unit name. Note that we suppress sending this if no user/group to resolve was
+         * specified. */
+
+        if (user_lookup_fd < 0)
+                return 0;
+
+        if (!uid_is_valid(uid) && !gid_is_valid(gid))
+                return 0;
+
+        if (writev(user_lookup_fd,
+               (struct iovec[]) {
+                           { .iov_base = &uid, .iov_len = sizeof(uid) },
+                           { .iov_base = &gid, .iov_len = sizeof(gid) },
+                           { .iov_base = unit->id, .iov_len = strlen(unit->id) }}, 3) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int exec_child(
@@ -1769,6 +1813,7 @@ static int exec_child(
                 int socket_fd,
                 int *fds, unsigned n_fds,
                 char **files_env,
+                int user_lookup_fd,
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
@@ -1815,7 +1860,7 @@ static int exec_child(
 
         log_forget_fds();
 
-        r = close_remaining_fds(params, runtime, dcreds, socket_fd, fds, n_fds);
+        r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, fds, n_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return r;
@@ -1862,7 +1907,7 @@ static int exec_child(
                         return r;
                 }
 
-                if (uid == UID_INVALID || gid == GID_INVALID) {
+                if (!uid_is_valid(uid) || !gid_is_valid(gid)) {
                         *exit_status = EXIT_USER;
                         return -ESRCH;
                 }
@@ -1901,6 +1946,14 @@ static int exec_child(
                         }
                 }
         }
+
+        r = send_user_lookup(unit, user_lookup_fd, uid, gid);
+        if (r < 0) {
+                *exit_status = EXIT_USER;
+                return r;
+        }
+
+        user_lookup_fd = safe_close(user_lookup_fd);
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we
          * must sure to drop O_NONBLOCK */
@@ -2059,6 +2112,7 @@ static int exec_child(
         }
 
         r = build_environment(
+                        unit,
                         context,
                         params,
                         n_fds,
@@ -2501,6 +2555,7 @@ int exec_spawn(Unit *unit,
                                socket_fd,
                                fds, n_fds,
                                files_env,
+                               unit->manager->user_lookup_fds[1],
                                &exit_status);
                 if (r < 0) {
                         log_open();
