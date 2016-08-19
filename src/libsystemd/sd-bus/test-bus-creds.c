@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         int r;
 
-        if (cg_unified() == -ENOMEDIUM) {
+        if (cg_all_unified() == -ENOMEDIUM) {
                 puts("Skipping test: /sys/fs/cgroup/ not available");
                 return EXIT_TEST_SKIP;
         }

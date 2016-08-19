@@ -213,7 +213,7 @@ static int process(
                 uint64_t new_usage;
                 nsec_t timestamp;
 
-                if (cg_unified() > 0) {
+                if (cg_all_unified() > 0) {
                         const char *keys[] = { "usage_usec", NULL };
                         _cleanup_free_ char *val = NULL;
 
@@ -273,7 +273,7 @@ static int process(
         } else if (streq(controller, "memory")) {
                 _cleanup_free_ char *p = NULL, *v = NULL;
 
-                if (cg_unified() <= 0)
+                if (cg_all_unified() <= 0)
                         r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
                 else
                         r = cg_get_path(controller, path, "memory.current", &p);
@@ -293,11 +293,11 @@ static int process(
                 if (g->memory > 0)
                         g->memory_valid = true;
 
-        } else if ((streq(controller, "io") && cg_unified() > 0) ||
-                   (streq(controller, "blkio") && cg_unified() <= 0)) {
+        } else if ((streq(controller, "io") && cg_all_unified() > 0) ||
+                   (streq(controller, "blkio") && cg_all_unified() <= 0)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *p = NULL;
-                bool unified = cg_unified() > 0;
+                bool unified = cg_all_unified() > 0;
                 uint64_t wr = 0, rd = 0;
                 nsec_t timestamp;
 
