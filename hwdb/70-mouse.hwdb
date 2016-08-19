@@ -47,6 +47,7 @@
 #    ID_INPUT_TRACKBALL
 #    MOUSE_DPI
 #    MOUSE_WHEEL_CLICK_ANGLE
+#    MOUSE_WHEEL_CLICK_ANGLE_HORIZ
 #
 #########################################
 #         ID_INPUT_TRACKBALL            #
@@ -104,6 +105,14 @@
 #
 # Most mice have a 15 degree click stop (24 clicks per full rotation).
 #
+#########################################
+#       MOUSE_WHEEL_CLICK_ANGLE_HORIZ   #
+#########################################
+#
+# Identical to MOUSE_WHEEL_CLICK_ANGLE but for the horizontal scroll wheel.
+# This property may only be specified if the angle for the horizontal
+# scroll wheel differs from the vertical wheel. If so, *both* click angles
+# must be specified.
 
 #
 # Sort by brand, type (usb, bluetooth), DPI, frequency.
@@ -344,9 +353,14 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
 
 # Logitech Performance MX
 mouse:usb:v046dp101a:name:Logitech Performance MX:
+ MOUSE_DPI=1000@166
+
 # Logitech MX Master
+# Horiz wheel has 14 stops, angle is rounded up
 mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
+ MOUSE_WHEEL_CLICK_ANGLE=15
+ MOUSE_WHEEL_CLICK_ANGLE_HORIZ=26
 
 # Logitech MK260 Wireless Combo Receiver aka M-R0011
 mouse:usb:v046dpc52e:name:Logitech USB Receiver:
