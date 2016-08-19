@@ -42,6 +42,7 @@ static void test_hostname_is_valid(void) {
         assert_se(!hostname_is_valid("foo..bar", false));
         assert_se(!hostname_is_valid("foo.bar..", false));
         assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", false));
+        assert_se(!hostname_is_valid("au-xph5-rvgrdsb5hcxc-47et3a5vvkrc-server-wyoz4elpdpe3.openstack.local", false));
 
         assert_se(hostname_is_valid("foobar", true));
         assert_se(hostname_is_valid("foobar.com", true));
