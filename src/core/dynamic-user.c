@@ -154,7 +154,7 @@ static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
 
         char path1[strlen("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
         const char *path2;
-        int r = 0;
+        int r = 0, k;
 
         /* Add direct additional symlinks for direct lookups of dynamic UIDs and their names by userspace code. The
          * only reason we have this is because dbus-daemon cannot use D-Bus for resolving users and groups (since it
@@ -164,23 +164,26 @@ static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
          * on them and as those may be taken by any user with read access we can't make them world-readable. */
 
         xsprintf(path1, "/run/systemd/dynamic-uid/direct:" UID_FMT, uid);
-        if (unlink(path1) < 0) {
-                if (errno != ENOENT)
-                        r = -errno;
-        }
-        if (b) {
-                if (symlink(name, path1) < 0)
-                        r = -errno;
+        if (unlink(path1) < 0 && errno != ENOENT)
+                r = -errno;
+
+        if (b && symlink(name, path1) < 0) {
+                k = log_warning_errno(errno, "Failed to symlink \"%s\": %m", path1);
+                if (r == 0)
+                        r = k;
         }
 
         path2 = strjoina("/run/systemd/dynamic-uid/direct:", name);
-        if (unlink(path2) < 0) {
-                if (errno != ENOENT)
-                        r = -errno;
+        if (unlink(path2) < 0 && errno != ENOENT) {
+                k = -errno;
+                if (r == 0)
+                        r = k;
         }
-        if (b) {
-                if (symlink(path1 + strlen("/run/systemd/dynamic-uid/direct:"), path2) < 0)
-                        r = -errno;
+
+        if (b && symlink(path1 + strlen("/run/systemd/dynamic-uid/direct:"), path2) < 0) {
+                k = log_warning_errno(errno,  "Failed to symlink \"%s\": %m", path2);
+                if (r == 0)
+                        r = k;
         }
 
         return r;
