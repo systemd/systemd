@@ -106,15 +106,11 @@
         <term><option>--transient</option></term>
         <term><option>--pretty</option></term>
 
-        <listitem><para>If <command>status</command> is used (or no
-        explicit command is given) and one of those fields is given,
-        <command>hostnamectl</command> will print out just this
-        selected hostname.</para>
+        <listitem><para>If <command>status</command> is invoked (or no explicit command is given) and one of these
+        switches is specified, <command>hostnamectl</command> will print out just this selected hostname.</para>
 
-        <para>If used with <command>set-hostname</command>, only the
-        selected hostname(s) will be updated. When more than one of
-        those options is used, all the specified hostnames will be
-        updated. </para></listitem>
+        <para>If used with <command>set-hostname</command>, only the selected hostname(s) will be updated. When more
+        than one of these switches are specified, all the specified hostnames will be updated. </para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
