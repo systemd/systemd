@@ -370,7 +370,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (s->runtime_journal)
                 return s->runtime_journal;
 
-        if (uid <= SYSTEM_UID_MAX)
+        if (uid <= SYSTEM_UID_MAX || uid_is_dynamic(uid))
                 return s->system_journal;
 
         r = sd_id128_get_machine(&machine);

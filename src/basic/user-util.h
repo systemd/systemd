@@ -20,6 +20,7 @@
 ***/
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -57,8 +58,19 @@ int take_etc_passwd_lock(const char *root);
 #define UID_INVALID ((uid_t) -1)
 #define GID_INVALID ((gid_t) -1)
 
-/* The following macros add 1 when converting things, since UID 0 is a
- * valid UID, while the pointer NULL is special */
+/* Let's pick a UIDs within the 16bit range, so that we are compatible with containers using 16bit
+ * user namespacing. At least on Fedora normal users are allocated until UID 60000, hence do not
+ * allocate from below this. Also stay away from the upper end of the range as that is often used
+ * for overflow/nobody users. */
+#define DYNAMIC_UID_MIN ((uid_t) UINT32_C(0x0000EF00))
+#define DYNAMIC_UID_MAX ((uid_t) UINT32_C(0x0000FFEF))
+
+static inline bool uid_is_dynamic(uid_t uid) {
+        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
+}
+
+/* The following macros add 1 when converting things, since UID 0 is a valid UID, while the pointer
+ * NULL is special */
 #define PTR_TO_UID(p) ((uid_t) (((uintptr_t) (p))-1))
 #define UID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
 
