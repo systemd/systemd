@@ -1191,17 +1191,21 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         return receive_one_fd(pair[0], 0);
 }
 
-bool terminal_is_dumb(void) {
+static bool getenv_terminal_is_dumb(void) {
         const char *e;
-
-        if (!on_tty())
-                return true;
 
         e = getenv("TERM");
         if (!e)
                 return true;
 
         return streq(e, "dumb");
+}
+
+bool terminal_is_dumb(void) {
+        if (!on_tty())
+                return true;
+
+        return getenv_terminal_is_dumb();
 }
 
 bool colors_enabled(void) {
@@ -1213,6 +1217,9 @@ bool colors_enabled(void) {
                 colors = getenv("SYSTEMD_COLORS");
                 if (colors)
                         enabled = parse_boolean(colors) != 0;
+                else if (getpid() == 1)
+                        /* PID1 outputs to the console without holding it open all the time */
+                        enabled = !getenv_terminal_is_dumb();
                 else
                         enabled = !terminal_is_dumb();
         }
