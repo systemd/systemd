@@ -47,7 +47,7 @@
 #    ID_INPUT_TRACKBALL
 #    MOUSE_DPI
 #    MOUSE_WHEEL_CLICK_ANGLE
-#    MOUSE_WHEEL_CLICK_ANGLE_HORIZ
+#    MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL
 #
 #########################################
 #         ID_INPUT_TRACKBALL            #
@@ -106,7 +106,7 @@
 # Most mice have a 15 degree click stop (24 clicks per full rotation).
 #
 #########################################
-#       MOUSE_WHEEL_CLICK_ANGLE_HORIZ   #
+#   MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL  #
 #########################################
 #
 # Identical to MOUSE_WHEEL_CLICK_ANGLE but for the horizontal scroll wheel.
@@ -360,7 +360,7 @@ mouse:usb:v046dp101a:name:Logitech Performance MX:
 mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
  MOUSE_WHEEL_CLICK_ANGLE=15
- MOUSE_WHEEL_CLICK_ANGLE_HORIZ=26
+ MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
 
 # Logitech MK260 Wireless Combo Receiver aka M-R0011
 mouse:usb:v046dpc52e:name:Logitech USB Receiver:
