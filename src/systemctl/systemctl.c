@@ -3384,9 +3384,9 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
                                 "KillUnit",
                                 &error,
                                 NULL,
-                                "ssi", *names, kill_who ? kill_who : arg_kill_who, arg_signal);
+                                "ssi", *name, kill_who ? kill_who : arg_kill_who, arg_signal);
                 if (q < 0) {
-                        log_error_errno(q, "Failed to kill unit %s: %s", *names, bus_error_message(&error, q));
+                        log_error_errno(q, "Failed to kill unit %s: %s", *name, bus_error_message(&error, q));
                         if (r == 0)
                                 r = q;
                 }
