@@ -109,6 +109,7 @@ typedef struct MachineInfo {
         const char *name;
         const char *class;
         const char *service;
+        char *os;
 } MachineInfo;
 
 static int compare_machine_info(const void *a, const void *b) {
@@ -117,12 +118,66 @@ static int compare_machine_info(const void *a, const void *b) {
         return strcmp(x->name, y->name);
 }
 
+static void clean_machine_info(MachineInfo *machines, size_t n_machines) {
+        size_t i;
+
+        if (!machines || n_machines == 0)
+                return;
+
+        for (i = 0; i < n_machines; i++)
+                free(machines[i].os);
+        free(machines);
+}
+
+static int get_os_name(sd_bus *bus, const char *name, char **out) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *k, *v, *os;
+        char *str;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(out);
+
+        r = sd_bus_call_method(bus,
+                "org.freedesktop.machine1",
+                "/org/freedesktop/machine1",
+                "org.freedesktop.machine1.Manager",
+                "GetMachineOSRelease",
+                NULL, &reply, "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "{ss}", &k, &v)) > 0) {
+                if (streq(k, "PRETTY_NAME"))
+                        os = v;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        str = strdup(os);
+        if (!str)
+                return log_oom();
+        *out = str;
+
+        return 0;
+}
+
 static int list_machines(int argc, char *argv[], void *userdata) {
 
-        size_t max_name = strlen("MACHINE"), max_class = strlen("CLASS"), max_service = strlen("SERVICE");
+        size_t max_name = strlen("MACHINE"), max_class = strlen("CLASS"),
+               max_service = strlen("SERVICE"), max_os = strlen("OS");
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ MachineInfo *machines = NULL;
+        MachineInfo *machines = NULL;
         const char *name, *class, *service, *object;
         size_t n_machines = 0, n_allocated = 0, j;
         sd_bus *bus = userdata;
@@ -148,15 +203,21 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         r = sd_bus_message_enter_container(reply, 'a', "(ssso)");
         if (r < 0)
                 return bus_log_parse_error(r);
-
         while ((r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object)) > 0) {
                 size_t l;
 
                 if (name[0] == '.' && !arg_all)
                         continue;
 
-                if (!GREEDY_REALLOC(machines, n_allocated, n_machines + 1))
-                        return log_oom();
+                if (!GREEDY_REALLOC(machines, n_allocated, n_machines + 1)) {
+                        r = log_oom();
+                        goto out;
+                }
+
+                machines[n_machines].os = NULL;
+                r = get_os_name(bus, name, &machines[n_machines].os);
+                if (r < 0)
+                        goto out;
 
                 machines[n_machines].name = name;
                 machines[n_machines].class = class;
@@ -174,35 +235,47 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 if (l > max_service)
                         max_service = l;
 
+                l = machines[n_machines].os ? strlen(machines[n_machines].os) : 0;
+                if (l > max_os)
+                        max_os = l;
+
                 n_machines++;
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (r < 0) {
+                r = bus_log_parse_error(r);
+                goto out;
+        }
 
         r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (r < 0) {
+                r = bus_log_parse_error(r);
+                goto out;
+        }
 
         qsort_safe(machines, n_machines, sizeof(MachineInfo), compare_machine_info);
 
         if (arg_legend && n_machines > 0)
-                printf("%-*s %-*s %-*s\n",
+                printf("%-*s %-*s %-*s %-*s\n",
                        (int) max_name, "MACHINE",
                        (int) max_class, "CLASS",
-                       (int) max_service, "SERVICE");
+                       (int) max_service, "SERVICE",
+                       (int) max_os, "OS");
 
         for (j = 0; j < n_machines; j++)
-                printf("%-*s %-*s %-*s\n",
+                printf("%-*s %-*s %-*s %-*s\n",
                        (int) max_name, machines[j].name,
                        (int) max_class, machines[j].class,
-                       (int) max_service, machines[j].service);
+                       (int) max_service, machines[j].service,
+                       (int) max_os, machines[j].os ? machines[j].os : "");
 
         if (arg_legend && n_machines > 0)
                 printf("\n%zu machines listed.\n", n_machines);
         else
                 printf("No machines.\n");
 
-        return 0;
+out:
+        clean_machine_info(machines, n_machines);
+        return r;
 }
 
 typedef struct ImageInfo {
@@ -456,40 +529,16 @@ static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *p
 }
 
 static int print_os_release(sd_bus *bus, const char *name, const char *prefix) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *k, *v, *pretty = NULL;
+        _cleanup_free_ char *pretty = NULL;
         int r;
 
         assert(bus);
         assert(name);
         assert(prefix);
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "GetMachineOSRelease",
-                               NULL,
-                               &reply,
-                               "s", name);
+        r = get_os_name(bus, name, &pretty);
         if (r < 0)
                 return r;
-
-        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_read(reply, "{ss}", &k, &v)) > 0) {
-                if (streq(k, "PRETTY_NAME"))
-                        pretty = v;
-
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         if (pretty)
                 printf("%s%s\n", prefix, pretty);
