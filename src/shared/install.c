@@ -912,8 +912,8 @@ static int install_info_may_process(
         assert(i);
         assert(paths);
 
-        /* Checks whether the loaded unit file is one we should process, or is masked, transient or generated and thus
-         * not subject to enable/disable operations. */
+        /* Checks whether the loaded unit file is one we should process, or is masked,
+         * transient or generated and thus not subject to enable/disable operations. */
 
         if (i->type == UNIT_FILE_TYPE_MASKED) {
                 unit_file_changes_add(changes, n_changes, -ERFKILL, i->path, NULL);
@@ -1134,7 +1134,6 @@ static int unit_file_load(
         struct stat st;
         int r;
 
-        assert(c);
         assert(info);
         assert(path);
 
@@ -1162,6 +1161,9 @@ static int unit_file_load(
 
                 return 0;
         }
+
+        /* c is only needed if we actually load the file */
+        assert(c);
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
@@ -1275,7 +1277,6 @@ static int unit_file_search(
         char **p;
         int r;
 
-        assert(c);
         assert(info);
         assert(paths);
 
@@ -1546,7 +1547,14 @@ static int install_info_symlink_wants(
         assert(paths);
         assert(config_path);
 
+        if (strv_isempty(list))
+                return 0;
+
         if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
+                UnitFileInstallInfo instance = {
+                        .type = _UNIT_FILE_TYPE_INVALID,
+                };
+                _cleanup_free_ char *path = NULL;
 
                 /* Don't install any symlink if there's no default
                  * instance configured */
@@ -1557,6 +1565,19 @@ static int install_info_symlink_wants(
                 r = unit_name_replace_instance(i->name, i->default_instance, &buf);
                 if (r < 0)
                         return r;
+
+                instance.name = buf;
+                r = unit_file_search(NULL, &instance, paths, SEARCH_FOLLOW_CONFIG_SYMLINKS);
+                if (r < 0)
+                        return r;
+
+                path = instance.path;
+                instance.path = NULL;
+
+                if (instance.type == UNIT_FILE_TYPE_MASKED) {
+                        unit_file_changes_add(changes, n_changes, -ERFKILL, path, NULL);
+                        return -ERFKILL;
+                }
 
                 n = buf;
         } else
@@ -1687,12 +1708,12 @@ static int install_context_apply(
                         return r;
 
                 /* We can attempt to process a masked unit when a different unit
-                 * that we were processing specifies it in DefaultInstance= or Also=. */
+                 * that we were processing specifies it in Also=. */
                 if (i->type == UNIT_FILE_TYPE_MASKED) {
                         unit_file_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path, NULL);
                         if (r >= 0)
-                                /* Assume that some *could* have been enabled here, avoid
-                                 * "empty [Install] section" warning. */
+                                /* Assume that something *could* have been enabled here,
+                                 * avoid "empty [Install] section" warning. */
                                 r += 1;
                         continue;
                 }
