@@ -155,6 +155,11 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnXPS159550*
  EVDEV_ABS_35=::41
  EVDEV_ABS_36=::43
 
+# Dell XPS M1530
+evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:bvn*:bvr*:bd*:svnDellInc.:pnXPSM1530*
+ EVDEV_ABS_00=85:947:15
+ EVDEV_ABS_01=154:726:18
+
 #########################################
 # Google
 #########################################
