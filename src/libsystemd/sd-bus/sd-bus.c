@@ -2640,6 +2640,59 @@ null_message:
         return r;
 }
 
+static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        sd_bus_slot *slot;
+        int r;
+
+        assert(bus);
+        assert(c);
+
+        r = bus_message_new_synthetic_error(
+                        bus,
+                        c->cookie,
+                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
+                        &m);
+        if (r < 0)
+                return r;
+
+        r = bus_seal_synthetic_message(bus, m);
+        if (r < 0)
+                return r;
+
+        if (c->timeout != 0) {
+                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+                c->timeout = 0;
+        }
+
+        ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
+        c->cookie = 0;
+
+        slot = container_of(c, sd_bus_slot, reply_callback);
+
+        bus->iteration_counter++;
+
+        bus->current_message = m;
+        bus->current_slot = sd_bus_slot_ref(slot);
+        bus->current_handler = c->callback;
+        bus->current_userdata = slot->userdata;
+        r = c->callback(m, slot->userdata, &error_buffer);
+        bus->current_userdata = NULL;
+        bus->current_handler = NULL;
+        bus->current_slot = NULL;
+        bus->current_message = NULL;
+
+        if (slot->floating) {
+                bus_slot_disconnect(slot);
+                sd_bus_slot_unref(slot);
+        }
+
+        sd_bus_slot_unref(slot);
+
+        return bus_maybe_reply_error(m, r, &error_buffer);
+}
+
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         struct reply_callback *c;
@@ -2648,55 +2701,10 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         assert(bus);
         assert(bus->state == BUS_CLOSING);
 
+        /* First, fail all outstanding method calls */
         c = ordered_hashmap_first(bus->reply_callbacks);
-        if (c) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-                sd_bus_slot *slot;
-
-                /* First, fail all outstanding method calls */
-                r = bus_message_new_synthetic_error(
-                                bus,
-                                c->cookie,
-                                &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
-                                &m);
-                if (r < 0)
-                        return r;
-
-                r = bus_seal_synthetic_message(bus, m);
-                if (r < 0)
-                        return r;
-
-                if (c->timeout != 0) {
-                        prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
-                        c->timeout = 0;
-                }
-
-                ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
-                c->cookie = 0;
-
-                slot = container_of(c, sd_bus_slot, reply_callback);
-
-                bus->iteration_counter++;
-
-                bus->current_message = m;
-                bus->current_slot = sd_bus_slot_ref(slot);
-                bus->current_handler = c->callback;
-                bus->current_userdata = slot->userdata;
-                r = c->callback(m, slot->userdata, &error_buffer);
-                bus->current_userdata = NULL;
-                bus->current_handler = NULL;
-                bus->current_slot = NULL;
-                bus->current_message = NULL;
-
-                if (slot->floating) {
-                        bus_slot_disconnect(slot);
-                        sd_bus_slot_unref(slot);
-                }
-
-                sd_bus_slot_unref(slot);
-
-                return bus_maybe_reply_error(m, r, &error_buffer);
-        }
+        if (c)
+                return process_closing_reply_callback(bus, c);
 
         /* Then, synthesize a Disconnected message */
         r = sd_bus_message_new_signal(
