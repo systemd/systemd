@@ -1074,7 +1074,17 @@ static void rename_process_from_path(const char *path) {
 
 #ifdef HAVE_SECCOMP
 
-static int apply_seccomp(const ExecContext *c) {
+static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
+        if (!is_seccomp_available()) {
+                log_open();
+                log_unit_debug(u, "SECCOMP not detected in the kernel, skipping %s", msg);
+                log_close();
+                return true;
+        }
+        return false;
+}
+
+static int apply_seccomp(const Unit* u, const ExecContext *c) {
         uint32_t negative_action, action;
         scmp_filter_ctx *seccomp;
         Iterator i;
@@ -1082,6 +1092,9 @@ static int apply_seccomp(const ExecContext *c) {
         int r;
 
         assert(c);
+
+        if (skip_seccomp_unavailable(u, "syscall filtering"))
+                return 0;
 
         negative_action = c->syscall_errno == 0 ? SCMP_ACT_KILL : SCMP_ACT_ERRNO(c->syscall_errno);
 
@@ -1123,12 +1136,15 @@ finish:
         return r;
 }
 
-static int apply_address_families(const ExecContext *c) {
+static int apply_address_families(const Unit* u, const ExecContext *c) {
         scmp_filter_ctx *seccomp;
         Iterator i;
         int r;
 
         assert(c);
+
+        if (skip_seccomp_unavailable(u, "RestrictAddressFamilies="))
+                return 0;
 
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
@@ -1244,11 +1260,14 @@ finish:
         return r;
 }
 
-static int apply_memory_deny_write_execute(const ExecContext *c) {
+static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) {
         scmp_filter_ctx *seccomp;
         int r;
 
         assert(c);
+
+        if (skip_seccomp_unavailable(u, "MemoryDenyWriteExecute="))
+                return 0;
 
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
@@ -1283,7 +1302,7 @@ finish:
         return r;
 }
 
-static int apply_restrict_realtime(const ExecContext *c) {
+static int apply_restrict_realtime(const Unit* u, const ExecContext *c) {
         static const int permitted_policies[] = {
                 SCHED_OTHER,
                 SCHED_BATCH,
@@ -1295,6 +1314,9 @@ static int apply_restrict_realtime(const ExecContext *c) {
         int r, p, max_policy = 0;
 
         assert(c);
+
+        if (skip_seccomp_unavailable(u, "RestrictRealtime="))
+                return 0;
 
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
@@ -2403,7 +2425,7 @@ static int exec_child(
 
 #ifdef HAVE_SECCOMP
                 if (use_address_families) {
-                        r = apply_address_families(context);
+                        r = apply_address_families(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_ADDRESS_FAMILIES;
                                 return r;
@@ -2411,7 +2433,7 @@ static int exec_child(
                 }
 
                 if (context->memory_deny_write_execute) {
-                        r = apply_memory_deny_write_execute(context);
+                        r = apply_memory_deny_write_execute(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
                                 return r;
@@ -2419,7 +2441,7 @@ static int exec_child(
                 }
 
                 if (context->restrict_realtime) {
-                        r = apply_restrict_realtime(context);
+                        r = apply_restrict_realtime(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
                                 return r;
@@ -2427,7 +2449,7 @@ static int exec_child(
                 }
 
                 if (use_syscall_filter) {
-                        r = apply_seccomp(context);
+                        r = apply_seccomp(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
                                 return r;

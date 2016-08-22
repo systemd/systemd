@@ -72,6 +72,9 @@
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
+#endif
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -1185,6 +1188,9 @@ static int enforce_syscall_archs(Set *archs) {
         Iterator i;
         void *id;
         int r;
+
+        if (!is_seccomp_available())
+                return 0;
 
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
