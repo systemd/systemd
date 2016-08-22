@@ -1230,12 +1230,13 @@ int bus_map_all_properties(
         return bus_message_map_all_properties(m, map, userdata);
 }
 
-int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus) {
+int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **ret) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
-        assert(bus);
+        assert(ret);
 
         assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
         assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -EOPNOTSUPP);
@@ -1244,25 +1245,34 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
 
         case BUS_TRANSPORT_LOCAL:
                 if (user)
-                        r = sd_bus_default_user(bus);
+                        r = sd_bus_default_user(&bus);
                 else
-                        r = sd_bus_default_system(bus);
+                        r = sd_bus_default_system(&bus);
 
                 break;
 
         case BUS_TRANSPORT_REMOTE:
-                r = sd_bus_open_system_remote(bus, host);
+                r = sd_bus_open_system_remote(&bus, host);
                 break;
 
         case BUS_TRANSPORT_MACHINE:
-                r = sd_bus_open_system_machine(bus, host);
+                r = sd_bus_open_system_machine(&bus, host);
                 break;
 
         default:
                 assert_not_reached("Hmm, unknown transport type.");
         }
+        if (r < 0)
+                return r;
 
-        return r;
+        r = sd_bus_set_exit_on_disconnect(bus, true);
+        if (r < 0)
+                return r;
+
+        *ret = bus;
+        bus = NULL;
+
+        return 0;
 }
 
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
