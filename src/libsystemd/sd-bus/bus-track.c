@@ -32,6 +32,7 @@ struct track_item {
 
 struct sd_bus_track {
         unsigned n_ref;
+        unsigned n_adding; /* are we in the process of adding a new name? */
         sd_bus *bus;
         sd_bus_track_handler_t handler;
         void *userdata;
@@ -80,9 +81,23 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_free);
 static void bus_track_add_to_queue(sd_bus_track *track) {
         assert(track);
 
+        /* Adds the bus track object to the queue of objects we should dispatch next, subject to a number of
+         * conditions. */
+
+        /* Already in the queue? */
         if (track->in_queue)
                 return;
 
+        /* if we are currently in the process of adding a new name, then let's not enqueue this just yet, let's wait
+         * until the addition is complete. */
+        if (track->n_adding > 0)
+                return;
+
+        /* still referenced? */
+        if (hashmap_size(track->names) > 0)
+                return;
+
+        /* Nothing to call? */
         if (!track->handler)
                 return;
 
@@ -112,8 +127,7 @@ static int bus_track_remove_name_fully(sd_bus_track *track, const char *name) {
 
         track_item_free(i);
 
-        if (hashmap_isempty(track->names))
-                bus_track_add_to_queue(track);
+        bus_track_add_to_queue(track);
 
         track->modified = true;
         return 1;
@@ -237,18 +251,30 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         /* First, subscribe to this name */
         match = MATCH_FOR_NAME(name);
+
+        bus_track_remove_from_queue(track); /* don't dispatch this while we work in it */
+
+        track->n_adding++; /* make sure we aren't dispatched while we synchronously add this match */
         r = sd_bus_add_match(track->bus, &n->slot, match, on_name_owner_changed, track);
-        if (r < 0)
+        track->n_adding--;
+        if (r < 0) {
+                bus_track_add_to_queue(track);
                 return r;
+        }
 
         r = hashmap_put(track->names, n->name, n);
-        if (r < 0)
+        if (r < 0) {
+                bus_track_add_to_queue(track);
                 return r;
+        }
 
         /* Second, check if it is currently existing, or maybe doesn't, or maybe disappeared already. */
+        track->n_adding++; /* again, make sure this isn't dispatch while we are working in it */
         r = sd_bus_get_name_creds(track->bus, name, 0, NULL);
+        track->n_adding--;
         if (r < 0) {
                 hashmap_remove(track->names, name);
+                bus_track_add_to_queue(track);
                 return r;
         }
 
