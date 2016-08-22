@@ -639,7 +639,7 @@ void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 
 #define log_unit_full(unit, level, error, ...)                          \
         ({                                                              \
-                Unit *_u = (unit);                                      \
+                const Unit *_u = (unit);                                \
                 _u ? log_object_internal(level, error, __FILE__, __LINE__, __func__, _u->manager->unit_log_field, _u->id, ##__VA_ARGS__) : \
                         log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
         })
