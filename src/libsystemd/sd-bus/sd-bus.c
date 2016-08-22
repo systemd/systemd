@@ -2641,6 +2641,31 @@ null_message:
         return r;
 }
 
+static int bus_exit_now(sd_bus *bus) {
+        assert(bus);
+
+        /* Exit due to close, if this is requested. If this is bus object is attached to an event source, invokes
+         * sd_event_exit(), otherwise invokes libc exit(). */
+
+        if (bus->exited) /* did we already exit? */
+                return 0;
+        if (!bus->exit_triggered) /* was the exit condition triggered? */
+                return 0;
+        if (!bus->exit_on_disconnect) /* Shall we actually exit on disconnection? */
+                return 0;
+
+        bus->exited = true; /* never exit more than once */
+
+        log_debug("Bus connection disconnected, exiting.");
+
+        if (bus->event)
+                return sd_event_exit(bus->event, EXIT_FAILURE);
+        else
+                exit(EXIT_FAILURE);
+
+        assert_not_reached("exit() didn't exit?");
+}
+
 static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c) {
         _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -2741,6 +2766,10 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         r = process_match(bus, m);
         if (r != 0)
                 goto finish;
+
+        /* Nothing else to do, exit now, if the condition holds */
+        bus->exit_triggered = true;
+        (void) bus_exit_now(bus);
 
         if (ret) {
                 *ret = m;
@@ -3803,4 +3832,22 @@ _public_ void sd_bus_default_flush_close(void) {
         flush_close(default_starter_bus);
         flush_close(default_user_bus);
         flush_close(default_system_bus);
+}
+
+_public_ int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+
+        /* Turns on exit-on-disconnect, and triggers it immediately if the bus connection was already
+         * disconnected. Note that this is triggered exclusively on disconnections triggered by the server side, never
+         * from the client side. */
+        bus->exit_on_disconnect = b;
+
+        /* If the exit condition was triggered already, exit immediately. */
+        return bus_exit_now(bus);
+}
+
+_public_ int sd_bus_get_exit_on_disconnect(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+
+        return bus->exit_on_disconnect;
 }

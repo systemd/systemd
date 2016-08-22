@@ -209,6 +209,9 @@ struct sd_bus {
         bool is_system:1;
         bool is_user:1;
         bool allow_interactive_authorization:1;
+        bool exit_on_disconnect:1;
+        bool exited:1;
+        bool exit_triggered:1;
 
         int use_memfd;
 

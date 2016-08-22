@@ -507,4 +507,6 @@ global:
         sd_bus_track_get_recursive;
         sd_bus_track_count_name;
         sd_bus_track_count_sender;
+        sd_bus_set_exit_on_disconnect;
+        sd_bus_get_exit_on_disconnect;
 } LIBSYSTEMD_231;
