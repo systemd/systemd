@@ -1273,6 +1273,10 @@ static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) 
         if (!seccomp)
                 return -ENOMEM;
 
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
         r = seccomp_rule_add(
                         seccomp,
                         SCMP_ACT_ERRNO(EPERM),
@@ -1321,6 +1325,10 @@ static int apply_restrict_realtime(const Unit* u, const ExecContext *c) {
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
                 return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
 
         /* Determine the highest policy constant we want to allow */
         for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
