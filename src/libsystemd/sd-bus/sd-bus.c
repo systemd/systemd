@@ -107,6 +107,7 @@ static void bus_free(sd_bus *b) {
 
         assert(b);
         assert(!b->track_queue);
+        assert(!b->tracks);
 
         b->state = BUS_CLOSED;
 
@@ -2705,6 +2706,12 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         c = ordered_hashmap_first(bus->reply_callbacks);
         if (c)
                 return process_closing_reply_callback(bus, c);
+
+        /* Then, fake-drop all remaining bus tracking references */
+        if (bus->tracks) {
+                bus_track_close(bus->tracks);
+                return 1;
+        }
 
         /* Then, synthesize a Disconnected message */
         r = sd_bus_message_new_signal(

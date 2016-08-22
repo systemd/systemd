@@ -39,9 +39,12 @@ struct sd_bus_track {
         Hashmap *names;
         LIST_FIELDS(sd_bus_track, queue);
         Iterator iterator;
-        bool in_queue:1;
+        bool in_list:1;    /* In bus->tracks? */
+        bool in_queue:1;   /* In bus->track_queue? */
         bool modified:1;
         bool recursive:1;
+
+        LIST_FIELDS(sd_bus_track, tracks);
 };
 
 #define MATCH_PREFIX                                        \
@@ -101,6 +104,10 @@ static void bus_track_add_to_queue(sd_bus_track *track) {
         if (!track->handler)
                 return;
 
+        /* Already closed? */
+        if (!track->in_list)
+                return;
+
         LIST_PREPEND(queue, track->bus->track_queue, track);
         track->in_queue = true;
 }
@@ -156,6 +163,9 @@ _public_ int sd_bus_track_new(
         t->userdata = userdata;
         t->bus = sd_bus_ref(bus);
 
+        LIST_PREPEND(tracks, bus->tracks, t);
+        t->in_list = true;
+
         bus_track_add_to_queue(t);
 
         *track = t;
@@ -189,6 +199,9 @@ _public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
 
         while ((i = hashmap_steal_first(track->names)))
                 track_item_free(i);
+
+        if (track->in_list)
+                LIST_REMOVE(tracks, track->bus->tracks, track);
 
         bus_track_remove_from_queue(track);
         hashmap_free(track->names);
@@ -403,7 +416,6 @@ void bus_track_dispatch(sd_bus_track *track) {
         int r;
 
         assert(track);
-        assert(track->in_queue);
         assert(track->handler);
 
         bus_track_remove_from_queue(track);
@@ -417,6 +429,34 @@ void bus_track_dispatch(sd_bus_track *track) {
                 bus_track_add_to_queue(track);
 
         sd_bus_track_unref(track);
+}
+
+void bus_track_close(sd_bus_track *track) {
+        struct track_item *i;
+
+        assert(track);
+
+        /* Called whenever our bus connected is closed. If so, and our track object is non-empty, dispatch it
+         * immediately, as we are closing now, but first flush out all names. */
+
+        if (!track->in_list)
+                return; /* We already closed this one, don't close it again. */
+
+        /* Remember that this one is closed now */
+        LIST_REMOVE(tracks, track->bus->tracks, track);
+        track->in_list = false;
+
+        /* If there's no name in this one anyway, we don't have to dispatch */
+        if (hashmap_isempty(track->names))
+                return;
+
+        /* Let's flush out all names */
+        while ((i = hashmap_steal_first(track->names)))
+                track_item_free(i);
+
+        /* Invoke handler */
+        if (track->handler)
+                bus_track_dispatch(track);
 }
 
 _public_ void *sd_bus_track_get_userdata(sd_bus_track *track) {

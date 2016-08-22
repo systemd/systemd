@@ -320,6 +320,7 @@ struct sd_bus {
         sd_bus_track *track_queue;
 
         LIST_HEAD(sd_bus_slot, slots);
+        LIST_HEAD(sd_bus_track, tracks);
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
