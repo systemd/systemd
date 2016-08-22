@@ -319,9 +319,11 @@ static int parse_argv(int argc, char *argv[]) {
 static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
         int r;
 
-        r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
-        if (r < 0)
-                return r;
+        if (!isempty(arg_description)) {
+                r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
+                if (r < 0)
+                        return r;
+        }
 
         if (arg_bind_device && is_device_path(arg_mount_what)) {
                 _cleanup_free_ char *device_unit = NULL;
@@ -725,7 +727,7 @@ static int acquire_description(struct udev_device *d) {
         else if (model)
                 arg_description = strdup(model);
         else
-                return NULL;
+                return 0;
 
         if (!arg_description)
                 return log_oom();
