@@ -46,6 +46,8 @@ int setup_namespace(const char *chroot,
                     const char *tmp_dir,
                     const char *var_tmp_dir,
                     bool private_dev,
+                    bool protect_sysctl,
+                    bool protect_cgroups,
                     ProtectHome protect_home,
                     ProtectSystem protect_system,
                     unsigned long mount_flags);

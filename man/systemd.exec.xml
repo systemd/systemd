@@ -1060,6 +1060,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ProtectKernelTunables=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, kernel variables accessible through
+        <filename>/proc/sys</filename> and <filename>/sys</filename> will be made read-only to all processes of the
+        unit. Usually, tunable kernel variables should only be written at boot-time, with the
+        <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> mechanism. Almost
+        no services need to write to these at runtime; it is hence recommended to turn this on for most
+        services. Defaults to off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectControlGroups=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, the Linux Control Groups ("cgroups") hierarchies accessible
+        through <filename>/sys/fs/cgroup</filename> will be made read-only to all processes of the unit. Except for
+        container managers no services should require write access to the control groups hierarchies; it is hence
+        recommended to turn this on for most services. Defaults to off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountFlags=</varname></term>
 
         <listitem><para>Takes a mount propagation flag:

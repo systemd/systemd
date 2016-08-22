@@ -89,6 +89,8 @@ $1.ReadOnlyPaths,                config_parse_namespace_path_strv,   0,         
 $1.InaccessiblePaths,            config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.inaccessible_paths)
 $1.PrivateTmp,                   config_parse_bool,                  0,                             offsetof($1, exec_context.private_tmp)
 $1.PrivateDevices,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_devices)
+$1.ProtectKernelTunables,        config_parse_bool,                  0,                             offsetof($1, exec_context.protect_kernel_tunables)
+$1.ProtectControlGroups,         config_parse_bool,                  0,                             offsetof($1, exec_context.protect_control_groups)
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
 $1.PrivateUsers,                 config_parse_bool,                  0,                             offsetof($1, exec_context.private_users)
 $1.ProtectSystem,                config_parse_protect_system,        0,                             offsetof($1, exec_context)

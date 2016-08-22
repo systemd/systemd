@@ -707,6 +707,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("MountFlags", "t", bus_property_get_ulong, offsetof(ExecContext, mount_flags), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateDevices", "b", bus_property_get_bool, offsetof(ExecContext, private_devices), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectKernelTunables", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectControlGroups", "b", bus_property_get_bool, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsers", "b", bus_property_get_bool, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHome", "s", bus_property_get_protect_home, offsetof(ExecContext, protect_home), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1072,7 +1074,8 @@ int bus_exec_context_set_transient_property(
                               "IgnoreSIGPIPE", "TTYVHangup", "TTYReset",
                               "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
                               "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
-                              "RestrictRealtime", "DynamicUser", "RemoveIPC")) {
+                              "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
+                              "ProtectControlGroups")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1106,6 +1109,10 @@ int bus_exec_context_set_transient_property(
                                 c->dynamic_user = b;
                         else if (streq(name, "RemoveIPC"))
                                 c->remove_ipc = b;
+                        else if (streq(name, "ProtectKernelTunables"))
+                                c->protect_kernel_tunables = b;
+                        else if (streq(name, "ProtectControlGroups"))
+                                c->protect_control_groups = b;
 
                         unit_write_drop_in_private_format(u, mode, name, "%s=%s", name, yes_no(b));
                 }

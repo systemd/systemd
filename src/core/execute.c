@@ -1383,6 +1383,45 @@ finish:
         return r;
 }
 
+static int apply_protect_sysctl(Unit *u, const ExecContext *c) {
+        scmp_filter_ctx *seccomp;
+        int r;
+
+        assert(c);
+
+        /* Turn off the legacy sysctl() system call. Many distributions turn this off while building the kernel, but
+         * let's protect even those systems where this is left on in the kernel. */
+
+        if (skip_seccomp_unavailable(u, "ProtectKernelTunables="))
+                return 0;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_rule_add(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(_sysctl),
+                        0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 #endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
@@ -1589,7 +1628,9 @@ static bool exec_needs_mount_namespace(
 
         if (context->private_devices ||
             context->protect_system != PROTECT_SYSTEM_NO ||
-            context->protect_home != PROTECT_HOME_NO)
+            context->protect_home != PROTECT_HOME_NO ||
+            context->protect_kernel_tunables ||
+            context->protect_control_groups)
                 return true;
 
         return false;
@@ -1802,6 +1843,37 @@ static int close_remaining_fds(
                 dont_close[n_dont_close++] = user_lookup_fd;
 
         return close_all_fds(dont_close, n_dont_close);
+}
+
+static bool context_has_address_families(const ExecContext *c) {
+        assert(c);
+
+        return c->address_families_whitelist ||
+                !set_isempty(c->address_families);
+}
+
+static bool context_has_syscall_filters(const ExecContext *c) {
+        assert(c);
+
+        return c->syscall_whitelist ||
+                !set_isempty(c->syscall_filter) ||
+                !set_isempty(c->syscall_archs);
+}
+
+static bool context_has_no_new_privileges(const ExecContext *c) {
+        assert(c);
+
+        if (c->no_new_privileges)
+                return true;
+
+        if (have_effective_cap(CAP_SYS_ADMIN)) /* if we are privileged, we don't need NNP */
+                return false;
+
+        return context_has_address_families(c) || /* we need NNP if we have any form of seccomp and are unprivileged */
+                c->memory_deny_write_execute ||
+                c->restrict_realtime ||
+                c->protect_kernel_tunables ||
+                context_has_syscall_filters(c);
 }
 
 static int send_user_lookup(
@@ -2255,6 +2327,8 @@ static int exec_child(
                                 tmp,
                                 var,
                                 context->private_devices,
+                                context->protect_kernel_tunables,
+                                context->protect_control_groups,
                                 context->protect_home,
                                 context->protect_system,
                                 context->mount_flags);
@@ -2343,11 +2417,6 @@ static int exec_child(
 
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
 
-                bool use_address_families = context->address_families_whitelist ||
-                        !set_isempty(context->address_families);
-                bool use_syscall_filter = context->syscall_whitelist ||
-                        !set_isempty(context->syscall_filter) ||
-                        !set_isempty(context->syscall_archs);
                 int secure_bits = context->secure_bits;
 
                 for (i = 0; i < _RLIMIT_MAX; i++) {
@@ -2424,15 +2493,14 @@ static int exec_child(
                                 return -errno;
                         }
 
-                if (context->no_new_privileges ||
-                    (!have_effective_cap(CAP_SYS_ADMIN) && (use_address_families || context->memory_deny_write_execute || context->restrict_realtime || use_syscall_filter)))
+                if (context_has_no_new_privileges(context))
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return -errno;
                         }
 
 #ifdef HAVE_SECCOMP
-                if (use_address_families) {
+                if (context_has_address_families(context)) {
                         r = apply_address_families(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_ADDRESS_FAMILIES;
@@ -2456,7 +2524,15 @@ static int exec_child(
                         }
                 }
 
-                if (use_syscall_filter) {
+                if (context->protect_kernel_tunables) {
+                        r = apply_protect_sysctl(unit, context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
+
+                if (context_has_syscall_filters(context)) {
                         r = apply_seccomp(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
@@ -2888,6 +2964,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
                 "%sPrivateDevices: %s\n"
+                "%sProtectKernelTunables: %s\n"
+                "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateUsers: %s\n"
                 "%sProtectHome: %s\n"
@@ -2901,6 +2979,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_devices),
+                prefix, yes_no(c->protect_kernel_tunables),
+                prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),

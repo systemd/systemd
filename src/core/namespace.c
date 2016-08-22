@@ -53,7 +53,7 @@ typedef enum MountMode {
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
         PRIVATE_DEV,
-        READWRITE
+        READWRITE,
 } MountMode;
 
 typedef struct BindMount {
@@ -366,6 +366,8 @@ int setup_namespace(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 bool private_dev,
+                bool protect_sysctl,
+                bool protect_cgroups,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags) {
@@ -385,6 +387,8 @@ int setup_namespace(
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
                 private_dev +
+                (protect_sysctl ? 3 : 0) +
+                (protect_cgroups != protect_sysctl) +
                 (protect_home != PROTECT_HOME_NO ? 3 : 0) +
                 (protect_system != PROTECT_SYSTEM_NO ? 2 : 0) +
                 (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
@@ -418,6 +422,27 @@ int setup_namespace(
                 if (private_dev) {
                         m->path = prefix_roota(root_directory, "/dev");
                         m->mode = PRIVATE_DEV;
+                        m++;
+                }
+
+                if (protect_sysctl) {
+                        m->path = prefix_roota(root_directory, "/proc/sys");
+                        m->mode = READONLY;
+                        m++;
+
+                        m->path = prefix_roota(root_directory, "/proc/sysrq-trigger");
+                        m->mode = READONLY;
+                        m->ignore = true; /* Not always compiled into the kernel */
+                        m++;
+
+                        m->path = prefix_roota(root_directory, "/sys");
+                        m->mode = READONLY;
+                        m++;
+                }
+
+                if (protect_cgroups != protect_sysctl) {
+                        m->path = prefix_roota(root_directory, "/sys/fs/cgroup");
+                        m->mode = protect_cgroups ? READONLY : READWRITE;
                         m++;
                 }
 
@@ -505,9 +530,12 @@ int setup_namespace(
 
 fail:
         if (n > 0) {
-                for (m = mounts; m < mounts + n; ++m)
-                        if (m->done)
-                                (void) umount2(m->path, MNT_DETACH);
+                for (m = mounts; m < mounts + n; ++m) {
+                        if (!m->done)
+                                continue;
+
+                        (void) umount2(m->path, MNT_DETACH);
+                }
         }
 
         return r;
