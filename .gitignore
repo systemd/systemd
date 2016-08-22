@@ -152,6 +152,7 @@
 /test-bus-policy
 /test-bus-server
 /test-bus-signature
+/test-bus-track
 /test-bus-zero-copy
 /test-calendarspec
 /test-cap-list
