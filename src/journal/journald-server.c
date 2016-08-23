@@ -268,13 +268,14 @@ static int open_journal(
 }
 
 static int system_journal_open(Server *s, bool flush_requested) {
+        bool flushed = false;
         const char *fn;
         int r = 0;
 
         if (!s->system_journal &&
             (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
             (flush_requested
-             || access("/run/systemd/journal/flushed", F_OK) >= 0)) {
+             || (flushed = (access("/run/systemd/journal/flushed", F_OK) >= 0)))) {
 
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
@@ -299,6 +300,16 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                         r = 0;
                 }
+
+                /* If the runtime journal is open, and we're post-flush, we're
+                 * recovering from a failed system journal rotate (ENOSPC)
+                 * for which the runtime journal was reopened.
+                 *
+                 * Perform an implicit flush to var, leaving the runtime
+                 * journal closed, now that the system journal is back.
+                 */
+                if (s->runtime_journal && flushed)
+                        (void) server_flush_to_var(s);
         }
 
         if (!s->runtime_journal &&
@@ -1294,7 +1305,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
 
         log_info("Received request to flush runtime journal from PID " PID_FMT, si->ssi_pid);
 
-        server_flush_to_var(s);
+        (void) server_flush_to_var(s);
         server_sync(s);
         server_vacuum(s, false, false);
 
