@@ -3,20 +3,21 @@
 # This file is distributed under the same license as the systemd package.
 #
 # Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.
+# Balázs Úr <urbalazs at gmail dot com>, 2016.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-01-02 13:41+0100\n"
-"PO-Revision-Date: 2016-01-02 13:45+0100\n"
-"Last-Translator: Gabor Kelemen <kelemeng at ubuntu dot com>\n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
+"POT-Creation-Date: 2016-04-24 12:53+0000\n"
+"PO-Revision-Date: 2016-08-23 18:03+0100\n"
+"Last-Translator: Balázs Úr <urbalazs@gmail.com>\n"
 "Language-Team: Hungarian <openscope at googlegroups dot com>\n"
 "Language: hu\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Lokalize 1.5\n"
+"X-Generator: Lokalize 2.0\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -241,50 +242,60 @@ msgstr ""
 "kezelésének meggátlásához."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:19
+msgid "Allow non-logged-in user to run programs"
+msgstr "Programfuttatás engedélyezése be nem jelentkezett felhasználó számára"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:20
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"Határozott kérés szükséges a programfuttatáshoz be nem jelentkezett "
+"felhasználóként."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:21
 msgid "Allow non-logged-in users to run programs"
 msgstr "Programfuttatás engedélyezése be nem jelentkezett felhasználók számára"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:20
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Hitelesítés szükséges a programfuttatáshoz be nem jelentkezett "
 "felhasználóként."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:21
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Allow attaching devices to seats"
 msgstr "Eszközök csatolásának engedélyezése munkaállomásokhoz"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:22
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid "Authentication is required for attaching a device to a seat."
 msgstr ""
 "Hitelesítés szükséges eszköz csatolásának engedélyezéséhez egy "
 "munkaállomáshoz"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:23
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
 msgid "Flush device to seat attachments"
 msgstr "Eszközök és munkaállomások csatolásainak törlése"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:24
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
 "Authentication is required for resetting how devices are attached to seats."
 msgstr ""
 "Hitelesítés szükséges az eszközök munkaállomásokhoz csatolásainak "
 "alaphelyzetbe állításához."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:25
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
 msgid "Power off the system"
 msgstr "A rendszer kikapcsolása"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:26
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid "Authentication is required for powering off the system."
 msgstr "Hitelesítés szükséges a rendszer kikapcsolásához."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:27
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
 msgid "Power off the system while other users are logged in"
 msgstr ""
 "A rendszer kikapcsolása miközben be vannak jelentkezve más felhasználók"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:28
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required for powering off the system while other users are "
 "logged in."
@@ -292,12 +303,12 @@ msgstr ""
 "Hitelesítés szükséges a rendszer kikapcsolásához miközben be vannak "
 "jelentkezve más felhasználók."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:29
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Power off the system while an application asked to inhibit it"
 msgstr ""
 "A rendszer kikapcsolása miközben egy alkalmazás ennek meggátlását kérte"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:30
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
 "Authentication is required for powering off the system while an application "
 "asked to inhibit it."
@@ -305,19 +316,19 @@ msgstr ""
 "Hitelesítés szükséges a rendszer kikapcsolásához miközben egy alkalmazás "
 "ennek meggátlását kérte."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:31
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
 msgid "Reboot the system"
 msgstr "A rendszer újraindítása"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:32
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid "Authentication is required for rebooting the system."
 msgstr "Hitelesítés szükséges a rendszer újraindításához."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:33
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while other users are logged in"
 msgstr "A rendszer újraindítása mialatt be vannak jelentkezve más felhasználók"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:34
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required for rebooting the system while other users are "
 "logged in."
@@ -325,12 +336,12 @@ msgstr ""
 "Hitelesítés szükséges a rendszer újraindításához miközben be vannak "
 "jelentkezve más felhasználók."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:35
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Reboot the system while an application asked to inhibit it"
 msgstr ""
 "A rendszer újraindítása miközben egy alkalmazás ennek meggátlását kérte"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:36
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
@@ -338,20 +349,20 @@ msgstr ""
 "Hitelesítés szükséges a rendszer újraindításához miközben egy alkalmazás "
 "ennek meggátlását kérte."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:37
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
 msgid "Suspend the system"
 msgstr "A rendszer felfüggesztése"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:38
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid "Authentication is required for suspending the system."
 msgstr "Hitelesítés szükséges a rendszer felfüggesztéséhez."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:39
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while other users are logged in"
 msgstr ""
 "A rendszer felfüggesztése mialatt be vannak jelentkezve más felhasználók"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:40
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required for suspending the system while other users are "
 "logged in."
@@ -359,12 +370,12 @@ msgstr ""
 "Hitelesítés szükséges a rendszer felfüggesztéséhez miközben be vannak "
 "jelentkezve más felhasználók."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:41
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Suspend the system while an application asked to inhibit it"
 msgstr ""
 "A rendszer felfüggesztése miközben egy alkalmazás ennek meggátlását kérte"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:42
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
 "Authentication is required for suspending the system while an application "
 "asked to inhibit it."
@@ -372,19 +383,19 @@ msgstr ""
 "Hitelesítés szükséges a rendszer felfüggesztéséhez miközben egy alkalmazás "
 "ennek meggátlását kérte."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:43
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system"
 msgstr "A rendszer hibernálása"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:44
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid "Authentication is required for hibernating the system."
 msgstr "Hitelesítés szükséges a rendszer hibernálásához."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:45
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while other users are logged in"
 msgstr "A rendszer hibernálása mialatt be vannak jelentkezve más felhasználók"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:46
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required for hibernating the system while other users are "
 "logged in."
@@ -392,11 +403,11 @@ msgstr ""
 "Hitelesítés szükséges a rendszer hibernálásához miközben be vannak "
 "jelentkezve más felhasználók."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:47
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
 msgid "Hibernate the system while an application asked to inhibit it"
 msgstr "A rendszer hibernálása miközben egy alkalmazás ennek meggátlását kérte"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:48
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
 "Authentication is required for hibernating the system while an application "
 "asked to inhibit it."
@@ -404,31 +415,31 @@ msgstr ""
 "Hitelesítés szükséges a rendszer hibernálásához miközben egy alkalmazás "
 "ennek meggátlását kérte."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:49
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Manage active sessions, users and seats"
 msgstr "Aktív munkamenetek, felhasználók és munkaállomások kezelése"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
 "Hitelesítés szükséges az aktív munkamenetek, felhasználók és munkaállomások "
 "kezeléséhez."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:51
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Lock or unlock active sessions"
 msgstr "Aktív munkamenetek zárolása vagy feloldása"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Hitelesítés szükséges az aktív munkamenetek zárolásához vagy feloldásához."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:53
+#: ../src/login/org.freedesktop.login1.policy.in.h:55
 msgid "Allow indication to the firmware to boot to setup interface"
 msgstr "A firmware-nek jelezhető, hogy a beállítófelületet bootolja"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#: ../src/login/org.freedesktop.login1.policy.in.h:56
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -436,11 +447,11 @@ msgstr ""
 "Hitelesítés szükséges a firmware-nek jelzéshez, hogy a beállítófelületet "
 "bootolja"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:55
+#: ../src/login/org.freedesktop.login1.policy.in.h:57
 msgid "Set a wall message"
 msgstr "Falüzenet beállítása"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#: ../src/login/org.freedesktop.login1.policy.in.h:58
 msgid "Authentication is required to set a wall message"
 msgstr "Hitelesítés szükséges a falüzenet beállításához"
 
@@ -552,33 +563,34 @@ msgid ""
 "shall be enabled."
 msgstr "Hitelesítés szükséges a hálózati időszinkronizáció engedélyezéséhez."
 
-#: ../src/core/dbus-unit.c:449
+#: ../src/core/dbus-unit.c:450
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Hitelesítés szükséges a következő elindításához: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:450
+#: ../src/core/dbus-unit.c:451
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Hitelesítés szükséges a következő leállításához: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:451
+#: ../src/core/dbus-unit.c:452
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Hitelesítés szükséges a következő újratöltéséhez: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:452 ../src/core/dbus-unit.c:453
+#: ../src/core/dbus-unit.c:453 ../src/core/dbus-unit.c:454
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Hitelesítés szükséges a következő újraindításához: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:556
+#: ../src/core/dbus-unit.c:560
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "Hitelesítés szükséges a következő kilövéséhez: „$(unit)”."
 
-#: ../src/core/dbus-unit.c:586
+#: ../src/core/dbus-unit.c:590
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Hitelesítés szükséges a következő „sikertelen” állapotának törléséhez: "
 "„$(unit)”."
 
-#: ../src/core/dbus-unit.c:618
+#: ../src/core/dbus-unit.c:622
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Hitelesítés szükséges a következő tulajdonságainak beállításához: „$(unit)”."
+
