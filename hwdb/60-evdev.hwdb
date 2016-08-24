@@ -45,6 +45,8 @@
 
 #  Macbook2,1 (late 2006), single-button touchpad
 evdev:input:b0003v05ACp021B*
+# Macbook4,1
+evdev:input:b0003v05ACp0229*
  EVDEV_ABS_00=256:1471:12
  EVDEV_ABS_01=256:831:12
 
