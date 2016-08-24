@@ -116,16 +116,47 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
         assert(m);
         assert(n);
 
+        /* Drops duplicate entries. Expects that the array is properly ordered already. */
+
         for (f = m, t = m, previous = NULL; f < m+*n; f++) {
 
-                /* The first one wins */
-                if (previous && path_equal(f->path, previous->path))
+                /* The first one wins (which is the one with the more restrictive mode), see mount_path_compare()
+                 * above. */
+                if (previous && path_equal(f->path, previous->path)) {
+                        log_debug("%s is duplicate.", f->path);
                         continue;
+                }
 
                 *t = *f;
-
                 previous = t;
+                t++;
+        }
 
+        *n = t - m;
+}
+
+static void drop_inaccessible(BindMount *m, unsigned *n) {
+        BindMount *f, *t;
+        const char *clear = NULL;
+
+        assert(m);
+        assert(n);
+
+        /* Drops all entries obstructed by another entry further up the tree. Expects that the array is properly
+         * ordered already. */
+
+        for (f = m, t = m; f < m+*n; f++) {
+
+                /* If we found a path set for INACCESSIBLE earlier, and this entry has it as prefix we should drop
+                 * it, as inaccessible paths really should drop the entire subtree. */
+                if (clear && path_startswith(f->path, clear)) {
+                        log_debug("%s is masked by %s.", f->path, clear);
+                        continue;
+                }
+
+                clear = f->mode == INACCESSIBLE ? f->path : NULL;
+
+                *t = *f;
                 t++;
         }
 
@@ -282,6 +313,8 @@ static int apply_mount(
 
         assert(m);
 
+        log_debug("Applying namespace mount on %s", m->path);
+
         switch (m->mode) {
 
         case INACCESSIBLE:
@@ -289,7 +322,7 @@ static int apply_mount(
                 /* First, get rid of everything that is below if there
                  * is anything... Then, overmount it with an
                  * inaccessible path. */
-                umount_recursive(m->path, 0);
+                (void) umount_recursive(m->path, 0);
 
                 if (lstat(m->path, &target) < 0) {
                         if (m->ignore && errno == ENOENT)
@@ -303,6 +336,7 @@ static int apply_mount(
                         return -ELOOP;
                 }
                 break;
+
         case READONLY:
         case READWRITE:
                 /* Nothing to mount here, we just later toggle the
@@ -480,7 +514,9 @@ int setup_namespace(
                 assert(mounts + n == m);
 
                 qsort(mounts, n, sizeof(BindMount), mount_path_compare);
+
                 drop_duplicates(mounts, &n);
+                drop_inaccessible(mounts, &n);
         }
 
         if (n > 0 || root_directory) {
