@@ -642,8 +642,6 @@ Features:
     is used
 
 * machined:
-  - "machinectl list" should probably show columns for OS version and IP
-    addresses
   - add an API so that libvirt-lxc can inform us about network interfaces being
     removed or added to an existing machine
   - "machinectl migrate" or similar to copy a container from or to a

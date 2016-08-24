@@ -285,6 +285,20 @@
         name passed.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--max-addresses=</option></term>
+
+        <listitem><para>When used with the <option>list-machines</option>
+        command, limits the number of ip addresses output for every machine.
+        Defaults to 1. All addresses can be requested with <literal>all</literal>
+        as argument to <option>--max-addresses</option> . If the argument to
+        <option>--max-addresses</option> is less than the actual number
+        of addresses,<literal>...</literal>follows the last address.
+        If multiple addresses are to be written for a given machine, every
+        address except the first one is on a new line and is followed by
+        <literal>,</literal> if another address will be output afterwards. </para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
