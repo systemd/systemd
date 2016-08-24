@@ -33,6 +33,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* switch to ProtectSystem=strict for all our long-running services where that's possible
+
 * introduce an "invocation ID" for units, that is randomly generated, and
   identifies each runtime-cycle of a unit. It should be set freshly each time
   we traverse inactive → activating/active, and should be the primary key to
@@ -41,8 +43,9 @@ Features:
   the cgroup of a services. The former is accessible without privileges, the
   latter ensures the ID cannot be faked.
 
-* Introduce ProtectSystem=strict for making the entire OS hierarchy read-only
-  except for a select few
+* If RootDirectory= is used, mount /proc, /sys, /dev into it, if not mounted yet
+
+* Permit masking specific netlink APIs with RestrictAddressFamily=
 
 * nspawn: start UID allocation loop from hash of container name
 
@@ -56,15 +59,13 @@ Features:
 
 * ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc
 
+* ProtectKernelModules= (drops CAP_SYS_MODULE and filters the kmod syscalls)
+
+* ProtectTracing= (drops CAP_SYS_PTRACE, blocks ptrace syscall, makes /sys/kernel/tracing go away)
+
 * ProtectMount= (drop mount/umount/pivot_root from seccomp, disallow fuse via DeviceAllow, imply Mountflags=slave)
 
-* ProtectDevices= should also take iopl/ioperm/pciaccess away
-
 * ProtectKeyRing= to take keyring calls away
-
-* ProtectControlGroups= which mounts all of /sys/fs/cgroup read-only
-
-* ProtectKernelTunables= which mounts /sys and /proc/sys read-only
 
 * RemoveKeyRing= to remove all keyring entries of the specified user
 
@@ -72,9 +73,6 @@ Features:
   RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
 
 * Add BindDirectory= for allowing arbitrary, private bind mounts for services
-
-* Beef up RootDirectory= to use namespacing/bind mounts as soon as fs
-  namespaces are enabled by the service
 
 * Add RootImage= for mounting a disk image or file as root directory
 
@@ -183,7 +181,7 @@ Features:
 * implement a per-service firewall based on net_cls
 
 * Port various tools to make use of verbs.[ch], where applicable: busctl,
-  bootctl, coredumpctl, hostnamectl, localectl, systemd-analyze, timedatectl
+  coredumpctl, hostnamectl, localectl, systemd-analyze, timedatectl
 
 * hostnamectl: show root image uuid
 
@@ -300,9 +298,6 @@ Features:
 
 * MessageQueueMessageSize= (and suchlike) should use parse_iec_size().
 
-* "busctl status" works only as root on dbus1, since we cannot read
-  /proc/$PID/exe
-
 * implement Distribute= in socket units to allow running multiple
   service instances processing the listening socket, and open this up
   for ReusePort=
@@ -312,8 +307,6 @@ Features:
   a tiny process that joins the namespace and creates/binds the socket
   and passes this back to PID1 via SCM_RIGHTS. This also could be used
   to allow Chown/chgrp on sockets without requiring NSS in PID 1.
-
-* New service property: maximum CPU runtime for a service
 
 * introduce bus call FreezeUnit(s, b), as well as "systemctl freeze
   $UNIT" and "systemctl thaw $UNIT" as wrappers around this. The calls
@@ -351,11 +344,9 @@ Features:
   error. Currently, we just ignore it and read the unit from the search
   path anyway.
 
-* refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
+* refuse boot if /usr/lib/os-release is missing or /etc/machine-id cannot be set up
 
 * btrfs raid assembly: some .device jobs stay stuck in the queue
-
-* make sure gdm does not use multi-user-x but the new default X configuration file, and then remove multi-user-x from systemd
 
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
@@ -613,9 +604,6 @@ Features:
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
-  - to allow "linking" of nspawn containers, extend --network-bridge= so
-    that it can dynamically create bridge interfaces that are refcounted
-    by the containers on them. For each group of containers to link together
   - nspawn -x should support ephemeral instances of gpt images
   - emulate /dev/kmsg using CUSE and turn off the syslog syscall
     with seccomp. That should provide us with a useful log buffer that
@@ -624,8 +612,6 @@ Features:
   - as soon as networkd has a bus interface, hook up --network-interface=,
     --network-bridge= with networkd, to trigger netdev creation should an
     interface be missing
-  - don't copy /etc/resolv.conf from host into container unless we are in
-    shared-network mode
   - a nice way to boot up without machine id set, so that it is set at boot
     automatically for supporting --ephemeral. Maybe hash the host machine id
     together with the machine name to generate the machine id for the container
@@ -693,7 +679,6 @@ Features:
 
 * coredump:
   - save coredump in Windows/Mozilla minidump format
-  - move PID 1 segfaults to /var/lib/systemd/coredump?
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
@@ -760,7 +745,6 @@ Features:
   - GC unreferenced jobs (such as .device jobs)
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.
-  - for services: do not set $HOME in services unless requested
   - hide PAM options in fragment parser when compile time disabled
   - Support --test based on current system state
   - If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
