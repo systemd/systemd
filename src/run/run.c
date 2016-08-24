@@ -1185,9 +1185,11 @@ static int start_transient_timer(
         if (r < 0)
                 return r;
 
-        log_info("Running timer as unit: %s", timer);
-        if (argv[0])
-                log_info("Will run service as unit: %s", service);
+        if (!arg_quiet) {
+                log_info("Running timer as unit: %s", timer);
+                if (argv[0])
+                        log_info("Will run service as unit: %s", service);
+        }
 
         return 0;
 }
