@@ -15,6 +15,7 @@ HOWTO:
             --with-kbd-setfont=
             --with-tty-gid=
             --with-ntp-servers=
+            --with-support-url=
 
         2) Try it out. Play around (as an ordinary user) with
         '/usr/lib/systemd/systemd --test --system' for a test run
