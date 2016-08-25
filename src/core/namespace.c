@@ -161,6 +161,44 @@ static void drop_inaccessible(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
+static void drop_nop(BindMount *m, unsigned *n) {
+        BindMount *f, *t;
+
+        assert(m);
+        assert(n);
+
+        /* Drops all entries which have an immediate parent that has the same type, as they are redundant. Assumes the
+         * list is ordered by prefixes. */
+
+        for (f = m, t = m; f < m+*n; f++) {
+
+                /* Only suppress such subtrees for READONLY and READWRITE entries */
+                if (IN_SET(f->mode, READONLY, READWRITE)) {
+                        BindMount *p;
+                        bool found = false;
+
+                        /* Now let's find the first parent of the entry we are looking at. */
+                        for (p = t-1; p >= m; p--) {
+                                if (path_startswith(f->path, p->path)) {
+                                        found = true;
+                                        break;
+                                }
+                        }
+
+                        /* We found it, let's see if it's the same mode, if so, we can drop this entry */
+                        if (found && p->mode == f->mode) {
+                                log_debug("%s is redundant by %s", f->path, p->path);
+                                continue;
+                        }
+                }
+
+                *t = *f;
+                t++;
+        }
+
+        *n = t - m;
+}
+
 static int mount_dev(BindMount *m) {
         static const char devnodes[] =
                 "/dev/null\0"
@@ -515,6 +553,7 @@ int setup_namespace(
 
                 drop_duplicates(mounts, &n);
                 drop_inaccessible(mounts, &n);
+                drop_nop(mounts, &n);
         }
 
         if (n > 0 || root_directory) {
