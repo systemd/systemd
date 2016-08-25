@@ -160,14 +160,18 @@
         use. However, UID/GIDs are recycled after a unit is terminated. Care should be taken that any processes running
         as part of a unit for which dynamic users/groups are enabled do not leave files or directories owned by these
         users/groups around, as a different unit might get the same UID/GID assigned later on, and thus gain access to
-        these files or directories. If <varname>DynamicUser=</varname> is enabled, <varname>RemoveIPC=</varname> and
+        these files or directories. If <varname>DynamicUser=</varname> is enabled, <varname>RemoveIPC=</varname>,
         <varname>PrivateTmp=</varname> are implied. This ensures that the lifetime of IPC objects and temporary files
         created by the executed processes is bound to the runtime of the service, and hence the lifetime of the dynamic
         user/group. Since <filename>/tmp</filename> and <filename>/var/tmp</filename> are usually the only
         world-writable directories on a system this ensures that a unit making use of dynamic user/group allocation
-        cannot leave files around after unit termination. Use <varname>RuntimeDirectory=</varname> (see below) in order
-        to assign a writable runtime directory to a service, owned by the dynamic user/group and removed automatically
-        when the unit is terminated. Defaults to off.</para></listitem>
+        cannot leave files around after unit termination. Moreover <varname>ProtectSystem=strict</varname> and
+        <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to arbitrary file
+        system locations. In order to allow the service to write to certain directories, they have to be whitelisted
+        using <varname>ReadWritePaths=</varname>, but care must be taken so that that UID/GID recycling doesn't
+        create security issues involving files created by the service. Use <varname>RuntimeDirectory=</varname> (see
+        below) in order to assign a writable runtime directory to a service, owned by the dynamic user/group and
+        removed automatically when the unit is terminated. Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
