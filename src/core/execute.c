@@ -2051,22 +2051,14 @@ static int exec_child(
         } else {
                 if (context->user) {
                         username = context->user;
-                        r = get_user_creds(&username, &uid, &gid, &home, &shell);
+                        r = get_user_creds_clean(&username, &uid, &gid, &home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return r;
                         }
 
-                        /* Don't set $HOME or $SHELL if they are are not particularly enlightening anyway. */
-                        if (isempty(home) || path_equal(home, "/"))
-                                home = NULL;
-
-                        if (isempty(shell) || PATH_IN_SET(shell,
-                                                          "/bin/nologin",
-                                                          "/sbin/nologin",
-                                                          "/usr/bin/nologin",
-                                                          "/usr/sbin/nologin"))
-                                shell = NULL;
+                        /* Note that we don't set $HOME or $SHELL if they are are not particularly enlightening anyway
+                         * (i.e. are "/" or "/bin/nologin"). */
                 }
 
                 if (context->group) {
