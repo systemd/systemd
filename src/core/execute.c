@@ -2291,14 +2291,9 @@ static int exec_child(
         }
         accum_env = strv_env_clean(accum_env);
 
-        umask(context->umask);
+        (void) umask(context->umask);
 
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
-                r = enforce_groups(context, username, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return r;
-                }
 #ifdef HAVE_SMACK
                 if (context->smack_process_label) {
                         r = mac_smack_apply_pid(0, context->smack_process_label);
@@ -2391,6 +2386,14 @@ static int exec_child(
                         log_close();
                 } else if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
+                        return r;
+                }
+        }
+
+        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
+                r = enforce_groups(context, username, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
                         return r;
                 }
         }
