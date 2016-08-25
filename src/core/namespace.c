@@ -462,9 +462,6 @@ int setup_namespace(
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
-        if (unshare(CLONE_NEWNS) < 0)
-                return -errno;
-
         n = !!tmp_dir + !!var_tmp_dir +
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
@@ -605,6 +602,9 @@ int setup_namespace(
                 drop_inaccessible(mounts, &n);
                 drop_nop(mounts, &n);
         }
+
+        if (unshare(CLONE_NEWNS) < 0)
+                return -errno;
 
         if (n > 0 || root_directory) {
                 /* Remount / as SLAVE so that nothing now mounted in the namespace
