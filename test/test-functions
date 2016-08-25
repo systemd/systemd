@@ -225,6 +225,7 @@ create_valgrind_wrapper() {
     cat >$_valgrind_wrapper <<EOF
 #!/bin/bash
 
+mount -t proc proc /proc
 exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
 EOF
     chmod 0755 $_valgrind_wrapper
