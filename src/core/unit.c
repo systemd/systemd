@@ -3377,8 +3377,14 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
+                        /* If the dynamic user option is on, let's make sure that the unit can't leave its UID/GID
+                         * around in the file system or on IPC objects. Hence enforce a strict sandbox. */
+
                         ec->private_tmp = true;
                         ec->remove_ipc = true;
+                        ec->protect_system = PROTECT_SYSTEM_STRICT;
+                        if (ec->protect_home == PROTECT_HOME_NO)
+                                ec->protect_home = PROTECT_HOME_READ_ONLY;
                 }
         }
 
