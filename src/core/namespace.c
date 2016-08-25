@@ -345,7 +345,6 @@ static int apply_mount(
 
         const char *what;
         int r;
-        struct stat target;
 
         assert(m);
 
@@ -353,7 +352,8 @@ static int apply_mount(
 
         switch (m->mode) {
 
-        case INACCESSIBLE:
+        case INACCESSIBLE: {
+                struct stat target;
 
                 /* First, get rid of everything that is below if there
                  * is anything... Then, overmount it with an
@@ -363,7 +363,7 @@ static int apply_mount(
                 if (lstat(m->path, &target) < 0) {
                         if (m->ignore && errno == ENOENT)
                                 return 0;
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m", m->path);
                 }
 
                 what = mode_to_inaccessible_node(target.st_mode);
@@ -372,6 +372,7 @@ static int apply_mount(
                         return -ELOOP;
                 }
                 break;
+        }
 
         case READONLY:
         case READWRITE:
