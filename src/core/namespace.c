@@ -472,9 +472,11 @@ int setup_namespace(
                 private_dev +
                 (protect_sysctl ? 3 : 0) +
                 (protect_cgroups != protect_sysctl) +
-                (protect_home != PROTECT_HOME_NO ? 3 : 0) +
-                (protect_system != PROTECT_SYSTEM_NO ? 2 : 0) +
-                (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
+                (protect_home != PROTECT_HOME_NO || protect_system == PROTECT_SYSTEM_STRICT ? 3 : 0) +
+                (protect_system == PROTECT_SYSTEM_STRICT ?
+                 (2 + !private_dev + !protect_sysctl) :
+                 ((protect_system != PROTECT_SYSTEM_NO ? 3 : 0) +
+                  (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0)));
 
         if (n > 0) {
                 m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
@@ -529,8 +531,12 @@ int setup_namespace(
                         m++;
                 }
 
-                if (protect_home != PROTECT_HOME_NO) {
+                if (protect_home != PROTECT_HOME_NO || protect_system == PROTECT_SYSTEM_STRICT) {
                         const char *home_dir, *run_user_dir, *root_dir;
+
+                        /* If protection of $HOME and $XDG_RUNTIME_DIR is requested, then go for it. If we are in
+                         * strict system protection mode, then also add entries for these directories, but mark them
+                         * writable. This is because we want ProtectHome= and ProtectSystem= to be fully orthogonal. */
 
                         home_dir = prefix_roota(root_directory, "/home");
                         home_dir = strjoina("-", home_dir);
@@ -540,22 +546,53 @@ int setup_namespace(
                         root_dir = strjoina("-", root_dir);
 
                         r = append_mounts(&m, STRV_MAKE(home_dir, run_user_dir, root_dir),
-                                protect_home == PROTECT_HOME_READ_ONLY ? READONLY : INACCESSIBLE);
+                                protect_home == PROTECT_HOME_READ_ONLY ? READONLY :
+                                protect_home == PROTECT_HOME_YES ? INACCESSIBLE : READWRITE);
                         if (r < 0)
                                 return r;
                 }
 
-                if (protect_system != PROTECT_SYSTEM_NO) {
-                        const char *usr_dir, *boot_dir, *etc_dir;
+                if (protect_system == PROTECT_SYSTEM_STRICT) {
+                        /* In strict mode, we mount everything read-only, except for /proc, /dev, /sys which are the
+                         * kernel API VFS, which are left writable, but PrivateDevices= + ProtectKernelTunables=
+                         * protect those, and these options should be fully orthogonal. (And of course /home and
+                         * friends are also left writable, as ProtectHome= shall manage those, orthogonally, see
+                         * above). */
+
+                        m->path = prefix_roota(root_directory, "/");
+                        m->mode = READONLY;
+                        m++;
+
+                        m->path = prefix_roota(root_directory, "/proc");
+                        m->mode = READWRITE;
+                        m++;
+
+                        if (!private_dev) {
+                                m->path = prefix_roota(root_directory, "/dev");
+                                m->mode = READWRITE;
+                                m++;
+                        }
+                        if (!protect_sysctl) {
+                                m->path = prefix_roota(root_directory, "/sys");
+                                m->mode = READWRITE;
+                                m++;
+                        }
+
+                } else if (protect_system != PROTECT_SYSTEM_NO) {
+                        const char *usr_dir, *boot_dir, *efi_dir, *etc_dir;
+
+                        /* In any other mode we simply mark the relevant three directories ready-only. */
 
                         usr_dir = prefix_roota(root_directory, "/usr");
                         boot_dir = prefix_roota(root_directory, "/boot");
                         boot_dir = strjoina("-", boot_dir);
+                        efi_dir = prefix_roota(root_directory, "/efi");
+                        efi_dir = strjoina("-", efi_dir);
                         etc_dir = prefix_roota(root_directory, "/etc");
 
                         r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL
-                                ? STRV_MAKE(usr_dir, boot_dir, etc_dir)
-                                : STRV_MAKE(usr_dir, boot_dir), READONLY);
+                                          ? STRV_MAKE(usr_dir, boot_dir, efi_dir, etc_dir)
+                                          : STRV_MAKE(usr_dir, boot_dir, efi_dir), READONLY);
                         if (r < 0)
                                 return r;
                 }
@@ -780,6 +817,7 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_NO] = "no",
         [PROTECT_SYSTEM_YES] = "yes",
         [PROTECT_SYSTEM_FULL] = "full",
+        [PROTECT_SYSTEM_STRICT] = "strict",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);

@@ -35,6 +35,7 @@ typedef enum ProtectSystem {
         PROTECT_SYSTEM_NO,
         PROTECT_SYSTEM_YES,
         PROTECT_SYSTEM_FULL,
+        PROTECT_SYSTEM_STRICT,
         _PROTECT_SYSTEM_MAX,
         _PROTECT_SYSTEM_INVALID = -1
 } ProtectSystem;
