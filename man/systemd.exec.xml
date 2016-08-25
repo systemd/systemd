@@ -1020,22 +1020,23 @@
       <varlistentry>
         <term><varname>ProtectSystem=</varname></term>
 
-        <listitem><para>Takes a boolean argument or
-        <literal>full</literal>. If true, mounts the
-        <filename>/usr</filename> and <filename>/boot</filename>
-        directories read-only for processes invoked by this unit. If
-        set to <literal>full</literal>, the <filename>/etc</filename>
-        directory is mounted read-only, too. This setting ensures that
-        any modification of the vendor-supplied operating system (and
-        optionally its configuration) is prohibited for the service.
-        It is recommended to enable this setting for all long-running
-        services, unless they are involved with system updates or need
-        to modify the operating system in other ways. Note however
-        that processes retaining the CAP_SYS_ADMIN capability can undo
-        the effect of this setting. This setting is hence particularly
-        useful for daemons which have this capability removed, for
-        example with <varname>CapabilityBoundingSet=</varname>.
-        Defaults to off.</para></listitem>
+        <listitem><para>Takes a boolean argument or the special values <literal>full</literal> or
+        <literal>strict</literal>. If true, mounts the <filename>/usr</filename> and <filename>/boot</filename>
+        directories read-only for processes invoked by this unit. If set to <literal>full</literal>, the
+        <filename>/etc</filename> directory is mounted read-only, too. If set to <literal>strict</literal> the entire
+        file system hierarchy is mounted read-only, except for the API file system subtrees <filename>/dev</filename>,
+        <filename>/proc</filename> and <filename>/sys</filename> (protect these directories using
+        <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
+        <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the vendor-supplied
+        operating system (and optionally its configuration, and local mounts) is prohibited for the service.  It is
+        recommended to enable this setting for all long-running services, unless they are involved with system updates
+        or need to modify the operating system in other ways. If this option is used,
+        <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. Note
+        that processes retaining the <constant>CAP_SYS_ADMIN</constant> capability (and with no system call filter that
+        prohibits mount-related system calls applied) can undo the effect of this setting. This setting is hence
+        particularly useful for daemons which have this either the <literal>@mount</literal> set filtered using
+        <varname>SystemCallFilter=</varname>, or have the <constant>CAP_SYS_ADMIN</constant> capability removed, for
+        example with <varname>CapabilityBoundingSet=</varname>.  Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
