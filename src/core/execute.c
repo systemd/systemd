@@ -1820,6 +1820,44 @@ static int setup_runtime_directory(
         return 0;
 }
 
+static int compile_read_write_paths(
+                const ExecContext *context,
+                const ExecParameters *params,
+                char ***ret) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        char **rt;
+
+        /* Compile the list of writable paths. This is the combination of the explicitly configured paths, plus all
+         * runtime directories. */
+
+        if (strv_isempty(context->read_write_paths) &&
+            strv_isempty(context->runtime_directory)) {
+                *ret = NULL; /* NOP if neither is set */
+                return 0;
+        }
+
+        l = strv_copy(context->read_write_paths);
+        if (!l)
+                return -ENOMEM;
+
+        STRV_FOREACH(rt, context->runtime_directory) {
+                char *s;
+
+                s = strjoin(params->runtime_prefix, "/", *rt, NULL);
+                if (!s)
+                        return -ENOMEM;
+
+                if (strv_consume(&l, s) < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = l;
+        l = NULL;
+
+        return 0;
+}
+
 static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
         assert(array);
         assert(n);
@@ -2307,8 +2345,8 @@ static int exec_child(
         }
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
-
         if (needs_mount_namespace) {
+                _cleanup_free_ char **rw = NULL;
                 char *tmp = NULL, *var = NULL;
 
                 /* The runtime struct only contains the parent
@@ -2324,9 +2362,15 @@ static int exec_child(
                                 var = strjoina(runtime->var_tmp_dir, "/tmp");
                 }
 
+                r = compile_read_write_paths(context, params, &rw);
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return r;
+                }
+
                 r = setup_namespace(
                                 (params->flags & EXEC_APPLY_CHROOT) ? context->root_directory : NULL,
-                                context->read_write_paths,
+                                rw,
                                 context->read_only_paths,
                                 context->inaccessible_paths,
                                 tmp,
