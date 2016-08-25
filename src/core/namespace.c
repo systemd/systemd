@@ -93,21 +93,19 @@ static int mount_path_compare(const void *a, const void *b) {
         const BindMount *p = a, *q = b;
         int d;
 
-        d = path_compare(p->path, q->path);
-
-        if (d == 0) {
-                /* If the paths are equal, check the mode */
-                if (p->mode < q->mode)
-                        return -1;
-
-                if (p->mode > q->mode)
-                        return 1;
-
-                return 0;
-        }
-
         /* If the paths are not equal, then order prefixes first */
-        return d;
+        d = path_compare(p->path, q->path);
+        if (d != 0)
+                return d;
+
+        /* If the paths are equal, check the mode */
+        if (p->mode < q->mode)
+                return -1;
+
+        if (p->mode > q->mode)
+                return 1;
+
+        return 0;
 }
 
 static void drop_duplicates(BindMount *m, unsigned *n) {
