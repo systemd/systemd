@@ -1,0 +1,60 @@
+.Dd December 4, 2014
+.Dt SINIT 8 sinit\-VERSION
+.Os
+.Sh NAME
+.Nm sinit
+.Nd simple init
+.Sh DESCRIPTION
+.Nm
+is a simple init.  It is configured by modifying
+.Dq config.h
+and recompiling the code.
+.Ss Init sequence
+By default
+.Nm
+will execute
+.Dq /bin/rc.init .
+You can chain your init scripts together at that point to allow for
+single-user and multi-user operation.
+.Ss Signal handling
+.Nm
+will respond to the following signals:
+.Bl -tag -width xxxxxxxx
+.It USR1
+Default action is to initiate the shutdown sequence by
+executing
+.Dq /bin/rc.shutdown poweroff .
+.It INT
+Default action is to initiate the reboot sequence by
+executing
+.Dq /bin/rc.shutdown reboot .
+.It CHLD
+Reap children.
+.El
+.Ss General considerations
+Running the
+.Dq rc.shutdown
+script directly is not recommended.  If any
+process in your session has stale filesystem references then it is
+likely your init scripts will fail to unmount the filesystem cleanly.
+It is recommended to signal
+.Nm
+via a wrapper script.
+.Pp
+.Nm
+does not clear utmp records.  The version of
+.Xr getty 8
+in ubase clears the utmp entries on the specified tty before it
+spawns the given program, usually
+.Xr login 1 .
+.Pp
+.Nm
+does not restart
+.Xr getty 8
+or interact with it in any way.  You will need an external
+respawning mechanism to restart it.
+.Sh SEE ALSO
+.Xr getty 8 ,
+.Xr killall5 8
+.Sh AUTHORS
+.An Dimitris Papastamos Aq Mt sin@2f30.org .

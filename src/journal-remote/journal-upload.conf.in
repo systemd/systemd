@@ -1,5 +1,0 @@
-[Upload]
-# URL=
-# ServerKeyFile=@CERTIFICATEROOT@/private/journal-upload.pem
-# ServerCertificateFile=@CERTIFICATEROOT@/certs/journal-upload.pem
-# TrustedCertificateFile=@CERTIFICATEROOT@/ca/trusted.pem

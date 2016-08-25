@@ -1,5 +1,0 @@
-#autoload
-
-_alternative \
-  'users-hosts:: _user_at_host' \
-  'hosts:: _hosts'

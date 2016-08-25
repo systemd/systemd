@@ -1,8 +1,0 @@
-load-fragment-gperf-nulstr.c
-load-fragment-gperf.c
-load-fragment-gperf.gperf
-org.freedesktop.systemd1.policy.in
-org.freedesktop.systemd1.policy
-99-systemd.rules
-*.gcno
-*.gcda
