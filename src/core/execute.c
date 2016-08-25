@@ -1789,6 +1789,37 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         return 0;
 }
 
+static int setup_runtime_directory(
+                const ExecContext *context,
+                const ExecParameters *params,
+                uid_t uid,
+                gid_t gid) {
+
+        char **rt;
+        int r;
+
+        assert(context);
+        assert(params);
+
+        STRV_FOREACH(rt, context->runtime_directory) {
+                _cleanup_free_ char *p;
+
+                p = strjoin(params->runtime_prefix, "/", *rt, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                r = mkdir_p_label(p, context->runtime_directory_mode);
+                if (r < 0)
+                        return r;
+
+                r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
         assert(array);
         assert(n);
@@ -2188,28 +2219,10 @@ static int exec_child(
         }
 
         if (!strv_isempty(context->runtime_directory) && params->runtime_prefix) {
-                char **rt;
-
-                STRV_FOREACH(rt, context->runtime_directory) {
-                        _cleanup_free_ char *p;
-
-                        p = strjoin(params->runtime_prefix, "/", *rt, NULL);
-                        if (!p) {
-                                *exit_status = EXIT_RUNTIME_DIRECTORY;
-                                return -ENOMEM;
-                        }
-
-                        r = mkdir_p_label(p, context->runtime_directory_mode);
-                        if (r < 0) {
-                                *exit_status = EXIT_RUNTIME_DIRECTORY;
-                                return r;
-                        }
-
-                        r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid);
-                        if (r < 0) {
-                                *exit_status = EXIT_RUNTIME_DIRECTORY;
-                                return r;
-                        }
+                r = setup_runtime_directory(context, params, uid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_RUNTIME_DIRECTORY;
+                        return r;
                 }
         }
 
