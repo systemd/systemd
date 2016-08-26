@@ -821,49 +821,37 @@
         <listitem><para>Controls which capabilities to include in the capability bounding set for the executed
         process. See <citerefentry
         project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details. Takes a whitespace-separated list of capability names as read by <citerefentry
-        project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        e.g. <constant>CAP_SYS_ADMIN</constant>, <constant>CAP_DAC_OVERRIDE</constant>,
-        <constant>CAP_SYS_PTRACE</constant>. Capabilities listed will be included in the bounding set, all others are
-        removed. If the list of capabilities is prefixed with <literal>~</literal>, all but the listed capabilities
-        will be included, the effect of the assignment inverted. Note that this option also affects the respective
-        capabilities in the effective, permitted and inheritable capability sets. If this option is not used, the
-        capability bounding set is not modified on process execution, hence no limits on the capabilities of the
-        process are enforced. This option may appear more than once, in which case the bounding sets are merged. If the
-        empty string is assigned to this option, the bounding set is reset to the empty capability set, and all prior
-        settings have no effect.  If set to <literal>~</literal> (without any further argument), the bounding set is
-        reset to the full set of available capabilities, also undoing any previous settings. This does not affect
-        commands prefixed with <literal>+</literal>.</para></listitem>
+        details. Takes a whitespace-separated list of capability names, e.g. <constant>CAP_SYS_ADMIN</constant>,
+        <constant>CAP_DAC_OVERRIDE</constant>, <constant>CAP_SYS_PTRACE</constant>. Capabilities listed will be
+        included in the bounding set, all others are removed. If the list of capabilities is prefixed with
+        <literal>~</literal>, all but the listed capabilities will be included, the effect of the assignment
+        inverted. Note that this option also affects the respective capabilities in the effective, permitted and
+        inheritable capability sets. If this option is not used, the capability bounding set is not modified on process
+        execution, hence no limits on the capabilities of the process are enforced. This option may appear more than
+        once, in which case the bounding sets are merged. If the empty string is assigned to this option, the bounding
+        set is reset to the empty capability set, and all prior settings have no effect.  If set to
+        <literal>~</literal> (without any further argument), the bounding set is reset to the full set of available
+        capabilities, also undoing any previous settings. This does not affect commands prefixed with
+        <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>AmbientCapabilities=</varname></term>
 
-        <listitem><para>Controls which capabilities to include in the
-        ambient capability set for the executed process. Takes a
-        whitespace-separated list of capability names as read by
-        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        e.g. <constant>CAP_SYS_ADMIN</constant>,
-        <constant>CAP_DAC_OVERRIDE</constant>,
-        <constant>CAP_SYS_PTRACE</constant>. This option may appear more than
-        once in which case the ambient capability sets are merged.
-        If the list of capabilities is prefixed with <literal>~</literal>, all
-        but the listed capabilities will be included, the effect of the
-        assignment inverted. If the empty string is
-        assigned to this option, the ambient capability set is reset to
-        the empty capability set, and all prior settings have no effect.
-        If set to <literal>~</literal> (without any further argument), the
-        ambient capability set is reset to the full set of available
-        capabilities, also undoing any previous settings. Note that adding
-        capabilities to ambient capability set adds them to the process's
-        inherited capability set.
-        </para><para>
-        Ambient capability sets are useful if you want to execute a process
-        as a non-privileged user but still want to give it some capabilities.
-        Note that in this case option <constant>keep-caps</constant> is
-        automatically added to <varname>SecureBits=</varname> to retain the
-        capabilities over the user change. <varname>AmbientCapabilities=</varname> does not affect
-        commands prefixed with <literal>+</literal>.</para></listitem>
+        <listitem><para>Controls which capabilities to include in the ambient capability set for the executed
+        process. Takes a whitespace-separated list of capability names, e.g. <constant>CAP_SYS_ADMIN</constant>,
+        <constant>CAP_DAC_OVERRIDE</constant>, <constant>CAP_SYS_PTRACE</constant>. This option may appear more than
+        once in which case the ambient capability sets are merged.  If the list of capabilities is prefixed with
+        <literal>~</literal>, all but the listed capabilities will be included, the effect of the assignment
+        inverted. If the empty string is assigned to this option, the ambient capability set is reset to the empty
+        capability set, and all prior settings have no effect.  If set to <literal>~</literal> (without any further
+        argument), the ambient capability set is reset to the full set of available capabilities, also undoing any
+        previous settings. Note that adding capabilities to ambient capability set adds them to the process's inherited
+        capability set.  </para><para> Ambient capability sets are useful if you want to execute a process as a
+        non-privileged user but still want to give it some capabilities.  Note that in this case option
+        <constant>keep-caps</constant> is automatically added to <varname>SecureBits=</varname> to retain the
+        capabilities over the user change. <varname>AmbientCapabilities=</varname> does not affect commands prefixed
+        with <literal>+</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
