@@ -1612,8 +1612,8 @@
         <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes, and encodes the service
         "result". Currently, the following values are defined: <literal>timeout</literal> (in case of an operation
         timeout), <literal>exit-code</literal> (if a service process exited with a non-zero exit code; see
-        <varname>$EXIT_STATUS</varname> below for the actual exit status returned), <literal>signal</literal> (if a
-        service process was terminated abnormally by a signal; see <varname>$EXIT_STATUS</varname> below for the actual
+        <varname>$EXIT_CODE</varname> below for the actual exit code returned), <literal>signal</literal> (if a
+        service process was terminated abnormally by a signal; see <varname>$EXIT_CODE</varname> below for the actual
         signal used for the termination), <literal>core-dump</literal> (if a service process terminated abnormally and
         dumped core), <literal>watchdog</literal> (if the watchdog keep-alive ping was enabled for the service but it
         missed the deadline), or <literal>resources</literal> (a catch-all condition in case a system operation
