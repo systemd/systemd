@@ -27,11 +27,14 @@ Type=notify
 Restart=on-failure
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
+WatchdogSec=3min
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
 ProtectSystem=full
 ProtectHome=yes
-WatchdogSec=3min
+ProtectControlGroups=yes
 MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
 
 [Install]

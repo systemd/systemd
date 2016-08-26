@@ -11,13 +11,19 @@ Documentation=man:systemd-journal-upload(8)
 After=network.target
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-journal-upload \
-          --save-state
+ExecStart=@rootlibexecdir@/systemd-journal-upload --save-state
 User=systemd-journal-upload
 SupplementaryGroups=systemd-journal
+WatchdogSec=3min
 PrivateTmp=yes
 PrivateDevices=yes
-WatchdogSec=3min
+ProtectSystem=full
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 # If there are many split up journal files we need a lot of fds to
 # access them all and combine

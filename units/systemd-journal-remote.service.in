@@ -11,15 +11,20 @@ Documentation=man:systemd-journal-remote(8) man:journal-remote.conf(5)
 Requires=systemd-journal-remote.socket
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-journal-remote \
-          --listen-https=-3 \
-          --output=/var/log/journal/remote/
+ExecStart=@rootlibexecdir@/systemd-journal-remote --listen-https=-3 --output=/var/log/journal/remote/
 User=systemd-journal-remote
 Group=systemd-journal-remote
+WatchdogSec=3min
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
-WatchdogSec=3min
+ProtectSystem=full
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]
 Also=systemd-journal-remote.socket
