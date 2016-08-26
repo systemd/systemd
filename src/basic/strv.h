@@ -96,10 +96,13 @@ bool strv_overlap(char **a, char **b) _pure_;
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
 
-#define STRV_FOREACH_BACKWARDS(s, l)            \
-        STRV_FOREACH(s, l)                      \
-                ;                               \
-        for ((s)--; (l) && ((s) >= (l)); (s)--)
+#define STRV_FOREACH_BACKWARDS(s, l)                                \
+        for (s = ({                                                 \
+                        char **_l = l;                              \
+                        _l ? _l + strv_length(_l) - 1U : NULL;      \
+                        });                                         \
+             (l) && ((s) >= (l));                                   \
+             (s)--)
 
 #define STRV_FOREACH_PAIR(x, y, l)               \
         for ((x) = (l), (y) = (x+1); (x) && *(x) && *(y); (x) += 2, (y) = (x + 1))

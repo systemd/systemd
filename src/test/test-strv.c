@@ -453,9 +453,14 @@ static void test_strv_foreach_backwards(void) {
 
         assert_se(a);
 
-        STRV_FOREACH_BACKWARDS(check, a) {
+        STRV_FOREACH_BACKWARDS(check, a)
                 assert_se(streq_ptr(*check, input_table_multiple[i--]));
-        }
+
+        STRV_FOREACH_BACKWARDS(check, (char**) NULL)
+                assert_not_reached("Let's see that we check empty strv right, too.");
+
+        STRV_FOREACH_BACKWARDS(check, (char**) { NULL })
+                assert_not_reached("Let's see that we check empty strv right, too.");
 }
 
 static void test_strv_foreach_pair(void) {
