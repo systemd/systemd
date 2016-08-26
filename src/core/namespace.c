@@ -646,10 +646,15 @@ int setup_namespace(
         }
 
         if (root_directory) {
-                /* Turn directory into bind mount */
-                if (mount(root_directory, root_directory, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                        r = -errno;
+                /* Turn directory into bind mount, if it isn't one yet */
+                r = path_is_mount_point(root_directory, AT_SYMLINK_FOLLOW);
+                if (r < 0)
                         goto finish;
+                if (r == 0) {
+                        if (mount(root_directory, root_directory, NULL, MS_BIND|MS_REC, NULL) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
                 }
         }
 
