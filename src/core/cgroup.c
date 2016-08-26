@@ -1524,6 +1524,8 @@ void unit_prune_cgroup(Unit *u) {
         if (!u->cgroup_path)
                 return;
 
+        (void) unit_get_cpu_usage(u, NULL); /* Cache the last CPU usage value before we destroy the cgroup */
+
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
@@ -2044,7 +2046,21 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
         nsec_t ns;
         int r;
 
+        assert(u);
+
+        /* Retrieve the current CPU usage counter. This will subtract the CPU counter taken when the unit was
+         * started. If the cgroup has been removed already, returns the last cached value. To cache the value, simply
+         * call this function with a NULL return value. */
+
         r = unit_get_cpu_usage_raw(u, &ns);
+        if (r == -ENODATA && u->cpu_usage_last != NSEC_INFINITY) {
+                /* If we can't get the CPU usage anymore (because the cgroup was already removed, for example), use our
+                 * cached value. */
+
+                if (ret)
+                        *ret = u->cpu_usage_last;
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -2053,7 +2069,10 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
         else
                 ns = 0;
 
-        *ret = ns;
+        u->cpu_usage_last = ns;
+        if (ret)
+                *ret = ns;
+
         return 0;
 }
 
@@ -2062,6 +2081,8 @@ int unit_reset_cpu_usage(Unit *u) {
         int r;
 
         assert(u);
+
+        u->cpu_usage_last = NSEC_INFINITY;
 
         r = unit_get_cpu_usage_raw(u, &ns);
         if (r < 0) {

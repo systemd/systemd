@@ -102,6 +102,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->job_timeout = USEC_INFINITY;
         u->ref_uid = UID_INVALID;
         u->ref_gid = GID_INVALID;
+        u->cpu_usage_last = NSEC_INFINITY;
 
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
@@ -113,7 +114,7 @@ bool unit_has_name(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        return !!set_get(u->names, (char*) name);
+        return set_contains(u->names, (char*) name);
 }
 
 static void unit_init(Unit *u) {
@@ -329,6 +330,9 @@ bool unit_check_gc(Unit *u) {
         if (u->refs)
                 return true;
 
+        if (sd_bus_track_count(u->bus_track) > 0)
+                return true;
+
         if (UNIT_VTABLE(u)->check_gc)
                 if (UNIT_VTABLE(u)->check_gc(u))
                         return true;
@@ -508,6 +512,9 @@ void unit_free(Unit *u) {
         unit_done(u);
 
         sd_bus_slot_unref(u->match_bus_slot);
+
+        sd_bus_track_unref(u->bus_track);
+        u->deserialized_refs = strv_free(u->deserialized_refs);
 
         unit_free_requires_mounts_for(u);
 
@@ -897,6 +904,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
         int r;
+        const char *n;
 
         assert(u);
         assert(u->type >= 0);
@@ -1038,6 +1046,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         else if (u->load_state == UNIT_ERROR)
                 fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror(-u->load_error));
 
+        for (n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
+                fprintf(f, "%s\tBus Ref: %s\n", prefix, n);
 
         if (u->job)
                 job_dump(u->job, f, prefix2);
@@ -2611,7 +2621,10 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item(u, f, "assert-result", yes_no(u->assert_result));
 
         unit_serialize_item(u, f, "transient", yes_no(u->transient));
+
         unit_serialize_item_format(u, f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
+        if (u->cpu_usage_last != NSEC_INFINITY)
+                unit_serialize_item_format(u, f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
 
         if (u->cgroup_path)
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
@@ -2622,15 +2635,17 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (gid_is_valid(u->ref_gid))
                 unit_serialize_item_format(u, f, "ref-gid", GID_FMT, u->ref_gid);
 
+        bus_track_serialize(u->bus_track, f, "ref");
+
         if (serialize_jobs) {
                 if (u->job) {
                         fprintf(f, "job\n");
-                        job_serialize(u->job, f, fds);
+                        job_serialize(u->job, f);
                 }
 
                 if (u->nop_job) {
                         fprintf(f, "job\n");
-                        job_serialize(u->nop_job, f, fds);
+                        job_serialize(u->nop_job, f);
                 }
         }
 
@@ -2760,7 +2775,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 if (!j)
                                         return log_oom();
 
-                                r = job_deserialize(j, f, fds);
+                                r = job_deserialize(j, f);
                                 if (r < 0) {
                                         job_free(j);
                                         return r;
@@ -2832,11 +2847,19 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         continue;
 
-                } else if (streq(l, "cpu-usage-base") || streq(l, "cpuacct-usage-base")) {
+                } else if (STR_IN_SET(l, "cpu-usage-base", "cpuacct-usage-base")) {
 
                         r = safe_atou64(v, &u->cpu_usage_base);
                         if (r < 0)
-                                log_unit_debug(u, "Failed to parse CPU usage %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse CPU usage base %s, ignoring.", v);
+
+                        continue;
+
+                } else if (streq(l, "cpu-usage-last")) {
+
+                        r = safe_atou64(v, &u->cpu_usage_last);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to read CPU usage last %s, ignoring.", v);
 
                         continue;
 
@@ -2879,6 +2902,12 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse referenced GID %s, ignoring.", v);
                         else
                                 unit_ref_uid_gid(u, UID_INVALID, gid);
+
+                } else if (streq(l, "ref")) {
+
+                        r = strv_extend(&u->deserialized_refs, v);
+                        if (r < 0)
+                                log_oom();
 
                         continue;
                 }
@@ -2955,7 +2984,8 @@ int unit_add_node_link(Unit *u, const char *what, bool wants, UnitDependency dep
 }
 
 int unit_coldplug(Unit *u) {
-        int r = 0, q = 0;
+        int r = 0, q;
+        char **i;
 
         assert(u);
 
@@ -2966,18 +2996,26 @@ int unit_coldplug(Unit *u) {
 
         u->coldplugged = true;
 
-        if (UNIT_VTABLE(u)->coldplug)
-                r = UNIT_VTABLE(u)->coldplug(u);
+        STRV_FOREACH(i, u->deserialized_refs) {
+                q = bus_unit_track_add_name(u, *i);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
+        u->deserialized_refs = strv_free(u->deserialized_refs);
 
-        if (u->job)
+        if (UNIT_VTABLE(u)->coldplug) {
+                q = UNIT_VTABLE(u)->coldplug(u);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
+
+        if (u->job) {
                 q = job_coldplug(u->job);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
 
-        if (r < 0)
-                return r;
-        if (q < 0)
-                return q;
-
-        return 0;
+        return r;
 }
 
 static bool fragment_mtime_newer(const char *path, usec_t mtime) {

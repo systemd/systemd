@@ -52,6 +52,8 @@ MANPAGES += \
 	man/sd_bus_path_encode.3 \
 	man/sd_bus_process.3 \
 	man/sd_bus_request_name.3 \
+	man/sd_bus_track_add_name.3 \
+	man/sd_bus_track_new.3 \
 	man/sd_event_add_child.3 \
 	man/sd_event_add_defer.3 \
 	man/sd_event_add_io.3 \
@@ -332,6 +334,23 @@ MANPAGES_ALIAS += \
 	man/sd_bus_path_encode_many.3 \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
+	man/sd_bus_track_add_sender.3 \
+	man/sd_bus_track_contains.3 \
+	man/sd_bus_track_count.3 \
+	man/sd_bus_track_count_name.3 \
+	man/sd_bus_track_count_sender.3 \
+	man/sd_bus_track_first.3 \
+	man/sd_bus_track_get_bus.3 \
+	man/sd_bus_track_get_recursive.3 \
+	man/sd_bus_track_get_userdata.3 \
+	man/sd_bus_track_next.3 \
+	man/sd_bus_track_ref.3 \
+	man/sd_bus_track_remove_name.3 \
+	man/sd_bus_track_remove_sender.3 \
+	man/sd_bus_track_set_recursive.3 \
+	man/sd_bus_track_set_userdata.3 \
+	man/sd_bus_track_unref.3 \
+	man/sd_bus_track_unrefp.3 \
 	man/sd_bus_unref.3 \
 	man/sd_bus_unrefp.3 \
 	man/sd_event.3 \
@@ -665,6 +684,23 @@ man/sd_bus_path_decode_many.3: man/sd_bus_path_encode.3
 man/sd_bus_path_encode_many.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
+man/sd_bus_track_add_sender.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_contains.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_count.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_count_name.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_count_sender.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_first.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_get_bus.3: man/sd_bus_track_new.3
+man/sd_bus_track_get_recursive.3: man/sd_bus_track_new.3
+man/sd_bus_track_get_userdata.3: man/sd_bus_track_new.3
+man/sd_bus_track_next.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_ref.3: man/sd_bus_track_new.3
+man/sd_bus_track_remove_name.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_remove_sender.3: man/sd_bus_track_add_name.3
+man/sd_bus_track_set_recursive.3: man/sd_bus_track_new.3
+man/sd_bus_track_set_userdata.3: man/sd_bus_track_new.3
+man/sd_bus_track_unref.3: man/sd_bus_track_new.3
+man/sd_bus_track_unrefp.3: man/sd_bus_track_new.3
 man/sd_bus_unref.3: man/sd_bus_new.3
 man/sd_bus_unrefp.3: man/sd_bus_new.3
 man/sd_event.3: man/sd_event_new.3
@@ -1298,6 +1334,57 @@ man/sd_bus_ref.html: man/sd_bus_new.html
 	$(html-alias)
 
 man/sd_bus_release_name.html: man/sd_bus_request_name.html
+	$(html-alias)
+
+man/sd_bus_track_add_sender.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_contains.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_count.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_count_name.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_count_sender.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_first.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_get_bus.html: man/sd_bus_track_new.html
+	$(html-alias)
+
+man/sd_bus_track_get_recursive.html: man/sd_bus_track_new.html
+	$(html-alias)
+
+man/sd_bus_track_get_userdata.html: man/sd_bus_track_new.html
+	$(html-alias)
+
+man/sd_bus_track_next.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_ref.html: man/sd_bus_track_new.html
+	$(html-alias)
+
+man/sd_bus_track_remove_name.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_remove_sender.html: man/sd_bus_track_add_name.html
+	$(html-alias)
+
+man/sd_bus_track_set_recursive.html: man/sd_bus_track_new.html
+	$(html-alias)
+
+man/sd_bus_track_set_userdata.html: man/sd_bus_track_new.html
+	$(html-alias)
+
+man/sd_bus_track_unref.html: man/sd_bus_track_new.html
+	$(html-alias)
+
+man/sd_bus_track_unrefp.html: man/sd_bus_track_new.html
 	$(html-alias)
 
 man/sd_bus_unref.html: man/sd_bus_new.html
@@ -2559,6 +2646,8 @@ EXTRA_DIST += \
 	man/sd_bus_path_encode.xml \
 	man/sd_bus_process.xml \
 	man/sd_bus_request_name.xml \
+	man/sd_bus_track_add_name.xml \
+	man/sd_bus_track_new.xml \
 	man/sd_event_add_child.xml \
 	man/sd_event_add_defer.xml \
 	man/sd_event_add_io.xml \

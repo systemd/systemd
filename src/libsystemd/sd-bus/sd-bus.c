@@ -107,6 +107,7 @@ static void bus_free(sd_bus *b) {
 
         assert(b);
         assert(!b->track_queue);
+        assert(!b->tracks);
 
         b->state = BUS_CLOSED;
 
@@ -2640,6 +2641,84 @@ null_message:
         return r;
 }
 
+static int bus_exit_now(sd_bus *bus) {
+        assert(bus);
+
+        /* Exit due to close, if this is requested. If this is bus object is attached to an event source, invokes
+         * sd_event_exit(), otherwise invokes libc exit(). */
+
+        if (bus->exited) /* did we already exit? */
+                return 0;
+        if (!bus->exit_triggered) /* was the exit condition triggered? */
+                return 0;
+        if (!bus->exit_on_disconnect) /* Shall we actually exit on disconnection? */
+                return 0;
+
+        bus->exited = true; /* never exit more than once */
+
+        log_debug("Bus connection disconnected, exiting.");
+
+        if (bus->event)
+                return sd_event_exit(bus->event, EXIT_FAILURE);
+        else
+                exit(EXIT_FAILURE);
+
+        assert_not_reached("exit() didn't exit?");
+}
+
+static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        sd_bus_slot *slot;
+        int r;
+
+        assert(bus);
+        assert(c);
+
+        r = bus_message_new_synthetic_error(
+                        bus,
+                        c->cookie,
+                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
+                        &m);
+        if (r < 0)
+                return r;
+
+        r = bus_seal_synthetic_message(bus, m);
+        if (r < 0)
+                return r;
+
+        if (c->timeout != 0) {
+                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+                c->timeout = 0;
+        }
+
+        ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
+        c->cookie = 0;
+
+        slot = container_of(c, sd_bus_slot, reply_callback);
+
+        bus->iteration_counter++;
+
+        bus->current_message = m;
+        bus->current_slot = sd_bus_slot_ref(slot);
+        bus->current_handler = c->callback;
+        bus->current_userdata = slot->userdata;
+        r = c->callback(m, slot->userdata, &error_buffer);
+        bus->current_userdata = NULL;
+        bus->current_handler = NULL;
+        bus->current_slot = NULL;
+        bus->current_message = NULL;
+
+        if (slot->floating) {
+                bus_slot_disconnect(slot);
+                sd_bus_slot_unref(slot);
+        }
+
+        sd_bus_slot_unref(slot);
+
+        return bus_maybe_reply_error(m, r, &error_buffer);
+}
+
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         struct reply_callback *c;
@@ -2648,54 +2727,15 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         assert(bus);
         assert(bus->state == BUS_CLOSING);
 
+        /* First, fail all outstanding method calls */
         c = ordered_hashmap_first(bus->reply_callbacks);
-        if (c) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-                sd_bus_slot *slot;
+        if (c)
+                return process_closing_reply_callback(bus, c);
 
-                /* First, fail all outstanding method calls */
-                r = bus_message_new_synthetic_error(
-                                bus,
-                                c->cookie,
-                                &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
-                                &m);
-                if (r < 0)
-                        return r;
-
-                r = bus_seal_synthetic_message(bus, m);
-                if (r < 0)
-                        return r;
-
-                if (c->timeout != 0) {
-                        prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
-                        c->timeout = 0;
-                }
-
-                ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
-                c->cookie = 0;
-
-                slot = container_of(c, sd_bus_slot, reply_callback);
-
-                bus->iteration_counter++;
-
-                bus->current_message = m;
-                bus->current_slot = sd_bus_slot_ref(slot);
-                bus->current_handler = c->callback;
-                bus->current_userdata = slot->userdata;
-                r = c->callback(m, slot->userdata, &error_buffer);
-                bus->current_userdata = NULL;
-                bus->current_handler = NULL;
-                bus->current_slot = NULL;
-                bus->current_message = NULL;
-
-                if (slot->floating) {
-                        bus_slot_disconnect(slot);
-                        sd_bus_slot_unref(slot);
-                }
-
-                sd_bus_slot_unref(slot);
-
-                return bus_maybe_reply_error(m, r, &error_buffer);
+        /* Then, fake-drop all remaining bus tracking references */
+        if (bus->tracks) {
+                bus_track_close(bus->tracks);
+                return 1;
         }
 
         /* Then, synthesize a Disconnected message */
@@ -2726,6 +2766,10 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         r = process_match(bus, m);
         if (r != 0)
                 goto finish;
+
+        /* Nothing else to do, exit now, if the condition holds */
+        bus->exit_triggered = true;
+        (void) bus_exit_now(bus);
 
         if (ret) {
                 *ret = m;
@@ -3788,4 +3832,22 @@ _public_ void sd_bus_default_flush_close(void) {
         flush_close(default_starter_bus);
         flush_close(default_user_bus);
         flush_close(default_system_bus);
+}
+
+_public_ int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+
+        /* Turns on exit-on-disconnect, and triggers it immediately if the bus connection was already
+         * disconnected. Note that this is triggered exclusively on disconnections triggered by the server side, never
+         * from the client side. */
+        bus->exit_on_disconnect = b;
+
+        /* If the exit condition was triggered already, exit immediately. */
+        return bus_exit_now(bus);
+}
+
+_public_ int sd_bus_get_exit_on_disconnect(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+
+        return bus->exit_on_disconnect;
 }

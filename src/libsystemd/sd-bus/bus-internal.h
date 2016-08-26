@@ -209,6 +209,9 @@ struct sd_bus {
         bool is_system:1;
         bool is_user:1;
         bool allow_interactive_authorization:1;
+        bool exit_on_disconnect:1;
+        bool exited:1;
+        bool exit_triggered:1;
 
         int use_memfd;
 
@@ -320,6 +323,7 @@ struct sd_bus {
         sd_bus_track *track_queue;
 
         LIST_HEAD(sd_bus_slot, slots);
+        LIST_HEAD(sd_bus_track, tracks);
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

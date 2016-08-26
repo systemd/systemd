@@ -147,6 +147,8 @@ int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *creds_mask);
 int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b);
 int sd_bus_get_allow_interactive_authorization(sd_bus *bus);
+int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b);
+int sd_bus_get_exit_on_disconnect(sd_bus *bus);
 
 int sd_bus_start(sd_bus *ret);
 
@@ -438,8 +440,14 @@ int sd_bus_track_remove_sender(sd_bus_track *track, sd_bus_message *m);
 int sd_bus_track_add_name(sd_bus_track *track, const char *name);
 int sd_bus_track_remove_name(sd_bus_track *track, const char *name);
 
+int sd_bus_track_set_recursive(sd_bus_track *track, int b);
+int sd_bus_track_get_recursive(sd_bus_track *track);
+
 unsigned sd_bus_track_count(sd_bus_track *track);
-const char* sd_bus_track_contains(sd_bus_track *track, const char *names);
+int sd_bus_track_count_sender(sd_bus_track *track, sd_bus_message *m);
+int sd_bus_track_count_name(sd_bus_track *track, const char *name);
+
+const char* sd_bus_track_contains(sd_bus_track *track, const char *name);
 const char* sd_bus_track_first(sd_bus_track *track);
 const char* sd_bus_track_next(sd_bus_track *track);
 

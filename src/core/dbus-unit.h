@@ -33,9 +33,15 @@ int bus_unit_method_start_generic(sd_bus_message *message, Unit *u, JobType job_
 int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-int bus_unit_queue_job(sd_bus_message *message, Unit *u, JobType type, JobMode mode, bool reload_if_possible, sd_bus_error *error);
 int bus_unit_set_properties(Unit *u, sd_bus_message *message, UnitSetPropertiesMode mode, bool commit, sd_bus_error *error);
 int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
+int bus_unit_queue_job(sd_bus_message *message, Unit *u, JobType type, JobMode mode, bool reload_if_possible, sd_bus_error *error);
 int bus_unit_check_load_state(Unit *u, sd_bus_error *error);
+
+int bus_unit_track_add_name(Unit *u, const char *name);
+int bus_unit_track_add_sender(Unit *u, sd_bus_message *m);
+int bus_unit_track_remove_sender(Unit *u, sd_bus_message *m);

@@ -3323,6 +3323,7 @@ tests += \
 	test-bus-error \
 	test-bus-creds \
 	test-bus-gvariant \
+	test-bus-track \
 	test-event \
 	test-netlink \
 	test-local-addresses \
@@ -3364,6 +3365,16 @@ test_bus_cleanup_CFLAGS = \
 	$(SECCOMP_CFLAGS)
 
 test_bus_cleanup_LDADD = \
+	libsystemd-shared.la
+
+test_bus_track_SOURCES = \
+	src/libsystemd/sd-bus/test-bus-track.c
+
+test_bus_track_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS)
+
+test_bus_track_LDADD = \
 	libsystemd-shared.la
 
 test_bus_server_SOURCES = \

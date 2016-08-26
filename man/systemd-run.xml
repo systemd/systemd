@@ -68,42 +68,30 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-run</command> may be used to create and
-    start a transient <filename>.service</filename> or
-    <filename>.scope</filename> unit and run the specified
-    <replaceable>COMMAND</replaceable> in it. It may also be used to
-    create and start transient <filename>.timer</filename>
-    units.</para>
+    <para><command>systemd-run</command> may be used to create and start a transient <filename>.service</filename> or
+    <filename>.scope</filename> unit and run the specified <replaceable>COMMAND</replaceable> in it. It may also be
+    used to create and start a transient <filename>.timer</filename> unit, that activates a
+    <filename>.service</filename> unit when elapsing.</para>
 
-    <para>If a command is run as transient service unit, it will be
-    started and managed by the service manager like any other service,
-    and thus shows up in the output of <command>systemctl
-    list-units</command> like any other unit. It will run in a clean
-    and detached execution environment, with the service manager as
-    its parent process. In this mode, <command>systemd-run</command>
-    will start the service asynchronously in the background and return
-    after the command has begun execution.</para>
+    <para>If a command is run as transient service unit, it will be started and managed by the service manager like any
+    other service, and thus shows up in the output of <command>systemctl list-units</command> like any other unit. It
+    will run in a clean and detached execution environment, with the service manager as its parent process. In this
+    mode, <command>systemd-run</command> will start the service asynchronously in the background and return after the
+    command has begun execution (unless <option>--no-block</option> or <option>--watch</option> are specified, see
+    below).</para>
 
-    <para>If a command is run as transient scope unit, it will be
-    started by <command>systemd-run</command> itself as parent process
-    and will thus inherit the execution environment of the
-    caller. However, the processes of the command are managed by the
-    service manager similar to normal services, and will show up in
-    the output of <command>systemctl list-units</command>. Execution
-    in this case is synchronous, and will return only when the command
-    finishes. This mode is enabled via the <option>--scope</option>
-    switch (see below). </para>
+    <para>If a command is run as transient scope unit, it will be executed by <command>systemd-run</command> itself as
+    parent process and will thus inherit the execution environment of the caller. However, the processes of the command
+    are managed by the service manager similar to normal services, and will show up in the output of <command>systemctl
+    list-units</command>. Execution in this case is synchronous, and will return only when the command finishes. This
+    mode is enabled via the <option>--scope</option> switch (see below). </para>
 
-    <para>If a command is run with timer options such as
-    <option>--on-calendar=</option> (see below), a transient timer
-    unit is created alongside the service unit for the specified
-    command. Only the transient timer unit is started immediately, the
-    transient service unit will be started when the transient timer
-    elapses. If the <option>--unit=</option> is specified, the
-    <replaceable>COMMAND</replaceable> may be omitted. In this case,
-    <command>systemd-run</command> only creates a
-    <filename>.timer</filename> unit that invokes the specified unit
-    when elapsing.</para>
+    <para>If a command is run with timer options such as <option>--on-calendar=</option> (see below), a transient timer
+    unit is created alongside the service unit for the specified command. Only the transient timer unit is started
+    immediately, the transient service unit will be started when the timer elapses. If the <option>--unit=</option>
+    option is specified, the <replaceable>COMMAND</replaceable> may be omitted. In this case,
+    <command>systemd-run</command> creates only a <filename>.timer</filename> unit that invokes the specified unit when
+    elapsing.</para>
   </refsect1>
 
   <refsect1>
@@ -123,8 +111,8 @@
         <term><option>--scope</option></term>
 
         <listitem>
-          <para>Create a transient <filename>.scope</filename> unit instead of
-          the default transient <filename>.service</filename> unit.
+          <para>Create a transient <filename>.scope</filename> unit instead of the default transient
+          <filename>.service</filename> unit (see above).
           </para>
         </listitem>
       </varlistentry>
@@ -140,9 +128,8 @@
         <term><option>--property=</option></term>
         <term><option>-p</option></term>
 
-        <listitem><para>Sets a unit property for the scope or service
-        unit that is created. This takes an assignment in the same
-        format as
+        <listitem><para>Sets a property on the scope or service unit that is created. This option takes an assignment
+        in the same format as
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command.</para>
         </listitem>
@@ -151,9 +138,8 @@
       <varlistentry>
         <term><option>--description=</option></term>
 
-        <listitem><para>Provide a description for the service or scope
-        unit. If not specified, the command itself will be used as a
-        description. See <varname>Description=</varname> in
+        <listitem><para>Provide a description for the service, scope or timer unit. If not specified, the command
+        itself will be used as a description. See <varname>Description=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -161,19 +147,16 @@
       <varlistentry>
         <term><option>--slice=</option></term>
 
-        <listitem><para>Make the new <filename>.service</filename> or
-        <filename>.scope</filename> unit part of the specified slice,
-        instead of the <filename>system.slice</filename>.</para>
+        <listitem><para>Make the new <filename>.service</filename> or <filename>.scope</filename> unit part of the
+        specified slice, instead of <filename>system.slice</filename>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--remain-after-exit</option></term>
 
-        <listitem><para>After the service or scope process has
-        terminated, keep the service around until it is explicitly
-        stopped. This is useful to collect runtime information about
-        the service after it finished running. Also see
+        <listitem><para>After the service process has terminated, keep the service around until it is explicitly
+        stopped. This is useful to collect runtime information about the service after it finished running. Also see
         <varname>RemainAfterExit=</varname> in
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
@@ -183,10 +166,8 @@
       <varlistentry>
         <term><option>--send-sighup</option></term>
 
-        <listitem><para>When terminating the scope or service unit,
-        send a SIGHUP immediately after SIGTERM. This is useful to
-        indicate to shells and shell-like processes that the
-        connection has been severed. Also see
+        <listitem><para>When terminating the scope or service unit, send a SIGHUP immediately after SIGTERM. This is
+        useful to indicate to shells and shell-like processes that the connection has been severed. Also see
         <varname>SendSIGHUP=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
@@ -209,9 +190,8 @@
         <term><option>--uid=</option></term>
         <term><option>--gid=</option></term>
 
-        <listitem><para>Runs the service process under the UNIX user
-        and group. Also see <varname>User=</varname> and
-        <varname>Group=</varname> in
+        <listitem><para>Runs the service process under the specified UNIX user and group. Also see
+        <varname>User=</varname> and <varname>Group=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
@@ -239,11 +219,9 @@
         <term><option>--pty</option></term>
         <term><option>-t</option></term>
 
-        <listitem><para>When invoking a command, the service connects
-        its standard input and output to the invoking tty via a
-        pseudo TTY device. This allows invoking binaries as services
-        that expect interactive user input, such as interactive
-        command shells.</para></listitem>
+        <listitem><para>When invoking the command, the transient service connects its standard input and output to the
+        terminal <command>systemd-run</command> is invoked on, via a pseudo TTY device. This allows running binaries
+        that expect interactive user input as services, such as interactive command shells.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -263,44 +241,32 @@
         <term><option>--on-unit-active=</option></term>
         <term><option>--on-unit-inactive=</option></term>
 
-        <listitem><para>Defines monotonic timers relative to different
-        starting points. Also see <varname>OnActiveSec=</varname>,
-        <varname>OnBootSec=</varname>,
-        <varname>OnStartupSec=</varname>,
-        <varname>OnUnitActiveSec=</varname> and
-        <varname>OnUnitInactiveSec=</varname> in
-        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        options have no effect in conjunction with
-        <option>--scope</option>.</para>
+        <listitem><para>Defines a monotonic timer relative to different starting points for starting the specified
+        command. See <varname>OnActiveSec=</varname>, <varname>OnBootSec=</varname>, <varname>OnStartupSec=</varname>,
+        <varname>OnUnitActiveSec=</varname> and <varname>OnUnitInactiveSec=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. These options may not be combined with <option>--scope</option>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--on-calendar=</option></term>
 
-        <listitem><para>Defines realtime (i.e. wallclock) timers with
-        calendar event expressions. Also see
-        <varname>OnCalendar=</varname> in
-        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        option has no effect in conjunction with
-        <option>--scope</option>.</para>
+        <listitem><para>Defines a calendar timer for starting the specified command. See <varname>OnCalendar=</varname>
+        in <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option may not be combined with <option>--scope</option>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--timer-property=</option></term>
 
-        <listitem><para>Sets a timer unit property for the timer unit
-        that is created. It is similar with
-        <option>--property</option> but only for created timer
-        unit. This option only has effect in conjunction with
-        <option>--on-active=</option>, <option>--on-boot=</option>,
-        <option>--on-startup=</option>,
-        <option>--on-unit-active=</option>,
-        <option>--on-unit-inactive=</option>,
-        <option>--on-calendar=</option>. This takes an assignment in
-        the same format as
-        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <listitem><para>Sets a property on the timer unit that is created. This option is similar to
+        <option>--property=</option> but applies to the transient timer unit rather than the transient service unit
+        created. This option only has an effect in conjunction with <option>--on-active=</option>,
+        <option>--on-boot=</option>, <option>--on-startup=</option>, <option>--on-unit-active=</option>,
+        <option>--on-unit-inactive=</option> or <option>--on-calendar=</option>. This option takes an assignment in the
+        same format as <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command.</para> </listitem>
       </varlistentry>
 
@@ -308,12 +274,23 @@
         <term><option>--no-block</option></term>
 
         <listitem>
-          <para>Do not synchronously wait for the requested operation
-          to finish. If this is not specified, the job will be
-          verified, enqueued and <command>systemd-run</command> will
-          wait until the unit's start-up is completed. By passing this
-          argument, it is only verified and enqueued.</para>
+          <para>Do not synchronously wait for the unit start operation to finish. If this option is not specified, the
+          start request for the transient unit will be verified, enqueued and <command>systemd-run</command> will wait
+          until the unit's start-up is completed. By passing this argument, it is only verified and enqueued. This
+          option may not be combined with <option>--wait</option>.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--wait</option></term>
+
+        <listitem><para>Synchronously wait for the transient service to terminate. If this option is specified, the
+        start request for the transient unit is verified, enqueued, and waited for. Subsequently the invoked unit is
+        monitored, and it is waited until it is deactivated again (most likely because the specified command
+        completed). On exit, terse information about the unit's runtime is shown, including total runtime (as well as
+        CPU usage, if <option>--property=CPUAccounting=1</option> was set) and the exit code and status of the main
+        process. This output may be suppressed with <option>--quiet</option>. This option may not be combined with
+        <option>--no-block</option>, <option>--scope</option> or the various timer options.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="user" />

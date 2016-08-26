@@ -137,6 +137,7 @@ const SystemCallFilterSet syscall_filter_sets[] = {
                 "execve\0"
                 "exit\0"
                 "exit_group\0"
+                "getrlimit\0"      /* make sure processes can query stack size and such */
                 "rt_sigreturn\0"
                 "sigreturn\0"
         }, {

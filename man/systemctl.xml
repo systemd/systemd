@@ -642,13 +642,13 @@
           <term><command>list-units <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
-            <para>List units that <command>systemd</command> has loaded. This includes units that
-            are either referenced directly or through a dependency, or units that were active in the
-            past and have failed. By default only units which are active, have pending jobs, or have
+            <para>List units that <command>systemd</command> has loaded. This includes units that are either referenced
+            directly or through a dependency, units that are pinned by applications programmatically, or units that
+            were active in the past and have failed. By default only units which are active, have pending jobs, or have
             failed are shown; this can be changed with option <option>--all</option>. If one or more
-            <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are
-            shown. The units that are shown are additionally filtered by <option>--type=</option>
-            and <option>--state=</option> if those options are specified.</para>
+            <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown. The units
+            that are shown are additionally filtered by <option>--type=</option> and <option>--state=</option> if those
+            options are specified.</para>
 
             <para>This is the default command.</para>
           </listitem>
