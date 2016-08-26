@@ -199,6 +199,31 @@ static void drop_nop(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
+static void drop_outside_root(const char *root_directory, BindMount *m, unsigned *n) {
+        BindMount *f, *t;
+
+        assert(m);
+        assert(n);
+
+        if (!root_directory)
+                return;
+
+        /* Drops all mounts that are outside of the root directory. */
+
+        for (f = m, t = m; f < m+*n; f++) {
+
+                if (!path_startswith(f->path, root_directory)) {
+                        log_debug("%s is outside of root directory.", f->path);
+                        continue;
+                }
+
+                *t = *f;
+                t++;
+        }
+
+        *n = t - m;
+}
+
 static int mount_dev(BindMount *m) {
         static const char devnodes[] =
                 "/dev/null\0"
@@ -631,6 +656,7 @@ int setup_namespace(
                 qsort(mounts, n, sizeof(BindMount), mount_path_compare);
 
                 drop_duplicates(mounts, &n);
+                drop_outside_root(root_directory, mounts, &n);
                 drop_inaccessible(mounts, &n);
                 drop_nop(mounts, &n);
         }
