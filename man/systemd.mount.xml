@@ -352,6 +352,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LazyUnmount=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, detach the
+        filesystem from the filesystem hierarchy at time of the unmount
+        operation, and clean up all references to the filesystem as
+        soon as they are not busy anymore.
+        This corresponds with
+        <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-l</parameter> switch. Defaults to
+        off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DirectoryMode=</varname></term>
         <listitem><para>Directories of mount points (and any parent
         directories) are automatically created if needed. This option
