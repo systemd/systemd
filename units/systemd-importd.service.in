@@ -18,4 +18,4 @@ NoNewPrivileges=yes
 WatchdogSec=3min
 KillMode=mixed
 MemoryDenyWriteExecute=yes
-SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io
