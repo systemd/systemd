@@ -267,6 +267,10 @@ static int open_journal(
         return r;
 }
 
+static bool flushed_flag_is_set(void) {
+        return (access("/run/systemd/journal/flushed", F_OK) >= 0);
+}
+
 static int system_journal_open(Server *s, bool flush_requested) {
         bool flushed = false;
         const char *fn;
@@ -274,8 +278,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
         if (!s->system_journal &&
             (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
-            (flush_requested
-             || (flushed = (access("/run/systemd/journal/flushed", F_OK) >= 0)))) {
+            (flush_requested || (flushed = flushed_flag_is_set()))) {
 
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
