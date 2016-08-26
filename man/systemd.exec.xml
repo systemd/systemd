@@ -877,48 +877,34 @@
         <term><varname>ReadOnlyPaths=</varname></term>
         <term><varname>InaccessiblePaths=</varname></term>
 
-        <listitem><para>Sets up a new file system namespace for
-        executed processes. These options may be used to limit access
-        a process might have to the main file system hierarchy. Each
-        setting takes a space-separated list of paths relative to
-        the host's root directory (i.e. the system running the service manager).
-        Note that if entries contain symlinks, they are resolved from the host's root directory as well.
-        Entries (files or directories) listed in
-        <varname>ReadWritePaths=</varname> are accessible from
-        within the namespace with the same access rights as from
-        outside. Entries listed in
-        <varname>ReadOnlyPaths=</varname> are accessible for
-        reading only, writing will be refused even if the usual file
-        access controls would permit this. Entries listed in
-        <varname>InaccessiblePaths=</varname> will be made
-        inaccessible for processes inside the namespace, and may not
-        countain any other mountpoints, including those specified by
-        <varname>ReadWritePaths=</varname> or
-        <varname>ReadOnlyPaths=</varname>.
-        Note that restricting access with these options does not extend
-        to submounts of a directory that are created later on.
-        Non-directory paths can be specified as well. These
-        options may be specified more than once, in which case all
-        paths listed will have limited access from within the
-        namespace. If the empty string is assigned to this option, the
-        specific list is reset, and all prior assignments have no
-        effect.</para>
-        <para>Paths in
-        <varname>ReadOnlyPaths=</varname>
-        and
-        <varname>InaccessiblePaths=</varname>
-        may be prefixed with
-        <literal>-</literal>, in which case
-        they will be ignored when they do not
-        exist. Note that using this
-        setting will disconnect propagation of
-        mounts from the service to the host
-        (propagation in the opposite direction
-        continues to work). This means that
-        this setting may not be used for
-        services which shall be able to
-        install mount points in the main mount
-        namespace.</para></listitem>
+        <listitem><para>Sets up a new file system namespace for executed processes. These options may be used to limit
+        access a process might have to the file system hierarchy. Each setting takes a space-separated list of paths
+        relative to the host's root directory (i.e. the system running the service manager).  Note that if paths
+        contain symlinks, they are resolved relative to the root directory set with
+        <varname>RootDirectory=</varname>.</para>
+
+        <para>Paths listed in <varname>ReadWritePaths=</varname> are accessible from within the namespace with the same
+        access modes as from outside of it. Paths listed in <varname>ReadOnlyPaths=</varname> are accessible for
+        reading only, writing will be refused even if the usual file access controls would permit this. Nest
+        <varname>ReadWritePaths=</varname> inside of <varname>ReadOnlyPaths=</varname> in order to provide writable
+        subdirectories within read-only directories. Use <varname>ReadWritePaths=</varname> in order to whitelist
+        specific paths for write access if <varname>ProtectSystem=strict</varname> is used. Paths listed in
+        <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside the namespace (along with
+        everything below them in the file system hierarchy).</para>
+
+        <para>Note that restricting access with these options does not extend to submounts of a directory that are
+        created later on.  Non-directory paths may be specified as well. These options may be specified more than once,
+        in which case all paths listed will have limited access from within the namespace. If the empty string is
+        assigned to this option, the specific list is reset, and all prior assignments have no effect.</para>
+
+        <para>Paths in <varname>ReadOnlyPaths=</varname> and <varname>InaccessiblePaths=</varname> may be prefixed with
+        <literal>-</literal>, in which case they will be ignored when they do not exist. Note that using this setting
+        will disconnect propagation of mounts from the service to the host (propagation in the opposite direction
+        continues to work). This means that this setting may not be used for services which shall be able to install
+        mount points in the main mount namespace. Note that the effect of these settings may be undone by privileged
+        processes. In order to set up an effective sandboxed environment for a unit it is thus recommended to combine
+        these settings with either <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
+        <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -933,37 +919,30 @@
         private <filename>/tmp</filename> and <filename>/var/tmp</filename> namespace by using the
         <varname>JoinsNamespaceOf=</varname> directive, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details. Note that using this setting will disconnect propagation of mounts from the service to the host
-        (propagation in the opposite direction continues to work).  This means that this setting may not be used for
-        services which shall be able to install mount points in the main mount namespace. This setting is implied if
-        <varname>DynamicUser=</varname> is set.</para></listitem>
+        details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
+        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and
+        related calls, see above.</para></listitem>
+
       </varlistentry>
 
       <varlistentry>
         <term><varname>PrivateDevices=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a
-        new /dev namespace for the executed processes and only adds
-        API pseudo devices such as <filename>/dev/null</filename>,
-        <filename>/dev/zero</filename> or
-        <filename>/dev/random</filename> (as well as the pseudo TTY
-        subsystem) to it, but no physical devices such as
-        <filename>/dev/sda</filename>. This is useful to securely turn
-        off physical device access by the executed process. Defaults
-        to false. Enabling this option will also remove
-        <constant>CAP_MKNOD</constant> from the capability bounding
-        set for the unit (see above), and set
-        <varname>DevicePolicy=closed</varname> (see
+        <listitem><para>Takes a boolean argument. If true, sets up a new /dev namespace for the executed processes and
+        only adds API pseudo devices such as <filename>/dev/null</filename>, <filename>/dev/zero</filename> or
+        <filename>/dev/random</filename> (as well as the pseudo TTY subsystem) to it, but no physical devices such as
+        <filename>/dev/sda</filename>. This is useful to securely turn off physical device access by the executed
+        process. Defaults to false. Enabling this option will also remove <constant>CAP_MKNOD</constant> from the
+        capability bounding set for the unit (see above), and set <varname>DevicePolicy=closed</varname> (see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details). Note that using this setting will disconnect
-        propagation of mounts from the service to the host
-        (propagation in the opposite direction continues to work).
-        This means that this setting may not be used for services
-        which shall be able to install mount points in the main mount
-        namespace. The /dev namespace will be mounted read-only and 'noexec'.
-        The latter may break old programs which try to set up executable
-        memory by using <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        of <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>.</para></listitem>
+        for details). Note that using this setting will disconnect propagation of mounts from the service to the host
+        (propagation in the opposite direction continues to work).  This means that this setting may not be used for
+        services which shall be able to install mount points in the main mount namespace. The /dev namespace will be
+        mounted read-only and 'noexec'.  The latter may break old programs which try to set up executable memory by
+        using <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
+        <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. This setting is implied if
+        <varname>DynamicUser=</varname> is set. For this setting the same restrictions regarding mount propagation and
+        privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1023,33 +1002,23 @@
         operating system (and optionally its configuration, and local mounts) is prohibited for the service.  It is
         recommended to enable this setting for all long-running services, unless they are involved with system updates
         or need to modify the operating system in other ways. If this option is used,
-        <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. Note
-        that processes retaining the <constant>CAP_SYS_ADMIN</constant> capability (and with no system call filter that
-        prohibits mount-related system calls applied) can undo the effect of this setting. This setting is hence
-        particularly useful for daemons which have this either the <literal>@mount</literal> set filtered using
-        <varname>SystemCallFilter=</varname>, or have the <constant>CAP_SYS_ADMIN</constant> capability removed, for
-        example with <varname>CapabilityBoundingSet=</varname>.  Defaults to off.</para></listitem>
+        <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. This
+        setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same restrictions regarding
+        mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see
+        above. Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ProtectHome=</varname></term>
 
-        <listitem><para>Takes a boolean argument or
-        <literal>read-only</literal>. If true, the directories
-        <filename>/home</filename>, <filename>/root</filename> and
-        <filename>/run/user</filename>
-        are made inaccessible and empty for processes invoked by this
-        unit. If set to <literal>read-only</literal>, the three
-        directories are made read-only instead. It is recommended to
-        enable this setting for all long-running services (in
-        particular network-facing ones), to ensure they cannot get
-        access to private user data, unless the services actually
-        require access to the user's private data. Note however that
-        processes retaining the CAP_SYS_ADMIN capability can undo the
-        effect of this setting. This setting is hence particularly
-        useful for daemons which have this capability removed, for
-        example with <varname>CapabilityBoundingSet=</varname>.
-        Defaults to off.</para></listitem>
+        <listitem><para>Takes a boolean argument or <literal>read-only</literal>. If true, the directories
+        <filename>/home</filename>, <filename>/root</filename> and <filename>/run/user</filename> are made inaccessible
+        and empty for processes invoked by this unit. If set to <literal>read-only</literal>, the three directories are
+        made read-only instead. It is recommended to enable this setting for all long-running services (in particular
+        network-facing ones), to ensure they cannot get access to private user data, unless the services actually
+        require access to the user's private data. This setting is implied if <varname>DynamicUser=</varname> is
+        set. For this setting the same restrictions regarding mount propagation and privileges apply as for
+        <varname>ReadOnlyPaths=</varname> and related calls, see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1059,48 +1028,41 @@
         <filename>/proc/sys</filename> and <filename>/sys</filename> will be made read-only to all processes of the
         unit. Usually, tunable kernel variables should only be written at boot-time, with the
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> mechanism. Almost
-        no services need to write to these at runtime; it is hence recommended to turn this on for most
-        services. Defaults to off.</para></listitem>
+        no services need to write to these at runtime; it is hence recommended to turn this on for most services. For
+        this setting the same restrictions regarding mount propagation and privileges apply as for
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ProtectControlGroups=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, the Linux Control Groups ("cgroups") hierarchies accessible
-        through <filename>/sys/fs/cgroup</filename> will be made read-only to all processes of the unit. Except for
-        container managers no services should require write access to the control groups hierarchies; it is hence
-        recommended to turn this on for most services. Defaults to off.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, the Linux Control Groups (<citerefentry
+        project='man-pages'><refentrytitle>cgroups</refentrytitle><manvolnum>7</manvolnum></citerefentry>) hierarchies
+        accessible through <filename>/sys/fs/cgroup</filename> will be made read-only to all processes of the
+        unit. Except for container managers no services should require write access to the control groups hierarchies;
+        it is hence recommended to turn this on for most services. For this setting the same restrictions regarding
+        mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see
+        above. Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>MountFlags=</varname></term>
 
-        <listitem><para>Takes a mount propagation flag:
-        <option>shared</option>, <option>slave</option> or
-        <option>private</option>, which control whether mounts in the
-        file system namespace set up for this unit's processes will
-        receive or propagate mounts or unmounts. See
-        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. Defaults to <option>shared</option>. Use
-        <option>shared</option> to ensure that mounts and unmounts are
-        propagated from the host to the container and vice versa. Use
-        <option>slave</option> to run processes so that none of their
-        mounts and unmounts will propagate to the host. Use
-        <option>private</option> to also ensure that no mounts and
-        unmounts from the host will propagate into the unit processes'
-        namespace. Note that <option>slave</option> means that file
-        systems mounted on the host might stay mounted continuously in
-        the unit's namespace, and thus keep the device busy. Note that
-        the file system namespace related options
-        (<varname>PrivateTmp=</varname>,
-        <varname>PrivateDevices=</varname>,
-        <varname>ProtectSystem=</varname>,
-        <varname>ProtectHome=</varname>,
-        <varname>ReadOnlyPaths=</varname>,
-        <varname>InaccessiblePaths=</varname> and
-        <varname>ReadWritePaths=</varname>) require that mount
-        and unmount propagation from the unit's file system namespace
-        is disabled, and hence downgrade <option>shared</option> to
+        <listitem><para>Takes a mount propagation flag: <option>shared</option>, <option>slave</option> or
+        <option>private</option>, which control whether mounts in the file system namespace set up for this unit's
+        processes will receive or propagate mounts or unmounts. See <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details. Defaults to <option>shared</option>. Use <option>shared</option> to ensure that mounts and unmounts
+        are propagated from the host to the container and vice versa. Use <option>slave</option> to run processes so
+        that none of their mounts and unmounts will propagate to the host. Use <option>private</option> to also ensure
+        that no mounts and unmounts from the host will propagate into the unit processes' namespace. Note that
+        <option>slave</option> means that file systems mounted on the host might stay mounted continuously in the
+        unit's namespace, and thus keep the device busy. Note that the file system namespace related options
+        (<varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
+        <varname>ProtectHome=</varname>, <varname>ProtectKernelTunables=</varname>,
+        <varname>ProtectControlGroups=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>) require that mount and unmount
+        propagation from the unit's file system namespace is disabled, and hence downgrade <option>shared</option> to
         <option>slave</option>. </para></listitem>
       </varlistentry>
 
@@ -1335,7 +1297,15 @@
         </table>
 
         Note, that as new system calls are added to the kernel, additional system calls might be added to the groups
-        above, so the contents of the sets may change between systemd versions.</para></listitem>
+        above, so the contents of the sets may change between systemd versions.</para>
+
+        <para>It is recommended to combine the file system namespacing related options with
+        <varname>SystemCallFilter=~@mount</varname>, in order to prohibit the unit's processes to undo the
+        mappings. Specifically these are the options <varname>PrivateTmp=</varname>,
+        <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>, <varname>ProtectHome=</varname>,
+        <varname>ProtectKernelTunables=</varname>, <varname>ProtectControlGroups=</varname>,
+        <varname>ReadOnlyPaths=</varname>, <varname>InaccessiblePaths=</varname> and
+        <varname>ReadWritePaths=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
