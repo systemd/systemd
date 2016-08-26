@@ -23,11 +23,17 @@ Type=notify
 Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-resolved
+WatchdogSec=3min
 CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_NET_RAW CAP_NET_BIND_SERVICE
+PrivateTmp=yes
+PrivateDevices=yes
 ProtectSystem=full
 ProtectHome=yes
-WatchdogSec=3min
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
 MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
 
 [Install]

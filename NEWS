@@ -7,6 +7,20 @@ CHANGES WITH 232 in spe
           release it will be completely removed, and made equivalent to current
           default of SplitMode=uid.
 
+        * systemd-udevd.service is now run in a Seccomp-based sandbox that
+          prohibits access to AF_INET and AF_INET6 sockets and thus access to
+          the network. This might break code that runs from udev rules that
+          tries to talk to the network. Doing that is generally a bad idea and
+          unsafe due to a variety of reasons. It's also racy as device
+          management would race against network configuration. It is
+          recommended to rework such rules to use the SYSTEMD_WANTS property on
+          the relevant devices to pull in a proper systemd service (which can
+          be sandboxed differently and ordered correctly after the network
+          having come up). If that's not possible consider reverting this
+          sandboxing feature locally by removing the RestrictAddressFamilies=
+          setting from the systemd-udevd.service unit file, or adding AF_INET
+          and AF_INET6 to it.
+
 CHANGES WITH 231:
 
         * In service units the various ExecXYZ= settings have been extended

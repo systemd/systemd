@@ -13,10 +13,14 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/timedated
 [Service]
 ExecStart=@rootlibexecdir@/systemd-timedated
 BusName=org.freedesktop.timedate1
-CapabilityBoundingSet=CAP_SYS_TIME
 WatchdogSec=3min
+CapabilityBoundingSet=CAP_SYS_TIME
 PrivateTmp=yes
 ProtectSystem=yes
 ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
 MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX
 SystemCallFilter=~@cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
