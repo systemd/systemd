@@ -26,14 +26,18 @@
 int main(int argc, char *argv[]) {
         const char * const writable[] = {
                 "/home",
-                "/home/lennart/projects/foobar", /* this should be masked automatically */
+                "-/home/lennart/projects/foobar", /* this should be masked automatically */
                 NULL
         };
 
         const char * const readonly[] = {
-                "/",
-                "/usr",
+                /* "/", */
+                /* "/usr", */
                 "/boot",
+                "/lib",
+                "/usr/lib",
+                "-/lib64",
+                "-/usr/lib64",
                 NULL
         };
 

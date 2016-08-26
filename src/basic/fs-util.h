@@ -77,3 +77,5 @@ union inotify_event_buffer {
 };
 
 int inotify_add_watch_fd(int fd, int what, uint32_t mask);
+
+int chase_symlinks(const char *path, const char *_root, char **ret);
