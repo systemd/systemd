@@ -1658,32 +1658,32 @@
               <row>
                 <entry morerows="1" valign="top"><literal>timeout</literal></entry>
                 <entry valign="top"><literal>killed</literal></entry>
-                <entry><literal>TERM</literal><sbr/><literal>KILL</literal></entry>
+                <entry><literal>TERM</literal>, <literal>KILL</literal></entry>
               </row>
 
               <row>
                 <entry valign="top"><literal>exited</literal></entry>
-                <entry><literal>0</literal><sbr/><literal>1</literal><sbr/><literal>2</literal><sbr/><literal
-                >3</literal><sbr/>…<sbr/><literal>255</literal></entry>
+                <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
+                >3</literal>, …, <literal>255</literal></entry>
               </row>
 
               <row>
                 <entry valign="top"><literal>exit-code</literal></entry>
                 <entry valign="top"><literal>exited</literal></entry>
-                <entry><literal>0</literal><sbr/><literal>1</literal><sbr/><literal>2</literal><sbr/><literal
-                >3</literal><sbr/>…<sbr/><literal>255</literal></entry>
+                <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
+                >3</literal>, …, <literal>255</literal></entry>
               </row>
 
               <row>
                 <entry valign="top"><literal>signal</literal></entry>
                 <entry valign="top"><literal>killed</literal></entry>
-                <entry><literal>HUP</literal><sbr/><literal>INT</literal><sbr/><literal>KILL</literal><sbr/>…</entry>
+                <entry><literal>HUP</literal>, <literal>INT</literal>, <literal>KILL</literal>, …</entry>
               </row>
 
               <row>
                 <entry valign="top"><literal>core-dump</literal></entry>
                 <entry valign="top"><literal>dumped</literal></entry>
-                <entry><literal>ABRT</literal><sbr/><literal>SEGV</literal><sbr/><literal>QUIT</literal><sbr/>…</entry>
+                <entry><literal>ABRT</literal>, <literal>SEGV</literal>, <literal>QUIT</literal>, …</entry>
               </row>
 
               <row>
@@ -1693,12 +1693,12 @@
               </row>
               <row>
                 <entry><literal>killed</literal></entry>
-                <entry><literal>TERM</literal><sbr/><literal>KILL</literal></entry>
+                <entry><literal>TERM</literal>, <literal>KILL</literal></entry>
               </row>
               <row>
                 <entry><literal>exited</literal></entry>
-                <entry><literal>0</literal><sbr/><literal>1</literal><sbr/><literal>2</literal><sbr/><literal
-                >3</literal><sbr/>…<sbr/><literal>255</literal></entry>
+                <entry><literal>0</literal>, <literal>1</literal>, <literal>2</literal>, <literal
+                >3</literal>, …, <literal>255</literal></entry>
               </row>
 
               <row>
