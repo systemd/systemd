@@ -1422,11 +1422,66 @@ finish:
         return r;
 }
 
+static int apply_private_devices(Unit *u, const ExecContext *c) {
+
+        static const int device_syscalls[] = {
+                SCMP_SYS(ioperm),
+                SCMP_SYS(iopl),
+                SCMP_SYS(pciconfig_iobase),
+                SCMP_SYS(pciconfig_read),
+                SCMP_SYS(pciconfig_write),
+#ifdef __NR_s390_pci_mmio_read
+                SCMP_SYS(s390_pci_mmio_read),
+#endif
+#ifdef __NR_s390_pci_mmio_write
+                SCMP_SYS(s390_pci_mmio_write),
+#endif
+        };
+
+        scmp_filter_ctx *seccomp;
+        unsigned i;
+        int r;
+
+        assert(c);
+
+        /* If PrivateDevices= is set, also turn off iopl and friends. */
+
+        if (skip_seccomp_unavailable(u, "PrivateDevices="))
+                return 0;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        for (i = 0; i < ELEMENTSOF(device_syscalls); i++) {
+                r = seccomp_rule_add(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                device_syscalls[i],
+                                0);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 #endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
         assert(idle_pipe);
-
 
         idle_pipe[1] = safe_close(idle_pipe[1]);
         idle_pipe[2] = safe_close(idle_pipe[2]);
@@ -2578,6 +2633,14 @@ static int exec_child(
 
                 if (context->protect_kernel_tunables) {
                         r = apply_protect_sysctl(unit, context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
+
+                if (context->private_devices) {
+                        r = apply_private_devices(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
                                 return r;
