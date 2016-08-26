@@ -837,6 +837,8 @@ static int null_conv(
         return PAM_CONV_ERR;
 }
 
+#endif
+
 static int setup_pam(
                 const char *name,
                 const char *user,
@@ -844,6 +846,8 @@ static int setup_pam(
                 const char *tty,
                 char ***env,
                 int fds[], unsigned n_fds) {
+
+#ifdef HAVE_PAM
 
         static const struct pam_conv conv = {
                 .conv = null_conv,
@@ -1038,8 +1042,10 @@ fail:
         closelog();
 
         return r;
-}
+#else
+        return 0;
 #endif
+}
 
 static void rename_process_from_path(const char *path) {
         char process_name[11];
@@ -1875,6 +1881,42 @@ static int setup_runtime_directory(
         return 0;
 }
 
+static int setup_smack(
+                const ExecContext *context,
+                const ExecCommand *command) {
+
+#ifdef HAVE_SMACK
+        int r;
+
+        assert(context);
+        assert(command);
+
+        if (!mac_smack_use())
+                return 0;
+
+        if (context->smack_process_label) {
+                r = mac_smack_apply_pid(0, context->smack_process_label);
+                if (r < 0)
+                        return r;
+        }
+#ifdef SMACK_DEFAULT_PROCESS_LABEL
+        else {
+                _cleanup_free_ char *exec_label = NULL;
+
+                r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
+                if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP)
+                        return r;
+
+                r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
+                if (r < 0)
+                        return r;
+        }
+#endif
+#endif
+
+        return 0;
+}
+
 static int compile_read_write_paths(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2349,33 +2391,12 @@ static int exec_child(
         (void) umask(context->umask);
 
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
-#ifdef HAVE_SMACK
-                if (context->smack_process_label) {
-                        r = mac_smack_apply_pid(0, context->smack_process_label);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
+                r = setup_smack(context, command);
+                if (r < 0) {
+                        *exit_status = EXIT_SMACK_PROCESS_LABEL;
+                        return r;
                 }
-#ifdef SMACK_DEFAULT_PROCESS_LABEL
-                else {
-                        _cleanup_free_ char *exec_label = NULL;
 
-                        r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
-                        if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-
-                        r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-                }
-#endif
-#endif
-#ifdef HAVE_PAM
                 if (context->pam_name && username) {
                         r = setup_pam(context->pam_name, username, uid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
@@ -2383,7 +2404,6 @@ static int exec_child(
                                 return r;
                         }
                 }
-#endif
         }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
