@@ -678,6 +678,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
                 "%sDirectoryMode: %04o\n"
+                "%sSloppyOptions: %s\n"
                 "%sLazyUnmount: %s\n"
                 "%sForceUnmount: %s\n",
                 prefix, mount_state_to_string(m->state),
@@ -689,6 +690,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
                 prefix, m->directory_mode,
+                prefix, yes_no(m->sloppy_options),
                 prefix, yes_no(m->lazy_unmount),
                 prefix, yes_no(m->force_unmount));
 
