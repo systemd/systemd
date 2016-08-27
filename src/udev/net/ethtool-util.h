@@ -38,11 +38,20 @@ typedef enum WakeOnLan {
         _WOL_INVALID = -1
 } WakeOnLan;
 
+typedef enum NetDevFeature {
+        NET_DEV_FEAT_GSO,
+        NET_DEV_FEAT_TSO,
+        NET_DEV_FEAT_UFO,
+        _NET_DEV_FEAT_MAX,
+        _NET_DEV_FEAT_INVALID = -1
+} NetDevFeature;
+
 int ethtool_connect(int *ret);
 
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
+int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
