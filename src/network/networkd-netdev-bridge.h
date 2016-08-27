@@ -28,10 +28,13 @@ typedef struct Bridge {
         int mcast_snooping;
         int vlan_filtering;
         int stp;
+        uint16_t priority;
+        uint16_t default_pvid;
 
         usec_t forward_delay;
         usec_t hello_time;
         usec_t max_age;
+        usec_t ageing_time;
 } Bridge;
 
 DEFINE_NETDEV_CAST(BRIDGE, Bridge);
