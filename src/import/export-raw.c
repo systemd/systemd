@@ -34,6 +34,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "import-common.h"
+#include "missing.h"
 #include "ratelimit.h"
 #include "string-util.h"
 #include "util.h"
