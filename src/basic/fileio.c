@@ -37,6 +37,7 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
+#include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
@@ -1280,12 +1281,10 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
 
         /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
 
-#ifdef O_TMPFILE
         /* Try O_TMPFILE first, if it is supported */
         fd = open(directory, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
         if (fd >= 0)
                 return fd;
-#endif
 
         /* Fall back to unguessable name + unlinking */
         p = strjoina(directory, "/systemd-tmp-XXXXXX");
@@ -1313,7 +1312,6 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
          * which case "ret_path" will be returned as NULL. If not possible a the tempoary path name used is returned in
          * "ret_path". Use link_tmpfile() below to rename the result after writing the file in full. */
 
-#ifdef O_TMPFILE
         {
                 _cleanup_free_ char *dn = NULL;
 
@@ -1329,7 +1327,6 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
 
                 log_debug_errno(errno, "Failed to use O_TMPFILE on %s: %m", dn);
         }
-#endif
 
         r = tempfn_random(target, NULL, &tmp);
         if (r < 0)
