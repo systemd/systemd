@@ -386,7 +386,7 @@
         Takes a unit-less value in seconds, or a time span value such
         as "5min 20s". Pass 0 to disable the timeout logic. The
         default value is set from the manager configuration file's
-        <varname>DefaultTimeoutStart=</varname>
+        <varname>DefaultTimeoutStartSec=</varname>
         variable.</para></listitem>
       </varlistentry>
     </variablelist>
