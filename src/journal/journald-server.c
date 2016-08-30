@@ -713,7 +713,7 @@ static void dispatch_message_real(
         assert(s);
         assert(iovec);
         assert(n > 0);
-        assert(n + N_IOVEC_META_FIELDS + (object_pid ? N_IOVEC_OBJECT_FIELDS : 0) <= m);
+        assert(n + N_IOVEC_META_FIELDS + (object_pid > 0 ? N_IOVEC_OBJECT_FIELDS : 0) <= m);
 
         if (ucred) {
                 realuid = ucred->uid;
@@ -810,6 +810,12 @@ static void dispatch_message_real(
 
                         if (cg_path_get_slice(c, &t) >= 0) {
                                 x = strjoina("_SYSTEMD_SLICE=", t);
+                                free(t);
+                                IOVEC_SET_STRING(iovec[n++], x);
+                        }
+
+                        if (cg_path_get_user_slice(c, &t) >= 0) {
+                                x = strjoina("_SYSTEMD_USER_SLICE=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
@@ -915,6 +921,18 @@ static void dispatch_message_real(
 
                         if (cg_path_get_user_unit(c, &t) >= 0) {
                                 x = strjoina("OBJECT_SYSTEMD_USER_UNIT=", t);
+                                free(t);
+                                IOVEC_SET_STRING(iovec[n++], x);
+                        }
+
+                        if (cg_path_get_slice(c, &t) >= 0) {
+                                x = strjoina("OBJECT_SYSTEMD_SLICE=", t);
+                                free(t);
+                                IOVEC_SET_STRING(iovec[n++], x);
+                        }
+
+                        if (cg_path_get_user_slice(c, &t) >= 0) {
+                                x = strjoina("OBJECT_SYSTEMD_USER_SLICE=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
