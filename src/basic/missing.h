@@ -537,12 +537,21 @@ struct btrfs_ioctl_quota_ctl_args {
 #  define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
 #endif
 
-#if defined(__i386__) || defined(__x86_64__)
-
-/* The precise definition of __O_TMPFILE is arch specific, so let's
- * just define this on x86 where we know the value. */
+/* The precise definition of __O_TMPFILE is arch specific; use the
+ * values defined by the kernel (note: some are hexa, some are octal,
+ * duplicated as-is from the kernel definitions):
+ * - alpha, parisc, sparc: each has a specific value;
+ * - others: they use the "generic" value.
+ */
 
 #ifndef __O_TMPFILE
+#if defined(__alpha__)
+#define __O_TMPFILE     0100000000
+#elif defined(__parisc__) || defined(__hppa__)
+#define __O_TMPFILE     0400000000
+#elif defined(__sparc__) || defined(__sparc64__)
+#define __O_TMPFILE     0x2000000
+#else
 #define __O_TMPFILE     020000000
 #endif
 
