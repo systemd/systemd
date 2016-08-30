@@ -1338,7 +1338,7 @@ int bus_property_get_id128(
         if (sd_id128_is_null(*id)) /* Add an empty array if the ID is zero */
                 return sd_bus_message_append(reply, "ay", 0);
         else
-                return sd_bus_message_append_array(reply, 'b', id->bytes, 16);
+                return sd_bus_message_append_array(reply, 'y', id->bytes, 16);
 }
 
 #if __SIZEOF_SIZE_T__ != 8

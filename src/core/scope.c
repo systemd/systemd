@@ -298,6 +298,10 @@ static int scope_start(Unit *u) {
         if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
                 return -ENOENT;
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         (void) unit_realize_cgroup(u);
         (void) unit_reset_cpu_usage(u);
 

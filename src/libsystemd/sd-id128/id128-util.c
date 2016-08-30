@@ -192,3 +192,16 @@ int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync) {
 
         return id128_write_fd(fd, f, id, do_sync);
 }
+
+void id128_hash_func(const void *p, struct siphash *state) {
+        siphash24_compress(p, 16, state);
+}
+
+int id128_compare_func(const void *a, const void *b) {
+        return memcmp(a, b, 16);
+}
+
+const struct hash_ops id128_hash_ops = {
+        .hash = id128_hash_func,
+        .compare = id128_compare_func,
+};

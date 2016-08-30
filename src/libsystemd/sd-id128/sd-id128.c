@@ -129,6 +129,28 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         return 0;
 }
 
+_public_ int sd_id128_get_invocation(sd_id128_t *ret) {
+        static thread_local sd_id128_t saved_invocation_id = {};
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        if (sd_id128_is_null(saved_invocation_id)) {
+                const char *e;
+
+                e = secure_getenv("INVOCATION_ID");
+                if (!e)
+                        return -ENXIO;
+
+                r = sd_id128_from_string(e, &saved_invocation_id);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = saved_invocation_id;
+        return 0;
+}
+
 static sd_id128_t make_v4_uuid(sd_id128_t id) {
         /* Stolen from generate_random_uuid() of drivers/char/random.c
          * in the kernel sources */

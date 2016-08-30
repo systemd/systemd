@@ -861,6 +861,10 @@ static int swap_start(Unit *u) {
                 return r;
         }
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         s->result = SWAP_SUCCESS;
         s->reset_cpu_usage = true;
 
@@ -1189,6 +1193,7 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 
                         case SWAP_DEAD:
                         case SWAP_FAILED:
+                                (void) unit_acquire_invocation_id(UNIT(swap));
                                 swap_enter_active(swap, SWAP_SUCCESS);
                                 break;
 

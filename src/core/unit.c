@@ -37,6 +37,7 @@
 #include "execute.h"
 #include "fileio-label.h"
 #include "formats-util.h"
+#include "id128-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -521,6 +522,9 @@ void unit_free(Unit *u) {
         SET_FOREACH(t, u->names, i)
                 hashmap_remove_value(u->manager->units, t, u);
 
+        if (!sd_id128_is_null(u->invocation_id))
+                hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
+
         if (u->job) {
                 Job *j = u->job;
                 job_uninstall(j);
@@ -953,6 +957,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         SET_FOREACH(t, u->names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
 
+        if (!sd_id128_is_null(u->invocation_id))
+                fprintf(f, "%s\tInvocation ID: " SD_ID128_FORMAT_STR "\n",
+                        prefix, SD_ID128_FORMAT_VAL(u->invocation_id));
+
         STRV_FOREACH(j, u->documentation)
                 fprintf(f, "%s\tDocumentation: %s\n", prefix, *j);
 
@@ -1054,7 +1062,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->nop_job)
                 job_dump(u->nop_job, f, prefix2);
-
 }
 
 /* Common implementation for multiple backends */
@@ -2392,6 +2399,15 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
+char *unit_dbus_path_invocation_id(Unit *u) {
+        assert(u);
+
+        if (sd_id128_is_null(u->invocation_id))
+                return NULL;
+
+        return unit_dbus_path_from_name(u->invocation_id_string);
+}
+
 int unit_set_slice(Unit *u, Unit *slice) {
         assert(u);
         assert(slice);
@@ -2639,6 +2655,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item_format(u, f, "ref-uid", UID_FMT, u->ref_uid);
         if (gid_is_valid(u->ref_gid))
                 unit_serialize_item_format(u, f, "ref-gid", GID_FMT, u->ref_gid);
+
+        if (!sd_id128_is_null(u->invocation_id))
+                unit_serialize_item_format(u, f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
         bus_track_serialize(u->bus_track, f, "ref");
 
@@ -2913,6 +2932,19 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = strv_extend(&u->deserialized_refs, v);
                         if (r < 0)
                                 log_oom();
+
+                        continue;
+                } else if (streq(l, "invocation-id")) {
+                        sd_id128_t id;
+
+                        r = sd_id128_from_string(v, &id);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse invocation id %s, ignoring.", v);
+                        else {
+                                r = unit_set_invocation_id(u, id);
+                                if (r < 0)
+                                        log_unit_warning_errno(u, r, "Failed to set invocation ID for unit: %m");
+                        }
 
                         continue;
                 }
@@ -4152,4 +4184,58 @@ void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid) {
         r = unit_ref_uid_gid(u, uid, gid);
         if (r > 0)
                 bus_unit_send_change_signal(u);
+}
+
+int unit_set_invocation_id(Unit *u, sd_id128_t id) {
+        int r;
+
+        assert(u);
+
+        /* Set the invocation ID for this unit. If we cannot, this will not roll back, but reset the whole thing. */
+
+        if (sd_id128_equal(u->invocation_id, id))
+                return 0;
+
+        if (!sd_id128_is_null(u->invocation_id))
+                (void) hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
+
+        if (sd_id128_is_null(id)) {
+                r = 0;
+                goto reset;
+        }
+
+        r = hashmap_ensure_allocated(&u->manager->units_by_invocation_id, &id128_hash_ops);
+        if (r < 0)
+                goto reset;
+
+        u->invocation_id = id;
+        sd_id128_to_string(id, u->invocation_id_string);
+
+        r = hashmap_put(u->manager->units_by_invocation_id, &u->invocation_id, u);
+        if (r < 0)
+                goto reset;
+
+        return 0;
+
+reset:
+        u->invocation_id = SD_ID128_NULL;
+        u->invocation_id_string[0] = 0;
+        return r;
+}
+
+int unit_acquire_invocation_id(Unit *u) {
+        sd_id128_t id;
+        int r;
+
+        assert(u);
+
+        r = sd_id128_randomize(&id);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to generate invocation ID for unit: %m");
+
+        r = unit_set_invocation_id(u, id);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to set invocation ID for unit: %m");
+
+        return 0;
 }

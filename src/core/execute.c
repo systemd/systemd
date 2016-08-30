@@ -1553,10 +1553,11 @@ static int build_environment(
         unsigned n_env = 0;
         char *x;
 
+        assert(u);
         assert(c);
         assert(ret);
 
-        our_env = new0(char*, 13);
+        our_env = new0(char*, 14);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1624,6 +1625,13 @@ static int build_environment(
                 x = strappend("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
+                our_env[n_env++] = x;
+        }
+
+        if (!sd_id128_is_null(u->invocation_id)) {
+                if (asprintf(&x, "INVOCATION_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id)) < 0)
+                        return -ENOMEM;
+
                 our_env[n_env++] = x;
         }
 

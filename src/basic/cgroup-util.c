@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -881,6 +882,43 @@ int cg_set_task_access(
                 (void) chmod_and_chown(procs, mode, uid, gid);
 
         return 0;
+}
+
+int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+        assert(value || size <= 0);
+
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
+                return r;
+
+        if (setxattr(fs, name, value, size, flags) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size) {
+        _cleanup_free_ char *fs = NULL;
+        ssize_t n;
+        int r;
+
+        assert(path);
+        assert(name);
+
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
+                return r;
+
+        n = getxattr(fs, name, value, size);
+        if (n < 0)
+                return -errno;
+
+        return (int) n;
 }
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **path) {

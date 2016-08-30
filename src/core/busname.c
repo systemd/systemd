@@ -639,6 +639,10 @@ static int busname_start(Unit *u) {
                 return r;
         }
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         n->result = BUSNAME_SUCCESS;
         busname_enter_making(n);
 

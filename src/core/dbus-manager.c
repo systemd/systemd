@@ -464,6 +464,64 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, "o", path);
 }
 
+static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        sd_id128_t id;
+        const void *a;
+        Unit *u;
+        size_t sz;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        /* Anyone can call this method */
+
+        r = sd_bus_message_read_array(message, 'y', &a, &sz);
+        if (r < 0)
+                return r;
+        if (sz == 0)
+                id = SD_ID128_NULL;
+        else if (sz == 16)
+                memcpy(&id, a, sz);
+        else
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid invocation ID");
+
+        if (sd_id128_is_null(id)) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                pid_t pid;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
+                if (r < 0)
+                        return r;
+
+                u = manager_get_unit_by_pid(m, pid);
+                if (!u)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Client " PID_FMT " not member of any unit.", pid);
+        } else {
+                u = hashmap_get(m->units_by_invocation_id, &id);
+                if (!u)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID, "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.", SD_ID128_FORMAT_VAL(id));
+        }
+
+        r = mac_selinux_unit_access_check(u, message, "status", error);
+        if (r < 0)
+                return r;
+
+        /* So here's a special trick: the bus path we return actually references the unit by its invocation ID instead
+         * of the unit name. This means it stays valid only as long as the invocation ID stays the same. */
+        path = unit_dbus_path_invocation_id(u);
+        if (!path)
+                return -ENOMEM;
+
+        return sd_bus_reply_method_return(message, "o", path);
+}
+
 static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
@@ -2254,6 +2312,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
 
         SD_BUS_METHOD("GetUnit", "s", "o", method_get_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitByPID", "u", "o", method_get_unit_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetUnitByInvocationID", "ay", "o", method_get_unit_by_invocation_id, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("LoadUnit", "s", "o", method_load_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartUnit", "ss", "o", method_start_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartUnitReplace", "sss", "o", method_start_unit_replace, SD_BUS_VTABLE_UNPRIVILEGED),

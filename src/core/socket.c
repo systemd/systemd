@@ -2354,11 +2354,14 @@ static int socket_start(Unit *u) {
                 return r;
         }
 
+        r = unit_acquire_invocation_id(u);
+        if (r < 0)
+                return r;
+
         s->result = SOCKET_SUCCESS;
         s->reset_cpu_usage = true;
 
         socket_enter_start_pre(s);
-
         return 1;
 }
 

@@ -44,6 +44,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "journal-authenticate.h"
 #include "journal-file.h"
@@ -56,6 +57,7 @@
 #include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
+#include "log.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -69,7 +71,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
-#include "log.h"
 
 #define USER_JOURNALS_MAX 1024
 
@@ -675,6 +676,44 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 server_schedule_sync(s, priority);
 }
 
+static int get_invocation_id(const char *cgroup_root, const char *slice, const char *unit, char **ret) {
+        _cleanup_free_ char *escaped = NULL, *slice_path = NULL, *p = NULL;
+        char *copy, ids[SD_ID128_STRING_MAX];
+        int r;
+
+        /* Read the invocation ID of a unit off a unit. It's stored in the "trusted.invocation_id" extended attribute
+         * on the cgroup path. */
+
+        r = cg_slice_to_path(slice, &slice_path);
+        if (r < 0)
+                return r;
+
+        escaped = cg_escape(unit);
+        if (!escaped)
+                return -ENOMEM;
+
+        p = strjoin(cgroup_root, "/", slice_path, "/", escaped, NULL);
+        if (!p)
+                return -ENOMEM;
+
+        r = cg_get_xattr(SYSTEMD_CGROUP_CONTROLLER, p, "trusted.invocation_id", ids, 32);
+        if (r < 0)
+                return r;
+        if (r != 32)
+                return -EINVAL;
+        ids[32] = 0;
+
+        if (!id128_is_valid(ids))
+                return -EINVAL;
+
+        copy = strdup(ids);
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return 0;
+}
+
 static void dispatch_message_real(
                 Server *s,
                 struct iovec *iovec, unsigned n, unsigned m,
@@ -771,6 +810,7 @@ static void dispatch_message_real(
 
                 r = cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &c);
                 if (r >= 0) {
+                        _cleanup_free_ char *raw_unit = NULL, *raw_slice = NULL;
                         char *session = NULL;
 
                         x = strjoina("_SYSTEMD_CGROUP=", c);
@@ -790,9 +830,8 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], owner_uid);
                         }
 
-                        if (cg_path_get_unit(c, &t) >= 0) {
-                                x = strjoina("_SYSTEMD_UNIT=", t);
-                                free(t);
+                        if (cg_path_get_unit(c, &raw_unit) >= 0) {
+                                x = strjoina("_SYSTEMD_UNIT=", raw_unit);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         } else if (unit_id && !session) {
                                 x = strjoina("_SYSTEMD_UNIT=", unit_id);
@@ -808,9 +847,8 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
-                        if (cg_path_get_slice(c, &t) >= 0) {
-                                x = strjoina("_SYSTEMD_SLICE=", t);
-                                free(t);
+                        if (cg_path_get_slice(c, &raw_slice) >= 0) {
+                                x = strjoina("_SYSTEMD_SLICE=", raw_slice);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
@@ -818,6 +856,14 @@ static void dispatch_message_real(
                                 x = strjoina("_SYSTEMD_USER_SLICE=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
+                        }
+
+                        if (raw_slice && raw_unit) {
+                                if (get_invocation_id(s->cgroup_root, raw_slice, raw_unit, &t) >= 0) {
+                                        x = strjoina("_SYSTEMD_INVOCATION_ID=", t);
+                                        free(t);
+                                        IOVEC_SET_STRING(iovec[n++], x);
+                                }
                         }
 
                         free(c);

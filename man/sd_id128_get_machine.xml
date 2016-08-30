@@ -45,6 +45,7 @@
   <refnamediv>
     <refname>sd_id128_get_machine</refname>
     <refname>sd_id128_get_boot</refname>
+    <refname>sd_id128_get_invocation</refname>
     <refpurpose>Retrieve 128-bit IDs</refpurpose>
   </refnamediv>
 
@@ -59,6 +60,11 @@
 
       <funcprototype>
         <funcdef>int <function>sd_id128_get_boot</function></funcdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_get_invocation</function></funcdef>
         <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -83,11 +89,15 @@
     for more information. This function also internally caches the
     returned ID to make this call a cheap operation.</para>
 
-    <para>Note that <function>sd_id128_get_boot()</function> always
-    returns a UUID v4 compatible ID.
-    <function>sd_id128_get_machine()</function> will also return a
-    UUID v4-compatible ID on new installations but might not on older.
-    It is possible to convert the machine ID into a UUID v4-compatible
+    <para><function>sd_id128_get_invocation()</function> returns the invocation ID of the currently executed
+    service. In its current implementation, this reads and parses the <varname>$INVOCATION_ID</varname> environment
+    variable that the service manager sets when activating a service, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details. The
+    ID is cached internally. In future a different mechanism to determine the invocation ID may be added.</para>
+
+    <para>Note that <function>sd_id128_get_boot()</function> and <function>sd_id128_get_invocation()</function> always
+    return UUID v4 compatible IDs.  <function>sd_id128_get_machine()</function> will also return a UUID v4-compatible
+    ID on new installations but might not on older.  It is possible to convert the machine ID into a UUID v4-compatible
     one. For more information, see
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
@@ -107,11 +117,10 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_id128_get_machine()</function> and
-    <function>sd_id128_get_boot()</function> interfaces are available
-    as a shared library, which can be compiled and linked to with the
-    <literal>libsystemd</literal> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <para>The <function>sd_id128_get_machine()</function>, <function>sd_id128_get_boot()</function> and
+    <function>sd_id128_get_invocation()</function> interfaces are available as a shared library, which can be compiled
+    and linked to with the <literal>libsystemd</literal> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
   </refsect1>
 
   <refsect1>
@@ -121,8 +130,9 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
     </para>
   </refsect1>
 
