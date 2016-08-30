@@ -439,9 +439,12 @@ static int status_variables(void) {
 
                 for (j = 0; j < n_order; j++)
                         if (options[i] == order[j])
-                                continue;
+                                goto next_option;
 
                 print_efi_option(options[i], false);
+
+        next_option:
+                continue;
         }
 
         return 0;
