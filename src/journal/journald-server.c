@@ -943,7 +943,7 @@ static void dispatch_message_real(
         assert(n <= m);
 
         if (tv) {
-                sprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=%llu", (unsigned long long) timeval_load(tv));
+                sprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=" USEC_FMT, timeval_load(tv));
                 IOVEC_SET_STRING(iovec[n++], source_time);
         }
 
