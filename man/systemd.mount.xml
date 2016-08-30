@@ -365,6 +365,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ForceUnmount=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, force an
+        unmount (in case of an unreachable NFS system).
+        This corresponds with
+        <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-f</parameter> switch. Defaults to
+        off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DirectoryMode=</varname></term>
         <listitem><para>Directories of mount points (and any parent
         directories) are automatically created if needed. This option
