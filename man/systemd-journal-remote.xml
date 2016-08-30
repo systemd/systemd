@@ -121,8 +121,8 @@
         <replaceable>ADDRESS</replaceable>. This URL should refer to the
         root of a remote
         <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        instance (e.g. <ulink>http://some.host:19531/</ulink> or
-        <ulink>https://some.host:19531/</ulink>).</para></listitem>
+        instance, e.g. http://some.host:19531/ or
+        https://some.host:19531/.</para></listitem>
       </varlistentry>
     </variablelist>
 
