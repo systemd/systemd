@@ -387,6 +387,30 @@
           </variablelist>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>TCPSegmentationOffload=</varname></term>
+        <listitem>
+          <para>The TCP Segmentation Offload (TSO) when true enables
+          TCP segmentation offload. Takes a boolean value.
+          Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>GenericSegmentationOffload=</varname></term>
+        <listitem>
+          <para>The Generic Segmentation Offload (GSO) when true enables
+          generic segmentation offload. Takes a boolean value.
+          Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDPSegmentationOffload=</varname></term>
+        <listitem>
+          <para>The UDP Segmentation Offload (USO) when true enables
+          UDP segmentation offload. Takes a boolean value.
+          Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

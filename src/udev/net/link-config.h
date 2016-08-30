@@ -70,6 +70,7 @@ struct link_config {
         size_t speed;
         Duplex duplex;
         WakeOnLan wol;
+        NetDevFeature features[_NET_DEV_FEAT_MAX];
 
         LIST_FIELDS(link_config, links);
 };
