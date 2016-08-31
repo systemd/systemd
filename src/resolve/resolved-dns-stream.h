@@ -25,6 +25,7 @@ typedef struct DnsStream DnsStream;
 
 #include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-manager.h"
 
 /* Streams are used by three subsystems:
  *

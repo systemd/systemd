@@ -29,6 +29,7 @@ typedef struct Link Link;
 typedef struct LinkAddress LinkAddress;
 
 #include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-manager.h"

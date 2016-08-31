@@ -20,6 +20,7 @@
 ***/
 
 #include "resolved-manager.h"
+#include "resolved-dns-server.h"
 
 int manager_parse_config_file(Manager *m);
 
