@@ -127,6 +127,9 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 "31.172.in-addr.arpa\0"
                 "168.192.in-addr.arpa\0"
 
+                /* The same, but for IPv6. */
+                "d.f.ip6.arpa\0"
+
                 /* RFC 6762 reserves the .local domain for Multicast
                  * DNS, it hence cannot appear in the root zone. (Note
                  * that we by default do not route .local traffic to
