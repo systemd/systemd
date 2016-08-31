@@ -315,6 +315,26 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>AgeingTimeSec=</varname></term>
+          <listitem>
+            <para>This specifies the number of seconds a MAC Address will be kept in
+            the forwaring database after having a packet received from this MAC Address.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Priority=</varname></term>
+          <listitem>
+            <para>The priority of the bridge. An integer between 0 and 65535. A lower value
+            means higher priority. The bridge having the lowest priority will be elected as root bridge.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DefaultPVID=</varname></term>
+          <listitem>
+            <para>This specifies the default port VLAN ID of a newly attached bridge port.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>MulticastQuerier=</varname></term>
           <listitem>
             <para>A boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
