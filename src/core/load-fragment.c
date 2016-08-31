@@ -1338,10 +1338,13 @@ int config_parse_timer(const char *unit,
                        void *userdata) {
 
         Timer *t = data;
-        usec_t u = 0;
+        usec_t usec = 0;
         TimerValue *v;
         TimerBase b;
         CalendarSpec *c = NULL;
+        Unit *u = userdata;
+        _cleanup_free_ char *k = NULL;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1360,14 +1363,20 @@ int config_parse_timer(const char *unit,
                 return 0;
         }
 
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
+                return 0;
+        }
+
         if (b == TIMER_CALENDAR) {
-                if (calendar_spec_from_string(rvalue, &c) < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse calendar specification, ignoring: %s", rvalue);
+                if (calendar_spec_from_string(k, &c) < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse calendar specification, ignoring: %s", k);
                         return 0;
                 }
         } else {
-                if (parse_sec(rvalue, &u) < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse timer value, ignoring: %s", rvalue);
+                if (parse_sec(k, &usec) < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse timer value, ignoring: %s", k);
                         return 0;
                 }
         }
@@ -1379,7 +1388,7 @@ int config_parse_timer(const char *unit,
         }
 
         v->base = b;
-        v->value = u;
+        v->value = usec;
         v->calendar_spec = c;
 
         LIST_PREPEND(value, t->values, v);
