@@ -47,10 +47,12 @@
     <refname>sd-id128</refname>
     <refname>sd_id128_t</refname>
     <refname>SD_ID128_MAKE</refname>
+    <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_CONST_STR</refname>
     <refname>SD_ID128_FORMAT_STR</refname>
     <refname>SD_ID128_FORMAT_VAL</refname>
     <refname>sd_id128_equal</refname>
+    <refname>sd_id128_is_null</refname>
     <refpurpose>APIs for processing 128-bit IDs</refpurpose>
   </refnamediv>
 
@@ -88,8 +90,8 @@
     union type:</para>
 
     <programlisting>typedef union sd_id128 {
-  uint8_t bytes[16];
-  uint64_t qwords[2];
+        uint8_t bytes[16];
+        uint64_t qwords[2];
 } sd_id128_t;</programlisting>
 
     <para>This union type allows accessing the 128-bit ID as 16
@@ -108,37 +110,46 @@
 
     <programlisting>#define SD_MESSAGE_COREDUMP SD_ID128_MAKE(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)</programlisting>
 
+    <para><function>SD_ID128_NULL</function> may be used to refer to the 128bit ID consisting of only NUL
+    bytes.</para>
+
     <para><function>SD_ID128_CONST_STR()</function> may be used to
     convert constant 128-bit IDs into constant strings for output. The
     following example code will output the string
     "fc2e22bc6ee647b6b90729ab34a250b1":</para>
     <programlisting>int main(int argc, char *argv[]) {
-  puts(SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
+        puts(SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
 }</programlisting>
 
-    <para><function>SD_ID128_FORMAT_STR</function> and
+    <para><function>SD_ID128_FORMAT_STR()</function> and
     <function>SD_ID128_FORMAT_VAL()</function> may be used to format a
     128-bit ID in a
     <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     format string, as shown in the following example:</para>
 
     <programlisting>int main(int argc, char *argv[]) {
-  sd_id128_t id;
-  id = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
-  printf("The ID encoded in this C file is " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(id));
-  return 0;
+        sd_id128_t id;
+        id = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
+        printf("The ID encoded in this C file is " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(id));
+        return 0;
 }</programlisting>
 
     <para>Use <function>sd_id128_equal()</function> to compare two 128-bit IDs:</para>
 
     <programlisting>int main(int argc, char *argv[]) {
-  sd_id128_t a, b, c;
-  a = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
-  b = SD_ID128_MAKE(f2,28,88,9c,5f,09,44,15,9d,d7,04,77,58,cb,e7,3e);
-  c = a;
-  assert(sd_id128_equal(a, c));
-  assert(!sd_id128_equal(a, b));
-  return 0;
+        sd_id128_t a, b, c;
+        a = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
+        b = SD_ID128_MAKE(f2,28,88,9c,5f,09,44,15,9d,d7,04,77,58,cb,e7,3e);
+        c = a;
+        assert(sd_id128_equal(a, c));
+        assert(!sd_id128_equal(a, b));
+        return 0;
+}</programlisting>
+
+    <para>Use <function>sd_id128_is_null()</function> to check if an 128bit ID consists of only NUL bytes:</para>
+
+    <programlisting>int main(int argc, char *argv[]) {
+        assert(sd_id128_is_null(SD_ID128_NULL));
 }</programlisting>
 
     <para>Note that new, randomized IDs may be generated with
