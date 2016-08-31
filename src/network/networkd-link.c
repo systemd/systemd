@@ -2957,9 +2957,11 @@ static int link_carrier_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_drop_foreign_config(link);
-        if (r < 0)
-                return r;
+        if (link->state != LINK_STATE_UNMANAGED) {
+                r = link_drop_foreign_config(link);
+                if (r < 0)
+                        return r;
+        }
 
         r = link_handle_bound_by_list(link);
         if (r < 0)
