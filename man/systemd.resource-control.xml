@@ -326,6 +326,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemorySwapMax=<replaceable>bytes</replaceable></varname></term>
+
+        <listitem>
+          <para>Specify the absolute limit on swap usage of the executed processes in this unit.</para>
+
+          <para>Takes a swap size in bytes. If the value is suffixed with K, M, G or T, the specified swap size is
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
+          special value <literal>infinity</literal>, no swap limit is applied. This controls the
+          <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
+          see <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+
+          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
+
+          <para>This setting is supported only if the unified control group hierarchy is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryLimit=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
