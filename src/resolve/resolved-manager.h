@@ -30,6 +30,7 @@
 
 typedef struct Manager Manager;
 
+#include "resolved-conf.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -47,6 +48,7 @@ struct Manager {
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
         bool enable_cache;
+        DnsStubListenerMode dns_stub_listener_mode;
 
         /* Network */
         Hashmap *links;

@@ -540,17 +540,21 @@ int manager_dns_stub_start(Manager *m) {
 
         assert(m);
 
-        r = manager_dns_stub_udp_fd(m);
-        if (r == -EADDRINUSE)
-                goto eaddrinuse;
-        if (r < 0)
-                return r;
+        if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_UDP)) {
+                r = manager_dns_stub_udp_fd(m);
+                if (r == -EADDRINUSE)
+                        goto eaddrinuse;
+                if (r < 0)
+                        return r;
+        }
 
-        r = manager_dns_stub_tcp_fd(m);
-        if (r == -EADDRINUSE)
-                goto eaddrinuse;
-        if (r < 0)
-                return r;
+        if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_TCP)) {
+                r = manager_dns_stub_tcp_fd(m);
+                if (r == -EADDRINUSE)
+                        goto eaddrinuse;
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 
