@@ -1077,7 +1077,7 @@ static void rename_process_from_path(const char *path) {
 static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
         if (!is_seccomp_available()) {
                 log_open();
-                log_unit_debug(u, "SECCOMP not detected in the kernel, skipping %s", msg);
+                log_unit_debug(u, "SECCOMP features not detected in the kernel, skipping %s", msg);
                 log_close();
                 return true;
         }
