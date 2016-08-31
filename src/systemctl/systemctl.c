@@ -2720,9 +2720,10 @@ static int start_unit_one(
 
                 if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
                     !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED))
-                        log_error("See %s logs and 'systemctl%s status %s' for details.",
+                        log_error("See %s logs and 'systemctl%s status%s %s' for details.",
                                    arg_scope == UNIT_FILE_SYSTEM ? "system" : "user",
                                    arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
+                                   name[0] == '-' ? " --" : "",
                                    name);
 
                 return r;
