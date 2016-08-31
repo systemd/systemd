@@ -643,7 +643,7 @@ static int remove_marked_symlinks(
         if (set_size(remove_symlinks_to) <= 0)
                 return 0;
 
-        fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
