@@ -411,6 +411,22 @@
           Defaults to "unset".</para>
         </listitem>
       </varlistentry>
+    <varlistentry>
+        <term><varname>GenericReceiveOffload=</varname></term>
+        <listitem>
+          <para>The Generic Receive Offload (GRO) when true enables
+          generic receive offload. Takes a boolean value.
+          Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>LargeReceiveOffload=</varname></term>
+        <listitem>
+          <para>The Large Receive Offload (LRO) when true enables
+          large receive offload. Takes a boolean value.
+          Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

@@ -48,6 +48,8 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_wol, wol, WakeOnLan, "Failed to parse Wake
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_GSO] = "tx-generic-segmentation",
+        [NET_DEV_FEAT_GRO] = "rx-gro",
+        [NET_DEV_FEAT_LRO] = "rx-lro",
         [NET_DEV_FEAT_TSO] = "tx-tcp-segmentation",
         [NET_DEV_FEAT_UFO] = "tx-udp-fragmentation",
 };

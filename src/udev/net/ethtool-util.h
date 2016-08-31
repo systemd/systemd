@@ -40,6 +40,8 @@ typedef enum WakeOnLan {
 
 typedef enum NetDevFeature {
         NET_DEV_FEAT_GSO,
+        NET_DEV_FEAT_GRO,
+        NET_DEV_FEAT_LRO,
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_UFO,
         _NET_DEV_FEAT_MAX,
