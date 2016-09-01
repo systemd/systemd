@@ -247,6 +247,13 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapad500S-13ISK*
  EVDEV_ABS_35=125:3954:37
  EVDEV_ABS_36=104:1959:27
 
+# Lenovo Yoga 500-14ISK
+evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoYoga500-14ISK*
+ EVDEV_ABS_00=124:3955:36
+ EVDEV_ABS_01=103:1959:26
+ EVDEV_ABS_35=124:3955:36
+ EVDEV_ABS_36=103:1959:26
+
 #########################################
 # Samsung
 #########################################
