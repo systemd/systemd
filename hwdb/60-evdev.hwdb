@@ -195,6 +195,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:pn*ThinkPadEdgeE530*
  EVDEV_ABS_35=1241:5703:49
  EVDEV_ABS_36=1105:4820:68
 
+# Lenovo L430
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnLENOVO*:pvrThinkPadL430*
+ EVDEV_ABS_00=19:2197:29
+ EVDEV_ABS_01=12:1151:25
+ EVDEV_ABS_35=19:2197:29
+ EVDEV_ABS_36=12:1151:25
+
 # Lenovo P50
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*P50*
  EVDEV_ABS_00=::44
