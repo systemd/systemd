@@ -217,24 +217,28 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
 
 static int ethtool_get_stringset(int *fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
-        struct ethtool_sset_info info =  {
-                .cmd = ETHTOOL_GSSET_INFO,
-                .reserved = 0,
-                .sset_mask = 1ULL << stringset_id,
+        struct {
+                struct ethtool_sset_info info;
+                uint32_t space;
+        } buffer = {
+                .info = {
+                        .cmd = ETHTOOL_GSSET_INFO,
+                        .sset_mask = UINT64_C(1) << stringset_id,
+                },
         };
         unsigned len;
         int r;
 
-        ifr->ifr_data = (void *) &info;
+        ifr->ifr_data = (void *) &buffer.info;
 
         r = ioctl(*fd, SIOCETHTOOL, ifr);
         if (r < 0)
                 return -errno;
 
-        if (!info.sset_mask)
+        if (!buffer.info.sset_mask)
                 return -EINVAL;
 
-        len = info.data[0];
+        len = buffer.info.data[0];
 
         strings = malloc0(sizeof(struct ethtool_gstrings) + len * ETH_GSTRING_LEN);
         if (!strings)
@@ -271,7 +275,7 @@ int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
         int block, bit, i, r;
-        struct ifreq ifr;
+        struct ifreq ifr = {};
 
         if (*fd < 0) {
                 r = ethtool_connect(fd);
