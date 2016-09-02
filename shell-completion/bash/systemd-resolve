@@ -36,8 +36,8 @@ _systemd-resolve() {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
                [STANDALONE]='-h --help --version -4 -6
-                             --service --openpgp --tlsa --statistics --reset-statistics
-                             --service-address=no --service-txt=no
+                             --service --openpgp --tlsa --status --statistics
+                             --reset-statistics --service-address=no --service-txt=no
                              --cname=no --search=no --legend=no'
                       [ARG]='-i --interface -p --protocol -t --type -c --class'
         )
