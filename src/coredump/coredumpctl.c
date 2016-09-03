@@ -620,7 +620,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                         if (!temp)
                                 return log_oom();
 
-                        fdt = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
+                        fdt = mkostemp_safe(temp);
                         if (fdt < 0)
                                 return log_error_errno(fdt, "Failed to create temporary file: %m");
                         log_debug("Created temporary file %s", temp);

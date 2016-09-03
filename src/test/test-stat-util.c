@@ -31,7 +31,7 @@ static void test_files_same(void) {
         char name[] = "/tmp/test-files_same.XXXXXX";
         char name_alias[] = "/tmp/test-files_same.alias";
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(symlink(name, name_alias) >= 0);
 
@@ -47,7 +47,7 @@ static void test_is_symlink(void) {
         char name_link[] = "/tmp/test-is_symlink.link";
         _cleanup_close_ int fd = -1;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(symlink(name, name_link) >= 0);
 

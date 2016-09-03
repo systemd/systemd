@@ -1632,7 +1632,7 @@ static int setup_keys(void) {
         n /= arg_interval;
 
         safe_close(fd);
-        fd = mkostemp_safe(k, O_WRONLY|O_CLOEXEC);
+        fd = mkostemp_safe(k);
         if (fd < 0) {
                 r = log_error_errno(fd, "Failed to open %s: %m", k);
                 goto finish;

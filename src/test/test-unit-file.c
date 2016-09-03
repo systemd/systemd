@@ -485,7 +485,7 @@ static void test_load_env_file_1(void) {
         char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
 
@@ -508,7 +508,7 @@ static void test_load_env_file_2(void) {
         char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
 
@@ -526,7 +526,7 @@ static void test_load_env_file_3(void) {
         char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
 
@@ -542,7 +542,7 @@ static void test_load_env_file_4(void) {
         _cleanup_close_ int fd;
         int r;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_4, sizeof(env_file_4)) == sizeof(env_file_4));
 
@@ -562,7 +562,7 @@ static void test_load_env_file_5(void) {
         char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_5, sizeof(env_file_5)) == sizeof(env_file_5));
 

@@ -167,7 +167,7 @@ static void test_compress_stream(int compression,
 
         log_debug("/* test compression */");
 
-        assert_se((dst = mkostemp_safe(pattern, O_RDWR|O_CLOEXEC)) >= 0);
+        assert_se((dst = mkostemp_safe(pattern)) >= 0);
 
         assert_se(compress(src, dst, -1) == 0);
 
@@ -178,7 +178,7 @@ static void test_compress_stream(int compression,
 
         log_debug("/* test decompression */");
 
-        assert_se((dst2 = mkostemp_safe(pattern2, O_RDWR|O_CLOEXEC)) >= 0);
+        assert_se((dst2 = mkostemp_safe(pattern2)) >= 0);
 
         assert_se(stat(srcfile, &st) == 0);
 

@@ -34,7 +34,7 @@ static void test_unlink_noerrno(void) {
         char name[] = "/tmp/test-close_nointr.XXXXXX";
         int fd;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(close_nointr(fd) >= 0);
 
