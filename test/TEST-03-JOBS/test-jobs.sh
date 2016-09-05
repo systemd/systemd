@@ -49,4 +49,32 @@ systemctl stop --job-mode=replace-irreversibly unstoppable.service || exit 1
 # Shutdown of the container/VM will hang if not.
 systemctl start unstoppable.service || exit 1
 
+# Test waiting for a started unit(s) to terminate again
+cat <<EOF >  /run/systemd/system/wait2.service
+[Unit]
+Description=Wait for 2 seconds
+[Service]
+ExecStart=/bin/sh -ec 'sleep 2'
+EOF
+cat <<EOF >  /run/systemd/system/wait5fail.service
+[Unit]
+Description=Wait for 5 seconds and fail
+[Service]
+ExecStart=/bin/sh -ec 'sleep 5; false'
+EOF
+
+# wait2 succeeds
+START_SEC=$(date -u '+%s')
+systemctl start --wait wait2.service || exit 1
+END_SEC=$(date -u '+%s')
+ELAPSED=$(($END_SEC-$START_SEC))
+[[ "$ELAPSED" -ge 2 ]] && [[ "$ELAPSED" -le 3 ]] || exit 1
+
+# wait5fail fails, so systemctl should fail
+START_SEC=$(date -u '+%s')
+! systemctl start --wait wait2.service wait5fail.service || exit 1
+END_SEC=$(date -u '+%s')
+ELAPSED=$(($END_SEC-$START_SEC))
+[[ "$ELAPSED" -ge 5 ]] && [[ "$ELAPSED" -le 7 ]] || exit 1
+
 touch /testok

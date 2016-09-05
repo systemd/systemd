@@ -118,6 +118,7 @@ static enum dependency {
 } arg_dependency = DEPENDENCY_FORWARD;
 static const char *arg_job_mode = "replace";
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+static bool arg_wait = false;
 static bool arg_no_block = false;
 static bool arg_no_legend = false;
 static bool arg_no_pager = false;
@@ -2679,13 +2680,86 @@ static const char *method_to_verb(const char *method) {
        return "n/a";
 }
 
+typedef struct {
+        sd_bus_slot *match;
+        sd_event *event;
+        Set *unit_paths;
+        bool any_failed;
+} WaitContext;
+
+static void wait_context_free(WaitContext *c) {
+        c->match = sd_bus_slot_unref(c->match);
+        c->event = sd_event_unref(c->event);
+        c->unit_paths = set_free(c->unit_paths);
+}
+
+static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        WaitContext *c = userdata;
+        const char *path;
+        int r;
+
+        path = sd_bus_message_get_path(m);
+        if (!set_contains(c->unit_paths, path))
+                return 0;
+
+        /* Check if ActiveState changed to inactive/failed */
+        /* (s interface, a{sv} changed_properties, as invalidated_properties) */
+        r = sd_bus_message_skip(m, "s");
+        if (r < 0)
+                return bus_log_parse_error(r);
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
+                const char *s;
+                bool is_failed;
+
+                r = sd_bus_message_read(m, "s", &s);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (streq(s, "ActiveState")) {
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_VARIANT, "s");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        r = sd_bus_message_read(m, "s", &s);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        is_failed = streq(s, "failed");
+                        if (streq(s, "inactive") || is_failed) {
+                                log_debug("%s became %s, dropping from --wait tracking", path, s);
+                                set_remove(c->unit_paths, path);
+                                c->any_failed |= is_failed;
+                        } else
+                                log_debug("ActiveState on %s changed to %s", path, s);
+                        break; /* no need to dissect the rest of the message */
+                } else {
+                        /* other property */
+                        r = sd_bus_message_skip(m, "v");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (set_isempty(c->unit_paths))
+                sd_event_exit(c->event, EXIT_SUCCESS);
+
+        return 0;
+}
+
 static int start_unit_one(
                 sd_bus *bus,
                 const char *method,
                 const char *name,
                 const char *mode,
                 sd_bus_error *error,
-                BusWaitForJobs *w) {
+                BusWaitForJobs *w,
+                WaitContext *wait_context) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
@@ -2695,6 +2769,40 @@ static int start_unit_one(
         assert(name);
         assert(mode);
         assert(error);
+
+        if (wait_context) {
+                _cleanup_free_ char *unit_path = NULL;
+                const char* mt;
+
+                log_debug("Watching for property changes of %s", name);
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "RefUnit",
+                                error,
+                                NULL,
+                                "s", name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to RefUnit %s: %s", name, bus_error_message(error, r));
+
+                unit_path = unit_dbus_path_from_name(name);
+                if (!unit_path)
+                        return log_oom();
+
+                r = set_put_strdup(wait_context->unit_paths, unit_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add unit path %s to set: %m", unit_path);
+
+                mt = strjoina("type='signal',"
+                              "interface='org.freedesktop.DBus.Properties',"
+                              "path='", unit_path, "',"
+                              "member='PropertiesChanged'");
+                r = sd_bus_add_match(bus, &wait_context->match, mt, on_properties_changed, wait_context);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match for PropertiesChanged signal: %m");
+        }
 
         log_debug("Calling manager for %s on %s, %s", method, name, mode);
 
@@ -2841,10 +2949,18 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         const char *method, *mode, *one_name, *suffix = NULL;
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
+        _cleanup_(wait_context_free) WaitContext wait_context = {};
         char **name;
         int r = 0;
 
-        r = acquire_bus(BUS_MANAGER, &bus);
+        if (arg_wait && !strstr(argv[0], "start")) {
+                log_error("--wait may only be used with a command that starts units.");
+                return -EINVAL;
+        }
+
+        /* we cannot do sender tracking on the private bus, so we need the full
+         * one for RefUnit to implement --wait */
+        r = acquire_bus(arg_wait ? BUS_FULL : BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
 
@@ -2888,11 +3004,36 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Could not watch jobs: %m");
         }
 
+        if (arg_wait) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                wait_context.unit_paths = set_new(&string_hash_ops);
+                if (!wait_context.unit_paths)
+                        return log_oom();
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "Subscribe",
+                                &error,
+                                NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable subscription: %s", bus_error_message(&error, r));
+                r = sd_event_default(&wait_context.event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate event loop: %m");
+                r = sd_bus_attach_event(bus, wait_context.event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach bus to event loop: %m");
+        }
+
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int q;
 
-                q = start_unit_one(bus, method, *name, mode, &error, w);
+                q = start_unit_one(bus, method, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
                 if (r >= 0 && q < 0)
                         r = translate_bus_error_to_exit_status(q, &error);
         }
@@ -2922,6 +3063,15 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 if (!arg_quiet && streq(method, "StopUnit"))
                         STRV_FOREACH(name, names)
                                 check_triggering_units(bus, *name);
+        }
+
+        if (r >= 0 && arg_wait) {
+                int q;
+                q = sd_event_loop(wait_context.event);
+                if (q < 0)
+                        return log_error_errno(q, "Failed to run event loop: %m");
+                if (wait_context.any_failed)
+                        r = EXIT_FAILURE;
         }
 
         return r;
@@ -6584,6 +6734,7 @@ static void systemctl_help(void) {
                "  -s --signal=SIGNAL  Which signal to send\n"
                "     --now            Start or stop unit in addition to enabling or disabling it\n"
                "  -q --quiet          Suppress output\n"
+               "     --wait           For (re)start, wait until service stopped again\n"
                "     --no-block       Do not wait until operation finished\n"
                "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
                "     --no-reload      Don't reload daemon after en-/dis-abling unit files\n"
@@ -6854,6 +7005,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_FIRMWARE_SETUP,
                 ARG_NOW,
                 ARG_MESSAGE,
+                ARG_WAIT,
         };
 
         static const struct option options[] = {
@@ -6877,6 +7029,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "user",                no_argument,       NULL, ARG_USER                },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
                 { "global",              no_argument,       NULL, ARG_GLOBAL              },
+                { "wait",                no_argument,       NULL, ARG_WAIT                },
                 { "no-block",            no_argument,       NULL, ARG_NO_BLOCK            },
                 { "no-legend",           no_argument,       NULL, ARG_NO_LEGEND           },
                 { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
@@ -7057,6 +7210,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_scope = UNIT_FILE_GLOBAL;
                         break;
 
+                case ARG_WAIT:
+                        arg_wait = true;
+                        break;
+
                 case ARG_NO_BLOCK:
                         arg_no_block = true;
                         break;
@@ -7229,6 +7386,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         if (arg_transport != BUS_TRANSPORT_LOCAL && arg_scope != UNIT_FILE_SYSTEM) {
                 log_error("Cannot access user instance remotely.");
+                return -EINVAL;
+        }
+
+        if (arg_wait && arg_no_block) {
+                log_error("--wait may not be combined with --no-block.");
                 return -EINVAL;
         }
 
