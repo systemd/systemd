@@ -850,38 +850,19 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
 
         if ((mask & CGROUP_MASK_MEMORY) && !is_root) {
                 if (cg_all_unified() > 0) {
-                        uint64_t max = c->memory_max;
-                        uint64_t swap_max = c->memory_swap_max;
-
                         if (cgroup_context_has_unified_memory_config(c)) {
-                                max = c->memory_max;
-                                swap_max = c->memory_swap_max;
-                        } else {
-                                max = c->memory_limit;
-
-                                if (max != CGROUP_LIMIT_MAX)
-                                        log_cgroup_compat(u, "Applying MemoryLimit %" PRIu64 " as MemoryMax", max);
+                                cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
+                                cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
+                                cgroup_apply_unified_memory_limit(u, "memory.max", c->memory_max);
+                                cgroup_apply_unified_memory_limit(u, "memory.swap.max", c->memory_swap_max);
                         }
-
-                        cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
-                        cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
-                        cgroup_apply_unified_memory_limit(u, "memory.max", max);
-                        cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
-                        uint64_t val = c->memory_limit;
 
-                        if (val == CGROUP_LIMIT_MAX) {
-                                val = c->memory_max;
-
-                                if (val != CGROUP_LIMIT_MAX)
-                                        log_cgroup_compat(u, "Applying MemoryMax %" PRIi64 " as MemoryLimit", c->memory_max);
-                        }
-
-                        if (val == CGROUP_LIMIT_MAX)
+                        if (c->memory_limit == CGROUP_LIMIT_MAX)
                                 strncpy(buf, "-1\n", sizeof(buf));
                         else
-                                xsprintf(buf, "%" PRIu64 "\n", val);
+                                xsprintf(buf, "%" PRIu64 "\n", c->memory_limit);
 
                         r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
                         if (r < 0)
