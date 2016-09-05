@@ -363,7 +363,20 @@
           to finish. If this is not specified, the job will be
           verified, enqueued and <command>systemctl</command> will
           wait until the unit's start-up is completed. By passing this
-          argument, it is only verified and enqueued.</para>
+          argument, it is only verified and enqueued. This option may not be
+          combined with <option>--wait</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--wait</option></term>
+
+        <listitem>
+          <para>Synchronously wait for started units to terminate again.
+          This option may not be combined with <option>--no-block</option>.
+          Note that this will wait forever if any given unit never terminates
+          (by itself or by getting stopped explicitly); particularly services
+          which use <literal>RemainAfterExit=yes</literal>.</para>
         </listitem>
       </varlistentry>
 
