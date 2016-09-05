@@ -3885,33 +3885,41 @@ static void print_status_info(
 
                 printf("   Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
 
-                if (i->memory_low > 0 || i->memory_high != CGROUP_LIMIT_MAX ||
-                    i->memory_max != CGROUP_LIMIT_MAX || i->memory_swap_max != CGROUP_LIMIT_MAX ||
-                    i->memory_limit != CGROUP_LIMIT_MAX) {
-                        const char *prefix = "";
+                if (cg_all_unified() > 0) {
+                        if (i->memory_low > 0 || i->memory_high != CGROUP_LIMIT_MAX ||
+                            i->memory_max != CGROUP_LIMIT_MAX || i->memory_swap_max != CGROUP_LIMIT_MAX) {
+                                const char *prefix = "";
 
-                        printf(" (");
-                        if (i->memory_low > 0) {
-                                printf("%slow: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_low));
-                                prefix = " ";
+                                printf(" (");
+                                if (i->memory_low > 0) {
+                                        printf("%slow: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_low));
+                                        prefix = " ";
+                                }
+                                if (i->memory_high != CGROUP_LIMIT_MAX) {
+                                        printf("%shigh: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_high));
+                                        prefix = " ";
+                                }
+                                if (i->memory_max != CGROUP_LIMIT_MAX) {
+                                        printf("%smax: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_max));
+                                        prefix = " ";
+                                }
+                                if (i->memory_swap_max != CGROUP_LIMIT_MAX) {
+                                        printf("%sswap max: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_swap_max));
+                                        prefix = " ";
+                                }
+                                printf(")");
                         }
-                        if (i->memory_high != CGROUP_LIMIT_MAX) {
-                                printf("%shigh: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_high));
-                                prefix = " ";
-                        }
-                        if (i->memory_max != CGROUP_LIMIT_MAX) {
-                                printf("%smax: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_max));
-                                prefix = " ";
-                        }
-                        if (i->memory_swap_max != CGROUP_LIMIT_MAX) {
-                                printf("%sswap max: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_swap_max));
-                                prefix = " ";
-                        }
+                } else {
                         if (i->memory_limit != CGROUP_LIMIT_MAX) {
-                                printf("%slimit: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_limit));
-                                prefix = " ";
+                                const char *prefix = "";
+
+                                printf(" (");
+                                if (i->memory_limit != CGROUP_LIMIT_MAX) {
+                                        printf("%slimit: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_limit));
+                                        prefix = " ";
+                                }
+                                printf(")");
                         }
-                        printf(")");
                 }
                 printf("\n");
         }
