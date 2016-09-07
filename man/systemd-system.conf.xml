@@ -106,6 +106,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CtrlAltDelBurstAction=</varname></term>
+
+        <listitem><para>Defines what action will be performed
+        if user presses Ctr-Alt-Delete more than 7 times in 2s.
+        Can be set to <literal>reboot-force</literal>, <literal>poweroff-force</literal>
+        or disabled with <literal>ignore</literal>. Defaults to
+        <literal>reboot-force</literal>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Configures the initial CPU affinity for the
