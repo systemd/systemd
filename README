@@ -79,6 +79,7 @@ REQUIREMENTS:
           CONFIG_TMPFS_XATTR
           CONFIG_{TMPFS,EXT4,XFS,BTRFS_FS,...}_POSIX_ACL
           CONFIG_SECCOMP
+          CONFIG_SECCOMP_FILTER (required for seccomp support)
           CONFIG_CHECKPOINT_RESTORE (for the kcmp() syscall)
 
         Required for CPUShares= in resource control unit settings

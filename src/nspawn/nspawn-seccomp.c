@@ -130,6 +130,11 @@ int setup_seccomp(uint64_t cap_list_retain) {
         scmp_filter_ctx seccomp;
         int r;
 
+        if (!is_seccomp_available()) {
+                log_debug("SECCOMP features not detected in the kernel, disabling SECCOMP audit filter");
+                return 0;
+        }
+
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
                 return log_oom();
@@ -173,11 +178,6 @@ int setup_seccomp(uint64_t cap_list_retain) {
         }
 
         r = seccomp_load(seccomp);
-        if (r == -EINVAL) {
-                log_debug_errno(r, "Kernel is probably not configured with CONFIG_SECCOMP. Disabling seccomp audit filter: %m");
-                r = 0;
-                goto finish;
-        }
         if (r < 0) {
                 log_error_errno(r, "Failed to install seccomp audit filter: %m");
                 goto finish;
