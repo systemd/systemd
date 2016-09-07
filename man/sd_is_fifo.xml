@@ -117,10 +117,10 @@
     whether the specified file descriptor refers to a socket. If the
     <parameter>family</parameter> parameter is not
     <constant>AF_UNSPEC</constant>, it is checked whether the socket
-    is of the specified family (AF_UNIX, <constant>AF_INET</constant>,
-    ...). If the <parameter>type</parameter> parameter is not 0, it is
-    checked whether the socket is of the specified type
-    (<constant>SOCK_STREAM</constant>,
+    is of the specified family (<constant>AF_UNIX</constant>,
+    <constant>AF_INET</constant>, ...). If the <parameter>type</parameter>
+    parameter is not 0, it is checked whether the socket is of the
+    specified type (<constant>SOCK_STREAM</constant>,
     <constant>SOCK_DGRAM</constant>, ...). If the
     <parameter>listening</parameter> parameter is positive, it is
     checked whether the socket is in accepting mode, i.e.
