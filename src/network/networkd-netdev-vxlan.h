@@ -50,6 +50,8 @@ struct VxLan {
         bool udpcsum;
         bool udp6zerocsumtx;
         bool udp6zerocsumrx;
+        bool remote_csum_tx;
+        bool remote_csum_rx;
         bool group_policy;
 
         struct ifla_vxlan_port_range port_range;
