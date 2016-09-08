@@ -131,6 +131,10 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
         if (r == 0 && *n)
                 return -EINVAL;
 
+        /* More than one trailing dot? */
+        if (*n == '.')
+                return -EINVAL;
+
         if (sz >= 1 && d)
                 *d = 0;
 
