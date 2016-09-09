@@ -48,6 +48,7 @@ static void test_dns_label_unescape(void) {
         test_dns_label_unescape_one("..", "", 20, -EINVAL);
         test_dns_label_unescape_one(".foobar", "", 20, -EINVAL);
         test_dns_label_unescape_one("foobar.", "foobar", 20, 6);
+        test_dns_label_unescape_one("foobar..", "foobar", 20, -EINVAL);
 }
 
 static void test_dns_name_to_wire_format_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
@@ -359,6 +360,7 @@ static void test_dns_name_is_valid_one(const char *s, int ret) {
 static void test_dns_name_is_valid(void) {
         test_dns_name_is_valid_one("foo", 1);
         test_dns_name_is_valid_one("foo.", 1);
+        test_dns_name_is_valid_one("foo..", 0);
         test_dns_name_is_valid_one("Foo", 1);
         test_dns_name_is_valid_one("foo.bar", 1);
         test_dns_name_is_valid_one("foo.bar.baz", 1);
@@ -366,6 +368,7 @@ static void test_dns_name_is_valid(void) {
         test_dns_name_is_valid_one("foo..bar", 0);
         test_dns_name_is_valid_one(".foo.bar", 0);
         test_dns_name_is_valid_one("foo.bar.", 1);
+        test_dns_name_is_valid_one("foo.bar..", 0);
         test_dns_name_is_valid_one("\\zbar", 0);
         test_dns_name_is_valid_one("ä", 1);
         test_dns_name_is_valid_one("\n", 0);
