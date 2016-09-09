@@ -1167,7 +1167,7 @@ void bus_unit_send_removed_signal(Unit *u) {
         int r;
         assert(u);
 
-        if (!u->sent_dbus_new_signal)
+        if (!u->sent_dbus_new_signal || u->in_dbus_queue)
                 bus_unit_send_change_signal(u);
 
         if (!u->id)
