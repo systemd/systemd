@@ -1656,7 +1656,6 @@ AC_MSG_RESULT([
         nss-myhostname:                    ${have_myhostname}
         hwdb:                              ${enable_hwdb}
         tpm:                               ${have_tpm}
-        kdbus:                             ${have_kdbus}
         Python:                            ${have_python}
         man pages:                         ${have_manpages}
         test coverage:                     ${have_coverage}
