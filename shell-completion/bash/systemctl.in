@@ -51,6 +51,37 @@ __filter_units_by_property () {
         done
 }
 
+__filter_units_by_properties () {
+        local mode=$1 properties=$2 values=$3 ; shift 3
+        local units=("$@")
+        local props
+        IFS=$'\n' read -rd '' -a props < \
+            <(__systemctl $mode show --property "$properties" -- "${units[@]}")
+        IFS=$',' read -r -a properties < <(echo $properties)
+        IFS=$',' read -r -a values < <(echo $values)
+        local conditions=()
+        for ((i=0; i < ${#properties[*]}; i++)); do
+                for ((j=0; j < ${#properties[*]}; j++)); do
+                        if [[ ${props[i]%%=*} == ${properties[j]} ]]; then
+                                conditions+=( "${properties[j]}=${values[j]}" )
+                        fi
+                done
+        done
+        local flag
+        for ((i=0; i < ${#units[*]}; i++)); do
+                flag=1
+                for ((j=0; j < ${#conditions[*]}; j++)); do
+                        if [[ "${props[ i * ${#conditions[*]} + j]}" != "${conditions[j]}" ]]; then
+                                flag=
+                                break
+                        fi
+                done
+                if [[ -n $flag ]]; then
+                        echo " ${units[i]}"
+                fi
+        done
+}
+
 __get_all_units      () { { __systemctl $1 list-unit-files; __systemctl $1 list-units --all; } \
         | { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }; }
 __get_template_names () { __systemctl $1 list-unit-files \
@@ -60,12 +91,12 @@ __get_active_units   () { __systemctl $1 list-units       \
         | { while read -r a b; do echo " $a"; done; }; }
 __get_startable_units () {
         # find startable inactive units
-        __filter_units_by_property $mode ActiveState inactive $(
-            __filter_units_by_property $mode CanStart yes $(
-                __systemctl $mode list-unit-files --state enabled,disabled,static | \
-                    { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
-                __systemctl $mode list-units --state inactive,failed | \
-                    { while read -r a b; do echo " $a"; done; } ))
+        __filter_units_by_properties $mode ActiveState,CanStart inactive,yes $(
+            { __systemctl $mode list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient | \
+                      { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
+              __systemctl $mode list-units --state inactive,failed | \
+                      { while read -r a b c; do [[ $b == "loaded" ]] && echo " $a"; done; }
+            } | sort -u )
 }
 __get_restartable_units () {
         # filter out masked and not-found
