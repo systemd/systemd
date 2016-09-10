@@ -99,41 +99,27 @@
     setting as negotiated by the program ultimately activated. By
     default, file descriptor passing is enabled for both.</para>
 
-    <para><function>sd_bus_negotiate_timestamps()</function> controls
-    whether implicit sender timestamps shall be attached automatically
-    to all incoming messages. Takes a bus object and a boolean, which,
-    when true, enables timestamping, and, when false, disables it.
-    Use
+    <para><function>sd_bus_negotiate_timestamp()</function> controls whether implicit sender
+    timestamps shall be attached automatically to all incoming messages. Takes a bus object and a
+    boolean, which, when true, enables timestamping, and, when false, disables it.  Use
     <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    to query the timestamps of incoming messages. If negotiation is
-    disabled or not supported, these calls will fail with
-    <constant>-ENODATA</constant>. Note that not all transports
-    support timestamping of messages. Specifically, timestamping is
-    only available on the kdbus transport, but not on dbus1. The
-    timestamping is applied by the kernel and cannot be manipulated by
-    userspace. By default, message timestamping is not negotiated for
+    to query the timestamps of incoming messages. If negotiation is disabled or not supported, these
+    calls will fail with <constant>-ENODATA</constant>. Note that currently no transports support
+    timestamping of messages. By default, message timestamping is not negotiated for
     connections.</para>
 
-    <para><function>sd_bus_negotiate_creds()</function> controls
-    whether and which implicit sender credentials shall be attached
-    automatically to all incoming messages. Takes a bus object and a
-    boolean indicating whether to enable or disable the credential
-    parts encoded in the bit mask value argument. Note that not all
-    transports support attaching sender credentials to messages, or do
-    not support all types of sender credential parameters, or might
-    suppress them under certain circumstances for individual
-    messages. Specifically, implicit sender credentials on messages
-    are only fully supported on kdbus transports, and dbus1 only
-    supports <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>. The sender
-    credentials are attached by the kernel and cannot be manipulated
-    by userspace, and are thus suitable for authorization
-    decisions. By default, only
-    <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant> and
-    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant> are enabled. In
-    fact, these two credential fields are always sent along and cannot
-    be turned off.</para>
+    <para><function>sd_bus_negotiate_creds()</function> controls whether and which implicit sender
+    credentials shall be attached automatically to all incoming messages. Takes a bus object and a
+    boolean indicating whether to enable or disable the credential parts encoded in the bit mask
+    value argument. Note that not all transports support attaching sender credentials to messages,
+    or do not support all types of sender credential parameters, or might suppress them under
+    certain circumstances for individual messages. Specifically, dbus1 only supports
+    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>. The sender credentials are suitable for
+    authorization decisions. By default, only <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant> and
+    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant> are enabled. In fact, these two credential fields
+    are always sent along and cannot be turned off.</para>
 
     <para>The <function>sd_bus_negotiate_fds()</function> function may
     be called only before the connection has been started with
