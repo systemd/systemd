@@ -41,9 +41,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_fclose_ FILE *file = NULL;
         char *d;
         const char *dropin_dirname;
-        _cleanup_strv_free_ char **dropin_dirs = NULL;
-        _cleanup_free_ char *dropin_dirs_nulstr = NULL;
-        size_t dropin_dirs_nulstr_size;
         Route *route;
         Address *address;
         int r;
@@ -141,31 +138,23 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->arp = -1;
         network->ipv6_accept_ra_use_dns = true;
 
-        dropin_dirname = strjoina("/", network->name, ".network.d");
+        dropin_dirname = strjoina(network->name, ".network.d");
 
-        r = strv_extend_strv_concat(&dropin_dirs, (char**) network_dirs, dropin_dirname);
-        if (r < 0)
-                return r;
-
-        r = strv_make_nulstr(dropin_dirs, &dropin_dirs_nulstr, &dropin_dirs_nulstr_size);
-        if (r < 0)
-                return r;
-
-        r = config_parse_many_nulstr(filename, dropin_dirs_nulstr,
-                         "Match\0"
-                         "Link\0"
-                         "Network\0"
-                         "Address\0"
-                         "Route\0"
-                         "DHCP\0"
-                         "DHCPv4\0" /* compat */
-                         "DHCPServer\0"
-                         "IPv6AcceptRA\0"
-                         "Bridge\0"
-                         "BridgeFDB\0"
-                         "BridgeVLAN\0",
-                         config_item_perf_lookup, network_network_gperf_lookup,
-                         false, network);
+        r = config_parse_many(filename, network_dirs, dropin_dirname,
+                              "Match\0"
+                              "Link\0"
+                              "Network\0"
+                              "Address\0"
+                              "Route\0"
+                              "DHCP\0"
+                              "DHCPv4\0" /* compat */
+                              "DHCPServer\0"
+                              "IPv6AcceptRA\0"
+                              "Bridge\0"
+                              "BridgeFDB\0"
+                              "BridgeVLAN\0",
+                              config_item_perf_lookup, network_network_gperf_lookup,
+                              false, network);
         if (r < 0)
                 return r;
 
