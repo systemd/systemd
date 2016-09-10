@@ -622,7 +622,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID) {
-                log_warning("NetDev with invalid Kind configured in %s. Ignoring", filename);
+                log_warning("NetDev has no Kind configured in %s. Ignoring", filename);
                 return 0;
         }
 
