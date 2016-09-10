@@ -1261,8 +1261,7 @@ static int service_spawn(
 
                         /* ENOTCONN is legitimate if the endpoint disappeared on shutdown.
                          * This connection is over, but the socket unit lives on. */
-                        if (r != -ENOTCONN ||
-                            (c != s->exec_command[SERVICE_EXEC_STOP] && c != s->exec_command[SERVICE_EXEC_STOP_POST]))
+                        if (r != -ENOTCONN || !IN_SET(s->control_command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST))
                                 return r;
                 }
 
