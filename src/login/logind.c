@@ -1002,7 +1002,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 static int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse_many(PKGSYSCONFDIR "/logind.conf",
+        return config_parse_many_nulstr(PKGSYSCONFDIR "/logind.conf",
                                  CONF_PATHS_NULSTR("systemd/logind.conf.d"),
                                  "Login\0",
                                  config_item_perf_lookup, logind_gperf_lookup,

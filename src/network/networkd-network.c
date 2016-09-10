@@ -151,7 +151,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        r = config_parse_many(filename, dropin_dirs_nulstr,
+        r = config_parse_many_nulstr(filename, dropin_dirs_nulstr,
                          "Match\0"
                          "Link\0"
                          "Network\0"

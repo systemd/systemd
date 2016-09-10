@@ -84,24 +84,26 @@ int config_item_table_lookup(const void *table, const char *section, const char 
  * ConfigPerfItem tables */
 int config_item_perf_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
 
-int config_parse(const char *unit,
-                 const char *filename,
-                 FILE *f,
-                 const char *sections,  /* nulstr */
-                 ConfigItemLookup lookup,
-                 const void *table,
-                 bool relaxed,
-                 bool allow_include,
-                 bool warn,
-                 void *userdata);
+int config_parse(
+                const char *unit,
+                const char *filename,
+                FILE *f,
+                const char *sections,  /* nulstr */
+                ConfigItemLookup lookup,
+                const void *table,
+                bool relaxed,
+                bool allow_include,
+                bool warn,
+                void *userdata);
 
-int config_parse_many(const char *conf_file,      /* possibly NULL */
-                      const char *conf_file_dirs, /* nulstr */
-                      const char *sections,       /* nulstr */
-                      ConfigItemLookup lookup,
-                      const void *table,
-                      bool relaxed,
-                      void *userdata);
+int config_parse_many_nulstr(
+                const char *conf_file,      /* possibly NULL */
+                const char *conf_file_dirs, /* nulstr */
+                const char *sections,       /* nulstr */
+                ConfigItemLookup lookup,
+                const void *table,
+                bool relaxed,
+                void *userdata);
 
 /* Generic parsers */
 int config_parse_int(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

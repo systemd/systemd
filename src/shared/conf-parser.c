@@ -397,13 +397,15 @@ int config_parse(const char *unit,
 }
 
 /* Parse each config file in the specified directories. */
-int config_parse_many(const char *conf_file,
-                      const char *conf_file_dirs,
-                      const char *sections,
-                      ConfigItemLookup lookup,
-                      const void *table,
-                      bool relaxed,
-                      void *userdata) {
+int config_parse_many_nulstr(
+                const char *conf_file,
+                const char *conf_file_dirs,
+                const char *sections,
+                ConfigItemLookup lookup,
+                const void *table,
+                bool relaxed,
+                void *userdata) {
+
         _cleanup_strv_free_ char **files = NULL;
         char **fn;
         int r;

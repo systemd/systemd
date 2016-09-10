@@ -79,7 +79,7 @@
 #endif
 
 /* Return a nulstr for a standard cascade of configuration paths,
- * suitable to pass to conf_files_list_nulstr() or config_parse_many()
+ * suitable to pass to conf_files_list_nulstr() or config_parse_many_nulstr()
  * to implement drop-in directories for extending configuration
  * files. */
 #define CONF_PATHS_NULSTR(n) \

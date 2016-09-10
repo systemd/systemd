@@ -1474,7 +1474,7 @@ static int server_parse_proc_cmdline(Server *s) {
 static int server_parse_config_file(Server *s) {
         assert(s);
 
-        return config_parse_many(PKGSYSCONFDIR "/journald.conf",
+        return config_parse_many_nulstr(PKGSYSCONFDIR "/journald.conf",
                                  CONF_PATHS_NULSTR("systemd/journald.conf.d"),
                                  "Journal\0",
                                  config_item_perf_lookup, journald_gperf_lookup,
