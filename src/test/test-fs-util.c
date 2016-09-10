@@ -83,7 +83,7 @@ static void test_get_files_in_directory(void) {
 }
 
 static void test_var_tmp(void) {
-        _cleanup_free_ char *tmpdir_backup = NULL;
+        _cleanup_free_ char *tmpdir_backup = NULL, *temp_backup = NULL, *tmp_backup = NULL;
         const char *tmp_dir = NULL, *t;
 
         t = getenv("TMPDIR");
@@ -92,7 +92,21 @@ static void test_var_tmp(void) {
                 assert_se(tmpdir_backup);
         }
 
+        t = getenv("TEMP");
+        if (t) {
+                temp_backup = strdup(t);
+                assert_se(temp_backup);
+        }
+
+        t = getenv("TMP");
+        if (t) {
+                tmp_backup = strdup(t);
+                assert_se(tmp_backup);
+        }
+
         assert(unsetenv("TMPDIR") >= 0);
+        assert(unsetenv("TEMP") >= 0);
+        assert(unsetenv("TMP") >= 0);
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
         assert_se(streq(tmp_dir, "/var/tmp"));
@@ -112,6 +126,16 @@ static void test_var_tmp(void) {
         if (tmpdir_backup)  {
                 assert_se(setenv("TMPDIR", tmpdir_backup, true) >= 0);
                 assert_se(streq(getenv("TMPDIR"), tmpdir_backup));
+        }
+
+        if (temp_backup)  {
+                assert_se(setenv("TEMP", temp_backup, true) >= 0);
+                assert_se(streq(getenv("TEMP"), temp_backup));
+        }
+
+        if (tmp_backup)  {
+                assert_se(setenv("TMP", tmp_backup, true) >= 0);
+                assert_se(streq(getenv("TMP"), tmp_backup));
         }
 }
 
