@@ -118,6 +118,11 @@ static void flush_progress(void) {
                 log_error(OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
         } while (0)
 
+#define error_errno(_offset, error, _fmt, ...) do {               \
+                flush_progress();                                       \
+                log_error_errno(error, OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
+        } while (0)
+
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         uint64_t i;
 
@@ -168,8 +173,8 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                                             le64toh(o->object.size) - offsetof(Object, data.payload),
                                             &b, &alloc, &b_size, 0);
                         if (r < 0) {
-                                error(offset, "%s decompression failed: %s",
-                                      object_compressed_to_string(compression), strerror(-r));
+                                error_errno(offset, r, "%s decompression failed: %m",
+                                            object_compressed_to_string(compression));
                                 return r;
                         }
 
@@ -912,7 +917,7 @@ int journal_file_verify(
 
                 r = journal_file_object_verify(f, p, o);
                 if (r < 0) {
-                        error(p, "Invalid object contents: %s", strerror(-r));
+                        error_errno(p, r, "Invalid object contents: %m");
                         goto fail;
                 }
 
