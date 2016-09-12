@@ -23,7 +23,8 @@ External:
 
 Janitorial Clean-ups:
 
-* code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead
+* code cleanup: retire FOREACH_WORD_QUOTED, port to extract_first_word() loops instead.
+  For example, most conf parsing callbacks should use it.
 
 * replace manual readdir() loops with FOREACH_DIRENT or FOREACH_DIRENT_ALL
 
@@ -196,7 +197,7 @@ Features:
 * synchronize console access with BSD locks:
   http://lists.freedesktop.org/archives/systemd-devel/2014-October/024582.html
 
-* as soon as we have kdbus, and sender timestamps, revisit coalescing multiple parallel daemon reloads:
+* as soon as we have sender timestamps, revisit coalescing multiple parallel daemon reloads:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
 
 * in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column
@@ -235,10 +236,6 @@ Features:
 * exponential backoff in timesyncd when we cannot reach a server
 
 * timesyncd: add ugly bus calls to set NTP servers per-interface, for usage by NM
-
-* extract_many_words() should probably be used by a lot of code that
-  currently uses FOREACH_WORD and friends. For example, most conf
-  parsing callbacks should use it.
 
 * merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
 
