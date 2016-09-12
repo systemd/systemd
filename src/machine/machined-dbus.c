@@ -444,7 +444,9 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
 
         r = cg_pid_get_unit(m->leader, &m->unit);
         if (r < 0) {
-                r = sd_bus_error_set_errnof(error, r, "Failed to determine unit of process "PID_FMT" : %s", m->leader, strerror(-r));
+                r = sd_bus_error_set_errnof(error, r,
+                                            "Failed to determine unit of process "PID_FMT" : %m",
+                                            m->leader);
                 goto fail;
         }
 
