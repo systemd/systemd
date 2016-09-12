@@ -112,8 +112,6 @@ Features:
 * journald: sigbus API via a signal-handler safe function that people may call
   from the SIGBUS handler
 
-* when using UTF8, ellipsize with "…" rather than "...", so that we can show more contents before truncating
-
 * move specifier expansion from service_spawn() into load-fragment.c
 
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
