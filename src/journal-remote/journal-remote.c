@@ -524,13 +524,12 @@ static int process_http_upload(
                         log_warning("Failed to process data for connection %p", connection);
                         if (r == -E2BIG)
                                 return mhd_respondf(connection,
-                                                    MHD_HTTP_REQUEST_ENTITY_TOO_LARGE,
-                                                    "Entry is too large, maximum is %u bytes.\n",
-                                                    DATA_SIZE_MAX);
+                                                    r, MHD_HTTP_REQUEST_ENTITY_TOO_LARGE,
+                                                    "Entry is too large, maximum is " STRINGIFY(DATA_SIZE_MAX) " bytes.\n");
                         else
                                 return mhd_respondf(connection,
-                                                    MHD_HTTP_UNPROCESSABLE_ENTITY,
-                                                    "Processing failed: %s.", strerror(-r));
+                                                    r, MHD_HTTP_UNPROCESSABLE_ENTITY,
+                                                    "Processing failed: %m.");
                 }
         }
 
@@ -541,8 +540,9 @@ static int process_http_upload(
 
         remaining = source_non_empty(source);
         if (remaining > 0) {
-                log_warning("Premature EOFbyte. %zu bytes lost.", remaining);
-                return mhd_respondf(connection, MHD_HTTP_EXPECTATION_FAILED,
+                log_warning("Premature EOF byte. %zu bytes lost.", remaining);
+                return mhd_respondf(connection,
+                                    0, MHD_HTTP_EXPECTATION_FAILED,
                                     "Premature EOF. %zu bytes of trailing data not processed.",
                                     remaining);
         }
@@ -623,8 +623,7 @@ static int request_handler(
         if (r == -ENOMEM)
                 return respond_oom(connection);
         else if (r < 0)
-                return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
-                                   strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "%m");
 
         hostname = NULL;
         return MHD_YES;

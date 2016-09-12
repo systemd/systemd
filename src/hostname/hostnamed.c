@@ -451,7 +451,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         r = context_update_kernel_hostname(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to set host name: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
         }
 
         log_info("Changed host name to '%s'", strna(c->data[PROP_HOSTNAME]));
@@ -512,13 +512,13 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         r = context_update_kernel_hostname(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to set host name: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
         }
 
         r = context_write_data_static_hostname(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to write static host name: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %m");
         }
 
         log_info("Changed static host name to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
@@ -593,7 +593,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         r = context_write_data_machine_info(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to write machine info: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
         }
 
         log_info("Changed %s to '%s'",

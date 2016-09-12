@@ -82,6 +82,7 @@ int mhd_respond_oom(struct MHD_Connection *connection) {
 }
 
 int mhd_respondf(struct MHD_Connection *connection,
+                 int error,
                  enum MHD_RequestTerminationCode code,
                  const char *format, ...) {
 
@@ -92,6 +93,9 @@ int mhd_respondf(struct MHD_Connection *connection,
         assert(connection);
         assert(format);
 
+        if (error < 0)
+                error = -error;
+        errno = -error;
         va_start(ap, format);
         r = vasprintf(&m, format, ap);
         va_end(ap);

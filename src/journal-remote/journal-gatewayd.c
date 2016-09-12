@@ -475,7 +475,7 @@ static int request_handler_entries(
 
         r = open_journal(m);
         if (r < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m\n");
 
         if (request_parse_accept(m, connection) < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.\n");
@@ -633,7 +633,7 @@ static int request_handler_fields(
 
         r = open_journal(m);
         if (r < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m\n");
 
         if (request_parse_accept(m, connection) < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.\n");
@@ -699,10 +699,10 @@ static int request_handler_file(
 
         fd = open(path, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
-                return mhd_respondf(connection, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m\n", path);
+                return mhd_respondf(connection, errno, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m\n", path);
 
         if (fstat(fd, &st) < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m\n");
+                return mhd_respondf(connection, errno, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m\n");
 
         response = MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
         if (!response)
@@ -766,15 +766,15 @@ static int request_handler_machine(
 
         r = open_journal(m);
         if (r < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %s\n", strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m\n");
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine machine ID: %s\n", strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine machine ID: %m\n");
 
         r = sd_id128_get_boot(&bid);
         if (r < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boot ID: %s\n", strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boot ID: %m\n");
 
         hostname = gethostname_malloc();
         if (!hostname)
@@ -782,11 +782,11 @@ static int request_handler_machine(
 
         r = sd_journal_get_usage(m->journal, &usage);
         if (r < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n", strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n");
 
         r = sd_journal_get_cutoff_realtime_usec(m->journal, &cutoff_from, &cutoff_to);
         if (r < 0)
-                return mhd_respondf(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n", strerror(-r));
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s\n");
 
         if (parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL) == -ENOENT)
                 (void) parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
