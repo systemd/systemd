@@ -27,8 +27,6 @@ Janitorial Clean-ups:
 
 * replace manual readdir() loops with FOREACH_DIRENT or FOREACH_DIRENT_ALL
 
-* Get rid of the last strerror() invocations in favour of %m and strerror_r()
-
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
 
 Features:
