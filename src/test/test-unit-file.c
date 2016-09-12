@@ -56,12 +56,12 @@ static int test_unit_file_get_set(void) {
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);
 
         if (r == -EPERM || r == -EACCES) {
-                printf("Skipping test: unit_file_get_list: %s", strerror(-r));
+                log_notice_errno(r, "Skipping test: unit_file_get_list: %m");
                 return EXIT_TEST_SKIP;
         }
 
-        log_full(r == 0 ? LOG_INFO : LOG_ERR,
-                 "unit_file_get_list: %s", strerror(-r));
+        log_full_errno(r == 0 ? LOG_INFO : LOG_ERR, r,
+                       "unit_file_get_list: %m");
         if (r < 0)
                 return EXIT_FAILURE;
 
@@ -117,7 +117,7 @@ static void test_config_parse_exec(void) {
 
         r = manager_new(UNIT_FILE_USER, true, &m);
         if (MANAGER_SKIP_TEST(r)) {
-                printf("Skipping test: manager_new: %s\n", strerror(-r));
+                log_notice_errno(r, "Skipping test: manager_new: %m");
                 return;
         }
 

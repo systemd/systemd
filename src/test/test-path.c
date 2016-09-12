@@ -47,7 +47,7 @@ static int setup_test(Manager **m) {
 
         r = manager_new(UNIT_FILE_USER, true, &tmp);
         if (MANAGER_SKIP_TEST(r)) {
-                printf("Skipping test: manager_new: %s\n", strerror(-r));
+                log_notice_errno(r, "Skipping test: manager_new: %m");
                 return -EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);
