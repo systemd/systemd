@@ -191,20 +191,12 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
 }
 
 static bool enable_name_policy(void) {
-        _cleanup_free_ char *line = NULL;
-        const char *word, *state;
+        _cleanup_free_ char *value = NULL;
         int r;
-        size_t l;
 
-        r = proc_cmdline(&line);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
-                return true;
-        }
-
-        FOREACH_WORD_QUOTED(word, l, line, state)
-                if (strneq(word, "net.ifnames=0", l))
-                        return false;
+        r = get_proc_cmdline_key("net.ifnames=", &value);
+        if (r > 0 && streq(value, "0"))
+            return false;
 
         return true;
 }
