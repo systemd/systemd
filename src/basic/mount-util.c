@@ -36,6 +36,7 @@
 #include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id) {
         char path[strlen("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
@@ -287,9 +288,11 @@ int umount_recursive(const char *prefix, int flags) {
                                 continue;
 
                         if (umount2(p, flags) < 0) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to umount %s: %m", p);
                                 continue;
                         }
+
+                        log_debug("Successfully unmounted %s", p);
 
                         again = true;
                         n++;
@@ -311,24 +314,21 @@ static int get_mount_flags(const char *path, unsigned long *flags) {
         return 0;
 }
 
-int bind_remount_recursive(const char *prefix, bool ro) {
+int bind_remount_recursive(const char *prefix, bool ro, char **blacklist) {
         _cleanup_set_free_free_ Set *done = NULL;
         _cleanup_free_ char *cleaned = NULL;
         int r;
 
-        /* Recursively remount a directory (and all its submounts)
-         * read-only or read-write. If the directory is already
-         * mounted, we reuse the mount and simply mark it
-         * MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write
-         * operation). If it isn't we first make it one. Afterwards we
-         * apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to all
-         * submounts we can access, too. When mounts are stacked on
-         * the same mount point we only care for each individual
-         * "top-level" mount on each point, as we cannot
-         * influence/access the underlying mounts anyway. We do not
-         * have any effect on future submounts that might get
-         * propagated, they migt be writable. This includes future
-         * submounts that have been triggered via autofs. */
+        /* Recursively remount a directory (and all its submounts) read-only or read-write. If the directory is already
+         * mounted, we reuse the mount and simply mark it MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write
+         * operation). If it isn't we first make it one. Afterwards we apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to
+         * all submounts we can access, too. When mounts are stacked on the same mount point we only care for each
+         * individual "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We
+         * do not have any effect on future submounts that might get propagated, they migt be writable. This includes
+         * future submounts that have been triggered via autofs.
+         *
+         * If the "blacklist" parameter is specified it may contain a list of subtrees to exclude from the
+         * remount operation. Note that we'll ignore the blacklist for the top-level path. */
 
         cleaned = strdup(prefix);
         if (!cleaned)
@@ -385,6 +385,33 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (r < 0)
                                 return r;
 
+                        if (!path_startswith(p, cleaned))
+                                continue;
+
+                        /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount we shall
+                         * operate on. */
+                        if (!path_equal(cleaned, p)) {
+                                bool blacklisted = false;
+                                char **i;
+
+                                STRV_FOREACH(i, blacklist) {
+
+                                        if (path_equal(*i, cleaned))
+                                                continue;
+
+                                        if (!path_startswith(*i, cleaned))
+                                                continue;
+
+                                        if (path_startswith(p, *i)) {
+                                                blacklisted = true;
+                                                log_debug("Not remounting %s, because blacklisted by %s, called for %s", p, *i, cleaned);
+                                                break;
+                                        }
+                                }
+                                if (blacklisted)
+                                        continue;
+                        }
+
                         /* Let's ignore autofs mounts.  If they aren't
                          * triggered yet, we want to avoid triggering
                          * them, as we don't make any guarantees for
@@ -396,12 +423,9 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                                 continue;
                         }
 
-                        if (path_startswith(p, cleaned) &&
-                            !set_contains(done, p)) {
-
+                        if (!set_contains(done, p)) {
                                 r = set_consume(todo, p);
                                 p = NULL;
-
                                 if (r == -EEXIST)
                                         continue;
                                 if (r < 0)
@@ -418,8 +442,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
 
                 if (!set_contains(done, cleaned) &&
                     !set_contains(todo, cleaned)) {
-                        /* The prefix directory itself is not yet a
-                         * mount, make it one. */
+                        /* The prefix directory itself is not yet a mount, make it one. */
                         if (mount(cleaned, cleaned, NULL, MS_BIND|MS_REC, NULL) < 0)
                                 return -errno;
 
@@ -429,6 +452,8 @@ int bind_remount_recursive(const char *prefix, bool ro) {
 
                         if (mount(NULL, prefix, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
                                 return -errno;
+
+                        log_debug("Made top-level directory %s a mount point.", prefix);
 
                         x = strdup(cleaned);
                         if (!x)
@@ -447,8 +472,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (r < 0)
                                 return r;
 
-                        /* Deal with mount points that are obstructed by a
-                         * later mount */
+                        /* Deal with mount points that are obstructed by a later mount */
                         r = path_is_mount_point(x, 0);
                         if (r == -ENOENT || r == 0)
                                 continue;
@@ -463,6 +487,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (mount(NULL, x, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
                                 return -errno;
 
+                        log_debug("Remounted %s read-only.", x);
                 }
         }
 }

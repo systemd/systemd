@@ -20,15 +20,108 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "fileio.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+
+static void test_chase_symlinks(void) {
+        _cleanup_free_ char *result = NULL;
+        char temp[] = "/tmp/test-chase.XXXXXX";
+        const char *top, *p, *q;
+        int r;
+
+        assert_se(mkdtemp(temp));
+
+        top = strjoina(temp, "/top");
+        assert_se(mkdir(top, 0700) >= 0);
+
+        p = strjoina(top, "/dot");
+        assert_se(symlink(".", p) >= 0);
+
+        p = strjoina(top, "/dotdot");
+        assert_se(symlink("..", p) >= 0);
+
+        p = strjoina(top, "/dotdota");
+        assert_se(symlink("../a", p) >= 0);
+
+        p = strjoina(temp, "/a");
+        assert_se(symlink("b", p) >= 0);
+
+        p = strjoina(temp, "/b");
+        assert_se(symlink("/usr", p) >= 0);
+
+        p = strjoina(temp, "/start");
+        assert_se(symlink("top/dot/dotdota", p) >= 0);
+
+        r = chase_symlinks(p, NULL, &result);
+        assert_se(r >= 0);
+        assert_se(path_equal(result, "/usr"));
+
+        result = mfree(result);
+        r = chase_symlinks(p, temp, &result);
+        assert_se(r == -ENOENT);
+
+        q = strjoina(temp, "/usr");
+        assert_se(mkdir(q, 0700) >= 0);
+
+        r = chase_symlinks(p, temp, &result);
+        assert_se(r >= 0);
+        assert_se(path_equal(result, q));
+
+        p = strjoina(temp, "/slash");
+        assert_se(symlink("/", p) >= 0);
+
+        result = mfree(result);
+        r = chase_symlinks(p, NULL, &result);
+        assert_se(r >= 0);
+        assert_se(path_equal(result, "/"));
+
+        result = mfree(result);
+        r = chase_symlinks(p, temp, &result);
+        assert_se(r >= 0);
+        assert_se(path_equal(result, temp));
+
+        p = strjoina(temp, "/slashslash");
+        assert_se(symlink("///usr///", p) >= 0);
+
+        result = mfree(result);
+        r = chase_symlinks(p, NULL, &result);
+        assert_se(r >= 0);
+        assert_se(path_equal(result, "/usr"));
+
+        result = mfree(result);
+        r = chase_symlinks(p, temp, &result);
+        assert_se(r >= 0);
+        assert_se(path_equal(result, q));
+
+        result = mfree(result);
+        r = chase_symlinks("/etc/./.././", NULL, &result);
+        assert_se(r >= 0);
+        assert_se(path_equal(result, "/"));
+
+        result = mfree(result);
+        r = chase_symlinks("/etc/./.././", "/etc", &result);
+        assert_se(r == -EINVAL);
+
+        result = mfree(result);
+        r = chase_symlinks("/etc/machine-id/foo", NULL, &result);
+        assert_se(r == -ENOTDIR);
+
+        result = mfree(result);
+        p = strjoina(temp, "/recursive-symlink");
+        assert_se(symlink("recursive-symlink", p) >= 0);
+        r = chase_symlinks(p, NULL, &result);
+        assert_se(r == -ELOOP);
+
+        assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+}
 
 static void test_unlink_noerrno(void) {
         char name[] = "/tmp/test-close_nointr.XXXXXX";
@@ -144,6 +237,7 @@ int main(int argc, char *argv[]) {
         test_readlink_and_make_absolute();
         test_get_files_in_directory();
         test_var_tmp();
+        test_chase_symlinks();
 
         return 0;
 }

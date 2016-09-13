@@ -3012,7 +3012,7 @@ static int outer_child(
                 return r;
 
         if (arg_read_only) {
-                r = bind_remount_recursive(directory, true);
+                r = bind_remount_recursive(directory, true, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");
         }

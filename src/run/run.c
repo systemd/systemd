@@ -1168,17 +1168,21 @@ static int start_transient_scope(
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell);
+                r = get_user_creds_clean(&arg_exec_user, &uid, &gid, &home, &shell);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user %s: %m", arg_exec_user);
 
-                r = strv_extendf(&user_env, "HOME=%s", home);
-                if (r < 0)
-                        return log_oom();
+                if (home) {
+                        r = strv_extendf(&user_env, "HOME=%s", home);
+                        if (r < 0)
+                                return log_oom();
+                }
 
-                r = strv_extendf(&user_env, "SHELL=%s", shell);
-                if (r < 0)
-                        return log_oom();
+                if (shell) {
+                        r = strv_extendf(&user_env, "SHELL=%s", shell);
+                        if (r < 0)
+                                return log_oom();
+                }
 
                 r = strv_extendf(&user_env, "USER=%s", arg_exec_user);
                 if (r < 0)

@@ -996,10 +996,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_MACHINE_ID:
                         r = set_machine_id(optarg);
-                        if (r < 0) {
-                                log_error("MachineID '%s' is not valid.", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "MachineID '%s' is not valid.", optarg);
                         break;
 
                 case 'h':
