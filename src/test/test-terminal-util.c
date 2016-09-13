@@ -50,7 +50,7 @@ static void test_read_one_char(void) {
         char name[] = "/tmp/test-read_one_char.XXXXXX";
         int fd;
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         file = fdopen(fd, "r+");
         assert_se(file);

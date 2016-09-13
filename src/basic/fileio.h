@@ -71,7 +71,7 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
 int fflush_and_check(FILE *f);
 
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
-int mkostemp_safe(char *pattern, int flags);
+int mkostemp_safe(char *pattern);
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
 int tempfn_random(const char *p, const char *extra, char **ret);

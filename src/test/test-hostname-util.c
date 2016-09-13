@@ -104,7 +104,7 @@ static void test_read_hostname_config(void) {
         char *hostname;
         int fd;
 
-        fd = mkostemp_safe(path, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(path);
         assert(fd > 0);
         close(fd);
 

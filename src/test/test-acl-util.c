@@ -35,7 +35,7 @@ static void test_add_acls_for_user(void) {
         uid_t uid;
         int r;
 
-        fd = mkostemp_safe(fn, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
 
         /* Use the mode that user journal files use */

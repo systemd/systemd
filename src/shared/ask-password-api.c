@@ -484,7 +484,7 @@ int ask_password_agent(
 
         (void) mkdir_p_label("/run/systemd/ask-password", 0755);
 
-        fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
+        fd = mkostemp_safe(temp);
         if (fd < 0) {
                 r = fd;
                 goto finish;

@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
         int fd;
         char name[] = "/tmp/test-asynchronous_close.XXXXXX";
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         asynchronous_close(fd);
 

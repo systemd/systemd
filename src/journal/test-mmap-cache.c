@@ -36,15 +36,15 @@ int main(int argc, char *argv[]) {
 
         assert_se(m = mmap_cache_new());
 
-        x = mkostemp_safe(px, O_RDWR|O_CLOEXEC);
+        x = mkostemp_safe(px);
         assert_se(x >= 0);
         unlink(px);
 
-        y = mkostemp_safe(py, O_RDWR|O_CLOEXEC);
+        y = mkostemp_safe(py);
         assert_se(y >= 0);
         unlink(py);
 
-        z = mkostemp_safe(pz, O_RDWR|O_CLOEXEC);
+        z = mkostemp_safe(pz);
         assert_se(z >= 0);
         unlink(pz);
 

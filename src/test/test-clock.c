@@ -55,7 +55,7 @@ static void test_clock_is_localtime(void) {
         /* without an adjtime file we default to UTC */
         assert_se(clock_is_localtime("/nonexisting/adjtime") == 0);
 
-        fd = mkostemp_safe(adjtime, O_WRONLY|O_CLOEXEC);
+        fd = mkostemp_safe(adjtime);
         assert_se(fd >= 0);
         log_info("adjtime test file: %s", adjtime);
         f = fdopen(fd, "w");

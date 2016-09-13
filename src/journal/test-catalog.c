@@ -55,7 +55,7 @@ static Hashmap * test_import(const char* contents, ssize_t size, int code) {
 
         assert_se(h = hashmap_new(&catalog_hash_ops));
 
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(write(fd, contents, size) == size);
 
@@ -182,7 +182,7 @@ static void test_catalog_update(void) {
         static char name[] = "/tmp/test-catalog.XXXXXX";
         int r;
 
-        r = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        r = mkostemp_safe(name);
         assert_se(r >= 0);
 
         database = name;
