@@ -37,6 +37,7 @@
 #include "condition.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "glob-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
@@ -309,8 +310,45 @@ static int condition_test_needs_update(Condition *c) {
         if (lstat("/usr/", &usr) < 0)
                 return true;
 
-        return usr.st_mtim.tv_sec > other.st_mtim.tv_sec ||
-                (usr.st_mtim.tv_sec == other.st_mtim.tv_sec && usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec);
+        /*
+         * First, compare seconds as they are always accurate...
+         */
+        if (usr.st_mtim.tv_sec != other.st_mtim.tv_sec)
+                return usr.st_mtim.tv_sec > other.st_mtim.tv_sec;
+
+        /*
+         * ...then compare nanoseconds.
+         *
+         * A false positive is only possible when /usr's nanoseconds > 0
+         * (otherwise /usr cannot be strictly newer than the target file)
+         * AND the target file's nanoseconds == 0
+         * (otherwise the filesystem supports nsec timestamps, see stat(2)).
+         */
+        if (usr.st_mtim.tv_nsec > 0 && other.st_mtim.tv_nsec == 0) {
+                _cleanup_free_ char *timestamp_str = NULL;
+                uint64_t timestamp;
+                int r;
+
+                r = parse_env_file(p, NULL, "TimestampNSec", &timestamp_str, NULL);
+                if (r < 0) {
+                        log_error_errno(-r, "Failed to parse timestamp file '%s', using mtime: %m", p);
+                        return true;
+                } else if (r == 0) {
+                        log_debug("No data in timestamp file '%s', using mtime", p);
+                        return true;
+                }
+
+                r = safe_atou64(timestamp_str, &timestamp);
+                if (r < 0) {
+                        log_error_errno(-r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m",
+                                        timestamp_str, p);
+                        return true;
+                }
+
+                other.st_mtim.tv_nsec = timestamp % NSEC_PER_SEC;
+        }
+
+        return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;
 }
 
 static int condition_test_first_boot(Condition *c) {
