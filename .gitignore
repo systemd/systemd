@@ -36,6 +36,7 @@
 /exported
 /exported-*
 /hostnamectl
+/image.raw
 /install-tree
 /journalctl
 /libtool
