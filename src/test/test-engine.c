@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         assert_se(set_unit_path(TEST_DIR) >= 0);
         r = manager_new(UNIT_FILE_USER, true, &m);
         if (MANAGER_SKIP_TEST(r)) {
-                printf("Skipping test: manager_new: %s\n", strerror(-r));
+                log_notice_errno(r, "Skipping test: manager_new: %m");
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);

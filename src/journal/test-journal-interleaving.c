@@ -36,10 +36,9 @@
 
 static bool arg_keep = false;
 
-noreturn static void log_assert_errno(const char *text, int eno, const char *file, int line, const char *func) {
-        log_internal(LOG_CRIT, 0, file, line, func,
-                     "'%s' failed at %s:%u (%s): %s.",
-                     text, file, line, func, strerror(eno));
+noreturn static void log_assert_errno(const char *text, int error, const char *file, int line, const char *func) {
+        log_internal(LOG_CRIT, error, file, line, func,
+                     "'%s' failed at %s:%u (%s): %m", text, file, line, func);
         abort();
 }
 

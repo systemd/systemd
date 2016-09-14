@@ -160,14 +160,12 @@
   <refsect1>
     <title>Negative Trust Anchors</title>
 
-    <para>Negative trust anchors define domains where DNSSEC
-    validation shall be turned off. Negative trust anchor files are
-    found at the same location as positive trust anchor files, and
-    follow the same overriding rules. They are text files with the
-    <filename>.negative</filename> suffix. Empty lines and lines whose
-    first character is <literal>;</literal> are ignored. Each line
-    specifies one domain name where DNSSEC validation shall be
-    disabled on.</para>
+    <para>Negative trust anchors define domains where DNSSEC validation shall be turned
+    off. Negative trust anchor files are found at the same location as positive trust anchor files,
+    and follow the same overriding rules. They are text files with the
+    <filename>.negative</filename> suffix. Empty lines and lines whose first character is
+    <literal>;</literal> are ignored. Each line specifies one domain name which is the root of a DNS
+    subtree where validation shall be disabled.</para>
 
     <para>Negative trust anchors are useful to support private DNS
     subtrees that are not referenced from the Internet DNS hierarchy,
