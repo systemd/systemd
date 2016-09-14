@@ -54,7 +54,6 @@ class ClientTestBase:
         self.workdir_obj = tempfile.TemporaryDirectory()
         self.workdir = self.workdir_obj.name
         self.config = '/run/systemd/network/test_eth42.network'
-        os.makedirs(os.path.dirname(self.config), exist_ok=True)
 
         # avoid "Failed to open /dev/tty" errors in containers
         os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
@@ -77,9 +76,13 @@ class ClientTestBase:
 
     def tearDown(self):
         self.shutdown_iface()
-        if os.path.exists(self.config):
-            os.unlink(self.config)
         subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+
+    def writeConfig(self, fname, contents):
+        os.makedirs(os.path.dirname(fname), exist_ok=True)
+        with open(fname, 'w') as f:
+            f.write(contents)
+        self.addCleanup(os.remove, fname)
 
     def show_journal(self, unit):
         '''Show journal of given unit since start of the test'''
@@ -107,8 +110,8 @@ class ClientTestBase:
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
                 online_timeout=10, dhcp_mode='yes'):
         subprocess.check_call(['systemctl', 'start', 'systemd-resolved'])
-        with open(self.config, 'w') as f:
-            f.write('''[Match]
+        self.writeConfig(self.config, '''\
+[Match]
 Name=%s
 [Network]
 DHCP=%s
@@ -225,20 +228,18 @@ DHCP=%s
         self.do_test(coldplug=False, ipv6=True)
 
     def test_route_only_dns(self):
-        with open('/run/systemd/network/myvpn.netdev', 'w') as f:
-            f.write('''[NetDev]
+        self.writeConfig('/run/systemd/network/myvpn.netdev', '''\
+[NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        with open('/run/systemd/network/myvpn.network', 'w') as f:
-            f.write('''[Match]
+        self.writeConfig('/run/systemd/network/myvpn.network', '''\
+[Match]
 Name=dummy0
 [Network]
 Address=192.168.42.100
 DNS=192.168.42.1
 Domains= ~company''')
-        self.addCleanup(os.remove, '/run/systemd/network/myvpn.netdev')
-        self.addCleanup(os.remove, '/run/systemd/network/myvpn.network')
 
         self.do_test(coldplug=True, ipv6=False,
                      extra_opts='IPv6AcceptRouterAdvertisements=False')
@@ -320,7 +321,8 @@ class NetworkdClientTest(ClientTestBase, unittest.TestCase):
         (fd, script) = tempfile.mkstemp(prefix='networkd-router.sh')
         self.addCleanup(os.remove, script)
         with os.fdopen(fd, 'w+') as f:
-            f.write('''#!/bin/sh -eu
+            f.write('''\
+#!/bin/sh -eu
 mkdir -p /run/systemd/network
 mkdir -p /run/systemd/netif
 mount -t tmpfs none /run/systemd/network
@@ -398,20 +400,18 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ { s/^.*=//
         # we don't use this interface for this test
         self.if_router = None
 
-        with open('/run/systemd/network/test.netdev', 'w') as f:
-            f.write('''[NetDev]
+        self.writeConfig('/run/systemd/network/test.netdev', '''\
+[NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        with open('/run/systemd/network/test.network', 'w') as f:
-            f.write('''[Match]
+        self.writeConfig('/run/systemd/network/test.network', '''\
+[Match]
 Name=dummy0
 [Network]
 Address=192.168.42.100
 DNS=192.168.42.1
 Domains= one two three four five six seven eight nine ten''')
-        self.addCleanup(os.remove, '/run/systemd/network/test.netdev')
-        self.addCleanup(os.remove, '/run/systemd/network/test.network')
 
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
@@ -432,23 +432,18 @@ Domains= one two three four five six seven eight nine ten''')
 
         name_prefix = 'a' * 60
 
-        with open('/run/systemd/network/test.netdev', 'w') as f:
-            f.write('''[NetDev]
+        self.writeConfig('/run/systemd/network/test.netdev', '''\
+[NetDev]
 Name=dummy0
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc''')
-        with open('/run/systemd/network/test.network', 'w') as f:
-            f.write('''[Match]
+        self.writeConfig('/run/systemd/network/test.network', '''\
+[Match]
 Name=dummy0
 [Network]
 Address=192.168.42.100
 DNS=192.168.42.1
-Domains=''')
-            for i in range(5):
-                f.write('%s%i ' % (name_prefix, i))
-
-        self.addCleanup(os.remove, '/run/systemd/network/test.netdev')
-        self.addCleanup(os.remove, '/run/systemd/network/test.network')
+Domains={p}0 {p}1 {p}2 {p}3 {p}4'''.format(p=name_prefix))
 
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
@@ -458,9 +453,8 @@ Domains=''')
             if ' one' in contents:
                 break
             time.sleep(0.1)
-        self.assertRegex(contents, 'search .*%(p)s0 %(p)s1 %(p)s2' % {'p': name_prefix})
+        self.assertRegex(contents, 'search .*{p}0 {p}1 {p}2'.format(p=name_prefix))
         self.assertIn('# Total length of all search domains is too long, remaining ones ignored.', contents)
-
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
