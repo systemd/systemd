@@ -41,7 +41,7 @@ __contains_word () {
 __filter_units_by_property () {
         local mode=$1 property=$2 value=$3 ; shift 3
         local units=("$@")
-        local props
+        local props i
         IFS=$'\n' read -rd '' -a props < \
             <(__systemctl $mode show --property "$property" -- "${units[@]}")
         for ((i=0; $i < ${#units[*]}; i++)); do
@@ -54,12 +54,11 @@ __filter_units_by_property () {
 __filter_units_by_properties () {
         local mode=$1 properties=$2 values=$3 ; shift 3
         local units=("$@")
-        local props
+        local props i j conditions=()
         IFS=$'\n' read -rd '' -a props < \
             <(__systemctl $mode show --property "$properties" -- "${units[@]}")
         IFS=$',' read -r -a properties < <(echo $properties)
         IFS=$',' read -r -a values < <(echo $values)
-        local conditions=()
         for ((i=0; i < ${#properties[*]}; i++)); do
                 for ((j=0; j < ${#properties[*]}; j++)); do
                         if [[ ${props[i]%%=*} == ${properties[j]} ]]; then
@@ -67,16 +66,13 @@ __filter_units_by_properties () {
                         fi
                 done
         done
-        local flag
         for ((i=0; i < ${#units[*]}; i++)); do
-                flag=1
                 for ((j=0; j < ${#conditions[*]}; j++)); do
                         if [[ "${props[ i * ${#conditions[*]} + j]}" != "${conditions[j]}" ]]; then
-                                flag=
                                 break
                         fi
                 done
-                if [[ -n $flag ]]; then
+                if (( j == ${#conditions[*]} )); then
                         echo " ${units[i]}"
                 fi
         done
