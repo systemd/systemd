@@ -70,6 +70,8 @@ static usec_t arg_on_unit_inactive = 0;
 static const char *arg_on_calendar = NULL;
 static char **arg_timer_property = NULL;
 static bool arg_quiet = false;
+static usec_t arg_timeout = 0;
+static bool arg_timeout_set = false;
 
 static void polkit_agent_open_if_enabled(void) {
 
@@ -107,6 +109,7 @@ static void help(void) {
                "     --nice=NICE                  Nice level\n"
                "  -E --setenv=NAME=VALUE          Set environment\n"
                "  -t --pty                        Run service on pseudo tty\n"
+               "     --timeout                    Set maximum time for the service to run\n"
                "  -q --quiet                      Suppress information messages during runtime\n\n"
                "Timer options:\n"
                "     --on-active=SECONDS          Run after SECONDS delay\n"
@@ -148,6 +151,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_BLOCK,
                 ARG_NO_ASK_PASSWORD,
                 ARG_WAIT,
+                ARG_TIMEOUT,
         };
 
         static const struct option options[] = {
@@ -182,6 +186,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY   },
                 { "no-block",          no_argument,       NULL, ARG_NO_BLOCK         },
                 { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD  },
+                { "timeout",           required_argument, NULL, ARG_TIMEOUT },
                 {},
         };
 
@@ -366,6 +371,22 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_wait = true;
                         break;
 
+                case ARG_TIMEOUT:
+                        if streq(optarg, "infinity") {
+                                arg_timeout = USEC_INFINITY;
+                        } else {
+                                r = parse_sec(optarg, &arg_timeout);
+                                if (r < 0) {
+                                        log_error("Failed to parse timeout value: %s", optarg);
+                                        return r;
+                                }
+                                if (arg_timeout <= 0) {
+                                        arg_timeout = USEC_INFINITY;
+                                }
+                        }
+                        arg_timeout_set = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -506,6 +527,12 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
 
         if (arg_service_type) {
                 r = sd_bus_message_append(m, "(sv)", "Type", "s", arg_service_type);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_timeout_set) {
+                r = sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", arg_timeout);
                 if (r < 0)
                         return r;
         }

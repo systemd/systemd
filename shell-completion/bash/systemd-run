@@ -36,7 +36,8 @@ _systemd_run() {
                 -r --remain-after-exit --send-sighup -H --host -M --machine --service-type
                 --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive
                 --on-calendar --timer-property -t --pty -q --quiet --no-block
-                --uid --gid --nice --setenv -p --property --no-ask-password'
+                --uid --gid --nice --setenv -p --property --no-ask-password
+                --timeout --wait'
 
     local mode=--system
     local i

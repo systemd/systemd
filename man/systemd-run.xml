@@ -293,6 +293,12 @@
         <option>--no-block</option>, <option>--scope</option> or the various timer options.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--timeout <replaceable>VALUE</replaceable></option></term>
+
+          <listitem><para>Configures a maximum time for the service to run. Also see <varname>RuntimeMaxSec=</varname> in <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
