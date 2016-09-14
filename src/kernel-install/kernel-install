@@ -61,6 +61,13 @@ for i in "$@"; do
     fi
 done
 
+# KERNEL_INSTALL_NOOP may be used by programs like lorax and rpm-ostree which
+# want to install a kernel (indirectly via RPM), but control generation of the
+# initramfs.  In general, OSTree takes over kernel management too.
+if test -n "${KERNEL_INSTALL_NOOP:-}"; then
+    exit 0
+fi
+
 if [[ "${0##*/}" == 'installkernel' ]]; then
     COMMAND='add'
 else
