@@ -2,10 +2,140 @@ systemd System and Service Manager
 
 CHANGES WITH 232 in spe
 
+        * The new RemoveIPC= option can be used to remove IPC objects owned by
+          the user or group of a service when that service exits.
+
+        * Support for dynamically creating users for the lifetime of a service
+          has been added. If DynamicUser=yes is specified, user and group IDs
+          will be allocated from the range 61184..65519 for the lifetime of the
+          service. They can be resolved using the new nss-systemd.so NSS
+          module. The module must be enabled in /etc/nsswitch.conf. Services
+          started in this way have PrivateTmp= and RemoveIPC= enabled, so that
+          any resources allocated by the service will be cleaned up when the
+          service exits.
+
+          The nss-systemd module also always resolves root and nobody, making
+          it possible to have no /etc/passwd or /etc/group files in minimal
+          container systems.
+
+        * Services may be started with their own user namespace using the new
+          PrivateUsers= option. Only root, nobody, and the uid/gid under which
+          the service is running are mapped. All other users are mapped to
+          nobody.
+
+        * Support for the cgroup namespace has been added to systemd-nspawn. If
+          supported by kernel, the container system started by systemd-nspawn
+          will have its own view of the cgroup hierarchy. This new behaviour
+          can be disabled using $SYSTEMD_NSPAWN_USE_CGNS environment variable.
+
+        * The new MemorySwapMax= option can be used to limit the maximum swap
+          usage under the unified cgroup hierarchy.
+
+        * Support for the CPU controller in the unified cgroup hierarchy has
+          been added, via the CPUWeight=, CPUStartupWeight=, CPUAccounting=
+          options. This controller requires out-of-tree patches for the kernel
+          and the support is provisional.
+
+        * .automount units may now be transient.
+
+        * systemd-mount is a new tool which wraps mount(8) to pull in
+          additional dependencies through transient .mount and .automount
+          units. For example, this automatically runs fsck on the block device
+          before mounting, and allows the automount logic to be used.
+
+        * LazyUnmount=yes option for mount units has been added to expose the
+          umount --lazy option. Similarly, ForceUnmount=yes exposes the --force
+          option.
+
+        * /efi will be used as the mount point of the EFI boot partition, if
+          the directory is present, and the mount point was not configured
+          through other means (e.g. fstab). If /efi directory does not exist,
+          /boot will be used as before. This makes it easier to automatically
+          mount the EFI partition on systems where /boot is used for something
+          else.
+
+        * disk/by-id symlinks are now created for NVMe drives.
+
+        * Two new user session targets have been added to support running
+          graphical sessions under the systemd --user instance:
+          graphical-session.target and graphical-session-pre.target. See
+          systemd.special(7) for a description of how those targets should be
+          used.
+
+        * The vconsole initialization code has been significantly reworked to
+          use KD_FONT_OP_GET/SET ioctls insteads of KD_FONT_OP_COPY and better
+          support unicode keymaps. Font and keymap configuration will now be
+          copied to all allocated virtual consoles.
+
+        * FreeBSD's bhyve virtiualization is now detected.
+
+        * Information recored in the journal for core dumps now includes the
+          contents of /proc/mountinfo and the command line of the process at
+          the top of the process hierarchy (which is usually the init process
+          of the container).
+
+        * systemd-journal-gatewayd learned the --directory option to serve
+          files from the specified location.
+
+        * journalctl --root=… can be used to peruse the journal in the
+          /var/log/ directories inside of a container tree. This is similar to
+          the existing --machine= option, but does not require the container to
+          be active.
+
+        * The hardware database has been extended to support
+          ID_INPUT_TRACKBALL, used in addition to ID_INPUT_MOUSE to identify
+          trackball devices.
+
+          MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL hwdb property has been added to
+          specify the click rate for mice which include a horizontal wheel with
+          a click rate that is different than the one for the vertical wheel.
+
+        * systemd-run gained a new --wait option that makes service execution
+          synchronous.
+
+        * A new journal output mode "short-full" has been added which uses
+          timestamps with abbreviated English day names and adds a timezone
+          suffix. Those timestamps include more information and can be parsed
+          by journalctl.
+
+        * /etc/resolv.conf will be bind-mounted into containers started by
+          systemd-nspawn, if possible, so any changes to resolv.conf contents
+          are automatically propagated to the container.
+
+        * The number of instances for socket-activated services originating
+          from a single IP can be limited with MaxConnectionsPerSource=,
+          extending the existing setting of MaxConnections.
+
+        * UDP Segmentation Offload, TCP Segmentation Offload, Generic
+          Segmentation Offload, Generic Receive Offload, Large Receive Offload
+          can be enabled and disabled using the new UDPSegmentationOffload=,
+          TCPSegmentationOffload=, GenericSegmentationOffload=,
+          GenericReceiveOffload=, LargeReceiveOffload= options in the
+          [Link] section of .link files.
+
+          Spanning Tree Protocol enablement, Priority, Aging Time, and the
+          Default Port VLAN ID can be configured for bridge devices using the
+          new STP=, Priority=, AgeingTimeSec=, and DefaultPVID= settings in the
+          [Bridge] section of .netdev files.
+
+          Address Resolution Protocol can be disabled on links managed by
+          systemd-networkd using the ARP=no setting in the [Link] section of
+          .network files.
+
+        * $SERVICE_RESULT, $EXIT_CODE, $EXIT_STATUS are set for ExecStop= and
+          ExecStopPost= commands.
+
         * Journald's SplitMode=login setting has been deprecated. It has been
           removed from documentation, and it's use is discouraged. In a future
           release it will be completely removed, and made equivalent to current
           default of SplitMode=uid.
+
+        * The --share-system systemd-nspawn option has been replaced with an
+          (undocumented) variable $SYSTEMD_NSPAWN_SHARE_SYSTEM, but the use of
+          this functionality is discouraged. In addition the variables
+          $SYSTEMD_NSPAWN_SHARE_NS_IPC, $SYSTEMD_NSPAWN_SHARE_NS_PID,
+          $SYSTEMD_NSPAWN_SHARE_NS_UTS may be used to control the unsharing of
+          individual namespaces.
 
 CHANGES WITH 231:
 
@@ -222,6 +352,9 @@ CHANGES WITH 231:
           UEFI PC. This functionality is particularly useful to easily test
           local changes made to systemd in a pristine, defined environment. See
           HACKING for details.
+
+        * configure learned the --with-support-url= option to specify the
+          distribution's bugtracker.
 
         Contributions from: Alban Crequy, Alessandro Puccetti, Alessio Igor
         Bogani, Alexander Kuleshov, Alexander Kurtz, Alex Gaynor, Andika
