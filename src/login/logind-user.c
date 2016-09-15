@@ -359,9 +359,7 @@ static int user_mkdir_runtime_path(User *u) {
                                 goto fail;
                         }
 
-                        /* Lacking permissions, maybe
-                         * CAP_SYS_ADMIN-less container? In this case,
-                         * just use a normal directory. */
+                        log_debug_errno(errno, "Failed to mount per-user tmpfs directory %s, assuming containerized execution, ignoring: %m", u->runtime_path);
 
                         r = chmod_and_chown(u->runtime_path, 0700, u->uid, u->gid);
                         if (r < 0) {
