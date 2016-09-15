@@ -324,7 +324,7 @@ static int run_tests(UnitFileScope scope, test_function_t *tests) {
 
         r = manager_new(scope, true, &m);
         if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %n");
+                log_notice_errno(r, "Skipping test: manager_new: %m");
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);
