@@ -209,6 +209,14 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*P50*
  EVDEV_ABS_35=::44
  EVDEV_ABS_36=::67
 
+# Lenovo *40 series
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPad??40:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPad??40?:*
+ EVDEV_ABS_00=::41
+ EVDEV_ABS_01=::37
+ EVDEV_ABS_35=::41
+ EVDEV_ABS_36=::37
+
 # Lenovo T460
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460*
  EVDEV_ABS_00=1266:5677:44
