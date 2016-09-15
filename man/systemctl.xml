@@ -1073,8 +1073,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Reenable one or more units, as specified on the command line. This is a combination of
             <command>disable</command> and <command>enable</command> and is useful to reset the symlinks a unit file is
-            enabled with to the defaults configured in its <literal>[Install]</literal> section. This commands expects
-            a unit uname only, it does not accept paths to unit files.</para>
+            enabled with to the defaults configured in its <literal>[Install]</literal> section. This command expects
+            a unit name only, it does not accept paths to unit files.</para>
           </listitem>
         </varlistentry>
 
