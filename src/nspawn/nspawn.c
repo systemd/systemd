@@ -1219,7 +1219,13 @@ static int setup_timezone(const char *dest) {
         /* Fix the timezone, if possible */
         r = readlink_malloc("/etc/localtime", &p);
         if (r < 0) {
-                log_warning("/etc/localtime is not a symlink, not updating container timezone.");
+                log_warning("host's /etc/localtime is not a symlink, not updating container timezone.");
+                /* to handle warning, delete /etc/localtime and replace it
+                 * it /w a symbolic link to a time zone data file.
+                 *
+                 * Example:
+                 * ln -s /etc/localtime /usr/share/zoneinfo/UTC
+                 */
                 return 0;
         }
 
