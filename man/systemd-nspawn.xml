@@ -1007,8 +1007,8 @@
     <example>
       <title>Download a Fedora image and start a shell in it</title>
 
-      <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-20141203-21</programlisting>
+      <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/24/CloudImages/x86_64/images/Fedora-Cloud-Base-24-1.2.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-24-1.2.x86_64.raw</programlisting>
 
       <para>This downloads an image using
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
