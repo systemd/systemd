@@ -1684,9 +1684,9 @@ static int setup_keys(void) {
                         "at a safe location and should not be saved locally on disk.\n"
                         "\n\t%s",
                         ansi_highlight(), ansi_normal(),
+                        p,
                         ansi_highlight(), ansi_normal(),
-                        ansi_highlight_red(),
-                        p);
+                        ansi_highlight_red());
                 fflush(stderr);
         }
         for (i = 0; i < seed_size; i++) {
