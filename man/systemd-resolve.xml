@@ -135,7 +135,7 @@
     TXT).</para>
 
     <para>The <option>--openpgp</option> switch may be used to query PGP keys stored as
-    <ulink url="https://tools.ietf.org/html/draft-wouters-dane-openpgp-02">OPENPGPKEY</ulink> resource records.
+    <ulink url="https://tools.ietf.org/html/rfc7929">OPENPGPKEY</ulink> resource records.
     When this option is specified one or more e-mail address must be specified.</para>
 
     <para>The <option>--tlsa</option> switch maybe be used to query TLS public
