@@ -558,9 +558,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                         goto fallback;
 
 
-                *errnop = -r;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+                goto fail;
         }
 
         r = sd_bus_message_enter_container(reply, 'a', "(is)");
