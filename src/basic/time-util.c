@@ -40,8 +40,6 @@
 #include "strv.h"
 #include "time-util.h"
 
-static nsec_t timespec_load_nsec(const struct timespec *ts);
-
 static clockid_t map_clock_id(clockid_t c) {
 
         /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus, clock_gettime() will
@@ -198,7 +196,7 @@ usec_t timespec_load(const struct timespec *ts) {
                 (usec_t) ts->tv_nsec / NSEC_PER_USEC;
 }
 
-static nsec_t timespec_load_nsec(const struct timespec *ts) {
+nsec_t timespec_load_nsec(const struct timespec *ts) {
         assert(ts);
 
         if (ts->tv_sec == (time_t) -1 && ts->tv_nsec == (long) -1)
