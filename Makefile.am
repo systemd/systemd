@@ -5650,6 +5650,8 @@ libnetworkd_core_la_SOURCES = \
 	src/network/networkd-netdev-bond.c \
 	src/network/networkd-netdev-bridge.h \
 	src/network/networkd-netdev-bridge.c \
+	src/network/networkd-netdev-vcan.h \
+	src/network/networkd-netdev-vcan.c \
 	src/network/networkd-link-bus.c \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \

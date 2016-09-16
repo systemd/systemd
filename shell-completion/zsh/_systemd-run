@@ -57,4 +57,5 @@ _arguments \
         '--on-unit-inactive=[Run after SEC seconds from the last deactivation]:SEC' \
         '--on-calendar=[Realtime timer]:SPEC' \
         '--timer-property=[Set timer unit property]:NAME=VALUE' \
+        '--wait=[Wait until service stopped again]' \
         '*::command:_command'

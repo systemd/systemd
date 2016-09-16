@@ -34,7 +34,6 @@
 #include "string-util.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
-
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
         [NETDEV_KIND_BOND] = &bond_vtable,
         [NETDEV_KIND_VLAN] = &vlan_vtable,
@@ -56,7 +55,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_TAP] = &tap_vtable,
         [NETDEV_KIND_IP6TNL] = &ip6tnl_vtable,
         [NETDEV_KIND_VRF] = &vrf_vtable,
-
+        [NETDEV_KIND_VCAN] = &vcan_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -81,7 +80,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_TAP] = "tap",
         [NETDEV_KIND_IP6TNL] = "ip6tnl",
         [NETDEV_KIND_VRF] = "vrf",
-
+        [NETDEV_KIND_VCAN] = "vcan",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -516,7 +515,7 @@ static int netdev_create(NetDev *netdev, Link *link,
 
                 r = sd_netlink_message_close_container(m);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
                 r = sd_netlink_message_close_container(m);
                 if (r < 0)

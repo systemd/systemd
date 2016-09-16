@@ -801,7 +801,6 @@ Features:
    - add reduced [Link] support to .network files
    - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
-   - add more attribute support for SIT tunnel
    - work with non-Ethernet devices
    - add support for more bond options
    - dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?
@@ -818,7 +817,6 @@ Features:
      support Name=foo*|bar*|baz ?
    - duplicate address check for static IPs (like ARPCHECK in network-scripts)
    - allow DUID/IAID to be customized, see issue #394.
-   - support configuration option for TSO (tcp segmentation offload)
    - whenever uplink info changes, make DHCP server send out FORCERENEW
 
 * networkd-wait-online:
