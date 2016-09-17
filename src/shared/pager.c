@@ -89,7 +89,7 @@ int pager_open(bool no_pager, bool jump_to_end) {
 
         /* In the child start the pager */
         if (pager_pid == 0) {
-                const char* less_opts, *less_charset;
+                const char* pager_opts, *pager_charset;
 
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
@@ -98,21 +98,28 @@ int pager_open(bool no_pager, bool jump_to_end) {
                 safe_close_pair(fd);
 
                 /* Initialize a good set of less options */
-                less_opts = getenv("SYSTEMD_LESS");
-                if (!less_opts)
-                        less_opts = "FRSXMK";
+                pager_opts = getenv("SYSTEMD_LESS");
+                if (!pager_opts)
+                        pager_opts = "FRSXMK";
                 if (jump_to_end)
-                        less_opts = strjoina(less_opts, " +G");
-                setenv("LESS", less_opts, 1);
+                        pager_opts = strjoina(pager_opts, " +G");
+                setenv("LESS", pager_opts, 1);
 
                 /* Initialize a good charset for less. This is
                  * particularly important if we output UTF-8
                  * characters. */
-                less_charset = getenv("SYSTEMD_LESSCHARSET");
-                if (!less_charset && is_locale_utf8())
-                        less_charset = "utf-8";
-                if (less_charset)
-                        setenv("LESSCHARSET", less_charset, 1);
+                pager_charset = getenv("SYSTEMD_LESSCHARSET");
+                if (!pager_charset && is_locale_utf8())
+                        pager_charset = "utf-8";
+                if (pager_charset)
+                        setenv("LESSCHARSET", pager_charset, 1);
+
+                /* Initialize a good set of lv options */
+                pager_opts = getenv("SYSTEMD_LV");
+                if (!pager_opts)
+                        pager_opts = "-c";
+                /* NOTE: lv does not support option of jump_to_end. */
+                setenv("LV", pager_opts, 1);
 
                 /* Make sure the pager goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
@@ -138,6 +145,7 @@ int pager_open(bool no_pager, bool jump_to_end) {
 
                 execlp("less", "less", NULL);
                 execlp("more", "more", NULL);
+                execlp("lv", "lv", NULL);
 
                 pager_fallback();
                 /* not reached */
