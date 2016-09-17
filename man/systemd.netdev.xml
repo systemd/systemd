@@ -58,31 +58,38 @@
     <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
-    <para>Virtual Network Device files must have the extension
-    <filename>.netdev</filename>; other extensions are ignored.
-    Virtual network devices are created as soon as networkd is
-    started. If a netdev with the specified name already exists,
-    networkd will use that as-is rather than create its own. Note that
-    the settings of the pre-existing netdev will not be changed by
+    <para>The main Virtual Network Device file must have the extension <filename>.netdev</filename>;
+    other extensions are ignored. Virtual network devices are created as soon as networkd is
+    started. If a netdev with the specified name already exists, networkd will use that as-is rather
+    than create its own. Note that the settings of the pre-existing netdev will not be changed by
     networkd.</para>
 
-    <para>The <filename>.netdev</filename> files are read from the
-    files located in the system network directory
-    <filename>/usr/lib/systemd/network</filename>, the volatile
-    runtime network directory
-    <filename>/run/systemd/network</filename> and the local
-    administration network directory
-    <filename>/etc/systemd/network</filename>. All configuration files
-    are collectively sorted and processed in lexical order, regardless
-    of the directories in which they live. However, files with
-    identical filenames replace each other. Files in
-    <filename>/etc</filename> have the highest priority, files in
-    <filename>/run</filename> take precedence over files with the same
-    name in <filename>/usr/lib</filename>. This can be used to
-    override a system-supplied configuration file with a local file if
-    needed. As a special case, an empty file (file size 0) or symlink
-    with the same name pointing to <filename>/dev/null</filename>
-    disables the configuration file entirely (it is "masked").</para>
+    <para>The <filename>.netdev</filename> files are read from the files located in the system
+    network directory <filename>/usr/lib/systemd/network</filename>, the volatile runtime network
+    directory <filename>/run/systemd/network</filename> and the local administration network
+    directory <filename>/etc/systemd/network</filename>. All configuration files are collectively
+    sorted and processed in lexical order, regardless of the directories in which they live.
+    However, files with identical filenames replace each other. Files in <filename>/etc</filename>
+    have the highest priority, files in <filename>/run</filename> take precedence over files with
+    the same name in <filename>/usr/lib</filename>. This can be used to override a system-supplied
+    configuration file with a local file if needed. As a special case, an empty file (file size 0)
+    or symlink with the same name pointing to <filename>/dev/null</filename> disables the
+    configuration file entirely (it is "masked").</para>
+
+    <para>Along with the netdev file <filename>foo.netdev</filename>, a "drop-in" directory
+    <filename>foo.netdev.d/</filename> may exist. All files with the suffix <literal>.conf</literal>
+    from this directory will be parsed after the file itself is parsed. This is useful to alter or
+    add configuration settings, without having to modify the main configuration file. Each drop-in
+    file must have appropriate section headers.</para>
+
+    <para>In addition to <filename>/etc/systemd/network</filename>, drop-in <literal>.d</literal>
+    directories can be placed in <filename>/usr/lib/systemd/network</filename> or
+    <filename>/run/systemd/network</filename> directories. Drop-in files in
+    <filename>/etc</filename> take precedence over those in <filename>/run</filename> which in turn
+    take precedence over those in <filename>/usr/lib</filename>. Drop-in files under any of these
+    directories take precedence over the main netdev file wherever located. (Of course, since
+    <filename>/run</filename> is temporary and <filename>/usr/lib</filename> is for vendors, it is
+    unlikely drop-ins should be used in either of those places.)</para>
   </refsect1>
 
   <refsect1>

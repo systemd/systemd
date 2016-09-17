@@ -221,7 +221,7 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        r = config_parse_many(PKGSYSCONFDIR "/resolved.conf",
+        r = config_parse_many_nulstr(PKGSYSCONFDIR "/resolved.conf",
                               CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
                               "Resolve\0",
                               config_item_perf_lookup, resolved_gperf_lookup,

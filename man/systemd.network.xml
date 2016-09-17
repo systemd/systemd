@@ -58,31 +58,40 @@
     <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
-    <para>Network files must have the extension
-    <filename>.network</filename>; other extensions are ignored.
-    Networks are applied to links whenever the links appear.</para>
+    <para>The main network file must have the extension <filename>.network</filename>; other
+    extensions are ignored. Networks are applied to links whenever the links appear.</para>
 
-    <para>The <filename>.network</filename> files are read from the
-    files located in the system network directory
-    <filename>/usr/lib/systemd/network</filename>, the volatile
-    runtime network directory
-    <filename>/run/systemd/network</filename> and the local
-    administration network directory
-    <filename>/etc/systemd/network</filename>. All configuration files
-    are collectively sorted and processed in lexical order, regardless
-    of the directories in which they live. However, files with
-    identical filenames replace each other. Files in
-    <filename>/etc</filename> have the highest priority, files in
-    <filename>/run</filename> take precedence over files with the same
-    name in <filename>/usr/lib</filename>. This can be used to
-    override a system-supplied configuration file with a local file if
-    needed. As a special case, an empty file (file size 0) or symlink
-    with the same name pointing to <filename>/dev/null</filename>
-    disables the configuration file entirely (it is "masked").</para>
+    <para>The <filename>.network</filename> files are read from the files located in the system
+    network directory <filename>/usr/lib/systemd/network</filename>, the volatile runtime network
+    directory <filename>/run/systemd/network</filename> and the local administration network
+    directory <filename>/etc/systemd/network</filename>. All configuration files are collectively
+    sorted and processed in lexical order, regardless of the directories in which they live.
+    However, files with identical filenames replace each other. Files in <filename>/etc</filename>
+    have the highest priority, files in <filename>/run</filename> take precedence over files with
+    the same name in <filename>/usr/lib</filename>. This can be used to override a system-supplied
+    configuration file with a local file if needed. As a special case, an empty file (file size 0)
+    or symlink with the same name pointing to <filename>/dev/null</filename> disables the
+    configuration file entirely (it is "masked").</para>
 
-    <para>Note that an interface without any static IPv6 addresses configured, and neither DHCPv6 nor IPv6LL enabled,
-    shall be considered to have no IPv6 support. IPv6 will be automatically disabled for that interface by writing "1"
-    to <filename>/proc/sys/net/ipv6/conf/<replaceable>ifname</replaceable>/disable_ipv6</filename>.
+    <para>Along with the network file <filename>foo.network</filename>, a "drop-in" directory
+    <filename>foo.network.d/</filename> may exist. All files with the suffix
+    <literal>.conf</literal> from this directory will be parsed after the file itself is
+    parsed. This is useful to alter or add configuration settings, without having to modify the main
+    configuration file. Each drop-in file must have appropriate section headers.</para>
+
+    <para>In addition to <filename>/etc/systemd/network</filename>, drop-in <literal>.d</literal>
+    directories can be placed in <filename>/usr/lib/systemd/network</filename> or
+    <filename>/run/systemd/network</filename> directories. Drop-in files in
+    <filename>/etc</filename> take precedence over those in <filename>/run</filename> which in turn
+    take precedence over those in <filename>/usr/lib</filename>. Drop-in files under any of these
+    directories take precedence over the main netdev file wherever located. (Of course, since
+    <filename>/run</filename> is temporary and <filename>/usr/lib</filename> is for vendors, it is
+    unlikely drop-ins should be used in either of those places.)</para>
+
+    <para>Note that an interface without any static IPv6 addresses configured, and neither DHCPv6
+    nor IPv6LL enabled, shall be considered to have no IPv6 support. IPv6 will be automatically
+    disabled for that interface by writing "1" to
+    <filename>/proc/sys/net/ipv6/conf/<replaceable>ifname</replaceable>/disable_ipv6</filename>.
     </para>
   </refsect1>
 

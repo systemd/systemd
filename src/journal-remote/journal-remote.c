@@ -1194,7 +1194,7 @@ static int parse_config(void) {
                 { "Remote",  "TrustedCertificateFile", config_parse_path,             0, &arg_trust      },
                 {}};
 
-        return config_parse_many(PKGSYSCONFDIR "/journal-remote.conf",
+        return config_parse_many_nulstr(PKGSYSCONFDIR "/journal-remote.conf",
                                  CONF_PATHS_NULSTR("systemd/journal-remote.conf.d"),
                                  "Remote\0", config_item_table_lookup, items,
                                  false, NULL);

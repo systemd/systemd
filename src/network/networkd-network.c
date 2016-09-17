@@ -40,6 +40,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         char *d;
+        const char *dropin_dirname;
         Route *route;
         Address *address;
         int r;
@@ -137,21 +138,23 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->arp = -1;
         network->ipv6_accept_ra_use_dns = true;
 
-        r = config_parse(NULL, filename, file,
-                         "Match\0"
-                         "Link\0"
-                         "Network\0"
-                         "Address\0"
-                         "Route\0"
-                         "DHCP\0"
-                         "DHCPv4\0" /* compat */
-                         "DHCPServer\0"
-                         "IPv6AcceptRA\0"
-                         "Bridge\0"
-                         "BridgeFDB\0"
-                         "BridgeVLAN\0",
-                         config_item_perf_lookup, network_network_gperf_lookup,
-                         false, false, true, network);
+        dropin_dirname = strjoina(network->name, ".network.d");
+
+        r = config_parse_many(filename, network_dirs, dropin_dirname,
+                              "Match\0"
+                              "Link\0"
+                              "Network\0"
+                              "Address\0"
+                              "Route\0"
+                              "DHCP\0"
+                              "DHCPv4\0" /* compat */
+                              "DHCPServer\0"
+                              "IPv6AcceptRA\0"
+                              "Bridge\0"
+                              "BridgeFDB\0"
+                              "BridgeVLAN\0",
+                              config_item_perf_lookup, network_network_gperf_lookup,
+                              false, network);
         if (r < 0)
                 return r;
 

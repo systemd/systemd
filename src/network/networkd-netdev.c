@@ -576,6 +576,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_netdev_unref_ NetDev *netdev = NULL;
         _cleanup_free_ NetDev *netdev_raw = NULL;
         _cleanup_fclose_ FILE *file = NULL;
+        const char *dropin_dirname;
         int r;
 
         assert(manager);
@@ -599,11 +600,12 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         netdev_raw->kind = _NETDEV_KIND_INVALID;
+        dropin_dirname = strjoina(basename(filename), ".d");
 
-        r = config_parse(NULL, filename, file,
-                         "Match\0NetDev\0",
-                         config_item_perf_lookup, network_netdev_gperf_lookup,
-                         true, false, true, netdev_raw);
+        r = config_parse_many(filename, network_dirs, dropin_dirname,
+                              "Match\0NetDev\0",
+                              config_item_perf_lookup, network_netdev_gperf_lookup,
+                              true, netdev_raw);
         if (r < 0)
                 return r;
 
@@ -619,7 +621,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID) {
-                log_warning("NetDev with invalid Kind configured in %s. Ignoring", filename);
+                log_warning("NetDev has no Kind configured in %s. Ignoring", filename);
                 return 0;
         }
 

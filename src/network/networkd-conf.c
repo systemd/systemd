@@ -29,7 +29,7 @@
 int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse_many(PKGSYSCONFDIR "/networkd.conf",
+        return config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
                                  CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
                                  "DHCP\0",
                                  config_item_perf_lookup, networkd_gperf_lookup,
