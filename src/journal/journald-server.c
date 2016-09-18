@@ -1587,7 +1587,7 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
         assert(s->notify_fd == fd);
 
         /* The $NOTIFY_SOCKET is writable again, now send exactly one
-         * message on it. Either it's the wtachdog event, the initial
+         * message on it. Either it's the watchdog event, the initial
          * READY=1 event or an stdout stream event. If there's nothing
          * to write anymore, turn our event source off. The next time
          * there's something to send it will be turned on again. */
