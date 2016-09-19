@@ -138,6 +138,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->proxy_arp = -1;
         network->arp = -1;
         network->ipv6_accept_ra_use_dns = true;
+        network->ipv6_accept_ra_route_table = RT_TABLE_MAIN;
 
         dropin_dirname = strjoina(network->name, ".network.d");
 

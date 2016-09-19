@@ -167,6 +167,7 @@ struct Network {
 
         bool ipv6_accept_ra_use_dns;
         DHCPUseDomains ipv6_accept_ra_use_domains;
+        uint32_t ipv6_accept_ra_route_table;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
