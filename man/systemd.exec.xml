@@ -897,14 +897,14 @@
         in which case all paths listed will have limited access from within the namespace. If the empty string is
         assigned to this option, the specific list is reset, and all prior assignments have no effect.</para>
 
-        <para>Paths in <varname>ReadOnlyPaths=</varname> and <varname>InaccessiblePaths=</varname> may be prefixed with
-        <literal>-</literal>, in which case they will be ignored when they do not exist. Note that using this setting
-        will disconnect propagation of mounts from the service to the host (propagation in the opposite direction
-        continues to work). This means that this setting may not be used for services which shall be able to install
-        mount points in the main mount namespace. Note that the effect of these settings may be undone by privileged
-        processes. In order to set up an effective sandboxed environment for a unit it is thus recommended to combine
-        these settings with either <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
-        <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
+        <para>Paths in <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname> and
+        <varname>InaccessiblePaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be ignored
+        when they do not exist. Note that using this setting will disconnect propagation of mounts from the service to
+        the host (propagation in the opposite direction continues to work). This means that this setting may not be used
+        for services which shall be able to install mount points in the main mount namespace. Note that the effect of
+        these settings may be undone by privileged processes. In order to set up an effective sandboxed environment for
+        a unit it is thus recommended to combine these settings with either
+        <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1025,11 +1025,11 @@
         <term><varname>ProtectKernelTunables=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, kernel variables accessible through
-        <filename>/proc/sys</filename> and <filename>/sys</filename> will be made read-only to all processes of the
-        unit. Usually, tunable kernel variables should only be written at boot-time, with the
-        <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> mechanism. Almost
-        no services need to write to these at runtime; it is hence recommended to turn this on for most services. For
-        this setting the same restrictions regarding mount propagation and privileges apply as for
+        <filename>/proc/sys</filename>, <filename>/sys</filename> and <filename>/proc/sysrq-trigger</filename> will be
+        made read-only to all processes of the unit. Usually, tunable kernel variables should only be written at
+        boot-time, with the <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        mechanism. Almost no services need to write to these at runtime; it is hence recommended to turn this on for
+        most services. For this setting the same restrictions regarding mount propagation and privileges apply as for
         <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.</para></listitem>
       </varlistentry>
 
