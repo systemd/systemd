@@ -860,18 +860,14 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        if (c->std_output != EXEC_OUTPUT_KMSG &&
-            c->std_output != EXEC_OUTPUT_SYSLOG &&
-            c->std_output != EXEC_OUTPUT_JOURNAL &&
-            c->std_output != EXEC_OUTPUT_KMSG_AND_CONSOLE &&
-            c->std_output != EXEC_OUTPUT_SYSLOG_AND_CONSOLE &&
-            c->std_output != EXEC_OUTPUT_JOURNAL_AND_CONSOLE &&
-            c->std_error != EXEC_OUTPUT_KMSG &&
-            c->std_error != EXEC_OUTPUT_SYSLOG &&
-            c->std_error != EXEC_OUTPUT_JOURNAL &&
-            c->std_error != EXEC_OUTPUT_KMSG_AND_CONSOLE &&
-            c->std_error != EXEC_OUTPUT_JOURNAL_AND_CONSOLE &&
-            c->std_error != EXEC_OUTPUT_SYSLOG_AND_CONSOLE)
+        if (!IN_SET(c->std_output,
+                    EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
+                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                    EXEC_OUTPUT_SYSLOG, EXEC_OUTPUT_SYSLOG_AND_CONSOLE) &&
+            !IN_SET(c->std_error,
+                    EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
+                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                    EXEC_OUTPUT_SYSLOG, EXEC_OUTPUT_SYSLOG_AND_CONSOLE))
                 return 0;
 
         /* If syslog or kernel logging is requested, make sure our own

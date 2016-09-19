@@ -405,8 +405,9 @@
         <option>null</option>,
         <option>tty</option>,
         <option>tty-force</option>,
-        <option>tty-fail</option> or
-        <option>socket</option>.</para>
+        <option>tty-fail</option>,
+        <option>socket</option> or
+        <option>fd</option>.</para>
 
         <para>If <option>null</option> is selected, standard input
         will be connected to <filename>/dev/null</filename>, i.e. all
@@ -444,6 +445,20 @@
         <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         daemon.</para>
 
+        <para>The <option>fd</option> option connects
+        the input stream to a single file descriptor provided by a socket unit.
+        A custom named file descriptor can be specified as part of this option,
+        after a <literal>:</literal> (e.g. <literal>fd:<replaceable>foobar</replaceable></literal>).
+        If no name is specified, <literal>stdin</literal> is assumed
+        (i.e. <literal>fd</literal> is equivalent to <literal>fd:stdin</literal>).
+        At least one socket unit defining such name must be explicitly provided via the
+        <varname>Sockets=</varname> option, and file descriptor name may differ
+        from the name of its containing socket unit.
+        If multiple matches are found, the first one will be used.
+        See <varname>FileDescriptorName=</varname> in
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more details about named descriptors and ordering.</para>
+
         <para>This setting defaults to
         <option>null</option>.</para></listitem>
       </varlistentry>
@@ -460,8 +475,9 @@
         <option>kmsg</option>,
         <option>journal+console</option>,
         <option>syslog+console</option>,
-        <option>kmsg+console</option> or
-        <option>socket</option>.</para>
+        <option>kmsg+console</option>,
+        <option>socket</option> or
+        <option>fd</option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor
         of standard input for standard output.</para>
@@ -510,6 +526,20 @@
         similar to the same option of
         <varname>StandardInput=</varname>.</para>
 
+        <para>The <option>fd</option> option connects
+        the output stream to a single file descriptor provided by a socket unit.
+        A custom named file descriptor can be specified as part of this option,
+        after a <literal>:</literal> (e.g. <literal>fd:<replaceable>foobar</replaceable></literal>).
+        If no name is specified, <literal>stdout</literal> is assumed
+        (i.e. <literal>fd</literal> is equivalent to <literal>fd:stdout</literal>).
+        At least one socket unit defining such name must be explicitly provided via the
+        <varname>Sockets=</varname> option, and file descriptor name may differ
+        from the name of its containing socket unit.
+        If multiple matches are found, the first one will be used.
+        See <varname>FileDescriptorName=</varname> in
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more details about named descriptors and ordering.</para>
+
         <para>If the standard output (or error output, see below) of a unit is connected to the journal, syslog or the
         kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname> on
         <filename>systemd-journald.socket</filename> (also see the automatic dependencies section above).</para>
@@ -527,9 +557,13 @@
         <listitem><para>Controls where file descriptor 2 (STDERR) of
         the executed processes is connected to. The available options
         are identical to those of <varname>StandardOutput=</varname>,
-        with one exception: if set to <option>inherit</option> the
+        with some exceptions: if set to <option>inherit</option> the
         file descriptor used for standard output is duplicated for
-        standard error. This setting defaults to the value set with
+        standard error, while <option>fd</option> operates on the error
+        stream and will look by default for a descriptor named
+        <literal>stderr</literal>.</para>
+
+        <para>This setting defaults to the value set with
         <option>DefaultStandardError=</option> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         which defaults to <option>inherit</option>. Note that setting
