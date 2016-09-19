@@ -917,6 +917,15 @@
             DHCP server.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
+          <listitem>
+            <para>The table identifier for dhcp routes (a number between 1 and 4294967295, or 0 to unset).
+            The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect1>
 

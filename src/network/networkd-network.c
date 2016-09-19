@@ -111,6 +111,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_send_hostname = true;
         network->dhcp_route_metric = DHCP_ROUTE_METRIC;
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
+        network->dhcp_route_table = RT_TABLE_MAIN;
 
         network->dhcp_server_emit_dns = true;
         network->dhcp_server_emit_ntp = true;
@@ -1029,6 +1030,36 @@ int config_parse_dnssec_negative_trust_anchors(
                 if (r > 0)
                         w = NULL;
         }
+
+        return 0;
+}
+
+int config_parse_dhcp_route_table(const char *unit,
+                                  const char *filename,
+                                  unsigned line,
+                                  const char *section,
+                                  unsigned section_line,
+                                  const char *lvalue,
+                                  int ltype,
+                                  const char *rvalue,
+                                  void *data,
+                                  void *userdata) {
+        uint32_t rt;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou32(rvalue, &rt);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Unable to read RouteTable, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *((uint32_t *)data) = rt;
 
         return 0;
 }
