@@ -1224,7 +1224,7 @@ static int setup_timezone(const char *dest) {
                  * it /w a symbolic link to a time zone data file.
                  *
                  * Example:
-                 * ln -s /etc/localtime /usr/share/zoneinfo/UTC
+                 * ln -s /usr/share/zoneinfo/UTC /etc/localtime
                  */
                 return 0;
         }
