@@ -294,10 +294,10 @@
         <term><varname>ListenUSBFunction=</varname></term>
         <listitem><para>Specifies a <ulink
         url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
-        FunctionFS</ulink> endpoint location to listen on, for
+        FunctionFS</ulink> endpoints location to listen on, for
         implementation of USB gadget functions. This expects an
-        absolute file system path as the argument. Behavior otherwise
-        is very similar to the <varname>ListenFIFO=</varname>
+        absolute file system path of functionfs mount point as the argument.
+        Behavior otherwise is very similar to the <varname>ListenFIFO=</varname>
         directive above. Use this to open the FunctionFS endpoint
         <filename>ep0</filename>. When using this option, the
         activated service has to have the
