@@ -2995,7 +2995,8 @@ static int link_carrier_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link->state != LINK_STATE_UNMANAGED) {
+        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING)) {
+                log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
                 r = link_drop_foreign_config(link);
                 if (r < 0)
                         return r;
