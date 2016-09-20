@@ -395,7 +395,7 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
         return 0;
 }
 
-static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_t type) {
+static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_t type, bool warn_missing) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char ifname[IF_NAMESIZE] = "";
@@ -430,7 +430,8 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
 
         r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
+                if (warn_missing || r != -ENXIO)
+                        log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
                 return r;
         }
 
@@ -488,7 +489,8 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
                 return bus_log_parse_error(r);
 
         if (n == 0) {
-                log_error("%s: no records found", name);
+                if (warn_missing)
+                        log_error("%s: no records found", name);
                 return -ESRCH;
         }
 
@@ -618,7 +620,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
         if (type == 0)
                 type = arg_type ?: DNS_TYPE_A;
 
-        return resolve_record(bus, n, class, type);
+        return resolve_record(bus, n, class, type, true);
 
 invalid:
         log_error("Invalid DNS URI: %s", name);
@@ -840,16 +842,34 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
         }
         domain++;
 
-        r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
+        r = string_hashsum_sha256(address, domain - 1 - address, &hashed);
         if (r < 0)
                 return log_error_errno(r, "Hashing failed: %m");
+
+        strshorten(hashed, 56);
 
         full = strjoina(hashed, "._openpgpkey.", domain);
         log_debug("Looking up \"%s\".", full);
 
-        return resolve_record(bus, full,
-                              arg_class ?: DNS_CLASS_IN,
-                              arg_type ?: DNS_TYPE_OPENPGPKEY);
+        r = resolve_record(bus, full,
+                           arg_class ?: DNS_CLASS_IN,
+                           arg_type ?: DNS_TYPE_OPENPGPKEY, false);
+
+        if (IN_SET(r, -ENXIO, -ESRCH)) { /* NXDOMAIN or NODATA? */
+              hashed = NULL;
+              r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
+              if (r < 0)
+                    return log_error_errno(r, "Hashing failed: %m");
+
+              full = strjoina(hashed, "._openpgpkey.", domain);
+              log_debug("Looking up \"%s\".", full);
+
+              return resolve_record(bus, full,
+                                    arg_class ?: DNS_CLASS_IN,
+                                    arg_type ?: DNS_TYPE_OPENPGPKEY, true);
+        }
+
+        return r;
 }
 
 static int resolve_tlsa(sd_bus *bus, const char *address) {
@@ -881,7 +901,7 @@ static int resolve_tlsa(sd_bus *bus, const char *address) {
 
         return resolve_record(bus, full,
                               arg_class ?: DNS_CLASS_IN,
-                              arg_type ?: DNS_TYPE_TLSA);
+                              arg_type ?: DNS_TYPE_TLSA, true);
 }
 
 static int show_statistics(sd_bus *bus) {
@@ -1877,7 +1897,7 @@ int main(int argc, char **argv) {
                 while (argv[optind]) {
                         int k;
 
-                        k = resolve_record(bus, argv[optind], arg_class, arg_type);
+                        k = resolve_record(bus, argv[optind], arg_class, arg_type, true);
                         if (r == 0)
                                 r = k;
 
