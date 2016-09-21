@@ -97,15 +97,20 @@ static void linebuf_rem_char(struct linebuf *buf) {
         linebuf_rem(buf, 1);
 }
 
-static const struct trie_child_entry_f *trie_node_children(sd_hwdb *hwdb, const struct trie_node_f *node) {
-        return (const struct trie_child_entry_f *)((const char *)node + le64toh(hwdb->head->node_size));
+static const struct trie_child_entry_f *trie_node_child(sd_hwdb *hwdb, const struct trie_node_f *node, size_t idx) {
+        const char *base = (const char *)node;
+
+        base += le64toh(hwdb->head->node_size);
+        base += idx * le64toh(hwdb->head->child_entry_size);
+        return (const struct trie_child_entry_f *)base;
 }
 
-static const struct trie_value_entry_f *trie_node_values(sd_hwdb *hwdb, const struct trie_node_f *node) {
+static const struct trie_value_entry_f *trie_node_value(sd_hwdb *hwdb, const struct trie_node_f *node, size_t idx) {
         const char *base = (const char *)node;
 
         base += le64toh(hwdb->head->node_size);
         base += node->children_count * le64toh(hwdb->head->child_entry_size);
+        base += idx * le64toh(hwdb->head->value_entry_size);
         return (const struct trie_value_entry_f *)base;
 }
 
@@ -129,7 +134,7 @@ static const struct trie_node_f *node_lookup_f(sd_hwdb *hwdb, const struct trie_
         struct trie_child_entry_f search;
 
         search.c = c;
-        child = bsearch(&search, trie_node_children(hwdb, node), node->children_count,
+        child = bsearch(&search, (const char *)node + le64toh(hwdb->head->node_size), node->children_count,
                         le64toh(hwdb->head->child_entry_size), trie_children_cmp_f);
         if (child)
                 return trie_node_from_off(hwdb, child->child_off);
@@ -177,7 +182,7 @@ static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t 
         linebuf_add(buf, prefix + p, len);
 
         for (i = 0; i < node->children_count; i++) {
-                const struct trie_child_entry_f *child = &trie_node_children(hwdb, node)[i];
+                const struct trie_child_entry_f *child = trie_node_child(hwdb, node, i);
 
                 linebuf_add_char(buf, child->c);
                 err = trie_fnmatch_f(hwdb, trie_node_from_off(hwdb, child->child_off), 0, buf, search);
@@ -188,8 +193,8 @@ static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t 
 
         if (le64toh(node->values_count) && fnmatch(linebuf_get(buf), search, 0) == 0)
                 for (i = 0; i < le64toh(node->values_count); i++) {
-                        err = hwdb_add_property(hwdb, trie_string(hwdb, trie_node_values(hwdb, node)[i].key_off),
-                                                trie_string(hwdb, trie_node_values(hwdb, node)[i].value_off));
+                        err = hwdb_add_property(hwdb, trie_string(hwdb, trie_node_value(hwdb, node, i)->key_off),
+                                                trie_string(hwdb, trie_node_value(hwdb, node, i)->value_off));
                         if (err < 0)
                                 return err;
                 }
@@ -254,8 +259,8 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                         size_t n;
 
                         for (n = 0; n < le64toh(node->values_count); n++) {
-                                err = hwdb_add_property(hwdb, trie_string(hwdb, trie_node_values(hwdb, node)[n].key_off),
-                                                        trie_string(hwdb, trie_node_values(hwdb, node)[n].value_off));
+                                err = hwdb_add_property(hwdb, trie_string(hwdb, trie_node_value(hwdb, node, n)->key_off),
+                                                        trie_string(hwdb, trie_node_value(hwdb, node, n)->value_off));
                                 if (err < 0)
                                         return err;
                         }
