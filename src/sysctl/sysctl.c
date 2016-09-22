@@ -41,12 +41,12 @@ static char **arg_prefixes = NULL;
 
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysctl.d");
 
-static int apply_all(Hashmap *sysctl_options) {
+static int apply_all(OrderedHashmap *sysctl_options) {
         char *property, *value;
         Iterator i;
         int r = 0;
 
-        HASHMAP_FOREACH_KEY(value, property, sysctl_options, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(value, property, sysctl_options, i) {
                 int k;
 
                 k = sysctl_write(property, value);
@@ -62,7 +62,7 @@ static int apply_all(Hashmap *sysctl_options) {
         return r;
 }
 
-static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_enoent) {
+static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -125,13 +125,13 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 }
 
 found:
-                existing = hashmap_get2(sysctl_options, p, &v);
+                existing = ordered_hashmap_get2(sysctl_options, p, &v);
                 if (existing) {
                         if (streq(value, existing))
                                 continue;
 
                         log_debug("Overwriting earlier assignment of %s in file '%s'.", p, path);
-                        free(hashmap_remove(sysctl_options, p));
+                        free(ordered_hashmap_remove(sysctl_options, p));
                         free(v);
                 }
 
@@ -145,7 +145,7 @@ found:
                         return log_oom();
                 }
 
-                k = hashmap_put(sysctl_options, property, new_value);
+                k = ordered_hashmap_put(sysctl_options, property, new_value);
                 if (k < 0) {
                         log_error_errno(k, "Failed to add sysctl variable %s to hashmap: %m", property);
                         free(property);
@@ -230,7 +230,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         int r = 0, k;
-        Hashmap *sysctl_options;
+        OrderedHashmap *sysctl_options;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        sysctl_options = hashmap_new(&string_hash_ops);
+        sysctl_options = ordered_hashmap_new(&string_hash_ops);
         if (!sysctl_options) {
                 r = log_oom();
                 goto finish;
@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
                 r = k;
 
 finish:
-        hashmap_free_free_free(sysctl_options);
+        ordered_hashmap_free_free_free(sysctl_options);
         strv_free(arg_prefixes);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
