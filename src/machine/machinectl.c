@@ -1326,10 +1326,12 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
-        if (streq(name, ".host"))
-                log_info("Connected to the local host. Press ^] three times within 1s to exit session.");
-        else
-                log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", name);
+        if (!arg_quiet) {
+                if (streq(name, ".host"))
+                        log_info("Connected to the local host. Press ^] three times within 1s to exit session.");
+                else
+                        log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", name);
+        }
 
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
@@ -1353,12 +1355,14 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
         if (last_char != '\n')
                 fputc('\n', stdout);
 
-        if (machine_died)
-                log_info("Machine %s terminated.", name);
-        else if (streq(name, ".host"))
-                log_info("Connection to the local host terminated.");
-        else
-                log_info("Connection to machine %s terminated.", name);
+        if (!arg_quiet) {
+                if (machine_died)
+                        log_info("Machine %s terminated.", name);
+                else if (streq(name, ".host"))
+                        log_info("Connection to the local host terminated.");
+                else
+                        log_info("Connection to machine %s terminated.", name);
+        }
 
         sd_event_get_exit_code(event, &ret);
         return ret;
