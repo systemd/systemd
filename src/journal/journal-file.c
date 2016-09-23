@@ -333,8 +333,13 @@ JournalFile* journal_file_close(JournalFile *f) {
 
 #ifdef HAVE_GCRYPT
         /* Write the final tag */
-        if (f->seal && f->writable)
-                journal_file_append_tag(f);
+        if (f->seal && f->writable) {
+                int r;
+
+                r = journal_file_append_tag(f);
+                if (r < 0)
+                        log_error_errno(r, "Failed to append tag when closing journal: %m");
+        }
 #endif
 
         if (f->post_change_timer) {
