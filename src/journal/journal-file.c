@@ -1374,6 +1374,12 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
+        if (r < 0)
+                return r;
+#endif
+
         /* The linking might have altered the window, so let's
          * refresh our pointer */
         r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
@@ -1397,12 +1403,6 @@ static int journal_file_append_data(
                 o->data.next_field_offset = fo->field.head_data_offset;
                 fo->field.head_data_offset = le64toh(p);
         }
-
-#ifdef HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
-        if (r < 0)
-                return r;
-#endif
 
         if (ret)
                 *ret = o;
