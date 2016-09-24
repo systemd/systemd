@@ -1045,7 +1045,8 @@ static int parse_argv(int argc, char *argv[]) {
         parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_UTS", CLONE_NEWUTS);
         parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_SYSTEM", CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS);
 
-        if (arg_clone_ns_flags != (CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS)) {
+        if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
+            !(arg_clone_ns_flags & CLONE_NEWUTS)) {
                 arg_register = false;
                 if (arg_start_mode != START_PID1) {
                         log_error("--boot cannot be used without namespacing.");
