@@ -72,9 +72,12 @@
     in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a system-supplied
     executables with a local file if needed; a symbolic link in <filename>/etc/kernel/install.d/</filename>
     with the same name as an executable in <filename>/usr/lib/kernel/install.d/</filename>,
-    pointing to /dev/null, disables the executable entirely. Executables must have the
+    pointing to <filename>/dev/null</filename>, disables the executable entirely. Executables must have the
     extension <literal>.install</literal>; other extensions are ignored.</para>
 
+    <para>An executable should return <constant>0</constant> on success. It may also
+    return <constant>77</constant> to cause the whole operation to terminate
+    (executables later in lexical order will be skipped).</para>
   </refsect1>
 
   <refsect1>

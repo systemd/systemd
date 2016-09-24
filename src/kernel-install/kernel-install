@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+SKIP_REMAINING=77
+
 usage()
 {
     echo "Usage:"
@@ -123,7 +125,11 @@ case $COMMAND in
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE"
-                ((ret+=$?))
+                x=$?
+                if [[ $x == $SKIP_REMAINING ]]; then
+                    return 0
+                fi
+                ((ret+=$x))
             fi
         done
         ;;
@@ -132,7 +138,11 @@ case $COMMAND in
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
-                ((ret+=$?))
+                x=$?
+                if [[ $x == $SKIP_REMAINING ]]; then
+                    return 0
+                fi
+                ((ret+=$x))
             fi
         done
 
