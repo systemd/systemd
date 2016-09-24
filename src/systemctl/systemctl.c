@@ -3121,7 +3121,7 @@ static int logind_check_inhibitors(enum action a) {
                 if (sd_session_get_class(*s, &class) < 0 || !streq(class, "user"))
                         continue;
 
-                if (sd_session_get_type(*s, &type) < 0 || (!streq(type, "x11") && !streq(type, "tty")))
+                if (sd_session_get_type(*s, &type) < 0 || !STR_IN_SET(type, "x11", "tty"))
                         continue;
 
                 sd_session_get_tty(*s, &tty);
@@ -4583,7 +4583,8 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (streq(name, "IODeviceWeight") || streq(name, "BlockIODeviceWeight"))) {
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                           STR_IN_SET(name, "IODeviceWeight", "BlockIODeviceWeight")) {
                         const char *path;
                         uint64_t weight;
 
@@ -4602,8 +4603,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (cgroup_io_limit_type_from_string(name) >= 0 ||
-                                                                       streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth"))) {
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                           (cgroup_io_limit_type_from_string(name) >= 0 ||
+                            STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth"))) {
                         const char *path;
                         uint64_t bandwidth;
 
