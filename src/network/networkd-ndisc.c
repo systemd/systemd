@@ -94,7 +94,7 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         }
 
         route->family = AF_INET6;
-        route->table = RT_TABLE_MAIN;
+        route->table = link->network->ipv6_accept_ra_route_table;
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw.in6 = gateway;
@@ -214,7 +214,7 @@ static void ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) 
         }
 
         route->family = AF_INET6;
-        route->table = RT_TABLE_MAIN;
+        route->table = link->network->ipv6_accept_ra_route_table;
         route->protocol = RTPROT_RA;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
@@ -285,7 +285,7 @@ static void ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         }
 
         route->family = AF_INET6;
-        route->table = RT_TABLE_MAIN;
+        route->table = link->network->ipv6_accept_ra_route_table;
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw.in6 = gateway;

@@ -123,6 +123,7 @@ struct Network {
         bool dhcp_use_routes;
         bool dhcp_use_timezone;
         unsigned dhcp_route_metric;
+        uint32_t dhcp_route_table;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -166,6 +167,7 @@ struct Network {
 
         bool ipv6_accept_ra_use_dns;
         DHCPUseDomains ipv6_accept_ra_use_domains;
+        uint32_t ipv6_accept_ra_route_table;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
@@ -228,6 +230,7 @@ int config_parse_dhcp_server_ntp(const char *unit, const char *filename, unsigne
 int config_parse_dnssec_negative_trust_anchors(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dhcp_use_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_lldp_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_dhcp_route_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Legacy IPv4LL support */
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
