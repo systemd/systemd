@@ -29,6 +29,7 @@
 #include "alloc-util.h"
 #include "dev-setup.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "loopback-setup.h"
 #include "missing.h"
 #include "mkdir.h"
@@ -57,9 +58,9 @@ typedef enum MountMode {
 } MountMode;
 
 typedef struct BindMount {
-        const char *path;
+        const char *path; /* stack memory, doesn't need to be freed explicitly */
+        char *chased; /* malloc()ed memory, needs to be freed */
         MountMode mode;
-        bool done;
         bool ignore;
 } BindMount;
 
@@ -71,7 +72,6 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         STRV_FOREACH(i, strv) {
 
                 (*p)->ignore = false;
-                (*p)->done = false;
 
                 if ((mode == INACCESSIBLE || mode == READONLY || mode == READWRITE) && (*i)[0] == '-') {
                         (*p)->ignore = true;
@@ -360,11 +360,8 @@ static int apply_mount(
                  * inaccessible path. */
                 (void) umount_recursive(m->path, 0);
 
-                if (lstat(m->path, &target) < 0) {
-                        if (m->ignore && errno == ENOENT)
-                                return 0;
+                if (lstat(m->path, &target) < 0)
                         return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m", m->path);
-                }
 
                 what = mode_to_inaccessible_node(target.st_mode);
                 if (!what) {
@@ -378,11 +375,8 @@ static int apply_mount(
         case READWRITE:
 
                 r = path_is_mount_point(m->path, 0);
-                if (r < 0) {
-                        if (m->ignore && errno == ENOENT)
-                                return 0;
+                if (r < 0)
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", m->path);
-                }
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
                         return 0;
 
@@ -407,12 +401,8 @@ static int apply_mount(
 
         assert(what);
 
-        if (mount(what, m->path, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                if (m->ignore && errno == ENOENT)
-                        return 0;
-
+        if (mount(what, m->path, NULL, MS_BIND|MS_REC, NULL) < 0)
                 return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, m->path);
-        }
 
         log_debug("Successfully mounted %s to %s", what, m->path);
         return 0;
@@ -435,10 +425,41 @@ static int make_read_only(BindMount *m, char **blacklist) {
          * already stays this way. This improves compatibility with container managers, where we won't attempt to undo
          * read-only mounts already applied. */
 
-        if (m->ignore && r == -ENOENT)
-                return 0;
-
         return r;
+}
+
+static int chase_all_symlinks(const char *root_directory, BindMount *m, unsigned *n) {
+        BindMount *f, *t;
+        int r;
+
+        assert(m);
+        assert(n);
+
+        /* Since mount() will always follow symlinks and we need to take the different root directory into account we
+         * chase the symlinks on our own first. This call wil do so for all entries and remove all entries where we
+         * can't resolve the path, and which have been marked for such removal. */
+
+        for (f = m, t = m; f < m+*n; f++) {
+
+                r = chase_symlinks(f->path, root_directory, &f->chased);
+                if (r == -ENOENT && f->ignore) /* Doesn't exist? Then remove it! */
+                        continue;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to chase symlinks for %s: %m", f->path);
+
+                if (path_equal(f->path, f->chased))
+                        f->chased = mfree(f->chased);
+                else {
+                        log_debug("Chased %s → %s", f->path, f->chased);
+                        f->path = f->chased;
+                }
+
+                *t = *f;
+                t++;
+        }
+
+        *n = t - m;
+        return 0;
 }
 
 int setup_namespace(
@@ -456,6 +477,7 @@ int setup_namespace(
                 unsigned long mount_flags) {
 
         BindMount *m, *mounts = NULL;
+        bool make_slave = false;
         unsigned n;
         int r = 0;
 
@@ -474,6 +496,9 @@ int setup_namespace(
                  (2 + !private_dev + !protect_sysctl) :
                  ((protect_system != PROTECT_SYSTEM_NO ? 3 : 0) +
                   (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0)));
+
+        if (root_directory || n > 0)
+                make_slave = true;
 
         if (n > 0) {
                 m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
@@ -596,6 +621,13 @@ int setup_namespace(
 
                 assert(mounts + n == m);
 
+                /* Resolve symlinks manually first, as mount() will always follow them relative to the host's
+                 * root. Moreover we want to suppress duplicates based on the resolved paths. This of course is a bit
+                 * racy. */
+                r = chase_all_symlinks(root_directory, mounts, &n);
+                if (r < 0)
+                        goto finish;
+
                 qsort(mounts, n, sizeof(BindMount), mount_path_compare);
 
                 drop_duplicates(mounts, &n);
@@ -603,20 +635,26 @@ int setup_namespace(
                 drop_nop(mounts, &n);
         }
 
-        if (unshare(CLONE_NEWNS) < 0)
-                return -errno;
+        if (unshare(CLONE_NEWNS) < 0) {
+                r = -errno;
+                goto finish;
+        }
 
-        if (n > 0 || root_directory) {
+        if (make_slave) {
                 /* Remount / as SLAVE so that nothing now mounted in the namespace
                    shows up in the parent */
-                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                        return -errno;
+                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
         }
 
         if (root_directory) {
                 /* Turn directory into bind mount */
-                if (mount(root_directory, root_directory, NULL, MS_BIND|MS_REC, NULL) < 0)
-                        return -errno;
+                if (mount(root_directory, root_directory, NULL, MS_BIND|MS_REC, NULL) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
         }
 
         if (n > 0) {
@@ -627,7 +665,7 @@ int setup_namespace(
                 for (m = mounts; m < mounts + n; ++m) {
                         r = apply_mount(m, tmp_dir, var_tmp_dir);
                         if (r < 0)
-                                goto fail;
+                                goto finish;
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
@@ -640,34 +678,30 @@ int setup_namespace(
                 for (m = mounts; m < mounts + n; ++m) {
                         r = make_read_only(m, blacklist);
                         if (r < 0)
-                                goto fail;
+                                goto finish;
                 }
         }
 
         if (root_directory) {
                 /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
                 r = mount_move_root(root_directory);
-                if (r < 0) /* at this point, we cannot rollback */
-                        return r;
+                if (r < 0)
+                        goto finish;
         }
 
         /* Remount / as the desired mode. Not that this will not
          * reestablish propagation from our side to the host, since
          * what's disconnected is disconnected. */
-        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0)
-                return -errno; /* at this point, we cannot rollback */
-
-        return 0;
-
-fail:
-        if (n > 0) {
-                for (m = mounts; m < mounts + n; ++m) {
-                        if (!m->done)
-                                continue;
-
-                        (void) umount2(m->path, MNT_DETACH);
-                }
+        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
+                r = -errno;
+                goto finish;
         }
+
+        r = 0;
+
+finish:
+        for (m = mounts; m < mounts + n; m++)
+                free(m->chased);
 
         return r;
 }
