@@ -4695,12 +4695,14 @@ static int show_one(
                         return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
                 if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
-                        log_error("Unit %s could not be found.", unit);
+                        log_full(streq(verb, "status") ? LOG_ERR : LOG_DEBUG,
+                                 "Unit %s could not be found.", unit);
 
                         if (streq(verb, "status"))
                                 return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
 
-                        return -ENOENT;
+                        if (!streq(verb, "show"))
+                                return -ENOENT;
                 }
 
                 r = sd_bus_message_rewind(reply, true);
@@ -4765,10 +4767,11 @@ static int show_one(
         r = 0;
         if (show_properties) {
                 char **pp;
+                int not_found_level = streq(verb, "show") ? LOG_DEBUG : LOG_WARNING;
 
                 STRV_FOREACH(pp, arg_properties)
                         if (!set_contains(found_properties, *pp)) {
-                                log_warning("Property %s does not exist.", *pp);
+                                log_full(not_found_level, "Property %s does not exist.", *pp);
                                 r = -ENXIO;
                         }
 
