@@ -1236,9 +1236,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 return r;
 
         /* Make sure the transient directory always exists, so that it remains in the search path */
-        r = mkdir_p_label(m->lookup_paths.transient, 0755);
-        if (r < 0)
-                return r;
+        if (!m->test_run) {
+                r = mkdir_p_label(m->lookup_paths.transient, 0755);
+                if (r < 0)
+                        return r;
+        }
 
         dual_timestamp_get(&m->generators_start_timestamp);
         r = manager_run_generators(m);
