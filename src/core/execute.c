@@ -1429,28 +1429,15 @@ finish:
 }
 
 static int apply_private_devices(Unit *u, const ExecContext *c) {
-
-        static const int device_syscalls[] = {
-                SCMP_SYS(ioperm),
-                SCMP_SYS(iopl),
-                SCMP_SYS(pciconfig_iobase),
-                SCMP_SYS(pciconfig_read),
-                SCMP_SYS(pciconfig_write),
-#ifdef __NR_s390_pci_mmio_read
-                SCMP_SYS(s390_pci_mmio_read),
-#endif
-#ifdef __NR_s390_pci_mmio_write
-                SCMP_SYS(s390_pci_mmio_write),
-#endif
-        };
-
+        const SystemCallFilterSet *set;
         scmp_filter_ctx *seccomp;
-        unsigned i;
+        const char *sys;
+        bool syscalls_found = false;
         int r;
 
         assert(c);
 
-        /* If PrivateDevices= is set, also turn off iopl and friends. */
+        /* If PrivateDevices= is set, also turn off iopl and all @raw-io syscalls. */
 
         if (skip_seccomp_unavailable(u, "PrivateDevices="))
                 return 0;
@@ -1463,12 +1450,40 @@ static int apply_private_devices(Unit *u, const ExecContext *c) {
         if (r < 0)
                 goto finish;
 
-        for (i = 0; i < ELEMENTSOF(device_syscalls); i++) {
+        for (set = syscall_filter_sets; set->set_name; set++)
+                if (streq(set->set_name, "@raw-io")) {
+                        syscalls_found = true;
+                        break;
+                }
+
+        /* We should never fail here */
+        if (!syscalls_found) {
+                r = -EOPNOTSUPP;
+                goto finish;
+        }
+
+        NULSTR_FOREACH(sys, set->value) {
+                int id;
+                bool add = true;
+
+#ifndef __NR_s390_pci_mmio_read
+                if (streq(sys, "s390_pci_mmio_read"))
+                        add = false;
+#endif
+#ifndef __NR_s390_pci_mmio_write
+                if (streq(sys, "s390_pci_mmio_write"))
+                        add = false;
+#endif
+
+                if (!add)
+                        continue;
+
+                id = seccomp_syscall_resolve_name(sys);
+
                 r = seccomp_rule_add(
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),
-                                device_syscalls[i],
-                                0);
+                                id, 0);
                 if (r < 0)
                         goto finish;
         }

@@ -933,8 +933,10 @@
         <filename>/dev/random</filename> (as well as the pseudo TTY subsystem) to it, but no physical devices such as
         <filename>/dev/sda</filename>, system memory <filename>/dev/mem</filename>, system ports
         <filename>/dev/port</filename> and others. This is useful to securely turn off physical device access by the
-        executed process. Defaults to false. Enabling this option will also remove <constant>CAP_MKNOD</constant> from
-        the capability bounding set for the unit (see above), and set <varname>DevicePolicy=closed</varname> (see
+        executed process. Defaults to false. Enabling this option will install a system call filter to block low-level
+        I/O system calls that are grouped in the <varname>@raw-io</varname> set, will also remove
+        <constant>CAP_MKNOD</constant> from the capability bounding set for the unit (see above), and set
+        <varname>DevicePolicy=closed</varname> (see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details). Note that using this setting will disconnect propagation of mounts from the service to the host
         (propagation in the opposite direction continues to work).  This means that this setting may not be used for
