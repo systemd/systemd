@@ -71,6 +71,7 @@ static int prepare_filename(const char *filename, char **ret) {
 }
 
 static int generate_path(char **var, char **filenames) {
+        const char *old;
         char **filename;
 
         _cleanup_strv_free_ char **ans = NULL;
@@ -90,9 +91,19 @@ static int generate_path(char **var, char **filenames) {
 
         assert_se(strv_uniq(ans));
 
-        r = strv_extend(&ans, "");
-        if (r < 0)
-                return r;
+        /* First, prepend our directories. Second, if some path was specified, use that, and
+         * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
+         * Treat explicit empty path to mean that nothing should be appended.
+         */
+        old = getenv("SYSTEMD_UNIT_PATH");
+        if (!streq_ptr(old, "")) {
+                if (!old)
+                        old = ":";
+
+                r = strv_extend(&ans, old);
+                if (r < 0)
+                        return r;
+        }
 
         *var = strv_join(ans, ":");
         if (!*var)

@@ -181,14 +181,15 @@
     <option>--log-target=</option>, described in
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
 
-    <para><command>systemd-analyze verify</command> will load unit
-    files and print warnings if any errors are detected. Files
-    specified on the command line will be loaded, but also any other
-    units referenced by them. This command works by prepending the
-    directories for all command line arguments at the beginning of the
-    unit load path, which means that all units files found in those
-    directories will be used in preference to the unit files found in
-    the standard locations, even if not listed explicitly.</para>
+    <para><command>systemd-analyze verify</command> will load unit files and print
+    warnings if any errors are detected. Files specified on the command line will be
+    loaded, but also any other units referenced by them. The full unit search path is
+    formed by combining the directories for all command line arguments, and the usual unit
+    load paths (variable <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be
+    used to replace or augment the compiled in set of unit load paths; see
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+    All units files present in the directories containing the command line arguments will
+    be used in preference to the other paths.</para>
 
     <para>If no command is passed, <command>systemd-analyze
     time</command> is implied.</para>
