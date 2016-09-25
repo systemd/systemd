@@ -70,6 +70,14 @@ typedef struct TargetMount {
         bool ignore; /* Ignore if path does not exist */
 } TargetMount;
 
+/*
+ * The following Protect tables are to protect paths and mark some of them
+ * READONLY, in case a path is covered by an option from another table, then
+ * it is marked READWRITE in the current one, and the more restrictive mode is
+ * applied from that other table. This way all options can be combined in a
+ * safe and comprehensible way for users.
+ */
+
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const TargetMount protect_kernel_tunables_table[] = {
         { "/proc/sys",                  READONLY,       false },
@@ -89,6 +97,45 @@ static const TargetMount protect_kernel_tunables_table[] = {
         { "/sys/fs/cgroup",             READWRITE,      false }, /* READONLY is set by ProtectControlGroups= option */
 };
 
+/* ProtectSystem=yes table */
+static const TargetMount protect_system_yes_table[] = {
+        { "/usr",       READONLY,       false },
+        { "/boot",      READONLY,       true  },
+        { "/efi",       READONLY,       true  },
+};
+
+/* ProtectSystem=full includes ProtectSystem=yes */
+static const TargetMount protect_system_full_table[] = {
+        { "/usr",       READONLY,       false },
+        { "/boot",      READONLY,       true  },
+        { "/efi",       READONLY,       true  },
+        { "/etc",       READONLY,       false },
+};
+
+/*
+ * ProtectSystem=strict table. In this strict mode, we mount everything
+ * read-only, except for /proc, /dev, /sys which are the kernel API VFS,
+ * which are left writable, but PrivateDevices= + ProtectKernelTunables=
+ * protect those, and these options should be fully orthogonal.
+ * (And of course /home and friends are also left writable, as ProtectHome=
+ * shall manage those, orthogonally).
+ */
+static const TargetMount protect_system_strict_table[] = {
+        { "/",          READONLY,       false },
+        { "/proc",      READWRITE,      false },      /* ProtectKernelTunables= */
+        { "/sys",       READWRITE,      false },      /* ProtectKernelTunables= */
+        { "/dev",       READWRITE,      false },      /* PrivateDevices= */
+        { "/home",      READWRITE,      true  },      /* ProtectHome= */
+        { "/run/user",  READWRITE,      true  },      /* ProtectHome= */
+        { "/root",      READWRITE,      true  },      /* ProtectHome= */
+};
+
+static void set_bind_mount(BindMount **p, const char *path, MountMode mode, bool ignore) {
+        (*p)->path = path;
+        (*p)->mode = mode;
+        (*p)->ignore = ignore;
+}
+
 static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         char **i;
 
@@ -105,27 +152,71 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
                 if (!path_is_absolute(*i))
                         return -EINVAL;
 
-                (*p)->path = *i;
-                (*p)->mode = mode;
-                (*p)->ignore = ignore;
+                set_bind_mount(p, *i, mode, ignore);
                 (*p)++;
         }
 
         return 0;
 }
 
-static void append_protect_kernel_tunables(BindMount **p, const char *root_directory) {
-        unsigned int i;
+static int append_target_mounts(BindMount **p, const char *root_directory, const TargetMount *mounts, const size_t size) {
+        unsigned i;
+
+        assert(p);
+        assert(mounts);
+
+        for (i = 0; i < size; i++) {
+                /*
+                 * Here we assume that the ignore field is set during
+                 * declaration we do not support "-" at the beginning.
+                 */
+                const TargetMount *m = &mounts[i];
+                const char *path = prefix_roota(root_directory, m->path);
+
+                if (!path_is_absolute(path))
+                        return -EINVAL;
+
+                set_bind_mount(p, path, m->mode, m->ignore);
+                (*p)++;
+        }
+
+        return 0;
+}
+
+static int append_protect_kernel_tunables(BindMount **p, const char *root_directory) {
+        assert(p);
+
+        return append_target_mounts(p, root_directory, protect_kernel_tunables_table,
+                                    ELEMENTSOF(protect_kernel_tunables_table));
+}
+
+static int append_protect_system(BindMount **p, const char *root_directory, ProtectSystem protect_system) {
+        int r = 0;
 
         assert(p);
 
-        for (i = 0; i < ELEMENTSOF(protect_kernel_tunables_table); i++) {
-                const TargetMount *t = &protect_kernel_tunables_table[i];
-                (*p)->path = prefix_roota(root_directory, t->path);
-                (*p)->mode = t->mode;
-                (*p)->ignore = t->ignore;
-                (*p)++;
+        if (protect_system == PROTECT_SYSTEM_NO)
+                return 0;
+
+        switch (protect_system) {
+        case PROTECT_SYSTEM_STRICT:
+                r = append_target_mounts(p, root_directory, protect_system_strict_table,
+                                         ELEMENTSOF(protect_system_strict_table));
+                break;
+        case PROTECT_SYSTEM_YES:
+                r = append_target_mounts(p, root_directory, protect_system_yes_table,
+                                         ELEMENTSOF(protect_system_yes_table));
+                break;
+        case PROTECT_SYSTEM_FULL:
+                r = append_target_mounts(p, root_directory, protect_system_full_table,
+                                         ELEMENTSOF(protect_system_full_table));
+                break;
+        default:
+                r = -EINVAL;
+                break;
         }
+
+        return r;
 }
 
 static int mount_path_compare(const void *a, const void *b) {
@@ -538,6 +629,14 @@ static unsigned namespace_calculate_mounts(
                 ProtectHome protect_home,
                 ProtectSystem protect_system) {
 
+        unsigned protect_system_cnt =
+                (protect_system == PROTECT_SYSTEM_STRICT ?
+                 ELEMENTSOF(protect_system_strict_table) :
+                 ((protect_system == PROTECT_SYSTEM_FULL) ?
+                  ELEMENTSOF(protect_system_full_table) :
+                  ((protect_system == PROTECT_SYSTEM_YES) ?
+                   ELEMENTSOF(protect_system_yes_table) : 0)));
+
         return !!tmp_dir + !!var_tmp_dir +
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
@@ -546,10 +645,7 @@ static unsigned namespace_calculate_mounts(
                 (protect_sysctl ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (protect_cgroups ? 1 : 0) +
                 (protect_home != PROTECT_HOME_NO || protect_system == PROTECT_SYSTEM_STRICT ? 3 : 0) +
-                (protect_system == PROTECT_SYSTEM_STRICT ?
-                 (2 + !private_dev + !protect_sysctl) :
-                 ((protect_system != PROTECT_SYSTEM_NO ? 3 : 0) +
-                  (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0)));
+                protect_system_cnt;
 }
 
 int setup_namespace(
@@ -648,50 +744,9 @@ int setup_namespace(
                                 return r;
                 }
 
-                if (protect_system == PROTECT_SYSTEM_STRICT) {
-                        /* In strict mode, we mount everything read-only, except for /proc, /dev, /sys which are the
-                         * kernel API VFS, which are left writable, but PrivateDevices= + ProtectKernelTunables=
-                         * protect those, and these options should be fully orthogonal. (And of course /home and
-                         * friends are also left writable, as ProtectHome= shall manage those, orthogonally, see
-                         * above). */
-
-                        m->path = prefix_roota(root_directory, "/");
-                        m->mode = READONLY;
-                        m++;
-
-                        m->path = prefix_roota(root_directory, "/proc");
-                        m->mode = READWRITE;
-                        m++;
-
-                        if (!private_dev) {
-                                m->path = prefix_roota(root_directory, "/dev");
-                                m->mode = READWRITE;
-                                m++;
-                        }
-                        if (!protect_sysctl) {
-                                m->path = prefix_roota(root_directory, "/sys");
-                                m->mode = READWRITE;
-                                m++;
-                        }
-
-                } else if (protect_system != PROTECT_SYSTEM_NO) {
-                        const char *usr_dir, *boot_dir, *efi_dir, *etc_dir;
-
-                        /* In any other mode we simply mark the relevant three directories ready-only. */
-
-                        usr_dir = prefix_roota(root_directory, "/usr");
-                        boot_dir = prefix_roota(root_directory, "/boot");
-                        boot_dir = strjoina("-", boot_dir);
-                        efi_dir = prefix_roota(root_directory, "/efi");
-                        efi_dir = strjoina("-", efi_dir);
-                        etc_dir = prefix_roota(root_directory, "/etc");
-
-                        r = append_mounts(&m, protect_system == PROTECT_SYSTEM_FULL
-                                          ? STRV_MAKE(usr_dir, boot_dir, efi_dir, etc_dir)
-                                          : STRV_MAKE(usr_dir, boot_dir, efi_dir), READONLY);
-                        if (r < 0)
-                                return r;
-                }
+                r = append_protect_system(&m, root_directory, protect_system);
+                if (r < 0)
+                        return r;
 
                 assert(mounts + n == m);
 
