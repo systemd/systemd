@@ -139,8 +139,6 @@ Features:
 
 * PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
 
-* consider throwing a warning if a service declares it wants to be "Before=" a .device unit.
-
 * there's probably something wrong with having user mounts below /sys,
   as we have for debugfs. for exmaple, src/core/mount.c handles mounts
   prefixed with /sys generally special.

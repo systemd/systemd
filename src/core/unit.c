@@ -2225,6 +2225,11 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 return 0;
         }
 
+        if (d == UNIT_BEFORE && other->type == UNIT_DEVICE) {
+                log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
+                return 0;
+        }
+
         r = set_ensure_allocated(&u->dependencies[d], NULL);
         if (r < 0)
                 return r;
