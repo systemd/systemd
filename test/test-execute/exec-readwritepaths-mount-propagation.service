@@ -1,0 +1,7 @@
+[Unit]
+Description=Test to make sure that passing ReadWritePaths= disconnect mount propagation
+
+[Service]
+ReadWritePaths=-/i-dont-exist
+ExecStart=/bin/sh -x -c 'mkdir -p /TEST; mount -t tmpfs tmpfs /TEST; grep TEST /proc/self/mountinfo && ! grep TEST /proc/$${PPID}/mountinfo && ! grep TEST /proc/1/mountinfo'
+Type=oneshot

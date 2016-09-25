@@ -144,6 +144,15 @@ static void test_exec_privatedevices_capabilities(Manager *m) {
 
 static void test_exec_readonlypaths(Manager *m) {
         test(m, "exec-readonlypaths.service", 0, CLD_EXITED);
+        test(m, "exec-readonlypaths-mount-propagation.service", 0, CLD_EXITED);
+}
+
+static void test_exec_readwritepaths(Manager *m) {
+        test(m, "exec-readwritepaths-mount-propagation.service", 0, CLD_EXITED);
+}
+
+static void test_exec_inaccessiblepaths(Manager *m) {
+        test(m, "exec-inaccessiblepaths-mount-propagation.service", 0, CLD_EXITED);
 }
 
 static void test_exec_systemcallfilter(Manager *m) {
@@ -360,6 +369,8 @@ int main(int argc, char *argv[]) {
                 test_exec_privatedevices,
                 test_exec_privatedevices_capabilities,
                 test_exec_readonlypaths,
+                test_exec_readwritepaths,
+                test_exec_inaccessiblepaths,
                 test_exec_privatenetwork,
                 test_exec_systemcallfilter,
                 test_exec_systemcallerrornumber,
