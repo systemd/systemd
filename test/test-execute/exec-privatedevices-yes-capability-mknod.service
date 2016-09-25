@@ -1,0 +1,7 @@
+[Unit]
+Description=Test CAP_MKNOD capability for PrivateDevices=yes
+
+[Service]
+PrivateDevices=yes
+ExecStart=/bin/sh -x -c '! capsh --print | grep cap_mknod'
+Type=oneshot
