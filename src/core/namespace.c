@@ -70,12 +70,11 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         assert(p);
 
         STRV_FOREACH(i, strv) {
+                bool ignore = false;
 
-                (*p)->ignore = false;
-
-                if ((mode == INACCESSIBLE || mode == READONLY || mode == READWRITE) && (*i)[0] == '-') {
-                        (*p)->ignore = true;
+                if (IN_SET(mode, INACCESSIBLE, READONLY, READWRITE) && startswith(*i, "-")) {
                         (*i)++;
+                        ignore = true;
                 }
 
                 if (!path_is_absolute(*i))
@@ -83,6 +82,7 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
 
                 (*p)->path = *i;
                 (*p)->mode = mode;
+                (*p)->ignore = ignore;
                 (*p)++;
         }
 
