@@ -3622,7 +3622,7 @@ static void print_status_info(
         if (streq_ptr(i->active_state, "failed")) {
                 active_on = ansi_highlight_red();
                 active_off = ansi_normal();
-        } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
+        } else if (STRPTR_IN_SET(i->active_state, "active", "reloading")) {
                 active_on = ansi_highlight_green();
                 active_off = ansi_normal();
         } else
@@ -3703,12 +3703,10 @@ static void print_status_info(
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
 
-        timestamp = (streq_ptr(i->active_state, "active")      ||
-                     streq_ptr(i->active_state, "reloading"))   ? i->active_enter_timestamp :
-                    (streq_ptr(i->active_state, "inactive")    ||
-                     streq_ptr(i->active_state, "failed"))      ? i->inactive_enter_timestamp :
-                    streq_ptr(i->active_state, "activating")    ? i->inactive_exit_timestamp :
-                                                                  i->active_exit_timestamp;
+        timestamp = STRPTR_IN_SET(i->active_state, "active", "reloading") ? i->active_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "inactive", "failed")  ? i->inactive_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
+                                                                            i->active_exit_timestamp;
 
         s1 = format_timestamp_relative(since1, sizeof(since1), timestamp);
         s2 = format_timestamp(since2, sizeof(since2), timestamp);

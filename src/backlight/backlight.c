@@ -167,7 +167,7 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
                         continue;
 
                 v = udev_device_get_sysattr_value(other, "type");
-                if (!streq_ptr(v, "platform") && !streq_ptr(v, "firmware"))
+                if (!STRPTR_IN_SET(v, "platform", "firmware"))
                         continue;
 
                 /* OK, so there's another backlight device, and it's a
