@@ -476,7 +476,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 return log_error_errno(errno, "mount(%s) failed: %m", where);
 
         if (m->read_only) {
-                r = bind_remount_recursive(where, true);
+                r = bind_remount_recursive(where, true, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Read-only bind mount failed: %m");
         }
@@ -990,7 +990,7 @@ int setup_volatile_state(
         /* --volatile=state means we simply overmount /var
            with a tmpfs, and the rest read-only. */
 
-        r = bind_remount_recursive(directory, true);
+        r = bind_remount_recursive(directory, true, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to remount %s read-only: %m", directory);
 
@@ -1065,7 +1065,7 @@ int setup_volatile(
 
         bind_mounted = true;
 
-        r = bind_remount_recursive(t, true);
+        r = bind_remount_recursive(t, true, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to remount %s read-only: %m", t);
                 goto fail;

@@ -35,7 +35,7 @@ int path_is_mount_point(const char *path, int flags);
 int repeat_unmount(const char *path, int flags);
 
 int umount_recursive(const char *target, int flags);
-int bind_remount_recursive(const char *prefix, bool ro);
+int bind_remount_recursive(const char *prefix, bool ro, char **blacklist);
 
 int mount_move_root(const char *path);
 

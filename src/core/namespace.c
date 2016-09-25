@@ -375,9 +375,19 @@ static int apply_mount(
 
         case READONLY:
         case READWRITE:
-                /* Nothing to mount here, we just later toggle the
-                 * MS_RDONLY bit for the mount point */
-                return 0;
+
+                r = path_is_mount_point(m->path, 0);
+                if (r < 0) {
+                        if (m->ignore && errno == ENOENT)
+                                return 0;
+                        return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", m->path);
+                }
+                if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
+                        return 0;
+
+                /* This isn't a mount point yet, let's make it one. */
+                what = m->path;
+                break;
 
         case PRIVATE_TMP:
                 what = tmp_dir;
@@ -396,31 +406,33 @@ static int apply_mount(
 
         assert(what);
 
-        r = mount(what, m->path, NULL, MS_BIND|MS_REC, NULL);
-        if (r >= 0) {
-                log_debug("Successfully mounted %s to %s", what, m->path);
-                return r;
-        } else {
+        if (mount(what, m->path, NULL, MS_BIND|MS_REC, NULL) < 0) {
                 if (m->ignore && errno == ENOENT)
                         return 0;
+
                 return log_debug_errno(errno, "Failed to mount %s to %s: %m", what, m->path);
         }
+
+        log_debug("Successfully mounted %s to %s", what, m->path);
+        return 0;
 }
 
-static int make_read_only(BindMount *m) {
-        int r;
+static int make_read_only(BindMount *m, char **blacklist) {
+        int r = 0;
 
         assert(m);
 
         if (IN_SET(m->mode, INACCESSIBLE, READONLY))
-                r = bind_remount_recursive(m->path, true);
-        else if (IN_SET(m->mode, READWRITE, PRIVATE_TMP, PRIVATE_VAR_TMP, PRIVATE_DEV)) {
-                r = bind_remount_recursive(m->path, false);
-                if (r == 0 && m->mode == PRIVATE_DEV) /* can be readonly but the submounts can't*/
-                        if (mount(NULL, m->path, NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
-                                r = -errno;
+                r = bind_remount_recursive(m->path, true, blacklist);
+        else if (m->mode == PRIVATE_DEV) { /* Can be readonly but the submounts can't*/
+                if (mount(NULL, m->path, NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
+                        r = -errno;
         } else
-                r = 0;
+                return 0;
+
+        /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked read-only
+         * already stays this way. This improves compatibility with container managers, where we won't attempt to undo
+         * read-only mounts already applied. */
 
         if (m->ignore && r == -ENOENT)
                 return 0;
@@ -570,14 +582,25 @@ int setup_namespace(
         }
 
         if (n > 0) {
+                char **blacklist;
+                unsigned j;
+
+                /* First round, add in all special mounts we need */
                 for (m = mounts; m < mounts + n; ++m) {
                         r = apply_mount(m, tmp_dir, var_tmp_dir);
                         if (r < 0)
                                 goto fail;
                 }
 
+                /* Create a blacklist we can pass to bind_mount_recursive() */
+                blacklist = newa(char*, n+1);
+                for (j = 0; j < n; j++)
+                        blacklist[j] = (char*) mounts[j].path;
+                blacklist[j] = NULL;
+
+                /* Second round, flip the ro bits if necessary. */
                 for (m = mounts; m < mounts + n; ++m) {
-                        r = make_read_only(m);
+                        r = make_read_only(m, blacklist);
                         if (r < 0)
                                 goto fail;
                 }
@@ -586,9 +609,7 @@ int setup_namespace(
         if (root_directory) {
                 /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
                 r = mount_move_root(root_directory);
-
-                /* at this point, we cannot rollback */
-                if (r < 0)
+                if (r < 0) /* at this point, we cannot rollback */
                         return r;
         }
 
@@ -596,8 +617,7 @@ int setup_namespace(
          * reestablish propagation from our side to the host, since
          * what's disconnected is disconnected. */
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0)
-                /* at this point, we cannot rollback */
-                return -errno;
+                return -errno; /* at this point, we cannot rollback */
 
         return 0;
 
