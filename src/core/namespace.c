@@ -74,7 +74,18 @@ typedef struct TargetMount {
 static const TargetMount protect_kernel_tunables_table[] = {
         { "/proc/sys",                  READONLY,       false },
         { "/proc/sysrq-trigger",        READONLY,       true  },
+        { "/proc/latency_stats",        READONLY,       true  },
+        { "/proc/mtrr",                 READONLY,       true  },
+        { "/proc/apm",                  READONLY,       true  },
+        { "/proc/acpi",                 READONLY,       true  },
+        { "/proc/timer_stats",          READONLY,       true  },
+        { "/proc/asound",               READONLY,       true  },
+        { "/proc/bus",                  READONLY,       true  },
+        { "/proc/fs",                   READONLY,       true  },
+        { "/proc/irq",                  READONLY,       true  },
         { "/sys",                       READONLY,       false },
+        { "/sys/kernel/debug",          READONLY,       true  },
+        { "/sys/kernel/tracing",        READONLY,       true  },
         { "/sys/fs/cgroup",             READWRITE,      false }, /* READONLY is set by ProtectControlGroups= option */
 };
 

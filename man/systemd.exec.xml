@@ -1026,8 +1026,10 @@
         <term><varname>ProtectKernelTunables=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, kernel variables accessible through
-        <filename>/proc/sys</filename>, <filename>/sys</filename> and <filename>/proc/sysrq-trigger</filename> will be
-        made read-only to all processes of the unit. Usually, tunable kernel variables should only be written at
+        <filename>/proc/sys</filename>, <filename>/sys</filename>, <filename>/proc/sysrq-trigger</filename>,
+        <filename>/proc/latency_stats</filename>, <filename>/proc/acpi</filename>,
+        <filename>/proc/timer_stats</filename>, <filename>/proc/fs</filename> and <filename>/proc/irq</filename> will
+        be made read-only to all processes of the unit. Usually, tunable kernel variables should only be written at
         boot-time, with the <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         mechanism. Almost no services need to write to these at runtime; it is hence recommended to turn this on for
         most services. For this setting the same restrictions regarding mount propagation and privileges apply as for
