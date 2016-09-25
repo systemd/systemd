@@ -61,8 +61,22 @@ typedef struct BindMount {
         const char *path; /* stack memory, doesn't need to be freed explicitly */
         char *chased; /* malloc()ed memory, needs to be freed */
         MountMode mode;
-        bool ignore;
+        bool ignore; /* Ignore if path does not exist */
 } BindMount;
+
+typedef struct TargetMount {
+        const char *path;
+        MountMode mode;
+        bool ignore; /* Ignore if path does not exist */
+} TargetMount;
+
+/* ProtectKernelTunables= option and the related filesystem APIs */
+static const TargetMount protect_kernel_tunables_table[] = {
+        { "/proc/sys",                  READONLY,       false },
+        { "/proc/sysrq-trigger",        READONLY,       true  },
+        { "/sys",                       READONLY,       false },
+        { "/sys/fs/cgroup",             READWRITE,      false }, /* READONLY is set by ProtectControlGroups= option */
+};
 
 static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         char **i;
@@ -87,6 +101,20 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         }
 
         return 0;
+}
+
+static void append_protect_kernel_tunables(BindMount **p, const char *root_directory) {
+        unsigned int i;
+
+        assert(p);
+
+        for (i = 0; i < ELEMENTSOF(protect_kernel_tunables_table); i++) {
+                const TargetMount *t = &protect_kernel_tunables_table[i];
+                (*p)->path = prefix_roota(root_directory, t->path);
+                (*p)->mode = t->mode;
+                (*p)->ignore = t->ignore;
+                (*p)++;
+        }
 }
 
 static int mount_path_compare(const void *a, const void *b) {
@@ -514,8 +542,8 @@ int setup_namespace(
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
                 private_dev +
-                (protect_sysctl ? 3 : 0) +
-                (protect_cgroups != protect_sysctl) +
+                (protect_sysctl ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
+                (protect_cgroups ? 1 : 0) +
                 (protect_home != PROTECT_HOME_NO || protect_system == PROTECT_SYSTEM_STRICT ? 3 : 0) +
                 (protect_system == PROTECT_SYSTEM_STRICT ?
                  (2 + !private_dev + !protect_sysctl) :
@@ -557,24 +585,12 @@ int setup_namespace(
                         m++;
                 }
 
-                if (protect_sysctl) {
-                        m->path = prefix_roota(root_directory, "/proc/sys");
-                        m->mode = READONLY;
-                        m++;
+                if (protect_sysctl)
+                        append_protect_kernel_tunables(&m, root_directory);
 
-                        m->path = prefix_roota(root_directory, "/proc/sysrq-trigger");
-                        m->mode = READONLY;
-                        m->ignore = true; /* Not always compiled into the kernel */
-                        m++;
-
-                        m->path = prefix_roota(root_directory, "/sys");
-                        m->mode = READONLY;
-                        m++;
-                }
-
-                if (protect_cgroups != protect_sysctl) {
+                if (protect_cgroups) {
                         m->path = prefix_roota(root_directory, "/sys/fs/cgroup");
-                        m->mode = protect_cgroups ? READONLY : READWRITE;
+                        m->mode = READONLY;
                         m++;
                 }
 
