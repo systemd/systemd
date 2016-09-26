@@ -190,7 +190,7 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
         if (k <= 20)
                 return burst;
 
-        burst = (burst * (k-20)) / 4;
+        burst = (burst * (k-16)) / 4;
 
         /*
          * Example:
