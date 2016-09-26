@@ -304,7 +304,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         _cleanup_free_ char
                 *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                *filename = NULL;
+                *filename = NULL, *coredump = NULL;
         const void *d;
         size_t l;
         usec_t t;
@@ -324,6 +324,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 retrieve(d, l, "COREDUMP_COMM", &comm);
                 retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
                 retrieve(d, l, "COREDUMP_FILENAME", &filename);
+                retrieve(d, l, "COREDUMP", &coredump);
         }
 
         if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename) {
@@ -336,7 +337,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         format_timestamp(buf, sizeof(buf), t);
-        present = filename && access(filename, F_OK) == 0;
+        present = (filename && access(filename, F_OK) == 0) || coredump;
 
         if (!had_legend && !arg_no_legend)
                 fprintf(file, "%-*s %*s %*s %*s %*s %*s %s\n",
@@ -367,7 +368,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
-                *message = NULL, *timestamp = NULL, *filename = NULL;
+                *message = NULL, *timestamp = NULL, *filename = NULL,
+                *coredump = NULL;
         const void *d;
         size_t l;
         int r;
@@ -391,6 +393,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 retrieve(d, l, "COREDUMP_CGROUP", &cgroup);
                 retrieve(d, l, "COREDUMP_TIMESTAMP", &timestamp);
                 retrieve(d, l, "COREDUMP_FILENAME", &filename);
+                retrieve(d, l, "COREDUMP", &coredump);
                 retrieve(d, l, "_BOOT_ID", &boot_id);
                 retrieve(d, l, "_MACHINE_ID", &machine_id);
                 retrieve(d, l, "_HOSTNAME", &hostname);
@@ -505,8 +508,13 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (hostname)
                 fprintf(file, "      Hostname: %s\n", hostname);
 
-        if (filename && access(filename, F_OK) == 0)
-                fprintf(file, "      Coredump: %s\n", filename);
+        if (filename)
+                fprintf(file, "       Storage: %s%s\n", filename,
+                        access(filename, F_OK) < 0 ? " (inaccessible)" : "");
+        else if (coredump)
+                fprintf(file, "       Storage: journal\n");
+        else
+                fprintf(file, "       Storage: none\n");
 
         if (message) {
                 _cleanup_free_ char *m = NULL;
@@ -585,6 +593,9 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
         assert((fd >= 0) != !!path);
         assert(!!path == !!unlink_temp);
+
+        /* We want full data, nothing truncated. */
+        sd_journal_set_data_threshold(j, 0);
 
         /* Look for a coredump on disk first. */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
@@ -827,9 +838,6 @@ int main(int argc, char *argv[]) {
                         goto end;
                 }
         }
-
-        /* We want full data, nothing truncated. */
-        sd_journal_set_data_threshold(j, 0);
 
         SET_FOREACH(match, matches, it) {
                 r = sd_journal_add_match(j, match, strlen(match));
