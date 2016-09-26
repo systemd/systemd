@@ -617,26 +617,34 @@ static int dump_list(sd_journal *j) {
         return 0;
 }
 
-static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
+static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
         const char *data;
         _cleanup_free_ char *filename = NULL;
         size_t len;
-        int r;
+        int r, fd;
         _cleanup_close_ int fdt = -1;
         char *temp = NULL;
 
-        assert((fd >= 0) != !!path);
-        assert(!!path == !!unlink_temp);
-
-        /* We want full data, nothing truncated. */
-        sd_journal_set_data_threshold(j, 0);
+        assert(!(file && path));         /* At most one can be specified */
+        assert(!!path == !!unlink_temp); /* Those must be specified together */
 
         /* Look for a coredump on disk first. */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME: %m");
-        else if (r == 0)
+        if (r == 0)
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
+        else {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME field: %m");
+                /* Check that we can have a COREDUMP field. We still haven't set a high
+                 * data threshold, so we'll get a few kilobytes at most.
+                 */
+
+                r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
+                if (r == -ENOENT)
+                        return log_error_errno(r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
+        }
 
         if (filename) {
                 if (access(filename, R_OK) < 0)
@@ -650,7 +658,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                 }
         }
 
-        if (fd < 0) {
+        if (path) {
                 const char *vt;
 
                 /* Create a temporary file to write the uncompressed core to. */
@@ -669,6 +677,22 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                 log_debug("Created temporary file %s", temp);
 
                 fd = fdt;
+        } else {
+                /* If neither path or file are specified, we will write to stdout. Let's now check
+                 * if stdout is connected to a tty. We checked that the file exists, or that the
+                 * core might be stored in the journal. In this second case, if we found the entry,
+                 * in all likelyhood we will be able to access the COREDUMP= field.  In either case,
+                 * we stop before doing any "real" work, i.e. before starting decompression or
+                 * reading from the file or creating temporary files.
+                 */
+                if (!file) {
+                        if (on_tty())
+                                return log_error_errno(ENOTTY, "Refusing to dump core to tty"
+                                                       " (use shell redirection or specify --output).");
+                        file = stdout;
+                }
+
+                fd = fileno(file);
         }
 
         if (filename) {
@@ -694,11 +718,12 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
         } else {
                 ssize_t sz;
 
+                /* We want full data, nothing truncated. */
+                sd_journal_set_data_threshold(j, 0);
+
                 r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
                 if (r < 0)
-                        return log_error_errno(r,
-                                               r == -ENOENT ? "Core file was not saved for this entry." :
-                                                              "Failed to retrieve COREDUMP field: %m");
+                        return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
 
                 assert(len >= 9);
                 data += 9;
@@ -741,14 +766,9 @@ static int dump_core(sd_journal* j) {
 
         print_info(arg_output ? stdout : stderr, j, false);
 
-        if (on_tty() && !arg_output) {
-                log_error("Refusing to dump core to tty.");
-                return -ENOTTY;
-        }
-
-        r = save_core(j, arg_output ? fileno(arg_output) : STDOUT_FILENO, NULL, NULL);
+        r = save_core(j, arg_output, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Coredump retrieval failed: %m");
+                return r;
 
         r = sd_journal_previous(j);
         if (r > 0)
@@ -797,9 +817,9 @@ static int run_gdb(sd_journal *j) {
                 return -ENOENT;
         }
 
-        r = save_core(j, -1, &path, &unlink_path);
+        r = save_core(j, NULL, &path, &unlink_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to retrieve core: %m");
+                return r;
 
         pid = fork();
         if (pid < 0) {
