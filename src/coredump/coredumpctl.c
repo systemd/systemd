@@ -310,7 +310,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         usec_t t;
         char buf[FORMAT_TIMESTAMP_MAX];
         int r;
-        bool present;
+        const char *present;
 
         assert(file);
         assert(j);
@@ -337,7 +337,6 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         format_timestamp(buf, sizeof(buf), t);
-        present = (filename && access(filename, F_OK) == 0) || coredump;
 
         if (!had_legend && !arg_no_legend)
                 fprintf(file, "%-*s %*s %*s %*s %*s %*s %s\n",
@@ -346,16 +345,28 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                         5, "UID",
                         5, "GID",
                         3, "SIG",
-                        1, "PRESENT",
+                        8, "COREFILE",
                            "EXE");
 
-        fprintf(file, "%-*s %*s %*s %*s %*s %*s %s\n",
+        if (filename)
+                if (access(filename, R_OK) == 0)
+                        present = "present";
+                else if (errno == ENOENT)
+                        present = "missing";
+                else
+                        present = "error";
+        else if (coredump)
+                present = "journal";
+        else
+                present = "none";
+
+        fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
                 FORMAT_TIMESTAMP_WIDTH, buf,
                 6, strna(pid),
                 5, strna(uid),
                 5, strna(gid),
                 3, strna(sgnl),
-                1, present ? "*" : "",
+                8, present,
                 strna(exe ?: (comm ?: cmdline)));
 
         return 0;
@@ -510,7 +521,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (filename)
                 fprintf(file, "       Storage: %s%s\n", filename,
-                        access(filename, F_OK) < 0 ? " (inaccessible)" : "");
+                        access(filename, R_OK) < 0 ? " (inaccessible)" : "");
         else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else
