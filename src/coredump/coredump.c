@@ -678,7 +678,7 @@ static int submit_coredump(
 
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *core_message = NULL, *filename = NULL, *coredump_data = NULL;
-        uint64_t coredump_size;
+        uint64_t coredump_size = UINT64_MAX;
         int r;
 
         assert(context);
