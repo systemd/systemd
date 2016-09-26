@@ -477,7 +477,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (unit)
                 fprintf(file, "          Unit: %s\n", unit);
         if (user_unit)
-                fprintf(file, "     User Unit: %s\n", unit);
+                fprintf(file, "     User Unit: %s\n", user_unit);
         if (slice)
                 fprintf(file, "         Slice: %s\n", slice);
         if (session)
