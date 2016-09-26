@@ -39,10 +39,12 @@
 #include "util.h"
 #include "virt.h"
 
+static bool link_ipv6_enabled(Link *link);
+
 static bool link_dhcp6_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -93,7 +95,7 @@ static bool link_ipv4ll_enabled(Link *link) {
 static bool link_ipv6ll_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!(link_ipv6_enabled(link)))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -106,7 +108,28 @@ static bool link_ipv6ll_enabled(Link *link) {
 }
 
 static bool link_ipv6_enabled(Link *link) {
+        _cleanup_free_ char *p = NULL, *q = NULL, *s = NULL;
+        int r;
+
         assert(link);
+
+        r = read_one_line_file("/proc/sys/net/ipv6/conf/all/disable_ipv6", &p);
+        if (r < 0)
+                return false;
+
+        if (streq(p, "1"))
+                return false;
+
+        q = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/disable_ipv6");
+        if (!p)
+                return false;
+
+        r = read_one_line_file(q, &s);
+        if (r < 0)
+                return false;
+
+        if (streq(s, "1"))
+                return false;
 
         if (!socket_ipv6_is_supported())
                 return false;
@@ -169,7 +192,7 @@ static bool link_ipv4_forward_enabled(Link *link) {
 static bool link_ipv6_forward_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -202,7 +225,7 @@ static bool link_proxy_arp_enabled(Link *link) {
 static bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -229,7 +252,7 @@ static bool link_ipv6_accept_ra_enabled(Link *link) {
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return _IPV6_PRIVACY_EXTENSIONS_INVALID;
 
         if (link->flags & IFF_LOOPBACK)
@@ -2295,7 +2318,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
         int r;
 
         /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
@@ -2320,7 +2343,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
         int r;
 
         /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
+        if (!link_ipv6_enabled(link))
                 return 0;
 
         if (link->flags & IFF_LOOPBACK)
