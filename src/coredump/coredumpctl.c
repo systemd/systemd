@@ -706,7 +706,7 @@ static int dump_core(sd_journal* j) {
                 return log_error_errno(r, "Coredump retrieval failed: %m");
 
         r = sd_journal_previous(j);
-        if (r >= 0)
+        if (r > 0)
                 log_warning("More than one entry matches, ignoring rest.");
 
         return 0;
