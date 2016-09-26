@@ -75,7 +75,7 @@ static bool is_settable(int fd) {
         r = ioctl(fd, KDGKBMODE, &curr_mode);
         /*
          * Make sure we only adjust consoles in K_XLATE or K_UNICODE mode.
-         * Oterwise we would (likely) interfere with X11's processing of the
+         * Otherwise we would (likely) interfere with X11's processing of the
          * key events.
          *
          * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html

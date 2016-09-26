@@ -1222,7 +1222,7 @@ static int setup_timezone(const char *dest) {
         if (r < 0) {
                 log_warning("host's /etc/localtime is not a symlink, not updating container timezone.");
                 /* to handle warning, delete /etc/localtime and replace it
-                 * it /w a symbolic link to a time zone data file.
+                 * with a symbolic link to a time zone data file.
                  *
                  * Example:
                  * ln -s /usr/share/zoneinfo/UTC /etc/localtime
