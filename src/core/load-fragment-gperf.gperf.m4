@@ -91,6 +91,7 @@ $1.PrivateTmp,                   config_parse_bool,                  0,         
 $1.PrivateDevices,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_devices)
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
 $1.PrivateUsers,                 config_parse_bool,                  0,                             offsetof($1, exec_context.private_users)
+$1.UseRootFileSystemNamespace,   config_parse_bool,                  0,                             offsetof($1, exec_context.use_root_file_system_namespace)
 $1.ProtectSystem,                config_parse_protect_system,        0,                             offsetof($1, exec_context)
 $1.ProtectHome,                  config_parse_protect_home,          0,                             offsetof($1, exec_context)
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context)

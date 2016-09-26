@@ -1060,6 +1060,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseRootFileSystemNamespace=</varname></term>
+
+        <listitem><para>Takes a boolean argument (default is false).
+        Forces unit's process to start in the same file system namespace
+        as init (the namespace of systemd). Setting this option to
+        <literal>true</literal> disables all file system related options,
+        namely:
+        (<varname>MountFlags=</varname>,
+        <varname>PrivateTmp=</varname>,
+        <varname>PrivateDevices=</varname>,
+        <varname>ProtectSystem=</varname>,
+        <varname>ProtectHome=</varname>,
+        <varname>ReadOnlyPaths=</varname>,
+        <varname>InaccessiblePaths=</varname> and
+        <varname>ReadWritePaths=</varname>). If any of these options
+        is set, the unit is deemed incorrectly configured.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountFlags=</varname></term>
 
         <listitem><para>Takes a mount propagation flag:
