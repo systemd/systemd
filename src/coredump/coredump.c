@@ -93,7 +93,6 @@ typedef enum CoredumpStorage {
         COREDUMP_STORAGE_NONE,
         COREDUMP_STORAGE_EXTERNAL,
         COREDUMP_STORAGE_JOURNAL,
-        COREDUMP_STORAGE_BOTH,
         _COREDUMP_STORAGE_MAX,
         _COREDUMP_STORAGE_INVALID = -1
 } CoredumpStorage;
@@ -102,7 +101,6 @@ static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
         [COREDUMP_STORAGE_NONE] = "none",
         [COREDUMP_STORAGE_EXTERNAL] = "external",
         [COREDUMP_STORAGE_JOURNAL] = "journal",
-        [COREDUMP_STORAGE_BOTH] = "both",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
@@ -247,7 +245,7 @@ static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
 
         /* Returns 1 if might remove, 0 if will not remove, < 0 on error. */
 
-        if (IN_SET(arg_storage, COREDUMP_STORAGE_EXTERNAL, COREDUMP_STORAGE_BOTH) &&
+        if (arg_storage == COREDUMP_STORAGE_EXTERNAL &&
             size <= arg_external_size_max)
                 return 0;
 
@@ -740,7 +738,7 @@ log:
                 IOVEC_SET_STRING(iovec[n_iovec++], core_message);
 
         /* Optionally store the entire coredump in the journal */
-        if (IN_SET(arg_storage, COREDUMP_STORAGE_JOURNAL, COREDUMP_STORAGE_BOTH) &&
+        if (arg_storage == COREDUMP_STORAGE_JOURNAL &&
             coredump_size <= arg_journal_size_max) {
                 size_t sz = 0;
 

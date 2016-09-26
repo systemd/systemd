@@ -580,23 +580,21 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
         _cleanup_free_ char *filename = NULL;
         size_t len;
         int r;
+        _cleanup_close_ int fdt = -1;
+        char *temp = NULL;
 
         assert((fd >= 0) != !!path);
         assert(!!path == !!unlink_temp);
 
-        /* Prefer uncompressed file to journal (probably cached) to
-         * compressed file (probably uncached). */
+        /* Look for a coredump on disk first. */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to retrieve COREDUMP_FILENAME: %m");
+                return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME: %m");
         else if (r == 0)
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
 
-        if (filename && access(filename, R_OK) < 0) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "File %s is not readable: %m", filename);
-                filename = mfree(filename);
-        }
+        if (filename && access(filename, R_OK) < 0)
+                return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
 
         if (filename && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
                 if (path) {
@@ -605,92 +603,86 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                 }
 
                 return 0;
-        } else {
-                _cleanup_close_ int fdt = -1;
-                char *temp = NULL;
+        }
 
-                if (fd < 0) {
-                        const char *vt;
+        if (fd < 0) {
+                const char *vt;
 
-                        r = var_tmp_dir(&vt);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to acquire temporary directory path: %m");
+                /* Create a temporary file to write the uncompressed core to. */
 
-                        temp = strjoin(vt, "/coredump-XXXXXX", NULL);
-                        if (!temp)
-                                return log_oom();
+                r = var_tmp_dir(&vt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire temporary directory path: %m");
 
-                        fdt = mkostemp_safe(temp);
-                        if (fdt < 0)
-                                return log_error_errno(fdt, "Failed to create temporary file: %m");
-                        log_debug("Created temporary file %s", temp);
+                temp = strjoin(vt, "/coredump-XXXXXX", NULL);
+                if (!temp)
+                        return log_oom();
 
-                        fd = fdt;
+                fdt = mkostemp_safe(temp);
+                if (fdt < 0)
+                        return log_error_errno(fdt, "Failed to create temporary file: %m");
+                log_debug("Created temporary file %s", temp);
+
+                fd = fdt;
+        }
+
+        if (filename) {
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
+                _cleanup_close_ int fdf;
+
+                fdf = open(filename, O_RDONLY | O_CLOEXEC);
+                if (fdf < 0) {
+                        r = log_error_errno(errno, "Failed to open %s: %m", filename);
+                        goto error;
                 }
+
+                r = decompress_stream(filename, fdf, fd, -1);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to decompress %s: %m", filename);
+                        goto error;
+                }
+#else
+                log_error("Cannot decompress file. Compiled without compression support.");
+                r = -EOPNOTSUPP;
+                goto error;
+#endif
+        } else {
+                ssize_t sz;
 
                 r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-                if (r == 0) {
-                        ssize_t sz;
+                if (r < 0)
+                        return log_error_errno(r,
+                                               r == -ENOENT ? "Core file was not saved for this entry." :
+                                                              "Failed to retrieve COREDUMP field: %m");
 
-                        assert(len >= 9);
-                        data += 9;
-                        len -= 9;
+                assert(len >= 9);
+                data += 9;
+                len -= 9;
 
-                        sz = write(fdt, data, len);
-                        if (sz < 0) {
-                                r = log_error_errno(errno,
-                                                    "Failed to write temporary file: %m");
-                                goto error;
-                        }
-                        if (sz != (ssize_t) len) {
-                                log_error("Short write to temporary file.");
-                                r = -EIO;
-                                goto error;
-                        }
-                } else if (filename) {
-#if defined(HAVE_XZ) || defined(HAVE_LZ4)
-                        _cleanup_close_ int fdf;
-
-                        fdf = open(filename, O_RDONLY | O_CLOEXEC);
-                        if (fdf < 0) {
-                                r = log_error_errno(errno,
-                                                    "Failed to open %s: %m",
-                                                    filename);
-                                goto error;
-                        }
-
-                        r = decompress_stream(filename, fdf, fd, -1);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to decompress %s: %m", filename);
-                                goto error;
-                        }
-#else
-                        log_error("Cannot decompress file. Compiled without compression support.");
-                        r = -EOPNOTSUPP;
-                        goto error;
-#endif
-                } else {
-                        if (r == -ENOENT)
-                                log_error("Cannot retrieve coredump from journal or disk.");
-                        else
-                                log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
+                sz = write(fdt, data, len);
+                if (sz < 0) {
+                        r = log_error_errno(errno, "Failed to write temporary file: %m");
                         goto error;
                 }
-
-                if (temp) {
-                        *path = temp;
-                        *unlink_temp = true;
+                if (sz != (ssize_t) len) {
+                        log_error("Short write to temporary file.");
+                        r = -EIO;
+                        goto error;
                 }
+        }
 
-                return 0;
+        if (temp) {
+                *path = temp;
+                *unlink_temp = true;
+        }
+        return 0;
 
 error:
-                if (temp) {
-                        unlink(temp);
-                        log_debug("Removed temporary file %s", temp);
-                }
-                return r;
+        if (temp) {
+                unlink(temp);
+                log_debug("Removed temporary file %s", temp);
         }
+        return r;
 }
 
 static int dump_core(sd_journal* j) {
