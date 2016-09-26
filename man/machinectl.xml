@@ -186,12 +186,11 @@
       <varlistentry>
          <term><option>--uid=</option></term>
 
-         <listitem><para>When used with the <command>shell</command>
-         command, chooses the user ID to open the interactive shell
-         session as. If this switch is not specified, defaults to
-         <literal>root</literal>. Note that this switch is not
-         supported for the <command>login</command> command (see
-         below).</para></listitem>
+         <listitem><para>When used with the <command>shell</command> command, chooses the user ID to
+         open the interactive shell session as. If the argument to the <command>shell</command>
+         command also specifies an user name, this option is ignored. If the name is not specified
+         in either way, <literal>root</literal> will be used by default. Note that this switch is
+         not supported for the <command>login</command> command (see below).</para></listitem>
       </varlistentry>
 
       <varlistentry>

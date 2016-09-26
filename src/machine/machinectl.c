@@ -1368,6 +1368,41 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
         return ret;
 }
 
+static int parse_machine_uid(const char *spec, const char **machine, char **uid) {
+        /*
+         * Whatever is specified in the spec takes priority over global arguments.
+         */
+        char *_uid = NULL;
+        const char *_machine = NULL;
+
+        if (spec) {
+                const char *at;
+
+                at = strchr(spec, '@');
+                if (at) {
+                        if (at == spec)
+                                /* Do the same as ssh and refuse "@host". */
+                                return -EINVAL;
+
+                        _machine = at + 1;
+                        _uid = strndup(spec, at - spec);
+                        if (!_uid)
+                                return -ENOMEM;
+                } else
+                        _machine = spec;
+        };
+
+        if (arg_uid && !_uid) {
+                _uid = strdup(arg_uid);
+                if (!_uid)
+                        return -ENOMEM;
+        }
+
+        *uid = _uid;
+        *machine = isempty(_machine) ? ".host" : _machine;
+        return 0;
+}
+
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1443,7 +1478,8 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match, *machine, *path, *uid = NULL;
+        const char *pty, *match, *machine, *path;
+        _cleanup_free_ char *uid = NULL;
 
         assert(bus);
 
@@ -1474,22 +1510,9 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        machine = argc < 2 || isempty(argv[1]) ? NULL : argv[1];
-
-        if (arg_uid)
-                uid = arg_uid;
-        else if (machine) {
-                const char *at;
-
-                at = strchr(machine, '@');
-                if (at) {
-                        uid = strndupa(machine, at - machine);
-                        machine = at + 1;
-                }
-        }
-
-        if (isempty(machine))
-                machine = ".host";
+        r = parse_machine_uid(argc >= 2 ? argv[1] : NULL, &machine, &uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse machine specification: %m");
 
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.machine1',"
