@@ -593,16 +593,16 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
         else if (r == 0)
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
 
-        if (filename && access(filename, R_OK) < 0)
-                return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
+        if (filename) {
+                if (access(filename, R_OK) < 0)
+                        return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
 
-        if (filename && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
-                if (path) {
+                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
                         *path = filename;
                         filename = NULL;
-                }
 
-                return 0;
+                        return 0;
+                }
         }
 
         if (fd < 0) {
@@ -659,13 +659,13 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                 data += 9;
                 len -= 9;
 
-                sz = write(fdt, data, len);
+                sz = write(fd, data, len);
                 if (sz < 0) {
-                        r = log_error_errno(errno, "Failed to write temporary file: %m");
+                        r = log_error_errno(errno, "Failed to write output: %m");
                         goto error;
                 }
                 if (sz != (ssize_t) len) {
-                        log_error("Short write to temporary file.");
+                        log_error("Short write to output.");
                         r = -EIO;
                         goto error;
                 }
