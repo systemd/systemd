@@ -441,7 +441,7 @@ const char* socket_address_get_path(const SocketAddress *a) {
 }
 
 bool socket_ipv6_is_supported(void) {
-        if (access("/proc/net/sockstat6", F_OK) != 0)
+        if (access("/proc/net/if_inet6", F_OK) != 0)
                 return false;
 
         return true;
