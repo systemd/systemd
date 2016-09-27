@@ -28,9 +28,10 @@
 #include <elfutils/libdwfl.h>
 #endif
 
+#include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-login.h"
-#include "sd-daemon.h"
+#include "sd-messages.h"
 
 #include "acl-util.h"
 #include "alloc-util.h"
@@ -131,6 +132,10 @@ static int parse_config(void) {
                                  "Coredump\0",
                                  config_item_table_lookup, items,
                                  false, NULL);
+}
+
+static inline uint64_t storage_size_max(void) {
+        return arg_storage == COREDUMP_STORAGE_EXTERNAL ? arg_external_size_max : arg_journal_size_max;
 }
 
 static int fix_acl(int fd, uid_t uid) {
@@ -329,12 +334,13 @@ static int save_external_coredump(
                 /* Is coredumping disabled? Then don't bother saving/processing the coredump.
                  * Anything below PAGE_SIZE cannot give a readable coredump (the kernel uses
                  * ELF_EXEC_PAGESIZE which is not easily accessible, but is usually the same as PAGE_SIZE. */
-                log_info("Core dumping has been disabled for process %s (%s).", context[CONTEXT_PID], context[CONTEXT_COMM]);
+                log_info("Resource limits disable core dumping for process %s (%s).",
+                         context[CONTEXT_PID], context[CONTEXT_COMM]);
                 return -EBADSLT;
         }
 
         /* Never store more than the process configured, or than we actually shall keep or process */
-        max_size = MIN(rlimit, MAX(arg_process_size_max, arg_external_size_max));
+        max_size = MIN(rlimit, MAX(arg_process_size_max, storage_size_max()));
 
         r = make_filename(context, &fn);
         if (r < 0)
@@ -347,19 +353,18 @@ static int save_external_coredump(
                 return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
 
         r = copy_bytes(input_fd, fd, max_size, false);
-        if (r == -EFBIG) {
-                log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", context[CONTEXT_PID], context[CONTEXT_COMM]);
+        if (r < 0) {
+                log_error_errno(r, "Cannot store coredump of %s (%s): %m", context[CONTEXT_PID], context[CONTEXT_COMM]);
                 goto fail;
-        } else if (IN_SET(r, -EDQUOT, -ENOSPC)) {
-                log_error("Not enough disk space for coredump of %s (%s), refusing.", context[CONTEXT_PID], context[CONTEXT_COMM]);
-                goto fail;
-        } else if (r < 0) {
-                log_error_errno(r, "Failed to dump coredump to file: %m");
-                goto fail;
-        }
+        } else if (r == 1)
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
+                           "SIZE_LIMIT=%zu", max_size,
+                           LOG_MESSAGE_ID(SD_MESSAGE_TRUNCATED_CORE),
+                           NULL);
 
         if (fstat(fd, &st) < 0) {
-                log_error_errno(errno, "Failed to fstat coredump %s: %m", coredump_tmpfile_name(tmp));
+                log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
                 goto fail;
         }
 

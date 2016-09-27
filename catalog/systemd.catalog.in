@@ -88,6 +88,17 @@ Process @COREDUMP_PID@ (@COREDUMP_COMM@) crashed and dumped core.
 This usually indicates a programming error in the crashing program and
 should be reported to its vendor as a bug.
 
+-- 5aadd8e954dc4b1a8c954d63fd9e1137
+Subject: Core file was truncated to @SIZE_LIMIT@ bytes.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:coredump.conf(5)
+
+The process had more memory mapped than the configured maximum for processing
+and storage by systemd-coredump(8). Only the first @SIZE_LIMIT@ bytes were
+saved. This core might still be usable, but various tools like gdb(1) will warn
+about the file being truncated.
+
 -- fc2e22bc6ee647b6b90729ab34a250b1 de
 Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert
 Defined-By: systemd
