@@ -232,6 +232,18 @@
           the network otherwise.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Unmanaged=</varname></term>
+        <listitem>
+          <para>A boolean. When <literal>yes</literal>, no attempts are
+          made to bring up or configure matching links, equivalent to
+          when there are no matching network files. Defaults to
+          <literal>no</literal>.</para>
+          <para>This is useful for preventing later matching network
+          files from interfering with certain interfaces that are fully
+          controlled by other applications.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

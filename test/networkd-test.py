@@ -92,6 +92,45 @@ class NetworkdTestingUtilities:
             dropin.write(contents)
         self.addCleanup(os.remove, dropin_path)
 
+    def assert_link_states(self, **kwargs):
+        """Match networkctl link states to the given ones.
+
+        Each keyword argument should be the name of a network interface
+        with its expected value of the "SETUP" column in output from
+        networkctl.  The interfaces have five seconds to come online
+        before the check is performed.  Every specified interface must
+        be present in the output, and any other interfaces found in the
+        output are ignored.
+
+        A special interface state "managed" is supported, which matches
+        any value in the "SETUP" column other than "unmanaged".
+        """
+        if not kwargs:
+            return
+        interfaces = set(kwargs)
+
+        # Wait for the requested interfaces, but don't fail for them.
+        subprocess.call([NETWORKD_WAIT_ONLINE, '--timeout=5'] +
+                        ['--interface=%s' % iface for iface in kwargs])
+
+        # Validate each link state found in the networkctl output.
+        out = subprocess.check_output(['networkctl', '--no-legend']).rstrip()
+        for line in out.decode('utf-8').split('\n'):
+            fields = line.split()
+            if len(fields) >= 5 and fields[1] in kwargs:
+                iface = fields[1]
+                expected = kwargs[iface]
+                actual = fields[-1]
+                if (actual != expected and
+                        not (expected == 'managed' and actual != 'unmanaged')):
+                    self.fail("Link %s expects state %s, found %s" %
+                              (iface, expected, actual))
+                interfaces.remove(iface)
+
+        # Ensure that all requested interfaces have been covered.
+        if interfaces:
+            self.fail("Missing links in status output: %s" % interfaces)
+
 
 class ClientTestBase(NetworkdTestingUtilities):
     """Provide common methods for testing networkd against servers."""
@@ -718,6 +757,83 @@ DNS=127.0.0.1''')
             self.show_journal('systemd-networkd.service')
             self.show_journal('systemd-hostnamed.service')
             raise
+
+
+class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
+    """Test if networkd manages the correct interfaces."""
+
+    def setUp(self):
+        """Write .network files to match the named veth devices."""
+        # Define the veth+peer pairs to be created.
+        # Their pairing doesn't actually matter, only their names do.
+        self.veths = {
+            'm1def': 'm0unm',
+            'm1man': 'm1unm',
+        }
+
+        # Define the contents of .network files to be read in order.
+        self.configs = (
+            "[Match]\nName=m1def\n",
+            "[Match]\nName=m1unm\n[Link]\nUnmanaged=yes\n",
+            "[Match]\nName=m1*\n[Link]\nUnmanaged=no\n",
+        )
+
+        # Write out the .network files to be cleaned up automatically.
+        for i, config in enumerate(self.configs):
+            self.write_network("%02d-test.network" % i, config)
+
+    def tearDown(self):
+        """Stop networkd."""
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+
+    def create_iface(self):
+        """Create temporary veth pairs for interface matching."""
+        for veth, peer in self.veths.items():
+            subprocess.check_call(['ip', 'link', 'add',
+                                   'name', veth, 'type', 'veth',
+                                   'peer', 'name', peer])
+            self.addCleanup(subprocess.call,
+                            ['ip', 'link', 'del', 'dev', peer])
+
+    def test_unmanaged_setting(self):
+        """Verify link states with Unmanaged= settings, hot-plug."""
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.create_iface()
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='unmanaged')
+
+    def test_unmanaged_setting_coldplug(self):
+        """Verify link states with Unmanaged= settings, cold-plug."""
+        self.create_iface()
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='unmanaged')
+
+    def test_catchall_config(self):
+        """Verify link states with a catch-all config, hot-plug."""
+        # Don't actually catch ALL interfaces.  It messes up the host.
+        self.write_network('all.network', "[Match]\nName=m[01]???\n")
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.create_iface()
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='managed')
+
+    def test_catchall_config_coldplug(self):
+        """Verify link states with a catch-all config, cold-plug."""
+        # Don't actually catch ALL interfaces.  It messes up the host.
+        self.write_network('all.network', "[Match]\nName=m[01]???\n")
+        self.create_iface()
+        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.assert_link_states(m1def='managed',
+                                m1man='managed',
+                                m1unm='unmanaged',
+                                m0unm='managed')
 
 
 if __name__ == '__main__':
