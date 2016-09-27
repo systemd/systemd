@@ -280,11 +280,10 @@ static int retrieve(const void *data,
         free(*var);
         *var = v;
 
-        return 0;
+        return 1;
 }
 
-static void print_field(FILE* file, sd_journal *j) {
-        _cleanup_free_ char *value = NULL;
+static int print_field(FILE* file, sd_journal *j) {
         const void *d;
         size_t l;
 
@@ -293,12 +292,33 @@ static void print_field(FILE* file, sd_journal *j) {
 
         assert(arg_field);
 
-        SD_JOURNAL_FOREACH_DATA(j, d, l)
-                retrieve(d, l, arg_field, &value);
+        /* A (user-specified) field may appear more than once for a given entry.
+         * We will print all of the occurences.
+         * This is different below for fields that systemd-coredump uses,
+         * because they cannot meaningfully appear more than once.
+         */
+        SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                _cleanup_free_ char *value = NULL;
+                int r;
 
-        if (value)
-                fprintf(file, "%s\n", value);
+                r = retrieve(d, l, arg_field, &value);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        fprintf(file, "%s\n", value);
+        }
+
+        return 0;
 }
+
+#define RETRIEVE(d, l, name, arg)                    \
+        {                                            \
+                int _r = retrieve(d, l, name, &arg); \
+                if (_r < 0)                          \
+                        return _r;                   \
+                if (_r > 0)                          \
+                        continue;                    \
+        }
 
 static int print_list(FILE* file, sd_journal *j, int had_legend) {
         _cleanup_free_ char
@@ -316,15 +336,15 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
-                retrieve(d, l, "COREDUMP_PID", &pid);
-                retrieve(d, l, "COREDUMP_UID", &uid);
-                retrieve(d, l, "COREDUMP_GID", &gid);
-                retrieve(d, l, "COREDUMP_SIGNAL", &sgnl);
-                retrieve(d, l, "COREDUMP_EXE", &exe);
-                retrieve(d, l, "COREDUMP_COMM", &comm);
-                retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
-                retrieve(d, l, "COREDUMP_FILENAME", &filename);
-                retrieve(d, l, "COREDUMP", &coredump);
+                RETRIEVE(d, l, "COREDUMP_PID", pid);
+                RETRIEVE(d, l, "COREDUMP_UID", uid);
+                RETRIEVE(d, l, "COREDUMP_GID", gid);
+                RETRIEVE(d, l, "COREDUMP_SIGNAL", sgnl);
+                RETRIEVE(d, l, "COREDUMP_EXE", exe);
+                RETRIEVE(d, l, "COREDUMP_COMM", comm);
+                RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
+                RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
+                RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
         if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename) {
@@ -389,26 +409,26 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
-                retrieve(d, l, "COREDUMP_PID", &pid);
-                retrieve(d, l, "COREDUMP_UID", &uid);
-                retrieve(d, l, "COREDUMP_GID", &gid);
-                retrieve(d, l, "COREDUMP_SIGNAL", &sgnl);
-                retrieve(d, l, "COREDUMP_EXE", &exe);
-                retrieve(d, l, "COREDUMP_COMM", &comm);
-                retrieve(d, l, "COREDUMP_CMDLINE", &cmdline);
-                retrieve(d, l, "COREDUMP_UNIT", &unit);
-                retrieve(d, l, "COREDUMP_USER_UNIT", &user_unit);
-                retrieve(d, l, "COREDUMP_SESSION", &session);
-                retrieve(d, l, "COREDUMP_OWNER_UID", &owner_uid);
-                retrieve(d, l, "COREDUMP_SLICE", &slice);
-                retrieve(d, l, "COREDUMP_CGROUP", &cgroup);
-                retrieve(d, l, "COREDUMP_TIMESTAMP", &timestamp);
-                retrieve(d, l, "COREDUMP_FILENAME", &filename);
-                retrieve(d, l, "COREDUMP", &coredump);
-                retrieve(d, l, "_BOOT_ID", &boot_id);
-                retrieve(d, l, "_MACHINE_ID", &machine_id);
-                retrieve(d, l, "_HOSTNAME", &hostname);
-                retrieve(d, l, "MESSAGE", &message);
+                RETRIEVE(d, l, "COREDUMP_PID", pid);
+                RETRIEVE(d, l, "COREDUMP_UID", uid);
+                RETRIEVE(d, l, "COREDUMP_GID", gid);
+                RETRIEVE(d, l, "COREDUMP_SIGNAL", sgnl);
+                RETRIEVE(d, l, "COREDUMP_EXE", exe);
+                RETRIEVE(d, l, "COREDUMP_COMM", comm);
+                RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
+                RETRIEVE(d, l, "COREDUMP_UNIT", unit);
+                RETRIEVE(d, l, "COREDUMP_USER_UNIT", user_unit);
+                RETRIEVE(d, l, "COREDUMP_SESSION", session);
+                RETRIEVE(d, l, "COREDUMP_OWNER_UID", owner_uid);
+                RETRIEVE(d, l, "COREDUMP_SLICE", slice);
+                RETRIEVE(d, l, "COREDUMP_CGROUP", cgroup);
+                RETRIEVE(d, l, "COREDUMP_TIMESTAMP", timestamp);
+                RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
+                RETRIEVE(d, l, "COREDUMP", coredump);
+                RETRIEVE(d, l, "_BOOT_ID", boot_id);
+                RETRIEVE(d, l, "_MACHINE_ID", machine_id);
+                RETRIEVE(d, l, "_HOSTNAME", hostname);
+                RETRIEVE(d, l, "MESSAGE", message);
         }
 
         if (need_space)
@@ -553,15 +573,15 @@ static int focus(sd_journal *j) {
         return r;
 }
 
-static void print_entry(sd_journal *j, unsigned n_found) {
+static int print_entry(sd_journal *j, unsigned n_found) {
         assert(j);
 
         if (arg_action == ACTION_INFO)
-                print_info(stdout, j, n_found);
+                return print_info(stdout, j, n_found);
         else if (arg_field)
-                print_field(stdout, j);
+                return print_field(stdout, j);
         else
-                print_list(stdout, j, n_found);
+                return print_list(stdout, j, n_found);
 }
 
 static int dump_list(sd_journal *j) {
@@ -580,10 +600,13 @@ static int dump_list(sd_journal *j) {
                 if (r < 0)
                         return r;
 
-                print_entry(j, 0);
+                return print_entry(j, 0);
         } else {
-                SD_JOURNAL_FOREACH(j)
-                        print_entry(j, n_found++);
+                SD_JOURNAL_FOREACH(j) {
+                        r = print_entry(j, n_found++);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (!arg_field && n_found <= 0) {
                         log_notice("No coredumps found.");
