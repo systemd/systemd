@@ -2514,6 +2514,20 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
         return 0;
 }
 
+bool is_cgroup_fs(const struct statfs *s) {
+        return is_fs_type(s, CGROUP_SUPER_MAGIC) ||
+               is_fs_type(s, CGROUP2_SUPER_MAGIC);
+}
+
+bool fd_is_cgroup_fs(int fd) {
+        struct statfs s;
+
+        if (fstatfs(fd, &s) < 0)
+                return -errno;
+
+        return is_cgroup_fs(&s);
+}
+
 static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_CPU] = "cpu",
         [CGROUP_CONTROLLER_CPUACCT] = "cpuacct",
