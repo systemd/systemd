@@ -3121,7 +3121,7 @@ static int logind_check_inhibitors(enum action a) {
                 if (sd_session_get_class(*s, &class) < 0 || !streq(class, "user"))
                         continue;
 
-                if (sd_session_get_type(*s, &type) < 0 || (!streq(type, "x11") && !streq(type, "tty")))
+                if (sd_session_get_type(*s, &type) < 0 || !STR_IN_SET(type, "x11", "tty"))
                         continue;
 
                 sd_session_get_tty(*s, &tty);
@@ -3622,7 +3622,7 @@ static void print_status_info(
         if (streq_ptr(i->active_state, "failed")) {
                 active_on = ansi_highlight_red();
                 active_off = ansi_normal();
-        } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
+        } else if (STRPTR_IN_SET(i->active_state, "active", "reloading")) {
                 active_on = ansi_highlight_green();
                 active_off = ansi_normal();
         } else
@@ -3703,12 +3703,10 @@ static void print_status_info(
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
 
-        timestamp = (streq_ptr(i->active_state, "active")      ||
-                     streq_ptr(i->active_state, "reloading"))   ? i->active_enter_timestamp :
-                    (streq_ptr(i->active_state, "inactive")    ||
-                     streq_ptr(i->active_state, "failed"))      ? i->inactive_enter_timestamp :
-                    streq_ptr(i->active_state, "activating")    ? i->inactive_exit_timestamp :
-                                                                  i->active_exit_timestamp;
+        timestamp = STRPTR_IN_SET(i->active_state, "active", "reloading") ? i->active_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "inactive", "failed")  ? i->inactive_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
+                                                                            i->active_exit_timestamp;
 
         s1 = format_timestamp_relative(since1, sizeof(since1), timestamp);
         s2 = format_timestamp(since2, sizeof(since2), timestamp);
@@ -4583,7 +4581,8 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (streq(name, "IODeviceWeight") || streq(name, "BlockIODeviceWeight"))) {
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                           STR_IN_SET(name, "IODeviceWeight", "BlockIODeviceWeight")) {
                         const char *path;
                         uint64_t weight;
 
@@ -4602,8 +4601,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && (cgroup_io_limit_type_from_string(name) >= 0 ||
-                                                                       streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth"))) {
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                           (cgroup_io_limit_type_from_string(name) >= 0 ||
+                            STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth"))) {
                         const char *path;
                         uint64_t bandwidth;
 
@@ -4695,12 +4695,14 @@ static int show_one(
                         return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
                 if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
-                        log_error("Unit %s could not be found.", unit);
+                        log_full(streq(verb, "status") ? LOG_ERR : LOG_DEBUG,
+                                 "Unit %s could not be found.", unit);
 
                         if (streq(verb, "status"))
                                 return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
 
-                        return -ENOENT;
+                        if (!streq(verb, "show"))
+                                return -ENOENT;
                 }
 
                 r = sd_bus_message_rewind(reply, true);
@@ -4765,10 +4767,11 @@ static int show_one(
         r = 0;
         if (show_properties) {
                 char **pp;
+                int not_found_level = streq(verb, "show") ? LOG_DEBUG : LOG_WARNING;
 
                 STRV_FOREACH(pp, arg_properties)
                         if (!set_contains(found_properties, *pp)) {
-                                log_warning("Property %s does not exist.", *pp);
+                                log_full(not_found_level, "Property %s does not exist.", *pp);
                                 r = -ENXIO;
                         }
 

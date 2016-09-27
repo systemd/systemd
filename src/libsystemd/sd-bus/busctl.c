@@ -2003,8 +2003,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (streq_ptr(argv[optind], "monitor") ||
-            streq_ptr(argv[optind], "capture")) {
+        if (STRPTR_IN_SET(argv[optind], "monitor", "capture")) {
 
                 r = sd_bus_set_monitor(bus, true);
                 if (r < 0) {

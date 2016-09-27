@@ -122,7 +122,7 @@ static void setup_state_to_color(const char *state, const char **on, const char 
         } else if (streq_ptr(state, "configuring")) {
                 *on = ansi_highlight_yellow();
                 *off = ansi_normal();
-        } else if (streq_ptr(state, "failed") || streq_ptr(state, "linger")) {
+        } else if (STRPTR_IN_SET(state, "failed", "linger")) {
                 *on = ansi_highlight_red();
                 *off = ansi_normal();
         } else

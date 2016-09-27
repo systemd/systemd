@@ -782,11 +782,11 @@ static int request_handler_machine(
 
         r = sd_journal_get_usage(m->journal, &usage);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s");
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
         r = sd_journal_get_cutoff_realtime_usec(m->journal, &cutoff_from, &cutoff_to);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %s");
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
         if (parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL) == -ENOENT)
                 (void) parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
