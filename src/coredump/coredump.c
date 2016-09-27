@@ -370,8 +370,7 @@ static int save_external_coredump(
 
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
         /* If we will remove the coredump anyway, do not compress. */
-        if (maybe_remove_external_coredump(NULL, st.st_size) == 0
-            && arg_compress) {
+        if (arg_compress && !maybe_remove_external_coredump(NULL, st.st_size)) {
 
                 _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
                 _cleanup_close_ int fd_compressed = -1;
@@ -703,7 +702,9 @@ static int submit_coredump(
 
                 coredump_filename = strjoina("COREDUMP_FILENAME=", filename);
                 IOVEC_SET_STRING(iovec[n_iovec++], coredump_filename);
-        }
+        } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+                log_info("The core will not be stored: size %zu is greater than %zu (the configured maximum)",
+                         coredump_size, arg_external_size_max);
 
         /* Vacuum again, but exclude the coredump we just created */
         (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
@@ -728,7 +729,9 @@ static int submit_coredump(
                         log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
                         log_warning_errno(r, "Failed to generate stack trace: %m");
-        }
+        } else
+                log_debug("Not generating stack trace: core size %zu is greater than %zu (the configured maximum)",
+                          coredump_size, arg_process_size_max);
 
         if (!core_message)
 #endif
@@ -738,18 +741,22 @@ log:
                 IOVEC_SET_STRING(iovec[n_iovec++], core_message);
 
         /* Optionally store the entire coredump in the journal */
-        if (arg_storage == COREDUMP_STORAGE_JOURNAL &&
-            coredump_size <= arg_journal_size_max) {
-                size_t sz = 0;
+        if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
+                if (coredump_size <= arg_journal_size_max) {
+                        size_t sz = 0;
 
-                /* Store the coredump itself in the journal */
+                        /* Store the coredump itself in the journal */
 
-                r = allocate_journal_field(coredump_fd, (size_t) coredump_size, &coredump_data, &sz);
-                if (r >= 0) {
-                        iovec[n_iovec].iov_base = coredump_data;
-                        iovec[n_iovec].iov_len = sz;
-                        n_iovec++;
-                }
+                        r = allocate_journal_field(coredump_fd, (size_t) coredump_size, &coredump_data, &sz);
+                        if (r >= 0) {
+                                iovec[n_iovec].iov_base = coredump_data;
+                                iovec[n_iovec].iov_len = sz;
+                                n_iovec++;
+                        } else
+                                log_warning_errno(r, "Failed to attach the core to the journal entry: %m");
+                } else
+                        log_info("The core will not be stored: size %zu is greater than %zu (the configured maximum)",
+                                 coredump_size, arg_journal_size_max);
         }
 
         assert(n_iovec <= n_iovec_allocated);
