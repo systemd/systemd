@@ -613,7 +613,7 @@
 
         <listitem>
           <para>When used with <command>list-dependencies</command>,
-          <command>list-units</command> or <command>list-machines</command>, the
+          <command>list-units</command> or <command>list-machines</command>,
           the output is printed as a list instead of a tree, and the bullet
           circles are omitted.</para>
         </listitem>
