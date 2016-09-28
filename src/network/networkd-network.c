@@ -368,10 +368,9 @@ int network_get(Manager *manager, struct udev_device *device,
         return -ENOENT;
 }
 
-int network_apply(Manager *manager, Network *network, Link *link) {
+int network_apply(Network *network, Link *link) {
         int r;
 
-        assert(manager);
         assert(network);
         assert(link);
 

@@ -2632,7 +2632,7 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
                                 log_link_debug(link, "Ignoring DHCP server for loopback link");
                 }
 
-                r = network_apply(link->manager, network, link);
+                r = network_apply(network, link);
                 if (r < 0)
                         return r;
         }
@@ -2728,7 +2728,7 @@ static int link_load(Link *link) {
                         goto network_file_fail;
                 }
 
-                r = network_apply(link->manager, network, link);
+                r = network_apply(network, link);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to apply network %s: %m", basename(network_file));
         }
