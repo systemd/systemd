@@ -1756,6 +1756,11 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
+        if (n == 0) {
+                log_warning("Received notify message is empty. Ignoring.");
+                return 0;
+        }
+
         buf[n] = 0;
 
         /* Notify every unit that might be interested, but try
