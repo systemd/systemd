@@ -393,6 +393,9 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 
         p = s->buffer;
         remaining = s->length;
+
+        /* XXX: This function does nothing if (s->length == 0) */
+
         for (;;) {
                 char *end;
                 size_t skip;
