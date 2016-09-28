@@ -781,7 +781,7 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         k++;
                 }
 
-                if (setgroups(k, gids) < 0) {
+                if (maybe_setgroups(k, gids) < 0) {
                         free(gids);
                         return -errno;
                 }

@@ -31,6 +31,7 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "user-util.h"
 #include "util.h"
 
 int have_effective_cap(int value) {
@@ -295,7 +296,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (setresgid(gid, gid, gid) < 0)
                 return log_error_errno(errno, "Failed to change group ID: %m");
 
-        if (setgroups(0, NULL) < 0)
+        if (maybe_setgroups(0, NULL) < 0)
                 return log_error_errno(errno, "Failed to drop auxiliary groups list: %m");
 
         /* Ensure we keep the permitted caps across the setresuid() */
