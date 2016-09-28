@@ -92,8 +92,11 @@ bool use_audit(void) {
                 int fd;
 
                 fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
-                if (fd < 0)
-                        cached_use = errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT;
+                if (fd < 0) {
+                        cached_use = !IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT, EPERM);
+                        if (errno == EPERM)
+                                log_debug_errno(errno, "Audit access prohibited, won't talk to audit");
+                }
                 else {
                         cached_use = true;
                         safe_close(fd);
