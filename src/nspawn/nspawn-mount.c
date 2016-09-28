@@ -314,19 +314,21 @@ int mount_all(const char *dest,
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",            "/proc",           "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  true,  false },
-                { "/proc/sys",       "/proc/sys",       NULL,    NULL,        MS_BIND,                                                   true,  true,  false },   /* Bind mount first ...*/
-                { "/proc/sys/net",   "/proc/sys/net",   NULL,    NULL,        MS_BIND,                                                   true,  true,  true  },   /* (except for this) */
-                { NULL,              "/proc/sys",       NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, true,  true,  false },   /* ... then, make it r/o */
-                { "tmpfs",           "/sys",            "tmpfs", "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  false, true  },
-                { "sysfs",           "/sys",            "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    true,  false, false },
-                { "tmpfs",           "/dev",            "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  true,  false, false },
-                { "tmpfs",           "/dev/shm",        "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false, false },
-                { "tmpfs",           "/run",            "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false, false },
-                { "tmpfs",           "/tmp",            "tmpfs", "mode=1777", MS_STRICTATIME,                                            true,  false, false },
+                { "proc",                "/proc",               "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  true,  false },
+                { "/proc/sys",           "/proc/sys",           NULL,    NULL,        MS_BIND,                                                   true,  true,  false },   /* Bind mount first ...*/
+                { "/proc/sys/net",       "/proc/sys/net",       NULL,    NULL,        MS_BIND,                                                   true,  true,  true  },   /* (except for this) */
+                { NULL,                  "/proc/sys",           NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, true,  true,  false },   /* ... then, make it r/o */
+                { "/proc/sysrq-trigger", "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND,                                                   false, true,  false },   /* Bind mount first ...*/
+                { NULL,                  "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, false, true,  false },   /* ... then, make it r/o */
+                { "tmpfs",               "/sys",                "tmpfs", "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,                              true,  false, true  },
+                { "sysfs",               "/sys",                "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    true,  false, false },
+                { "tmpfs",               "/dev",                "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  true,  false, false },
+                { "tmpfs",               "/dev/shm",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false, false },
+                { "tmpfs",               "/run",                "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         true,  false, false },
+                { "tmpfs",               "/tmp",                "tmpfs", "mode=1777", MS_STRICTATIME,                                            true,  false, false },
 #ifdef HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL,     NULL,       MS_BIND,                                                   false, false, false },  /* Bind mount first */
-                { NULL,              "/sys/fs/selinux", NULL,     NULL,       MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, false, false, false },  /* Then, make it r/o */
+                { "/sys/fs/selinux",     "/sys/fs/selinux",     NULL,     NULL,       MS_BIND,                                                   false, false, false },  /* Bind mount first */
+                { NULL,                  "/sys/fs/selinux",     NULL,     NULL,       MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, false, false, false },  /* Then, make it r/o */
 #endif
         };
 
@@ -356,7 +358,7 @@ int mount_all(const char *dest,
                         continue;
 
                 r = mkdir_p(where, 0755);
-                if (r < 0) {
+                if (r < 0 && r != -EEXIST) {
                         if (mount_table[k].fatal)
                                 return log_error_errno(r, "Failed to create directory %s: %m", where);
 
@@ -476,7 +478,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 return log_error_errno(errno, "mount(%s) failed: %m", where);
 
         if (m->read_only) {
-                r = bind_remount_recursive(where, true);
+                r = bind_remount_recursive(where, true, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Read-only bind mount failed: %m");
         }
@@ -990,7 +992,7 @@ int setup_volatile_state(
         /* --volatile=state means we simply overmount /var
            with a tmpfs, and the rest read-only. */
 
-        r = bind_remount_recursive(directory, true);
+        r = bind_remount_recursive(directory, true, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to remount %s read-only: %m", directory);
 
@@ -1065,7 +1067,7 @@ int setup_volatile(
 
         bind_mounted = true;
 
-        r = bind_remount_recursive(t, true);
+        r = bind_remount_recursive(t, true, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to remount %s read-only: %m", t);
                 goto fail;

@@ -1639,8 +1639,14 @@ EXTRA_DIST += \
 	test/test-execute/exec-personality-aarch64.service \
 	test/test-execute/exec-privatedevices-no.service \
 	test/test-execute/exec-privatedevices-yes.service \
+	test/test-execute/exec-privatedevices-no-capability-mknod.service \
+	test/test-execute/exec-privatedevices-yes-capability-mknod.service \
 	test/test-execute/exec-privatetmp-no.service \
 	test/test-execute/exec-privatetmp-yes.service \
+	test/test-execute/exec-readonlypaths.service \
+	test/test-execute/exec-readonlypaths-mount-propagation.service \
+	test/test-execute/exec-readwritepaths-mount-propagation.service \
+	test/test-execute/exec-inaccessiblepaths-mount-propagation.service \
 	test/test-execute/exec-spec-interpolation.service \
 	test/test-execute/exec-systemcallerrornumber.service \
 	test/test-execute/exec-systemcallfilter-failing2.service \

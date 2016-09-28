@@ -13,12 +13,16 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/hostnamed
 [Service]
 ExecStart=@rootlibexecdir@/systemd-hostnamed
 BusName=org.freedesktop.hostname1
-CapabilityBoundingSet=CAP_SYS_ADMIN
 WatchdogSec=3min
+CapabilityBoundingSet=CAP_SYS_ADMIN
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 ProtectSystem=yes
 ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
 MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX
 SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io

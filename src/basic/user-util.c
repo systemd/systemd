@@ -31,14 +31,15 @@
 #include <unistd.h>
 #include <utmp.h>
 
-#include "missing.h"
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "formats-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -171,6 +172,35 @@ int get_user_creds(
 
         if (shell)
                 *shell = p->pw_shell;
+
+        return 0;
+}
+
+int get_user_creds_clean(
+                const char **username,
+                uid_t *uid, gid_t *gid,
+                const char **home,
+                const char **shell) {
+
+        int r;
+
+        /* Like get_user_creds(), but resets home/shell to NULL if they don't contain anything relevant. */
+
+        r = get_user_creds(username, uid, gid, home, shell);
+        if (r < 0)
+                return r;
+
+        if (shell &&
+            (isempty(*shell) || PATH_IN_SET(*shell,
+                                            "/bin/nologin",
+                                            "/sbin/nologin",
+                                            "/usr/bin/nologin",
+                                            "/usr/sbin/nologin")))
+                *shell = NULL;
+
+        if (home &&
+            (isempty(*home) || path_equal(*home, "/")))
+                *home = NULL;
 
         return 0;
 }

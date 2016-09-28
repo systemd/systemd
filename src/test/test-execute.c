@@ -133,6 +133,28 @@ static void test_exec_privatedevices(Manager *m) {
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
 }
 
+static void test_exec_privatedevices_capabilities(Manager *m) {
+        if (detect_container() > 0) {
+                log_notice("testing in container, skipping private device tests");
+                return;
+        }
+        test(m, "exec-privatedevices-yes-capability-mknod.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-mknod.service", 0, CLD_EXITED);
+}
+
+static void test_exec_readonlypaths(Manager *m) {
+        test(m, "exec-readonlypaths.service", 0, CLD_EXITED);
+        test(m, "exec-readonlypaths-mount-propagation.service", 0, CLD_EXITED);
+}
+
+static void test_exec_readwritepaths(Manager *m) {
+        test(m, "exec-readwritepaths-mount-propagation.service", 0, CLD_EXITED);
+}
+
+static void test_exec_inaccessiblepaths(Manager *m) {
+        test(m, "exec-inaccessiblepaths-mount-propagation.service", 0, CLD_EXITED);
+}
+
 static void test_exec_systemcallfilter(Manager *m) {
 #ifdef HAVE_SECCOMP
         if (!is_seccomp_available())
@@ -345,6 +367,10 @@ int main(int argc, char *argv[]) {
                 test_exec_ignoresigpipe,
                 test_exec_privatetmp,
                 test_exec_privatedevices,
+                test_exec_privatedevices_capabilities,
+                test_exec_readonlypaths,
+                test_exec_readwritepaths,
+                test_exec_inaccessiblepaths,
                 test_exec_privatenetwork,
                 test_exec_systemcallfilter,
                 test_exec_systemcallerrornumber,

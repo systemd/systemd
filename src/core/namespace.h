@@ -35,6 +35,7 @@ typedef enum ProtectSystem {
         PROTECT_SYSTEM_NO,
         PROTECT_SYSTEM_YES,
         PROTECT_SYSTEM_FULL,
+        PROTECT_SYSTEM_STRICT,
         _PROTECT_SYSTEM_MAX,
         _PROTECT_SYSTEM_INVALID = -1
 } ProtectSystem;
@@ -46,6 +47,8 @@ int setup_namespace(const char *chroot,
                     const char *tmp_dir,
                     const char *var_tmp_dir,
                     bool private_dev,
+                    bool protect_sysctl,
+                    bool protect_cgroups,
                     ProtectHome protect_home,
                     ProtectSystem protect_system,
                     unsigned long mount_flags);

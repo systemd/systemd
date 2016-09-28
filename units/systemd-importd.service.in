@@ -13,9 +13,11 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/importd
 [Service]
 ExecStart=@rootlibexecdir@/systemd-importd
 BusName=org.freedesktop.import1
-CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE
-NoNewPrivileges=yes
 WatchdogSec=3min
 KillMode=mixed
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE
+NoNewPrivileges=yes
 MemoryDenyWriteExecute=yes
-SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io

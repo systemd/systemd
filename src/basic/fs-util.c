@@ -597,3 +597,190 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
 
         return r;
 }
+
+int chase_symlinks(const char *path, const char *_root, char **ret) {
+        _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
+        _cleanup_close_ int fd = -1;
+        unsigned max_follow = 32; /* how many symlinks to follow before giving up and returning ELOOP */
+        char *todo;
+        int r;
+
+        assert(path);
+
+        /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
+         * symlinks relative to a root directory, instead of the root of the host.
+         *
+         * Note that "root" matters only if we encounter an absolute symlink, it's unused otherwise. Most importantly
+         * this means the path parameter passed in is not prefixed by it.
+         *
+         * Algorithmically this operates on two path buffers: "done" are the components of the path we already
+         * processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we still need to
+         * process. On each iteration, we move one component from "todo" to "done", processing it's special meaning
+         * each time. The "todo" path always starts with at least one slash, the "done" path always ends in no
+         * slash. We always keep an O_PATH fd to the component we are currently processing, thus keeping lookup races
+         * at a minimum. */
+
+        r = path_make_absolute_cwd(path, &buffer);
+        if (r < 0)
+                return r;
+
+        if (_root) {
+                r = path_make_absolute_cwd(_root, &root);
+                if (r < 0)
+                        return r;
+        }
+
+        fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        todo = buffer;
+        for (;;) {
+                _cleanup_free_ char *first = NULL;
+                _cleanup_close_ int child = -1;
+                struct stat st;
+                size_t n, m;
+
+                /* Determine length of first component in the path */
+                n = strspn(todo, "/");                  /* The slashes */
+                m = n + strcspn(todo + n, "/");         /* The entire length of the component */
+
+                /* Extract the first component. */
+                first = strndup(todo, m);
+                if (!first)
+                        return -ENOMEM;
+
+                todo += m;
+
+                /* Just a single slash? Then we reached the end. */
+                if (isempty(first) || path_equal(first, "/"))
+                        break;
+
+                /* Just a dot? Then let's eat this up. */
+                if (path_equal(first, "/."))
+                        continue;
+
+                /* Two dots? Then chop off the last bit of what we already found out. */
+                if (path_equal(first, "/..")) {
+                        _cleanup_free_ char *parent = NULL;
+                        int fd_parent = -1;
+
+                        if (isempty(done) || path_equal(done, "/"))
+                                return -EINVAL;
+
+                        parent = dirname_malloc(done);
+                        if (!parent)
+                                return -ENOMEM;
+
+                        /* Don't allow this to leave the root dir */
+                        if (root &&
+                            path_startswith(done, root) &&
+                            !path_startswith(parent, root))
+                                return -EINVAL;
+
+                        free(done);
+                        done = parent;
+                        parent = NULL;
+
+                        fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                        if (fd_parent < 0)
+                                return -errno;
+
+                        safe_close(fd);
+                        fd = fd_parent;
+
+                        continue;
+                }
+
+                /* Otherwise let's see what this is. */
+                child = openat(fd, first + n, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                if (child < 0)
+                        return -errno;
+
+                if (fstat(child, &st) < 0)
+                        return -errno;
+
+                if (S_ISLNK(st.st_mode)) {
+                        _cleanup_free_ char *destination = NULL;
+
+                        /* This is a symlink, in this case read the destination. But let's make sure we don't follow
+                         * symlinks without bounds. */
+                        if (--max_follow <= 0)
+                                return -ELOOP;
+
+                        r = readlinkat_malloc(fd, first + n, &destination);
+                        if (r < 0)
+                                return r;
+                        if (isempty(destination))
+                                return -EINVAL;
+
+                        if (path_is_absolute(destination)) {
+
+                                /* An absolute destination. Start the loop from the beginning, but use the root
+                                 * directory as base. */
+
+                                safe_close(fd);
+                                fd = open(root ?: "/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                                if (fd < 0)
+                                        return -errno;
+
+                                free(buffer);
+                                buffer = destination;
+                                destination = NULL;
+
+                                todo = buffer;
+                                free(done);
+
+                                /* Note that we do not revalidate the root, we take it as is. */
+                                if (isempty(root))
+                                        done = NULL;
+                                else {
+                                        done = strdup(root);
+                                        if (!done)
+                                                return -ENOMEM;
+                                }
+
+                        } else {
+                                char *joined;
+
+                                /* A relative destination. If so, this is what we'll prefix what's left to do with what
+                                 * we just read, and start the loop again, but remain in the current directory. */
+
+                                joined = strjoin("/", destination, todo, NULL);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                free(buffer);
+                                todo = buffer = joined;
+                        }
+
+                        continue;
+                }
+
+                /* If this is not a symlink, then let's just add the name we read to what we already verified. */
+                if (!done) {
+                        done = first;
+                        first = NULL;
+                } else {
+                        if (!strextend(&done, first, NULL))
+                                return -ENOMEM;
+                }
+
+                /* And iterate again, but go one directory further down. */
+                safe_close(fd);
+                fd = child;
+                child = -1;
+        }
+
+        if (!done) {
+                /* Special case, turn the empty string into "/", to indicate the root directory. */
+                done = strdup("/");
+                if (!done)
+                        return -ENOMEM;
+        }
+
+        *ret = done;
+        done = NULL;
+
+        return 0;
+}

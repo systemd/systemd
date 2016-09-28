@@ -837,6 +837,8 @@ static int null_conv(
         return PAM_CONV_ERR;
 }
 
+#endif
+
 static int setup_pam(
                 const char *name,
                 const char *user,
@@ -844,6 +846,8 @@ static int setup_pam(
                 const char *tty,
                 char ***env,
                 int fds[], unsigned n_fds) {
+
+#ifdef HAVE_PAM
 
         static const struct pam_conv conv = {
                 .conv = null_conv,
@@ -1038,8 +1042,10 @@ fail:
         closelog();
 
         return r;
-}
+#else
+        return 0;
 #endif
+}
 
 static void rename_process_from_path(const char *path) {
         char process_name[11];
@@ -1273,6 +1279,10 @@ static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) 
         if (!seccomp)
                 return -ENOMEM;
 
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
         r = seccomp_rule_add(
                         seccomp,
                         SCMP_ACT_ERRNO(EPERM),
@@ -1321,6 +1331,10 @@ static int apply_restrict_realtime(const Unit* u, const ExecContext *c) {
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
                 return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
 
         /* Determine the highest policy constant we want to allow */
         for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
@@ -1375,11 +1389,120 @@ finish:
         return r;
 }
 
+static int apply_protect_sysctl(Unit *u, const ExecContext *c) {
+        scmp_filter_ctx *seccomp;
+        int r;
+
+        assert(c);
+
+        /* Turn off the legacy sysctl() system call. Many distributions turn this off while building the kernel, but
+         * let's protect even those systems where this is left on in the kernel. */
+
+        if (skip_seccomp_unavailable(u, "ProtectKernelTunables="))
+                return 0;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_rule_add(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(_sysctl),
+                        0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
+static int apply_private_devices(Unit *u, const ExecContext *c) {
+        const SystemCallFilterSet *set;
+        scmp_filter_ctx *seccomp;
+        const char *sys;
+        bool syscalls_found = false;
+        int r;
+
+        assert(c);
+
+        /* If PrivateDevices= is set, also turn off iopl and all @raw-io syscalls. */
+
+        if (skip_seccomp_unavailable(u, "PrivateDevices="))
+                return 0;
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return -ENOMEM;
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0)
+                goto finish;
+
+        for (set = syscall_filter_sets; set->set_name; set++)
+                if (streq(set->set_name, "@raw-io")) {
+                        syscalls_found = true;
+                        break;
+                }
+
+        /* We should never fail here */
+        if (!syscalls_found) {
+                r = -EOPNOTSUPP;
+                goto finish;
+        }
+
+        NULSTR_FOREACH(sys, set->value) {
+                int id;
+                bool add = true;
+
+#ifndef __NR_s390_pci_mmio_read
+                if (streq(sys, "s390_pci_mmio_read"))
+                        add = false;
+#endif
+#ifndef __NR_s390_pci_mmio_write
+                if (streq(sys, "s390_pci_mmio_write"))
+                        add = false;
+#endif
+
+                if (!add)
+                        continue;
+
+                id = seccomp_syscall_resolve_name(sys);
+
+                r = seccomp_rule_add(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                id, 0);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0)
+                goto finish;
+
+        r = seccomp_load(seccomp);
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+}
+
 #endif
 
 static void do_idle_pipe_dance(int idle_pipe[4]) {
         assert(idle_pipe);
-
 
         idle_pipe[1] = safe_close(idle_pipe[1]);
         idle_pipe[2] = safe_close(idle_pipe[2]);
@@ -1581,7 +1704,9 @@ static bool exec_needs_mount_namespace(
 
         if (context->private_devices ||
             context->protect_system != PROTECT_SYSTEM_NO ||
-            context->protect_home != PROTECT_HOME_NO)
+            context->protect_home != PROTECT_HOME_NO ||
+            context->protect_kernel_tunables ||
+            context->protect_control_groups)
                 return true;
 
         return false;
@@ -1740,6 +1865,111 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         return 0;
 }
 
+static int setup_runtime_directory(
+                const ExecContext *context,
+                const ExecParameters *params,
+                uid_t uid,
+                gid_t gid) {
+
+        char **rt;
+        int r;
+
+        assert(context);
+        assert(params);
+
+        STRV_FOREACH(rt, context->runtime_directory) {
+                _cleanup_free_ char *p;
+
+                p = strjoin(params->runtime_prefix, "/", *rt, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                r = mkdir_p_label(p, context->runtime_directory_mode);
+                if (r < 0)
+                        return r;
+
+                r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int setup_smack(
+                const ExecContext *context,
+                const ExecCommand *command) {
+
+#ifdef HAVE_SMACK
+        int r;
+
+        assert(context);
+        assert(command);
+
+        if (!mac_smack_use())
+                return 0;
+
+        if (context->smack_process_label) {
+                r = mac_smack_apply_pid(0, context->smack_process_label);
+                if (r < 0)
+                        return r;
+        }
+#ifdef SMACK_DEFAULT_PROCESS_LABEL
+        else {
+                _cleanup_free_ char *exec_label = NULL;
+
+                r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
+                if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP)
+                        return r;
+
+                r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
+                if (r < 0)
+                        return r;
+        }
+#endif
+#endif
+
+        return 0;
+}
+
+static int compile_read_write_paths(
+                const ExecContext *context,
+                const ExecParameters *params,
+                char ***ret) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        char **rt;
+
+        /* Compile the list of writable paths. This is the combination of the explicitly configured paths, plus all
+         * runtime directories. */
+
+        if (strv_isempty(context->read_write_paths) &&
+            strv_isempty(context->runtime_directory)) {
+                *ret = NULL; /* NOP if neither is set */
+                return 0;
+        }
+
+        l = strv_copy(context->read_write_paths);
+        if (!l)
+                return -ENOMEM;
+
+        STRV_FOREACH(rt, context->runtime_directory) {
+                char *s;
+
+                s = strjoin(params->runtime_prefix, "/", *rt, NULL);
+                if (!s)
+                        return -ENOMEM;
+
+                if (strv_consume(&l, s) < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = l;
+        l = NULL;
+
+        return 0;
+}
+
 static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
         assert(array);
         assert(n);
@@ -1794,6 +2024,37 @@ static int close_remaining_fds(
                 dont_close[n_dont_close++] = user_lookup_fd;
 
         return close_all_fds(dont_close, n_dont_close);
+}
+
+static bool context_has_address_families(const ExecContext *c) {
+        assert(c);
+
+        return c->address_families_whitelist ||
+                !set_isempty(c->address_families);
+}
+
+static bool context_has_syscall_filters(const ExecContext *c) {
+        assert(c);
+
+        return c->syscall_whitelist ||
+                !set_isempty(c->syscall_filter) ||
+                !set_isempty(c->syscall_archs);
+}
+
+static bool context_has_no_new_privileges(const ExecContext *c) {
+        assert(c);
+
+        if (c->no_new_privileges)
+                return true;
+
+        if (have_effective_cap(CAP_SYS_ADMIN)) /* if we are privileged, we don't need NNP */
+                return false;
+
+        return context_has_address_families(c) || /* we need NNP if we have any form of seccomp and are unprivileged */
+                c->memory_deny_write_execute ||
+                c->restrict_realtime ||
+                c->protect_kernel_tunables ||
+                context_has_syscall_filters(c);
 }
 
 static int send_user_lookup(
@@ -1940,22 +2201,14 @@ static int exec_child(
         } else {
                 if (context->user) {
                         username = context->user;
-                        r = get_user_creds(&username, &uid, &gid, &home, &shell);
+                        r = get_user_creds_clean(&username, &uid, &gid, &home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return r;
                         }
 
-                        /* Don't set $HOME or $SHELL if they are are not particularly enlightening anyway. */
-                        if (isempty(home) || path_equal(home, "/"))
-                                home = NULL;
-
-                        if (isempty(shell) || PATH_IN_SET(shell,
-                                                          "/bin/nologin",
-                                                          "/sbin/nologin",
-                                                          "/usr/bin/nologin",
-                                                          "/usr/sbin/nologin"))
-                                shell = NULL;
+                        /* Note that we don't set $HOME or $SHELL if they are are not particularly enlightening anyway
+                         * (i.e. are "/" or "/bin/nologin"). */
                 }
 
                 if (context->group) {
@@ -2108,28 +2361,10 @@ static int exec_child(
         }
 
         if (!strv_isempty(context->runtime_directory) && params->runtime_prefix) {
-                char **rt;
-
-                STRV_FOREACH(rt, context->runtime_directory) {
-                        _cleanup_free_ char *p;
-
-                        p = strjoin(params->runtime_prefix, "/", *rt, NULL);
-                        if (!p) {
-                                *exit_status = EXIT_RUNTIME_DIRECTORY;
-                                return -ENOMEM;
-                        }
-
-                        r = mkdir_p_label(p, context->runtime_directory_mode);
-                        if (r < 0) {
-                                *exit_status = EXIT_RUNTIME_DIRECTORY;
-                                return r;
-                        }
-
-                        r = chmod_and_chown(p, context->runtime_directory_mode, uid, gid);
-                        if (r < 0) {
-                                *exit_status = EXIT_RUNTIME_DIRECTORY;
-                                return r;
-                        }
+                r = setup_runtime_directory(context, params, uid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_RUNTIME_DIRECTORY;
+                        return r;
                 }
         }
 
@@ -2168,41 +2403,15 @@ static int exec_child(
         }
         accum_env = strv_env_clean(accum_env);
 
-        umask(context->umask);
+        (void) umask(context->umask);
 
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
-                r = enforce_groups(context, username, gid);
+                r = setup_smack(context, command);
                 if (r < 0) {
-                        *exit_status = EXIT_GROUP;
+                        *exit_status = EXIT_SMACK_PROCESS_LABEL;
                         return r;
                 }
-#ifdef HAVE_SMACK
-                if (context->smack_process_label) {
-                        r = mac_smack_apply_pid(0, context->smack_process_label);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-                }
-#ifdef SMACK_DEFAULT_PROCESS_LABEL
-                else {
-                        _cleanup_free_ char *exec_label = NULL;
 
-                        r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
-                        if (r < 0 && r != -ENODATA && r != -EOPNOTSUPP) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-
-                        r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
-                        if (r < 0) {
-                                *exit_status = EXIT_SMACK_PROCESS_LABEL;
-                                return r;
-                        }
-                }
-#endif
-#endif
-#ifdef HAVE_PAM
                 if (context->pam_name && username) {
                         r = setup_pam(context->pam_name, username, uid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
@@ -2210,7 +2419,6 @@ static int exec_child(
                                 return r;
                         }
                 }
-#endif
         }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
@@ -2222,8 +2430,8 @@ static int exec_child(
         }
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
-
         if (needs_mount_namespace) {
+                _cleanup_free_ char **rw = NULL;
                 char *tmp = NULL, *var = NULL;
 
                 /* The runtime struct only contains the parent
@@ -2239,14 +2447,22 @@ static int exec_child(
                                 var = strjoina(runtime->var_tmp_dir, "/tmp");
                 }
 
+                r = compile_read_write_paths(context, params, &rw);
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return r;
+                }
+
                 r = setup_namespace(
                                 (params->flags & EXEC_APPLY_CHROOT) ? context->root_directory : NULL,
-                                context->read_write_paths,
+                                rw,
                                 context->read_only_paths,
                                 context->inaccessible_paths,
                                 tmp,
                                 var,
                                 context->private_devices,
+                                context->protect_kernel_tunables,
+                                context->protect_control_groups,
                                 context->protect_home,
                                 context->protect_system,
                                 context->mount_flags);
@@ -2260,6 +2476,14 @@ static int exec_child(
                         log_close();
                 } else if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
+                        return r;
+                }
+        }
+
+        if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
+                r = enforce_groups(context, username, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
                         return r;
                 }
         }
@@ -2335,11 +2559,6 @@ static int exec_child(
 
         if ((params->flags & EXEC_APPLY_PERMISSIONS) && !command->privileged) {
 
-                bool use_address_families = context->address_families_whitelist ||
-                        !set_isempty(context->address_families);
-                bool use_syscall_filter = context->syscall_whitelist ||
-                        !set_isempty(context->syscall_filter) ||
-                        !set_isempty(context->syscall_archs);
                 int secure_bits = context->secure_bits;
 
                 for (i = 0; i < _RLIMIT_MAX; i++) {
@@ -2416,15 +2635,14 @@ static int exec_child(
                                 return -errno;
                         }
 
-                if (context->no_new_privileges ||
-                    (!have_effective_cap(CAP_SYS_ADMIN) && (use_address_families || context->memory_deny_write_execute || context->restrict_realtime || use_syscall_filter)))
+                if (context_has_no_new_privileges(context))
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return -errno;
                         }
 
 #ifdef HAVE_SECCOMP
-                if (use_address_families) {
+                if (context_has_address_families(context)) {
                         r = apply_address_families(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_ADDRESS_FAMILIES;
@@ -2448,7 +2666,23 @@ static int exec_child(
                         }
                 }
 
-                if (use_syscall_filter) {
+                if (context->protect_kernel_tunables) {
+                        r = apply_protect_sysctl(unit, context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
+
+                if (context->private_devices) {
+                        r = apply_private_devices(unit, context);
+                        if (r < 0) {
+                                *exit_status = EXIT_SECCOMP;
+                                return r;
+                        }
+                }
+
+                if (context_has_syscall_filters(context)) {
                         r = apply_seccomp(unit, context);
                         if (r < 0) {
                                 *exit_status = EXIT_SECCOMP;
@@ -2880,6 +3114,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
                 "%sPrivateDevices: %s\n"
+                "%sProtectKernelTunables: %s\n"
+                "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateUsers: %s\n"
                 "%sProtectHome: %s\n"
@@ -2893,6 +3129,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_devices),
+                prefix, yes_no(c->protect_kernel_tunables),
+                prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
