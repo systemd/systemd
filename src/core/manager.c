@@ -1716,10 +1716,14 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
-                if (errno == EAGAIN || errno == EINTR)
-                        return 0;
+                if (!IN_SET(errno, EAGAIN, EINTR))
+                        log_error("Failed to receive notification message: %m");
 
-                return -errno;
+                /* It's not an option to return an error here since it
+                 * would disable the notification handler entirely. Services
+                 * wouldn't be able to send the WATCHDOG message for
+                 * example... */
+                return 0;
         }
         if (n == 0) {
                 log_debug("Got zero-length notification message. Ignoring.");
@@ -1746,7 +1750,8 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 r = fdset_new_array(&fds, fd_array, n_fds);
                 if (r < 0) {
                         close_many(fd_array, n_fds);
-                        return log_oom();
+                        log_oom();
+                        return 0;
                 }
         }
 
