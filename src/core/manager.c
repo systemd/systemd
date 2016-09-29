@@ -1672,8 +1672,14 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const 
 
         if (UNIT_VTABLE(u)->notify_message)
                 UNIT_VTABLE(u)->notify_message(u, pid, tags, fds);
-        else
-                log_unit_debug(u, "Got notification message for unit. Ignoring.");
+        else if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+                _cleanup_free_ char *x = NULL, *y = NULL;
+
+                x = cescape(buf);
+                if (x)
+                        y = ellipsize(x, 20, 90);
+                log_unit_debug(u, "Got notification message \"%s\", ignoring.", strnull(y));
+        }
 }
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
