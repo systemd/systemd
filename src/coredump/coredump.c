@@ -28,9 +28,10 @@
 #include <elfutils/libdwfl.h>
 #endif
 
+#include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-login.h"
-#include "sd-daemon.h"
+#include "sd-messages.h"
 
 #include "acl-util.h"
 #include "alloc-util.h"
@@ -93,7 +94,6 @@ typedef enum CoredumpStorage {
         COREDUMP_STORAGE_NONE,
         COREDUMP_STORAGE_EXTERNAL,
         COREDUMP_STORAGE_JOURNAL,
-        COREDUMP_STORAGE_BOTH,
         _COREDUMP_STORAGE_MAX,
         _COREDUMP_STORAGE_INVALID = -1
 } CoredumpStorage;
@@ -102,7 +102,6 @@ static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
         [COREDUMP_STORAGE_NONE] = "none",
         [COREDUMP_STORAGE_EXTERNAL] = "external",
         [COREDUMP_STORAGE_JOURNAL] = "journal",
-        [COREDUMP_STORAGE_BOTH] = "both",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
@@ -133,6 +132,10 @@ static int parse_config(void) {
                                  "Coredump\0",
                                  config_item_table_lookup, items,
                                  false, NULL);
+}
+
+static inline uint64_t storage_size_max(void) {
+        return arg_storage == COREDUMP_STORAGE_EXTERNAL ? arg_external_size_max : arg_journal_size_max;
 }
 
 static int fix_acl(int fd, uid_t uid) {
@@ -247,7 +250,7 @@ static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
 
         /* Returns 1 if might remove, 0 if will not remove, < 0 on error. */
 
-        if (IN_SET(arg_storage, COREDUMP_STORAGE_EXTERNAL, COREDUMP_STORAGE_BOTH) &&
+        if (arg_storage == COREDUMP_STORAGE_EXTERNAL &&
             size <= arg_external_size_max)
                 return 0;
 
@@ -331,12 +334,13 @@ static int save_external_coredump(
                 /* Is coredumping disabled? Then don't bother saving/processing the coredump.
                  * Anything below PAGE_SIZE cannot give a readable coredump (the kernel uses
                  * ELF_EXEC_PAGESIZE which is not easily accessible, but is usually the same as PAGE_SIZE. */
-                log_info("Core dumping has been disabled for process %s (%s).", context[CONTEXT_PID], context[CONTEXT_COMM]);
+                log_info("Resource limits disable core dumping for process %s (%s).",
+                         context[CONTEXT_PID], context[CONTEXT_COMM]);
                 return -EBADSLT;
         }
 
         /* Never store more than the process configured, or than we actually shall keep or process */
-        max_size = MIN(rlimit, MAX(arg_process_size_max, arg_external_size_max));
+        max_size = MIN(rlimit, MAX(arg_process_size_max, storage_size_max()));
 
         r = make_filename(context, &fn);
         if (r < 0)
@@ -349,19 +353,18 @@ static int save_external_coredump(
                 return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
 
         r = copy_bytes(input_fd, fd, max_size, false);
-        if (r == -EFBIG) {
-                log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", context[CONTEXT_PID], context[CONTEXT_COMM]);
+        if (r < 0) {
+                log_error_errno(r, "Cannot store coredump of %s (%s): %m", context[CONTEXT_PID], context[CONTEXT_COMM]);
                 goto fail;
-        } else if (IN_SET(r, -EDQUOT, -ENOSPC)) {
-                log_error("Not enough disk space for coredump of %s (%s), refusing.", context[CONTEXT_PID], context[CONTEXT_COMM]);
-                goto fail;
-        } else if (r < 0) {
-                log_error_errno(r, "Failed to dump coredump to file: %m");
-                goto fail;
-        }
+        } else if (r == 1)
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
+                           "SIZE_LIMIT=%zu", max_size,
+                           LOG_MESSAGE_ID(SD_MESSAGE_TRUNCATED_CORE),
+                           NULL);
 
         if (fstat(fd, &st) < 0) {
-                log_error_errno(errno, "Failed to fstat coredump %s: %m", coredump_tmpfile_name(tmp));
+                log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
                 goto fail;
         }
 
@@ -372,8 +375,7 @@ static int save_external_coredump(
 
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
         /* If we will remove the coredump anyway, do not compress. */
-        if (maybe_remove_external_coredump(NULL, st.st_size) == 0
-            && arg_compress) {
+        if (arg_compress && !maybe_remove_external_coredump(NULL, st.st_size)) {
 
                 _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
                 _cleanup_close_ int fd_compressed = -1;
@@ -705,7 +707,9 @@ static int submit_coredump(
 
                 coredump_filename = strjoina("COREDUMP_FILENAME=", filename);
                 IOVEC_SET_STRING(iovec[n_iovec++], coredump_filename);
-        }
+        } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+                log_info("The core will not be stored: size %zu is greater than %zu (the configured maximum)",
+                         coredump_size, arg_external_size_max);
 
         /* Vacuum again, but exclude the coredump we just created */
         (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
@@ -730,7 +734,9 @@ static int submit_coredump(
                         log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
                         log_warning_errno(r, "Failed to generate stack trace: %m");
-        }
+        } else
+                log_debug("Not generating stack trace: core size %zu is greater than %zu (the configured maximum)",
+                          coredump_size, arg_process_size_max);
 
         if (!core_message)
 #endif
@@ -740,18 +746,22 @@ log:
                 IOVEC_SET_STRING(iovec[n_iovec++], core_message);
 
         /* Optionally store the entire coredump in the journal */
-        if (IN_SET(arg_storage, COREDUMP_STORAGE_JOURNAL, COREDUMP_STORAGE_BOTH) &&
-            coredump_size <= arg_journal_size_max) {
-                size_t sz = 0;
+        if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
+                if (coredump_size <= arg_journal_size_max) {
+                        size_t sz = 0;
 
-                /* Store the coredump itself in the journal */
+                        /* Store the coredump itself in the journal */
 
-                r = allocate_journal_field(coredump_fd, (size_t) coredump_size, &coredump_data, &sz);
-                if (r >= 0) {
-                        iovec[n_iovec].iov_base = coredump_data;
-                        iovec[n_iovec].iov_len = sz;
-                        n_iovec++;
-                }
+                        r = allocate_journal_field(coredump_fd, (size_t) coredump_size, &coredump_data, &sz);
+                        if (r >= 0) {
+                                iovec[n_iovec].iov_base = coredump_data;
+                                iovec[n_iovec].iov_len = sz;
+                                n_iovec++;
+                        } else
+                                log_warning_errno(r, "Failed to attach the core to the journal entry: %m");
+                } else
+                        log_info("The core will not be stored: size %zu is greater than %zu (the configured maximum)",
+                                 coredump_size, arg_journal_size_max);
         }
 
         assert(n_iovec <= n_iovec_allocated);

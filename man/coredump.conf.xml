@@ -83,16 +83,13 @@
       <varlistentry>
         <term><varname>Storage=</varname></term>
 
-        <listitem><para>Controls where to store cores. One of
-        <literal>none</literal>, <literal>external</literal>,
-        <literal>journal</literal>, and <literal>both</literal>. When
-        <literal>none</literal>, the core dumps will be logged but not
-        stored permanently. When <literal>external</literal> (the
-        default), cores will be stored in <filename>/var/lib/systemd/coredump</filename>.
-        When <literal>journal</literal>, cores will be stored in
-        the journal and rotated following normal journal
-        rotation patterns. When <literal>both</literal>, cores
-        will be stored in both locations.</para>
+        <listitem><para>Controls where to store cores. One of <literal>none</literal>,
+        <literal>external</literal>, and <literal>journal</literal>. When
+        <literal>none</literal>, the core dumps will be logged (included the traceback if
+        possible), but not stored permanently. When <literal>external</literal> (the
+        default), cores will be stored in <filename>/var/lib/systemd/coredump/</filename>.
+        When <literal>journal</literal>, cores will be stored in the journal and rotated
+        following normal journal rotation patterns.</para>
 
         <para>When cores are stored in the journal, they might be
         compressed following journal compression settings, see

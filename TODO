@@ -670,6 +670,7 @@ Features:
 
 * coredump:
   - save coredump in Windows/Mozilla minidump format
+  - when truncating coredumps, also log the full size that the process had, and make a metadata field so we can report truncated coredumps
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
