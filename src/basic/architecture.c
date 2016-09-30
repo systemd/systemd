@@ -123,6 +123,14 @@ int uname_architecture(void) {
                 { "crisv32",    ARCHITECTURE_CRIS     },
 #elif defined(__nios2__)
                 { "nios2",      ARCHITECTURE_NIOS2    },
+#elif defined(__riscv__)
+                { "riscv32",    ARCHITECTURE_RISCV32  },
+                { "riscv64",    ARCHITECTURE_RISCV64  },
+#  if __SIZEOF_POINTER__ == 4
+                { "riscv",      ARCHITECTURE_RISCV32  },
+#  elif __SIZEOF_POINTER__ == 8
+                { "riscv",      ARCHITECTURE_RISCV64  },
+#  endif
 #else
 #error "Please register your architecture here!"
 #endif
@@ -174,6 +182,8 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_TILEGX] = "tilegx",
         [ARCHITECTURE_CRIS] = "cris",
         [ARCHITECTURE_NIOS2] = "nios2",
+        [ARCHITECTURE_RISCV32] = "riscv32",
+        [ARCHITECTURE_RISCV64] = "riscv64",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(architecture, int);

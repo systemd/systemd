@@ -58,6 +58,8 @@ enum {
         ARCHITECTURE_TILEGX,
         ARCHITECTURE_CRIS,
         ARCHITECTURE_NIOS2,
+        ARCHITECTURE_RISCV32,
+        ARCHITECTURE_RISCV64,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -1
 };
@@ -191,6 +193,16 @@ int uname_architecture(void);
 #elif defined(__nios2__)
 #  define native_architecture() ARCHITECTURE_NIOS2
 #  define LIB_ARCH_TUPLE "nios2-linux-gnu"
+#elif defined(__riscv__)
+#  if __SIZEOF_POINTER__ == 4
+#    define native_architecture() ARCHITECTURE_RISCV32
+#    define LIB_ARCH_TUPLE "riscv32-linux-gnu"
+#  elif __SIZEOF_POINTER__ == 8
+#    define native_architecture() ARCHITECTURE_RISCV64
+#    define LIB_ARCH_TUPLE "riscv64-linux-gnu"
+#  else
+#    error "Unrecognized riscv architecture variant"
+#  endif
 #else
 #  error "Please register your architecture here!"
 #endif
