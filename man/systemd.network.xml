@@ -475,8 +475,8 @@
 
             <para>The specified domains are also used for routing of DNS queries: look-ups for host names ending in the
             domains specified here are preferably routed to the DNS servers configured for this interface. If a domain
-            name is prefixed with <literal>~</literal>, the domain name becomes a pure "routing" domain, is used for
-            DNS query routing purposes only and is not used in the described domain search logic. By specifying a
+            name is prefixed with <literal>~</literal>, the domain name becomes a pure "routing" domain, the DNS server
+            is used for the given domain names only and is not used in the described domain search logic. By specifying a
             routing domain of <literal>~.</literal> (the tilde indicating definition of a routing domain, the dot
             referring to the DNS root domain which is the implied suffix of all valid DNS names) it is possible to
             route all DNS traffic preferably to the DNS server specified for this interface. The route domain logic is

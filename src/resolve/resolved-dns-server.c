@@ -576,6 +576,27 @@ void dns_server_warn_downgrade(DnsServer *server) {
         server->warned_downgrade = true;
 }
 
+bool dns_server_limited_domains(DnsServer *server)
+{
+        DnsSearchDomain *domain;
+        bool domain_restricted = false;
+
+        /* Check if the server has route-only domains without ~., i. e. whether
+         * it should only be used for particular domains */
+        if (!server->link)
+                return false;
+
+        LIST_FOREACH(domains, domain, server->link->search_domains)
+                if (domain->route_only) {
+                        domain_restricted = true;
+                        /* ~. means "any domain", thus it is a global server */
+                        if (streq(DNS_SEARCH_DOMAIN_NAME(domain), "."))
+                                return false;
+                }
+
+        return domain_restricted;
+}
+
 static void dns_server_hash_func(const void *p, struct siphash *state) {
         const DnsServer *s = p;
 
