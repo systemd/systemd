@@ -39,7 +39,7 @@ static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, vo
                 return 1;
         }
 
-        log_netdev_debug(netdev, "Bridge parametres set success");
+        log_netdev_debug(netdev, "Bridge parameters set success");
 
         return 1;
 }
