@@ -1787,7 +1787,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
 
         if (fdset_size(fds) > 0)
-                log_warning("Got auxiliary fds with notification message, closing all.");
+                log_warning("Got extra auxiliary fds with notification message, closing them.");
 
         return 0;
 }
