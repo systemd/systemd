@@ -1694,7 +1694,9 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
                 }
 
-        } else if (s->remain_after_exit)
+        } else if (f != SERVICE_SUCCESS)
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+        else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
         else
                 service_enter_stop(s, SERVICE_SUCCESS);
@@ -2578,9 +2580,11 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
         case SERVICE_START:
         case SERVICE_START_POST:
-                /* If we were hoping for the daemon to write its PID file,
-                 * we can give up now. */
-                if (s->pid_file_pathspec) {
+                if (s->type == SERVICE_NOTIFY)
+                        /* No chance of getting a ready notification anymore */
+                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                else if (s->pid_file_pathspec) {
+                        /* Give up hoping for the daemon to write its PID file */
                         log_unit_warning(u, "Daemon never wrote its PID file. Failing.");
 
                         service_unwatch_pid_file(s);
@@ -2720,6 +2724,16 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                 service_enter_start_post(s);
                                         else
                                                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                        break;
+                                } else if (s->type == SERVICE_NOTIFY) {
+                                        /* Only enter running through a notification, so that the
+                                         * SERVICE_START state signifies that no ready notification
+                                         * has been received */
+                                        if (f != SERVICE_SUCCESS)
+                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                        else if (!s->remain_after_exit)
+                                                /* The service has never been active */
+                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                                         break;
                                 }
 
