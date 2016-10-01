@@ -339,7 +339,7 @@ www.0pointer.net: 2a01:238:43ed:c300:10c3:bcf3:3266:da74
     </example>
 
     <example>
-      <title>Retrieve the MX record of the <literal>0pointer.net</literal> domain</title>
+      <title>Retrieve the MX record of the <literal>yahoo.com</literal> domain</title>
 
       <programlisting>$ systemd-resolve -t MX yahoo.com --legend=no
 yahoo.com. IN MX    1 mta7.am0.yahoodns.net
