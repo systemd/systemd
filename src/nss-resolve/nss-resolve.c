@@ -279,9 +279,12 @@ fallback:
         }
 
 fail:
+        /* When we arrive here, resolved runs and has answered (fallback to
+         * "dns" is handled earlier). So we have a definitive "no" answer and
+         * should not fall back to subsequent NSS modules via "UNAVAIL". */
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return NSS_STATUS_UNAVAIL;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_resolve_gethostbyname3_r(
@@ -476,7 +479,7 @@ fallback:
 fail:
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return NSS_STATUS_UNAVAIL;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_resolve_gethostbyaddr2_r(
@@ -558,9 +561,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                         goto fallback;
 
 
-                *errnop = -r;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+                goto fail;
         }
 
         r = sd_bus_message_enter_container(reply, 'a', "(is)");
@@ -668,7 +669,7 @@ fallback:
 fail:
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return NSS_STATUS_UNAVAIL;
+        return NSS_STATUS_NOTFOUND;
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(resolve);

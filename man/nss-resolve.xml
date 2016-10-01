@@ -85,7 +85,7 @@
 group:          compat mymachines systemd
 shadow:         compat
 
-hosts:          files mymachines <command>resolve</command> myhostname
+hosts:          files mymachines <command>resolve [!UNAVAIL=return]</command> dns
 networks:       files
 
 protocols:      db files
@@ -95,6 +95,8 @@ rpc:            db files
 
 netgroup:       nis</programlisting>
 
+    <para>This keeps the <command>dns</command> module as a fallback for cases where the <command>nss-resolve</command>
+    module is not installed.</para>
   </refsect1>
 
   <refsect1>
