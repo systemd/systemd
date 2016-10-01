@@ -1755,6 +1755,11 @@ static int setup_propagate(const char *root) {
         if (mount(NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0)
                 return log_error_errno(errno, "Failed to make propagation mount read-only");
 
+        /* machined will MS_MOVE into that directory, and that's only
+         * supported for non-shared mounts. */
+        if (mount(NULL, q, NULL, MS_SLAVE, NULL) < 0)
+                return log_error_errno(errno, "Failed to make propagation mount slave");
+
         return 0;
 }
 
@@ -2989,6 +2994,15 @@ static int outer_child(
         /* Turn directory into bind mount */
         if (mount(directory, directory, NULL, MS_BIND|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to make bind mount: %m");
+
+        /* Mark everything as shared so our mounts get propagated down. This is
+         * required to make new bind mounts available in systemd services
+         * inside the containter that create a new mount namespace.
+         * See https://github.com/systemd/systemd/issues/3860
+         * Further submounts (such as /dev) done after this will inherit the
+         * shared propagation mode.*/
+        if (mount(NULL, directory, NULL, MS_SHARED|MS_REC, NULL) < 0)
+                return log_error_errno(errno, "MS_SHARED|MS_REC failed: %m");
 
         r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
         if (r < 0)
