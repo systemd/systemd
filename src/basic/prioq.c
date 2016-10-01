@@ -225,27 +225,35 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
         }
 }
 
+_pure_ static struct prioq_item* find_item_by_id(Prioq *q, void *data, unsigned *idx) {
+        struct prioq_item *i;
+
+        assert(q);
+        assert(idx);
+
+        if (*idx == PRIOQ_IDX_NULL || *idx > q->n_items)
+                return NULL;
+
+        i = q->items + *idx;
+        if (i->data != data)
+                return NULL;
+
+        return i;
+}
+
 _pure_ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) {
         struct prioq_item *i;
 
         assert(q);
 
-        if (idx) {
-                if (*idx == PRIOQ_IDX_NULL ||
-                    *idx > q->n_items)
-                        return NULL;
+        if (idx)
+                return find_item_by_id(q, data, idx);
 
-                i = q->items + *idx;
-                if (i->data != data)
-                        return NULL;
+        for (i = q->items; i < q->items + q->n_items; i++)
+                if (i->data == data)
+                        return i;
 
-                return i;
-        } else {
-                for (i = q->items; i < q->items + q->n_items; i++)
-                        if (i->data == data)
-                                return i;
-                return NULL;
-        }
+        return NULL;
 }
 
 int prioq_remove(Prioq *q, void *data, unsigned *idx) {
