@@ -142,6 +142,8 @@
                 } else {                                                \
                         if ((_b->name##_prev = _a->name##_prev))        \
                                 _b->name##_prev->name##_next = _b;      \
+                        else                                            \
+                                *_head = _b;                            \
                         _b->name##_next = _a;                           \
                         _a->name##_prev = _b;                           \
                 }                                                       \
