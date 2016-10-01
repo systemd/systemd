@@ -271,6 +271,11 @@ static int automount_coldplug(Unit *u) {
                                 return r;
 
                         (void) sd_event_source_set_description(a->pipe_event_source, "automount-io");
+                        if (a->deserialized_state == AUTOMOUNT_RUNNING) {
+                                r = automount_start_expire(a);
+                                if (r < 0)
+                                        log_unit_warning_errno(UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
+                        }
                 }
 
                 automount_set_state(a, a->deserialized_state);
