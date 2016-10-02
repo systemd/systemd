@@ -5,6 +5,36 @@ CHANGES WITH 232 in spe
         * The new RemoveIPC= option can be used to remove IPC objects owned by
           the user or group of a service when that service exits.
 
+        * ProtectSystem= option gained a new value "strict", which causes the
+          whole file system tree with the exception of /dev, /proc, and /sys,
+          to be remounted read-only for a service.
+
+          The new ProtectedKernelTunables= options can be used to disable
+          modification of configuration files in /sys and /proc by a service.
+          Various directories and files are remounted read-only, so access is
+          restricted even if the file permissions would allow it.
+
+          The new ProtectControlGroups= option can be used to disable write
+          access by a service to /sys/fs/cgroup.
+
+        * Various systemd services have been hardened with
+          ProtectKernelTunables=yes, ProtectControlGroups=yes,
+          RestrictAddressFamilies=.
+
+          In particular, systemd-udevd.service is now run in a Seccomp-based
+          sandbox that prohibits access to AF_INET and AF_INET6 sockets and
+          thus access to the network. This might break code that runs from udev
+          rules that tries to talk to the network. Doing that is generally a
+          bad idea and unsafe due to a variety of reasons. It's also racy as
+          device management would race against network configuration. It is
+          recommended to rework such rules to use the SYSTEMD_WANTS property on
+          the relevant devices to pull in a proper systemd service (which can
+          be sandboxed differently and ordered correctly after the network
+          having come up). If that's not possible consider reverting this
+          sandboxing feature locally by removing the RestrictAddressFamilies=
+          setting from the systemd-udevd.service unit file, or adding AF_INET
+          and AF_INET6 to it.
+
         * Support for dynamically creating users for the lifetime of a service
           has been added. If DynamicUser=yes is specified, user and group IDs
           will be allocated from the range 61184..65519 for the lifetime of the
@@ -12,7 +42,9 @@ CHANGES WITH 232 in spe
           module. The module must be enabled in /etc/nsswitch.conf. Services
           started in this way have PrivateTmp= and RemoveIPC= enabled, so that
           any resources allocated by the service will be cleaned up when the
-          service exits.
+          service exits. They also have ProtectHome=read-only and
+          ProtectSystem=strict enabled, so they are not able to make any
+          permanent modifications to the system.
 
           The nss-systemd module also always resolves root and nobody, making
           it possible to have no /etc/passwd or /etc/group files in minimal
@@ -54,7 +86,7 @@ CHANGES WITH 232 in spe
           mount the EFI partition on systems where /boot is used for something
           else.
 
-        * disk/by-id symlinks are now created for NVMe drives.
+        * disk/by-id and disk/by-path symlinks are now created for NVMe drives.
 
         * Two new user session targets have been added to support running
           graphical sessions under the systemd --user instance:
@@ -93,6 +125,9 @@ CHANGES WITH 232 in spe
         * systemd-run gained a new --wait option that makes service execution
           synchronous.
 
+          systemctl gained a new --wait option that causes the start command to
+          wait until the units being started have terminated again.
+
         * A new journal output mode "short-full" has been added which uses
           timestamps with abbreviated English day names and adds a timezone
           suffix. Those timestamps include more information and can be parsed
@@ -106,6 +141,12 @@ CHANGES WITH 232 in spe
           from a single IP can be limited with MaxConnectionsPerSource=,
           extending the existing setting of MaxConnections.
 
+        * systemd-networkd gained support for vcan ("Virtual CAN") interface
+          configuration.
+
+        * .netdev and .network configuration can now be extended through
+          drop-ins.
+
         * UDP Segmentation Offload, TCP Segmentation Offload, Generic
           Segmentation Offload, Generic Receive Offload, Large Receive Offload
           can be enabled and disabled using the new UDPSegmentationOffload=,
@@ -118,6 +159,10 @@ CHANGES WITH 232 in spe
           new STP=, Priority=, AgeingTimeSec=, and DefaultPVID= settings in the
           [Bridge] section of .netdev files.
 
+          The route table to which routes received over DHCP or RA should be
+          added can be configured with the new RouteTable= option in the [DHCP]
+          and [IPv6AcceptRA] sections of .network files.
+
           Address Resolution Protocol can be disabled on links managed by
           systemd-networkd using the ARP=no setting in the [Link] section of
           .network files.
@@ -125,10 +170,23 @@ CHANGES WITH 232 in spe
         * $SERVICE_RESULT, $EXIT_CODE, $EXIT_STATUS are set for ExecStop= and
           ExecStopPost= commands.
 
+        * systemd-sysctl will now configure kernel parameters in the order
+          they occur in the configuration files. This mathes what sysctl
+          has been traditionally doing.
+
+        * kernel-install "plugins" that are executed to perform various
+          tasks after a new kernel is added and before an old one is removed
+          can now return a special value to terminate the procedure and
+          prevent any later plugins from running.
+
         * Journald's SplitMode=login setting has been deprecated. It has been
           removed from documentation, and it's use is discouraged. In a future
           release it will be completely removed, and made equivalent to current
           default of SplitMode=uid.
+
+        * Storage=both option setting in /etc/systemd/coredump.conf has been
+          removed. With fast LZ4 compression storing the core dump twice is not
+          useful.
 
         * The --share-system systemd-nspawn option has been replaced with an
           (undocumented) variable $SYSTEMD_NSPAWN_SHARE_SYSTEM, but the use of
@@ -136,20 +194,6 @@ CHANGES WITH 232 in spe
           $SYSTEMD_NSPAWN_SHARE_NS_IPC, $SYSTEMD_NSPAWN_SHARE_NS_PID,
           $SYSTEMD_NSPAWN_SHARE_NS_UTS may be used to control the unsharing of
           individual namespaces.
-
-        * systemd-udevd.service is now run in a Seccomp-based sandbox that
-          prohibits access to AF_INET and AF_INET6 sockets and thus access to
-          the network. This might break code that runs from udev rules that
-          tries to talk to the network. Doing that is generally a bad idea and
-          unsafe due to a variety of reasons. It's also racy as device
-          management would race against network configuration. It is
-          recommended to rework such rules to use the SYSTEMD_WANTS property on
-          the relevant devices to pull in a proper systemd service (which can
-          be sandboxed differently and ordered correctly after the network
-          having come up). If that's not possible consider reverting this
-          sandboxing feature locally by removing the RestrictAddressFamilies=
-          setting from the systemd-udevd.service unit file, or adding AF_INET
-          and AF_INET6 to it.
 
 CHANGES WITH 231:
 
