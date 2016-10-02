@@ -233,7 +233,7 @@ static int pick_uid(const char *name, uid_t *ret_uid) {
                         if (st.st_nlink > 0)
                                 break;
 
-                        /* Oh, bummer, we got got the lock, but the file was unlinked between the time we opened it and
+                        /* Oh, bummer, we got the lock, but the file was unlinked between the time we opened it and
                          * got the lock. Close it, and try again. */
                         lock_fd = safe_close(lock_fd);
                 }

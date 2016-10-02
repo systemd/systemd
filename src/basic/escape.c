@@ -333,7 +333,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                 assert(remaining > 0);
 
                 if (*f != '\\') {
-                        /* A literal literal, copy verbatim */
+                        /* A literal, copy verbatim */
                         *(t++) = *f;
                         continue;
                 }

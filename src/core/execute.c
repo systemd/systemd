@@ -2207,7 +2207,7 @@ static int exec_child(
                                 return r;
                         }
 
-                        /* Note that we don't set $HOME or $SHELL if they are are not particularly enlightening anyway
+                        /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
                          * (i.e. are "/" or "/bin/nologin"). */
                 }
 
