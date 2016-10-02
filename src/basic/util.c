@@ -467,7 +467,7 @@ bool in_initrd(void) {
          * 2. the root file system must be a memory file system
          *
          * The second check is extra paranoia, since misdetecting an
-         * initrd can have bad bad consequences due the initrd
+         * initrd can have bad consequences due the initrd
          * emptying when transititioning to the main systemd.
          */
 

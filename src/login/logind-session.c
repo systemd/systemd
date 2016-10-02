@@ -611,7 +611,7 @@ static int session_stop_scope(Session *s, bool force) {
                 return 0;
 
         /* Let's always abandon the scope first. This tells systemd that we are not interested anymore, and everything
-         * that is left in in the scope is "left-over". Informing systemd about this has the benefit that it will log
+         * that is left in the scope is "left-over". Informing systemd about this has the benefit that it will log
          * when killing any processes left after this point. */
         r = manager_abandon_scope(s->manager, s->scope, &error);
         if (r < 0)

@@ -278,7 +278,7 @@ static int set_hostname(sd_bus *bus, char **args, unsigned n) {
                 /* Now that we set the pretty hostname, let's clean up the parameter and use that as static
                  * hostname. If the hostname was already valid as static hostname, this will only chop off the trailing
                  * dot if there is one. If it was not valid, then it will be made fully valid by truncating, dropping
-                 * multiple dots, and and dropping weird chars. Note that we clean the name up only if we also are
+                 * multiple dots, and dropping weird chars. Note that we clean the name up only if we also are
                  * supposed to set the pretty name. If the pretty name is not being set we assume the user knows what
                  * he does and pass the name as-is. */
                 h = strdup(hostname);
