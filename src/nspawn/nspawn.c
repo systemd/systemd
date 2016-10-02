@@ -320,13 +320,6 @@ static int detect_unified_cgroup_hierarchy(void) {
         const char *e;
         int r, all_unified, systemd_unified;
 
-        all_unified = cg_all_unified();
-        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
-
-        if (all_unified < 0 || systemd_unified < 0)
-                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
-                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
-
         /* Allow the user to control whether the unified hierarchy is used */
         e = getenv("UNIFIED_CGROUP_HIERARCHY");
         if (e) {
@@ -340,6 +333,13 @@ static int detect_unified_cgroup_hierarchy(void) {
 
                 return 0;
         }
+
+        all_unified = cg_all_unified();
+        systemd_unified = cg_unified(SYSTEMD_CGROUP_CONTROLLER);
+
+        if (all_unified < 0 || systemd_unified < 0)
+                return log_error_errno(all_unified < 0 ? all_unified : systemd_unified,
+                                       "Failed to determine whether the unified cgroups hierarchy is used: %m");
 
         /* Otherwise inherit the default from the host system */
         if (all_unified > 0)
