@@ -86,6 +86,47 @@
 /* The period to insert between posting changes for coalescing */
 #define POST_CHANGE_TIMER_INTERVAL_USEC (250*USEC_PER_MSEC)
 
+static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used, uint64_t *ret_free) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        struct statvfs ss;
+        const char *p;
+
+        assert(ret_used);
+        assert(ret_free);
+
+        p = strjoina(path, SERVER_MACHINE_ID(s));
+        d = opendir(p);
+        if (!d)
+                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                                      errno, "Failed to open %s: %m", p);
+
+        if (fstatvfs(dirfd(d), &ss) < 0)
+                return log_error_errno(errno, "Failed to fstatvfs(%s): %m", p);
+
+        *ret_free = ss.f_bsize * ss.f_bavail;
+        *ret_used = 0;
+        FOREACH_DIRENT_ALL(de, d, break) {
+                struct stat st;
+
+                if (!endswith(de->d_name, ".journal") &&
+                    !endswith(de->d_name, ".journal~"))
+                        continue;
+
+                if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                        log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", p, de->d_name);
+                        continue;
+                }
+
+                if (!S_ISREG(st.st_mode))
+                        continue;
+
+                *ret_used += (uint64_t) st.st_blocks * 512UL;
+        }
+
+        return 0;
+}
+
 static int determine_space_for(
                 Server *s,
                 JournalMetrics *metrics,
@@ -96,12 +137,10 @@ static int determine_space_for(
                 uint64_t *available,
                 uint64_t *limit) {
 
-        uint64_t sum = 0, ss_avail, avail;
+        uint64_t sum, avail, ss_avail;
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
-        struct statvfs ss;
-        const char *p;
         usec_t ts;
+        int r;
 
         assert(s);
         assert(metrics);
@@ -120,31 +159,9 @@ static int determine_space_for(
                 return 0;
         }
 
-        p = strjoina(path, SERVER_MACHINE_ID(s));
-        d = opendir(p);
-        if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to open %s: %m", p);
-
-        if (fstatvfs(dirfd(d), &ss) < 0)
-                return log_error_errno(errno, "Failed to fstatvfs(%s): %m", p);
-
-        FOREACH_DIRENT_ALL(de, d, break) {
-                struct stat st;
-
-                if (!endswith(de->d_name, ".journal") &&
-                    !endswith(de->d_name, ".journal~"))
-                        continue;
-
-                if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                        log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", p, de->d_name);
-                        continue;
-                }
-
-                if (!S_ISREG(st.st_mode))
-                        continue;
-
-                sum += (uint64_t) st.st_blocks * 512UL;
-        }
+        r = determine_path_usage(s, path, &sum, &ss_avail);
+        if (r < 0)
+                return r;
 
         /* If requested, then let's bump the min_use limit to the
          * current usage on disk. We do this when starting up and
@@ -156,7 +173,6 @@ static int determine_space_for(
         if (patch_min_use)
                 metrics->min_use = MAX(metrics->min_use, sum);
 
-        ss_avail = ss.f_bsize * ss.f_bavail;
         avail = LESS_BY(ss_avail, metrics->keep_free);
 
         s->cached_space_limit = MIN(MAX(sum + avail, metrics->min_use), metrics->max_use);
