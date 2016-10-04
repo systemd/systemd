@@ -95,13 +95,13 @@ CHANGES WITH 232 in spe
           used.
 
         * The vconsole initialization code has been significantly reworked to
-          use KD_FONT_OP_GET/SET ioctls insteads of KD_FONT_OP_COPY and better
+          use KD_FONT_OP_GET/SET ioctls instead of KD_FONT_OP_COPY and better
           support unicode keymaps. Font and keymap configuration will now be
           copied to all allocated virtual consoles.
 
         * FreeBSD's bhyve virtualization is now detected.
 
-        * Information recored in the journal for core dumps now includes the
+        * Information recorded in the journal for core dumps now includes the
           contents of /proc/mountinfo and the command line of the process at
           the top of the process hierarchy (which is usually the init process
           of the container).
@@ -180,7 +180,7 @@ CHANGES WITH 232 in spe
           prevent any later plugins from running.
 
         * Journald's SplitMode=login setting has been deprecated. It has been
-          removed from documentation, and it's use is discouraged. In a future
+          removed from documentation, and its use is discouraged. In a future
           release it will be completely removed, and made equivalent to current
           default of SplitMode=uid.
 
