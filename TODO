@@ -821,6 +821,7 @@ Features:
      or interface down
    - some servers don't do rapid commit without a filled in IA_NA, verify
      this behavior
+   - RouteTable= ?
 
 External:
 

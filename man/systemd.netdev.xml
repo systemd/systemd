@@ -173,8 +173,7 @@
           <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/Documentation/networking/vrf.txt">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
 
           <row><entry><varname>vcan</varname></entry>
-          <entry>The virtual CAN driver (vcan). Similar to the network loopback devices,
-          vcan offers a virtual local CAN interface.</entry></row>
+          <entry>The virtual CAN driver (vcan). Similar to the network loopback devices, vcan offers a virtual local CAN interface.</entry></row>
 
         </tbody>
       </tgroup>

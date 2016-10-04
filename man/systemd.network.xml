@@ -467,24 +467,31 @@
         <varlistentry>
           <term><varname>Domains=</varname></term>
           <listitem>
-            <para>The domains used for DNS host name resolution on this link. Takes a list of DNS domain names which
-            are used as search suffixes for extending single-label host names (host names containing no dots) to become
-            fully qualified domain names (FQDNs). If a single-label host name is resolved on this interface, each of
-            the specified search domains are appended to it in turn, converting it into a fully qualified domain name,
-            until one of them may be successfully resolved.</para>
+            <para>A list of domains which should be resolved using the DNS servers on this link. Each item in the list
+            should be a domain name, optionally prefixed with a tilde (<literal>~</literal>). The domains with the
+            prefix are called "routing-only domains". The domains without the prefix are called "search domains" and
+            are first used as search suffixes for extending single-label host names (host names containing no dots) to
+            become fully qualified domain names (FQDNs). If a single-label host name is resolved on this interface,
+            each of the specified search domains are appended to it in turn, converting it into a fully qualified
+            domain name, until one of them may be successfully resolved.</para>
 
-            <para>The specified domains are also used for routing of DNS queries: look-ups for host names ending in the
-            domains specified here are preferably routed to the DNS servers configured for this interface. If a domain
-            name is prefixed with <literal>~</literal>, the domain name becomes a pure "routing" domain, the DNS server
-            is used for the given domain names only and is not used in the described domain search logic. By specifying a
-            routing domain of <literal>~.</literal> (the tilde indicating definition of a routing domain, the dot
-            referring to the DNS root domain which is the implied suffix of all valid DNS names) it is possible to
-            route all DNS traffic preferably to the DNS server specified for this interface. The route domain logic is
-            particularly useful on multi-homed hosts with DNS servers serving particular private DNS zones on each
-            interface.</para>
+            <para>Both "search" and "routing-only" domains are used for routing of DNS queries: look-ups for host names
+            ending in those domains (hence also single label names, if any "search domains" are listed), are routed to
+            the DNS servers configured for this interface. The domain routing logic is particularly useful on
+            multi-homed hosts with DNS servers serving particular private DNS zones on each interface.</para>
+
+            <para>The "routing-only" domain <literal>~.</literal> (the tilde indicating definition of a routing domain,
+            the dot referring to the DNS root domain which is the implied suffix of all valid DNS names) has special
+            effect. It causes all DNS traffic which does not match another configured domain routing entry to be routed
+            to DNS servers specified for this interface. This setting is useful to prefer a certain set of DNS servers
+            if a link on which they are connected is available.</para>
 
             <para>This setting is read by
-            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+            "Search domains" correspond to the <varname>domain</varname> and <varname>search</varname> entries in
+            <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            Domain name routing has no equivalent in the traditional glibc API, which has no concept of domain
+            name servers limited to a specific link.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
