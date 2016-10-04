@@ -132,6 +132,29 @@ int main(int argc, const char *argv[]) {
         assert_se(items[1].item_prev == &items[3]);
         assert_se(items[3].item_prev == NULL);
 
+        LIST_INSERT_BEFORE(item, head, &items[3], &items[0]);
+        assert_se(items[2].item_next == NULL);
+        assert_se(items[1].item_next == &items[2]);
+        assert_se(items[3].item_next == &items[1]);
+        assert_se(items[0].item_next == &items[3]);
+
+        assert_se(items[2].item_prev == &items[1]);
+        assert_se(items[1].item_prev == &items[3]);
+        assert_se(items[3].item_prev == &items[0]);
+        assert_se(items[0].item_prev == NULL);
+        assert_se(head == &items[0]);
+
+        LIST_REMOVE(item, head, &items[0]);
+        assert_se(LIST_JUST_US(item, &items[0]));
+
+        assert_se(items[2].item_next == NULL);
+        assert_se(items[1].item_next == &items[2]);
+        assert_se(items[3].item_next == &items[1]);
+
+        assert_se(items[2].item_prev == &items[1]);
+        assert_se(items[1].item_prev == &items[3]);
+        assert_se(items[3].item_prev == NULL);
+
         LIST_INSERT_BEFORE(item, head, NULL, &items[0]);
         assert_se(items[0].item_next == NULL);
         assert_se(items[2].item_next == &items[0]);
