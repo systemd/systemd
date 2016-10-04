@@ -30,7 +30,6 @@ Bootable=yes
 RootSize=2G
 
 [Packages]
-Cache=/var/tmp/dnf-cache
 BuildPackages=
         audit-libs-devel
         autoconf
