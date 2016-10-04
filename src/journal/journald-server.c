@@ -122,6 +122,31 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *used, uin
         return 0;
 }
 
+void server_space_usage_message(Server *s) {
+        char fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
+             fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
+        uint64_t used, free;
+        JournalInfo *ji;
+
+        ji = s->system_journal ? &s->system_info : &s->runtime_info;
+
+        if (determine_path_usage(s, ji->path, &used, &free) < 0)
+                return;
+
+        server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
+                              "%s (%s) is currently using %s.\n"
+                              "Maximum allowed usage is set to %s.\n"
+                              "Leaving at least %s free (of currently available %s of space).\n"
+                              "Enforced usage limit is thus %s, of which %s are still available.",
+                              ji->name, ji->path,
+                              format_bytes(fb1, sizeof(fb1), used),
+                              format_bytes(fb2, sizeof(fb2), ji->metrics.max_use),
+                              format_bytes(fb3, sizeof(fb3), ji->metrics.keep_free),
+                              format_bytes(fb4, sizeof(fb4), free),
+                              format_bytes(fb5, sizeof(fb5), ji->cached_space_limit),
+                              format_bytes(fb6, sizeof(fb6), ji->cached_space_available));
+}
+
 static int determine_space_for(
                 Server *s,
                 JournalInfo *jinfo,
@@ -134,11 +159,10 @@ static int determine_space_for(
         _cleanup_closedir_ DIR *d = NULL;
         JournalMetrics *metrics;
         usec_t ts;
-        const char *path, *name;
+        const char *path;
 
         assert(s);
 
-        name = jinfo->name;
         path = jinfo->path;
         metrics = &jinfo->metrics;
 
@@ -173,23 +197,8 @@ static int determine_space_for(
         jinfo->cached_space_available = LESS_BY(jinfo->cached_space_limit, sum);
         jinfo->cached_space_timestamp = ts;
 
-        if (verbose) {
-                char    fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
-                        fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
-
-                server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
-                                      "%s (%s) is currently using %s.\n"
-                                      "Maximum allowed usage is set to %s.\n"
-                                      "Leaving at least %s free (of currently available %s of space).\n"
-                                      "Enforced usage limit is thus %s, of which %s are still available.",
-                                      name, path,
-                                      format_bytes(fb1, sizeof(fb1), sum),
-                                      format_bytes(fb2, sizeof(fb2), metrics->max_use),
-                                      format_bytes(fb3, sizeof(fb3), metrics->keep_free),
-                                      format_bytes(fb4, sizeof(fb4), ss_avail),
-                                      format_bytes(fb5, sizeof(fb5), jinfo->cached_space_limit),
-                                      format_bytes(fb6, sizeof(fb6), jinfo->cached_space_available));
-        }
+        if (verbose)
+                server_space_usage_message(s);
 
         if (available)
                 *available = jinfo->cached_space_available;
