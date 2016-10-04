@@ -1533,8 +1533,6 @@ int main(int argc, char *argv[]) {
                  * if they try to log to console */
                 if (detect_container() <= 0)
                         make_null_stdio();
-
-                make_null_stdio();
         }
 
         /* Initialize default unit */
