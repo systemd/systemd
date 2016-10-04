@@ -150,7 +150,6 @@ void server_space_usage_message(Server *s) {
 static int determine_space_for(
                 Server *s,
                 JournalInfo *jinfo,
-                bool verbose,
                 bool patch_min_use,
                 uint64_t *available,
                 uint64_t *limit) {
@@ -168,7 +167,7 @@ static int determine_space_for(
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (!verbose && jinfo->cached_space_timestamp + RECHECK_SPACE_USEC > ts) {
+        if (jinfo->cached_space_timestamp + RECHECK_SPACE_USEC > ts) {
 
                 if (available)
                         *available = jinfo->cached_space_available;
@@ -197,9 +196,6 @@ static int determine_space_for(
         jinfo->cached_space_available = LESS_BY(jinfo->cached_space_limit, sum);
         jinfo->cached_space_timestamp = ts;
 
-        if (verbose)
-                server_space_usage_message(s);
-
         if (available)
                 *available = jinfo->cached_space_available;
         if (limit)
@@ -208,13 +204,13 @@ static int determine_space_for(
         return 1;
 }
 
-static int determine_space(Server *s, bool verbose, bool patch_min_use, uint64_t *available, uint64_t *limit) {
+static int determine_space(Server *s, bool patch_min_use, uint64_t *available, uint64_t *limit) {
         JournalInfo *ji;
 
         assert(s);
 
         ji = s->system_journal ? &s->system_info : &s->runtime_info;
-        return determine_space_for(s, ji, verbose, patch_min_use, available, limit);
+        return determine_space_for(s, ji, patch_min_use, available, limit);
 }
 
 void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
@@ -412,7 +408,10 @@ static void do_vacuum(
 
         metrics = &jinfo->metrics;
         limit = metrics->max_use;
-        (void) determine_space_for(s, jinfo, verbose, patch_min_use, NULL, &limit);
+        (void) determine_space_for(s, jinfo, patch_min_use, NULL, &limit);
+
+        if (verbose)
+                server_space_usage_message(s);
 
         r = journal_directory_vacuum(jinfo->path, limit, metrics->n_max_files, s->max_retention_usec, &s->oldest_file_usec,  verbose);
         if (r < 0 && r != -ENOENT)
@@ -936,7 +935,7 @@ void server_dispatch_message(
                 }
         }
 
-        (void) determine_space(s, false, false, &available, NULL);
+        (void) determine_space(s, false, &available, NULL);
         rl = journal_rate_limit_test(s->rate_limit, path, priority & LOG_PRIMASK, available);
         if (rl == 0)
                 return;
@@ -975,7 +974,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_info.metrics, s->mmap, NULL, &s->system_journal);
                 if (r >= 0) {
                         server_fix_perms(s, s->system_journal, 0);
-                        (void) determine_space_for(s, &s->system_info, true, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->system_info, true, NULL, NULL);
                 } else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
                                 log_warning_errno(r, "Failed to open system journal: %m");
@@ -1019,10 +1018,11 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                 if (s->runtime_journal) {
                         server_fix_perms(s, s->runtime_journal, 0);
-                        (void) determine_space_for(s, &s->runtime_info, true, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->runtime_info, true, NULL, NULL);
                 }
         }
 
+        server_space_usage_message(s);
         return r;
 }
 
