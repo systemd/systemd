@@ -171,7 +171,7 @@ CHANGES WITH 232 in spe
           ExecStopPost= commands.
 
         * systemd-sysctl will now configure kernel parameters in the order
-          they occur in the configuration files. This mathes what sysctl
+          they occur in the configuration files. This matches what sysctl
           has been traditionally doing.
 
         * kernel-install "plugins" that are executed to perform various
