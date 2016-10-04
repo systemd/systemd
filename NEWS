@@ -67,7 +67,7 @@ CHANGES WITH 232 in spe
           support unicode keymaps. Font and keymap configuration will now be
           copied to all allocated virtual consoles.
 
-        * FreeBSD's bhyve virtiualization is now detected.
+        * FreeBSD's bhyve virtualization is now detected.
 
         * Information recored in the journal for core dumps now includes the
           contents of /proc/mountinfo and the command line of the process at
