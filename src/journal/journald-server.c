@@ -90,19 +90,17 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         struct statvfs ss;
-        const char *p;
 
         assert(ret_used);
         assert(ret_free);
 
-        p = strjoina(path, SERVER_MACHINE_ID(s));
-        d = opendir(p);
+        d = opendir(path);
         if (!d)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
-                                      errno, "Failed to open %s: %m", p);
+                                      errno, "Failed to open %s: %m", path);
 
         if (fstatvfs(dirfd(d), &ss) < 0)
-                return log_error_errno(errno, "Failed to fstatvfs(%s): %m", p);
+                return log_error_errno(errno, "Failed to fstatvfs(%s): %m", path);
 
         *ret_free = ss.f_bsize * ss.f_bavail;
         *ret_used = 0;
@@ -114,7 +112,7 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
                         continue;
 
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                        log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", p, de->d_name);
+                        log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", path, de->d_name);
                         continue;
                 }
 
@@ -129,9 +127,7 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
 
 static int determine_space_for(
                 Server *s,
-                JournalMetrics *metrics,
-                const char *path,
-                const char *name,
+                JournalStorage *storage,
                 bool verbose,
                 bool patch_min_use,
                 uint64_t *available,
@@ -139,22 +135,25 @@ static int determine_space_for(
 
         uint64_t sum, avail, ss_avail;
         _cleanup_closedir_ DIR *d = NULL;
+        JournalMetrics *metrics;
+        const char *path, *name;
         usec_t ts;
         int r;
 
         assert(s);
-        assert(metrics);
-        assert(path);
-        assert(name);
+
+        name = storage->name;
+        path = storage->path;
+        metrics = &storage->metrics;
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (!verbose && s->cached_space_timestamp + RECHECK_SPACE_USEC > ts) {
+        if (!verbose && storage->space.timestamp + RECHECK_SPACE_USEC > ts) {
 
                 if (available)
-                        *available = s->cached_space_available;
+                        *available = storage->space.available;
                 if (limit)
-                        *limit = s->cached_space_limit;
+                        *limit = storage->space.limit;
 
                 return 0;
         }
@@ -175,9 +174,9 @@ static int determine_space_for(
 
         avail = LESS_BY(ss_avail, metrics->keep_free);
 
-        s->cached_space_limit = MIN(MAX(sum + avail, metrics->min_use), metrics->max_use);
-        s->cached_space_available = LESS_BY(s->cached_space_limit, sum);
-        s->cached_space_timestamp = ts;
+        storage->space.limit = MIN(MAX(sum + avail, metrics->min_use), metrics->max_use);
+        storage->space.available = LESS_BY(storage->space.limit, sum);
+        storage->space.timestamp = ts;
 
         if (verbose) {
                 char    fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
@@ -186,8 +185,8 @@ static int determine_space_for(
                 format_bytes(fb2, sizeof(fb2), metrics->max_use);
                 format_bytes(fb3, sizeof(fb3), metrics->keep_free);
                 format_bytes(fb4, sizeof(fb4), ss_avail);
-                format_bytes(fb5, sizeof(fb5), s->cached_space_limit);
-                format_bytes(fb6, sizeof(fb6), s->cached_space_available);
+                format_bytes(fb5, sizeof(fb5), storage->space.limit);
+                format_bytes(fb6, sizeof(fb6), storage->space.available);
 
                 server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
                                       LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
@@ -202,38 +201,28 @@ static int determine_space_for(
                                       "DISK_KEEP_FREE_PRETTY=%s", fb3,
                                       "DISK_AVAILABLE=%"PRIu64, ss_avail,
                                       "DISK_AVAILABLE_PRETTY=%s", fb4,
-                                      "LIMIT=%"PRIu64, s->cached_space_limit,
+                                      "LIMIT=%"PRIu64, storage->space.limit,
                                       "LIMIT_PRETTY=%s", fb5,
-                                      "AVAILABLE=%"PRIu64, s->cached_space_available,
+                                      "AVAILABLE=%"PRIu64, storage->space.available,
                                       "AVAILABLE_PRETTY=%s", fb6,
                                       NULL);
         }
 
         if (available)
-                *available = s->cached_space_available;
+                *available = storage->space.available;
         if (limit)
-                *limit = s->cached_space_limit;
+                *limit = storage->space.limit;
 
         return 1;
 }
 
 static int determine_space(Server *s, bool verbose, bool patch_min_use, uint64_t *available, uint64_t *limit) {
-        JournalMetrics *metrics;
-        const char *path, *name;
+        JournalStorage *js;
 
         assert(s);
 
-        if (s->system_journal) {
-                path = "/var/log/journal/";
-                metrics = &s->system_metrics;
-                name = "System journal";
-        } else {
-                path = "/run/log/journal/";
-                metrics = &s->runtime_metrics;
-                name = "Runtime journal";
-        }
-
-        return determine_space_for(s, metrics, path, name, verbose, patch_min_use, available, limit);
+        js = s->system_journal ? &s->system_storage : &s->runtime_storage;
+        return determine_space_for(s, js, verbose, patch_min_use, available, limit);
 }
 
 static void server_add_acls(JournalFile *f, uid_t uid) {
@@ -306,14 +295,13 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 if (s->storage == STORAGE_PERSISTENT)
                         (void) mkdir_p("/var/log/journal/", 0755);
 
-                fn = strjoina("/var/log/journal/", SERVER_MACHINE_ID(s));
-                (void) mkdir(fn, 0755);
+                (void) mkdir(s->system_storage.path, 0755);
 
-                fn = strjoina(fn, "/system.journal");
-                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_metrics, &s->system_journal);
+                fn = strjoina(s->system_storage.path, "/system.journal");
+                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
-                        (void) determine_space_for(s, &s->system_metrics, "/var/log/journal/", "System journal", true, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->system_storage, true, true, NULL, NULL);
                 } else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
                                 log_warning_errno(r, "Failed to open system journal: %m");
@@ -335,7 +323,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
         if (!s->runtime_journal &&
             (s->storage != STORAGE_NONE)) {
 
-                fn = strjoina("/run/log/journal/", SERVER_MACHINE_ID(s), "/system.journal");
+                fn = strjoina(s->runtime_storage.path, "/system.journal");
 
                 if (s->system_journal) {
 
@@ -343,7 +331,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_metrics, &s->runtime_journal);
+                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
@@ -360,14 +348,14 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         (void) mkdir("/run/log/journal", 0755);
                         (void) mkdir_parents(fn, 0750);
 
-                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_metrics, &s->runtime_journal);
+                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
 
                 if (s->runtime_journal) {
                         server_add_acls(s->runtime_journal, 0);
-                        (void) determine_space_for(s, &s->runtime_metrics, "/run/log/journal/", "Runtime journal", true, true, NULL, NULL);
+                        (void) determine_space_for(s, &s->runtime_storage, true, true, NULL, NULL);
                 }
         }
 
@@ -423,7 +411,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 (void) journal_file_close(f);
         }
 
-        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_metrics, &f);
+        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &f);
         if (r < 0)
                 return s->system_journal;
 
@@ -519,33 +507,28 @@ void server_sync(Server *s) {
 
 static void do_vacuum(
                 Server *s,
-                JournalFile *f,
-                JournalMetrics *metrics,
-                const char *path,
-                const char *name,
+                JournalStorage *storage,
                 bool verbose,
                 bool patch_min_use) {
 
-        const char *p;
+        JournalMetrics *metrics;
         uint64_t limit;
         int r;
 
         assert(s);
-        assert(metrics);
-        assert(path);
-        assert(name);
+        assert(storage);
 
-        if (!f)
-                return;
-
-        p = strjoina(path, SERVER_MACHINE_ID(s));
-
+        metrics = &storage->metrics;
         limit = metrics->max_use;
-        (void) determine_space_for(s, metrics, path, name, verbose, patch_min_use, NULL, &limit);
+        (void) determine_space_for(s, storage, verbose, patch_min_use, NULL, &limit);
 
-        r = journal_directory_vacuum(p, limit, metrics->n_max_files, s->max_retention_usec, &s->oldest_file_usec,  verbose);
+        r = journal_directory_vacuum(storage->path, limit, metrics->n_max_files, s->max_retention_usec, &s->oldest_file_usec,  verbose);
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", p);
+                log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", storage->path);
+
+        storage->space.limit = 0;
+        storage->space.available = 0;
+        storage->space.timestamp = 0;
 }
 
 int server_vacuum(Server *s, bool verbose, bool patch_min_use) {
@@ -555,12 +538,10 @@ int server_vacuum(Server *s, bool verbose, bool patch_min_use) {
 
         s->oldest_file_usec = 0;
 
-        do_vacuum(s, s->system_journal, &s->system_metrics, "/var/log/journal/", "System journal", verbose, patch_min_use);
-        do_vacuum(s, s->runtime_journal, &s->runtime_metrics, "/run/log/journal/", "Runtime journal", verbose, patch_min_use);
-
-        s->cached_space_limit = 0;
-        s->cached_space_available = 0;
-        s->cached_space_timestamp = 0;
+        if (s->system_journal)
+                do_vacuum(s, &s->system_storage, verbose, patch_min_use);
+        if (s->runtime_journal)
+                do_vacuum(s, &s->runtime_storage, verbose, patch_min_use);
 
         return 0;
 }
@@ -1888,8 +1869,8 @@ int server_init(Server *s) {
         s->max_level_console = LOG_INFO;
         s->max_level_wall = LOG_EMERG;
 
-        journal_reset_metrics(&s->system_metrics);
-        journal_reset_metrics(&s->runtime_metrics);
+        journal_reset_metrics(&s->system_storage.metrics);
+        journal_reset_metrics(&s->runtime_storage.metrics);
 
         server_parse_config_file(s);
         server_parse_proc_cmdline(s);
@@ -2041,6 +2022,14 @@ int server_init(Server *s) {
         server_cache_hostname(s);
         server_cache_boot_id(s);
         server_cache_machine_id(s);
+
+        s->runtime_storage.name = "Runtime journal";
+        s->system_storage.name = "System journal";
+
+        s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s), NULL);
+        s->system_storage.path  = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s), NULL);
+        if (!s->runtime_storage.path || !s->system_storage.path)
+                return -ENOMEM;
 
         (void) server_connect_notify(s);
 

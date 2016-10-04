@@ -49,6 +49,20 @@ typedef enum SplitMode {
         _SPLIT_INVALID = -1
 } SplitMode;
 
+typedef struct JournalStorageSpace {
+        uint64_t available;
+        uint64_t limit;
+        usec_t   timestamp;
+} JournalStorageSpace;
+
+typedef struct JournalStorage {
+        const char *name;
+        const char *path;
+
+        JournalMetrics metrics;
+        JournalStorageSpace space;
+} JournalStorage;
+
 struct Server {
         int syslog_fd;
         int native_fd;
@@ -89,8 +103,8 @@ struct Server {
         usec_t rate_limit_interval;
         unsigned rate_limit_burst;
 
-        JournalMetrics runtime_metrics;
-        JournalMetrics system_metrics;
+        JournalStorage runtime_storage;
+        JournalStorage system_storage;
 
         bool compress;
         bool seal;
@@ -102,10 +116,6 @@ struct Server {
 
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
-
-        uint64_t cached_space_available;
-        uint64_t cached_space_limit;
-        usec_t cached_space_timestamp;
 
         uint64_t var_available_timestamp;
 
