@@ -1022,7 +1022,6 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 }
         }
 
-        server_space_usage_message(s);
         return r;
 }
 
@@ -1258,6 +1257,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
         if (r < 0)
                 log_warning_errno(r, "Failed to touch /run/systemd/journal/flushed, ignoring: %m");
 
+        server_space_usage_message(s);
         return 0;
 }
 

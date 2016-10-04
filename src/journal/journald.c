@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
         server_flush_dev_kmsg(&server);
 
         log_debug("systemd-journald running as pid "PID_FMT, getpid());
+        server_space_usage_message(&server);
         server_driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");
 
         for (;;) {
