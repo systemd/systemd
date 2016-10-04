@@ -441,7 +441,20 @@ const char* socket_address_get_path(const SocketAddress *a) {
 }
 
 bool socket_ipv6_is_supported(void) {
-        if (access("/proc/net/if_inet6", F_OK) != 0)
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        /* If IPv6 is disabled on the kernel command line with ipv6.disable=1,
+         * /proc/net/if_inet6 is not present at all. If IPv6 is disabled with
+         * net.ipv6.conf.all.disable_ipv6=1 sysctl, this file exists, but is
+         * empty. However, even if net.ipv6.conf.all.disable_ipv6 is set, the
+         * interfaces can be enabled individually afterwards, which will still
+         * add lines to /proc/net/if_inet6. */
+        r = read_one_line_file("/proc/net/if_inet6", &line);
+        if (r < 0)
+                return false;
+
+        if (isempty(line))
                 return false;
 
         return true;
