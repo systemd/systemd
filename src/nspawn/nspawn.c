@@ -1395,6 +1395,12 @@ static int copy_devnodes(const char *dest) {
 
                 } else {
                         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
+                                /*
+                                 * This is some sort of protection too against
+                                 * recursive userns chown on shared /dev/
+                                 */
+                                if (errno == EEXIST)
+                                        log_notice("%s/dev/ should be an empty directory", dest);
                                 if (errno != EPERM)
                                         return log_error_errno(errno, "mknod(%s) failed: %m", to);
 
