@@ -107,20 +107,28 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         sd_netlink *rtnl;
         int r;
+        uint8_t flags;
+        Bridge *bridge;
 
         assert(link);
+        assert(link->network);
         assert(link->manager);
         assert(fdb_entry);
 
         rtnl = link->manager->rtnl;
+        bridge = BRIDGE(link->network->bridge);
 
         /* create new RTM message */
         r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        /* only NTF_SELF flag supported. */
-        r = sd_rtnl_message_neigh_set_flags(req, NTF_SELF);
+        if (bridge)
+                flags = NTF_MASTER;
+        else
+                flags = NTF_SELF;
+
+        r = sd_rtnl_message_neigh_set_flags(req, flags);
         if (r < 0)
                 return rtnl_log_create_error(r);
 

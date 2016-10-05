@@ -942,6 +942,20 @@ static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         return sd_dhcp_server_set_ntp(s, addresses, n_addresses);
 }
 
+static int link_set_bridge_fdb(Link *link) {
+        FdbEntry *fdb_entry;
+        int r = 0;
+
+        LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
+                r = fdb_entry_configure(link, fdb_entry);
+                if (r < 0) {
+                        return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
+                }
+        }
+
+        return r;
+}
+
 static int link_enter_set_addresses(Link *link) {
         Address *ad;
         int r;
@@ -949,6 +963,10 @@ static int link_enter_set_addresses(Link *link) {
         assert(link);
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
+
+        r = link_set_bridge_fdb(link);
+        if (r < 0)
+                return r;
 
         link_set_state(link, LINK_STATE_SETTING_ADDRESSES);
 
@@ -1115,21 +1133,6 @@ static int link_set_bridge_vlan(Link *link) {
         r = br_vlan_configure(link, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
         if (r < 0)
                 log_link_error_errno(link, r, "Failed to assign VLANs to bridge port: %m");
-
-        return r;
-}
-
-static int link_set_bridge_fdb(Link *link) {
-        FdbEntry *fdb_entry;
-        int r = 0;
-
-        LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
-                r = fdb_entry_configure(link, fdb_entry);
-                if (r < 0) {
-                        log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
-                        break;
-                }
-        }
 
         return r;
 }
@@ -2476,10 +2479,6 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
         }
-
-        r = link_set_bridge_fdb(link);
-        if (r < 0)
-                return r;
 
         r = link_set_proxy_arp(link);
         if (r < 0)
