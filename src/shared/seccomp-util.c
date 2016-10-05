@@ -39,6 +39,10 @@ const char* seccomp_arch_to_string(uint32_t c) {
                 return "x32";
         if (c == SCMP_ARCH_ARM)
                 return "arm";
+        if (c == SCMP_ARCH_S390)
+                return "s390";
+        if (c == SCMP_ARCH_S390X)
+                return "s390x";
 
         return NULL;
 }
@@ -59,6 +63,10 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
                 *ret = SCMP_ARCH_X32;
         else if (streq(n, "arm"))
                 *ret = SCMP_ARCH_ARM;
+        else if (streq(n, "s390"))
+                *ret = SCMP_ARCH_S390;
+        else if (streq(n, "s390x"))
+                *ret = SCMP_ARCH_S390X;
         else
                 return -EINVAL;
 
@@ -82,6 +90,20 @@ int seccomp_add_secondary_archs(scmp_filter_ctx *c) {
                 return r;
 
         r = seccomp_arch_add(c, SCMP_ARCH_X32);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+#elif defined(__s390__) || defined(__s390x__)
+        int r;
+
+        /* Add in all possible secondary archs we are aware of that
+         * this kernel might support. */
+
+        r = seccomp_arch_add(c, SCMP_ARCH_S390);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+        r = seccomp_arch_add(c, SCMP_ARCH_S390X);
         if (r < 0 && r != -EEXIST)
                 return r;
 

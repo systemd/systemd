@@ -459,7 +459,7 @@ AM_CONDITIONAL(HAVE_LIBMOUNT, [test "$have_libmount" = "yes"])
 have_seccomp=no
 AC_ARG_ENABLE(seccomp, AS_HELP_STRING([--disable-seccomp], [Disable optional SECCOMP support]))
 if test "x$enable_seccomp" != "xno"; then
-        PKG_CHECK_MODULES(SECCOMP, [libseccomp >= 1.0.0],
+        PKG_CHECK_MODULES(SECCOMP, [libseccomp >= 2.3.1],
                [AC_DEFINE(HAVE_SECCOMP, 1, [Define if seccomp is available])
                 have_seccomp=yes
                 M4_DEFINES="$M4_DEFINES -DHAVE_SECCOMP"],
