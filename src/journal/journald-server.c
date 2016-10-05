@@ -143,8 +143,8 @@ void server_space_usage_message(Server *s) {
                               format_bytes(fb2, sizeof(fb2), ji->metrics.max_use),
                               format_bytes(fb3, sizeof(fb3), ji->metrics.keep_free),
                               format_bytes(fb4, sizeof(fb4), free),
-                              format_bytes(fb5, sizeof(fb5), ji->cached_space_limit),
-                              format_bytes(fb6, sizeof(fb6), ji->cached_space_available));
+                              format_bytes(fb5, sizeof(fb5), ji->space_info.limit),
+                              format_bytes(fb6, sizeof(fb6), ji->space_info.available));
 }
 
 static int determine_space_for(
@@ -157,6 +157,7 @@ static int determine_space_for(
         uint64_t sum, avail, ss_avail;
         _cleanup_closedir_ DIR *d = NULL;
         JournalMetrics *metrics;
+        JournalSpaceInfo *sinfo;
         usec_t ts;
         const char *path;
 
@@ -164,15 +165,16 @@ static int determine_space_for(
 
         path = jinfo->path;
         metrics = &jinfo->metrics;
+        sinfo = &jinfo->space_info;
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (jinfo->cached_space_timestamp + RECHECK_SPACE_USEC > ts) {
+        if (sinfo->timestamp + RECHECK_SPACE_USEC > ts) {
 
                 if (available)
-                        *available = jinfo->cached_space_available;
+                        *available = sinfo->available;
                 if (limit)
-                        *limit = jinfo->cached_space_limit;
+                        *limit = sinfo->limit;
 
                 return 0;
         }
@@ -192,14 +194,14 @@ static int determine_space_for(
 
         avail = LESS_BY(ss_avail, metrics->keep_free);
 
-        jinfo->cached_space_limit = MIN(MAX(sum + avail, metrics->min_use), metrics->max_use);
-        jinfo->cached_space_available = LESS_BY(jinfo->cached_space_limit, sum);
-        jinfo->cached_space_timestamp = ts;
+        sinfo->limit = MIN(MAX(sum + avail, metrics->min_use), metrics->max_use);
+        sinfo->available = LESS_BY(sinfo->limit, sum);
+        sinfo->timestamp = ts;
 
         if (available)
-                *available = jinfo->cached_space_available;
+                *available = sinfo->available;
         if (limit)
-                *limit = jinfo->cached_space_limit;
+                *limit = sinfo->limit;
 
         return 1;
 }
@@ -417,7 +419,7 @@ static void do_vacuum(
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", jinfo->path);
 
-        jinfo->cached_space_timestamp = 0;
+        jinfo->space_info.timestamp = 0;
 }
 
 int server_vacuum(Server *s, bool verbose, bool patch_min_use) {

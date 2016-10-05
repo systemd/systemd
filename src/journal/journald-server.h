@@ -51,15 +51,19 @@ typedef enum SplitMode {
         _SPLIT_INVALID = -1
 } SplitMode;
 
+typedef struct JournalSpaceInfo {
+        uint64_t available;
+        uint64_t limit;
+        usec_t   timestamp;
+} JournalSpaceInfo;
+
 typedef struct JournalInfo {
         const char *name;
         const char *path;
 
         JournalMetrics metrics;
 
-        uint64_t cached_space_available;
-        uint64_t cached_space_limit;
-        usec_t   cached_space_timestamp;
+        JournalSpaceInfo space_info;
 } JournalInfo;
 
 struct Server {
