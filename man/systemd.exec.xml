@@ -1334,7 +1334,8 @@
         identifiers to include in the system call filter. The known
         architecture identifiers are <constant>x86</constant>,
         <constant>x86-64</constant>, <constant>x32</constant>,
-        <constant>arm</constant> as well as the special identifier
+        <constant>arm</constant>, <constant>s390</constant>,
+        <constant>s390x</constant> as well as the special identifier
         <constant>native</constant>. Only system calls of the
         specified architectures will be permitted to processes of this
         unit. This is an effective way to disable compatibility with
