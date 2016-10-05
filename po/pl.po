@@ -1,13 +1,15 @@
-# translation of pl.po to Polish
-# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013, 2014, 2015, 2016.
+# Polish translation for systemd.
+# Copyright © 2011-2016 the systemd authors.
+# This file is distributed under the same license as the systemd package.
+# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013-2016.
 # Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-04-23 14:24+0200\n"
-"PO-Revision-Date: 2016-04-23 14:25+0200\n"
+"POT-Creation-Date: 2016-10-05 19:01+0200\n"
+"PO-Revision-Date: 2016-10-05 19:02+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -19,13 +21,13 @@ msgstr ""
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
-msgstr "Wysłanie hasła z powrotem do systemu"
+msgstr "Wysłanie hasła z powrotem do systemu"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby wysłać podane hasło z powrotem do "
+"Wymagane jest uwierzytelnienie, aby wysłać podane hasło z powrotem do "
 "systemu."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
@@ -51,7 +53,7 @@ msgstr ""
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
 msgid "Set or unset system and service manager environment variables"
 msgstr ""
-"Ustawienie lub usunięcie zmiennych środowiskowych menedżera systemu i usług"
+"Ustawienie lub usunięcie zmiennych środowiskowych menedżera systemu i usług"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
 msgid ""
@@ -59,7 +61,7 @@ msgid ""
 "environment variables."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić lub usunąć zmienne środowiskowe "
-"menedżera systemu i usług."
+"menedżera systemu i usług."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
 msgid "Reload the systemd state"
@@ -87,16 +89,16 @@ msgid ""
 "as well as the pretty host name."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić statycznie skonfigurowaną nazwę "
-"lokalnego komputera, a także jego ładną nazwę."
+"lokalnego komputera, a także jego ładną nazwę."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
 msgid "Set machine information"
-msgstr "Ustawienie informacji o komputerze"
+msgstr "Ustawienie informacji o komputerze"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
 msgid "Authentication is required to set local machine information."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
+"Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:1
 msgid "Import a VM or container image"
@@ -410,14 +412,14 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51
 msgid "Manage active sessions, users and seats"
-msgstr "Zarządzanie aktywnymi sesjami, użytkownikami i stanowiskami"
+msgstr "Zarządzanie aktywnymi sesjami, użytkownikami i stanowiskami"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać aktywnymi sesjami, "
-"użytkownikami i stanowiskami."
+"użytkownikami i stanowiskami."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:53
 msgid "Lock or unlock active sessions"
@@ -468,12 +470,12 @@ msgstr ""
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:5
 msgid "Acquire a shell in a local container"
-msgstr "Uzyskanie powłoki w lokalnym kontenerze"
+msgstr "Uzyskanie powłoki w lokalnym kontenerze"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:6
 msgid "Authentication is required to acquire a shell in a local container."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby uzyskać powłokę w lokalnym kontenerze."
+"Wymagane jest uwierzytelnienie, aby uzyskać powłokę w lokalnym kontenerze."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:7
 msgid "Acquire a shell on the local host"
@@ -486,13 +488,13 @@ msgstr ""
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:9
 msgid "Acquire a pseudo TTY in a local container"
-msgstr "Uzyskanie pseudo-TTY w lokalnym kontenerze"
+msgstr "Uzyskanie pseudo-TTY w lokalnym kontenerze"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:10
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby uzyskać pseudo-TTY w lokalnym kontenerze."
+"Wymagane jest uwierzytelnienie, aby uzyskać pseudo-TTY w lokalnym kontenerze."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:11
 msgid "Acquire a pseudo TTY on the local host"
@@ -506,18 +508,18 @@ msgstr ""
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:13
 msgid "Manage local virtual machines and containers"
-msgstr "Zarządzanie lokalnymi maszynami wirtualnymi i kontenerami"
+msgstr "Zarządzanie lokalnymi maszynami wirtualnymi i kontenerami"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:14
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać lokalnymi maszynami "
-"wirtualnymi i kontenerami."
+"wirtualnymi i kontenerami."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:15
 msgid "Manage local virtual machine and container images"
-msgstr "Zarządzanie lokalnymi obrazami maszyn wirtualnych i kontenerów"
+msgstr "Zarządzanie lokalnymi obrazami maszyn wirtualnych i kontenerów"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:16
 msgid ""
@@ -525,7 +527,7 @@ msgid ""
 "images."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać lokalnymi obrazami maszyn "
-"wirtualnych i kontenerów."
+"wirtualnych i kontenerów."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -567,36 +569,36 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: ../src/core/dbus-unit.c:450
+#: ../src/core/dbus-unit.c:459
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:451
+#: ../src/core/dbus-unit.c:460
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:452
+#: ../src/core/dbus-unit.c:461
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:453 ../src/core/dbus-unit.c:454
+#: ../src/core/dbus-unit.c:462 ../src/core/dbus-unit.c:463
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:560
+#: ../src/core/dbus-unit.c:570
 msgid "Authentication is required to kill '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby wymusić wyłączenie jednostki „$(unit)”."
 
-#: ../src/core/dbus-unit.c:590
+#: ../src/core/dbus-unit.c:601
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: ../src/core/dbus-unit.c:622
+#: ../src/core/dbus-unit.c:634
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
