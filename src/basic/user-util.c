@@ -33,6 +33,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "formats-util.h"
 #include "macro.h"
 #include "missing.h"
@@ -460,7 +461,7 @@ int get_shell(char **_s) {
 
 int reset_uid_gid(void) {
 
-        if (setgroups(0, NULL) < 0)
+        if (maybe_setgroups(0, NULL) < 0)
                 return -errno;
 
         if (setresgid(0, 0, 0) < 0)
@@ -601,4 +602,28 @@ bool valid_home(const char *p) {
                 return false;
 
         return true;
+}
+
+int maybe_setgroups(size_t size, const gid_t *list) {
+        static int cached_can_setgroups = -1;
+        /* check if setgroups is allowed before we try to drop all the auxiliary groups */
+        if (size == 0) {
+                if (cached_can_setgroups < 0) {
+                        _cleanup_free_ char *setgroups_content = NULL;
+                        int r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
+                        if (r < 0 && errno != ENOENT)
+                                return r;
+                        if (r < 0) {
+                                /* old kernels don't have /proc/self/setgroups, so assume we can use setgroups */
+                                cached_can_setgroups = true;
+                        } else {
+                                cached_can_setgroups = streq(setgroups_content, "allow");
+                                if (!cached_can_setgroups)
+                                        log_debug("skip setgroups, /proc/self/setgroups is set to 'deny'");
+                        }
+                }
+                if (!cached_can_setgroups)
+                        return 0;
+        }
+        return setgroups(size, list);
 }

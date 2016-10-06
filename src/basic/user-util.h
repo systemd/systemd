@@ -86,3 +86,5 @@ bool valid_user_group_name(const char *u);
 bool valid_user_group_name_or_id(const char *u);
 bool valid_gecos(const char *d);
 bool valid_home(const char *p);
+
+int maybe_setgroups(size_t size, const gid_t *list);
