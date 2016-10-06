@@ -3830,7 +3830,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
                 _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-                ContainerStatus container_status;
+                ContainerStatus container_status = 0;
                 char last_char = 0;
                 int ifi = 0;
                 ssize_t l;

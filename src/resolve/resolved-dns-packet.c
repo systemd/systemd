@@ -2143,7 +2143,7 @@ int dns_packet_extract(DnsPacket *p) {
 
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-                        bool cache_flush;
+                        bool cache_flush = false;
 
                         r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
                         if (r < 0)
@@ -2289,6 +2289,7 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_BADNAME] = "BADNAME",
         [DNS_RCODE_BADALG] = "BADALG",
         [DNS_RCODE_BADTRUNC] = "BADTRUNC",
+        [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
 

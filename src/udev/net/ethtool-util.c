@@ -25,6 +25,7 @@
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "log.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "strxcpyx.h"
 #include "util.h"
@@ -59,10 +60,9 @@ int ethtool_connect(int *ret) {
 
         assert_return(ret, -EINVAL);
 
-        fd = socket(PF_INET, SOCK_DGRAM, 0);
+        fd = socket_ioctl_fd();
         if (fd < 0)
-                return -errno;
-
+                return fd;
         *ret = fd;
 
         return 0;

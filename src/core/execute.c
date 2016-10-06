@@ -781,9 +781,10 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         k++;
                 }
 
-                if (maybe_setgroups(k, gids) < 0) {
+                r = maybe_setgroups(k, gids);
+                if (r < 0) {
                         free(gids);
-                        return -errno;
+                        return r;
                 }
 
                 free(gids);
@@ -843,6 +844,7 @@ static int setup_pam(
                 const char *name,
                 const char *user,
                 uid_t uid,
+                gid_t gid,
                 const char *tty,
                 char ***env,
                 int fds[], unsigned n_fds) {
@@ -948,8 +950,14 @@ static int setup_pam(
                  * and this will make PR_SET_PDEATHSIG work in most cases.
                  * If this fails, ignore the error - but expect sd-pam threads
                  * to fail to exit normally */
+
+                r = maybe_setgroups(0, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to setgroups() in sd-pam: %m");
+                if (setresgid(gid, gid, gid) < 0)
+                        log_warning_errno(errno, "Failed to setresgid() in sd-pam: %m");
                 if (setresuid(uid, uid, uid) < 0)
-                        log_error_errno(r, "Error: Failed to setresuid() in sd-pam: %m");
+                        log_warning_errno(errno, "Failed to setresuid() in sd-pam: %m");
 
                 (void) ignore_signals(SIGPIPE, -1);
 
@@ -2413,7 +2421,7 @@ static int exec_child(
                 }
 
                 if (context->pam_name && username) {
-                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &accum_env, fds, n_fds);
+                        r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
                                 *exit_status = EXIT_PAM;
                                 return r;

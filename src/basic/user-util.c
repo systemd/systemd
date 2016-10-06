@@ -460,9 +460,11 @@ int get_shell(char **_s) {
 }
 
 int reset_uid_gid(void) {
+        int r;
 
-        if (maybe_setgroups(0, NULL) < 0)
-                return -errno;
+        r = maybe_setgroups(0, NULL);
+        if (r < 0)
+                return r;
 
         if (setresgid(0, 0, 0) < 0)
                 return -errno;
@@ -605,25 +607,30 @@ bool valid_home(const char *p) {
 }
 
 int maybe_setgroups(size_t size, const gid_t *list) {
-        static int cached_can_setgroups = -1;
-        /* check if setgroups is allowed before we try to drop all the auxiliary groups */
-        if (size == 0) {
-                if (cached_can_setgroups < 0) {
-                        _cleanup_free_ char *setgroups_content = NULL;
-                        int r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
-                        if (r < 0 && errno != ENOENT)
-                                return r;
-                        if (r < 0) {
-                                /* old kernels don't have /proc/self/setgroups, so assume we can use setgroups */
-                                cached_can_setgroups = true;
-                        } else {
-                                cached_can_setgroups = streq(setgroups_content, "allow");
-                                if (!cached_can_setgroups)
-                                        log_debug("skip setgroups, /proc/self/setgroups is set to 'deny'");
-                        }
-                }
-                if (!cached_can_setgroups)
+        int r;
+
+        /* Check if setgroups is allowed before we try to drop all the auxiliary groups */
+        if (size == 0) { /* Dropping all aux groups? */
+                _cleanup_free_ char *setgroups_content = NULL;
+                bool can_setgroups;
+
+                r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
+                if (r == -ENOENT)
+                        /* Old kernels don't have /proc/self/setgroups, so assume we can use setgroups */
+                        can_setgroups = true;
+                else if (r < 0)
+                        return r;
+                else
+                        can_setgroups = streq(setgroups_content, "allow");
+
+                if (!can_setgroups) {
+                        log_debug("Skipping setgroups(), /proc/self/setgroups is set to 'deny'");
                         return 0;
+                }
         }
-        return setgroups(size, list);
+
+        if (setgroups(size, list) < 0)
+                return -errno;
+
+        return 0;
 }

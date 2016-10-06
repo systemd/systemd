@@ -32,6 +32,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* in networkd, when matching device types, fix up DEVTYPE rubbish the kernel passes to us
+
+* enable LockMLOCK to take a percentage value relative to physical memory
+
 * switch to ProtectSystem=strict for all our long-running services where that's possible
 
 * introduce an "invocation ID" for units, that is randomly generated, and
