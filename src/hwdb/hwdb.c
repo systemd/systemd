@@ -85,6 +85,8 @@ struct trie_child_entry {
 struct trie_value_entry {
         size_t key_off;
         size_t value_off;
+        size_t filename_off;
+        size_t line_number;
 };
 
 static int trie_children_cmp(const void *v1, const void *v2) {
@@ -157,14 +159,19 @@ static int trie_values_cmp(const void *v1, const void *v2, void *arg) {
 }
 
 static int trie_node_add_value(struct trie *trie, struct trie_node *node,
-                          const char *key, const char *value) {
-        ssize_t k, v;
+                               const char *key, const char *value,
+                               const char *filename, size_t line_number) {
+        ssize_t k, v, fn;
         struct trie_value_entry *val;
+        int r;
 
         k = strbuf_add_string(trie->strings, key, strlen(key));
         if (k < 0)
                 return k;
         v = strbuf_add_string(trie->strings, value, strlen(value));
+        if (v < 0)
+                return v;
+        fn = strbuf_add_string(trie->strings, filename, strlen(filename));
         if (v < 0)
                 return v;
 
@@ -176,8 +183,20 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
 
                 val = xbsearch_r(&search, node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
                 if (val) {
+                        /*
+                         * At this point we have 2 identical properties on the same match-string. We
+                         * strictly order them by filename+line-number, since we know the dynamic
+                         * runtime lookup does the same for multiple matching nodes.
+                         */
+                        r = strcmp(filename, trie->strings->buf + val->filename_off);
+                        if (r < 0 ||
+                            (r == 0 && line_number < val->line_number))
+                                return 0;
+
                         /* replace existing earlier key with new value */
                         val->value_off = v;
+                        val->filename_off = fn;
+                        val->line_number = line_number;
                         return 0;
                 }
         }
@@ -190,13 +209,16 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         node->values = val;
         node->values[node->values_count].key_off = k;
         node->values[node->values_count].value_off = v;
+        node->values[node->values_count].filename_off = fn;
+        node->values[node->values_count].line_number = line_number;
         node->values_count++;
         qsort_r(node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
         return 0;
 }
 
 static int trie_insert(struct trie *trie, struct trie_node *node, const char *search,
-                       const char *key, const char *value) {
+                       const char *key, const char *value,
+                       const char *filename, uint64_t line_number) {
         size_t i = 0;
         int err = 0;
 
@@ -250,7 +272,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
 
                 c = search[i];
                 if (c == '\0')
-                        return trie_node_add_value(trie, node, key, value);
+                        return trie_node_add_value(trie, node, key, value, filename, line_number);
 
                 child = node_lookup(node, c);
                 if (!child) {
@@ -274,7 +296,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                                 return err;
                         }
 
-                        return trie_node_add_value(trie, child, key, value);
+                        return trie_node_add_value(trie, child, key, value, filename, line_number);
                 }
 
                 node = child;
@@ -303,7 +325,7 @@ static void trie_store_nodes_size(struct trie_f *trie, struct trie_node *node) {
         for (i = 0; i < node->children_count; i++)
                 trie->strings_off += sizeof(struct trie_child_entry_f);
         for (i = 0; i < node->values_count; i++)
-                trie->strings_off += sizeof(struct trie_value_entry_f);
+                trie->strings_off += sizeof(struct trie_value_entry2_f);
 }
 
 static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
@@ -349,12 +371,14 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
 
         /* append values array */
         for (i = 0; i < node->values_count; i++) {
-                struct trie_value_entry_f v = {
+                struct trie_value_entry2_f v = {
                         .key_off = htole64(trie->strings_off + node->values[i].key_off),
                         .value_off = htole64(trie->strings_off + node->values[i].value_off),
+                        .filename_off = htole64(trie->strings_off + node->values[i].filename_off),
+                        .line_number = htole64(node->values[i].line_number),
                 };
 
-                fwrite(&v, sizeof(struct trie_value_entry_f), 1, trie->f);
+                fwrite(&v, sizeof(struct trie_value_entry2_f), 1, trie->f);
                 trie->values_count++;
         }
 
@@ -375,7 +399,7 @@ static int trie_store(struct trie *trie, const char *filename) {
                 .header_size = htole64(sizeof(struct trie_header_f)),
                 .node_size = htole64(sizeof(struct trie_node_f)),
                 .child_entry_size = htole64(sizeof(struct trie_child_entry_f)),
-                .value_entry_size = htole64(sizeof(struct trie_value_entry_f)),
+                .value_entry_size = htole64(sizeof(struct trie_value_entry2_f)),
         };
         int err;
 
@@ -431,14 +455,15 @@ static int trie_store(struct trie *trie, const char *filename) {
         log_debug("child pointers:   %8"PRIu64" bytes (%8"PRIu64")",
                   t.children_count * sizeof(struct trie_child_entry_f), t.children_count);
         log_debug("value pointers:   %8"PRIu64" bytes (%8"PRIu64")",
-                  t.values_count * sizeof(struct trie_value_entry_f), t.values_count);
+                  t.values_count * sizeof(struct trie_value_entry2_f), t.values_count);
         log_debug("string store:     %8zu bytes", trie->strings->len);
         log_debug("strings start:    %8"PRIu64, t.strings_off);
 
         return 0;
 }
 
-static int insert_data(struct trie *trie, char **match_list, char *line, const char *filename) {
+static int insert_data(struct trie *trie, char **match_list, char *line,
+                       const char *filename, size_t line_number) {
         char *value, **entry;
 
         value = strchr(line, '=');
@@ -460,7 +485,7 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
         }
 
         STRV_FOREACH(entry, match_list)
-                trie_insert(trie, trie->root, *entry, line, value);
+                trie_insert(trie, trie->root, *entry, line, value, filename, line_number);
 
         return 0;
 }
@@ -474,6 +499,7 @@ static int import_file(struct trie *trie, const char *filename) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         _cleanup_strv_free_ char **match_list = NULL;
+        size_t line_number = 0;
         char *match = NULL;
         int r;
 
@@ -484,6 +510,8 @@ static int import_file(struct trie *trie, const char *filename) {
         while (fgets(line, sizeof(line), f)) {
                 size_t len;
                 char *pos;
+
+                ++line_number;
 
                 /* comment line */
                 if (line[0] == '#')
@@ -546,7 +574,7 @@ static int import_file(struct trie *trie, const char *filename) {
 
                         /* first data */
                         state = HW_DATA;
-                        insert_data(trie, match_list, line, filename);
+                        insert_data(trie, match_list, line, filename, line_number);
                         break;
 
                 case HW_DATA:
@@ -564,7 +592,7 @@ static int import_file(struct trie *trie, const char *filename) {
                                 break;
                         }
 
-                        insert_data(trie, match_list, line, filename);
+                        insert_data(trie, match_list, line, filename, line_number);
                         break;
                 };
         }
