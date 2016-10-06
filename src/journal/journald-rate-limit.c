@@ -261,7 +261,7 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
                 return 1 + s;
         }
 
-        if (p->num <= burst) {
+        if (p->num < burst) {
                 p->num++;
                 return 1;
         }
