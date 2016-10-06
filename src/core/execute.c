@@ -2411,14 +2411,6 @@ static int exec_child(
                         *exit_status = EXIT_SMACK_PROCESS_LABEL;
                         return r;
                 }
-
-                if (context->pam_name && username) {
-                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &accum_env, fds, n_fds);
-                        if (r < 0) {
-                                *exit_status = EXIT_PAM;
-                                return r;
-                        }
-                }
         }
 
         if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
@@ -2485,6 +2477,14 @@ static int exec_child(
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
                         return r;
+                }
+
+                if (context->pam_name && username) {
+                        r = setup_pam(context->pam_name, username, uid, context->tty_path, &accum_env, fds, n_fds);
+                        if (r < 0) {
+                                *exit_status = EXIT_PAM;
+                                return r;
+                        }
                 }
         }
 
