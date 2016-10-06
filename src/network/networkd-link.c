@@ -944,16 +944,15 @@ static int link_push_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
 static int link_set_bridge_fdb(Link *link) {
         FdbEntry *fdb_entry;
-        int r = 0;
+        int r;
 
         LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
                 r = fdb_entry_configure(link, fdb_entry);
-                if (r < 0) {
+                if (r < 0)
                         return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
-                }
         }
 
-        return r;
+        return 0;
 }
 
 static int link_enter_set_addresses(Link *link) {
