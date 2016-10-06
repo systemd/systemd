@@ -20,7 +20,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=24
+Release=25
 
 [Output]
 Format=raw_btrfs
