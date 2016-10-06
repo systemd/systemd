@@ -1528,7 +1528,11 @@ int main(int argc, char *argv[]) {
                  * need to do that for user instances since they never log
                  * into the console. */
                 log_show_color(colors_enabled());
-                make_null_stdio();
+                /* make_null_stdio would cause /dev/console to be closed in a (docker) container
+                 * journald and other processes would not work properly anymore
+                 * if they try to log to console */
+                if (detect_container() <= 0)
+                        make_null_stdio();
         }
 
         /* Initialize default unit */
