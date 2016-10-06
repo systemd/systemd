@@ -36,6 +36,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -629,9 +630,9 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 if (r < 0)
                         return r;
 
-                sk = socket(PF_INET, SOCK_DGRAM, 0);
+                sk = socket_ioctl_fd();
                 if (sk < 0)
-                        return -errno;
+                        return sk;
 
                 r = ioctl(sk, SIOCGIFNAME, &ifr);
                 if (r < 0)
