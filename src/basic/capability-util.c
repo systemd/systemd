@@ -296,8 +296,9 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (setresgid(gid, gid, gid) < 0)
                 return log_error_errno(errno, "Failed to change group ID: %m");
 
-        if (maybe_setgroups(0, NULL) < 0)
-                return log_error_errno(errno, "Failed to drop auxiliary groups list: %m");
+        r = maybe_setgroups(0, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to drop auxiliary groups list: %m");
 
         /* Ensure we keep the permitted caps across the setresuid() */
         if (prctl(PR_SET_KEEPCAPS, 1) < 0)

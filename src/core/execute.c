@@ -781,9 +781,10 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         k++;
                 }
 
-                if (maybe_setgroups(k, gids) < 0) {
+                r = maybe_setgroups(k, gids);
+                if (r < 0) {
                         free(gids);
-                        return -errno;
+                        return r;
                 }
 
                 free(gids);
@@ -950,8 +951,9 @@ static int setup_pam(
                  * If this fails, ignore the error - but expect sd-pam threads
                  * to fail to exit normally */
 
-                if (maybe_setgroups(0, NULL) < 0)
-                        log_warning_errno(errno, "Failed to setgroups() in sd-pam: %m");
+                r = maybe_setgroups(0, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to setgroups() in sd-pam: %m");
                 if (setresgid(gid, gid, gid) < 0)
                         log_warning_errno(errno, "Failed to setresgid() in sd-pam: %m");
                 if (setresuid(uid, uid, uid) < 0)
