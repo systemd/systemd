@@ -263,6 +263,7 @@ enum {
         DNS_RCODE_BADNAME = 20,
         DNS_RCODE_BADALG = 21,
         DNS_RCODE_BADTRUNC = 22,
+        DNS_RCODE_BADCOOKIE = 23,
         _DNS_RCODE_MAX_DEFINED,
         _DNS_RCODE_MAX = 4095 /* 4 bit rcode in the header plus 8 bit rcode in OPT, makes 12 bit */
 };

@@ -2289,6 +2289,7 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_BADNAME] = "BADNAME",
         [DNS_RCODE_BADALG] = "BADALG",
         [DNS_RCODE_BADTRUNC] = "BADTRUNC",
+        [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
 
