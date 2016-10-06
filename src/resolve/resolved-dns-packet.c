@@ -2143,7 +2143,7 @@ int dns_packet_extract(DnsPacket *p) {
 
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-                        bool cache_flush;
+                        bool cache_flush = false;
 
                         r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
                         if (r < 0)
