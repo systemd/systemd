@@ -62,6 +62,14 @@ typedef enum ManagerExitCode {
         _MANAGER_EXIT_CODE_INVALID = -1
 } ManagerExitCode;
 
+typedef enum CADBurstAction {
+        CAD_BURST_ACTION_IGNORE,
+        CAD_BURST_ACTION_REBOOT,
+        CAD_BURST_ACTION_POWEROFF,
+        _CAD_BURST_ACTION_MAX,
+        _CAD_BURST_ACTION_INVALID = -1
+} CADBurstAction;
+
 typedef enum StatusType {
         STATUS_TYPE_EPHEMERAL,
         STATUS_TYPE_NORMAL,
@@ -304,8 +312,9 @@ struct Manager {
         Hashmap *uid_refs;
         Hashmap *gid_refs;
 
-        /* When the user hits C-A-D more than 7 times per 2s, reboot immediately... */
+        /* When the user hits C-A-D more than 7 times per 2s, do something immediately... */
         RateLimit ctrl_alt_del_ratelimit;
+        CADBurstAction cad_burst_action;
 
         const char *unit_log_field;
         const char *unit_log_format_string;
@@ -398,3 +407,6 @@ void manager_deserialize_gid_refs_one(Manager *m, const char *value);
 
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;
+
+const char *cad_burst_action_to_string(CADBurstAction a) _const_;
+CADBurstAction cad_burst_action_from_string(const char *s) _pure_;

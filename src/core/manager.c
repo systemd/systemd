@@ -1894,6 +1894,35 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         return r;
 }
 
+static void manager_handle_ctrl_alt_del(Manager *m) {
+        /* If the user presses C-A-D more than
+         * 7 times within 2s, we reboot/shutdown immediately,
+         * unless it was disabled in system.conf */
+
+        if (ratelimit_test(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == CAD_BURST_ACTION_IGNORE)
+                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+        else {
+                switch (m->cad_burst_action) {
+
+                case CAD_BURST_ACTION_REBOOT:
+                        m->exit_code = MANAGER_REBOOT;
+                        break;
+
+                case CAD_BURST_ACTION_POWEROFF:
+                        m->exit_code = MANAGER_POWEROFF;
+                        break;
+
+                default:
+                        assert_not_reached("Unknown action.");
+                }
+
+                log_notice("Ctrl-Alt-Del was pressed more than 7 times within 2s, performing immediate %s.",
+                                cad_burst_action_to_string(m->cad_burst_action));
+                status_printf(NULL, true, false, "Ctrl-Alt-Del was pressed more than 7 times within 2s, performing immediate %s.",
+                                cad_burst_action_to_string(m->cad_burst_action));
+        }
+}
+
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         ssize_t n;
@@ -1945,19 +1974,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 case SIGINT:
                         if (MANAGER_IS_SYSTEM(m)) {
-
-                                /* If the user presses C-A-D more than
-                                 * 7 times within 2s, we reboot
-                                 * immediately. */
-
-                                if (ratelimit_test(&m->ctrl_alt_del_ratelimit))
-                                        manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
-                                else {
-                                        log_notice("Ctrl-Alt-Del was pressed more than 7 times within 2s, rebooting immediately.");
-                                        status_printf(NULL, true, false, "Ctrl-Alt-Del was pressed more than 7 times within 2s, rebooting immediately.");
-                                        m->exit_code = MANAGER_REBOOT;
-                                }
-
+                                manager_handle_ctrl_alt_del(m);
                                 break;
                         }
 
@@ -3544,3 +3561,11 @@ static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
+
+static const char *const cad_burst_action_table[_CAD_BURST_ACTION_MAX] = {
+        [CAD_BURST_ACTION_IGNORE] = "ignore",
+        [CAD_BURST_ACTION_REBOOT] = "reboot-force",
+        [CAD_BURST_ACTION_POWEROFF] = "poweroff-force",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cad_burst_action, CADBurstAction);
