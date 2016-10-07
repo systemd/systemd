@@ -140,6 +140,8 @@ static void test_exec_privatedevices_capabilities(Manager *m) {
         }
         test(m, "exec-privatedevices-yes-capability-mknod.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-no-capability-mknod.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-yes-capability-sys-rawio.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-sys-rawio.service", 0, CLD_EXITED);
 }
 
 static void test_exec_protectkernelmodules_capabilities(Manager *m) {
