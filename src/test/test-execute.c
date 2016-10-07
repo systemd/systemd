@@ -142,6 +142,16 @@ static void test_exec_privatedevices_capabilities(Manager *m) {
         test(m, "exec-privatedevices-no-capability-mknod.service", 0, CLD_EXITED);
 }
 
+static void test_exec_protectkernelmodules_capabilities(Manager *m) {
+        if (detect_container() > 0) {
+                log_notice("testing in container, skipping protectkernelmodules tests");
+                return;
+        }
+
+        test(m, "exec-protectkernelmodules-no-capabilities.service", 0, CLD_EXITED);
+        test(m, "exec-protectkernelmodules-yes-capabilities.service", 0, CLD_EXITED);
+}
+
 static void test_exec_readonlypaths(Manager *m) {
         test(m, "exec-readonlypaths.service", 0, CLD_EXITED);
         test(m, "exec-readonlypaths-mount-propagation.service", 0, CLD_EXITED);
@@ -368,6 +378,7 @@ int main(int argc, char *argv[]) {
                 test_exec_privatetmp,
                 test_exec_privatedevices,
                 test_exec_privatedevices_capabilities,
+                test_exec_protectkernelmodules_capabilities,
                 test_exec_readonlypaths,
                 test_exec_readwritepaths,
                 test_exec_inaccessiblepaths,
