@@ -1722,14 +1722,13 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
-                if (!IN_SET(errno, EAGAIN, EINTR))
-                        log_error("Failed to receive notification message: %m");
+                if (IN_SET(errno, EAGAIN, EINTR))
+                        return 0; /* Spurious wakeup, try again */
 
-                /* It's not an option to return an error here since it
-                 * would disable the notification handler entirely. Services
-                 * wouldn't be able to send the WATCHDOG message for
-                 * example... */
-                return 0;
+                /* If this is any other, real error, then let's stop processing this socket. This of course means we
+                 * won't take notification messages anymore, but that's still better than busy looping around this:
+                 * being woken up over and over again but being unable to actually read the message off the socket. */
+                return log_error_errno(errno, "Failed to receive notification message: %m");
         }
 
         CMSG_FOREACH(cmsg, &msghdr) {
