@@ -72,6 +72,12 @@ Features:
 
 * RemoveKeyRing= to remove all keyring entries of the specified user
 
+* ProtectReboot= that masks reboot() and kexec_load() syscalls, prohibits kill
+  on PID 1 with the relevant signals, and makes relevant files in /sys and
+  /proc (such as the sysrq stuff) unavailable
+
+* DeviceAllow= should also generate seccomp filters for mknod()
+
 * Add DataDirectory=, CacheDirectory= and LogDirectory= to match
   RuntimeDirectory=, and create it as necessary when starting a service, owned by the right user.
 
