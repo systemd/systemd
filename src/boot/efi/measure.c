@@ -209,12 +209,35 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
         return EFI_SUCCESS;
 }
 
+/*
+ * According to TCG EFI Protocol Specification for TPM 2.0 family,
+ * all events generated after the invocation of EFI_TCG2_GET_EVENT_LOG
+ * shall be stored in an instance of an EFI_CONFIGURATION_TABLE aka
+ * EFI TCG 2.0 final events table. Hence, it is necessary to trigger the
+ * internal switch through calling get_event_log() in order to allow
+ * to retrieve the logs from OS runtime.
+ */
+static EFI_STATUS trigger_tcg2_final_events_table(const EFI_TCG2 *tcg)
+{
+        return uefi_call_wrapper(tcg->GetEventLog, 5, tcg,
+                                 EFI_TCG2_EVENT_LOG_FORMAT_TCG_2, NULL,
+                                 NULL, NULL);
+}
 
 static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer,
                                                     UINT64 buffer_size, const CHAR16 *description) {
         EFI_STATUS status;
         EFI_TCG2_EVENT *tcg_event;
         UINTN desc_len;
+        static BOOLEAN triggered = FALSE;
+
+        if (triggered == FALSE) {
+                status = trigger_tcg2_final_events_table(tcg);
+                if (EFI_ERROR(status))
+                        return status;
+
+                triggered = TRUE;
+        }
 
         desc_len = StrLen(description) * sizeof(CHAR16);
 
