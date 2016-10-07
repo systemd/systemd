@@ -1720,7 +1720,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
         if (n < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
                         return 0; /* Spurious wakeup, try again */
@@ -1761,7 +1761,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        if ((size_t) n >= sizeof(buf)) {
+        if ((size_t) n >= sizeof(buf) || (msghdr.msg_flags & MSG_TRUNC)) {
                 log_warning("Received notify message exceeded maximum size. Ignoring.");
                 return 0;
         }
