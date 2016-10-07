@@ -554,6 +554,18 @@
           <para>A boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RemoteCheckSumTx=</varname></term>
+        <listitem>
+          <para>A boolean. When true, remote transmit checksum offload of VXLAN is turned on.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RemoteCheckSumRx=</varname></term>
+        <listitem>
+          <para>A boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
+        </listitem>
+      </varlistentry>
     <varlistentry>
       <term><varname>GroupPolicyExtension=</varname></term>
       <listitem>
