@@ -1766,8 +1766,14 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        /* The message should be a string. Here we make sure it's NUL-terminated,
-         * but only the part until first NUL will be used anyway. */
+        /* As extra safety check, let's make sure the string we get doesn't contain embedded NUL bytes. We permit one
+         * trailing NUL byte in the message, but don't expect it. */
+        if (n > 1 && memchr(buf, 0, n-1)) {
+                log_warning("Received notify message with embedded NUL bytes. Ignoring.");
+                return 0;
+        }
+
+        /* Make sure it's NUL-terminated. */
         buf[n] = 0;
 
         /* Notify every unit that might be interested, but try
