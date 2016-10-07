@@ -3965,10 +3965,14 @@ static int run(int master,
                 /* We failed to wait for the container, or the container exited abnormally. */
                 return r;
         if (r > 0 || container_status == CONTAINER_TERMINATED) {
-                /* r > 0 → The container exited with a non-zero status,
-                 * otherwise → The container exited with zero status and reboot was not requested. */
+                /* r > 0 → The container exited with a non-zero status.
+                 *         As a special case, we need to replace 133 with a different value,
+                 *         because 133 is special-cased in the service file to reboot the container.
+                 * otherwise → The container exited with zero status and a reboot was not requested.
+                 */
+                if (r == 133)
+                        r = EXIT_FAILURE; /* replace 133 with the general failure code */
                 *ret = r;
-                // XXX: if the container returned 133, we will reboot!
                 return 0; /* finito */
         }
 
