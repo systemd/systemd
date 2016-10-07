@@ -3399,7 +3399,7 @@ int unit_patch_contexts(Unit *u) {
                         ec->no_new_privileges = true;
 
                 if (ec->private_devices)
-                        ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_MKNOD);
+                        ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_MKNOD) | (UINT64_C(1) << CAP_SYS_RAWIO));
 
                 if (ec->protect_kernel_modules)
                         ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYS_MODULE);
