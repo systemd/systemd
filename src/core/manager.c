@@ -1720,16 +1720,15 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
         if (n < 0) {
-                if (!IN_SET(errno, EAGAIN, EINTR))
-                        log_error("Failed to receive notification message: %m");
+                if (IN_SET(errno, EAGAIN, EINTR))
+                        return 0; /* Spurious wakeup, try again */
 
-                /* It's not an option to return an error here since it
-                 * would disable the notification handler entirely. Services
-                 * wouldn't be able to send the WATCHDOG message for
-                 * example... */
-                return 0;
+                /* If this is any other, real error, then let's stop processing this socket. This of course means we
+                 * won't take notification messages anymore, but that's still better than busy looping around this:
+                 * being woken up over and over again but being unable to actually read the message off the socket. */
+                return log_error_errno(errno, "Failed to receive notification message: %m");
         }
 
         CMSG_FOREACH(cmsg, &msghdr) {
@@ -1762,13 +1761,19 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        if ((size_t) n >= sizeof(buf)) {
+        if ((size_t) n >= sizeof(buf) || (msghdr.msg_flags & MSG_TRUNC)) {
                 log_warning("Received notify message exceeded maximum size. Ignoring.");
                 return 0;
         }
 
-        /* The message should be a string. Here we make sure it's NUL-terminated,
-         * but only the part until first NUL will be used anyway. */
+        /* As extra safety check, let's make sure the string we get doesn't contain embedded NUL bytes. We permit one
+         * trailing NUL byte in the message, but don't expect it. */
+        if (n > 1 && memchr(buf, 0, n-1)) {
+                log_warning("Received notify message with embedded NUL bytes. Ignoring.");
+                return 0;
+        }
+
+        /* Make sure it's NUL-terminated. */
         buf[n] = 0;
 
         /* Notify every unit that might be interested, but try
@@ -1941,14 +1946,17 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         for (;;) {
                 n = read(m->signal_fd, &sfsi, sizeof(sfsi));
                 if (n != sizeof(sfsi)) {
+                        if (n >= 0) {
+                                log_warning("Truncated read from signal fd (%zu bytes)!", n);
+                                return 0;
+                        }
 
-                        if (n >= 0)
-                                return -EIO;
-
-                        if (errno == EINTR || errno == EAGAIN)
+                        if (IN_SET(errno, EINTR, EAGAIN))
                                 break;
 
-                        return -errno;
+                        /* We return an error here, which will kill this handler,
+                         * to avoid a busy loop on read error. */
+                        return log_error_errno(errno, "Reading from signal fd failed: %m");
                 }
 
                 log_received_signal(sfsi.ssi_signo == SIGCHLD ||
