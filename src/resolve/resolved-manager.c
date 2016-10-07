@@ -501,6 +501,7 @@ int manager_new(Manager **ret) {
         m->mdns_support = RESOLVE_SUPPORT_NO;
         m->dnssec_mode = DEFAULT_DNSSEC_MODE;
         m->enable_cache = true;
+        m->dns_stub_listener_mode = DNS_STUB_LISTENER_UDP;
         m->read_resolv_conf = true;
         m->need_builtin_fallbacks = true;
         m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;

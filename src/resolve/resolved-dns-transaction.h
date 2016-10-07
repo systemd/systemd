@@ -59,6 +59,8 @@ enum DnsTransactionSource {
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-server.h"
+#include "resolved-dns-stream.h"
 
 struct DnsTransaction {
         DnsScope *scope;

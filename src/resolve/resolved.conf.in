@@ -18,3 +18,4 @@
 #LLMNR=yes
 #DNSSEC=@DEFAULT_DNSSEC_MODE@
 #Cache=yes
+#DNSStubListener=udp
