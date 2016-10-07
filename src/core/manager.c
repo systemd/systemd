@@ -1946,14 +1946,17 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         for (;;) {
                 n = read(m->signal_fd, &sfsi, sizeof(sfsi));
                 if (n != sizeof(sfsi)) {
+                        if (n >= 0) {
+                                log_warning("Truncated read from signal fd (%zu bytes)!", n);
+                                return 0;
+                        }
 
-                        if (n >= 0)
-                                return -EIO;
-
-                        if (errno == EINTR || errno == EAGAIN)
+                        if (IN_SET(errno, EINTR, EAGAIN))
                                 break;
 
-                        return -errno;
+                        /* We return an error here, which will kill this handler,
+                         * to avoid a busy loop on read error. */
+                        return log_error_errno(errno, "Reading from signal fd failed: %m");
                 }
 
                 log_received_signal(sfsi.ssi_signo == SIGCHLD ||
