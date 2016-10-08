@@ -316,7 +316,7 @@ static int custom_mounts_prepare(void) {
         return 0;
 }
 
-static int detect_unified_cgroup_hierarchy(void) {
+static int detect_unified_cgroup_hierarchy(const char *directory) {
         const char *e;
         int r, all_unified, systemd_unified;
 
@@ -344,9 +344,16 @@ static int detect_unified_cgroup_hierarchy(void) {
         /* Otherwise inherit the default from the host system */
         if (all_unified > 0)
                 arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
-        else if (systemd_unified > 0)
-                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
-        else
+        else if (systemd_unified > 0) {
+                /* mixed cgroup hierarchy support was added in 232 */
+                r = systemd_installation_has_version(directory, 232);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine systemd version in container: %m");
+                if (r > 0)
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
+                else
+                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
+        } else
                 arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
 
         return 0;
@@ -1124,10 +1131,6 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_settings_mask = _SETTINGS_MASK_ALL;
 
         arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
-
-        r = detect_unified_cgroup_hierarchy();
-        if (r < 0)
-                return r;
 
         e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
         if (e)
@@ -2967,6 +2970,10 @@ static int outer_child(
                 return r;
 
         r = determine_uid_shift(directory);
+        if (r < 0)
+                return r;
+
+        r = detect_unified_cgroup_hierarchy(directory);
         if (r < 0)
                 return r;
 
