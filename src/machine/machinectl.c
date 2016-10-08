@@ -2629,6 +2629,7 @@ static int clean_images(int argc, char *argv[], void *userdata) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the virtual machine and container\n"
