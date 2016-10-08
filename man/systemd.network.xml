@@ -695,6 +695,57 @@
             which is then configured to use them explicitly.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>HomeAddress=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. Designates this address the "home address" as defined in
+            <ulink url="https://tools.ietf.org/html/rfc6275">RFC 6275</ulink>.
+            Supported only on IPv6. Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DuplicateAddressDetection=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. Do not perform Duplicate Address Detection
+            <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink> when adding this address.
+            Supported only on IPv6. Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ManageTemporaryAddress=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. If true the kernel manage temporary addresses created
+            from this one as template on behalf of Privacy Extensions
+            <ulink url="https://tools.ietf.org/html/rfc3041">RFC 3041</ulink>.  For this to become
+            active, the use_tempaddr sysctl setting has to be set to a value greater than zero.
+            The given address needs to have a prefix length of 64. This flag allows to use privacy
+            extensions in a manually configured network, just like if stateless auto-configuration
+            was active. Defaults to false. </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>PrefixRoute=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. When adding or modifying an IPv6 address, the userspace
+            application needs a way to suppress adding a prefix route. This is for example relevant
+            together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf generated addresses,
+            but depending on on-link, no route for the prefix should be added. Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>AutoJoin=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. Joining multicast group on ethernet level via
+            <command>ip maddr</command> command would not work if we have an Ethernet switch that does
+            IGMP snooping since the switch would not replicate multicast packets on  ports that did not
+            have IGMP reports for the multicast addresses. Linux vxlan interfaces created via
+            <command>ip link add vxlan</command> or networkd's netdev kind vxlan have the group option
+            that enables then to do the required join. By extending ip address command with option
+            <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS) vxlan
+            interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
+            Defaults to <literal>no</literal>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

@@ -571,6 +571,21 @@ int address_configure(
 
         address->flags |= IFA_F_PERMANENT;
 
+        if (address->home_address)
+                address->flags |= IFA_F_HOMEADDRESS;
+
+        if (address->duplicate_address_detection)
+                address->flags |= IFA_F_NODAD;
+
+        if (address->manage_temporary_address)
+                address->flags |= IFA_F_MANAGETEMPADDR;
+
+        if (address->prefix_route)
+                address->flags |= IFA_F_NOPREFIXROUTE;
+
+        if (address->autojoin)
+                address->flags |= IFA_F_MCAUTOJOIN;
+
         r = sd_rtnl_message_addr_set_flags(req, (address->flags & 0xff));
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
@@ -852,6 +867,50 @@ int config_parse_lifetime(const char *unit,
                 n->cinfo.ifa_prefered = k;
                 n = NULL;
         }
+
+        return 0;
+}
+
+int config_parse_address_flags(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata) {
+        Network *network = userdata;
+        _cleanup_address_free_ Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = address_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (streq(lvalue, "HomeAddress"))
+                n->home_address = r;
+        else if (streq(lvalue, "DuplicateAddressDetection"))
+                n->duplicate_address_detection = r;
+        else if (streq(lvalue, "ManageTemporaryAddress"))
+                n->manage_temporary_address = r;
+        else if (streq(lvalue, "PrefixRoute"))
+                n->prefix_route = r;
+        else if (streq(lvalue, "AutoJoin"))
+                n->autojoin = r;
 
         return 0;
 }

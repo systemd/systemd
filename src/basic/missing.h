@@ -1052,6 +1052,10 @@ typedef int32_t key_serial_t;
 #define ETHERTYPE_LLDP 0x88cc
 #endif
 
+#ifndef IFA_F_MCAUTOJOIN
+#define IFA_F_MCAUTOJOIN 0x400
+#endif
+
 #endif
 
 #include "missing_syscall.h"
