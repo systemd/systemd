@@ -37,3 +37,11 @@ static inline int string_hashsum_sha224(const char *s, size_t len, char **out) {
         return -EOPNOTSUPP;
 #endif
 }
+
+static inline int string_hashsum_sha256(const char *s, size_t len, char **out) {
+#ifdef HAVE_GCRYPT
+        return string_hashsum(s, len, GCRY_MD_SHA256, out);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
