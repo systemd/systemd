@@ -70,6 +70,11 @@ Address.Peer,                           config_parse_address,                   
 Address.Broadcast,                      config_parse_broadcast,                         0,                             0
 Address.Label,                          config_parse_label,                             0,                             0
 Address.PreferredLifetime,              config_parse_lifetime,                          0,                             0
+Address.HomeAddress,                    config_parse_address_flags,                     0,                             0
+Address.DuplicateAddressDetection,      config_parse_address_flags,                     0,                             0
+Address.ManageTemporaryAddress,         config_parse_address_flags,                     0,                             0
+Address.PrefixRoute,                    config_parse_address_flags,                     0,                             0
+Address.AutoJoin,                       config_parse_address_flags,                     0,                             0
 Route.Gateway,                          config_parse_gateway,                           0,                             0
 Route.Destination,                      config_parse_destination,                       0,                             0
 Route.Source,                           config_parse_destination,                       0,                             0

@@ -53,6 +53,11 @@ struct Address {
         union in_addr_union in_addr_peer;
 
         bool ip_masquerade_done:1;
+        bool duplicate_address_detection;
+        bool manage_temporary_address;
+        bool home_address;
+        bool prefix_route;
+        bool autojoin;
 
         LIST_FIELDS(Address, addresses);
 };
@@ -77,3 +82,4 @@ int config_parse_address(const char *unit, const char *filename, unsigned line, 
 int config_parse_broadcast(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_label(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_lifetime(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_address_flags(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
