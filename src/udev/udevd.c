@@ -1739,7 +1739,9 @@ int main(int argc, char *argv[]) {
 
                 /* connect /dev/null to stdin, stdout, stderr */
                 if (log_get_max_level() < LOG_DEBUG)
-                        (void) make_null_stdio();
+                        if (make_null_stdio() < 0)
+                                log_warning_errno(errno, "Failed to redirect standard streams to /dev/null: %m");
+
 
                 pid = fork();
                 switch (pid) {
