@@ -511,9 +511,15 @@ int manager_dns_stub_start(Manager *m) {
                 r = manager_dns_stub_tcp_fd(m);
         }
 
-        if (r == -EADDRINUSE) {
-                log_warning("Another process is already listening on %s socket 127.0.0.53:53.\n"
-                            "Turning off local DNS stub support.", t);
+        if (IN_SET(r, -EADDRINUSE, -EPERM)) {
+                if (r == -EADDRINUSE)
+                        log_warning_errno(r,
+                                          "Another process is already listening on %s socket 127.0.0.53:53.\n"
+                                          "Turning off local DNS stub support.", t);
+                else
+                        log_warning_errno(r,
+                                          "Failed to listen on %s socket 127.0.0.53:53: %m.\n"
+                                          "Turning off local DNS stub support.", t);
                 manager_dns_stub_stop(m);
         } else if (r < 0)
                 return log_error_errno(r, "Failed to listen on %s socket 127.0.0.53:53: %m", t);
