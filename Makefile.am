@@ -1641,6 +1641,7 @@ EXTRA_DIST += \
 	test/test-execute/exec-privatedevices-yes-capability-mknod.service \
 	test/test-execute/exec-protectkernelmodules-no-capabilities.service \
 	test/test-execute/exec-protectkernelmodules-yes-capabilities.service \
+	test/test-execute/exec-protectkernelmodules-yes-mount-propagation.service \
 	test/test-execute/exec-privatetmp-no.service \
 	test/test-execute/exec-privatetmp-yes.service \
 	test/test-execute/exec-readonlypaths.service \
