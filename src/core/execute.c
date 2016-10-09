@@ -2115,6 +2115,8 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->memory_deny_write_execute ||
                 c->restrict_realtime ||
                 c->protect_kernel_tunables ||
+                c->protect_kernel_modules ||
+                c->private_devices ||
                 context_has_syscall_filters(c);
 }
 
