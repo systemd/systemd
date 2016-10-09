@@ -25,6 +25,9 @@
  * IP and UDP header sizes */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
 
+static int manager_dns_stub_udp_fd(Manager *m);
+static int manager_dns_stub_tcp_fd(Manager *m);
+
 static int dns_stub_make_reply_packet(
                 uint16_t id,
                 int rcode,
@@ -354,66 +357,48 @@ static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void
         return 0;
 }
 
-int manager_dns_stub_udp_fd(Manager *m) {
+static int manager_dns_stub_udp_fd(Manager *m) {
         static const int one = 1;
-
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(53),
                 .in.sin_addr.s_addr = htobe32(INADDR_DNS_STUB),
         };
-
+        _cleanup_close_ int fd = -1;
         int r;
 
         if (m->dns_stub_udp_fd >= 0)
                 return m->dns_stub_udp_fd;
 
-        m->dns_stub_udp_fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->dns_stub_udp_fd < 0)
+        fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
                 return -errno;
 
-        r = setsockopt(m->dns_stub_udp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one) < 0)
+                return -errno;
 
-        r = setsockopt(m->dns_stub_udp_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof one) < 0)
+                return -errno;
 
-        r = setsockopt(m->dns_stub_udp_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof one) < 0)
+                return -errno;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
-        r = setsockopt(m->dns_stub_udp_fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)
+                return -errno;
 
-        r = bind(m->dns_stub_udp_fd, &sa.sa, sizeof(sa.in));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
+                return -errno;
 
-        r = sd_event_add_io(m->event, &m->dns_stub_udp_event_source, m->dns_stub_udp_fd, EPOLLIN, on_dns_stub_packet, m);
+        r = sd_event_add_io(m->event, &m->dns_stub_udp_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
         if (r < 0)
-                goto fail;
+                return r;
 
         (void) sd_event_source_set_description(m->dns_stub_udp_event_source, "dns-stub-udp");
+        m->dns_stub_udp_fd = fd;
+        fd = -1;
 
         return m->dns_stub_udp_fd;
-
-fail:
-        m->dns_stub_udp_fd = safe_close(m->dns_stub_udp_fd);
-        return r;
 }
 
 static int on_dns_stub_stream_packet(DnsStream *s) {
@@ -461,106 +446,77 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
         return 0;
 }
 
-int manager_dns_stub_tcp_fd(Manager *m) {
+static int manager_dns_stub_tcp_fd(Manager *m) {
         static const int one = 1;
-
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
                 .in.sin_addr.s_addr = htobe32(INADDR_DNS_STUB),
                 .in.sin_port = htobe16(53),
         };
-
+        _cleanup_close_ int fd = -1;
         int r;
 
         if (m->dns_stub_tcp_fd >= 0)
                 return m->dns_stub_tcp_fd;
 
-        m->dns_stub_tcp_fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->dns_stub_tcp_fd < 0)
+        fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
                 return -errno;
 
-        r = setsockopt(m->dns_stub_tcp_fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, IPPROTO_IP, IP_TTL, &one, sizeof one) < 0)
+                return -errno;
 
-        r = setsockopt(m->dns_stub_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one) < 0)
+                return -errno;
 
-        r = setsockopt(m->dns_stub_tcp_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof one) < 0)
+                return -errno;
 
-        r = setsockopt(m->dns_stub_tcp_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof one) < 0)
+                return -errno;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
-        r = setsockopt(m->dns_stub_tcp_fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)
+                return -errno;
 
-        r = bind(m->dns_stub_tcp_fd, &sa.sa, sizeof(sa.in));
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
+                return -errno;
 
-        r = listen(m->dns_stub_tcp_fd, SOMAXCONN);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (listen(fd, SOMAXCONN) < 0)
+                return -errno;
 
-        r = sd_event_add_io(m->event, &m->dns_stub_tcp_event_source, m->dns_stub_tcp_fd, EPOLLIN, on_dns_stub_stream, m);
+        r = sd_event_add_io(m->event, &m->dns_stub_tcp_event_source, fd, EPOLLIN, on_dns_stub_stream, m);
         if (r < 0)
-                goto fail;
+                return r;
 
         (void) sd_event_source_set_description(m->dns_stub_tcp_event_source, "dns-stub-tcp");
+        m->dns_stub_tcp_fd = fd;
+        fd = -1;
 
         return m->dns_stub_tcp_fd;
-
-fail:
-        m->dns_stub_tcp_fd = safe_close(m->dns_stub_tcp_fd);
-        return r;
 }
 
 int manager_dns_stub_start(Manager *m) {
+        const char *t = "UDP";
         int r;
 
         assert(m);
 
-        if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_UDP)) {
+        if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_UDP))
                 r = manager_dns_stub_udp_fd(m);
-                if (r == -EADDRINUSE)
-                        goto eaddrinuse;
-                if (r < 0)
-                        return r;
-        }
 
-        if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_TCP)) {
+        if (r >= 0 &&
+            IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_TCP)) {
+                t = "TCP";
                 r = manager_dns_stub_tcp_fd(m);
-                if (r == -EADDRINUSE)
-                        goto eaddrinuse;
-                if (r < 0)
-                        return r;
         }
 
-        return 0;
-
-eaddrinuse:
-        log_warning("Another process is already listening on 127.0.0.53:53. Turning off local DNS stub support.");
-        manager_dns_stub_stop(m);
+        if (r == -EADDRINUSE) {
+                log_warning("Another process is already listening on %s socket 127.0.0.53:53.\n"
+                            "Turning off local DNS stub support.", t);
+                manager_dns_stub_stop(m);
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to listen on %s socket 127.0.0.53:53: %m", t);
 
         return 0;
 }

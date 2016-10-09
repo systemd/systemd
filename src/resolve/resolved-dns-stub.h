@@ -24,8 +24,5 @@
 /* 127.0.0.53 in native endian */
 #define INADDR_DNS_STUB ((in_addr_t) 0x7f000035U)
 
-int manager_dns_stub_udp_fd(Manager *m);
-int manager_dns_stub_tcp_fd(Manager *m);
-
 void manager_dns_stub_stop(Manager *m);
 int manager_dns_stub_start(Manager *m);
