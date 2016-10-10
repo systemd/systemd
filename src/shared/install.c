@@ -1020,7 +1020,7 @@ static int config_parse_alias(
         type = unit_name_to_type(name);
         if (!unit_type_may_alias(type))
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                  "Aliases are not allowed for %s units, ignoring.",
+                                  "Alias= is not allowed for %s units, ignoring.",
                                   unit_type_to_string(type));
 
         return config_parse_strv(unit, filename, line, section, section_line,
@@ -1098,7 +1098,7 @@ static int config_parse_default_instance(
                 return 0;
         if (!unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                  "DefaultInstance only makes sense for template units, ignoring.");
+                                  "DefaultInstance= only makes sense for template units, ignoring.");
 
         r = install_full_printf(i, rvalue, &printed);
         if (r < 0)
