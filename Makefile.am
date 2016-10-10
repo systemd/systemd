@@ -524,7 +524,6 @@ dist_systemunit_DATA_busnames += \
 nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
-	units/console-shell.service \
 	units/console-getty.service \
 	units/container-getty@.service \
 	units/systemd-initctl.service \
@@ -587,7 +586,6 @@ dist_systempreset_DATA = \
 EXTRA_DIST += \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
-	units/console-shell.service.m4.in \
 	units/console-getty.service.m4.in \
 	units/container-getty@.service.m4.in \
 	units/rescue.service.in \

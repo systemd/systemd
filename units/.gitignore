@@ -1,8 +1,6 @@
 /user@.service.m4
 /console-getty.service
 /console-getty.service.m4
-/console-shell.service
-/console-shell.service.m4
 /container-getty@.service
 /container-getty@.service.m4
 /debug-shell.service
