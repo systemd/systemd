@@ -898,15 +898,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_PRIVATE_USERS:
+                case ARG_PRIVATE_USERS: {
+                        int boolean = -1;
 
-                        r = optarg ? parse_boolean(optarg) : 1;
-                        if (r == 0) {
+                        if (!optarg)
+                                boolean = true;
+                        else if (!in_charset(optarg, DIGITS))
+                                /* do *not* parse numbers as booleans */
+                                boolean = parse_boolean(optarg);
+
+                        if (boolean == false) {
                                 /* no: User namespacing off */
                                 arg_userns_mode = USER_NAMESPACE_NO;
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
-                        } else if (r > 0) {
+                        } else if (boolean == true) {
                                 /* yes: User namespacing on, UID range is read from root dir */
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
                                 arg_uid_shift = UID_INVALID;
@@ -947,6 +953,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_settings_mask |= SETTING_USERNS;
                         break;
+                }
 
                 case 'U':
                         if (userns_supported()) {
