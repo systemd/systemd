@@ -576,7 +576,8 @@ dist_userunit_DATA = \
 	units/user/smartcard.target \
 	units/user/sockets.target \
 	units/user/sound.target \
-	units/user/timers.target
+	units/user/timers.target \
+	units/user/x-.slice
 
 nodist_userunit_DATA = \
 	units/user/systemd-exit.service
@@ -643,12 +644,17 @@ GENERAL_ALIASES += \
 # http://debbugs.gnu.org/cgi/bugreport.cgi?bug=14728#8
 units-install-hook:
 	mv $(DESTDIR)$(systemunitdir)/x-.slice $(DESTDIR)/$(systemunitdir)/-.slice
+	mv $(DESTDIR)$(userunitdir)/x-.slice $(DESTDIR)/$(userunitdir)/-.slice
 
 units-uninstall-hook:
 	rm -f $(DESTDIR)/$(systemunitdir)/-.slice
+	rm -f $(DESTDIR)/$(userunitdir)/-.slice
 
-INSTALL_DATA_HOOKS += units-install-hook
-UNINSTALL_DATA_HOOKS += units-uninstall-hook
+INSTALL_DATA_HOOKS += \
+	units-install-hook
+
+UNINSTALL_DATA_HOOKS += \
+	units-uninstall-hook
 
 dist_doc_DATA = \
 	README \
