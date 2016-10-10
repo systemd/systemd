@@ -41,6 +41,13 @@ NTP POOL:
         NTP servers, then you will get served wrong time, and will
         rely on services that might not be supported for long.
 
+PAM:
+        The default PAM config shipped by systemd is really bare bones.
+        It does not include many modules your distro might want to enable
+        to provide a more seamless experience. For example, limits set in
+        /etc/security/limits.conf will not be read unless you load pam_limits.
+        Make sure you add modules your distro expects from user services.
+
 CONTRIBUTING UPSTREAM:
 
         We generally do no longer accept distribution-specific
