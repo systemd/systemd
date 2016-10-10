@@ -400,52 +400,52 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",                  no_argument,       NULL, 'h'                   },
-                { "version",               no_argument,       NULL, ARG_VERSION           },
-                { "directory",             required_argument, NULL, 'D'                   },
-                { "template",              required_argument, NULL, ARG_TEMPLATE          },
-                { "ephemeral",             no_argument,       NULL, 'x'                   },
-                { "user",                  required_argument, NULL, 'u'                   },
-                { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK   },
-                { "as-pid2",               no_argument,       NULL, 'a'                   },
-                { "boot",                  no_argument,       NULL, 'b'                   },
-                { "uuid",                  required_argument, NULL, ARG_UUID              },
-                { "read-only",             no_argument,       NULL, ARG_READ_ONLY         },
-                { "capability",            required_argument, NULL, ARG_CAPABILITY        },
-                { "drop-capability",       required_argument, NULL, ARG_DROP_CAPABILITY   },
-                { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL      },
-                { "bind",                  required_argument, NULL, ARG_BIND              },
-                { "bind-ro",               required_argument, NULL, ARG_BIND_RO           },
-                { "tmpfs",                 required_argument, NULL, ARG_TMPFS             },
-                { "overlay",               required_argument, NULL, ARG_OVERLAY           },
-                { "overlay-ro",            required_argument, NULL, ARG_OVERLAY_RO        },
-                { "machine",               required_argument, NULL, 'M'                   },
-                { "slice",                 required_argument, NULL, 'S'                   },
-                { "setenv",                required_argument, NULL, 'E'                   },
-                { "selinux-context",       required_argument, NULL, 'Z'                   },
-                { "selinux-apifs-context", required_argument, NULL, 'L'                   },
-                { "quiet",                 no_argument,       NULL, 'q'                   },
-                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      }, /* not documented */
-                { "register",              required_argument, NULL, ARG_REGISTER          },
-                { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
-                { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
-                { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
-                { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN    },
-                { "network-veth",          no_argument,       NULL, 'n'                   },
-                { "network-veth-extra",    required_argument, NULL, ARG_NETWORK_VETH_EXTRA},
-                { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
-                { "network-zone",          required_argument, NULL, ARG_NETWORK_ZONE      },
-                { "personality",           required_argument, NULL, ARG_PERSONALITY       },
-                { "image",                 required_argument, NULL, 'i'                   },
-                { "volatile",              optional_argument, NULL, ARG_VOLATILE          },
-                { "port",                  required_argument, NULL, 'p'                   },
-                { "property",              required_argument, NULL, ARG_PROPERTY          },
-                { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS     },
-                { "private-users-chown",   optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN},
-                { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL       },
-                { "settings",              required_argument, NULL, ARG_SETTINGS          },
-                { "chdir",                 required_argument, NULL, ARG_CHDIR             },
-                { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY      },
+                { "help",                  no_argument,       NULL, 'h'                     },
+                { "version",               no_argument,       NULL, ARG_VERSION             },
+                { "directory",             required_argument, NULL, 'D'                     },
+                { "template",              required_argument, NULL, ARG_TEMPLATE            },
+                { "ephemeral",             no_argument,       NULL, 'x'                     },
+                { "user",                  required_argument, NULL, 'u'                     },
+                { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK     },
+                { "as-pid2",               no_argument,       NULL, 'a'                     },
+                { "boot",                  no_argument,       NULL, 'b'                     },
+                { "uuid",                  required_argument, NULL, ARG_UUID                },
+                { "read-only",             no_argument,       NULL, ARG_READ_ONLY           },
+                { "capability",            required_argument, NULL, ARG_CAPABILITY          },
+                { "drop-capability",       required_argument, NULL, ARG_DROP_CAPABILITY     },
+                { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL        },
+                { "bind",                  required_argument, NULL, ARG_BIND                },
+                { "bind-ro",               required_argument, NULL, ARG_BIND_RO             },
+                { "tmpfs",                 required_argument, NULL, ARG_TMPFS               },
+                { "overlay",               required_argument, NULL, ARG_OVERLAY             },
+                { "overlay-ro",            required_argument, NULL, ARG_OVERLAY_RO          },
+                { "machine",               required_argument, NULL, 'M'                     },
+                { "slice",                 required_argument, NULL, 'S'                     },
+                { "setenv",                required_argument, NULL, 'E'                     },
+                { "selinux-context",       required_argument, NULL, 'Z'                     },
+                { "selinux-apifs-context", required_argument, NULL, 'L'                     },
+                { "quiet",                 no_argument,       NULL, 'q'                     },
+                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM        }, /* not documented */
+                { "register",              required_argument, NULL, ARG_REGISTER            },
+                { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT           },
+                { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE   },
+                { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN     },
+                { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN      },
+                { "network-veth",          no_argument,       NULL, 'n'                     },
+                { "network-veth-extra",    required_argument, NULL, ARG_NETWORK_VETH_EXTRA  },
+                { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE      },
+                { "network-zone",          required_argument, NULL, ARG_NETWORK_ZONE        },
+                { "personality",           required_argument, NULL, ARG_PERSONALITY         },
+                { "image",                 required_argument, NULL, 'i'                     },
+                { "volatile",              optional_argument, NULL, ARG_VOLATILE            },
+                { "port",                  required_argument, NULL, 'p'                     },
+                { "property",              required_argument, NULL, ARG_PROPERTY            },
+                { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS       },
+                { "private-users-chown",   optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN },
+                { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL         },
+                { "settings",              required_argument, NULL, ARG_SETTINGS            },
+                { "chdir",                 required_argument, NULL, ARG_CHDIR               },
+                { "notify-ready",          required_argument, NULL, ARG_NOTIFY_READY        },
                 {}
         };
 
@@ -900,13 +900,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PRIVATE_USERS:
 
-                        r = optarg ? parse_boolean(optarg) : 1;
-                        if (r == 0) {
+                        if (streq_ptr(optarg, "no")) {
                                 /* no: User namespacing off */
                                 arg_userns_mode = USER_NAMESPACE_NO;
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
-                        } else if (r > 0) {
+                        } else if (!optarg || streq(optarg, "yes")) {
                                 /* yes: User namespacing on, UID range is read from root dir */
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
                                 arg_uid_shift = UID_INVALID;
@@ -917,23 +916,20 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
                         } else {
-                                _cleanup_free_ char *buffer = NULL;
                                 const char *range, *shift;
 
                                 /* anything else: User namespacing on, UID range is explicitly configured */
 
                                 range = strchr(optarg, ':');
                                 if (range) {
-                                        buffer = strndup(optarg, range - optarg);
-                                        if (!buffer)
-                                                return log_oom();
-                                        shift = buffer;
+                                        shift = strndupa(optarg, range - optarg);
 
                                         range++;
-                                        if (safe_atou32(range, &arg_uid_range) < 0 || arg_uid_range <= 0) {
-                                                log_error("Failed to parse UID range: %s", range);
-                                                return -EINVAL;
-                                        }
+                                        r = safe_atou32(range, &arg_uid_range);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse UID range '%s': %m", range);
+                                        if (arg_uid_range == 0)
+                                                return log_error_errno(EINVAL, "UID range cannot be 0.");
                                 } else
                                         shift = optarg;
 

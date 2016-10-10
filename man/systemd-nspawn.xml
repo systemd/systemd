@@ -454,17 +454,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-U</option></term>
-
-        <listitem><para>If the kernel supports the user namespaces feature, equivalent to
-        <option>--private-users=pick</option>, otherwise equivalent to
-        <option>--private-users=no</option>.</para>
-
-        <para>Note that <option>-U</option> is the default if the <filename>systemd-nspawn@.service</filename> template unit
-        file is used.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--private-users-chown</option></term>
 
         <listitem><para>If specified, all files and directories in the container's directory tree will adjusted so that
@@ -474,6 +463,23 @@
 
         <para>This option is implied if <option>--private-users=pick</option> is used. This option has no effect if
         user namespacing is not used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+
+        <listitem><para>If the kernel supports the user namespaces feature, equivalent to
+        <option>--private-users=pick --private-users-chown</option>, otherwise equivalent to
+        <option>--private-users=no</option>.</para>
+
+        <para>Note that <option>-U</option> is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <para>Note: it is possible to undo the effect of <option>--private-users-chown</option> (or
+        <option>-U</option>) on the file system by redoing the operation with the first UID of 0:</para>
+
+        <programlisting>systemd-nspawn … --private-users=0 --private-users-chown</programlisting>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
