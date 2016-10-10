@@ -1532,8 +1532,9 @@ int main(int argc, char *argv[]) {
                  * need to do that for user instances since they never log
                  * into the console. */
                 log_show_color(colors_enabled());
-                if (make_null_stdio() < 0)
-                        log_warning_errno(errno, "Failed to redirect standard streams to /dev/null: %m");
+                r = make_null_stdio();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
         }
 
         r = initialize_join_controllers();
