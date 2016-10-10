@@ -913,14 +913,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_PRIVATE_USERS:
+                case ARG_PRIVATE_USERS: {
+                        int boolean = -1;
 
-                        if (streq_ptr(optarg, "no")) {
+                        if (!optarg)
+                                boolean = true;
+                        else if (!in_charset(optarg, DIGITS))
+                                /* do *not* parse numbers as booleans */
+                                boolean = parse_boolean(optarg);
+
+                        if (boolean == false) {
                                 /* no: User namespacing off */
                                 arg_userns_mode = USER_NAMESPACE_NO;
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
-                        } else if (!optarg || streq(optarg, "yes")) {
+                        } else if (boolean == true) {
                                 /* yes: User namespacing on, UID range is read from root dir */
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
                                 arg_uid_shift = UID_INVALID;
@@ -931,33 +938,40 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
                         } else {
+                                _cleanup_free_ char *buffer = NULL;
                                 const char *range, *shift;
 
                                 /* anything else: User namespacing on, UID range is explicitly configured */
 
                                 range = strchr(optarg, ':');
                                 if (range) {
-                                        shift = strndupa(optarg, range - optarg);
+                                        buffer = strndup(optarg, range - optarg);
+                                        if (!buffer)
+                                                return log_oom();
+                                        shift = buffer;
 
                                         range++;
                                         r = safe_atou32(range, &arg_uid_range);
                                         if (r < 0)
-                                                return log_error_errno(r, "Failed to parse UID range '%s': %m", range);
-                                        if (arg_uid_range == 0)
-                                                return log_error_errno(EINVAL, "UID range cannot be 0.");
+                                                return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
                                 } else
                                         shift = optarg;
 
-                                if (parse_uid(shift, &arg_uid_shift) < 0) {
-                                        log_error("Failed to parse UID: %s", optarg);
-                                        return -EINVAL;
-                                }
+                                r = parse_uid(shift, &arg_uid_shift);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse UID \"%s\": %m", optarg);
 
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
                         }
 
+                        if (arg_uid_range <= 0) {
+                                log_error("UID range cannot be 0.");
+                                return -EINVAL;
+                        }
+
                         arg_settings_mask |= SETTING_USERNS;
                         break;
+                }
 
                 case 'U':
                         if (userns_supported()) {
