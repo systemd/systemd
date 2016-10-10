@@ -1200,9 +1200,10 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_MOUNTING_SIGKILL:
         case MOUNT_MOUNTING_SIGTERM:
 
-                if (f == MOUNT_SUCCESS)
-                        mount_enter_mounted(m, f);
-                else if (m->from_proc_self_mountinfo)
+                if (f == MOUNT_SUCCESS || m->from_proc_self_mountinfo)
+                        /* If /bin/mount returned success, or if we see the mount point in /proc/self/mountinfo we are
+                         * happy. If we see the first condition first, we should see the the second condition
+                         * immediately after – or /bin/mount lies to us and is broken. */
                         mount_enter_mounted(m, f);
                 else
                         mount_enter_dead(m, f);
