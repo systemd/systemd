@@ -936,19 +936,22 @@ static int parse_argv(int argc, char *argv[]) {
                                         shift = buffer;
 
                                         range++;
-                                        if (safe_atou32(range, &arg_uid_range) < 0 || arg_uid_range <= 0) {
-                                                log_error("Failed to parse UID range: %s", range);
-                                                return -EINVAL;
-                                        }
+                                        r = safe_atou32(range, &arg_uid_range);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
                                 } else
                                         shift = optarg;
 
-                                if (parse_uid(shift, &arg_uid_shift) < 0) {
-                                        log_error("Failed to parse UID: %s", optarg);
-                                        return -EINVAL;
-                                }
+                                r = parse_uid(shift, &arg_uid_shift);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse UID \"%s\": %m", optarg);
 
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
+                        }
+
+                        if (arg_uid_range <= 0) {
+                                log_error("UID range cannot be 0.");
+                                return -EINVAL;
                         }
 
                         arg_settings_mask |= SETTING_USERNS;
