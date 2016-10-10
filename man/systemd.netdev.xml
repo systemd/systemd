@@ -537,7 +537,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>UDPCheckSum=</varname></term>
+        <term><varname>UDPChecksum=</varname></term>
         <listitem>
           <para>A boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
         </listitem>
@@ -549,19 +549,19 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>UDP6ZeroCheckSumRx=</varname></term>
+        <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
           <para>A boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>RemoteCheckSumTx=</varname></term>
+        <term><varname>RemoteChecksumTx=</varname></term>
         <listitem>
           <para>A boolean. When true, remote transmit checksum offload of VXLAN is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>RemoteCheckSumRx=</varname></term>
+        <term><varname>RemoteChecksumRx=</varname></term>
         <listitem>
           <para>A boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
         </listitem>
