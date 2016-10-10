@@ -2743,7 +2743,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         s->control_pid = 0;
 
-        if (is_clean_exit(code, status, NULL))
+        if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
                 f = SOCKET_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SOCKET_FAILURE_EXIT_CODE;

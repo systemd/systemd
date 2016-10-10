@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
 
                 s = hashmap_remove(pids, PID_TO_PTR(si.si_pid));
                 if (s) {
-                        if (!is_clean_exit(si.si_code, si.si_status, NULL)) {
+                        if (!is_clean_exit(si.si_code, si.si_status, EXIT_CLEAN_COMMAND, NULL)) {
                                 if (si.si_code == CLD_EXITED)
                                         log_error(MOUNT_PATH " for %s exited with exit status %i.", s, si.si_status);
                                 else
