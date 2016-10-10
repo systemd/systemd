@@ -25,6 +25,7 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -198,6 +199,13 @@ static int generate_unit_file(SysvStub *s) {
 
         if (s->pid_file)
                 fprintf(f, "PIDFile=%s\n", s->pid_file);
+
+        /* Consider two special LSB exit codes a clean exit */
+        if (s->has_lsb)
+                fprintf(f,
+                        "SuccessExitStatus=%i %i\n",
+                        EXIT_NOTINSTALLED,
+                        EXIT_NOTCONFIGURED);
 
         fprintf(f,
                 "ExecStart=%s start\n"

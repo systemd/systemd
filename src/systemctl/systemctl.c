@@ -3936,7 +3936,7 @@ static void print_status_info(
                 argv = strv_join(p->argv, " ");
                 printf("  Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
 
-                good = is_clean_exit_lsb(p->code, p->status, NULL);
+                good = is_clean_exit(p->code, p->status, NULL);
                 if (!good) {
                         on = ansi_highlight_red();
                         off = ansi_normal();

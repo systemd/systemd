@@ -194,16 +194,6 @@ bool is_clean_exit(int code, int status, ExitStatusSet *success_status) {
         return false;
 }
 
-bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status) {
-
-        if (is_clean_exit(code, status, success_status))
-                return true;
-
-        return
-                code == CLD_EXITED &&
-                IN_SET(status, EXIT_NOTINSTALLED, EXIT_NOTCONFIGURED);
-}
-
 void exit_status_set_free(ExitStatusSet *x) {
         assert(x);
 

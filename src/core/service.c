@@ -2600,8 +2600,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        if (UNIT(s)->fragment_path ? is_clean_exit(code, status, &s->success_status) :
-                                     is_clean_exit_lsb(code, status, &s->success_status))
+        if (is_clean_exit(code, status, &s->success_status))
                 f = SERVICE_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SERVICE_FAILURE_EXIT_CODE;
