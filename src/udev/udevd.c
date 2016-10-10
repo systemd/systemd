@@ -1738,9 +1738,12 @@ int main(int argc, char *argv[]) {
                 log_info("starting version " VERSION);
 
                 /* connect /dev/null to stdin, stdout, stderr */
-                if (log_get_max_level() < LOG_DEBUG)
-                        if (make_null_stdio() < 0)
-                                log_warning_errno(errno, "Failed to redirect standard streams to /dev/null: %m");
+                if (log_get_max_level() < LOG_DEBUG) {
+                        r = make_null_stdio();
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
+                }
+
 
 
                 pid = fork();
